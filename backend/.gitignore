@@ -80,3 +80,4 @@ firebaserc
 firebase.json
 .firebaserc
 config/firestoreSetup.js
+utils/gettoken.js
