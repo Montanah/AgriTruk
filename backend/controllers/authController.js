@@ -55,10 +55,24 @@ exports.registerUser = async (req, res) => {
 
   try {
     // Check if user already exists
-    const existingUser = await admin.firestore().collection("users").doc(uid).get();
+    const usersRef = admin.firestore().collection("users");
+    const existingUser = await usersRef.doc(uid).get();
     if (existingUser.exists) {
       return res.status(409).json({ message: "User already exists" });
     }
+
+    //check if email is already registered
+    const emailQuery = await usersRef.where("email", "==", email).get();
+    if (!emailQuery.empty) {
+      return res.status(409).json({ message: "Email is already registered" });
+    }
+
+    //check if phone is already registered
+    const phoneQuery = await usersRef.where("phone", "==", phone).get();
+    if (!phoneQuery.empty) {
+      return res.status(409).json({ message: "Phone number is already registered" });
+    }
+    
     // Save to Firestore
     const verificationCode = generateOtp();
 
@@ -123,6 +137,17 @@ exports.verifyCode = async (req, res) => {
       verificationExpires: admin.firestore.FieldValue.delete()
     });
 
+    const userAgent = req.headers['user-agent'] 
+      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "") 
+      : 'unknown';
+
+    await ActivityLog.log(uid, {
+      event: 'user_verification',
+      device: userAgent,
+      ip: req.ip || 'unknown',
+      timestamp: now
+    });
+
     res.status(200).json({ message: "User verified successfully" });
   } catch (error) {
     console.error("Verification error:", error);
@@ -144,6 +169,18 @@ exports.resendVerificationEmail = async (req, res) => {
       subject: 'Verify your email',
       text: `Click the link to verify your email: ${link}`,
       html: `<p>Click the link to verify your email: <a href="${link}">${link}</a></p>`
+    });
+
+    // Log the email verification activity
+    const userAgent = req.headers['user-agent'] 
+      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "") 
+      : 'unknown';
+
+    await ActivityLog.log(req.user.uid, {
+      event: 'email_reverification',
+      device: userAgent,
+      ip: req.ip || 'unknown',
+      timestamp: admin.firestore.Timestamp.now()
     });
 
     res.status(200).json({
@@ -356,6 +393,17 @@ exports.deleteAccount = async (req, res) => {
 
         // Delete user document from Firestore
         await User.delete(uid);
+
+        // Log the account deletion activity
+        const userAgent = req.headers['user-agent']
+            ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "")
+            : 'unknown';  
+        await ActivityLog.log(uid, {
+            event: 'account_deletion',
+            device: userAgent,
+            ip: req.ip || 'unknown',
+            timestamp: admin.firestore.Timestamp.now()
+        });
 
         res.status(200).json({
             message: 'User account deleted successfully'
