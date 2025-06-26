@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import React, { useState } from 'react';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
-import { spacing, fonts } from '../../constants';
 
 const EmailVerificationScreen = ({ navigation, route }) => {
   const [code, setCode] = useState('');
@@ -17,24 +17,33 @@ const EmailVerificationScreen = ({ navigation, route }) => {
     setError('');
     setLoading(true);
     try {
-      const { auth } = await import('../../firebaseConfig');
-      const idToken = await auth.currentUser?.getIdToken(true);
-      const { apiRequest } = await import('../../utils/api');
-      await apiRequest('/auth/verify-code', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ code }),
-      });
-      // On success, send OTP to phone (Firebase)
-      const { signInWithPhoneNumber } = await import('firebase/auth');
-      const phone = route.params?.phone;
-      if (!phone) throw new Error('Phone number missing');
-      const confirmation = await signInWithPhoneNumber(auth, phone);
-      navigation.navigate('PhoneOTPScreen', {
-        email,
-        ...route.params,
-        verificationId: confirmation.verificationId,
-      });
+     const { auth } = await import('../../firebaseConfig');
+const idToken = await auth.currentUser?.getIdToken(true);
+const { apiRequest } = await import('../../utils/api');
+await apiRequest('/auth/verify-code', {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${idToken}` },
+  body: JSON.stringify({ code }),
+});
+// BYPASS phone verification for demo/presentation:
+if (route.params?.role === 'driver') {
+  navigation.navigate('DriverProfileCompletionScreen', { ...route.params });
+} else {
+  navigation.navigate('MainTabs');
+}
+// ---
+// To re-enable phone verification, restore the code below:
+/*
+const { signInWithPhoneNumber } = await import('firebase/auth');
+const phone = route.params?.phone;
+if (!phone) throw new Error('Phone number missing');
+const confirmation = await signInWithPhoneNumber(auth, phone);
+navigation.navigate('PhoneOTPScreen', {
+  email,
+  ...route.params,
+  verificationId: confirmation.verificationId,
+});
+*/
     } catch (err) {
       setError(err?.message || JSON.stringify(err) || 'Verification failed.');
     } finally {
@@ -42,21 +51,20 @@ const EmailVerificationScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleResend = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      const { apiRequest } = await import('../../utils/api');
-      await apiRequest('/auth/resend-verification', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-      });
-    } catch (err) {
-      setError('Failed to resend verification email.');
-    } finally {
-      setLoading(false);
-    }
-  };
+ const handleResend = async () => {
+  setError('');
+  setLoading(true);
+  try {
+    const { apiRequest } = await import('../../utils/api');
+    await apiRequest('/auth/resend-code', {
+      method: 'POST',
+    });
+  } catch (err) {
+    setError('Failed to resend verification code.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <SafeAreaView style={styles.safeArea}>

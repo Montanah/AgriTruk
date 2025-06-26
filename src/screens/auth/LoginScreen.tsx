@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
+  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -10,11 +11,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../components/common/Button';
-import Input from '../../components/common/Input';
 import Spacer from '../../components/common/Spacer';
 import { colors, fonts, spacing } from '../../constants';
 
@@ -26,6 +27,8 @@ const LoginScreen = ({ navigation }: any) => {
   const [countryCode, setCountryCode] = useState('+254');
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [password, setPassword] = useState('');
+  const truckAnim = React.useRef(new Animated.Value(0)).current;
 
   const countryOptions = [
     { code: '+255', flag: '🇹🇿' },
@@ -33,6 +36,28 @@ const LoginScreen = ({ navigation }: any) => {
     { code: '+256', flag: '🇺🇬' },
     { code: '+254', flag: '🇰🇪' },
   ];
+
+  React.useEffect(() => {
+    if (loading) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(truckAnim, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(truckAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      truckAnim.stopAnimation();
+      truckAnim.setValue(0);
+    }
+  }, [loading]);
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
@@ -76,15 +101,14 @@ const LoginScreen = ({ navigation }: any) => {
             </View>
 
             {loginMode === 'email' ? (
-              <Input
-                label="Email"
+              <TextInput
+                style={styles.inputSignup}
                 placeholder="Enter your email"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 placeholderTextColor={colors.text.secondary}
                 value={email}
                 onChangeText={setEmail}
-                style={styles.inputFull}
               />
             ) : (
               <View style={styles.phoneRow}>
@@ -109,22 +133,25 @@ const LoginScreen = ({ navigation }: any) => {
                 />
               </View>
             )}
-
+            
+            <Spacer size={spacing.md} />
             <View style={styles.passwordInputWrap}>
-              <Input
-                label="Password"
-                placeholder="Enter your password"
-                secureTextEntry={!showPassword}
-                placeholderTextColor={colors.text.secondary}
-                style={[styles.inputFull, { marginBottom: 0 }]}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword((prev) => !prev)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={colors.text.secondary} />
-              </TouchableOpacity>
+            <TextInput
+            style={[styles.inputFull, styles.passwordInput]}
+            placeholder="Enter your password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            placeholderTextColor={colors.text.secondary}
+            autoCapitalize="none"
+            />
+            <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword((prev) => !prev)}
+            activeOpacity={0.7}
+            >
+            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={showPassword ? colors.primary : colors.text.secondary} />
+            </TouchableOpacity>
             </View>
 
             <Spacer size={spacing.md} />
@@ -132,7 +159,10 @@ const LoginScreen = ({ navigation }: any) => {
               title={loading ? 'Signing In...' : 'Sign In'}
               onPress={async () => {
                 setLoading(true);
-                setTimeout(() => setLoading(false), 2000);
+                setTimeout(() => {
+                  setLoading(false);
+                  navigation.navigate('MainTabs'); // Demo: navigate after loading
+                }, 2000); // Demo spinner, replace with real logic
               }}
               disabled={loading}
             />
@@ -145,22 +175,55 @@ const LoginScreen = ({ navigation }: any) => {
       </KeyboardAvoidingView>
 
       {countryModalVisible && (
-        <View style={styles.countryModalOverlay}>
-          <View style={styles.countryModal}>
-            {countryOptions.map((item) => (
-              <TouchableOpacity
-                key={item.code}
-                style={styles.countryItem}
-                onPress={() => {
-                  setCountryCode(item.code);
-                  setCountryModalVisible(false);
-                }}
-              >
-                <Text style={styles.countryItemText}>
-                  {item.flag} {item.code}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        <TouchableWithoutFeedback onPress={() => setCountryModalVisible(false)}>
+          <View style={styles.countryModalOverlay}>
+            <View style={styles.countryModal}>
+              {countryOptions.map((item) => (
+                <TouchableOpacity
+                  key={item.code}
+                  style={styles.countryItem}
+                  onPress={() => {
+                    setCountryCode(item.code);
+                    setCountryModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.countryItemText}>
+                    {item.flag} {item.code}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      )}
+
+      {loading && (
+        <View style={styles.loadingOverlay} pointerEvents="auto">
+          <View style={styles.loadingBox}>
+            <Animated.Image
+              source={require('../../../assets/images/TRUK Logo.png')}
+              style={[
+                styles.loadingLogo,
+                {
+                  transform: [
+                    {
+                      translateX: truckAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 80],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+            <Text style={styles.loadingText}>Signing In...</Text>
+            <View style={{ marginTop: 18 }}>
+              <Animated.View style={{
+                transform: [{ rotate: truckAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+              }}>
+                <View style={styles.spinner} />
+              </Animated.View>
+            </View>
           </View>
         </View>
       )}
@@ -198,13 +261,26 @@ const styles = StyleSheet.create({
   eyeIcon: {
     position: 'absolute',
     right: 12,
-    top: 10,
+    top: 0,
+    bottom: 0,
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
     padding: 4,
     backgroundColor: colors.surface,
     borderRadius: 12,
+  },
+  passwordInput: {
+    height: 44,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    borderRadius: 10,
+    fontSize: fonts.size.md,
+    color: colors.text.primary,
+    paddingRight: 44,
+    marginBottom: 0,
   },
   phoneRow: {
     flexDirection: 'row',
@@ -242,6 +318,19 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     color: colors.text.primary,
     height: '100%',
+  },
+  inputSignup: {
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    fontSize: fonts.size.md,
+    backgroundColor: colors.background,
+    color: colors.text.primary,
+    height: 44,
+    marginBottom: 0,
+    width: '100%',
   },
   inputFull: {
     width: '100%',
@@ -352,6 +441,48 @@ const styles = StyleSheet.create({
   countryItemText: {
     fontSize: fonts.size.md,
     color: colors.text.primary,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  loadingBox: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  loadingLogo: {
+    width: 60,
+    height: 60,
+    marginBottom: 18,
+    resizeMode: 'contain',
+  },
+  loadingText: {
+    fontSize: fonts.size.lg,
+    color: colors.primary,
+    fontWeight: 'bold',
+    letterSpacing: 0.3,
+  },
+  spinner: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 4,
+    borderColor: colors.secondary,
+    borderTopColor: colors.primary,
+    borderRightColor: colors.primary,
+    borderBottomColor: 'transparent',
+    borderLeftColor: 'transparent',
+    alignSelf: 'center',
   },
 });
 

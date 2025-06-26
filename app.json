@@ -8,12 +8,10 @@
     "scheme": "trukapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-
     "ios": {
       "bundleIdentifier": "com.truk.trukapp",
       "supportsTablet": true
     },
-
     "android": {
       "package": "com.truk.trukapp",
       "adaptiveIcon": {
@@ -22,12 +20,10 @@
       },
       "edgeToEdgeEnabled": true
     },
-
     "web": {
       "bundler": "metro",
       "favicon": "./assets/images/favicon.png"
     },
-
     "plugins": [
       [
         "expo-splash-screen",
@@ -39,9 +35,13 @@
         }
       ]
     ],
-
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "10a30423-0169-4954-b3b8-f1e194bf9c02"
+      }
     }
   }
 }
