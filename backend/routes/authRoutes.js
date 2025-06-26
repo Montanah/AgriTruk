@@ -200,44 +200,6 @@ router.post("/verify-code", authenticateToken, authController.verifyCode);
  *         description: Internal server error
  */
 router.post("/resend-code", authenticateToken, authController.resendCode);
-
-/**
- * @swagger
- * /api/auth/resend-verification:
- *   post:
- *     summary: Resend verification email
- *     description: Resend email verification link to the user.
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [email]
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *     responses:
- *       200:
- *         description: Verification email sent successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       500:
- *         description: Failed to send verification email
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.post("/resend-verification", authController.resendVerificationEmail);
-
 /**
  * @swagger
  * /api/auth/profile:
