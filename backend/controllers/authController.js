@@ -115,14 +115,22 @@ exports.verifyCode = async (req, res) => {
   const { code } = req.body;
   const uid = req.user.uid;
 
+  console.log('Verifying code for user:', uid);
+  console.log('Verification code:', code);
+
   try {
     const userData =await User.get(uid);
+    const userRef = admin.firestore().collection("users").doc(uid);
 
     if (userData.isVerified) {
       return res.status(200).json({ message: "User already verified" });
     }
 
     const now = admin.firestore.Timestamp.now();
+
+    console.log('stored code:', userData.verificationCode);
+    console.log('current code:', code);
+    
     if (userData.verificationCode !== code) {
       return res.status(400).json({ message: "Invalid verification code" });
     }
