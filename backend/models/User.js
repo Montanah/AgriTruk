@@ -22,6 +22,7 @@ const User = {
       verificationExpires: userData.verificationExpires || null,
       fcmToken: userData.fcmToken || null,
       loginVerification: userData.loginVerification || false,
+      isVerified: userData.isVerified || false,
       emailVerified: userData.isVerified || false,
       lastActive: userData.lastActive || admin.firestore.Timestamp.now(),
       lastLogin: userData.lastLogin || admin.firestore.Timestamp.now(),

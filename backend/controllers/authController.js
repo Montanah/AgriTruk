@@ -130,7 +130,7 @@ exports.verifyCode = async (req, res) => {
 
     console.log('stored code:', userData.verificationCode);
     console.log('current code:', code);
-    
+
     if (userData.verificationCode !== code) {
       return res.status(400).json({ message: "Invalid verification code" });
     }
@@ -141,6 +141,7 @@ exports.verifyCode = async (req, res) => {
 
     await userRef.update({
       isVerified: true,
+      emailVerified: true,
       verificationCode: admin.firestore.FieldValue.delete(),
       verificationExpires: admin.firestore.FieldValue.delete()
     });
