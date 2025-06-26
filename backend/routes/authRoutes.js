@@ -4,7 +4,8 @@ const authController = require("../controllers/authController");
 const requireRole = require("../middlewares/requireRole");
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const loadUserProfile = require("../middlewares/loadUserProfile");
-
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" }); // Temporary storage for file uploads
 // Swagger documentation
 /**
  * @swagger
@@ -294,7 +295,8 @@ router.get("/profile", authenticateToken, loadUserProfile, authController.getUse
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put("/update", authenticateToken, authController.updateUser);
+router.put('/update', authenticateToken, upload.single('profilePhoto'), authController.updateUser);
+// router.put("/update", authenticateToken, authController.updateUser);
 
 /**
  * @swagger

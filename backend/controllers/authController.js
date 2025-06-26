@@ -3,6 +3,11 @@ const User = require("../models/User");
 const ActivityLog = require("../models/ActivityLog");
 const generateOtp = require("../utils/generateOtp");
 const sendEmail = require("../utils/sendEmail");
+const {getMFATemplate, getResetPasswordTemplate, getSuccessTemplate } = require("../utils/sendMailTemplate");
+const getGeoLocation = require("../utils/locationHelper");
+const logActivity = require("../utils/activityLogger");
+const { uploadImage } = require('../utils/upload');
+const fs = require('fs');
 
 exports.verifyUser = async (req, res) => {
     const { email, phone, password } = req.body;
@@ -98,8 +103,11 @@ exports.registerUser = async (req, res) => {
       to: email,
       subject: 'Your AgriTruk Verification Code',
       text: `Your verification code is: ${verificationCode}`,
-      html: `<p>Your AgriTruk verification code is: <strong>${verificationCode}</strong></p>`
+      html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
+      // html: `<p>Your AgriTruk verification code is: <strong>${verificationCode}</strong></p>`
     });
+
+    await logActivity(uid, 'user_registration', req);
 
     res.status(201).json({ message: "User profile created", user });
   } catch (error) {
@@ -114,6 +122,7 @@ exports.registerUser = async (req, res) => {
 exports.verifyCode = async (req, res) => {
   const { code } = req.body;
   const uid = req.user.uid;
+  const ipAddress = req.ip || 'unknown';
 
   console.log('Verifying code for user:', uid);
   console.log('Verification code:', code);
@@ -149,13 +158,18 @@ exports.verifyCode = async (req, res) => {
     const userAgent = req.headers['user-agent'] 
       ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "") 
       : 'unknown';
+    
+    const location = await getGeoLocation(ipAddress);
 
-    await ActivityLog.log(uid, {
-      event: 'user_verification',
-      device: userAgent,
-      ip: req.ip || 'unknown',
-      timestamp: now
+    //send success email
+    await sendEmail({
+      to: userData.email,
+      subject: "Email Verified Successfully",
+      text: "Your email has been successfully verified.",
+      html: getSuccessTemplate(location, ipAddress, userAgent)
     });
+
+   await logActivity(uid, 'email_verification', req);
 
     res.status(200).json({ message: "User verified successfully" });
   } catch (error) {
@@ -207,6 +221,7 @@ exports.resendVerificationEmail = async (req, res) => {
 exports.getUser = async (req, res) => {
     try {
       const userData = await User.get(req.user.uid);
+      
       res.status(200).json({
         uid: req.user.uid,
         email: req.user.email || null,
@@ -237,7 +252,18 @@ exports.updateUser = async (req, res) => {
   try {
     const uid = req.user.uid;
     const now = admin.firestore.Timestamp.now();
-    // Build the update object (skip null/undefined)
+
+    let profilePhotoUrl = undefined;
+
+    // Upload image if provided
+    if (req.file) {
+      const publicId = await uploadImage(req.file.path);
+      profilePhotoUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
+
+      // Optional: remove local file
+      fs.unlinkSync(req.file.path);
+    }
+    
     const updates = {
       name,
       phone,
@@ -257,16 +283,7 @@ exports.updateUser = async (req, res) => {
 
     const updatedUser = await User.update(uid, updates);
 
-    const userAgent = req.headers['user-agent'] 
-      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "") 
-      : 'unknown';
-
-    await ActivityLog.log(req.user.uid, {
-          event: 'update_profile',
-          device: userAgent,
-          ip: req.ip || 'unknown',
-          timestamp: now
-        });
+    await logActivity(uid, 'user_profile_update', req);
 
     res.status(200).json({
       message: "User profile updated successfully",
@@ -296,17 +313,7 @@ exports.updatePassword = async (req, res) => {
             password: newPassword
         });
 
-        // Log the password change activity
-        try {
-          await ActivityLog.log(req.user.uid, {
-            event: 'password_change',
-            device: req.headers['user-agent'],
-            ip: req.ip,
-            timestamp: admin.firestore.Timestamp.now()
-          });
-        } catch (logError) {
-            console.error('Activity log error:', logError);
-        }
+        await logActivity(req.user.uid, 'password_update', req);
 
         res.status(200).json({
             message: 'Password updated successfully'
@@ -404,15 +411,7 @@ exports.deleteAccount = async (req, res) => {
         await User.delete(uid);
 
         // Log the account deletion activity
-        const userAgent = req.headers['user-agent']
-            ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "")
-            : 'unknown';  
-        await ActivityLog.log(uid, {
-            event: 'account_deletion',
-            device: userAgent,
-            ip: req.ip || 'unknown',
-            timestamp: admin.firestore.Timestamp.now()
-        });
+        await logActivity(uid, 'account_deletion', req);
 
         res.status(200).json({
             message: 'User account deleted successfully'
@@ -435,6 +434,10 @@ exports.updateFcmToken = async (req, res) => {
       fcmToken,
       updatedAt: admin.firestore.Timestamp.now()
     });
+
+    // Log the FCM token update activity
+    await logActivity(req.user.uid, 'fcm_token_update', req);
+
     res.status(200).json({ message: "FCM token updated" });
   } catch (err) {
     res.status(500).json({ message: "Failed to update FCM token" });
@@ -452,6 +455,9 @@ exports.deleteUser = async (req, res) => {
     // Delete user document from Firestore
     await admin.firestore().collection('users').doc(uid).delete();
 
+    // Log the user deletion activity
+    await logActivity(uid, 'user_deletion', req);
+
     res.status(200).json({
       message: 'User account deleted successfully'
     });
@@ -467,6 +473,7 @@ exports.deleteUser = async (req, res) => {
 exports.resendCode = async (req, res) => {
   const uid = req.user.uid;
   const email = req.user.email;
+  const ipAddress = req.ip || 'unknown';
 
   try {
     const userData = await User.get(uid);
@@ -484,12 +491,23 @@ exports.resendCode = async (req, res) => {
       updatedAt: admin.firestore.Timestamp.now()
     });
 
+    const userAgent = req.headers['user-agent'] 
+      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "") 
+      : 'unknown';
+
+    const location = await getGeoLocation(ipAddress);
+
     await sendEmail({
       to: email,
       subject: "Your new AgriTruk Verification Code",
       text: `Your new verification code is: ${newCode}`,
-      html: `<p>Your new AgriTruk verification code is: <strong>${newCode}</strong></p>`
+      html: getMFATemplate(newCode, location, ipAddress, userAgent)
+      // html: `<p>Your new AgriTruk verification code is: <strong>${newCode}</strong></p>`
     });
+
+    await logActivity(uid, 'code_resend', req);
+
+    console.log("Verification code resent successfully to:", email);
 
     res.status(200).json({ message: "Verification code resent successfully" });
   } catch (error) {

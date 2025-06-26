@@ -8,11 +8,12 @@ const bookingRoutes = require("./routes/bookingRoutes");
 
 const app = express();
 const { swaggerUi, specs } = require("./config/swagger");
-
+const requestMetadata = require("./middlewares/requestMetadata"); 
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(requestMetadata);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 // app.use("/api/transport", transportRoutes);
