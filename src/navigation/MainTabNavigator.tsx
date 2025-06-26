@@ -4,27 +4,16 @@ import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { spacing } from '../constants';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Tab = createBottomTabNavigator();
 
-const HomeScreen = () => (
-  <View style={styles.screen}>
-    <Text>Home</Text>
-  </View>
-);
-const ActivityScreen = () => (
-  <View style={styles.screen}>
-    <Text>Activity</Text>
-  </View>
-);
-const AccountScreen = () => (
-  <View style={styles.screen}>
-    <Text>Account</Text>
-  </View>
-);
+import ServiceRequestScreen from '../screens/ServiceRequestScreen';
+import ActivityScreen from '../screens/ActivityScreen';
+import AccountScreen from '../screens/AccountScreen';
 
 const MainTabNavigator = () => {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -32,49 +21,56 @@ const MainTabNavigator = () => {
         tabBarShowLabel: false,
         tabBarStyle: {
           position: 'absolute',
-          left: 16,
-          right: 16,
-          bottom: 10,
-          borderRadius: 24,
-          height: 64,
-          backgroundColor: colors.white,
-          shadowColor: colors.black,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.1,
-          shadowRadius: 16,
-          elevation: 12,
-          borderTopWidth: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: 0,
+          height: 56 + insets.bottom,
+          backgroundColor: colors.primaryDark,
+          borderTopWidth: 1,
+          borderTopColor: '#222', // Subtle divider
+          shadowColor: 'transparent',
+          elevation: 0,
+          paddingBottom: insets.bottom,
+        },
+        tabBarItemStyle: {
+          marginTop: 0,
         },
         tabBarIcon: ({ focused, color, size }) => {
+          const iconColor = focused ? colors.secondary : '#fff';
           if (route.name === 'Home') {
             return (
               <Ionicons
                 name={focused ? 'home' : 'home-outline'}
-                size={28}
-                color={focused ? colors.primary : colors.text.light}
+                size={32}
+                color={iconColor}
+                style={{ marginBottom: -2 }}
               />
             );
           } else if (route.name === 'Activity') {
             return (
               <MaterialCommunityIcons
                 name={focused ? 'history' : 'history'}
-                size={28}
-                color={focused ? colors.secondary : colors.text.light}
+                size={32}
+                color={iconColor}
+                style={{ marginBottom: -2 }}
               />
             );
           } else if (route.name === 'Account') {
             return (
               <FontAwesome5
                 name={focused ? 'user-alt' : 'user'}
-                size={26}
-                color={focused ? colors.tertiary : colors.text.light}
+                size={30}
+                color={iconColor}
+                style={{ marginBottom: -2 }}
               />
             );
           }
         },
+        safeAreaInsets: { bottom: 0 },
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Home" component={ServiceRequestScreen} />
       <Tab.Screen name="Activity" component={ActivityScreen} />
       <Tab.Screen name="Account" component={AccountScreen} />
     </Tab.Navigator>

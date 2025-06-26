@@ -25,25 +25,17 @@ await apiRequest('/auth/verify-code', {
   headers: { Authorization: `Bearer ${idToken}` },
   body: JSON.stringify({ code }),
 });
-// BYPASS phone verification for demo/presentation:
-if (route.params?.role === 'driver') {
-  navigation.navigate('DriverProfileCompletionScreen', { ...route.params });
+// After email verification, proceed directly (bypass phone OTP for now)
+await auth.currentUser.reload(); // Refresh user state
+if (route.params?.role === 'transporter') {
+  navigation.navigate('TransporterProfileCompletionScreen', { ...route.params });
 } else {
-  navigation.navigate('MainTabs');
+  // Do NOT navigate to MainTabs or ServiceRequestScreen.
+  // Let App.tsx handle navigation based on updated auth state.
+  // Optionally, show a message: "Verification successful! Redirecting..."
 }
-// ---
-// To re-enable phone verification, restore the code below:
-/*
-const { signInWithPhoneNumber } = await import('firebase/auth');
-const phone = route.params?.phone;
-if (!phone) throw new Error('Phone number missing');
-const confirmation = await signInWithPhoneNumber(auth, phone);
-navigation.navigate('PhoneOTPScreen', {
-  email,
-  ...route.params,
-  verificationId: confirmation.verificationId,
-});
-*/
+// To re-enable phone verification, restore navigation to PhoneOTPScreen
+// navigation.navigate('PhoneOTPScreen', { email, ...route.params });
     } catch (err) {
       setError(err?.message || JSON.stringify(err) || 'Verification failed.');
     } finally {

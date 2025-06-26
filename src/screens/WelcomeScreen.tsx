@@ -1,22 +1,21 @@
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  Dimensions,
   Animated,
+  Dimensions,
   Easing,
   Platform,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import Button from '../components/common/Button';
 import Spacer from '../components/common/Spacer';
-import { colors, spacing, fonts } from '../constants';
-import { useNavigation } from '@react-navigation/native';
+import { colors, fonts, spacing } from '../constants';
 
 const { width } = Dimensions.get('window');
 
@@ -150,9 +149,7 @@ const WelcomeScreen = () => {
           </View>
           <View style={styles.brandRow}>
             <Text style={styles.brandName}>TRUK</Text>
-            <View style={styles.brandAppWrap}>
-              <Text style={styles.brandApp}>app</Text>
-            </View>
+            <Text style={[styles.brandApp, { backgroundColor: 'transparent', color: '#fff' }]}>app</Text>
           </View>
           <Text style={styles.subtitle}>
             Move farm and cargo products with ease, safety, and speed.
@@ -163,17 +160,20 @@ const WelcomeScreen = () => {
               styles.featureCard,
               {
                 opacity: fadeAnim,
-                transform: [{ translateY: translateYAnim }],
+                transform: [{ translateY: translateYAnim }, { scale: fadeAnim }],
                 shadowColor: feature.accent,
+                backgroundColor: 'rgba(255,255,255,0.85)',
+                borderRadius: 18,
+                paddingVertical: spacing.lg,
+                paddingHorizontal: spacing.md,
+                minHeight: 90,
+                marginTop: 8,
+                marginBottom: 8,
+                borderWidth: 1,
+                borderColor: '#f0f0f0',
               },
             ]}
           >
-            <LinearGradient
-              colors={['#fff8', '#f7f9fcbb', '#fff6']}
-              style={StyleSheet.absoluteFill}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
             <View
               style={[
                 styles.featureAccentDot,
@@ -276,19 +276,15 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.bold,
     marginRight: 8,
   },
-  brandAppWrap: {
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
   brandApp: {
     fontSize: fonts.size.xxl,
     fontWeight: 'bold',
-    color: colors.secondary,
     fontFamily: fonts.family.bold,
     letterSpacing: 1.2,
     textTransform: 'lowercase',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
   subtitle: {
     fontSize: fonts.size.lg,

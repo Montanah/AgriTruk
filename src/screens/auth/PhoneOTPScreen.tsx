@@ -50,10 +50,10 @@ const PhoneOTPScreen = ({ navigation, route }) => {
         headers: { Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ phone }),
       });
-      if (role === 'driver') {
-        navigation.navigate('DriverProfileCompletionScreen', { phone, email });
+      if (role === 'transporter') {
+        navigation.navigate('TransporterProfileCompletionScreen', { phone, email });
       } else {
-        navigation.navigate('MainTabs');
+        navigation.navigate('ServiceRequest');
       }
     } catch (err) {
       setError('OTP verification failed.');
@@ -98,6 +98,8 @@ const PhoneOTPScreen = ({ navigation, route }) => {
           onChangeText={setOtp}
           keyboardType="number-pad"
           autoCapitalize="none"
+          autoComplete="sms-otp"
+          textContentType="oneTimeCode"
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <TouchableOpacity

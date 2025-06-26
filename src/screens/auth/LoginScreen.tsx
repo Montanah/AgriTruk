@@ -28,6 +28,7 @@ const LoginScreen = ({ navigation }: any) => {
   const [countryModalVisible, setCountryModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const truckAnim = React.useRef(new Animated.Value(0)).current;
 
   const countryOptions = [
@@ -159,13 +160,30 @@ const LoginScreen = ({ navigation }: any) => {
               title={loading ? 'Signing In...' : 'Sign In'}
               onPress={async () => {
                 setLoading(true);
-                setTimeout(() => {
+                setError('');
+                // Validation
+                if ((loginMode === 'email' && !email) || (loginMode === 'phone' && !phone) || !password) {
                   setLoading(false);
-                  navigation.navigate('MainTabs'); // Demo: navigate after loading
-                }, 2000); // Demo spinner, replace with real logic
+                  setError('Please enter all required fields.');
+                  return;
+                }
+                try {
+                  if (loginMode === 'email') {
+                    // Use the imported auth instance directly
+                    const { signInWithEmailAndPassword } = await import('firebase/auth');
+                    await signInWithEmailAndPassword(require('../../firebaseConfig').auth, email, password);
+                  } else {
+                    setError('Phone login is not implemented in this demo.');
+                  }
+                  // Navigation is handled by App.tsx auth state
+                } catch (e: any) {
+                  setError(e.message || 'Login failed. Please try again.');
+                }
+                setLoading(false);
               }}
               disabled={loading}
             />
+            {error ? <Text style={{ color: colors.error, marginTop: 12, textAlign: 'center', fontWeight: '600' }}>{error}</Text> : null}
             <Spacer size={spacing.md} />
             <TouchableOpacity onPress={() => navigation.navigate('SignupSelection')}>
               <Text style={styles.signupText}>Don't have an account? Sign Up</Text>

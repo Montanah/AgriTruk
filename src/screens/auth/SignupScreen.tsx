@@ -320,7 +320,7 @@ const SignupScreen = () => {
                   }
                   try {
                     // Firebase Auth signup
-                    const { createUserWithEmailAndPassword, sendEmailVerification } = await import(
+                    const { createUserWithEmailAndPassword } = await import(
                       'firebase/auth'
                     );
                     const { auth } = await import('../../firebaseConfig');
@@ -329,15 +329,13 @@ const SignupScreen = () => {
                       email,
                       password,
                     );
-                    // Send email verification
-                    await sendEmailVerification(userCredential.user);
                     // Get Firebase JWT
                     const idToken = await userCredential.user.getIdToken();
                     // Store JWT for future requests
                     const AsyncStorage = (await import('@react-native-async-storage/async-storage'))
                       .default;
                     await AsyncStorage.setItem('jwt', idToken);
-                    // Register user profile in backend
+                    // Register user profile in backend and send verification code
                     const { apiRequest } = await import('../../utils/api');
                     // Map frontend role to backend role
                     const backendRoleMap = {
@@ -356,7 +354,8 @@ const SignupScreen = () => {
                         role: backendRoleMap[role],
                       }),
                     });
-                    navigation.navigate('EmailVerification', { email, phone, role });
+                    // Backend sends code, not link
+                    navigation.navigate('EmailVerification', { email, phone, role: role === 'driver' ? 'transporter' : role });
                   } catch (err) {
                     // Firebase Auth error handling
                     let msg = 'Signup failed.';
