@@ -8,23 +8,27 @@
     "scheme": "trukapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
     "ios": {
+      "bundleIdentifier": "com.truk.trukapp",
       "supportsTablet": true
     },
+
     "android": {
+      "package": "com.truk.trukapp",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
     },
+
     "web": {
       "bundler": "metro",
-      "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "plugins": [
-      "expo-router",
       [
         "expo-splash-screen",
         {
@@ -35,6 +39,7 @@
         }
       ]
     ],
+
     "experiments": {
       "typedRoutes": true
     }
