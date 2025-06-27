@@ -81,4 +81,3 @@ firebase.json
 .firebaserc
 config/firestoreSetup.js
 utils/gettoken.js
-utils/locationHelper.js
