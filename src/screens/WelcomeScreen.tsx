@@ -281,10 +281,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontFamily: fonts.family.bold,
     letterSpacing: 1.2,
-    textTransform: 'lowercase',
+    textTransform: 'uppercase',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
+    minWidth: 48, // Ensures enough space for "APP"
+    overflow: 'visible',
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: fonts.size.lg,

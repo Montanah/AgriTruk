@@ -107,7 +107,7 @@ const ServiceRequestScreen = () => {
   const animateTab = (to) => {
     Animated.timing(anim, {
       toValue: to,
-      duration: 300,
+      duration: 100,
       useNativeDriver: false,
     }).start();
   };

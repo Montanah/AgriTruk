@@ -1,15 +1,17 @@
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRoute } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Modal, TextInput, FlatList, Linking } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { FlatList, Image, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import colors from '../constants/colors';
+import { mockMessages } from '../mocks/messages';
 import { MOCK_TRANSPORTERS } from '../mocks/transporters';
 import { mockTrip } from '../mocks/trip';
-import { mockMessages } from '../mocks/messages';
-
-const mockTransporter = MOCK_TRANSPORTERS[0];
 
 const TripDetailsScreen = () => {
+  const route = useRoute();
+  const params = route.params || {};
+  const transporter = params.transporter || MOCK_TRANSPORTERS[0];
+  const trip = params.trip || mockTrip;
   const [chatVisible, setChatVisible] = useState(false);
   const [callVisible, setCallVisible] = useState(false);
   const [messages, setMessages] = useState(mockMessages);
@@ -37,15 +39,15 @@ const TripDetailsScreen = () => {
         <Text style={{ color: '#aaa', fontSize: 13, marginTop: 4 }}>Enable Google Maps API for live tracking</Text>
       </View>
       {/* Bottom Card */}
-      <View style={[styles.bottomCard, { marginBottom: 24 }]}> {/* Add margin to avoid overlap with nav bar */}
+      <View style={[styles.bottomCard, { marginBottom: 24 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image source={{ uri: mockTransporter.photo }} style={styles.avatar} />
+          <Image source={{ uri: transporter.photo }} style={styles.avatar} />
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.name}>{mockTransporter.name}</Text>
-            <Text style={styles.vehicle}>{mockTransporter.vehicle} ({mockTransporter.reg})</Text>
-            <Text style={styles.vehicleDetails}>Reg: <Text>{mockTransporter.reg}</Text></Text>
-            <Text style={styles.vehicleDetails}>Trips Completed: <Text>{mockTransporter.tripsCompleted || 42}</Text></Text>
-            <Text style={styles.rating}>Rating: {mockTransporter.rating} ★</Text>
+            <Text style={styles.name}>{transporter.name}</Text>
+            <Text style={styles.vehicle}>{transporter.vehicle} ({transporter.reg})</Text>
+            <Text style={styles.vehicleDetails}>Reg: <Text>{transporter.reg}</Text></Text>
+            <Text style={styles.vehicleDetails}>Trips Completed: <Text>{transporter.tripsCompleted || 42}</Text></Text>
+            <Text style={styles.rating}>Rating: {transporter.rating} ★</Text>
           </View>
           <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
             <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
@@ -53,22 +55,22 @@ const TripDetailsScreen = () => {
           <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
             <Ionicons name="call" size={22} color={colors.secondary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${mockTransporter.phone}`)}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${transporter.phone}`)}>
             <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
           </TouchableOpacity>
         </View>
         <View style={styles.tripInfoRow}>
           <FontAwesome5 name="map-marker-alt" size={16} color={colors.primary} />
-          <Text style={styles.tripInfoText}>From: <Text>{mockTrip.from}</Text></Text>
+          <Text style={styles.tripInfoText}>From: <Text>{trip.from}</Text></Text>
           <FontAwesome5 name="flag-checkered" size={16} color={colors.secondary} style={{ marginLeft: 12 }} />
-          <Text style={styles.tripInfoText}>To: <Text>{mockTrip.to}</Text></Text>
+          <Text style={styles.tripInfoText}>To: <Text>{trip.to}</Text></Text>
         </View>
         <View style={styles.statusRow}>
-          <Text style={styles.statusText}>Status: {mockTrip.status}</Text>
-          <Text style={styles.statusText}>ETA: {mockTrip.eta} ({mockTrip.distance})</Text>
+          <Text style={styles.statusText}>Status: {trip.status}</Text>
+          <Text style={styles.statusText}>ETA: {trip.eta} ({trip.distance})</Text>
         </View>
         <View style={styles.actionRow}>
-          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8, alignSelf: 'flex-start' }]}> {/* Move up and left */}
+          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8, alignSelf: 'flex-start' }]}>
             <Text style={styles.cancelText}>Cancel Trip</Text>
           </TouchableOpacity>
         </View>
@@ -116,7 +118,7 @@ const TripDetailsScreen = () => {
           <View style={styles.callModal}>
             <Ionicons name="call" size={48} color={colors.secondary} style={{ marginBottom: 12 }} />
             <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Calling Transporter...</Text>
-            <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>{mockTransporter.name} ({mockTransporter.phone})</Text>
+            <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>{transporter.name} ({transporter.phone})</Text>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setCallVisible(false)}>
               <Text style={styles.cancelText}>End Call</Text>
             </TouchableOpacity>
