@@ -29,7 +29,7 @@ const Transporter = {
         createdAt: admin.firestore.Timestamp.now(),
         updatedAt: admin.firestore.Timestamp.now()
       },
-      acceptingOrders: transporterData.acceptingOrders || false,
+      acceptingBooking: transporterData.acceptingBooking || false,
       status: transporterData.status || 'active',
       totalTrips: transporterData.totalTrips || 0,
       createdAt: admin.firestore.Timestamp.now(),
@@ -47,6 +47,27 @@ const Transporter = {
     const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
     await db.collection('transporters').doc(transporterId).update(updated);
     return updated;
+  },
+  async approve(transporterId) {
+  const updates = {
+    status: 'approved',
+    updatedAt: admin.firestore.Timestamp.now()
+  };
+  await db.collection('transporters').doc(transporterId).update(updates);
+  return updates;
+},
+async reject(transporterId, reason) {
+  const updates = {
+    status: 'rejected',
+    rejectionReason: reason || 'Not specified',
+    updatedAt: admin.firestore.Timestamp.now()
+  };
+  await db.collection('transporters').doc(transporterId).update(updates);
+  return updates;
+},
+  async delete(transporterId) {
+    await db.collection('transporters').doc(transporterId).delete();
+    return { message: 'Transporter deleted successfully' };
   }
 };
 

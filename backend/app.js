@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 
-const transportRoutes = require("./routes/transportRoutes");
+const transporterRoutes = require("./routes/transportRoutes");
 const authRoutes = require("./routes/authRoutes");
 const activityRoutes = require("./routes/activityLog");
 const bookingRoutes = require("./routes/bookingRoutes");
@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestMetadata);
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
-// app.use("/api/transport", transportRoutes);
+app.use('/api/transporters', transporterRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/activity", activityRoutes);
 app.use("/api/bookings", bookingRoutes);

@@ -19,7 +19,6 @@ exports.getMFATemplate = function (code, location, ip, device) {
 };
 
 exports.getSuccessTemplate = function (location, ip, device) {
-  const loginUrl = "https://agritruk.app/login";
 
   return `
     <div style="max-width: 500px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border-radius: 10px; border: 1px solid #ddd;">
@@ -28,8 +27,8 @@ exports.getSuccessTemplate = function (location, ip, device) {
         <h2 style="color: #28a745;">✅ Email Verified Successfully</h2>
         <p style="font-size: 16px;">Your email has been successfully verified. You can now log in and continue using AgriTruk services.</p>
 
-        <a href="${loginUrl}" style="display: inline-block; margin: 20px auto; padding: 12px 25px; background-color: #28a745; color: white; text-decoration: none; font-size: 16px; border-radius: 5px;">
-          Continue to Login
+        <a href="" style="display: inline-block; margin: 20px auto; padding: 12px 25px; background-color: #28a745; color: white; text-decoration: none; font-size: 16px; border-radius: 5px;">
+          Go to AgriTruk
         </a>
 
         <hr style="margin: 30px 0;" />

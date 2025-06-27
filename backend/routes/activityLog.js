@@ -3,6 +3,15 @@ const router = express.Router();
 
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const getUserLogs = require('../controllers/getUserLogs');
+
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Activity Log
+ *     description: Activity log management for users
+ */
+
 /**
  * @swagger
  * components:

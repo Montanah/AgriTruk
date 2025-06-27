@@ -18,6 +18,10 @@ const requireRole = (allowedRoles) => {
         allowedRoles = [allowedRoles];  
       }
 
+      // Check if the user's role is in the list of allowed roles
+      console.log("User role:", userRole);
+      console.log("Allowed roles:", allowedRoles);
+
       if (!allowedRoles.includes(userRole)) {
         return res.status(403).json({
           code: "UNAUTHORIZED_ROLE",

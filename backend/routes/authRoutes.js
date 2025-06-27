@@ -5,7 +5,7 @@ const requireRole = require("../middlewares/requireRole");
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const loadUserProfile = require("../middlewares/loadUserProfile");
 const multer = require("multer");
-const upload = multer({ dest: "uploads/" }); // Temporary storage for file uploads
+const upload = multer({ dest: "uploads/" }); 
 // Swagger documentation
 /**
  * @swagger
