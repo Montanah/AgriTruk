@@ -80,9 +80,9 @@ const {
  *               urgentDelivery:
  *                 type: boolean
  *             example:
- *               fromLocation: "Nairobi",
- *               toLocation: "Mombasa",
- *               weightKg: 500,
+ *               fromLocation: "Nairobi"
+ *               toLocation: "Mombasa"
+ *               weightKg: 500
  *               productType: "Maize"
  *     responses:
  *       201:
@@ -125,7 +125,7 @@ router.post('/agri', authenticateToken, requireRole('user'), createAgriBooking);
  *               vehicleId:
  *                 type: string
  *             example:
- *               transporterId: "transporter123",
+ *               transporterId: "transporter123"
  *               vehicleId: "vehicle456"
  *     responses:
  *       200:
@@ -426,10 +426,10 @@ router.get('/agri/transporter', requireRole(['transporter', 'admin', 'user']), a
  *               special:
  *                 type: boolean
  *             example:
- *               fromLocation: "Nairobi",
- *               toLocation: "Mombasa",
- *               weightKg: 1000,
- *               cargoType: "Electronics",
+ *               fromLocation: "Mombasa"
+ *               toLocation: "Nairobi"
+ *               weightKg: 1000
+ *               cargoType: "Electronics"
  *               cargoValue: 50000
  *     responses:
  *       201:
@@ -539,7 +539,7 @@ router.put('/cargo/:bookingId', authenticateToken, requireRole(['user', 'admin']
  *               vehicleId:
  *                 type: string
  *             example:
- *               transporterId: "transporter123",
+ *               transporterId: "transporter125"
  *               vehicleId: "vehicle456"
  *     responses:
  *       200:
