@@ -8,7 +8,7 @@ const getGeoLocation = require("../utils/locationHelper");
 const logActivity = require("../utils/activityLogger");
 const { uploadImage } = require('../utils/upload');
 const fs = require('fs');
-const sendSms = require('../utils/sendSms');
+// const sendSms = require('../utils/sendSms');
 
 exports.verifyUser = async (req, res) => {
     const { email, phone, password } = req.body;
