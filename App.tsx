@@ -12,6 +12,7 @@ import SignupSelectionScreen from './src/screens/auth/SignupSelectionScreen';
 import ServiceRequestScreen from './src/screens/ServiceRequestScreen';
 import TripDetailsScreen from './src/screens/TripDetailsScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
+import TransporterProcessingScreen from './src/screens/TransporterProcessingScreen';
 
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db } from './src/firebaseConfig';
@@ -89,6 +90,10 @@ export default function App() {
           ) : role === 'transporter' && !profileCompleted ? (
             <>
               <Stack.Screen name="DriverProfileCompletionScreen" component={DriverProfileCompletionScreen} />
+            </>
+          ) : role === 'transporter' && profileCompleted && !isVerified ? (
+            <>
+              <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
             </>
           ) : role === 'transporter' && profileCompleted && isVerified ? (
             <>

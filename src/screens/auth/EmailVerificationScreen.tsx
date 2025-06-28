@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
@@ -10,6 +10,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [verified, setVerified] = useState(false);
   const { email, phone, role, password } = route.params || {};
   const codeRefs = React.useRef([]);
 
@@ -54,12 +55,15 @@ const EmailVerificationScreen = ({ navigation, route }) => {
           updatedAt: new Date().toISOString(),
         }, { merge: true });
       }
-      // Sign out and sign in again to trigger App.tsx navigation
-      const { signOut, signInWithEmailAndPassword } = await import('firebase/auth');
-      await signOut(auth);
-      await signInWithEmailAndPassword(auth, email, password);
-      // Clear password from memory
-      route.params.password = undefined;
+      setVerified(true);
+      setTimeout(async () => {
+        // Sign out and sign in again to trigger App.tsx navigation
+        const { signOut, signInWithEmailAndPassword } = await import('firebase/auth');
+        await signOut(auth);
+        await signInWithEmailAndPassword(auth, email, password);
+        // Clear password from memory
+        route.params.password = undefined;
+      }, 1200);
     } catch (err) {
       setError(err?.message || JSON.stringify(err) || 'Verification failed.');
     } finally {
@@ -121,11 +125,23 @@ const EmailVerificationScreen = ({ navigation, route }) => {
             />
           ))}
         </View>
+        {loading && !verified && (
+          <View style={styles.loaderWrap}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Verifying...</Text>
+          </View>
+        )}
+        {verified && (
+          <View style={styles.verifiedWrap}>
+            <Ionicons name="checkmark-circle" size={54} color={colors.success} style={{ marginBottom: 8 }} />
+            <Text style={styles.verifiedText}>Verified!</Text>
+          </View>
+        )}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <TouchableOpacity
           style={styles.verifyBtn}
           onPress={handleVerify}
-          disabled={loading || code.length !== 6}
+          disabled={loading || code.length !== 6 || verified}
         >
           <Text style={styles.verifyBtnText}>{loading ? 'Verifying...' : 'Verify'}</Text>
         </TouchableOpacity>
@@ -205,6 +221,27 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
     textAlign: 'center',
+  },
+  loaderWrap: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  loadingText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: fonts.size.md,
+    marginTop: 8,
+  },
+  verifiedWrap: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  verifiedText: {
+    color: colors.success,
+    fontWeight: 'bold',
+    fontSize: fonts.size.lg,
+    marginTop: 2,
+    marginBottom: 2,
   },
   error: {
     color: colors.error,
