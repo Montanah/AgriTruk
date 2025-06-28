@@ -32,10 +32,7 @@ try {
   const { db } = await import('../../firebaseConfig');
   const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
   const isVerified = snap.exists() && snap.data().isVerified;
-  if (route.params?.role === 'transporter') {
-    navigation.replace('DriverProfileCompletionScreen', { ...route.params });
-  }
-  // For all other roles, let App.tsx handle navigation based on updated auth state
+  // For all roles, let App.tsx handle navigation based on updated auth state and role
 } catch (e) {
   // fallback: let App.tsx handle navigation
 }

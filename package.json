@@ -46,7 +46,8 @@
     "react-native-webview": "13.13.5",
     "react-redux": "^9.2.0",
     "expo-dev-client": "~5.2.1",
-    "react-native-maps": "1.20.1"
+    "react-native-maps": "1.20.1",
+    "expo-document-picker": "~13.1.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

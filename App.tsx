@@ -22,6 +22,8 @@ const Stack = createStackNavigator();
 export default function App() {
   const [user, setUser] = React.useState<User | null>(null);
   const [isVerified, setIsVerified] = React.useState(false);
+  const [role, setRole] = React.useState<string | null>(null);
+  const [profileCompleted, setProfileCompleted] = React.useState<boolean>(false);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -30,12 +32,19 @@ export default function App() {
       if (firebaseUser) {
         try {
           const snap = await getDoc(firestoreDoc(db, 'users', firebaseUser.uid));
-          setIsVerified(snap.exists() && snap.data().isVerified);
+          const data = snap.exists() ? snap.data() : {};
+          setIsVerified(!!data.isVerified);
+          setRole(data.role || null);
+          setProfileCompleted(!!data.profileCompleted); // Backend must set this for transporters
         } catch {
           setIsVerified(false);
+          setRole(null);
+          setProfileCompleted(false);
         }
       } else {
         setIsVerified(false);
+        setRole(null);
+        setProfileCompleted(false);
       }
       setLoading(false);
     });
@@ -58,11 +67,14 @@ export default function App() {
               <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
               <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
             </>
+          ) : role === 'transporter' && !profileCompleted ? (
+            <>
+              <Stack.Screen name="DriverProfileCompletionScreen" component={DriverProfileCompletionScreen} />
+            </>
           ) : (
             <>
-              <Stack.Screen name="MainTabs" component={MainTabNavigator} />
               <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
-              <Stack.Screen name="DriverProfileCompletionScreen" component={DriverProfileCompletionScreen} />
+              <Stack.Screen name="MainTabs" component={MainTabNavigator} />
               <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
             </>
           )}
