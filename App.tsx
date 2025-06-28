@@ -31,11 +31,30 @@ export default function App() {
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
-          const snap = await getDoc(firestoreDoc(db, 'users', firebaseUser.uid));
-          const data = snap.exists() ? snap.data() : {};
-          setIsVerified(!!data.isVerified);
-          setRole(data.role || null);
-          setProfileCompleted(!!data.profileCompleted); // Backend must set this for transporters
+          // Try users collection first
+          let snap = await getDoc(firestoreDoc(db, 'users', firebaseUser.uid));
+          let data = snap.exists() ? snap.data() : null;
+          if (data) {
+            setIsVerified(!!data.isVerified);
+            setRole(data.role || null);
+            setProfileCompleted(!!data.profileCompleted);
+          } else {
+            // Try transporters collection
+            snap = await getDoc(firestoreDoc(db, 'transporters', firebaseUser.uid));
+            data = snap.exists() ? snap.data() : null;
+            if (data) {
+              setRole('transporter');
+              // Profile is completed if all required fields are present
+              const completed = !!data.vehicleType && !!data.registration && !!data.profilePhoto;
+              setProfileCompleted(completed);
+              // Only set isVerified true if transporter is approved
+              setIsVerified(data.status === 'approved');
+            } else {
+              setIsVerified(false);
+              setRole(null);
+              setProfileCompleted(false);
+            }
+          }
         } catch {
           setIsVerified(false);
           setRole(null);
@@ -58,7 +77,7 @@ export default function App() {
       <StatusBar style="dark" translucent />
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          {!user || !isVerified ? (
+          {!user || (!isVerified && role !== 'transporter') ? (
             <>
               <Stack.Screen name="Welcome" component={WelcomeScreen} />
               <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
@@ -71,9 +90,15 @@ export default function App() {
             <>
               <Stack.Screen name="DriverProfileCompletionScreen" component={DriverProfileCompletionScreen} />
             </>
+          ) : role === 'transporter' && profileCompleted && isVerified ? (
+            <>
+              <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
+              <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+              <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+              <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+            </>
           ) : (
             <>
-              <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
               <Stack.Screen name="MainTabs" component={MainTabNavigator} />
               <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
             </>

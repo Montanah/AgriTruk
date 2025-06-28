@@ -1,32 +1,76 @@
-import React, { useState } from 'react';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import React, { useState, useRef, useEffect } from 'react';
+import { Animated, Easing } from 'react-native';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
+  ActivityIndicator,
   Image,
   ScrollView,
+  StyleSheet,
   Switch,
-  ActivityIndicator,
-  Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import Divider from '../../components/common/Divider';
+import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
-import { spacing, fonts } from '../../constants';
+import { getAuth } from 'firebase/auth';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
 
 const VEHICLE_TYPES = [
-  { label: 'Truck', value: 'truck', icon: <FontAwesome5 name="truck" size={20} color={colors.primary} /> },
-  { label: 'Van', value: 'van', icon: <MaterialCommunityIcons name="van-utility" size={22} color={colors.primary} /> },
-  { label: 'Pickup', value: 'pickup', icon: <MaterialCommunityIcons name="pickup-truck" size={22} color={colors.primary} /> },
-  { label: 'Refrigerated Truck', value: 'refrigerated_truck', icon: <MaterialCommunityIcons name="snowflake" size={20} color={colors.primary} /> },
-  { label: 'Other', value: 'other', icon: <Ionicons name="car-outline" size={20} color={colors.primary} /> },
+  {
+    label: 'Truck',
+    value: 'truck',
+    icon: (active: boolean) => (
+      <FontAwesome5 name="truck" size={28} color={active ? colors.white : colors.primary} />
+    ),
+  },
+  {
+    label: 'Van',
+    value: 'van',
+    icon: (active: boolean) => (
+      <MaterialCommunityIcons name="van-utility" size={28} color={active ? colors.white : colors.secondary} />
+    ),
+  },
+  {
+    label: 'Pickup',
+    value: 'pickup',
+    icon: (active: boolean) => (
+      <MaterialCommunityIcons name="car-pickup" size={28} color={active ? colors.white : colors.tertiary} />
+    ),
+  },
+  {
+    label: 'Refrigerated Truck',
+    value: 'refrigerated_truck',
+    icon: (active: boolean) => (
+      <MaterialCommunityIcons name="snowflake" size={28} color={active ? colors.white : colors.success} />
+    ),
+  },
+  {
+    label: 'Other',
+    value: 'other',
+    icon: (active: boolean) => (
+      <Ionicons name="car-outline" size={28} color={active ? colors.white : colors.text.primary} />
+    ),
+  },
 ];
 
 export default function DriverProfileCompletionScreen() {
   const [vehicleType, setVehicleType] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(dropdownAnim, {
+      toValue: dropdownOpen ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [dropdownOpen]);
   const [registration, setRegistration] = useState('');
   const [humidityControl, setHumidityControl] = useState(false);
   const [refrigeration, setRefrigeration] = useState(false);
@@ -39,8 +83,13 @@ export default function DriverProfileCompletionScreen() {
 
   // Image picker helper
   const pickImage = async (onPick) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      setError('Permission to access media library is required!');
+      return;
+    }
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.IMAGE,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.7,
@@ -60,10 +109,6 @@ export default function DriverProfileCompletionScreen() {
 
   const handleProfilePhoto = () => {
     pickImage(setProfilePhoto);
-  };
-
-  const handleDlPhoto = () => {
-    pickImage(setDlPhoto);
   };
 
   const isValid = () => {
@@ -104,10 +149,28 @@ export default function DriverProfileCompletionScreen() {
     setUploading(true);
     try {
       // TODO: Upload images to backend/cloud, get URLs, and save all data to Firestore
-      // Example: await uploadProfile({ vehicleType, registration, humidityControl, refrigeration, ... })
-      // Simulate upload
-      await new Promise((res) => setTimeout(res, 1800));
-      // Success: navigate or show success message
+      // For now, just save the transporter profile to the "transporters" collection
+      const auth = getAuth();
+      const db = getFirestore();
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+      const transporterProfile = {
+        transporterId: user.uid,
+        profilePhoto: profilePhoto ? profilePhoto.uri : null,
+        vehiclePhotos: vehiclePhotos.map((img) => img.uri),
+        vehicleType,
+        registration,
+        humidityControl,
+        refrigeration,
+        dlFile: dlFile ? dlFile.uri : null,
+        logBookFile: logBookFile ? logBookFile.uri : null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'pending',
+      };
+      await setDoc(doc(db, 'transporters', user.uid), transporterProfile);
+      // Optionally, mark profileCompleted in users collection if needed
+      // await setDoc(doc(db, 'users', user.uid), { profileCompleted: true }, { merge: true });
     } catch (e) {
       setError('Failed to submit profile. Please try again.');
     } finally {
@@ -131,18 +194,108 @@ export default function DriverProfileCompletionScreen() {
       <Text style={styles.sectionTitle}>Vehicle Details</Text>
       <View style={styles.card}>
         <Text style={styles.label}>Vehicle Type</Text>
-        <View style={styles.vehicleTypeRow}>
-          {VEHICLE_TYPES.map((type) => (
-            <TouchableOpacity
-              key={type.value}
-              style={[styles.vehicleTypeBtn, vehicleType === type.value && styles.vehicleTypeBtnActive]}
-              onPress={() => setVehicleType(type.value)}
-            >
-              {type.icon}
-              <Text style={[styles.vehicleTypeText, vehicleType === type.value && { color: colors.white }]}>{type.label}</Text>
-            </TouchableOpacity>
-          ))}
+        {/* Custom Dropdown for Vehicle Type Selection */}
+        <View style={styles.dropdownContainer}>
+          <TouchableOpacity
+            style={styles.dropdownSelected}
+            onPress={() => setDropdownOpen((open) => !open)}
+            activeOpacity={0.85}
+          >
+            {vehicleType ? (
+              <View style={styles.dropdownSelectedContent}>
+                {(() => {
+                  const selected = VEHICLE_TYPES.find((t) => t.value === vehicleType);
+                  if (!selected) return null;
+                  // Render icon with accent color, not white
+                  switch (selected.value) {
+                    case 'truck':
+                      return <FontAwesome5 name="truck" size={28} color={colors.primary} />;
+                    case 'van':
+                      return <MaterialCommunityIcons name="van-utility" size={28} color={colors.secondary} />;
+                    case 'pickup':
+                      return <MaterialCommunityIcons name="car-pickup" size={28} color={colors.tertiary} />;
+                    case 'refrigerated_truck':
+                      return <MaterialCommunityIcons name="snowflake" size={28} color={colors.success} />;
+                    case 'other':
+                      return <Ionicons name="car-outline" size={28} color={colors.text.primary} />;
+                    default:
+                      return null;
+                  }
+                })()}
+                <Text style={styles.dropdownSelectedText}>
+                  {VEHICLE_TYPES.find((t) => t.value === vehicleType)?.label}
+                </Text>
+                <Ionicons name={dropdownOpen ? 'chevron-up' : 'chevron-down'} size={22} color={colors.primary} style={{ marginLeft: 8 }} />
+              </View>
+            ) : (
+              <View style={styles.dropdownSelectedContent}>
+                <Ionicons name="car-outline" size={24} color={colors.text.light} />
+                <Text style={[styles.dropdownSelectedText, { color: colors.text.light }]}>Select vehicle type</Text>
+                <Ionicons name={dropdownOpen ? 'chevron-up' : 'chevron-down'} size={22} color={colors.primary} style={{ marginLeft: 8 }} />
+              </View>
+            )}
+          </TouchableOpacity>
+          {/* Animated dropdown population */}
+          <Animated.View
+            pointerEvents={dropdownOpen ? 'auto' : 'none'}
+            style={[
+              styles.dropdownOptions,
+              {
+                opacity: dropdownAnim,
+                transform: [
+                  {
+                    translateY: dropdownAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-10, 0],
+                    }),
+                  },
+                  {
+                    scale: dropdownAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.98, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {VEHICLE_TYPES.map((type, idx) => (
+              <Animated.View
+                key={type.value}
+                style={{
+                  opacity: dropdownAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 1],
+                  }),
+                  transform: [
+                    {
+                      translateY: dropdownAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [10, 0],
+                      }),
+                    },
+                  ],
+                }}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.dropdownOption,
+                    vehicleType === type.value && styles.dropdownOptionActive,
+                  ]}
+                  onPress={() => {
+                    setVehicleType(type.value);
+                    setDropdownOpen(false);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  {type.icon(vehicleType === type.value)}
+                  <Text style={styles.dropdownOptionText}>{type.label}</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            ))}
+          </Animated.View>
         </View>
+        <Divider style={{ marginVertical: spacing.md }} />
         <Text style={styles.label}>Registration Number</Text>
         <TextInput
           style={styles.input}
@@ -260,7 +413,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.white,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: spacing.lg,
     width: '100%',
     marginBottom: spacing.md,
@@ -286,33 +439,110 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     width: '100%',
   },
-  vehicleTypeRow: {
+  vehicleTypeSimpleRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     marginBottom: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.sm,
+    width: '100%',
+    gap: 6,
   },
-  vehicleTypeBtn: {
-    flexDirection: 'row',
+  vehicleTypeSimpleBtn: {
+    flex: 1,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    paddingVertical: 12,
+    marginHorizontal: 2,
     borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginRight: 10,
-    marginBottom: 10,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
+    borderWidth: 1.2,
+    borderColor: colors.text.light,
+    elevation: 0,
+    flexDirection: 'column',
+    transitionDuration: '200ms',
   },
-  vehicleTypeBtnActive: {
+  vehicleTypeSimpleBtnActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+    elevation: 2,
   },
-  vehicleTypeText: {
-    fontSize: fonts.size.md,
-    color: colors.primary,
+  vehicleTypeSimpleIconWrap: {
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: 4,
+  },
+  vehicleTypeSimpleIconWrapActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  vehicleTypeSimpleText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
     fontWeight: '600',
-    marginLeft: 6,
+    textAlign: 'center',
+  },
+  vehicleTypeSimpleTextActive: {
+    color: '#fff',
+  },
+  dropdownContainer: {
+    width: '100%',
+    marginBottom: spacing.md,
+    position: 'relative',
+    zIndex: 10,
+  },
+  dropdownSelected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderColor: colors.text.light,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    minHeight: 48,
+    elevation: 1,
+  },
+  dropdownSelectedContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  dropdownSelectedText: {
+    fontSize: fonts.size.md,
+    color: colors.text.primary,
+    fontWeight: '600',
+    marginLeft: 10,
+  },
+  dropdownOptions: {
+    position: 'absolute',
+    top: 54,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    borderWidth: 1.2,
+    borderColor: colors.text.light,
+    shadowColor: colors.black,
+    shadowOpacity: 0.13,
+    shadowRadius: 16,
+    elevation: 8,
+    zIndex: 20,
+    paddingVertical: 6,
+    overflow: 'hidden',
+  },
+  dropdownOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  dropdownOptionActive: {
+    backgroundColor: colors.primary + '11',
+  },
+  dropdownOptionText: {
+    fontSize: fonts.size.md,
+    color: colors.text.primary,
+    fontWeight: '500',
+    marginLeft: 12,
   },
   switchRow: {
     flexDirection: 'row',

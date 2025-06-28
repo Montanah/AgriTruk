@@ -355,7 +355,7 @@ const SignupScreen = () => {
                       }),
                     });
                     // Backend sends code, not link
-                    navigation.navigate('EmailVerification', { email, phone, role: role === 'driver' ? 'transporter' : role });
+                    navigation.navigate('EmailVerification', { email, phone, role: role === 'driver' ? 'transporter' : role, password });
                   } catch (err) {
                     // Firebase Auth error handling
                     let msg = 'Signup failed.';

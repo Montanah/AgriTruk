@@ -10,34 +10,56 @@ const EmailVerificationScreen = ({ navigation, route }) => {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { email } = route.params || {};
+  const { email, phone, role, password } = route.params || {};
   const codeRefs = React.useRef([]);
 
   const handleVerify = async () => {
     setError('');
     setLoading(true);
     try {
-     const { auth } = await import('../../firebaseConfig');
-const idToken = await auth.currentUser?.getIdToken(true);
-const { apiRequest } = await import('../../utils/api');
-await apiRequest('/auth/verify-code', {
-  method: 'POST',
-  headers: { Authorization: `Bearer ${idToken}` },
-  body: JSON.stringify({ code }),
-});
-// After email verification, proceed directly (bypass phone OTP for now)
-await auth.currentUser.reload(); // Refresh user state
-try {
-  const { getDoc, doc } = await import('firebase/firestore');
-  const { db } = await import('../../firebaseConfig');
-  const snap = await getDoc(doc(db, 'users', auth.currentUser.uid));
-  const isVerified = snap.exists() && snap.data().isVerified;
-  // For all roles, let App.tsx handle navigation based on updated auth state and role
-} catch (e) {
-  // fallback: let App.tsx handle navigation
-}
-// To re-enable phone verification, restore navigation to PhoneOTPScreen
-// navigation.navigate('PhoneOTPScreen', { email, ...route.params });
+      const { auth } = await import('../../firebaseConfig');
+      const idToken = await auth.currentUser?.getIdToken(true);
+      const { apiRequest } = await import('../../utils/api');
+      await apiRequest('/auth/verify-code', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ code }),
+      });
+      await auth.currentUser.reload();
+      // Write to correct Firestore collection after verification
+      const { getFirestore, doc, setDoc } = await import('firebase/firestore');
+      const db = getFirestore();
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+      if (role === 'transporter' || role === 'driver') {
+        // Create minimal transporter doc (profile completion will update it)
+        await setDoc(doc(db, 'transporters', user.uid), {
+          transporterId: user.uid,
+          email: user.email,
+          phone: phone || '',
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      } else {
+        // Normal user
+        await setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          email: user.email,
+          phone: phone || '',
+          role: role || 'user',
+          isVerified: true,
+          profileCompleted: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
+      // Sign out and sign in again to trigger App.tsx navigation
+      const { signOut, signInWithEmailAndPassword } = await import('firebase/auth');
+      await signOut(auth);
+      await signInWithEmailAndPassword(auth, email, password);
+      // Clear password from memory
+      route.params.password = undefined;
     } catch (err) {
       setError(err?.message || JSON.stringify(err) || 'Verification failed.');
     } finally {
