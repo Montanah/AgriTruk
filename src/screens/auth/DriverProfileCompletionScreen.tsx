@@ -19,6 +19,7 @@ import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const VEHICLE_TYPES = [
   {
@@ -89,7 +90,7 @@ export default function DriverProfileCompletionScreen() {
       return;
     }
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.IMAGE,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.7,
@@ -169,14 +170,23 @@ export default function DriverProfileCompletionScreen() {
         status: 'pending',
       };
       await setDoc(doc(db, 'transporters', user.uid), transporterProfile);
-      // Optionally, mark profileCompleted in users collection if needed
-      // await setDoc(doc(db, 'users', user.uid), { profileCompleted: true }, { merge: true });
+      setTimeout(() => {
+        // Navigate to processing screen with status pending
+        if (typeof navigation !== 'undefined') {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'TransporterProcessingScreen', params: { status: 'pending' } }],
+          });
+        }
+      }, 500);
     } catch (e) {
       setError('Failed to submit profile. Please try again.');
     } finally {
       setUploading(false);
     }
   };
+
+  const insets = useSafeAreaInsets();
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -377,13 +387,15 @@ export default function DriverProfileCompletionScreen() {
       </TouchableOpacity>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <TouchableOpacity
-        style={[styles.submitBtn, { backgroundColor: isValid() ? colors.primary : colors.text.light }]}
-        onPress={handleSubmit}
-        disabled={!isValid() || uploading}
-      >
-        {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
-      </TouchableOpacity>
+      <View style={{ paddingBottom: insets.bottom + 18, width: '100%' }}>
+        <TouchableOpacity
+          style={[styles.submitBtn, { backgroundColor: isValid() ? colors.primary : colors.text.light }]}
+          onPress={handleSubmit}
+          disabled={!isValid() || uploading}
+        >
+          {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }

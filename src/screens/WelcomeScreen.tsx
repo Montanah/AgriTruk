@@ -65,22 +65,25 @@ const WelcomeScreen = () => {
   const logoAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(logoAnim, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        Animated.timing(logoAnim, {
-          toValue: -1,
-          duration: 1200,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.sin),
-        }),
-      ]),
-    ).start();
+    const timeout = setTimeout(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(logoAnim, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: true,
+            easing: Easing.inOut(Easing.sin),
+          }),
+          Animated.timing(logoAnim, {
+            toValue: -1,
+            duration: 1200,
+            useNativeDriver: true,
+            easing: Easing.inOut(Easing.sin),
+          }),
+        ]),
+      ).start();
+    }, 0);
+    return () => clearTimeout(timeout);
   }, [logoAnim]);
 
   useEffect(() => {

@@ -82,9 +82,33 @@ const AccountScreen = () => {
   };
 
   const handlePhotoPick = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.IMAGE, allowsEditing: true, aspect: [1, 1], quality: 0.5 });
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      setError('Permission to access media library is required!');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
     if (!result.canceled && result.assets && result.assets[0].uri) {
-      setPhotoURL(result.assets[0].uri);
+      const newUri = result.assets[0].uri;
+      setPhotoURL(newUri);
+      setLoading(true);
+      setError('');
+      try {
+        if (user?.uid) {
+          await updateDoc(doc(db, 'users', user.uid), {
+            profilePhotoUrl: newUri,
+          });
+          setProfile((prev: any) => ({ ...prev, profilePhotoUrl: newUri }));
+        }
+      } catch (e: any) {
+        setError(e.message || 'Failed to update profile photo.');
+      }
+      setLoading(false);
     }
   };
 
@@ -122,9 +146,6 @@ const AccountScreen = () => {
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{ marginTop: 24, color: colors.text.secondary, fontSize: 16, textAlign: 'center' }}>
           {user?.uid ? 'Loading your profile...' : 'No user found. Please log in.'}
-        </Text>
-        <Text style={{ marginTop: 12, color: colors.error, fontSize: 15, textAlign: 'center' }}>
-          If this persists, your profile may not exist or there is a network issue.
         </Text>
       </View>
     );
@@ -166,7 +187,7 @@ const AccountScreen = () => {
       <View style={styles.profileCardWrap}>
         <View style={styles.profileCardShadow} />
         <View style={styles.profileCard}>
-          <TouchableOpacity onPress={editing ? handlePhotoPick : undefined} style={styles.profilePhotoWrap}>
+          <TouchableOpacity onPress={handlePhotoPick} style={styles.profilePhotoWrap}>
             <Image
               source={photoURL ? { uri: photoURL } : { uri: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }}
               style={styles.profilePhoto}
