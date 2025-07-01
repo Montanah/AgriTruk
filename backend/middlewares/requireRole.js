@@ -4,6 +4,7 @@ const requireRole = (allowedRoles) => {
   return async (req, res, next) => {
     try {
       const uid = req.user?.uid;
+      // console.log("Checking user role for UID:", uid);
       if (!uid) return res.status(401).json({ message: "User not authenticated" });
 
       const userDoc = await admin.firestore().collection("users").doc(uid).get();
@@ -19,8 +20,8 @@ const requireRole = (allowedRoles) => {
       }
 
       // Check if the user's role is in the list of allowed roles
-      console.log("User role:", userRole);
-      console.log("Allowed roles:", allowedRoles);
+      // console.log("User role:", userRole);
+      // console.log("Allowed roles:", allowedRoles);
 
       if (!allowedRoles.includes(userRole)) {
         return res.status(403).json({

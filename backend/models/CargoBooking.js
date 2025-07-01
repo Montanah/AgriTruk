@@ -1,4 +1,5 @@
 const admin = require("../config/firebase");
+const { rejectBooking } = require("./AgriBooking");
 const db = admin.firestore();
 
 const CargoBooking = {
@@ -82,6 +83,39 @@ const CargoBooking = {
         const snapshot = await db.collection('cargoBookings').get();
         if (snapshot.empty) return [];
         return snapshot.docs.map(doc => ({ bookingId: doc.id, ...doc.data() }));
+    },
+    async getByUserId(userId) {
+        if (!userId) throw new Error('User ID is required to fetch bookings');
+        const query = db.collection('cargoBookings').where('userId', '==', userId);
+        const snapshot = await query.get();
+        if (snapshot.empty) return [];
+        
+        const bookings = [];
+        snapshot.forEach(doc => {
+            bookings.push({ bookingId: doc.id, ...doc.data() });
+        });
+        return bookings;
+    },
+    async rejectBooking(bookingId, reason) {
+        const updates = {
+            status: 'rejected',
+            rejectedAt: admin.firestore.Timestamp.now(),
+            rejectionReason: reason || 'No reason provided'
+        };
+        await db.collection('cargoBookings').doc(bookingId).update(updates);
+        return updates;
+    }, 
+    async getByTransporterId(transporterId) {
+        if (!transporterId) throw new Error('Transporter ID is required to fetch bookings');
+        const query = db.collection('cargoBookings').where('transporterId', '==', transporterId);
+        const snapshot = await query.get();
+        if (snapshot.empty) return [];
+        
+        const bookings = [];
+        snapshot.forEach(doc => {
+            bookings.push({ bookingId: doc.id, ...doc.data() });
+        });
+        return bookings;
     }
 };
 

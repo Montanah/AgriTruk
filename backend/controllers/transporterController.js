@@ -6,6 +6,9 @@ const logActivity = require("../utils/activityLogger");
 exports.createTransporter = async (req, res) => {
   try {
     const { documents, vehicles } = req.body;
+    console.log('plateNumber:', vehicles?.plateNumber);
+    console.log('capacity:', vehicles?.capacity);
+    console.log('model:', vehicles?.model);
 
     if (!documents || !vehicles?.plateNumber || !vehicles?.capacity || !vehicles?.model) {
       return res.status(400).json({ message: 'Required fields are missing' });

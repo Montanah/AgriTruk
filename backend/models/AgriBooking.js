@@ -79,7 +79,8 @@ const AgriBooking = {
         await db.collection('agriBookings').doc(bookingId).update(updates);
         return updates;
     },
-    async getAllBookings(userId) {
+    async getByUserId(userId) {
+        if (!userId) throw new Error('User ID is required to fetch bookings');
         const query = db.collection('agriBookings').where('userId', '==', userId);
         const snapshot = await query.get();
         if (snapshot.empty) return [];
@@ -89,6 +90,37 @@ const AgriBooking = {
             bookings.push({ bookingId: doc.id, ...doc.data() });
         });
         return bookings;
+    },
+    async getAllTransporterBookings(transporterId) {
+        if (!transporterId) throw new Error('Transporter ID is required to fetch bookings');
+        const query = db.collection('agriBookings').where('transporterId', '==', transporterId);
+        const snapshot = await query.get();
+        if (snapshot.empty) return [];
+        
+        const bookings = [];
+        snapshot.forEach(doc => {
+            bookings.push({ bookingId: doc.id, ...doc.data() });
+        });
+        return bookings;
+    },
+    async getAllBookings() {
+        const snapshot = await db.collection('agriBookings').get();
+        if (snapshot.empty) return [];
+        
+        const bookings = [];
+        snapshot.forEach(doc => {
+            bookings.push({ bookingId: doc.id, ...doc.data() });
+        });
+        return bookings;
+    },
+    async rejectBooking(bookingId, reason) {
+        const updates = {
+            status: 'rejected',
+            rejectedAt: admin.firestore.Timestamp.now(),
+            rejectionReason: reason || 'No reason provided'
+        };
+        await db.collection('agriBookings').doc(bookingId).update(updates);
+        return updates;
     }
 };
 

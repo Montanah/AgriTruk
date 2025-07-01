@@ -114,7 +114,7 @@ exports.rejectCargoBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
     const reason = req.body.reason || 'Unqualified';
-    const result = await CargoBooking.reject(bookingId, reason);
+    const result = await CargoBooking.rejectBooking(bookingId, reason);
     
     // Log the rejection
     await logActivity(req.user.uid, 'reject_cargo_booking', req);
@@ -142,7 +142,7 @@ exports.deleteCargoBooking = async (req, res) => {
 
 exports.getAllCargoBookings = async (req, res) => {
   try {
-    const bookings = await CargoBooking.getAll();
+    const bookings = await CargoBooking.getAllBookings();
     
     // Log the retrieval
     await logActivity(req.user.uid, 'get_all_cargo_bookings', req);
@@ -160,6 +160,7 @@ exports.getAllCargoBookings = async (req, res) => {
 exports.getUserCargoBookings = async (req, res) => {
   try {
     const userId = req.user?.uid || null;
+    console.log('User ID:', userId);
     if (!userId) {
       return res.status(400).json({ message: 'User ID is required' });
     }

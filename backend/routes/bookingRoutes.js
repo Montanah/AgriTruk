@@ -46,7 +46,7 @@ const {
  *     description: Creates a booking for agricultural produce transportation.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -96,13 +96,68 @@ router.post('/agri', authenticateToken, requireRole('user'), createAgriBooking);
 
 /**
  * @swagger
+ * /api/bookings/agri:
+ *   get:
+ *     summary: Get all agriTRUK bookings
+ *     description: Retrieves a list of all agriTRUK bookings.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bookings retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/agri', authenticateToken, requireRole(['transporter', 'admin', 'user']), getAgriBookings);
+
+/**
+ * @swagger
+ * /api/bookings/agri/user:
+ *   get:
+ *     summary: Get user's agriTRUK bookings
+ *     description: Retrieves all agriTRUK bookings for the authenticated user.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User's bookings retrieved successfully
+ *       400:
+ *         description: User ID is required
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/agri/user', authenticateToken, requireRole(['user', 'admin']), getUserAgriBookings);
+
+/**
+ * @swagger
+ * /api/bookings/agri/transporter:
+ *   get:
+ *     summary: Get transporter's agriTRUK bookings
+ *     description: Retrieves all agriTRUK bookings for the authenticated transporter.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Transporter's bookings retrieved successfully
+ *       400:
+ *         description: Transporter ID is required
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/agri/transporter', authenticateToken, requireRole(['transporter', 'admin', 'user']), getTransporterAgriBookings);
+
+/**
+ * @swagger
  * /api/bookings/agri/{bookingId}/accept:
  *   patch:
  *     summary: Accept an agriTRUK booking
  *     description: Accepts a booking for agricultural produce transportation.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -145,7 +200,7 @@ router.patch('/agri/:bookingId/accept', authenticateToken, requireRole('transpor
  *     description: Retrieves details of a specific agriTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -163,24 +218,7 @@ router.patch('/agri/:bookingId/accept', authenticateToken, requireRole('transpor
  *       500:
  *         description: Internal server error
  */
-router.get('/agri/:bookingId', requireRole(['transporter', 'admin', 'user']), authenticateToken, getAgriBooking);
-
-/**
- * @swagger
- * /api/bookings/agri:
- *   get:
- *     summary: Get all agriTRUK bookings
- *     description: Retrieves a list of all agriTRUK bookings.
- *     tags: [Bookings]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Bookings retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/agri', requireRole(['transporter', 'admin', 'user']), authenticateToken, getAgriBookings);
+router.get('/agri/:bookingId', authenticateToken, requireRole(['transporter', 'admin', 'user']), getAgriBooking);
 
 /**
  * @swagger
@@ -190,7 +228,7 @@ router.get('/agri', requireRole(['transporter', 'admin', 'user']), authenticateT
  *     description: Updates details of a specific agriTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -227,7 +265,7 @@ router.get('/agri', requireRole(['transporter', 'admin', 'user']), authenticateT
  *       500:
  *         description: Internal server error
  */
-router.put('/agri/:bookingId', requireRole(['admin', 'user']), authenticateToken, updateAgriBooking);
+router.put('/agri/:bookingId', authenticateToken, requireRole(['admin', 'user']), updateAgriBooking);
 
 /**
  * @swagger
@@ -237,7 +275,7 @@ router.put('/agri/:bookingId', requireRole(['admin', 'user']), authenticateToken
  *     description: Cancels a specific agriTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -265,7 +303,7 @@ router.patch('/agri/:bookingId/cancel', authenticateToken, requireRole(['user', 
  *     description: Starts a specific agriTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -293,7 +331,7 @@ router.patch('/agri/:bookingId/start', authenticateToken, requireRole('transport
  *     description: Rejects a specific agriTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -329,7 +367,7 @@ router.patch('/agri/:bookingId/reject', authenticateToken, requireRole('transpor
  *     description: Deletes a specific agriTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -345,43 +383,6 @@ router.patch('/agri/:bookingId/reject', authenticateToken, requireRole('transpor
  */
 router.delete('/agri/:bookingId', authenticateToken, requireRole('admin'), deleteAgriBooking);
 
-/**
- * @swagger
- * /api/bookings/agri/user:
- *   get:
- *     summary: Get user's agriTRUK bookings
- *     description: Retrieves all agriTRUK bookings for the authenticated user.
- *     tags: [Bookings]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: User's bookings retrieved successfully
- *       400:
- *         description: User ID is required
- *       500:
- *         description: Internal server error
- */
-router.get('/agri/user', requireRole(['transporter', 'admin', 'user']), authenticateToken, requireRole(['user', 'admin']), getUserAgriBookings);
-
-/**
- * @swagger
- * /api/bookings/agri/transporter:
- *   get:
- *     summary: Get transporter's agriTRUK bookings
- *     description: Retrieves all agriTRUK bookings for the authenticated transporter.
- *     tags: [Bookings]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Transporter's bookings retrieved successfully
- *       400:
- *         description: Transporter ID is required
- *       500:
- *         description: Internal server error
- */
-router.get('/agri/transporter', requireRole(['transporter', 'admin', 'user']), authenticateToken, getTransporterAgriBookings);
 
 // CargoTRUK Routes
 
@@ -393,7 +394,7 @@ router.get('/agri/transporter', requireRole(['transporter', 'admin', 'user']), a
  *     description: Creates a booking for general cargo transportation.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -441,6 +442,62 @@ router.get('/agri/transporter', requireRole(['transporter', 'admin', 'user']), a
  */
 router.post('/cargo', authenticateToken, requireRole('user'), createCargoBooking);
 
+
+/**
+ * @swagger
+ * /api/bookings/cargo:
+ *   get:
+ *     summary: Get all cargoTRUK bookings
+ *     description: Retrieves a list of all cargoTRUK bookings.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Bookings retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/cargo', authenticateToken, requireRole(['admin', 'user']), getAllCargoBookings);
+
+/**
+ * @swagger
+ * /api/bookings/cargo/user:
+ *   get:
+ *     summary: Get user's cargoTRUK bookings
+ *     description: Retrieves all cargoTRUK bookings for the authenticated user.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User's bookings retrieved successfully
+ *       400:
+ *         description: User ID is required
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/cargo/user', authenticateToken, requireRole(['admin', 'user']), getUserCargoBookings);
+
+/**
+ * @swagger
+ * /api/bookings/cargo/transporter:
+ *   get:
+ *     summary: Get transporter's cargoTRUK bookings
+ *     description: Retrieves all cargoTRUK bookings for the authenticated transporter.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Transporter's bookings retrieved successfully
+ *       400:
+ *         description: Transporter ID is required
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/cargo/transporter', authenticateToken, requireRole(['transporter', 'admin', 'user']), getTransporterCargoBookings);
+
 /**
  * @swagger
  * /api/bookings/cargo/{bookingId}:
@@ -449,7 +506,7 @@ router.post('/cargo', authenticateToken, requireRole('user'), createCargoBooking
  *     description: Retrieves details of a specific cargoTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -475,7 +532,7 @@ router.get('/cargo/:bookingId', authenticateToken, requireRole(['transporter', '
  *     description: Updates details of a specific cargoTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -506,7 +563,7 @@ router.get('/cargo/:bookingId', authenticateToken, requireRole(['transporter', '
  *       500:
  *         description: Internal server error
  */
-router.put('/cargo/:bookingId', authenticateToken, requireRole(['user', 'admin']),  updateCargoBooking);
+router.put('/cargo/:bookingId', authenticateToken, requireRole(['user', 'admin']), updateCargoBooking);
 
 /**
  * @swagger
@@ -516,7 +573,7 @@ router.put('/cargo/:bookingId', authenticateToken, requireRole(['user', 'admin']
  *     description: Accepts a booking for general cargo transportation.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -549,7 +606,7 @@ router.put('/cargo/:bookingId', authenticateToken, requireRole(['user', 'admin']
  *       500:
  *         description: Internal server error
  */
-router.patch('/cargo/:bookingId/accept', authenticateToken, requireRole('transporter'),  acceptCargoBooking);
+router.patch('/cargo/:bookingId/accept', authenticateToken, requireRole('transporter'), acceptCargoBooking);
 
 /**
  * @swagger
@@ -559,7 +616,7 @@ router.patch('/cargo/:bookingId/accept', authenticateToken, requireRole('transpo
  *     description: Rejects a booking for general cargo transportation.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -585,7 +642,7 @@ router.patch('/cargo/:bookingId/accept', authenticateToken, requireRole('transpo
  *       500:
  *         description: Internal server error
  */
-router.patch('/cargo/:bookingId/reject', authenticateToken,  requireRole(['transporter', 'admin']), rejectCargoBooking);
+router.patch('/cargo/:bookingId/reject', authenticateToken, requireRole(['transporter', 'admin']), rejectCargoBooking);
 
 /**
  * @swagger
@@ -595,7 +652,7 @@ router.patch('/cargo/:bookingId/reject', authenticateToken,  requireRole(['trans
  *     description: Cancels a specific cargoTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -623,7 +680,7 @@ router.patch('/cargo/:bookingId/cancel', authenticateToken, requireRole(['user',
  *     description: Starts a specific cargoTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -641,7 +698,7 @@ router.patch('/cargo/:bookingId/cancel', authenticateToken, requireRole(['user',
  *       500:
  *         description: Internal server error
  */
-router.patch('/cargo/:bookingId/start',  requireRole('transporter'),  authenticateToken, startCargoBooking);
+router.patch('/cargo/:bookingId/start', authenticateToken, requireRole('transporter'), startCargoBooking);
 
 /**
  * @swagger
@@ -651,7 +708,7 @@ router.patch('/cargo/:bookingId/start',  requireRole('transporter'),  authentica
  *     description: Deletes a specific cargoTRUK booking.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: bookingId
@@ -665,62 +722,7 @@ router.patch('/cargo/:bookingId/start',  requireRole('transporter'),  authentica
  *       500:
  *         description: Internal server error
  */
-router.delete('/cargo/:bookingId', requireRole( 'admin'), authenticateToken, deleteCargoBooking);
-
-/**
- * @swagger
- * /api/bookings/cargo:
- *   get:
- *     summary: Get all cargoTRUK bookings
- *     description: Retrieves a list of all cargoTRUK bookings.
- *     tags: [Bookings]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Bookings retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/cargo', authenticateToken, requireRole(['admin', 'user']), getAllCargoBookings);
-
-/**
- * @swagger
- * /api/bookings/cargo/user:
- *   get:
- *     summary: Get user's cargoTRUK bookings
- *     description: Retrieves all cargoTRUK bookings for the authenticated user.
- *     tags: [Bookings]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: User's bookings retrieved successfully
- *       400:
- *         description: User ID is required
- *       500:
- *         description: Internal server error
- */
-router.get('/cargo/user', authenticateToken, requireRole([ 'admin', 'user']), getUserCargoBookings);
-
-/**
- * @swagger
- * /api/bookings/cargo/transporter:
- *   get:
- *     summary: Get transporter's cargoTRUK bookings
- *     description: Retrieves all cargoTRUK bookings for the authenticated transporter.
- *     tags: [Bookings]
- *     security:
- *       - BearerAuth: []
- *     responses:
- *       200:
- *         description: Transporter's bookings retrieved successfully
- *       400:
- *         description: Transporter ID is required
- *       500:
- *         description: Internal server error
- */
-router.get('/cargo/transporter', authenticateToken,  requireRole(['transporter', 'admin', 'user']), getTransporterCargoBookings);
+router.delete('/cargo/:bookingId', authenticateToken, requireRole('admin'), deleteCargoBooking);
 
 /**
  * @swagger
@@ -730,7 +732,7 @@ router.get('/cargo/transporter', authenticateToken,  requireRole(['transporter',
  *     description: Retrieves all agriTRUK bookings for the authenticated user.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: User's bookings retrieved successfully
@@ -739,7 +741,7 @@ router.get('/cargo/transporter', authenticateToken,  requireRole(['transporter',
  *       500:
  *         description: Internal server error
  */
-router.get('/agri/user', authenticateToken, requireRole(['transporter', 'admin', 'user']), getUserAgriBookings);
+router.get('/agri/user', authenticateToken, requireRole(['user', 'admin']), getUserAgriBookings);
 
 /**
  * @swagger
@@ -749,7 +751,7 @@ router.get('/agri/user', authenticateToken, requireRole(['transporter', 'admin',
  *     description: Retrieves all agriTRUK bookings for the authenticated transporter.
  *     tags: [Bookings]
  *     security:
- *       - BearerAuth: []
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Transporter's bookings retrieved successfully

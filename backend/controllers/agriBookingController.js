@@ -40,7 +40,7 @@ exports.createAgriBooking = async (req, res) => {
     const booking = await AgriBooking.create(bookingData);
 
     // Log activity
-    await logActivity(uid, 'create_agri_booking', req);
+    await logActivity(req.user.uid, 'create_agri_booking', req);
 
     res.status(201).json({
       message: "AgriTRUK booking created successfully",
@@ -67,7 +67,7 @@ exports.acceptAgriBooking = async (req, res) => {
 
     const updates = await AgriBooking.acceptBooking(bookingId, transporterId, vehicleId);
 
-    await logActivity(uid, 'accept_agri_booking', req);
+    await logActivity(req.user.uid, 'accept_agri_booking', req);
 
     res.status(200).json({
       message: "Booking accepted successfully",
@@ -84,6 +84,7 @@ exports.acceptAgriBooking = async (req, res) => {
 
 exports.getAgriBooking = async (req, res) => {
   try {
+    console.log("Fetching agri booking with ID:", req.params.bookingId);
     const { bookingId } = req.params;
 
     if (!bookingId) {
@@ -222,7 +223,7 @@ exports.rejectAgriBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
     const reason = req.body.reason || 'Unqualified';
-    const result = await AgriBooking.reject(bookingId, reason);
+    const result = await AgriBooking.rejectBooking(bookingId, reason);
     await logActivity(req.user.uid, 'reject_agri_booking', req);
     res.status(200).json({ message: 'AgriTRUK booking rejected', result });
   } catch (error) {
@@ -246,6 +247,7 @@ exports.deleteAgriBooking = async (req, res) => {
 exports.getUserAgriBookings = async (req, res) => {
   try {
     const userId = req.user?.uid || null;
+   
     if (!userId) return res.status(400).json({ message: 'User ID is required' });
     const bookings = await AgriBooking.getByUserId(userId);
     await logActivity(userId, 'get_user_agri_bookings', req);
@@ -260,7 +262,7 @@ exports.getTransporterAgriBookings = async (req, res) => {
   try {
     const transporterId = req.user?.uid || null;
     if (!transporterId) return res.status(400).json({ message: 'Transporter ID is required' });
-    const bookings = await AgriBooking.getByTransporterId(transporterId);
+    const bookings = await AgriBooking.getAllTransporterBookings(transporterId);
     await logActivity(transporterId, 'get_transporter_agri_bookings', req);
     res.status(200).json({ message: "Transporter's AgriTRUK bookings retrieved successfully", bookings });
   } catch (error) {
