@@ -6,32 +6,29 @@ const Transporter = {
   async create(transporterData) {
     const transporter = {
       transporterId: transporterData.transporterId,
-      documents : {
-        licenseUrl: transporterData.documents?.license || null,
-        insuranceUrl: transporterData.documents?.insurance || null
-      },
-      vehicles: {
-        vehicleId: transporterData.vehicles?.vehicleId || null,
-        plateNumber: transporterData.vehicles?.plateNumber || null,
-        make: transporterData.vehicles?.make || null,
-        model: transporterData.vehicles?.model || null,
-        capacity: transporterData.vehicles?.capacity || null,
-        features: transporterData.vehicles?.features || null,
-        imageUrl: transporterData.vehicles?.imageUrl || null, 
-        availability: transporterData.vehicles?.availability || null,
-        location: {
-          county: transporterData.vehicles?.location?.county || null,
-          subcounty: transporterData.vehicles?.location?.subcounty || null,
-          ward: transporterData.vehicles?.location?.ward || null,
-          lat: transporterData.vehicles?.location?.lat || null,
-          lng: transporterData.vehicles?.location?.lng || null
-        },
-        createdAt: admin.firestore.Timestamp.now(),
-        updatedAt: admin.firestore.Timestamp.now()
-      },
+      driverName: transporterData.driverName || null,
+      phoneNumber: transporterData.phoneNumber || null,
+      driverProfileImage: transporterData.driverProfileImage || null,
+      driverIdUrl: transporterData.driverIdUrl,
+      email: transporterData.email || null,
+      driverLicense: transporterData.driverLicense || null,
+      vehicleType: transporterData.vehicleType || null,
+      vehicleRegistration: transporterData.vehicleRegistration || null,
+      vehicleMake: transporterData.vehicleMake || null,
+      vehicleModel: transporterData.vehicleModel || null,
+      vehicleCapacity: transporterData.vehicleCapacity || null,
+      vehicleImagesUrl: transporterData.vehicleImagesUrl || [],
+      humidityControl: transporterData.vehicleFeatures || false,
+      refrigerated: transporterData.refrigerated || false,
+      logbookUrl: transporterData.logbookUrl || null,
+      insuranceUrl: transporterData.insuranceUrl || null,
       acceptingBooking: transporterData.acceptingBooking || false,
-      status: transporterData.status || 'active',
+      status: transporterData.status || 'pending',
       totalTrips: transporterData.totalTrips || 0,
+      rating: transporterData.rating || 0,
+      rejectionReason: transporterData.rejectionReason || null,
+      businessType: transporterData.businessType || 'individual', // Default to 'individual'
+      // Timestamps
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
@@ -68,7 +65,20 @@ async reject(transporterId, reason) {
   async delete(transporterId) {
     await db.collection('transporters').doc(transporterId).delete();
     return { message: 'Transporter deleted successfully' };
-  }
+  },
+  async getAll() {
+    const snapshot = await db.collection('transporters').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+  async getByAvailability(status) {
+    const snapshot = await db.collection('transporters')
+      .where('availability', '==', status)
+      .where('status', '==', 'approved')
+      .get();
+
+    if (snapshot.empty) return [];
+      return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = Transporter;

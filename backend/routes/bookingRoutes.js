@@ -13,7 +13,8 @@ const {
   rejectAgriBooking,
   deleteAgriBooking,
   getUserAgriBookings,
-  getTransporterAgriBookings
+  getTransporterAgriBookings,
+  completeAgriBooking
 } = require("../controllers/agriBookingController");
 const {
   createCargoBooking,
@@ -361,6 +362,51 @@ router.patch('/agri/:bookingId/reject', authenticateToken, requireRole('transpor
 
 /**
  * @swagger
+ * /api/bookings/agri/{bookingId}/complete:
+ *   patch:
+ *     summary: Mark AgriTRUK booking as completed
+ *     description: Allows a transporter to mark an AgriTRUK booking as completed and increments their total trips.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the agri booking to mark as completed
+ *     responses:
+ *       200:
+ *         description: Booking completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: AgriTRUK booking completed successfully
+ *                 booking:
+ *                   type: object
+ *                   properties:
+ *                     status:
+ *                       type: string
+ *                       example: completed
+ *                     completedAt:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Missing or invalid booking ID
+ *       403:
+ *         description: Unauthorized - only transporters can complete bookings
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/agri/:bookingId/complete', authenticateToken, requireRole('transporter'), completeAgriBooking);
+
+/**
+ * @swagger
  * /api/bookings/agri/{bookingId}:
  *   delete:
  *     summary: Delete an agriTRUK booking
@@ -386,7 +432,7 @@ router.delete('/agri/:bookingId', authenticateToken, requireRole('admin'), delet
 
 // CargoTRUK Routes
 
-/**
+/**router.patch('/agri/:bookingId/complete', authenticateToken, requireRole('transporter'), completeAgriBooking);
  * @swagger
  * /api/bookings/cargo:
  *   post:

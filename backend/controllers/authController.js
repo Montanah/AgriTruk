@@ -226,7 +226,7 @@ exports.getUser = async (req, res) => {
       res.status(200).json({
         uid: req.user.uid,
         email: req.user.email || null,
-        phone: req.user.phoneNumber || null,
+        phone: req.user.phone || null,
         role: userData.role || 'user'
      });
     } catch (error) {

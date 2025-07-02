@@ -270,3 +270,32 @@ exports.getTransporterAgriBookings = async (req, res) => {
     res.status(500).json({ code: "ERR_SERVER_ERROR", message: "Failed to retrieve transporter's agriTRUK bookings" });
   }
 };
+
+exports.completeAgriBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    if (!bookingId) {
+      return res.status(400).json({ message: 'Booking ID is required' });
+    }
+
+    const completed = await AgriBooking.completeBooking(bookingId);
+
+    if (!completed) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    await logActivity(req.user.uid, 'complete_agri_booking', req);
+
+    res.status(200).json({
+      message: "AgriTRUK booking completed successfully",
+      booking: completed
+    });
+  } catch (error) {
+    console.error("Complete agri booking error:", error);
+    res.status(500).json({
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to complete agriTRUK booking"
+    });
+  }
+};

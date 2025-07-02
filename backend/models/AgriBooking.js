@@ -68,6 +68,11 @@ const AgriBooking = {
         completedAt: admin.firestore.Timestamp.now()
         };
         await db.collection('agriBookings').doc(bookingId).update(updates);
+        const booking = await this.get(bookingId);
+        // Update transporter total trips
+        await db.collection('transporters').doc(booking.transporterId).update({
+          totalTrips: admin.firestore.FieldValue.increment(1)
+        });
         return updates;
     },
     async cancelBooking(bookingId, cancellationReason) {

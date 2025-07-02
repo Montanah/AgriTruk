@@ -1,66 +1,102 @@
 const fs = require('fs'); 
 const { uploadImage } = require('../utils/upload');
 const Transporter = require("../models/Transporter");
+const User = require("../models/User");
 const logActivity = require("../utils/activityLogger");
 
 exports.createTransporter = async (req, res) => {
   try {
-    const { documents, vehicles } = req.body;
-    console.log('plateNumber:', vehicles?.plateNumber);
-    console.log('capacity:', vehicles?.capacity);
-    console.log('model:', vehicles?.model);
+    const { 
+      vehicleType,
+      vehicleRegistration,
+      vehicleMake,
+      vehicleModel,
+      vehicleCapacity,
+      humidityControl,
+      refrigerated,
+      businessType = 'individual' 
+     } = req.body;
 
-    if (!documents || !vehicles?.plateNumber || !vehicles?.capacity || !vehicles?.model) {
+    if (!vehicleType || !vehicleRegistration ) {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
+    const uid = req.user?.uid;
+
+    const userData = await User.get(uid);
+    const email = userData?.email || null;
+    const driverName = userData?.name || null;
+    const phoneNumber = userData?.phone || null;
+    
     // Handle multiple file uploads
     let licenseUrl = null;
     let insuranceUrl = null;
+    let logbookUrl = null;
+    let profileImageUrl = null;
     let vehicleImageUrl = null;
+    let idUrl = null;
 
-    if (req.files) {
-      // Upload license image if provided
+     if (req.files) {
       if (req.files.license) {
-        const publicId = await uploadImage(req.files.license.path);
+        const publicId = await uploadImage(req.files.license[0].path);
         licenseUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.license.path); // Clean up local file
+        fs.unlinkSync(req.files.license[0].path);
       }
-      // Upload insurance image if provided
+
       if (req.files.insurance) {
-        const publicId = await uploadImage(req.files.insurance.path);
+        const publicId = await uploadImage(req.files.insurance[0].path);
         insuranceUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.insurance.path); // Clean up local file
+        fs.unlinkSync(req.files.insurance[0].path);
       }
-      // Upload vehicle image if provided
+
+      if (req.files.logbook) {
+        const publicId = await uploadImage(req.files.logbook[0].path);
+        logbookUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
+        fs.unlinkSync(req.files.logbook[0].path);
+      }
+
+      if (req.files.profileImage) {
+        const publicId = await uploadImage(req.files.profileImage[0].path);
+        profileImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
+        fs.unlinkSync(req.files.profileImage[0].path);
+      }
+
       if (req.files.vehicleImage) {
-        const publicId = await uploadImage(req.files.vehicleImage.path);
+        const publicId = await uploadImage(req.files.vehicleImage[0].path);
         vehicleImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.vehicleImage.path); // Clean up local file
+        fs.unlinkSync(req.files.vehicleImage[0].path);
+      }
+
+      if (req.files.idImage) {
+        const publicId = await uploadImage(req.files.idImage[0].path);
+        idUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`
+        fs.unlinkSync(req.files.idImage[0].path);
       }
     }
 
     const transporterData = {
-      transporterId: req.user?.uid,
-      documents: {
-        licenseUrl: licenseUrl || documents.license || null,
-        insuranceUrl: insuranceUrl || documents.insurance || null,
-      },
-      vehicles: {
-        plateNumber: vehicles.plateNumber,
-        make: vehicles.make || 'Unknown',
-        model: vehicles.model,
-        capacity: vehicles.capacity,
-        features: vehicles.features || [],
-        imageUrl: vehicleImageUrl || vehicles.imageUrl || null,
-        availability: vehicles.availability || true,
-        location: vehicles.location || {
-          county: vehicles.location?.county || null,
-        },
-      },
+      transporterId: uid,
+      driverName,
+      phoneNumber,
+      driverProfileImage: profileImageUrl,
+      driverIdUrl: idUrl,
+      email,
+      driverLicense: licenseUrl,
+      vehicleType,
+      vehicleRegistration,
+      vehicleMake,
+      vehicleModel,
+      vehicleCapacity,
+      vehicleImagesUrl: vehicleImageUrl ? [vehicleImageUrl] : [],
+      humidityControl: humidityControl === "false",
+      refrigerated: refrigerated === "false",
+      logbookUrl,
+      insuranceUrl,
       acceptingBooking: false,
-      status: 'pending',
+      status: "pending",
       totalTrips: 0,
+      rating: 0, 
+      businessType, 
     };
 
     const transporter = await Transporter.create(transporterData);
@@ -73,12 +109,16 @@ exports.createTransporter = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating transporter:', error);
+    
+    // Clean up any uploaded files
     if (req.files) {
-      // Clean up any uploaded files in case of error
-      [req.files.license, req.files.insurance, req.files.vehicleImage].forEach(file => {
-        if (file) fs.unlinkSync(file.path);
-      });
+      for (let key in req.files) {
+        req.files[key].forEach(file => {
+          if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        });
+      }
     }
+
     res.status(500).json({ message: 'Internal server error' });
   }
 };
@@ -111,3 +151,63 @@ exports.updateTransporter = async (req, res) => {
     res.status(500).json({ message: 'Failed to update transporter' });
   }
 };
+
+exports.getAllTransporters = async (req, res) => {
+  console.log('Fetching all transporters');
+  try {
+    const transporters = await Transporter.getAll();
+    await logActivity(req.user.uid, 'get_all_transporters', req);
+    res.status(200).json({
+      message: "Transporters retrieved successfully",
+      transporters
+    });
+  } catch (error) {
+    console.error('Error retrieving transporters:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.toggleAvailability = async (req, res) => {
+  try {
+    const { transporterId } = req.params;
+    const { availability } = req.body;
+
+    if (typeof availability !== 'boolean') {
+      return res.status(400).json({ message: 'Availability must be true or false' });
+    }
+
+    const updated = await Transporter.update(transporterId, { availability });
+    res.status(200).json({ message: 'Availability updated successfully', transporter: updated });
+  } catch (error) {
+    console.error('Toggle availability error:', error);
+    res.status(500).json({ message: 'Failed to update availability' });
+  }
+};
+
+exports.getAvailableTransporters = async (req, res) => {
+  try {
+    const available = await Transporter.getByAvailability(true);
+    res.status(200).json({ transporters: available });
+  } catch (error) {
+    console.error('Get available transporters error:', error);
+    res.status(500).json({ message: 'Failed to fetch available transporters' });
+  }
+};
+
+exports.updateRating = async (req, res) => {
+  try {
+    const { transporterId } = req.params;
+    const { rating } = req.body;
+
+    if (typeof rating !== 'number' || rating < 0 || rating > 5) {
+      return res.status(400).json({ message: 'Rating must be a number between 0 and 5' });
+    }
+
+    const updated = await Transporter.update(transporterId, { rating });
+    res.status(200).json({ message: 'Rating updated', transporter: updated });
+  } catch (error) {
+    console.error('Update rating error:', error);
+    res.status(500).json({ message: 'Failed to update rating' });
+  }
+};
+
