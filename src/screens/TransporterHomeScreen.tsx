@@ -69,13 +69,30 @@ const MOCK_CURRENT_TRIP = {
 
 export default function TransporterHomeScreen() {
   const navigation = useNavigation();
-  const [requests, setRequests] = useState(MOCK_REQUESTS);
+  const [requests, setRequests] = useState(MOCK_REQUESTS.map(r => ({ ...r, status: 'Pending' })));
   const [currentTrip, setCurrentTrip] = useState(MOCK_CURRENT_TRIP);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   const handleAccept = (req) => {
-    // For now, just move to current trip
     setCurrentTrip({ ...req, status: 'On Transit' });
     setRequests((prev) => prev.filter((r) => r.id !== req.id));
+    setShowModal(false);
+  };
+
+  const handleReject = (req) => {
+    setRequests((prev) => prev.map(r => r.id === req.id ? { ...r, status: 'Rejected' } : r));
+    setShowModal(false);
+  };
+
+  const openRequestModal = (req) => {
+    setSelectedRequest(req);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedRequest(null);
   };
 
   return (
@@ -117,29 +134,72 @@ export default function TransporterHomeScreen() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <View style={styles.requestItem}>
-                <View style={{ flex: 1 }}>
+                <TouchableOpacity style={{ flex: 1 }} onPress={() => openRequestModal(item)}>
                   <Text style={styles.label}>From: <Text style={styles.value}>{item.from}</Text></Text>
                   <Text style={styles.label}>To: <Text style={styles.value}>{item.to}</Text></Text>
                   <Text style={styles.label}>Product: <Text style={styles.value}>{item.product}</Text></Text>
                   <Text style={styles.label}>Weight: <Text style={styles.value}>{item.weight} kg</Text></Text>
                   <Text style={styles.label}>ETA: <Text style={styles.value}>{item.eta}</Text></Text>
+                  <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {item.price?.toLocaleString()}</Text></Text>
+                  <Text style={styles.label}>Customer: <Text style={styles.value}>{item.customer}</Text></Text>
+                  <Text style={styles.label}>Contact: <Text style={styles.value}>{item.contact}</Text></Text>
                   {item.special && item.special.length > 0 && (
                     <Text style={styles.label}>Special: <Text style={styles.value}>{item.special.join(', ')}</Text></Text>
                   )}
-                </View>
-                <TouchableOpacity
-                  style={styles.acceptBtn}
-                  onPress={() => handleAccept(item)}
-                >
-                  <MaterialCommunityIcons name="check-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
-                  <Text style={styles.acceptBtnText}>Accept</Text>
+                  <Text style={styles.label}>Status: <Text style={[styles.value, item.status === 'Rejected' ? { color: colors.error } : { color: colors.secondary }]}>{item.status}</Text></Text>
                 </TouchableOpacity>
+                {item.status === 'Pending' && (
+                  <>
+                    <TouchableOpacity
+                      style={styles.acceptBtn}
+                      onPress={() => openRequestModal(item)}
+                    >
+                      <MaterialCommunityIcons name="check-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
+                      <Text style={styles.acceptBtnText}>Action</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+                {item.status === 'Rejected' && (
+                  <Ionicons name="close-circle" size={22} color={colors.error} style={{ marginLeft: 10 }} />
+                )}
               </View>
             )}
             ItemSeparatorComponent={() => <Divider style={{ marginVertical: 8 }} />}
           />
         )}
       </View>
+      {/* Modal for request details and actions */}
+      {showModal && selectedRequest && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.sectionTitle}>Request Details</Text>
+            <Text style={styles.label}>From: <Text style={styles.value}>{selectedRequest.from}</Text></Text>
+            <Text style={styles.label}>To: <Text style={styles.value}>{selectedRequest.to}</Text></Text>
+            <Text style={styles.label}>Product: <Text style={styles.value}>{selectedRequest.product}</Text></Text>
+            <Text style={styles.label}>Weight: <Text style={styles.value}>{selectedRequest.weight} kg</Text></Text>
+            <Text style={styles.label}>ETA: <Text style={styles.value}>{selectedRequest.eta}</Text></Text>
+            <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {selectedRequest.price?.toLocaleString()}</Text></Text>
+            <Text style={styles.label}>Customer: <Text style={styles.value}>{selectedRequest.customer}</Text></Text>
+            <Text style={styles.label}>Contact: <Text style={styles.value}>{selectedRequest.contact}</Text></Text>
+            {selectedRequest.special && selectedRequest.special.length > 0 && (
+              <Text style={styles.label}>Special: <Text style={styles.value}>{selectedRequest.special.join(', ')}</Text></Text>
+            )}
+            <View style={{ flexDirection: 'row', marginTop: spacing.lg, justifyContent: 'space-between' }}>
+              <TouchableOpacity style={[styles.acceptBtn, { flex: 1, marginRight: 8 }]} onPress={() => handleAccept(selectedRequest)}>
+                <MaterialCommunityIcons name="check-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
+                <Text style={styles.acceptBtnText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.rejectBtn, { flex: 1, marginLeft: 8 }]} onPress={() => handleReject(selectedRequest)}>
+                <Ionicons name="close-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
+                <Text style={styles.rejectBtnText}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.closeModalBtn} onPress={closeModal}>
+              <Ionicons name="close" size={24} color={colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       {/* History, Notifications, etc. can be added here */}
     </ScrollView>
   );
@@ -226,5 +286,47 @@ const styles = StyleSheet.create({
     color: colors.text.light,
     fontStyle: 'italic',
     marginTop: 8,
+  },
+  rejectBtn: {
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rejectBtnText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: fonts.size.md,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  modalBox: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    padding: spacing.lg,
+    width: '90%',
+    maxWidth: 400,
+    shadowColor: colors.black,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+    position: 'relative',
+  },
+  closeModalBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    padding: 4,
   },
 });

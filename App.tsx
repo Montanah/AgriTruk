@@ -3,7 +3,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
-import DriverProfileCompletionScreen from './src/screens/auth/DriverProfileCompletionScreen';
+import TransporterCompletionScreen from './src/screens/auth/TransporterCompletionScreen';
 import EmailVerificationScreen from './src/screens/auth/EmailVerificationScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import PhoneOTPScreen from './src/screens/auth/PhoneOTPScreen';
@@ -89,7 +89,7 @@ export default function App() {
             </>
           ) : role === 'transporter' && !profileCompleted ? (
             <>
-              <Stack.Screen name="DriverProfileCompletionScreen" component={DriverProfileCompletionScreen} />
+              <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
             </>
           ) : role === 'transporter' && profileCompleted && !isVerified ? (
             <>
