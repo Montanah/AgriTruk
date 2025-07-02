@@ -20,6 +20,7 @@ import colors from '../../constants/colors';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 const VEHICLE_TYPES = [
   {
@@ -60,6 +61,7 @@ const VEHICLE_TYPES = [
 ];
 
 export default function DriverProfileCompletionScreen() {
+  const navigation = useNavigation();
   const [vehicleType, setVehicleType] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
@@ -170,15 +172,7 @@ export default function DriverProfileCompletionScreen() {
         status: 'pending',
       };
       await setDoc(doc(db, 'transporters', user.uid), transporterProfile);
-      setTimeout(() => {
-        // Navigate to processing screen with status pending
-        if (typeof navigation !== 'undefined') {
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'TransporterProcessingScreen', params: { status: 'pending' } }],
-          });
-        }
-      }, 500);
+      // After submit, let App.tsx handle navigation based on updated profile/status
     } catch (e) {
       setError('Failed to submit profile. Please try again.');
     } finally {
