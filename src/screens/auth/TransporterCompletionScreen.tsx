@@ -253,8 +253,19 @@ export default function TransporterCompletionScreen() {
             color: transporterType === 'company' ? '#fff' : colors.primary,
             fontWeight: 'bold',
             textAlign: 'center',
-          }}>Company</Text>
+          }}>Broker/Company</Text>
         </TouchableOpacity>
+      </View>
+      <View style={{ marginBottom: spacing.md, width: '100%' }}>
+        {transporterType === 'individual' ? (
+          <Text style={{ color: colors.text.secondary, fontSize: 15, textAlign: 'center' }}>
+            Register as an <Text style={{ fontWeight: 'bold' }}>Individual Transporter</Text> to get jobs directly and manage your own vehicle profile.
+          </Text>
+        ) : (
+          <Text style={{ color: colors.text.secondary, fontSize: 15, textAlign: 'center' }}>
+            Register as a <Text style={{ fontWeight: 'bold' }}>Broker/Company</Text> to subscribe to plans, get transportation jobs, and assign them to your own or outsourced transporters.
+          </Text>
+        )}
       </View>
 
       {/* INDIVIDUAL FORM */}
@@ -501,7 +512,7 @@ export default function TransporterCompletionScreen() {
       {/* COMPANY FORM */}
       {transporterType === 'company' && (
         <>
-          <Text style={styles.sectionTitle}>Company Details</Text>
+          <Text style={styles.sectionTitle}>Broker/Company Details</Text>
           <View style={styles.card}>
             <Text style={styles.label}>Company Name</Text>
             <TextInput
@@ -535,6 +546,18 @@ export default function TransporterCompletionScreen() {
             )}
             <Text style={styles.photoPickerText}>Upload Company Logo</Text>
           </TouchableOpacity>
+          <View style={[styles.card, { marginTop: 10 }]}> 
+            <Text style={styles.label}>Assign Jobs to Transporters</Text>
+            <Text style={{ color: colors.text.secondary, fontSize: 15, marginBottom: 6 }}>
+              As a broker/company, you can assign jobs to your own drivers or outsource to other registered transporters. This feature will be available after your company profile is approved and you have an active subscription.
+            </Text>
+            <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: colors.text.light }}>
+              <Ionicons name="people-outline" size={32} color={colors.primary} />
+              <Text style={{ color: colors.text.secondary, fontSize: 14, marginTop: 4, textAlign: 'center' }}>
+                Manage and assign jobs to your team or outsource to other transporters from your dashboard.
+              </Text>
+            </View>
+          </View>
         </>
       )}
 

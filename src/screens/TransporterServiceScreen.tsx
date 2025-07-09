@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ScrollView } from 'react-native';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
 const MOCK_REQUESTS = [
@@ -64,8 +64,26 @@ const MOCK_COMPLETED = [
 
 const TABS = ['Incoming', 'Active', 'Completed'];
 
+const MOCK_TRANSPORTERS = [
+  { id: 'T001', name: 'John Doe', phone: '+254700111222', status: 'Active' },
+  { id: 'T002', name: 'Jane Smith', phone: '+254700333444', status: 'Active' },
+  { id: 'T003', name: 'Outsourced Transporter', phone: '+254700555666', status: 'Pending' },
+];
+const MOCK_ASSIGNED_JOBS = [
+  { id: 'REQ-201', job: 'Depot X → Market Z', assignedTo: 'John Doe', date: '2024-06-10', status: 'Assigned' },
+  { id: 'REQ-202', job: 'Farm Y → Shop Q', assignedTo: 'Jane Smith', date: '2024-06-11', status: 'Completed' },
+];
+
 const TransporterServiceScreen = () => {
   const [tab, setTab] = useState('Incoming');
+  const [showSubscription, setShowSubscription] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState('monthly');
+  const [isCompany, setIsCompany] = useState(true); // MOCK: toggle for company/broker view
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [selectedTransporter, setSelectedTransporter] = useState(null);
+  const [notification, setNotification] = useState('Your subscription expires in 3 days. Renew now to avoid interruption.');
+  const [subscriptionStatus, setSubscriptionStatus] = useState({ plan: '6 Months', expires: '2024-06-30', active: true });
 
   const getData = () => {
     if (tab === 'Incoming') return MOCK_REQUESTS;
@@ -128,8 +146,116 @@ const TransporterServiceScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Transporter Dashboard</Text>
+        <Text style={styles.headerTitle}>{isCompany ? 'Broker/Company Dashboard' : 'Transporter Dashboard'}</Text>
+        <TouchableOpacity style={styles.subscriptionBtn} onPress={() => setShowSubscription(true)}>
+          <Ionicons name="card-outline" size={20} color={colors.primary} />
+          <Text style={styles.subscriptionBtnText}>Subscription</Text>
+        </TouchableOpacity>
       </View>
+      {notification && (
+        <View style={styles.notificationBanner}>
+          <Ionicons name="alert-circle-outline" size={18} color={colors.error} style={{ marginRight: 6 }} />
+          <Text style={styles.notificationText}>{notification}</Text>
+          <TouchableOpacity onPress={() => setNotification(null)}>
+            <Ionicons name="close" size={18} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+      )}
+      <View style={styles.subscriptionStatusRow}>
+        <Ionicons name="medal-outline" size={20} color={subscriptionStatus.active ? colors.success : colors.error} />
+        <Text style={styles.subscriptionStatusText}>
+          {subscriptionStatus.active ? `Active: ${subscriptionStatus.plan} (expires ${subscriptionStatus.expires})` : 'No active subscription'}
+        </Text>
+        <TouchableOpacity onPress={() => setShowSubscription(true)}>
+          <Text style={styles.subscriptionStatusAction}>{subscriptionStatus.active ? 'Renew' : 'Subscribe'}</Text>
+        </TouchableOpacity>
+      </View>
+      <Modal
+        visible={showSubscription}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSubscription(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Choose a Subscription Plan</Text>
+            <TouchableOpacity
+              style={[styles.planOption, selectedPlan === 'monthly' && styles.planOptionSelected]}
+              onPress={() => setSelectedPlan('monthly')}
+            >
+              <Text style={styles.planText}>Monthly - Ksh 2,000</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.planOption, selectedPlan === '6months' && styles.planOptionSelected]}
+              onPress={() => setSelectedPlan('6months')}
+            >
+              <Text style={styles.planText}>6 Months - Ksh 10,000</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.planOption, selectedPlan === 'yearly' && styles.planOptionSelected]}
+              onPress={() => setSelectedPlan('yearly')}
+            >
+              <Text style={styles.planText}>1 Year - Ksh 18,000</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.subscribeBtn} onPress={() => setShowSubscription(false)}>
+              <Text style={styles.subscribeBtnText}>{subscriptionStatus.active ? 'Renew' : 'Subscribe'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowSubscription(false)}>
+              <Text style={styles.closeBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {isCompany && (
+        <>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>My Transporters</Text>
+            {MOCK_TRANSPORTERS.map(t => (
+              <View key={t.id} style={styles.transporterRow}>
+                <Ionicons name="person-circle-outline" size={32} color={colors.primary} style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.transporterName}>{t.name}</Text>
+                  <Text style={styles.transporterStatus}>{t.status}</Text>
+                </View>
+                <TouchableOpacity style={styles.assignBtn} onPress={() => { setSelectedJob(MOCK_REQUESTS[0]); setSelectedTransporter(t); setShowAssignModal(true); }}>
+                  <Text style={styles.assignBtnText}>Assign Job</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Assigned Jobs</Text>
+            {MOCK_ASSIGNED_JOBS.map(j => (
+              <View key={j.id} style={styles.assignedJobRow}>
+                <Ionicons name="cube-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.assignedJobText}>{j.job}</Text>
+                  <Text style={styles.assignedJobMeta}>To: {j.assignedTo} • {j.date} • {j.status}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+          <Modal
+            visible={showAssignModal}
+            animationType="fade"
+            transparent={true}
+            onRequestClose={() => setShowAssignModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Assign Job</Text>
+                <Text style={{ marginBottom: 10 }}>Assigning <Text style={{ fontWeight: 'bold' }}>{selectedJob?.id}</Text> to <Text style={{ fontWeight: 'bold' }}>{selectedTransporter?.name}</Text></Text>
+                <TouchableOpacity style={styles.subscribeBtn} onPress={() => setShowAssignModal(false)}>
+                  <Text style={styles.subscribeBtnText}>Confirm Assignment (Mock)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.closeBtn} onPress={() => setShowAssignModal(false)}>
+                  <Text style={styles.closeBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        </>
+      )}
       <View style={styles.tabRow}>
         {TABS.map(t => (
           <TouchableOpacity
@@ -154,8 +280,35 @@ const TransporterServiceScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  headerRow: { paddingTop: 32, paddingBottom: 8, alignItems: 'center', backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.background },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 32, paddingBottom: 8, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.background, paddingHorizontal: 16 },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: colors.primaryDark },
+  notificationBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff6f6', borderRadius: 8, padding: 10, margin: 12, borderWidth: 1, borderColor: colors.error + '33' },
+  notificationText: { color: colors.error, flex: 1, fontSize: 14 },
+  subscriptionStatusRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, padding: 10, marginHorizontal: 16, marginBottom: 8, marginTop: 2 },
+  subscriptionStatusText: { color: colors.text.primary, flex: 1, marginLeft: 8, fontSize: 15 },
+  subscriptionStatusAction: { color: colors.primary, fontWeight: 'bold', marginLeft: 8 },
+  subscriptionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12 },
+  subscriptionBtnText: { color: colors.primary, marginLeft: 6, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: colors.white, borderRadius: 16, padding: 24, width: 320, alignItems: 'center', elevation: 5 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 18, color: colors.primaryDark },
+  planOption: { width: '100%', padding: 14, borderRadius: 10, backgroundColor: colors.surface, marginBottom: 10, alignItems: 'center' },
+  planOptionSelected: { backgroundColor: colors.primary, borderWidth: 1, borderColor: colors.primary },
+  planText: { fontSize: 16, color: colors.text.primary },
+  subscribeBtn: { marginTop: 18, backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32 },
+  subscribeBtnText: { color: colors.white, fontWeight: 'bold', fontSize: 16 },
+  closeBtn: { marginTop: 10, padding: 8 },
+  closeBtnText: { color: colors.error, fontWeight: '600', fontSize: 15 },
+  sectionCard: { backgroundColor: colors.white, borderRadius: 14, padding: 16, margin: 12, marginBottom: 0, elevation: 1 },
+  sectionTitle: { fontSize: 17, fontWeight: 'bold', color: colors.secondary, marginBottom: 8 },
+  transporterRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, backgroundColor: colors.background, borderRadius: 10, padding: 8 },
+  transporterName: { fontWeight: 'bold', fontSize: 15 },
+  transporterStatus: { color: colors.text.secondary, fontSize: 13 },
+  assignBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 14, marginLeft: 10 },
+  assignBtnText: { color: colors.white, fontWeight: '600' },
+  assignedJobRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: colors.background, borderRadius: 10, padding: 8 },
+  assignedJobText: { fontWeight: 'bold', fontSize: 15 },
+  assignedJobMeta: { color: colors.text.secondary, fontSize: 13 },
   tabRow: { flexDirection: 'row', justifyContent: 'center', marginVertical: 10 },
   tabBtn: { paddingVertical: 6, paddingHorizontal: 18, borderRadius: 16, backgroundColor: colors.surface, marginHorizontal: 4 },
   tabBtnActive: { backgroundColor: colors.primary },
