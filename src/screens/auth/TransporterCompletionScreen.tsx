@@ -570,6 +570,15 @@ export default function TransporterCompletionScreen() {
         >
           {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
         </TouchableOpacity>
+        {/* TEMPORARY LINKS FOR UI TESTING */}
+        <View style={{ marginTop: 18 }}>
+          <TouchableOpacity
+            style={[styles.submitBtn, { backgroundColor: colors.secondary, marginBottom: 8 }]}
+            onPress={() => navigation.navigate('TransporterProcessingScreen', { transporterType })}
+          >
+            <Text style={styles.submitBtnText}>Go to Approval Status ({transporterType === 'company' ? 'Broker/Company' : 'Individual'})</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );

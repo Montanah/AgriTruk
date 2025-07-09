@@ -13,6 +13,8 @@ import ServiceRequestScreen from './src/screens/ServiceRequestScreen';
 import TripDetailsScreen from './src/screens/TripDetailsScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import TransporterProcessingScreen from './src/screens/TransporterProcessingScreen';
+import TransporterServiceScreen from './src/screens/TransporterServiceScreen';
+import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
 
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db } from './src/firebaseConfig';
@@ -78,6 +80,12 @@ export default function App() {
       <StatusBar style="dark" translucent />
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {/* Always register these for UI testing */}
+          <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+          <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+          <Stack.Screen name="TransporterServiceScreen" component={TransporterServiceScreen} />
+          <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+          {/* Original conditional screens */}
           {!user || (!isVerified && role !== 'transporter') ? (
             <>
               <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -89,11 +97,11 @@ export default function App() {
             </>
           ) : role === 'transporter' && !profileCompleted ? (
             <>
-              <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+              {/* <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} /> */}
             </>
           ) : role === 'transporter' && profileCompleted && !isVerified ? (
             <>
-              <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+              {/* <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} /> */}
             </>
           ) : role === 'transporter' && profileCompleted && isVerified ? (
             <>

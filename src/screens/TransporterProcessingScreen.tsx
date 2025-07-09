@@ -1,26 +1,28 @@
 import React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import LinearGradient from 'react-native-linear-gradient';
 import colors from '../constants/colors';
 import { fonts, spacing } from '../constants';
+import { useNavigation } from '@react-navigation/native';
 
 export default function TransporterProcessingScreen({ route }) {
   // route.params?.transporterType can be 'individual' or 'company'
   const transporterType = route?.params?.transporterType || 'individual';
-  const spinAnim = React.useRef(new Animated.Value(0)).current;
-
+  const navigation = useNavigation();
+  // Animated glowing ring effect
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
   React.useEffect(() => {
     Animated.loop(
-      Animated.timing(spinAnim, {
+      Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 1200,
+        duration: 4000,
         easing: Easing.linear,
         useNativeDriver: true,
       })
     ).start();
   }, []);
-
-  const spin = spinAnim.interpolate({
+  const ringSpin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
@@ -34,43 +36,94 @@ export default function TransporterProcessingScreen({ route }) {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={{ transform: [{ rotate: spin }], marginBottom: 18 }}>
-        <Ionicons name={transporterType === 'company' ? 'business-outline' : 'person-circle-outline'} size={64} color={colors.primary} />
-      </Animated.View>
-      <Text style={styles.title}>{transporterType === 'company' ? 'Company Profile Under Review' : 'Documents Under Review'}</Text>
-      <Text style={styles.subtitle}>
-        {transporterType === 'company'
-          ? 'Your company profile and documents have been submitted and are being reviewed by our admin team.'
-          : 'Your profile and documents have been submitted and are being reviewed by our admin team.'}
-      </Text>
-      {/* Progress Timeline */}
-      <View style={styles.timelineRow}>
-        {steps.map((step, idx) => (
-          <View key={step.label} style={styles.timelineStep}>
-            <Ionicons
-              name={step.icon}
-              size={32}
-              color={idx === 1 ? colors.primary : colors.text.light}
-              style={{ marginBottom: 4 }}
-            />
-            <Text style={[styles.timelineLabel, idx === 1 && { color: colors.primary, fontWeight: 'bold' }]}>{step.label}</Text>
-            {idx < steps.length - 1 && <View style={styles.timelineBar} />}
-          </View>
-        ))}
+      <View style={styles.profileGlowWrap}>
+        <Animated.View style={{
+          transform: [{ rotate: ringSpin }],
+          position: 'absolute',
+          left: 0, right: 0, top: 0, bottom: 0,
+          alignItems: 'center', justifyContent: 'center',
+        }}>
+          <LinearGradient
+            colors={[colors.primary, colors.secondary, colors.primary, colors.tertiary, colors.primary]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.glowRing}
+          />
+        </Animated.View>
+        <View style={styles.profileIconWrap}>
+          <Ionicons name={transporterType === 'company' ? 'business-outline' : 'person-circle-outline'} size={80} color={colors.primary} />
+        </View>
       </View>
-      <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 24 }} />
-      <Text style={styles.waitingText}>Please wait for approval. You will be notified once your account is activated.</Text>
-      <View style={styles.tipsBox}>
-        <Ionicons name="information-circle-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
-        <Text style={styles.tipsText}>
+      <View style={styles.cardWrap}>
+        <Text style={styles.title}>{transporterType === 'company' ? 'Company Profile Under Review' : 'Documents Under Review'}</Text>
+        <Text style={styles.subtitle}>
           {transporterType === 'company'
-            ? 'Tip: You can prepare your fleet and driver details for quick onboarding once approved.'
-            : 'Tip: Make sure your contact details are up to date for faster communication.'}
+            ? 'Your company profile and documents have been submitted and are being reviewed by our admin team.'
+            : 'Your profile and documents have been submitted and are being reviewed by our admin team.'}
         </Text>
+        {/* Progress Timeline */}
+        <View style={styles.timelineRow}>
+          {steps.map((step, idx) => (
+            <View key={step.label} style={styles.timelineStep}>
+              <Ionicons
+                name={step.icon}
+                size={32}
+                color={idx === 1 ? colors.primary : colors.text.light}
+                style={{ marginBottom: 4 }}
+              />
+              <Text style={[styles.timelineLabel, idx === 1 && { color: colors.primary, fontWeight: 'bold' }]}>{step.label}</Text>
+              {idx < steps.length - 1 && <View style={styles.timelineBar} />}
+            </View>
+          ))}
+        </View>
+      <Text style={styles.waitingText}>Your documents are under review. You will be notified once your account is activated.</Text>
+      <View style={styles.tipsBox}>
+      <Ionicons name="information-circle-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
+      <Text style={styles.tipsText}>
+      {transporterType === 'company'
+      ? 'Tip: You can prepare your fleet and driver details for quick onboarding once approved.'
+      : 'Tip: Make sure your contact details are up to date for faster communication.'}
+      </Text>
       </View>
-    </View>
-  );
-}
+      <Pressable
+      style={({ pressed }) => [
+      styles.refreshBtn,
+      pressed && { backgroundColor: colors.primary + '22' },
+      ]}
+      onPress={() => {/* Placeholder for refresh logic */}}
+      >
+      <Ionicons name="refresh" size={20} color={colors.primary} style={{ marginRight: 6 }} />
+      <Text style={styles.refreshBtnText}>Refresh Status</Text>
+      </Pressable>
+      </View>
+      <View style={{ marginTop: 32, width: '100%' }}>
+      <Text style={{ textAlign: 'center', color: colors.text.light, marginBottom: 8 }}>
+      For UI testing only:
+      </Text>
+      <View style={{ alignItems: 'center' }}>
+      <Text style={{ color: colors.text.secondary, marginBottom: 4 }}>
+      Go to {transporterType === 'company' ? 'Broker/Company' : 'Transporter'} Dashboard
+      </Text>
+      <View style={{ width: 220 }}>
+      <TouchableOpacity
+      style={{
+      backgroundColor: colors.primary,
+      borderRadius: 10,
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginBottom: 8,
+      }}
+      onPress={() => navigation.navigate('TransporterTabs', { transporterType })}
+      >
+      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+      Go to {transporterType === 'company' ? 'Broker/Company' : 'Transporter'} Dashboard
+      </Text>
+      </TouchableOpacity>
+      </View>
+      </View>
+      </View>
+      </View>
+      );
+      }
 
 const styles = StyleSheet.create({
   container: {
@@ -79,6 +132,52 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.background,
     padding: spacing.lg,
+  },
+  profileGlowWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
+  },
+  glowRing: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.7,
+    ...Platform.select({
+      ios: { shadowColor: colors.primary, shadowOpacity: 0.7, shadowRadius: 18, shadowOffset: { width: 0, height: 0 } },
+      android: { },
+      default: {},
+    }),
+  },
+  profileIconWrap: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  cardWrap: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    padding: 22,
+    marginBottom: 18,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    shadowColor: colors.black,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    alignItems: 'center',
   },
   title: {
     fontSize: fonts.size.xl,
@@ -139,6 +238,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.secondary + '33',
     maxWidth: 340,
+    alignSelf: 'center',
+  },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1.2,
+    borderColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    marginTop: 18,
+    marginBottom: 2,
+  },
+  refreshBtnText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   tipsText: {
     color: colors.secondary,

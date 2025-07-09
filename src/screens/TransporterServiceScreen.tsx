@@ -1,84 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 
-const MOCK_REQUESTS = [
-  {
-    id: 'REQ-101',
-    from: 'Farm X',
-    to: 'Market Y',
-    type: 'AgriTRUK',
-    date: '2024-06-12 10:00',
-    cargo: 'Fruits, Perishable',
-    weight: '500kg',
-    price: 1500,
-    status: 'Incoming',
-    customer: { name: 'Jane Doe', phone: '+254712345678' },
-  },
-  {
-    id: 'REQ-102',
-    from: 'Depot A',
-    to: 'Shop B',
-    type: 'CargoTRUK',
-    date: '2024-06-12 12:30',
-    cargo: 'Electronics',
-    weight: '200kg',
-    price: 900,
-    status: 'Incoming',
-    customer: { name: 'John Smith', phone: '+254798765432' },
-  },
-];
-
-const MOCK_ACTIVE = [
-  {
-    id: 'REQ-099',
-    from: 'Farm Z',
-    to: 'Market Q',
-    type: 'AgriTRUK',
-    date: '2024-06-11 09:00',
-    cargo: 'Vegetables',
-    weight: '300kg',
-    price: 1100,
-    status: 'On Transit',
-    customer: { name: 'Alice', phone: '+254700000000' },
-    progress: 0.7,
-  },
-];
-
-const MOCK_COMPLETED = [
-  {
-    id: 'REQ-090',
-    from: 'Warehouse W',
-    to: 'Client E',
-    type: 'CargoTRUK',
-    date: '2024-06-09 15:00',
-    cargo: 'Machinery',
-    weight: '1.2T',
-    price: 2500,
-    status: 'Completed',
-    customer: { name: 'Bob', phone: '+254733333333' },
-    rating: 5,
-  },
-];
+import { MOCK_REQUESTS, MOCK_ACTIVE, MOCK_COMPLETED } from '../mocks/jobs';
+import { MOCK_TRANSPORTERS, MOCK_ASSIGNED_JOBS } from '../mocks/transporters';
 
 const TABS = ['Incoming', 'Active', 'Completed'];
 
-const MOCK_TRANSPORTERS = [
-  { id: 'T001', name: 'John Doe', phone: '+254700111222', status: 'Active' },
-  { id: 'T002', name: 'Jane Smith', phone: '+254700333444', status: 'Active' },
-  { id: 'T003', name: 'Outsourced Transporter', phone: '+254700555666', status: 'Pending' },
-];
-const MOCK_ASSIGNED_JOBS = [
-  { id: 'REQ-201', job: 'Depot X → Market Z', assignedTo: 'John Doe', date: '2024-06-10', status: 'Assigned' },
-  { id: 'REQ-202', job: 'Farm Y → Shop Q', assignedTo: 'Jane Smith', date: '2024-06-11', status: 'Completed' },
-];
+import { useRoute } from '@react-navigation/native';
 
 const TransporterServiceScreen = () => {
+  const route = useRoute();
+  const transporterType = route?.params?.transporterType || 'company';
+  const isCompany = transporterType === 'company';
   const [tab, setTab] = useState('Incoming');
   const [showSubscription, setShowSubscription] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('monthly');
-  const [isCompany, setIsCompany] = useState(true); // MOCK: toggle for company/broker view
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [selectedTransporter, setSelectedTransporter] = useState(null);
@@ -143,14 +81,19 @@ const TransporterServiceScreen = () => {
     </View>
   );
 
-  return (
+  // Compose dashboard header/sections as a single component for FlatList's ListHeaderComponent
+  const DashboardHeader = (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>{isCompany ? 'Broker/Company Dashboard' : 'Transporter Dashboard'}</Text>
-        <TouchableOpacity style={styles.subscriptionBtn} onPress={() => setShowSubscription(true)}>
-          <Ionicons name="card-outline" size={20} color={colors.primary} />
-          <Text style={styles.subscriptionBtnText}>Subscription</Text>
-        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle} numberOfLines={2} ellipsizeMode="tail">{isCompany ? 'Broker/Company Dashboard' : 'Transporter Dashboard'}</Text>
+        </View>
+        <View style={{ marginLeft: 8 }}>
+          <TouchableOpacity style={styles.subscriptionBtn} onPress={() => setShowSubscription(true)}>
+            <Ionicons name="card-outline" size={20} color={colors.primary} />
+            <Text style={styles.subscriptionBtnText}>Subscription</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {notification && (
         <View style={styles.notificationBanner}>
@@ -206,7 +149,7 @@ const TransporterServiceScreen = () => {
           </View>
         </View>
       </Modal>
-      {isCompany && (
+      {isCompany ? (
         <>
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>My Transporters</Text>
@@ -255,6 +198,34 @@ const TransporterServiceScreen = () => {
             </View>
           </Modal>
         </>
+      ) : (
+        <>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>My Vehicle</Text>
+            <View style={styles.transporterRow}>
+              <Ionicons name="car-outline" size={32} color={colors.primary} style={{ marginRight: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.transporterName}>KDA 123A</Text>
+                <Text style={styles.transporterStatus}>Truck • Active</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Revenue</Text>
+            <View style={{ padding: 10 }}>
+              <Text style={styles.assignedJobText}>Total Earnings: Ksh 120,000</Text>
+              <Text style={styles.assignedJobMeta}>Last Payment: Ksh 10,000 on 2024-06-10</Text>
+            </View>
+          </View>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Profile</Text>
+            <View style={{ padding: 10 }}>
+              <Text style={styles.assignedJobText}>Name: John Doe</Text>
+              <Text style={styles.assignedJobMeta}>Phone: +254700111222</Text>
+              <Text style={styles.assignedJobMeta}>Status: Active</Text>
+            </View>
+          </View>
+        </>
       )}
       <View style={styles.tabRow}>
         {TABS.map(t => (
@@ -267,14 +238,19 @@ const TransporterServiceScreen = () => {
           </TouchableOpacity>
         ))}
       </View>
-      <FlatList
-        data={getData()}
-        keyExtractor={item => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-        ListEmptyComponent={<Text style={styles.emptyText}>No requests found.</Text>}
-      />
     </View>
+  );
+
+  return (
+    <FlatList
+      data={getData()}
+      keyExtractor={item => item.id}
+      renderItem={renderItem}
+      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+      ListEmptyComponent={<Text style={styles.emptyText}>No requests found.</Text>}
+      ListHeaderComponent={DashboardHeader}
+      ListFooterComponent={<View style={{ height: 72 }} />}
+    />
   );
 };
 
