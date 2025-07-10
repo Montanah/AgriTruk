@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import colors from '../constants/colors';
-import { apiRequest } from '../utils/api';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import revenueCompanyMock from '../../mock/revenueCompanyMock';
+import colors from '../constants/colors';
 
 export default function RevenueScreen({ route }) {
   const transporterType = route?.params?.transporterType || 'company';
