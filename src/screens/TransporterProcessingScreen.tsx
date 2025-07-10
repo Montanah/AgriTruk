@@ -10,8 +10,9 @@ export default function TransporterProcessingScreen({ route }) {
   // route.params?.transporterType can be 'individual' or 'company'
   const transporterType = route?.params?.transporterType || 'individual';
   const navigation = useNavigation();
-  // Animated glowing ring effect
+  // Animated glowing ring effect (LED-like)
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
   React.useEffect(() => {
     Animated.loop(
       Animated.timing(rotateAnim, {
@@ -20,6 +21,22 @@ export default function TransporterProcessingScreen({ route }) {
         easing: Easing.linear,
         useNativeDriver: true,
       })
+    ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.18,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
     ).start();
   }, []);
   const ringSpin = rotateAnim.interpolate({
@@ -37,20 +54,41 @@ export default function TransporterProcessingScreen({ route }) {
   return (
     <View style={styles.container}>
       <View style={styles.profileGlowWrap}>
-        <Animated.View style={{
-          transform: [{ rotate: ringSpin }],
-          position: 'absolute',
-          left: 0, right: 0, top: 0, bottom: 0,
-          alignItems: 'center', justifyContent: 'center',
-        }}>
+        <Animated.View
+          style={{
+            transform: [{ rotate: ringSpin }, { scale: pulseAnim }],
+            position: 'absolute',
+            left: 0, right: 0, top: 0, bottom: 0,
+            alignItems: 'center', justifyContent: 'center',
+            shadowColor: '#00FF6A',
+            shadowOpacity: 0.85,
+            shadowRadius: 24,
+            shadowOffset: { width: 0, height: 0 },
+            elevation: 16,
+          }}
+        >
           <LinearGradient
-            colors={[colors.primary, colors.secondary, colors.primary, colors.tertiary, colors.primary]}
+            colors={['#00FF6A', '#00C853', '#00FF6A', '#00C853', '#00FF6A']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={styles.glowRing}
           />
+          <Animated.View
+            style={{
+              position: 'absolute',
+              left: 30, top: 30, right: 30, bottom: 30,
+              borderRadius: 30,
+              backgroundColor: '#00FF6A',
+              opacity: pulseAnim.interpolate({ inputRange: [1, 1.18], outputRange: [0.18, 0.32] }),
+              shadowColor: '#00FF6A',
+              shadowOpacity: 0.9,
+              shadowRadius: 18,
+              shadowOffset: { width: 0, height: 0 },
+              elevation: 10,
+            }}
+          />
         </Animated.View>
         <View style={styles.profileIconWrap}>
-          <Ionicons name={transporterType === 'company' ? 'business-outline' : 'person-circle-outline'} size={80} color={colors.primary} />
+          <Ionicons name={transporterType === 'company' ? 'business-outline' : 'person-circle-outline'} size={80} color={'#00FF6A'} />
         </View>
       </View>
       <View style={styles.cardWrap}>
@@ -145,12 +183,10 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    opacity: 0.7,
-    ...Platform.select({
-      ios: { shadowColor: colors.primary, shadowOpacity: 0.7, shadowRadius: 18, shadowOffset: { width: 0, height: 0 } },
-      android: { },
-      default: {},
-    }),
+    opacity: 0.92,
+    borderWidth: 4,
+    borderColor: '#00FF6A',
+    backgroundColor: '#003f1f',
   },
   profileIconWrap: {
     width: 90,
