@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-nat
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { apiRequest } from '../utils/api';
+import revenueCompanyMock from '../../mock/revenueCompanyMock';
 
 export default function RevenueScreen({ route }) {
   const transporterType = route?.params?.transporterType || 'company';
@@ -16,25 +17,22 @@ export default function RevenueScreen({ route }) {
     const [analytics, setAnalytics] = useState({ drivers: [], jobs: [] });
 
     useEffect(() => {
-      let mounted = true;
-      setLoading(true);
-      setError('');
-      apiRequest('/company/revenue-overview')
-        .then(data => {
-          if (!mounted) return;
-          setInventory(data.inventory || []);
-          setRevenue(data.totalRevenue || 0);
-          setOutstanding(data.outstandingPayments || 0);
-          setAnalytics({
-            drivers: data.topDrivers || [],
-            jobs: data.frequentJobs || [],
-          });
-        })
-        .catch(e => {
-          if (mounted) setError(e.message || 'Failed to load data');
-        })
-        .finally(() => { if (mounted) setLoading(false); });
-      return () => { mounted = false; };
+    let mounted = true;
+    setLoading(true);
+    setError('');
+    // Use mock data for UI
+    setTimeout(() => {
+    if (!mounted) return;
+    setInventory(revenueCompanyMock.inventory || []);
+    setRevenue(revenueCompanyMock.totalRevenue || 0);
+    setOutstanding(revenueCompanyMock.outstandingPayments || 0);
+    setAnalytics({
+    drivers: revenueCompanyMock.topDrivers || [],
+    jobs: revenueCompanyMock.frequentJobs || [],
+    });
+    setLoading(false);
+    }, 800); // Simulate network delay
+    return () => { mounted = false; };
     }, []);
 
     if (loading) {
@@ -60,23 +58,7 @@ export default function RevenueScreen({ route }) {
       <ScrollView style={styles.bg} contentContainerStyle={styles.container}>
         <Text style={styles.title}>Company/Broker Revenue</Text>
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Inventory Overview</Text>
-          {inventory.length === 0 ? (
-            <Text style={styles.value}>No inventory data available.</Text>
-          ) : (
-            inventory.map((item: any) => (
-              <View key={item.id || item.name} style={{ marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between' }}>
-                <View>
-                  <Text style={styles.label}>{item.name}</Text>
-                  <Text style={styles.value}>Quantity: {item.quantity}</Text>
-                </View>
-                <Text style={styles.amount}>Ksh {item.revenue?.toLocaleString() || '0'}</Text>
-              </View>
-            ))
-          )}
-        </View>
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Total Revenue</Text>
+          <Text style={styles.sectionTitle}>Total Revenue Collected</Text>
           <Text style={styles.amount}>Ksh {revenue.toLocaleString()}</Text>
         </View>
         <View style={styles.card}>
@@ -84,7 +66,44 @@ export default function RevenueScreen({ route }) {
           <Text style={styles.amount}>Ksh {outstanding.toLocaleString()}</Text>
         </View>
         <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Vehicle Performance</Text>
+          {inventory.length === 0 ? (
+            <Text style={styles.value}>No vehicle data available.</Text>
+          ) : (
+            inventory.map((item: any) => (
+              <View key={item.id || item.name} style={{ marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={styles.label}>{item.name}</Text>
+                    <Text style={styles.value}>Trips: {item.trips || 0}</Text>
+                  </View>
+                  <Text style={styles.amount}>Ksh {item.revenue?.toLocaleString() || '0'}</Text>
+                </View>
+                {/* Performance Bar */}
+                <View style={{ height: 8, backgroundColor: '#e0e0e0', borderRadius: 4, marginTop: 6, marginBottom: 2 }}>
+                  <View style={{
+                    width: `${Math.min(100, Math.round((item.revenue / (revenue || 1)) * 100))}%`,
+                    height: 8,
+                    backgroundColor: colors.primary,
+                    borderRadius: 4,
+                  }} />
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+        <View style={styles.card}>
           <Text style={styles.sectionTitle}>Analytics</Text>
+          <Text style={styles.label}>Top Performing Vehicles</Text>
+          <Text style={styles.value}>
+            {inventory.length > 0
+              ? inventory
+                  .sort((a: any, b: any) => (b.revenue || 0) - (a.revenue || 0))
+                  .slice(0, 3)
+                  .map((v: any) => `${v.name} (Ksh ${v.revenue?.toLocaleString() || '0'})`)
+                  .join(', ')
+              : 'N/A'}
+          </Text>
           <Text style={styles.label}>Top Performing Drivers</Text>
           <Text style={styles.value}>
             {analytics.drivers.length > 0 ? analytics.drivers.map((d: any) => `${d.name} (Ksh ${d.revenue?.toLocaleString() || '0'})`).join(', ') : 'N/A'}
