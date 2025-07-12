@@ -10,7 +10,9 @@ import {
   Animated,
   KeyboardAvoidingView,
   PanResponder,
+  Alert,
 } from 'react-native';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -21,7 +23,6 @@ import { spacing, fonts } from '../constants';
 
 const TAB_UNDERLINE_WIDTH = 120;
 const TAB_COUNT = 2;
-// The underline will be centered under each tab, so we calculate the left offset dynamically
 function getUnderlineLeft(idx, containerWidth) {
   const tabWidth = (containerWidth - 2 * 16) / TAB_COUNT;
   return 16 + idx * tabWidth + (tabWidth - TAB_UNDERLINE_WIDTH) / 2;
@@ -103,6 +104,11 @@ const ServiceRequestScreen = () => {
   const [formCollapsed, setFormCollapsed] = useState(false);
   const scrollRef = useRef(null);
 
+  // Booking/Instant toggle
+  const [requestType, setRequestType] = useState('instant'); // 'instant' or 'booking'
+  const [pickupTime, setPickupTime] = useState(null); // Date object for booking
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   // Animate tab underline
   const animateTab = (to) => {
     Animated.timing(anim, {
@@ -124,12 +130,10 @@ const ServiceRequestScreen = () => {
         }
       },
       onPanResponderMove: (_, gestureState) => {
-        // Animate underline for both directions, regardless of tab
         let newValue = Math.max(0, Math.min(1, 0.5 - gestureState.dx / 240));
         anim.setValue(newValue);
       },
       onPanResponderRelease: (_, gestureState) => {
-        // Snap to the closest tab based on anim value
         if (anim._value < 0.5) {
           handleTabSwitch('agriTRUK', 0);
         } else {
@@ -139,12 +143,10 @@ const ServiceRequestScreen = () => {
     }),
   ).current;
 
-  // Set system bar colors dynamically
   React.useEffect(() => {
     SystemUI.setBackgroundColorAsync(accent);
   }, [activeTab]);
 
-  // Animate tab underline
   const handleTabSwitch = (key, idx) => {
     setActiveTab(key);
     animateTab(idx);
@@ -164,19 +166,16 @@ const ServiceRequestScreen = () => {
     if (!fromLocation || !toLocation || !weight || !productType) return false;
     if (activeTab === 'agriTRUK' && isPerishable && perishableSpecs.length === 0) return false;
     if (activeTab === 'cargoTRUK' && isSpecialCargo && specialCargoSpecs.length === 0) return false;
+    if (requestType === 'booking' && !pickupTime) return false;
     return true;
   };
 
-  // Accent color for current tab
   const accent = activeTab === 'agriTRUK' ? colors.primary : colors.secondary;
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar style="light" />
-      {/* View under status bar for background color */}
-      <View
-        style={{ height: Platform.OS === 'ios' ? 44 : 32, backgroundColor: accent, width: '100%' }}
-      />
+      <View style={{ height: Platform.OS === 'ios' ? 44 : 32, backgroundColor: accent, width: '100%' }} />
       <LinearGradient
         colors={[accent, colors.secondary, colors.primaryDark, '#222']}
         style={StyleSheet.absoluteFill}
@@ -203,9 +202,7 @@ const ServiceRequestScreen = () => {
                   activeOpacity={0.85}
                 >
                   <View style={styles.tabIcon}>{tab.icon}</View>
-                  <Text style={[styles.tabLabel, activeTab === tab.key && { color: tab.accent }]}>
-                    {tab.label}
-                  </Text>
+                  <Text style={[styles.tabLabel, activeTab === tab.key && { color: tab.accent }]}> {tab.label} </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -237,228 +234,255 @@ const ServiceRequestScreen = () => {
                 ]}
               />
             </View>
+            {/* Request Type Toggle */}
+            <View style={styles.toggleRow}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, requestType === 'instant' && { backgroundColor: accent }]}
+                onPress={() => setRequestType('instant')}
+              >
+                <Text style={[styles.toggleLabel, requestType === 'instant' && { color: colors.white }]}>Instant</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleBtn, requestType === 'booking' && { backgroundColor: accent }]}
+                onPress={() => setRequestType('booking')}
+              >
+                <Text style={[styles.toggleLabel, requestType === 'booking' && { color: colors.white }]}>Booking</Text>
+              </TouchableOpacity>
+            </View>
             {/* Form Card */}
-            <View style={styles.formCard}> 
-            {/* Collapse/Expand Button */}
-            {formCollapsed && (
-            <TouchableOpacity
-            style={{ alignSelf: 'flex-end', marginBottom: 8, padding: 4, paddingHorizontal: 10, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.text.light }}
-            onPress={() => setFormCollapsed(false)}
-            >
-            <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13 }}>Expand Form</Text>
-            </TouchableOpacity>
-            )}
-            {/* Form Fields */}
-            {!formCollapsed && <>
-            <Text style={styles.label}>From</Text>
-            <TouchableOpacity style={styles.locationInput}>
-            <Ionicons name="locate" size={18} color={accent} style={{ marginRight: 8 }} />
-            <Text style={styles.locationText}>{fromLocation}</Text>
-            <Text style={styles.changeText}>Change</Text>
-            </TouchableOpacity>
-            <Text style={styles.label}>To</Text>
-            <TextInput
-            style={styles.input}
-            placeholder="Enter destination (autocomplete)"
-            value={toLocation}
-            onChangeText={setToLocation}
-            placeholderTextColor={colors.text.light}
-            />
-            <Text style={styles.label}>Product Type</Text>
-            <TextInput
-            style={styles.input}
-            placeholder={
-            activeTab === 'agriTRUK'
-            ? 'e.g. Maize, Fruits, Beans…'
-            : 'e.g. Electronics, Furniture, Clothing…'
-            }
-            value={productType}
-            onChangeText={(text) => {
-            setProductType(text);
-            setShowProductSuggestions(text.length > 0);
-            }}
-            onFocus={() => setShowProductSuggestions(productType.length > 0)}
-            onBlur={() => setTimeout(() => setShowProductSuggestions(false), 200)}
-            placeholderTextColor={colors.text.light}
-            />
-            {showProductSuggestions && (
-            <View style={styles.suggestionBox}>
-            {PRODUCT_SUGGESTIONS.filter((p) =>
-            p.toLowerCase().includes(productType.toLowerCase()),
-            ).map((suggestion) => (
-            <TouchableOpacity
-            key={suggestion}
-            style={styles.suggestionItem}
-            onPress={() => {
-            setProductType(suggestion);
-            setShowProductSuggestions(false);
-            }}
-            >
-            <Text style={styles.suggestionText}>{suggestion}</Text>
-            </TouchableOpacity>
-            ))}
-            </View>
-            )}
-            {/* Dynamic Fields */}
-            {activeTab === 'agriTRUK' && (
-            <>
-            <View style={styles.toggleRow}>
-            <TouchableOpacity
-            style={[styles.toggleBtn, isPerishable && { backgroundColor: accent }]}
-            onPress={() => setIsPerishable((v) => !v)}
-            >
-            <MaterialCommunityIcons
-            name="snowflake"
-            size={18}
-            color={isPerishable ? colors.white : accent}
-            />
-            <Text style={[styles.toggleLabel, isPerishable && { color: colors.white }]}> 
-            Perishable
-            </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-            style={[styles.toggleBtn, !isPerishable && { backgroundColor: accent }]}
-            onPress={() => setIsPerishable(false)}
-            >
-            <MaterialCommunityIcons
-            name="leaf"
-            size={18}
-            color={!isPerishable ? colors.white : accent}
-            />
-            <Text style={[styles.toggleLabel, !isPerishable && { color: colors.white }]}> 
-            Normal
-            </Text>
-            </TouchableOpacity>
-            </View>
-            {isPerishable && (
-            <View style={styles.chipRow}>
-            {AGRI_PERISHABLES.map((item) => (
-            <TouchableOpacity
-            key={item.key}
-            style={[
-            styles.chip,
-            perishableSpecs.includes(item.key) && {
-            backgroundColor: accent,
-            borderColor: accent,
-            },
-            ]}
-            onPress={() =>
-            setPerishableSpecs((prev) =>
-            prev.includes(item.key)
-            ? prev.filter((k) => k !== item.key)
-            : [...prev, item.key],
-            )
-            }
-            >
-            <Text
-            style={[
-            styles.chipText,
-            perishableSpecs.includes(item.key) && { color: colors.white },
-            ]}
-            >
-            {item.label}
-            </Text>
-            </TouchableOpacity>
-            ))}
-            </View>
-            )}
-            </>
-            )}
-            {activeTab === 'cargoTRUK' && (
-            <>
-            <View style={styles.toggleRow}>
-            <TouchableOpacity
-            style={[styles.toggleBtn, isSpecialCargo && { backgroundColor: accent }]}
-            onPress={() => setIsSpecialCargo((v) => !v)}
-            >
-            <MaterialCommunityIcons
-            name="alert-decagram"
-            size={18}
-            color={isSpecialCargo ? colors.white : accent}
-            />
-            <Text style={[styles.toggleLabel, isSpecialCargo && { color: colors.white }]}> 
-            Special Cargo
-            </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-            style={[styles.toggleBtn, !isSpecialCargo && { backgroundColor: accent }]}
-            onPress={() => setIsSpecialCargo(false)}
-            >
-            <MaterialCommunityIcons
-            name="cube-outline"
-            size={18}
-            color={!isSpecialCargo ? colors.white : accent}
-            />
-            <Text
-            style={[styles.toggleLabel, !isSpecialCargo && { color: colors.white }]}
-            >
-            Normal
-            </Text>
-            </TouchableOpacity>
-            </View>
-            {isSpecialCargo && (
-            <View style={styles.chipRow}>
-            {CARGO_SPECIALS.map((item) => (
-            <TouchableOpacity
-            key={item.key}
-            style={[
-            styles.chip,
-            specialCargoSpecs.includes(item.key) && {
-            backgroundColor: accent,
-            borderColor: accent,
-            },
-            ]}
-            onPress={() =>
-            setSpecialCargoSpecs((prev) =>
-            prev.includes(item.key)
-            ? prev.filter((k) => k !== item.key)
-            : [...prev, item.key],
-            )
-            }
-            >
-            <Text
-            style={[
-            styles.chipText,
-            specialCargoSpecs.includes(item.key) && { color: colors.white },
-            ]}
-            >
-            {item.label}
-            </Text>
-            </TouchableOpacity>
-            ))}
-            </View>
-            )}
-            </>
-            )}
-            {/* Common Fields */}
-            <Text style={styles.label}>Weight (kg)</Text>
-            <TextInput
-            style={styles.input}
-            placeholder="Enter weight"
-            keyboardType="numeric"
-            value={weight}
-            onChangeText={setWeight}
-            placeholderTextColor={colors.text.light}
-            />
-            <Text style={styles.label}>Value (optional)</Text>
-            <TextInput
-            style={styles.input}
-            placeholder="Enter value"
-            keyboardType="numeric"
-            value={value}
-            onChangeText={setValue}
-            placeholderTextColor={colors.text.light}
-            />
-            <Text style={styles.label}>Additional/Special Request</Text>
-            <TextInput
-            style={styles.input}
-            placeholder="Any additional info for the driver"
-            value={additional}
-            onChangeText={setAdditional}
-            placeholderTextColor={colors.text.light}
-            />
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-            </>}
+            <View style={styles.formCard}>
+              {formCollapsed && (
+                <TouchableOpacity
+                  style={{ alignSelf: 'flex-end', marginBottom: 8, padding: 4, paddingHorizontal: 10, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.text.light }}
+                  onPress={() => setFormCollapsed(false)}
+                >
+                  <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13 }}>Expand Form</Text>
+                </TouchableOpacity>
+              )}
+              {!formCollapsed && <>
+                <Text style={styles.label}>From</Text>
+                <TouchableOpacity style={styles.locationInput}>
+                  <Ionicons name="locate" size={18} color={accent} style={{ marginRight: 8 }} />
+                  <Text style={styles.locationText}>{fromLocation}</Text>
+                  <Text style={styles.changeText}>Change</Text>
+                </TouchableOpacity>
+                <Text style={styles.label}>To</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter destination (autocomplete)"
+                  value={toLocation}
+                  onChangeText={setToLocation}
+                  placeholderTextColor={colors.text.light}
+                />
+                <Text style={styles.label}>Product Type</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={
+                    activeTab === 'agriTRUK'
+                      ? 'e.g. Maize, Fruits, Beans…'
+                      : 'e.g. Electronics, Furniture, Clothing…'
+                  }
+                  value={productType}
+                  onChangeText={(text) => {
+                    setProductType(text);
+                    setShowProductSuggestions(text.length > 0);
+                  }}
+                  onFocus={() => setShowProductSuggestions(productType.length > 0)}
+                  onBlur={() => setTimeout(() => setShowProductSuggestions(false), 200)}
+                  placeholderTextColor={colors.text.light}
+                />
+                {showProductSuggestions && (
+                  <View style={styles.suggestionBox}>
+                    {PRODUCT_SUGGESTIONS.filter((p) =>
+                      p.toLowerCase().includes(productType.toLowerCase()),
+                    ).map((suggestion) => (
+                      <TouchableOpacity
+                        key={suggestion}
+                        style={styles.suggestionItem}
+                        onPress={() => {
+                          setProductType(suggestion);
+                          setShowProductSuggestions(false);
+                        }}
+                      >
+                        <Text style={styles.suggestionText}>{suggestion}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+                {/* Dynamic Fields */}
+                {activeTab === 'agriTRUK' && (
+                  <>
+                    <View style={styles.toggleRow}>
+                      <TouchableOpacity
+                        style={[styles.toggleBtn, isPerishable && { backgroundColor: accent }]}
+                        onPress={() => setIsPerishable((v) => !v)}
+                      >
+                        <MaterialCommunityIcons
+                          name="snowflake"
+                          size={18}
+                          color={isPerishable ? colors.white : accent}
+                        />
+                        <Text style={[styles.toggleLabel, isPerishable && { color: colors.white }]}> Perishable </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.toggleBtn, !isPerishable && { backgroundColor: accent }]}
+                        onPress={() => setIsPerishable(false)}
+                      >
+                        <MaterialCommunityIcons
+                          name="leaf"
+                          size={18}
+                          color={!isPerishable ? colors.white : accent}
+                        />
+                        <Text style={[styles.toggleLabel, !isPerishable && { color: colors.white }]}> Normal </Text>
+                      </TouchableOpacity>
+                    </View>
+                    {isPerishable && (
+                      <View style={styles.chipRow}>
+                        {AGRI_PERISHABLES.map((item) => (
+                          <TouchableOpacity
+                            key={item.key}
+                            style={[
+                              styles.chip,
+                              perishableSpecs.includes(item.key) && {
+                                backgroundColor: accent,
+                                borderColor: accent,
+                              },
+                            ]}
+                            onPress={() =>
+                              setPerishableSpecs((prev) =>
+                                prev.includes(item.key)
+                                  ? prev.filter((k) => k !== item.key)
+                                  : [...prev, item.key],
+                              )
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.chipText,
+                                perishableSpecs.includes(item.key) && { color: colors.white },
+                              ]}
+                            >
+                              {item.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </>
+                )}
+                {activeTab === 'cargoTRUK' && (
+                  <>
+                    <View style={styles.toggleRow}>
+                      <TouchableOpacity
+                        style={[styles.toggleBtn, isSpecialCargo && { backgroundColor: accent }]}
+                        onPress={() => setIsSpecialCargo((v) => !v)}
+                      >
+                        <MaterialCommunityIcons
+                          name="alert-decagram"
+                          size={18}
+                          color={isSpecialCargo ? colors.white : accent}
+                        />
+                        <Text style={[styles.toggleLabel, isSpecialCargo && { color: colors.white }]}> Special Cargo </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.toggleBtn, !isSpecialCargo && { backgroundColor: accent }]}
+                        onPress={() => setIsSpecialCargo(false)}
+                      >
+                        <MaterialCommunityIcons
+                          name="cube-outline"
+                          size={18}
+                          color={!isSpecialCargo ? colors.white : accent}
+                        />
+                        <Text style={[styles.toggleLabel, !isSpecialCargo && { color: colors.white }]}> Normal </Text>
+                      </TouchableOpacity>
+                    </View>
+                    {isSpecialCargo && (
+                      <View style={styles.chipRow}>
+                        {CARGO_SPECIALS.map((item) => (
+                          <TouchableOpacity
+                            key={item.key}
+                            style={[
+                              styles.chip,
+                              specialCargoSpecs.includes(item.key) && {
+                                backgroundColor: accent,
+                                borderColor: accent,
+                              },
+                            ]}
+                            onPress={() =>
+                              setSpecialCargoSpecs((prev) =>
+                                prev.includes(item.key)
+                                  ? prev.filter((k) => k !== item.key)
+                                  : [...prev, item.key],
+                              )
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.chipText,
+                                specialCargoSpecs.includes(item.key) && { color: colors.white },
+                              ]}
+                            >
+                              {item.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </>
+                )}
+                {/* Common Fields */}
+                <Text style={styles.label}>Weight (kg)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter weight"
+                  keyboardType="numeric"
+                  value={weight}
+                  onChangeText={setWeight}
+                  placeholderTextColor={colors.text.light}
+                />
+                <Text style={styles.label}>Value (optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter value"
+                  keyboardType="numeric"
+                  value={value}
+                  onChangeText={setValue}
+                  placeholderTextColor={colors.text.light}
+                />
+                <Text style={styles.label}>Additional/Special Request</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Any additional info for the driver"
+                  value={additional}
+                  onChangeText={setAdditional}
+                  placeholderTextColor={colors.text.light}
+                />
+                {/* Booking Pickup Time Field */}
+                {requestType === 'booking' && (
+                  <>
+                    <Text style={styles.label}>Pickup Time</Text>
+                    <TouchableOpacity
+                      style={styles.input}
+                      onPress={() => setShowDatePicker(true)}
+                    >
+                      <Text style={{ color: pickupTime ? colors.text.primary : colors.text.light }}>
+                        {pickupTime ? pickupTime.toLocaleString() : 'Select pickup date and time'}
+                      </Text>
+                    </TouchableOpacity>
+                    <DateTimePickerModal
+                      isVisible={showDatePicker}
+                      mode="datetime"
+                      date={pickupTime || new Date()}
+                      onConfirm={(date) => {
+                        setPickupTime(date);
+                        setShowDatePicker(false);
+                      }}
+                      onCancel={() => setShowDatePicker(false)}
+                    />
+                  </>
+                )}
+                {error ? <Text style={styles.error}>{error}</Text> : null}
+              </>}
               {/* Summary Card */}
               <View style={styles.summaryCard}>
                 <Text style={[styles.summaryTitle, { color: accent }]}>Summary</Text>
@@ -483,6 +507,10 @@ const ServiceRequestScreen = () => {
                 )}
                 <Text style={styles.summaryText}>Value: {value || '---'}</Text>
                 <Text style={styles.summaryText}>Notes: {additional || '---'}</Text>
+                {requestType === 'booking' && (
+                  <Text style={styles.summaryText}>Pickup Time: {pickupTime ? pickupTime.toLocaleString() : '---'}</Text>
+                )}
+                <Text style={styles.summaryText}>Type: {requestType === 'booking' ? 'Booking' : 'Instant'}</Text>
               </View>
               <TouchableOpacity
                 style={[
@@ -491,154 +519,156 @@ const ServiceRequestScreen = () => {
                 ]}
                 disabled={!isValid()}
                 onPress={() => {
-                  setLoadingTransporters(true);
-                  setShowTransporters(false);
-                  setFormCollapsed(true);
-                  setTimeout(() => {
-                    // Filter transporters based on request
-                    let filtered = MOCK_TRANSPORTERS.filter((t) => {
-                      if (activeTab === 'agriTRUK') {
-                        if (isPerishable) {
-                          return (
-                            t.canHandle.includes('perishable') &&
-                            perishableSpecs.every((spec) => t.perishableSpecs.includes(spec))
-                          );
+                  if (requestType === 'booking') {
+                    // TODO: Integrate with backend booking API
+                    Alert.alert('Booking placed!', 'Your booking has been created. (API integration pending)');
+                  } else {
+                    setLoadingTransporters(true);
+                    setShowTransporters(false);
+                    setFormCollapsed(true);
+                    setTimeout(() => {
+                      let filtered = MOCK_TRANSPORTERS.filter((t) => {
+                        if (activeTab === 'agriTRUK') {
+                          if (isPerishable) {
+                            return (
+                              t.canHandle.includes('perishable') &&
+                              perishableSpecs.every((spec) => t.perishableSpecs.includes(spec))
+                            );
+                          }
+                          return t.canHandle.includes('agri');
+                        } else {
+                          if (isSpecialCargo) {
+                            return (
+                              t.canHandle.includes('cargo') &&
+                              specialCargoSpecs.every((spec) => t.specialCargo.includes(spec))
+                            );
+                          }
+                          return t.canHandle.includes('cargo');
                         }
-                        return t.canHandle.includes('agri');
-                      } else {
-                        if (isSpecialCargo) {
-                          return (
-                            t.canHandle.includes('cargo') &&
-                            specialCargoSpecs.every((spec) => t.specialCargo.includes(spec))
-                          );
-                        }
-                        return t.canHandle.includes('cargo');
+                      });
+                      setFilteredTransporters(filtered);
+                      setLoadingTransporters(false);
+                      setShowTransporters(true);
+                      if (scrollRef.current) {
+                        scrollRef.current.scrollToEnd({ animated: true });
                       }
-                    });
-                    setFilteredTransporters(filtered);
-                    setLoadingTransporters(false);
-                    setShowTransporters(true);
-                    // Scroll to transporter list
-                    if (scrollRef.current) {
-                      scrollRef.current.scrollToEnd({ animated: true });
-                    }
-                  }, 1400);
+                    }, 1400);
+                  }
                 }}
               >
-                <Text style={styles.findBtnText}>Find Transporters</Text>
+                <Text style={styles.findBtnText}>{requestType === 'booking' ? 'Place Booking' : 'Find Transporters'}</Text>
               </TouchableOpacity>
-            {/* Transporter List or Skeleton Loader */}
-            {(loadingTransporters || showTransporters) && (
-              <View style={{ width: '100%', marginTop: 16 }}>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: accent }}>
-                  Available Transporters
-                </Text>
-                {loadingTransporters ? (
-                  <>
-                    <Text style={{ textAlign: 'center', color: accent, fontWeight: 'bold', marginBottom: 12, fontSize: 16 }}>
-                      Finding available transporters...
-                    </Text>
-                    {/* Skeleton loader (3 cards) */}
-                    {[1, 2, 3].map((i) => (
-                      <View
-                        key={i}
-                        style={{
-                          backgroundColor: colors.surface,
-                          borderRadius: 14,
-                          padding: 16,
-                          marginBottom: 12,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          opacity: 0.6,
-                        }}
-                      >
-                        <View style={{ marginRight: 16 }}>
-                          <View
-                            style={{
-                              width: 54,
-                              height: 54,
-                              borderRadius: 27,
-                              backgroundColor: '#e0e0e0',
-                            }}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <View style={{ height: 16, width: '60%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 8 }} />
-                          <View style={{ height: 12, width: '40%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 6 }} />
-                          <View style={{ height: 10, width: '30%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 6 }} />
-                          <View style={{ height: 14, width: '50%', backgroundColor: '#e0e0e0', borderRadius: 8 }} />
-                        </View>
-                        <View style={{ width: 70, height: 32, backgroundColor: '#e0e0e0', borderRadius: 8 }} />
-                      </View>
-                    ))}
-                  </>
-                ) : showTransporters ? (
-                  filteredTransporters.length === 0 ? (
-                    <Text style={{ color: colors.error, marginBottom: 12 }}>
-                      No suitable transporters found for your request.
-                    </Text>
-                  ) : (
-                    filteredTransporters.map((t) => (
-                      <View
-                        key={t.id}
-                        style={{
-                          backgroundColor: colors.surface,
-                          borderRadius: 14,
-                          padding: 16,
-                          marginBottom: 12,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          shadowColor: colors.black,
-                          shadowOpacity: 0.06,
-                          shadowRadius: 6,
-                          elevation: 2,
-                        }}
-                      >
-                        <View style={{ marginRight: 16 }}>
-                          <View
-                            style={{
-                              width: 54,
-                              height: 54,
-                              borderRadius: 27,
-                              backgroundColor: '#eee',
-                              overflow: 'hidden',
-                              justifyContent: 'center',
-                              alignItems: 'center',
-                            }}
-                          >
-                            <Animated.Image
-                              source={{ uri: t.photo }}
-                              style={{ width: 54, height: 54, borderRadius: 27 }}
+              {/* Transporter List or Skeleton Loader */}
+              {requestType === 'instant' && (loadingTransporters || showTransporters) && (
+                <View style={{ width: '100%', marginTop: 16 }}>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: accent }}>
+                    Available Transporters
+                  </Text>
+                  {loadingTransporters ? (
+                    <>
+                      <Text style={{ textAlign: 'center', color: accent, fontWeight: 'bold', marginBottom: 12, fontSize: 16 }}>
+                        Finding available transporters...
+                      </Text>
+                      {[1, 2, 3].map((i) => (
+                        <View
+                          key={i}
+                          style={{
+                            backgroundColor: colors.surface,
+                            borderRadius: 14,
+                            padding: 16,
+                            marginBottom: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            opacity: 0.6,
+                          }}
+                        >
+                          <View style={{ marginRight: 16 }}>
+                            <View
+                              style={{
+                                width: 54,
+                                height: 54,
+                                borderRadius: 27,
+                                backgroundColor: '#e0e0e0',
+                              }}
                             />
                           </View>
+                          <View style={{ flex: 1 }}>
+                            <View style={{ height: 16, width: '60%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 8 }} />
+                            <View style={{ height: 12, width: '40%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 6 }} />
+                            <View style={{ height: 10, width: '30%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 6 }} />
+                            <View style={{ height: 14, width: '50%', backgroundColor: '#e0e0e0', borderRadius: 8 }} />
+                          </View>
+                          <View style={{ width: 70, height: 32, backgroundColor: '#e0e0e0', borderRadius: 8 }} />
                         </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{t.name}</Text>
-                          <Text style={{ color: colors.text.secondary, fontSize: 14 }}>{t.vehicle}</Text>
-                          <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
-                            Rating: {t.rating} ★
-                          </Text>
-                          <Text style={{ color: accent, fontWeight: 'bold', fontSize: 15 }}>
-                            Est. Cost: Ksh {(t.costPerKm * 10).toFixed(2)}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                        style={{
-                        backgroundColor: accent,
-                        borderRadius: 8,
-                        paddingVertical: 8,
-                        paddingHorizontal: 16,
-                        }}
-                        onPress={() => navigation.navigate('TripDetails', { transporter: t, trip: { from: fromLocation, to: toLocation, status: 'On Transit', eta: '12 min', distance: '4.2 km', route: [ { latitude: -1.2921, longitude: 36.8219 }, { latitude: -1.3000, longitude: 36.8300 } ], transporterLocation: { latitude: -1.2950, longitude: 36.8250 }, destination: { latitude: -1.3000, longitude: 36.8300 } } })}
+                      ))}
+                    </>
+                  ) : showTransporters ? (
+                    filteredTransporters.length === 0 ? (
+                      <Text style={{ color: colors.error, marginBottom: 12 }}>
+                        No suitable transporters found for your request.
+                      </Text>
+                    ) : (
+                      filteredTransporters.map((t) => (
+                        <View
+                          key={t.id}
+                          style={{
+                            backgroundColor: colors.surface,
+                            borderRadius: 14,
+                            padding: 16,
+                            marginBottom: 12,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            shadowColor: colors.black,
+                            shadowOpacity: 0.06,
+                            shadowRadius: 6,
+                            elevation: 2,
+                          }}
                         >
-                        <Text style={{ color: colors.white, fontWeight: 'bold' }}>Select</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))
-                  )
-                ) : null}
-              </View>
-            )}
+                          <View style={{ marginRight: 16 }}>
+                            <View
+                              style={{
+                                width: 54,
+                                height: 54,
+                                borderRadius: 27,
+                                backgroundColor: '#eee',
+                                overflow: 'hidden',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Animated.Image
+                                source={{ uri: t.photo }}
+                                style={{ width: 54, height: 54, borderRadius: 27 }}
+                              />
+                            </View>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{t.name}</Text>
+                            <Text style={{ color: colors.text.secondary, fontSize: 14 }}>{t.vehicle}</Text>
+                            <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
+                              Rating: {t.rating} ★
+                            </Text>
+                            <Text style={{ color: accent, fontWeight: 'bold', fontSize: 15 }}>
+                              Est. Cost: Ksh {(t.costPerKm * 10).toFixed(2)}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={{
+                              backgroundColor: accent,
+                              borderRadius: 8,
+                              paddingVertical: 8,
+                              paddingHorizontal: 16,
+                            }}
+                            onPress={() => navigation.navigate('TripDetails', { transporter: t, trip: { from: fromLocation, to: toLocation, status: 'On Transit', eta: '12 min', distance: '4.2 km', route: [ { latitude: -1.2921, longitude: 36.8219 }, { latitude: -1.3000, longitude: 36.8300 } ], transporterLocation: { latitude: -1.2950, longitude: 36.8250 }, destination: { latitude: -1.3000, longitude: 36.8300 } } })}
+                          >
+                            <Text style={{ color: colors.white, fontWeight: 'bold' }}>Select</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))
+                    )
+                  ) : null}
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -868,6 +898,12 @@ const styles = StyleSheet.create({
     color: colors.error,
     marginBottom: spacing.md,
     fontSize: fonts.size.md,
+  },
+  note: {
+    marginTop: 8,
+    color: '#888',
+    fontSize: 12,
+    textAlign: 'center',
   },
 });
 
