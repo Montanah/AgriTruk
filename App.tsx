@@ -75,47 +75,62 @@ export default function App() {
 
   if (loading) return null; // Or a splash screen
 
+  // Determine initial route and screens based on auth state
+  let initialRouteName = 'Welcome';
+  let screens = null;
+
+  if (!user || (!isVerified && role !== 'transporter')) {
+    initialRouteName = 'Welcome';
+    screens = (
+      <>
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} />
+        <Stack.Screen name="SignIn" component={LoginScreen} />
+        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+        <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+      </>
+    );
+  } else if (role === 'transporter' && !profileCompleted) {
+    initialRouteName = 'TransporterCompletionScreen';
+    screens = (
+      <>
+        <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+      </>
+    );
+  } else if (role === 'transporter' && profileCompleted && !isVerified) {
+    initialRouteName = 'TransporterProcessingScreen';
+    screens = (
+      <>
+        <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+      </>
+    );
+  } else if (role === 'transporter' && profileCompleted && isVerified) {
+    initialRouteName = 'TransporterHome';
+    screens = (
+      <>
+        <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
+        <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+      </>
+    );
+  } else {
+    initialRouteName = 'MainTabs';
+    screens = (
+      <>
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+      </>
+    );
+  }
+
   return (
     <>
       <StatusBar style="dark" translucent />
       <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          {/* Always register these for UI testing */}
-          <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
-          <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
-          <Stack.Screen name="TransporterServiceScreen" component={TransporterServiceScreen} />
-          <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
-          {/* Original conditional screens */}
-          {!user || (!isVerified && role !== 'transporter') ? (
-            <>
-              <Stack.Screen name="Welcome" component={WelcomeScreen} />
-              <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
-              <Stack.Screen name="Signup" component={SignupScreen} />
-              <Stack.Screen name="SignIn" component={LoginScreen} />
-              <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-              <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
-            </>
-          ) : role === 'transporter' && !profileCompleted ? (
-            <>
-              {/* <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} /> */}
-            </>
-          ) : role === 'transporter' && profileCompleted && !isVerified ? (
-            <>
-              {/* <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} /> */}
-            </>
-          ) : role === 'transporter' && profileCompleted && isVerified ? (
-            <>
-              <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
-              <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
-              <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-              <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
-            </>
-          ) : (
-            <>
-              <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-              <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
-            </>
-          )}
+        <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+          {screens}
         </Stack.Navigator>
       </NavigationContainer>
     </>
