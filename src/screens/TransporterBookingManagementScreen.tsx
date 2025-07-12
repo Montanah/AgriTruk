@@ -1,23 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Button, RefreshControl } from 'react-native';
 
-// Dummy data for now; replace with API integration
-const dummyBookings = [
-  {
-    id: '1',
-    pickupLocation: 'Farm A',
-    cargoDetails: 'Maize, 2 tons',
-    pickupTime: '2024-06-10T10:00:00Z',
-    status: 'pending',
-  },
-  {
-    id: '2',
-    pickupLocation: 'Warehouse B',
-    cargoDetails: 'Fertilizer, 1 ton',
-    pickupTime: '2024-06-12T14:00:00Z',
-    status: 'accepted',
-  },
-];
+import { MOCK_BOOKINGS, Booking } from '../mocks/bookings';
 
 const statusColors = {
   pending: '#FFA500',
@@ -29,61 +13,76 @@ const statusColors = {
 };
 
 const TransporterBookingManagementScreen = () => {
-  const [bookings, setBookings] = useState([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     // TODO: Replace with API call
-    setBookings(dummyBookings);
+    setBookings(MOCK_BOOKINGS);
   }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
     // TODO: Fetch bookings from backend
     setTimeout(() => {
-      setBookings(dummyBookings);
+      setBookings(MOCK_BOOKINGS);
       setRefreshing(false);
     }, 1000);
   };
 
   const handleAccept = (id) => {
-    // TODO: API call to accept booking
-    alert('Accepted booking ' + id + ' (API integration pending)');
+    // TODO: API call to accept booking/request
+    alert('Accepted ' + id + ' (API integration pending)');
   };
 
   const handleReject = (id) => {
-    // TODO: API call to reject booking
-    alert('Rejected booking ' + id + ' (API integration pending)');
+    // TODO: API call to reject booking/request
+    alert('Rejected ' + id + ' (API integration pending)');
+  };
+
+  const handleComplete = (id) => {
+    // TODO: API call to mark as complete
+    alert('Marked ' + id + ' as completed (API integration pending)');
   };
 
   const renderItem = ({ item }) => (
     <View style={styles.bookingCard}>
+      <Text style={styles.typeTag}>{item.type === 'booking' ? 'Booking' : 'Instant Request'}</Text>
       <Text style={styles.label}>Pickup Location:</Text>
       <Text>{item.pickupLocation}</Text>
       <Text style={styles.label}>Cargo:</Text>
       <Text>{item.cargoDetails}</Text>
       <Text style={styles.label}>Pickup Time:</Text>
-      <Text>{new Date(item.pickupTime).toLocaleString()}</Text>
+      <Text>
+        {item.type === 'booking'
+          ? new Date(item.pickupTime).toLocaleString()
+          : 'ASAP'}
+      </Text>
       <Text style={[styles.status, { color: statusColors[item.status] || '#000' }]}>Status: {item.status}</Text>
-      {item.status === 'pending' && (
-        <View style={styles.buttonRow}>
-          <Button title="Accept" onPress={() => handleAccept(item.id)} />
-          <View style={{ width: 10 }} />
-          <Button title="Reject" color="#dc3545" onPress={() => handleReject(item.id)} />
-        </View>
-      )}
+      <View style={styles.buttonRow}>
+        {item.status === 'pending' && (
+          <>
+            <Button title="Accept" onPress={() => handleAccept(item.id)} />
+            <View style={{ width: 10 }} />
+            <Button title="Reject" color="#dc3545" onPress={() => handleReject(item.id)} />
+          </>
+        )}
+        {item.status === 'accepted' || item.status === 'in-progress' ? (
+          <Button title="Mark Complete" color="#28a745" onPress={() => handleComplete(item.id)} />
+        ) : null}
+      </View>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Manage Bookings</Text>
+      <Text style={styles.title}>Manage Bookings & Requests</Text>
       <FlatList
         data={bookings}
         keyExtractor={item => item.id}
         renderItem={renderItem}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={<Text>No bookings found.</Text>}
+        ListEmptyComponent={<Text>No bookings or requests found.</Text>}
       />
     </View>
   );
@@ -119,6 +118,17 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     marginTop: 10,
+  },
+  typeTag: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#eee',
+    color: '#333',
+    fontSize: 12,
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginBottom: 4,
   },
 });
 

@@ -8,10 +8,11 @@ import { MOCK_TRANSPORTERS, MOCK_ASSIGNED_JOBS } from '../mocks/transporters';
 
 const TABS = ['Incoming', 'Active', 'Completed'];
 
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 
 const TransporterServiceScreen = () => {
   const route = useRoute();
+  const navigation = useNavigation();
   const transporterType = route?.params?.transporterType || 'company';
   const isCompany = transporterType === 'company';
   const [tab, setTab] = useState('Incoming');
@@ -88,7 +89,14 @@ const TransporterServiceScreen = () => {
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle} numberOfLines={2} ellipsizeMode="tail">{isCompany ? 'Broker/Company Dashboard' : 'Transporter Dashboard'}</Text>
         </View>
-        <View style={{ marginLeft: 8 }}>
+        <View style={{ marginLeft: 8, flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            style={[styles.subscriptionBtn, { marginRight: 8 }]}
+            onPress={() => navigation.navigate('TransporterBookingManagement')}
+          >
+            <Ionicons name="clipboard-list-outline" size={20} color={colors.secondary} />
+            <Text style={styles.subscriptionBtnText}>Manage Bookings & Requests</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.subscriptionBtn} onPress={() => setShowSubscription(true)}>
             <Ionicons name="card-outline" size={20} color={colors.primary} />
             <Text style={styles.subscriptionBtnText}>Subscription</Text>
