@@ -89,6 +89,8 @@ export default function App() {
         <Stack.Screen name="SignIn" component={LoginScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
+        <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
       </>
     );
   } else if (role === 'transporter' && !profileCompleted) {
@@ -113,6 +115,7 @@ export default function App() {
         <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+        <Stack.Screen name="TransporterBookingManagement" component={require('./src/screens/TransporterBookingManagementScreen').default} />
       </>
     );
   } else {
@@ -121,6 +124,8 @@ export default function App() {
       <>
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+        <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
+        <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
       </>
     );
   }
