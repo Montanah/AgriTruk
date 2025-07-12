@@ -43,6 +43,7 @@
     "react-dom": "19.0.0",
     "react-native": "0.79.4",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-google-places-autocomplete": "^2.5.7",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-maps": "1.20.1",
     "react-native-modal-datetime-picker": "^18.0.0",
@@ -57,8 +58,11 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
+    "@types/react-native-maps": "^0.24.1",
+    "axios": "^1.10.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
+    "expo-location": "^18.1.6",
     "prettier": "^3.6.1",
     "typescript": "~5.8.3"
   },
