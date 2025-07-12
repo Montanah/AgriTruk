@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Animated,
   Image,
@@ -18,6 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../components/common/Button';
 import Spacer from '../../components/common/Spacer';
 import { colors, fonts, spacing } from '../../constants';
+
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { auth } from '../../firebaseConfig';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const LoginScreen = ({ navigation }: any) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -38,7 +45,31 @@ const LoginScreen = ({ navigation }: any) => {
     { code: '+254', flag: '🇰🇪' },
   ];
 
-  React.useEffect(() => {
+  // Google Auth
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      setLoading(true);
+      signInWithCredential(auth, credential)
+        .then(() => {
+          // User is signed in, navigation will update via App.tsx
+        })
+        .catch((error) => {
+          setError('Google sign-in failed');
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [response]);
+
+  useEffect(() => {
     if (loading) {
       Animated.loop(
         Animated.sequence([
@@ -77,8 +108,9 @@ const LoginScreen = ({ navigation }: any) => {
           <View style={styles.formCard}>
             <TouchableOpacity
               style={styles.googleBtn}
-              onPress={() => {}}
+              onPress={() => promptAsync()}
               activeOpacity={0.85}
+              disabled={!request}
             >
               <Image source={require('../../../assets/images/google_g.png')} style={styles.googleIcon} />
               <Text style={styles.googleBtnText}>Continue with Google</Text>
@@ -137,22 +169,22 @@ const LoginScreen = ({ navigation }: any) => {
             
             <Spacer size={spacing.md} />
             <View style={styles.passwordInputWrap}>
-            <TextInput
-            style={[styles.inputFull, styles.passwordInput]}
-            placeholder="Enter your password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            placeholderTextColor={colors.text.secondary}
-            autoCapitalize="none"
-            />
-            <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword((prev) => !prev)}
-            activeOpacity={0.7}
-            >
-            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={showPassword ? colors.primary : colors.text.secondary} />
-            </TouchableOpacity>
+              <TextInput
+                style={[styles.inputFull, styles.passwordInput]}
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                placeholderTextColor={colors.text.secondary}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword((prev) => !prev)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color={showPassword ? colors.primary : colors.text.secondary} />
+              </TouchableOpacity>
             </View>
 
             <Spacer size={spacing.md} />

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Animated,
   Image,
@@ -18,6 +18,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
+
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { auth } from '../../firebaseConfig';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const countryOptions = [
   { code: '+255', name: 'Tanzania', flag: '🇹🇿' },
@@ -60,7 +67,31 @@ const SignupScreen = () => {
   const [loading, setLoading] = useState(false);
   const truckAnim = React.useRef(new Animated.Value(0)).current;
 
-  React.useEffect(() => {
+  // Google Auth
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      setLoading(true);
+      signInWithCredential(auth, credential)
+        .then(() => {
+          // User is signed in, navigation will update via App.tsx
+        })
+        .catch((error) => {
+          setError('Google sign-in failed');
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [response]);
+
+  useEffect(() => {
     if (loading) {
       Animated.loop(
         Animated.sequence([
@@ -85,15 +116,15 @@ const SignupScreen = () => {
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
       <LinearGradient
-      colors={[
-      colors.primary,
-      colors.primaryDark,
-      colors.secondary,
-      colors.background,
-      ]}
-      style={StyleSheet.absoluteFill}
-      start={{ x: 0.2, y: 0 }}
-      end={{ x: 0.8, y: 1 }}
+        colors={[
+          colors.primary,
+          colors.primaryDark,
+          colors.secondary,
+          colors.background,
+        ]}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
       />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -152,8 +183,9 @@ const SignupScreen = () => {
             <View style={styles.formCard}>
               <TouchableOpacity
                 style={[styles.googleBtn, { borderColor: accent }]}
-                onPress={() => {}}
+                onPress={() => promptAsync()}
                 activeOpacity={0.85}
+                disabled={!request}
               >
                 <Image
                   source={require('../../../assets/images/google_g.png')}

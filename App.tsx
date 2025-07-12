@@ -98,6 +98,8 @@ export default function App() {
     screens = (
       <>
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+        {/* Allow navigation for UI testing */}
+        <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
       </>
     );
   } else if (role === 'transporter' && profileCompleted && !isVerified) {
@@ -105,6 +107,8 @@ export default function App() {
     screens = (
       <>
         <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+        {/* Allow navigation for UI testing */}
+        <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
       </>
     );
   } else if (role === 'transporter' && profileCompleted && isVerified) {
@@ -116,6 +120,7 @@ export default function App() {
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
         <Stack.Screen name="TransporterBookingManagement" component={require('./src/screens/TransporterBookingManagementScreen').default} />
+        <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
       </>
     );
   } else {
