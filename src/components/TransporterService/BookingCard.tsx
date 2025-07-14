@@ -1,5 +1,12 @@
+import { theme } from '@/constants';
 import React from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import {
+  Button,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Booking } from '../../mocks/bookings';
 
 type BookingCardProps = {
@@ -7,15 +14,17 @@ type BookingCardProps = {
   onAccept: (id: string) => void;
   onReject: (id: string) => void;
   onComplete: (id: string) => void;
+  onAssign?: (booking: Booking) => void;
+  onPressDetails?: (id: string) => void;
 };
 
 const statusColors: Record<string, string> = {
-  pending: '#FFA500',
-  accepted: '#007bff',
+  pending: theme.colors.warning,
+  accepted: theme.colors.primary,
   scheduled: '#17a2b8',
   'in-progress': '#ffc107',
-  completed: '#28a745',
-  cancelled: '#dc3545',
+  completed: theme.colors.success,
+  cancelled: theme.colors.error,
 };
 
 const BookingCard: React.FC<BookingCardProps> = ({
@@ -23,6 +32,8 @@ const BookingCard: React.FC<BookingCardProps> = ({
   onAccept,
   onReject,
   onComplete,
+  onAssign,
+  onPressDetails,
 }) => {
   if (!booking) {
     return (
@@ -39,13 +50,28 @@ const BookingCard: React.FC<BookingCardProps> = ({
     cargoDetails,
     pickupTime,
     status,
+    assignedTransporter,
   } = booking;
 
+  const canComplete = ['accepted', 'in-progress'].includes(status);
+
+  const canAssign =
+    type === 'instant' &&
+    ['pending', 'accepted'].includes(status) &&
+    !assignedTransporter &&
+    !!onAssign;
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.typeTag}>
-        {type === 'booking' ? 'Booking' : 'Instant Request'}
-      </Text>
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={onPressDetails ? 0.8 : 1}
+      onPress={onPressDetails ? () => onPressDetails(id) : undefined}
+    >
+      <View style={[styles.tag, { backgroundColor: '#e6e6e6' }]}>
+        <Text style={styles.tagText}>
+          {type === 'booking' ? 'Booking' : 'Instant Request'}
+        </Text>
+      </View>
 
       <Text style={styles.label}>Pickup Location:</Text>
       <Text style={styles.value}>{pickupLocation || 'N/A'}</Text>
@@ -60,84 +86,119 @@ const BookingCard: React.FC<BookingCardProps> = ({
           : 'ASAP'}
       </Text>
 
-      <Text
-        style={[
-          styles.status,
-          { color: statusColors[status] || '#6c757d' },
-        ]}
-      >
-        Status: {status}
-      </Text>
+      {assignedTransporter ? (
+        <>
+          <Text style={styles.label}>Assigned Transporter:</Text>
+          <Text style={styles.value}>
+            {assignedTransporter.name} ({assignedTransporter.phone})
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.valueItalic}>Not Assigned</Text>
+      )}
+
+      <View style={styles.statusContainer}>
+        <Text
+          style={[
+            styles.status,
+            { color: statusColors[status] || '#6c757d' },
+          ]}
+        >
+          Status: {status}
+        </Text>
+      </View>
 
       <View style={styles.buttonRow}>
         {status === 'pending' && (
           <>
-            <Button title="Accept" onPress={() => onAccept(id)} />
-            <View style={{ width: 10 }} />
+            <Button
+              title="Accept"
+              color={theme.colors.secondary}
+              onPress={() => onAccept(id)}
+            />
             <Button
               title="Reject"
-              color="#dc3545"
+              color={theme.colors.error}
               onPress={() => onReject(id)}
             />
           </>
         )}
-        {(status === 'accepted' || status === 'in-progress') && (
+
+        {canAssign && (
+          <Button
+            title="Assign Transporter"
+            color={theme.colors.primary}
+            onPress={() => onAssign?.(booking)}
+          />
+        )}
+
+        {canComplete && (
           <Button
             title="Mark Complete"
-            color="#28a745"
+            color={theme.colors.success}
             onPress={() => onComplete(id)}
           />
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: theme.colors.border,
     borderRadius: 10,
     padding: 15,
-    backgroundColor: '#fefefe',
-    shadowColor: '#000',
+    backgroundColor: theme.colors.white,
+    shadowColor: theme.colors.black,
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
     elevation: 1,
     marginBottom: 12,
   },
-  typeTag: {
+  tag: {
     alignSelf: 'flex-end',
-    backgroundColor: '#e6e6e6',
-    color: '#333',
-    fontSize: 12,
-    fontWeight: '600',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
     marginBottom: 8,
   },
+  tagText: {
+    color: theme.colors.text.primary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
   label: {
     fontWeight: '600',
     marginTop: 6,
+    color: theme.colors.text.primary,
   },
   value: {
     marginBottom: 4,
-    color: '#333',
+    color: theme.colors.text.secondary,
+  },
+  valueItalic: {
+    marginBottom: 4,
+    color: theme.colors.text.secondary,
+    fontStyle: 'italic',
+  },
+  statusContainer: {
+    marginTop: 10,
   },
   status: {
-    marginTop: 10,
     fontWeight: 'bold',
     fontSize: 14,
   },
   buttonRow: {
     flexDirection: 'row',
-    marginTop: 10,
     flexWrap: 'wrap',
+    marginTop: 10,
+    gap: 10,
   },
   errorText: {
-    color: '#dc3545',
+    color: theme.colors.error,
     textAlign: 'center',
     fontWeight: '500',
   },

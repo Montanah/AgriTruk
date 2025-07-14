@@ -56,3 +56,14 @@ export const MOCK_COMPLETED = [
     rating: 5,
   },
 ];
+
+export const MOCK_INSIGHTS = {
+  totalRevenue: 1540000,
+  recentRevenue: 24000,
+  currentTripRevenue: 15000,
+  successfulTrips: 72,
+  accumulatedTrips: 85,
+  completionRate: 95,
+  currency: 'KES'
+};
+

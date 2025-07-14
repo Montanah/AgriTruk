@@ -1,28 +1,23 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import React, { useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
-
 import {
-  MOCK_ACTIVE,
-  MOCK_COMPLETED,
-  MOCK_REQUESTS,
-} from '../mocks/jobs';
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+import { Booking, MOCK_BOOKINGS } from '../mocks/bookings';
 
 import AssignTransporterModal from '../components/TransporterService/AssignTransporterModal';
 import BookingCard from '../components/TransporterService/BookingCard';
-import DashboardHeader from '../components/TransporterService/DashboardHeader';
+import Header from '../components/TransporterService/Header';
+import Insights from '../components/TransporterService/Insights';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
-import { Booking } from '../mocks/bookings';
 
-const TABS = ['Incoming', 'Active', 'Completed'] as const;
-type TabType = typeof TABS[number];
 type TransporterType = 'company' | 'individual' | 'broker';
-
-type RouteParams = {
-  params?: {
-    transporterType?: TransporterType;
-  };
-};
+type RouteParams = { params?: { transporterType?: TransporterType } };
 
 const TransporterServiceScreen = () => {
   const route = useRoute<RouteProp<RouteParams, 'params'>>();
@@ -31,7 +26,13 @@ const TransporterServiceScreen = () => {
   const transporterType: TransporterType = route?.params?.transporterType ?? 'company';
   const isCompanyOrBroker = transporterType === 'company' || transporterType === 'broker';
 
-  const [tab, setTab] = useState<TabType>('Incoming');
+  const user = {
+    firstName: 'Derrick',
+    avatarUrl: undefined,
+  };
+
+  const [bookings, setBookings] = useState<Booking[]>(MOCK_BOOKINGS);
+
   const [showSubscription, setShowSubscription] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('monthly');
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -48,32 +49,43 @@ const TransporterServiceScreen = () => {
     active: true,
   });
 
-  const dataByTab: Record<TabType, Booking[]> = {
-    Incoming: MOCK_REQUESTS,
-    Active: MOCK_ACTIVE,
-    Completed: MOCK_COMPLETED,
-  };
+  const instantRequests = bookings.filter(
+    (req) => req.type === 'instant' && ['pending', 'accepted'].includes(req.status)
+  );
 
-  const handleAssign = (job: Booking, transporter: Booking['assignedTransporter']) => {
+  const handleAssign = (job: Booking) => {
     if (!isCompanyOrBroker) return;
     setSelectedJob(job);
-    setSelectedTransporter(transporter);
     setShowAssignModal(true);
+  };
+
+  const handleAssignTransporter = (
+    jobId: string,
+    transporter: Booking['assignedTransporter']
+  ) => {
+    setBookings((prev) =>
+      prev.map((booking) =>
+        booking.id === jobId
+          ? {
+              ...booking,
+              assignedTransporter: transporter,
+              status: 'assigned',
+            }
+          : booking
+      )
+    );
   };
 
   const handleAccept = (id: string) => {
     console.log(`Accepted booking: ${id}`);
-    // TODO: Add accept logic or API call
   };
 
   const handleReject = (id: string) => {
     console.log(`Rejected booking: ${id}`);
-    // TODO: Add reject logic or API call
   };
 
   const handleComplete = (id: string) => {
     console.log(`Completed booking: ${id}`);
-    // TODO: Add complete logic or API call
   };
 
   const renderItem = ({ item }: { item: Booking }) => (
@@ -82,31 +94,61 @@ const TransporterServiceScreen = () => {
       onAccept={handleAccept}
       onReject={handleReject}
       onComplete={handleComplete}
+      onAssign={isCompanyOrBroker ? handleAssign : undefined}
     />
   );
+
+  const fleetStats = isCompanyOrBroker
+    ? {
+        fleetSize: 12,
+        activeToday: 7,
+        avgUtilizationRate: 58,
+      }
+    : undefined;
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={dataByTab[tab]}
+        data={instantRequests}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No {tab.toLowerCase()} bookings found.</Text>
+          <Text style={styles.emptyText}>No instant bookings found.</Text>
         }
         ListHeaderComponent={
-          <DashboardHeader
-            tab={tab}
-            setTab={setTab}
-            subscriptionStatus={subscriptionStatus}
-            notification={notification}
-            onCloseNotification={() => setNotification(null)}
-            showSubscription={() => setShowSubscription(true)}
-            onManage={() => navigation.navigate('TransporterBookingManagement')}
-            onAssignPress={handleAssign}
-            isCompany={isCompanyOrBroker}
-          />
+          <View style={styles.headerWrapper}>
+            <Header
+              isCompany={isCompanyOrBroker}
+              transporterType={transporterType}
+              navigation={navigation}
+              onShowSubscription={() => setShowSubscription(true)}
+              user={user}
+            />
+
+            {notification && (
+              <TouchableOpacity
+                onPress={() => setNotification(null)}
+                style={styles.notification}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.notificationText}>{notification}</Text>
+              </TouchableOpacity>
+            )}
+
+            <Insights
+              revenue={19850}
+              recentRevenue={2650}
+              currentTripRevenue={1800}
+              accumulatedRevenue={38050}
+              successfulTrips={27}
+              completionRate={92}
+              currencyCode="KES"
+              fleetStats={fleetStats}
+            />
+
+            <Text style={styles.sectionTitle}>Instant Requests</Text>
+          </View>
         }
         ListFooterComponent={<View style={styles.footerSpacer} />}
       />
@@ -132,6 +174,7 @@ const TransporterServiceScreen = () => {
         <AssignTransporterModal
           job={selectedJob}
           transporter={selectedTransporter}
+          onAssign={handleAssignTransporter}
           onClose={() => {
             setShowAssignModal(false);
             setSelectedJob(null);
@@ -148,10 +191,21 @@ export default TransporterServiceScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F9FAFB',
   },
   listContent: {
     padding: 16,
     paddingBottom: 32,
+  },
+  headerWrapper: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+    color: '#1F2937',
   },
   emptyText: {
     textAlign: 'center',
@@ -161,5 +215,20 @@ const styles = StyleSheet.create({
   },
   footerSpacer: {
     height: 72,
+  },
+  notification: {
+    marginTop: 12,
+    backgroundColor: '#FFF3CD',
+    padding: 12,
+    borderRadius: 8,
+    borderColor: '#FFEEBA',
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  notificationText: {
+    color: '#856404',
+    fontWeight: '500',
+    textAlign: 'center',
+    fontSize: 14,
   },
 });

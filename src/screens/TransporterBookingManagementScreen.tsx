@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import AssignTransporterModal from '../components/TransporterService/AssignTransporterModal'; // ✅ make sure this path is correct
 import BookingCard from '../components/TransporterService/BookingCard';
 import { Booking, MOCK_BOOKINGS } from '../mocks/bookings';
 
@@ -16,6 +17,7 @@ const TransporterBookingManagementScreen = () => {
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<Booking | null>(null); // ✅
 
   useEffect(() => {
     loadBookings();
@@ -51,6 +53,19 @@ const TransporterBookingManagementScreen = () => {
     alert('Marked ' + id + ' as completed (API integration pending)');
   };
 
+  const handleAssign = (job: Booking) => {
+    setSelectedJob(job);
+  };
+
+  const handleAssignConfirm = (jobId: string, transporter: Booking['assignedTransporter']) => {
+    const updated = bookings.map(b =>
+      b.id === jobId ? { ...b, assignedTransporter: transporter } : b
+    );
+    setBookings(updated);
+    setSelectedJob(null);
+    alert(`Assigned ${transporter.name} to job ${jobId}`);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Manage Bookings & Requests</Text>
@@ -70,6 +85,7 @@ const TransporterBookingManagementScreen = () => {
             onAccept={handleAccept}
             onReject={handleReject}
             onComplete={handleComplete}
+            onAssign={handleAssign} // ✅ connect assign
           />
         )}
         refreshControl={
@@ -84,6 +100,15 @@ const TransporterBookingManagementScreen = () => {
             ? styles.emptyContainer
             : { paddingBottom: 100 }
         }
+      />
+
+      {/* ✅ Transporter Assignment Modal */}
+      <AssignTransporterModal
+        visible={!!selectedJob}
+        job={selectedJob}
+        transporter={selectedJob?.assignedTransporter || null}
+        onClose={() => setSelectedJob(null)}
+        onAssign={handleAssignConfirm}
       />
     </View>
   );
