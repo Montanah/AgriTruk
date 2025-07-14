@@ -3,22 +3,21 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
-import TransporterCompletionScreen from './src/screens/auth/TransporterCompletionScreen';
+import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
 import EmailVerificationScreen from './src/screens/auth/EmailVerificationScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import PhoneOTPScreen from './src/screens/auth/PhoneOTPScreen';
 import SignupScreen from './src/screens/auth/SignupScreen';
 import SignupSelectionScreen from './src/screens/auth/SignupSelectionScreen';
+import TransporterCompletionScreen from './src/screens/auth/TransporterCompletionScreen';
 import ServiceRequestScreen from './src/screens/ServiceRequestScreen';
+import TransporterProcessingScreen from './src/screens/TransporterProcessingScreen';
 import TripDetailsScreen from './src/screens/TripDetailsScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
-import TransporterProcessingScreen from './src/screens/TransporterProcessingScreen';
-import TransporterServiceScreen from './src/screens/TransporterServiceScreen';
-import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
 
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from './src/firebaseConfig';
-import { getDoc, doc as firestoreDoc } from 'firebase/firestore';
 
 const Stack = createStackNavigator();
 
@@ -91,6 +90,8 @@ export default function App() {
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
+        {/* Temporary: allow navigation for UI testing */}
+        <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
       </>
     );
   } else if (role === 'transporter' && !profileCompleted) {
@@ -100,6 +101,7 @@ export default function App() {
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
         {/* Allow navigation for UI testing */}
         <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+        <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
       </>
     );
   } else if (role === 'transporter' && profileCompleted && !isVerified) {
@@ -131,6 +133,8 @@ export default function App() {
         <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
+        {/* Temporary: allow navigation for UI testing */}
+        <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
       </>
     );
   }

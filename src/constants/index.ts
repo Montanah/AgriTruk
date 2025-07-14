@@ -1,5 +1,12 @@
 import colors from './colors';
-import spacing from './spacing';
 import fonts from './fonts';
+import spacing from './spacing';
 
-export { colors, spacing, fonts };
+export const theme = {
+  colors,
+  spacing,
+  fonts,
+};
+
+export { colors, fonts, spacing };
+

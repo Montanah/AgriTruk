@@ -1,15 +1,26 @@
-import React from 'react';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import colors from '../constants/colors';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
-import TransporterServiceScreen from '../screens/TransporterServiceScreen';
-import RevenueScreen from '../screens/RevenueScreen';
+import { createStackNavigator } from '@react-navigation/stack';
+import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import colors from '../constants/colors';
+
+import { StyleSheet } from 'react-native';
 import ManageTransporterScreen from '../screens/ManageTransporterScreen';
-import { View, Text, StyleSheet } from 'react-native';
+import RevenueScreen from '../screens/RevenueScreen';
+import TransporterBookingManagementScreen from '../screens/TransporterBookingManagementScreen';
+import TransporterServiceScreen from '../screens/TransporterServiceScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+const HomeStack = ({ transporterType }) => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="TransporterService" component={TransporterServiceScreen} initialParams={{ transporterType }} />
+    <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} />
+  </Stack.Navigator>
+);
 
 const TransporterTabNavigator = () => {
   const insets = useSafeAreaInsets();
@@ -39,7 +50,7 @@ const TransporterTabNavigator = () => {
         tabBarItemStyle: {
           marginTop: 0,
         },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused }) => {
           const iconColor = focused ? colors.secondary : '#fff';
           if (route.name === 'Home') {
             return (
@@ -53,7 +64,7 @@ const TransporterTabNavigator = () => {
           } else if (route.name === 'Revenue') {
             return (
               <MaterialCommunityIcons
-                name={focused ? 'cash-multiple' : 'cash-multiple'}
+                name="cash-multiple"
                 size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
@@ -73,22 +84,14 @@ const TransporterTabNavigator = () => {
         safeAreaInsets: { bottom: 0 },
       })}
     >
-      <Tab.Screen name="Home" options={{
-        tabBarLabel: 'Home',
-      }}
-        initialParams={{ transporterType }}
-      >
-        {(props) => <TransporterServiceScreen {...props} />}
+      <Tab.Screen name="Home">
+        {() => <HomeStack transporterType={transporterType} />}
       </Tab.Screen>
-      <Tab.Screen name="Revenue" options={{
-        tabBarLabel: 'Revenue',
-      }}>
-        {props => <RevenueScreen {...props} route={{...props.route, params: {transporterType}}} />}
+      <Tab.Screen name="Revenue">
+        {props => <RevenueScreen {...props} route={{ ...props.route, params: { transporterType } }} />}
       </Tab.Screen>
-      <Tab.Screen name="Manage" options={{
-        tabBarLabel: 'Manage',
-      }}>
-        {props => <ManageTransporterScreen {...props} route={{...props.route, params: {transporterType}}} />}
+      <Tab.Screen name="Manage">
+        {props => <ManageTransporterScreen {...props} route={{ ...props.route, params: { transporterType } }} />}
       </Tab.Screen>
     </Tab.Navigator>
   );

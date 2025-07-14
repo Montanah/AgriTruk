@@ -1,9 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import colors from '../constants/colors';
+import { auth } from '../firebaseConfig';
 
 export default function ManageTransporterScreen({ route }) {
   const transporterType = route?.params?.transporterType || 'company';
@@ -12,10 +14,22 @@ export default function ManageTransporterScreen({ route }) {
   const [editModal, setEditModal] = useState(false);
   const [editName, setEditName] = useState('John Doe');
   const [editPhone, setEditPhone] = useState('+254700111222');
-  // Logout handler: navigate to TransporterCompletionScreen
-  const handleLogout = () => {
-    navigation.navigate('TransporterCompletionScreen');
+
+  // Updated logout handler: sign out and reset navigation to SignIn
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'SignIn' }],
+        })
+      );
+    } catch (error) {
+      Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+    }
   };
+
   const handleSave = () => {
     // TODO: Connect to real save logic
     setEditModal(false);
@@ -79,290 +93,296 @@ export default function ManageTransporterScreen({ route }) {
   };
 
   if (transporterType === 'company') {
-  return (
-  <>
-  <ScrollView style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32 }]}> 
-  <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
-  <View style={styles.card}>
-  <Text style={styles.sectionTitle}>Vehicles</Text>
-  <TouchableOpacity style={styles.actionBtn} onPress={() => setVehicleModal(true)}>
-  <Ionicons name="add-circle" size={20} color={colors.primary} />
-  <Text style={styles.actionText}>Add Vehicle</Text>
-  </TouchableOpacity>
-  <Text style={styles.value}>- KDA 123A (Truck)</Text>
-  <Text style={styles.value}>- KDB 456B (Van)</Text>
-  </View>
-  {/* Add Vehicle Modal */}
-  <Modal
-  visible={vehicleModal}
-  animationType="slide"
-  transparent
-  onRequestClose={() => setVehicleModal(false)}
-  >
-  <View style={styles.modalOverlay}>
-  <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
-  <View style={styles.vehicleModalCard}>
-  <Text style={styles.editTitle}>Add Vehicle</Text>
-  {/* Vehicle Type Dropdown */}
-  <View style={styles.inputDropdownWrap}>
-  <Text style={styles.inputDropdownLabel}>Vehicle Type</Text>
-  <TouchableOpacity style={styles.inputDropdown} onPress={() => setShowTypeDropdown(!showTypeDropdown)}>
-  <Text style={{ color: vehicleType ? colors.text.primary : colors.text.light }}>
-  {vehicleType || 'Select vehicle type'}
-  </Text>
-  <Ionicons name={showTypeDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={colors.text.secondary} />
-  </TouchableOpacity>
-  {showTypeDropdown && (
-  <View style={styles.dropdownList}>
-  {['Truck', 'Van', 'Refrigerated Van', 'Flatbed', 'Tanker', 'Pickup', 'Trailer'].map(type => (
-  <TouchableOpacity key={type} style={styles.dropdownItem} onPress={() => { setVehicleType(type); setShowTypeDropdown(false); }}>
-  <Text style={{ color: colors.text.primary }}>{type}</Text>
-  </TouchableOpacity>
-  ))}
-  </View>
-  )}
-  </View>
-  <TextInput style={styles.input} placeholder="Registration Number" value={vehicleReg} onChangeText={setVehicleReg} />
-  <View style={styles.featuresRow}>
-  <TouchableOpacity style={[styles.featureBtn, refrigeration && styles.featureBtnActive]} onPress={() => setRefrigeration(!refrigeration)}>
-  <MaterialCommunityIcons name="snowflake" size={18} color={refrigeration ? colors.white : colors.primary} />
-  <Text style={[styles.featureText, refrigeration && { color: colors.white }]}>Refrigeration</Text>
-  </TouchableOpacity>
-  <TouchableOpacity style={[styles.featureBtn, humidityControl && styles.featureBtnActive]} onPress={() => setHumidityControl(!humidityControl)}>
-  <MaterialCommunityIcons name="water-percent" size={18} color={humidityControl ? colors.white : colors.primary} />
-  <Text style={[styles.featureText, humidityControl && { color: colors.white }]}>Humidity Control</Text>
-  </TouchableOpacity>
-  <TouchableOpacity style={[styles.featureBtn, specialCargo && styles.featureBtnActive]} onPress={() => setSpecialCargo(!specialCargo)}>
-  <MaterialCommunityIcons name="cube-outline" size={18} color={specialCargo ? colors.white : colors.primary} />
-  <Text style={[styles.featureText, specialCargo && { color: colors.white }]}>Special Cargo</Text>
-  </TouchableOpacity>
-  </View>
-  <TextInput style={styles.input} placeholder="Other Features (comma separated)" value={vehicleFeatures} onChangeText={setVehicleFeatures} />
-  <View style={styles.section}>
-  <Text style={styles.editLabel}>Logbook (PDF or Image)</Text>
-  <TouchableOpacity style={styles.uploadBtn} onPress={pickLogbook}>
-  <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-  <Text style={styles.uploadBtnText}>{logbook ? 'Change File' : 'Upload File'}</Text>
-  </TouchableOpacity>
-  {logbook && <Text style={styles.fileName}>{logbook.fileName || logbook.uri?.split('/').pop()}</Text>}
-  </View>
-  <View style={styles.section}>
-  <Text style={styles.editLabel}>Insurance Document (PDF or Image)</Text>
-  <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
-  <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-  <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload File'}</Text>
-  </TouchableOpacity>
-  {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
-  </View>
-  <View style={styles.section}>
-  <Text style={styles.editLabel}>Vehicle Photos (3-5)</Text>
-  <View style={styles.photosRow}>
-  {vehiclePhotos.map((photo, idx) => (
-  <View key={idx} style={styles.photoWrap}>
-  <Image source={{ uri: photo.uri }} style={styles.photo} />
-  <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeVehiclePhoto(idx)}>
-  <Ionicons name="close-circle" size={20} color={colors.error} />
-  </TouchableOpacity>
-  </View>
-  ))}
-  {vehiclePhotos.length < 5 && (
-  <TouchableOpacity style={styles.addPhotoBtn} onPress={pickVehiclePhotos}>
-  <Ionicons name="add" size={28} color={colors.primary} />
-  </TouchableOpacity>
-  )}
-  </View>
-  <Text style={styles.photoHint}>Add at least 3 photos</Text>
-  </View>
-  <View style={styles.editActionsRow}>
-  <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
-  <Text style={styles.cancelText}>Cancel</Text>
-  </TouchableOpacity>
-  <TouchableOpacity style={styles.saveBtn} onPress={handleAddVehicle}>
-  <Text style={styles.saveText}>Add Vehicle</Text>
-  </TouchableOpacity>
-  </View>
-  </View>
-  </ScrollView>
-  </View>
-  </Modal>
-  <View style={styles.card}>
-  <Text style={styles.sectionTitle}>Drivers</Text>
-  <TouchableOpacity style={styles.actionBtn} onPress={() => setDriverModal(true)}>
-  <Ionicons name="add-circle" size={20} color={colors.primary} />
-  <Text style={styles.actionText}>Add Driver</Text>
-  </TouchableOpacity>
-  <Text style={styles.value}>- John Doe</Text>
-  <Text style={styles.value}>- Jane Smith</Text>
-  </View>
-  {/* Add Driver Modal */}
-  <Modal
-  visible={driverModal}
-  animationType="slide"
-  transparent
-  onRequestClose={() => setDriverModal(false)}
-  >
-  <View style={styles.modalOverlay}>
-  <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
-  <View style={styles.vehicleModalCard}>
-  <Text style={styles.editTitle}>Add Driver</Text>
-  <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={pickDriverPhoto}>
-  {driverPhoto ? (
-  <Image source={{ uri: driverPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
-  ) : (
-  <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
-  <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
-  </View>
-  )}
-  <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
-  </TouchableOpacity>
-  <TextInput style={styles.input} placeholder="Driver Name" value={driverName} onChangeText={setDriverName} />
-  <TextInput style={styles.input} placeholder="Phone Number" value={driverPhone} onChangeText={setDriverPhone} />
-  <View style={styles.section}>
-  <Text style={styles.editLabel}>License Document (PDF or Image)</Text>
-  <TouchableOpacity style={styles.uploadBtn} onPress={pickDriverLicense}>
-  <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-  <Text style={styles.uploadBtnText}>{driverLicense ? 'Change File' : 'Upload File'}</Text>
-  </TouchableOpacity>
-  {driverLicense && <Text style={styles.fileName}>{driverLicense.fileName || driverLicense.uri?.split('/').pop()}</Text>}
-  </View>
-  <View style={styles.editActionsRow}>
-  <TouchableOpacity style={styles.cancelBtn} onPress={() => setDriverModal(false)}>
-  <Text style={styles.cancelText}>Cancel</Text>
-  </TouchableOpacity>
-  <TouchableOpacity style={styles.saveBtn} onPress={handleAddDriver}>
-  <Text style={styles.saveText}>Add Driver</Text>
-  </TouchableOpacity>
-  </View>
-  </View>
-  </ScrollView>
-  </View>
-  </Modal>
-  <View style={styles.card}>
-  <Text style={styles.sectionTitle}>Assignments</Text>
-  <Text style={styles.value}>Depot X → Market Z: John Doe</Text>
-  <Text style={styles.value}>Farm Y → Shop Q: Jane Smith</Text>
-  </View>
-  <View style={styles.card}>
-  <Text style={styles.sectionTitle}>Outsourcing</Text>
-  <Text style={styles.value}>You can outsource jobs to other registered transporters.</Text>
-  </View>
-  <View style={styles.card}>
-  <Text style={styles.sectionTitle}>Company Profile</Text>
-  <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
-  <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
-  <Text style={styles.actionText}>Edit Profile</Text>
-  </TouchableOpacity>
-  </View>
-  </ScrollView>
-  {/* Edit Profile Modal (always rendered) */}
-  <Modal
-  visible={editModal}
-  animationType="slide"
-  transparent
-  onRequestClose={() => setEditModal(false)}
-  >
-  <View style={styles.modalOverlay}>
-  <View style={styles.editModalCard}>
-  <Text style={styles.editTitle}>Edit Profile</Text>
-  <View style={styles.editFieldWrap}>
-  <Text style={styles.editLabel}>Full Name</Text>
-  <TextInput
-  style={styles.input}
-  value={editName}
-  onChangeText={setEditName}
-  placeholder="Full Name"
-  />
-  </View>
-  <View style={styles.editDivider} />
-  <View style={styles.editFieldWrap}>
-  <Text style={styles.editLabel}>Phone</Text>
-  <TextInput
-  style={styles.input}
-  value={editPhone}
-  onChangeText={setEditPhone}
-  placeholder="Phone"
-  />
-  </View>
-  <View style={styles.editActionsRow}>
-  <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModal(false)}>
-  <Text style={styles.cancelText}>Cancel</Text>
-  </TouchableOpacity>
-  <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-  <Text style={styles.saveText}>Save</Text>
-  </TouchableOpacity>
-  </View>
-  </View>
-  </View>
-  </Modal>
-  </>
-  );
+    return (
+      <>
+        <ScrollView style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32 }]}>
+          <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Vehicles</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setVehicleModal(true)}>
+              <Ionicons name="add-circle" size={20} color={colors.primary} />
+              <Text style={styles.actionText}>Add Vehicle</Text>
+            </TouchableOpacity>
+            <Text style={styles.value}>- KDA 123A (Truck)</Text>
+            <Text style={styles.value}>- KDB 456B (Van)</Text>
+          </View>
+          {/* Add Vehicle Modal */}
+          <Modal
+            visible={vehicleModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setVehicleModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>Add Vehicle</Text>
+                  {/* Vehicle Type Dropdown */}
+                  <View style={styles.inputDropdownWrap}>
+                    <Text style={styles.inputDropdownLabel}>Vehicle Type</Text>
+                    <TouchableOpacity style={styles.inputDropdown} onPress={() => setShowTypeDropdown(!showTypeDropdown)}>
+                      <Text style={{ color: vehicleType ? colors.text.primary : colors.text.light }}>
+                        {vehicleType || 'Select vehicle type'}
+                      </Text>
+                      <Ionicons name={showTypeDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={colors.text.secondary} />
+                    </TouchableOpacity>
+                    {showTypeDropdown && (
+                      <View style={styles.dropdownList}>
+                        {['Truck', 'Van', 'Refrigerated Van', 'Flatbed', 'Tanker', 'Pickup', 'Trailer'].map(type => (
+                          <TouchableOpacity key={type} style={styles.dropdownItem} onPress={() => { setVehicleType(type); setShowTypeDropdown(false); }}>
+                            <Text style={{ color: colors.text.primary }}>{type}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                  <TextInput style={styles.input} placeholder="Registration Number" value={vehicleReg} onChangeText={setVehicleReg} />
+                  <View style={styles.featuresRow}>
+                    <TouchableOpacity style={[styles.featureBtn, refrigeration && styles.featureBtnActive]} onPress={() => setRefrigeration(!refrigeration)}>
+                      <MaterialCommunityIcons name="snowflake" size={18} color={refrigeration ? colors.white : colors.primary} />
+                      <Text style={[styles.featureText, refrigeration && { color: colors.white }]}>Refrigeration</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.featureBtn, humidityControl && styles.featureBtnActive]} onPress={() => setHumidityControl(!humidityControl)}>
+                      <MaterialCommunityIcons name="water-percent" size={18} color={humidityControl ? colors.white : colors.primary} />
+                      <Text style={[styles.featureText, humidityControl && { color: colors.white }]}>Humidity Control</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.featureBtn, specialCargo && styles.featureBtnActive]} onPress={() => setSpecialCargo(!specialCargo)}>
+                      <MaterialCommunityIcons name="cube-outline" size={18} color={specialCargo ? colors.white : colors.primary} />
+                      <Text style={[styles.featureText, specialCargo && { color: colors.white }]}>Special Cargo</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput style={styles.input} placeholder="Other Features (comma separated)" value={vehicleFeatures} onChangeText={setVehicleFeatures} />
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>Logbook (PDF or Image)</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={pickLogbook}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{logbook ? 'Change File' : 'Upload File'}</Text>
+                    </TouchableOpacity>
+                    {logbook && <Text style={styles.fileName}>{logbook.fileName || logbook.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>Insurance Document (PDF or Image)</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload File'}</Text>
+                    </TouchableOpacity>
+                    {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>Vehicle Photos (3-5)</Text>
+                    <View style={styles.photosRow}>
+                      {vehiclePhotos.map((photo, idx) => (
+                        <View key={idx} style={styles.photoWrap}>
+                          <Image source={{ uri: photo.uri }} style={styles.photo} />
+                          <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeVehiclePhoto(idx)}>
+                            <Ionicons name="close-circle" size={20} color={colors.error} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                      {vehiclePhotos.length < 5 && (
+                        <TouchableOpacity style={styles.addPhotoBtn} onPress={pickVehiclePhotos}>
+                          <Ionicons name="add" size={28} color={colors.primary} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <Text style={styles.photoHint}>Add at least 3 photos</Text>
+                  </View>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleAddVehicle}>
+                      <Text style={styles.saveText}>Add Vehicle</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Drivers</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setDriverModal(true)}>
+              <Ionicons name="add-circle" size={20} color={colors.primary} />
+              <Text style={styles.actionText}>Add Driver</Text>
+            </TouchableOpacity>
+            <Text style={styles.value}>- John Doe</Text>
+            <Text style={styles.value}>- Jane Smith</Text>
+          </View>
+          {/* Add Driver Modal */}
+          <Modal
+            visible={driverModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setDriverModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>Add Driver</Text>
+                  <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={pickDriverPhoto}>
+                    {driverPhoto ? (
+                      <Image source={{ uri: driverPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                    ) : (
+                      <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                      </View>
+                    )}
+                    <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
+                  </TouchableOpacity>
+                  <TextInput style={styles.input} placeholder="Driver Name" value={driverName} onChangeText={setDriverName} />
+                  <TextInput style={styles.input} placeholder="Phone Number" value={driverPhone} onChangeText={setDriverPhone} />
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>License Document (PDF or Image)</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={pickDriverLicense}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{driverLicense ? 'Change File' : 'Upload File'}</Text>
+                    </TouchableOpacity>
+                    {driverLicense && <Text style={styles.fileName}>{driverLicense.fileName || driverLicense.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setDriverModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleAddDriver}>
+                      <Text style={styles.saveText}>Add Driver</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Assignments</Text>
+            <Text style={styles.value}>Depot X → Market Z: John Doe</Text>
+            <Text style={styles.value}>Farm Y → Shop Q: Jane Smith</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Outsourcing</Text>
+            <Text style={styles.value}>You can outsource jobs to other registered transporters.</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Company Profile</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
+              <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
+              <Text style={styles.actionText}>Edit Profile</Text>
+            </TouchableOpacity>
+            {/* Logout button for company/broker */}
+            <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
+              <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
+              <Text style={[styles.actionText, { color: colors.error }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+        {/* Edit Profile Modal (always rendered) */}
+        <Modal
+          visible={editModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setEditModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.editModalCard}>
+              <Text style={styles.editTitle}>Edit Profile</Text>
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Full Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Full Name"
+                />
+              </View>
+              <View style={styles.editDivider} />
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="Phone"
+                />
+              </View>
+              <View style={styles.editActionsRow}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModal(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                  <Text style={styles.saveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </>
+    );
   } else {
-  return (
-  <>
-  {/* --- INDIVIDUAL UI --- */}
-  <ScrollView style={styles.bg} contentContainerStyle={styles.container}>
-  <Text style={styles.title}>Manage My Vehicle & Profile</Text>
-  <View style={styles.card}>
-  <Text style={styles.sectionTitle}>Vehicle</Text>
-  <TouchableOpacity style={styles.actionBtn}><Ionicons name="create-outline" size={20} color={colors.primary} /><Text style={styles.actionText}>Edit Vehicle</Text></TouchableOpacity>
-  <Text style={styles.value}>KDA 123A (Truck)</Text>
-  </View>
-  <View style={styles.card}>
-  <Text style={styles.sectionTitle}>Profile</Text>
-  <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
-  <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
-  <Text style={styles.actionText}>Edit Profile</Text>
-  </TouchableOpacity>
-  <Text style={styles.value}>Name: John Doe</Text>
-  <Text style={styles.value}>Phone: +254700111222</Text>
-  <TouchableOpacity style={[styles.actionBtn, {marginTop: 10}]} onPress={handleLogout}>
-  <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
-  <Text style={[styles.actionText, {color: colors.error}]}>Logout</Text>
-  </TouchableOpacity>
-  </View>
-  </ScrollView>
-  {/* Edit Profile Modal (always rendered) */}
-  <Modal
-  visible={editModal}
-  animationType="slide"
-  transparent
-  onRequestClose={() => setEditModal(false)}
-  >
-  <View style={styles.modalOverlay}>
-  <View style={styles.editModalCard}>
-  <Text style={styles.editTitle}>Edit Profile</Text>
-  <View style={styles.editFieldWrap}>
-  <Text style={styles.editLabel}>Full Name</Text>
-  <TextInput
-  style={styles.input}
-  value={editName}
-  onChangeText={setEditName}
-  placeholder="Full Name"
-  />
-  </View>
-  <View style={styles.editDivider} />
-  <View style={styles.editFieldWrap}>
-  <Text style={styles.editLabel}>Phone</Text>
-  <TextInput
-  style={styles.input}
-  value={editPhone}
-  onChangeText={setEditPhone}
-  placeholder="Phone"
-  />
-  </View>
-  <View style={styles.editActionsRow}>
-  <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModal(false)}>
-  <Text style={styles.cancelText}>Cancel</Text>
-  </TouchableOpacity>
-  <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-  <Text style={styles.saveText}>Save</Text>
-  </TouchableOpacity>
-  </View>
-  </View>
-  </View>
-  </Modal>
-  </>
-  );
+    return (
+      <>
+        {/* --- INDIVIDUAL UI --- */}
+        <ScrollView style={styles.bg} contentContainerStyle={styles.container}>
+          <Text style={styles.title}>Manage My Vehicle & Profile</Text>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Vehicle</Text>
+            <TouchableOpacity style={styles.actionBtn}><Ionicons name="create-outline" size={20} color={colors.primary} /><Text style={styles.actionText}>Edit Vehicle</Text></TouchableOpacity>
+            <Text style={styles.value}>KDA 123A (Truck)</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Profile</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
+              <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
+              <Text style={styles.actionText}>Edit Profile</Text>
+            </TouchableOpacity>
+            <Text style={styles.value}>Name: John Doe</Text>
+            <Text style={styles.value}>Phone: +254700111222</Text>
+            {/* Logout button for individual transporter */}
+            <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
+              <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
+              <Text style={[styles.actionText, { color: colors.error }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+        {/* Edit Profile Modal (always rendered) */}
+        <Modal
+          visible={editModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setEditModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.editModalCard}>
+              <Text style={styles.editTitle}>Edit Profile</Text>
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Full Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Full Name"
+                />
+              </View>
+              <View style={styles.editDivider} />
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="Phone"
+                />
+              </View>
+              <View style={styles.editActionsRow}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModal(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                  <Text style={styles.saveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </>
+    );
   }
 }
 

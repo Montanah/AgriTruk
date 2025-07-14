@@ -1,5 +1,11 @@
 export type BookingType = 'booking' | 'instant';
-export type BookingStatus = 'pending' | 'accepted' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+export type BookingStatus =
+  | 'pending'
+  | 'accepted'
+  | 'scheduled'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled';
 
 export interface Booking {
   id: string;
@@ -8,6 +14,7 @@ export interface Booking {
   pickupTime: string; // ISO string or empty for instant
   status: BookingStatus;
   type: BookingType;
+  transporterType: string; // <-- Add this field
 }
 
 export const MOCK_BOOKINGS: Booking[] = [
@@ -18,6 +25,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     pickupTime: '2024-06-10T10:00:00Z',
     status: 'pending',
     type: 'booking',
+    transporterType: 'individual',
   },
   {
     id: '2',
@@ -26,6 +34,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     pickupTime: '2024-06-12T14:00:00Z',
     status: 'accepted',
     type: 'booking',
+    transporterType: 'individual',
   },
   {
     id: '3',
@@ -34,6 +43,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     pickupTime: '',
     status: 'pending',
     type: 'instant',
+    transporterType: 'company',
   },
   {
     id: '4',
@@ -42,5 +52,6 @@ export const MOCK_BOOKINGS: Booking[] = [
     pickupTime: '',
     status: 'in-progress',
     type: 'instant',
+    transporterType: 'individual',
   },
 ];
