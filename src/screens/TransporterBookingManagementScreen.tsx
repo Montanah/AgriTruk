@@ -26,9 +26,9 @@ const TransporterBookingManagementScreen = () => {
   const loadBookings = () => {
     const filteredBookings = transporterType
       ? MOCK_BOOKINGS.filter(
-          booking => booking.transporterType === transporterType
+          booking => booking.transporterType === transporterType && (booking.transporterType === 'company' || booking.transporterType === 'individual')
         )
-      : MOCK_BOOKINGS;
+      : MOCK_BOOKINGS.filter(booking => booking.transporterType === 'company' || booking.transporterType === 'individual');
 
     setBookings(filteredBookings);
   };
@@ -72,7 +72,7 @@ const TransporterBookingManagementScreen = () => {
 
       {transporterType && (
         <Text style={styles.transporterInfo}>
-          Transporter Type: {transporterType}
+          Transporter Type: {transporterType === 'company' ? 'Company' : 'Individual'}
         </Text>
       )}
 

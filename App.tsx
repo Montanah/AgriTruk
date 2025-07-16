@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
+import { LogBox } from 'react-native';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
 import EmailVerificationScreen from './src/screens/auth/EmailVerificationScreen';
@@ -20,6 +21,8 @@ import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from './src/firebaseConfig';
 
 const Stack = createStackNavigator();
+
+LogBox.ignoreLogs(['useInsertionEffect must not schedule updates']);
 
 export default function App() {
   const [user, setUser] = React.useState<User | null>(null);

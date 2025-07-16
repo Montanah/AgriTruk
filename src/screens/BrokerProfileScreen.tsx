@@ -63,12 +63,7 @@ export default function BrokerProfileScreen() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'Welcome' }],
-        })
-      );
+      navigation.navigate('Welcome');
     } catch (error) {
       Alert.alert('Logout Error', 'Failed to logout. Please try again.');
     }
