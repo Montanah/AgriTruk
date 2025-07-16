@@ -2,6 +2,12 @@ const express = require("express");
 const router = express.Router();
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const ratingController = require("../controllers/ratingController");
+/**
+ * @swagger
+ * tags:
+ *   - name: Ratings
+ *     description: Ratings management
+ */
 
 /**
  * @swagger

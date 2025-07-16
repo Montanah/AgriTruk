@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/authMiddleware');
-const requireRole = require('../middlewares/requireRole');
+const { requireRole } = require('../middlewares/requireRole');
 const {
   createDispute,
   getDispute,
@@ -88,7 +88,7 @@ router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin']
  *   get:
  *     summary: Get all disputes
  *     description: Retrieves a list of all disputes.
- *     tags: [Disputes]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -188,7 +188,7 @@ router.put('/:disputeId', authenticateToken, requireRole(['user', 'transporter',
  *   patch:
  *     summary: Resolve a dispute
  *     description: Resolves a dispute with resolution details.
- *     tags: [Disputes]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -262,7 +262,7 @@ router.get('/booking/:bookingId', authenticateToken, requireRole(['user', 'trans
  *   get:
  *     summary: Get disputes by status
  *     description: Retrieves all disputes with a specific status.
- *     tags: [Disputes]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -310,7 +310,7 @@ router.get('/openedBy/:openedBy', authenticateToken, requireRole(['user', 'trans
  *   delete:
  *     summary: Soft delete a dispute
  *     description: Marks a dispute as deleted instead of permanent removal.
- *     tags: [Disputes]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:

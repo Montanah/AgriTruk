@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/authMiddleware');
-const requireRole  = require('../middlewares/requireRole');
+const { requireRole } = require('../middlewares/requireRole');
 const {
   createCompany,
   getCompany,
@@ -74,7 +74,7 @@ router.post('/', authenticateToken, requireRole('transporter'),validateCompanyCr
  *   get:
  *     summary: Get all companies
  *     description: Retrieves a list of all companies.
- *     tags: [Companies]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -91,7 +91,7 @@ router.get('/', authenticateToken, requireRole('admin'), getAllCompanies);
  *   get:
  *     summary: Search companies
  *     description: Retrieves a paginated list of companies based on a search term across company name or registration number, and status.
- *     tags: [Companies]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -224,7 +224,7 @@ router.put('/:companyId', authenticateToken, requireRole('transporter'), validat
  *   patch:
  *     summary: Approve a company
  *     description: Approves a pending company.
- *     tags: [Companies]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -250,7 +250,7 @@ router.patch('/:companyId/approve', authenticateToken, requireRole('admin'), app
  *   patch:
  *     summary: Reject a company
  *     description: Rejects a pending company with a reason.
- *     tags: [Companies]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -316,7 +316,7 @@ router.get('/transporter/:transporterId', authenticateToken, requireRole(['trans
  *   get:
  *     summary: Get companies by status
  *     description: Retrieves all companies with a specific status.
- *     tags: [Companies]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -394,7 +394,7 @@ router.get('/transporter/:transporterId/all', authenticateToken, requireRole(['t
  *   delete:
  *     summary: Soft delete a company
  *     description: Marks a company as deleted instead of permanent removal.
- *     tags: [Companies]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:

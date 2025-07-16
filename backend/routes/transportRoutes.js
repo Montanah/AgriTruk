@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/authMiddleware');
-const requireRole = require("../middlewares/requireRole");
+const { requireRole }= require("../middlewares/requireRole");
 
 const {
   createTransporter,
@@ -108,7 +108,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadFields, cr
  *   get:
  *     summary: Get all transporters
  *     description: Retrieve a list of all transporters. Accessible by users, transporters, and admins.
- *     tags: [Transporters]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -279,7 +279,7 @@ router.put('/:transporterId', authenticateToken, requireRole(['transporter', 'ad
  *   delete:
  *     summary: Delete a transporter
  *     description: Allows an admin to delete a transporter profile.
- *     tags: [Transporters]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -302,7 +302,7 @@ router.delete('/:transporterId', authenticateToken, requireRole('admin'), delete
  *   put:
  *     summary: Approve a transporter
  *     description: Allows an admin to approve a pending transporter.
- *     tags: [Transporters]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -325,7 +325,7 @@ router.put('/:transporterId/approve', authenticateToken, requireRole('admin'), a
  *   put:
  *     summary: Reject a transporter
  *     description: Allows an admin to reject a pending transporter with an optional reason.
- *     tags: [Transporters]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -404,7 +404,7 @@ router.patch('/:transporterId/availability', authenticateToken, requireRole('tra
  *   patch:
  *     summary: Update transporter rating
  *     description: Admins can update a transporter’s average rating.
- *     tags: [Transporters]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:

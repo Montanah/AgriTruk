@@ -7,6 +7,8 @@ const activityRoutes = require("./routes/activityLog");
 const bookingRoutes = require("./routes/bookingRoutes");
 const companyRoutes = require("./routes/companyRoutes");
 const disputeRoutes = require("./routes/disputeRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const permissionRoutes = require("./routes/permissionRoutes");
 
 const app = express();
 const { swaggerUi, specs } = require("./config/swagger");
@@ -24,6 +26,8 @@ app.use("/api/activity", activityRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/disputes", disputeRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/permissions", permissionRoutes);
 
 app.get('/', (req, res)=>{
     res.status(200);

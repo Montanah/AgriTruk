@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require("../middlewares/authMiddleware");
-const requireRole = require("../middlewares/requireRole");
+const { requireRole } = require("../middlewares/requireRole");
 const {
   createAgriBooking,
   acceptAgriBooking,
@@ -411,7 +411,7 @@ router.patch('/agri/:bookingId/complete', authenticateToken, requireRole('transp
  *   delete:
  *     summary: Delete an agriTRUK booking
  *     description: Deletes a specific agriTRUK booking.
- *     tags: [Bookings]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -752,7 +752,7 @@ router.patch('/cargo/:bookingId/start', authenticateToken, requireRole('transpor
  *   delete:
  *     summary: Delete a cargoTRUK booking
  *     description: Deletes a specific cargoTRUK booking.
- *     tags: [Bookings]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:

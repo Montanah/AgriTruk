@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
-const requireRole = require("../middlewares/requireRole");
+const { requireRole } = require("../middlewares/requireRole");
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const loadUserProfile = require("../middlewares/loadUserProfile");
 const multer = require("multer");

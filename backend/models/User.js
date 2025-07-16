@@ -13,6 +13,7 @@ const User = {
       email: userData.email || null,
       phone: userData.phone || null,
       role: userData.role || 'user',
+      permissionId: userData.permissionsId || null,
       userType: userData.userType || 'individual',
       languagePreference: userData.languagePreference || 'en',
       location: userData.location || null,
@@ -55,6 +56,14 @@ const User = {
   async delete(uid) {
     await db.collection(USERS_COLLECTION).doc(uid).delete();
     return true;
+  },
+  async getPermissions(uid) {
+    const user = await this.get(uid);
+    const permissionIds = user.permissionIds || [];
+    const permissionsSnapshot = await db.collection('permissions')
+      .where('permissionId', 'in', permissionIds)
+      .get();
+    return permissionsSnapshot.docs.map(doc => ({ permissionId: doc.id, ...doc.data() }));
   }
 };
 
