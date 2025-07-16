@@ -1,121 +1,137 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import React, { useState } from 'react';
-import { FlatList, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
 import colors from '../constants/colors';
-import {
-  MOCK_BUSINESSES,
-  MOCK_FARMERS,
-  MOCK_RECENT,
-  MOCK_TRANSPORTERS,
-} from '../mocks/brokerNetwork';
 
-const useMockData = true; // Set to false to use real data implementation
-const regions = ['All', 'Nairobi', 'Central', 'Western', 'Rift Valley', 'Coast'];
+const regions = ['Nairobi', 'Central', 'Western', 'Rift Valley', 'Coast'];
 
-const networkTypes = [
-  { key: 'businesses', label: 'Businesses', icon: (selected: boolean) => <MaterialCommunityIcons name="office-building" size={22} color={selected ? colors.white : colors.primary} /> },
-  { key: 'farmers', label: 'Farmers', icon: (selected: boolean) => <MaterialCommunityIcons name="tractor" size={22} color={selected ? colors.white : colors.secondary} /> },
-  { key: 'transporters', label: 'Transporters', icon: (selected: boolean) => <FontAwesome5 name="truck" size={20} color={selected ? colors.white : colors.primaryDark} /> },
+// Mock data for broker's own clients
+const MOCK_CLIENTS = [
+  { id: 'C001', name: 'Green Agri Co.', type: 'business', email: 'info@greenagri.com', phone: '+254712345678', address: 'Westlands, Nairobi', region: 'Nairobi' },
+  { id: 'C002', name: 'Mary Grower', type: 'individual', email: 'mary.grower@gmail.com', phone: '+254799888777', address: 'Karatina, Central', region: 'Central' },
+  { id: 'C003', name: 'Farmers United', type: 'business', email: 'info@farmersunited.com', phone: '+254701234567', address: 'Eldoret, Rift Valley', region: 'Rift Valley' },
+  { id: 'C004', name: 'John Farmer', type: 'individual', email: 'john.farmer@yahoo.com', phone: '+254700111222', address: 'Kakamega, Western', region: 'Western' },
 ];
+
+// Mock request history per client
+const MOCK_REQUESTS = {
+  'C001': [
+    { id: 'R001', date: '2024-06-01', type: 'Booking', status: 'Completed', amount: 12000, summary: 'Maize, 10 tons, to Mombasa' },
+    { id: 'R005', date: '2024-06-10', type: 'Instant', status: 'Pending', amount: 8000, summary: 'Wheat, 5 tons, to Kisumu' },
+  ],
+  'C002': [
+    { id: 'R002', date: '2024-06-03', type: 'Booking', status: 'Completed', amount: 6000, summary: 'Vegetables, 2 tons, to Nairobi' },
+  ],
+  'C003': [
+    { id: 'R003', date: '2024-06-05', type: 'Instant', status: 'Completed', amount: 15000, summary: 'Tea, 8 tons, to Mombasa' },
+  ],
+  'C004': [
+    { id: 'R004', date: '2024-06-07', type: 'Booking', status: 'Pending', amount: 4000, summary: 'Potatoes, 3 tons, to Nakuru' },
+  ],
+};
 
 const mockSubscription = {
   plan: 'Pro',
   status: 'Active',
   renewal: '2024-07-01',
 };
-const planOptions = [
-  { key: 'basic', label: 'Basic', price: 'KES 200', features: ['Up to 10 requests/month', 'No analytics', 'Standard support'] },
-  { key: 'pro', label: 'Pro', price: 'KES 1500', features: ['Unlimited requests', 'Analytics', 'Priority support'] },
-  { key: 'platinum', label: 'Platinum', price: 'KES 2000', features: ['All Pro features', 'Platinum badge', 'Faster payouts', 'Advanced analytics'] },
-  { key: 'enterprise', label: 'Enterprise', price: 'Contact Us', features: ['Custom features', 'Dedicated support', 'Custom integrations'] },
-];
+
+function getDaysLeftInMonth() {
+  const today = new Date();
+  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  return endOfMonth.getDate() - today.getDate();
+}
 
 export default function BrokerNetworkScreen() {
-  const [tab, setTab] = useState<'businesses' | 'farmers' | 'transporters'>('businesses');
+  const [clients, setClients] = useState(MOCK_CLIENTS);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addSearch, setAddSearch] = useState('');
-  const [addType, setAddType] = useState<'business' | 'farmer'>('business');
-  const [requestSent, setRequestSent] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [regionFilter, setRegionFilter] = useState('All');
-  const [currentSub] = useState(mockSubscription);
-
-  // Data source switch
-  let businesses = [];
-  let farmers = [];
-  let transporters = [];
-  let recent = [];
-  if (useMockData) {
-    const withRegion = (arr, region) => arr.map((e, i) => ({ ...e, region: regions[(i % (regions.length - 1)) + 1] }));
-    businesses = withRegion(MOCK_BUSINESSES, 'Nairobi');
-    farmers = withRegion(MOCK_FARMERS, 'Central');
-    transporters = withRegion(MOCK_TRANSPORTERS, 'Rift Valley');
-    recent = MOCK_RECENT;
-  } else {
-    // Placeholder for real data fetching
-    businesses = [];
-    farmers = [];
-    transporters = [];
-    recent = [];
-  }
-
-  let data = [];
-  if (tab === 'businesses') data = businesses;
-  else if (tab === 'farmers') data = farmers;
-  else data = transporters;
-
-  // For connect modal: always show businesses if addType is business, farmers if addType is farmer
-  const connectEntities = addType === 'business' ? businesses : farmers;
-  const filteredEntities = connectEntities.filter(e =>
-    (regionFilter === 'All' || e.region === regionFilter) &&
-    e.name.toLowerCase().includes(addSearch.toLowerCase())
-  );
-
-  // Analytics
-  const totalBusinesses = businesses.length;
-  const totalFarmers = farmers.length;
-  const totalTransporters = transporters.length;
-
-  // Calculate days remaining for reminder
-  function getDaysRemaining(renewalDate: string) {
-    const today = new Date();
-    const renewal = new Date(renewalDate);
-    return Math.ceil((renewal.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  }
-  const daysRemaining = getDaysRemaining(currentSub.renewal);
+  const [editClientIdx, setEditClientIdx] = useState(null);
+  const [clientName, setClientName] = useState('');
+  const [clientType, setClientType] = useState('business');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientAddress, setClientAddress] = useState('');
+  const [clientRegion, setClientRegion] = useState('Nairobi');
+  const [search, setSearch] = useState('');
   const [showReminder, setShowReminder] = useState(true);
 
-  const ListHeader = () => (
-    <View style={{ paddingHorizontal: 16 }}>
-      <View style={{ height: 24 }} />
-      {/* Subscription Status */}
-      <View style={styles.subscriptionStatusCard}>
-        <MaterialCommunityIcons name="star-circle" size={24} color={colors.secondary} style={{ marginRight: 10 }} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.subPlan}>{currentSub.plan} Plan</Text>
-          <Text style={styles.subStatus}>{currentSub.status} • Renews {currentSub.renewal}</Text>
-        </View>
+  // Add or edit client
+  const handleSaveClient = () => {
+    if (!clientName || !clientEmail || !clientPhone || !clientAddress) return;
+    const newClient = {
+      id: editClientIdx !== null ? clients[editClientIdx].id : Date.now().toString(),
+      name: clientName,
+      type: clientType,
+      email: clientEmail,
+      phone: clientPhone,
+      address: clientAddress,
+      region: clientRegion,
+    };
+    let updated;
+    if (editClientIdx !== null) {
+      updated = [...clients];
+      updated[editClientIdx] = newClient;
+    } else {
+      updated = [...clients, newClient];
+    }
+    setClients(updated);
+    setShowAddModal(false);
+    setEditClientIdx(null);
+    setClientName('');
+    setClientType('business');
+    setClientEmail('');
+    setClientPhone('');
+    setClientAddress('');
+    setClientRegion('Nairobi');
+  };
+  const handleEditClient = (idx) => {
+    const c = clients[idx];
+    setEditClientIdx(idx);
+    setClientName(c.name);
+    setClientType(c.type);
+    setClientEmail(c.email);
+    setClientPhone(c.phone);
+    setClientAddress(c.address);
+    setClientRegion(c.region || 'Nairobi');
+    setShowAddModal(true);
+  };
+  const handleRemoveClient = (idx) => {
+    setClients(clients.filter((_, i) => i !== idx));
+  };
+
+  // Filtered clients for search
+  const filteredClients = clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+
+  // Analytics
+  const totalBusinesses = clients.filter(c => c.type === 'business').length;
+  const totalIndividuals = clients.filter(c => c.type === 'individual').length;
+  const totalClients = clients.length;
+
+  const daysLeft = getDaysLeftInMonth();
+
+  return (
+    <SafeAreaView style={styles.bg}>
+      <View style={styles.headerWrap}>
+        <Text style={styles.title}>Broker Dashboard</Text>
+        <Text style={styles.subtitle}>Manage your clients and network</Text>
       </View>
-      {/* Subscription Reminder */}
       {showReminder && (
         <View style={
-          daysRemaining > 15 ? styles.reminderHealthy :
-          daysRemaining > 5 ? styles.reminderWarning :
+          daysLeft > 15 ? styles.reminderHealthy :
+          daysLeft > 5 ? styles.reminderWarning :
           styles.reminderDanger
         }>
           <Text style={styles.reminderText}>
-            {daysRemaining > 15 && 'Your subscription is healthy.'}
-            {daysRemaining <= 15 && daysRemaining > 5 && `Your subscription will renew in ${daysRemaining} days. Consider checking your plan.`}
-            {daysRemaining <= 5 && `Your subscription will renew in ${daysRemaining} days! Please renew to avoid interruption.`}
+            {daysLeft > 15 && 'Your subscription is healthy.'}
+            {daysLeft <= 15 && daysLeft > 5 && `Your subscription will renew in ${daysLeft} days (monthly). Consider checking your plan.`}
+            {daysLeft <= 5 && `Your subscription will renew in ${daysLeft} days (monthly)! Please renew to avoid interruption.`}
           </Text>
           <TouchableOpacity onPress={() => setShowReminder(false)} style={styles.reminderCloseBtn}>
             <Ionicons name="close" size={18} color={colors.text.secondary} />
           </TouchableOpacity>
         </View>
       )}
-      <View style={{ height: 8 }} />
-      {/* Analytics Summary */}
       <View style={styles.analyticsRow}>
         <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}> 
           <MaterialCommunityIcons name="office-building" size={28} color={colors.primary} />
@@ -123,185 +139,124 @@ export default function BrokerNetworkScreen() {
           <Text style={styles.analyticsLabel}>Businesses</Text>
         </View>
         <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}> 
-          <MaterialCommunityIcons name="tractor" size={28} color={colors.secondary} />
-          <Text style={styles.analyticsValue}>{totalFarmers}</Text>
-          <Text style={styles.analyticsLabel}>Farmers</Text>
+          <MaterialCommunityIcons name="account" size={28} color={colors.secondary} />
+          <Text style={styles.analyticsValue}>{totalIndividuals}</Text>
+          <Text style={styles.analyticsLabel}>Individuals</Text>
         </View>
         <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}> 
-          <MaterialCommunityIcons name="truck" size={28} color={colors.primaryDark} />
-          <Text style={styles.analyticsValue}>{totalTransporters}</Text>
-          <Text style={styles.analyticsLabel}>Transporters</Text>
+          <MaterialCommunityIcons name="account-group" size={28} color={colors.primaryDark} />
+          <Text style={styles.analyticsValue}>{totalClients}</Text>
+          <Text style={styles.analyticsLabel}>Total Clients</Text>
         </View>
       </View>
-      {/* Segmented Control */}
-      <View style={styles.segmentedControlWrap}>
-        <View style={styles.segmentedRow}>
-          {networkTypes.map((nt) => (
-            <TouchableOpacity
-              key={nt.key}
-              style={[styles.segmentedBtn, tab === nt.key && styles.segmentedBtnActive]}
-              onPress={() => setTab(nt.key as any)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.segmentedIconTextWrap}>
-                {nt.icon(tab === nt.key)}
-                <Text style={[styles.segmentedText, tab === nt.key && styles.segmentedTextActive]}>{nt.label}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+      <View style={styles.headerRow}>
+        <Text style={styles.sectionTitle}>My Clients</Text>
+        <TouchableOpacity style={styles.addBtn} onPress={() => { setShowAddModal(true); setEditClientIdx(null); setClientName(''); setClientType('business'); setClientEmail(''); setClientPhone(''); setClientAddress(''); setClientRegion('Nairobi'); }}>
+          <Ionicons name="person-add" size={22} color={colors.primary} />
+          <Text style={styles.addBtnText}>Add Client</Text>
+        </TouchableOpacity>
       </View>
-      {/* Filters */}
-      {(tab === 'businesses' || tab === 'farmers') && (
-        <View style={styles.filterRow}>
-          <View style={styles.filterCol}>
-            <Text style={styles.filterLabel}>Region:</Text>
-            <View style={styles.pickerWrap}>
-              <Picker
-                selectedValue={regionFilter}
-                onValueChange={setRegionFilter}
-                style={styles.picker}
-              >
-                {regions.map(r => <Picker.Item key={r} label={r} value={r} />)}
-              </Picker>
-            </View>
-          </View>
-        </View>
-      )}
-      <View style={[styles.sectionCard, { marginTop: 18 }]}> 
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>My Network</Text>
-          {(tab === 'businesses' || tab === 'farmers') ? (
-            <TouchableOpacity style={styles.addBtn} onPress={() => { setAddType(tab === 'businesses' ? 'business' : 'farmer'); setShowAddModal(true); setAddSearch(''); setRequestSent(null); setSelectedId(null); }}>
-              <Ionicons name="person-add" size={22} color={colors.primary} />
-              <Text style={styles.addBtnText}>Connect</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={{ minWidth: 40 }} />
-          )}
-        </View>
-      </View>
-    </View>
-  );
-
-  const ListFooter = () => (
-    <View style={{ paddingHorizontal: 16 }}>
-      {/* Recent Activity */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-        {recent.map((item) => (
-          <View key={item.id} style={styles.recentItem}>
-            <MaterialCommunityIcons name="history" size={18} color={colors.secondary} style={{ marginRight: 8 }} />
-            <Text style={styles.recentText}>{item.type} <Text style={{ fontWeight: 'bold' }}>{item.name}</Text> <Text style={{ color: colors.text.light }}>({item.date})</Text></Text>
-          </View>
-        ))}
-      </View>
-      {/* Broker Tips/Help */}
-      <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}> 
-        <Text style={styles.sectionTitle}>Broker Tips</Text>
-        <Text style={styles.tipText}>• Grow your network by inviting more businesses and farmers.</Text>
-        <Text style={styles.tipText}>• Use the "Place Request" button in the Requests tab to quickly create bookings for your network.</Text>
-        <Text style={styles.tipText}>• Track your network growth and recent activity above.</Text>
-      </View>
-    </View>
-  );
-
-  const insets = require('react-native-safe-area-context').useSafeAreaInsets();
-  return (
-    <SafeAreaView style={styles.bg}>
+      <TextInput
+        style={styles.input}
+        placeholder="Search clients..."
+        value={search}
+        onChangeText={setSearch}
+      />
       <FlatList
-        data={data}
+        data={filteredClients}
         keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.networkCard}>
-            <View style={styles.networkCardRow}>
-              {tab === 'businesses' && <MaterialCommunityIcons name="office-building" size={28} color={colors.primary} style={{ marginRight: 12 }} />}
-              {tab === 'farmers' && <MaterialCommunityIcons name="tractor" size={28} color={colors.secondary} style={{ marginRight: 12 }} />}
-              {tab === 'transporters' && <FontAwesome5 name="truck" size={24} color={colors.primaryDark} style={{ marginRight: 12 }} />}
+        renderItem={({ item, index }) => (
+          <View style={styles.clientCard}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name={item.type === 'business' ? 'office-building' : 'account'} size={28} color={item.type === 'business' ? colors.primary : colors.secondary} style={{ marginRight: 10 }} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.networkName}>{item.name}</Text>
-                <Text style={styles.networkInfo}>{item.email} • {item.phone} • {item.region}</Text>
+                <Text style={styles.clientName}>{item.name}</Text>
+                <Text style={styles.clientInfo}>{item.type === 'business' ? 'Business' : 'Individual'} • {item.email} • {item.phone} • {item.address} • {item.region}</Text>
+                {/* Request history for this client */}
+                {MOCK_REQUESTS[item.id] && (
+                  <View style={styles.requestHistoryWrap}>
+                    <Text style={styles.requestHistoryTitle}>Recent Requests:</Text>
+                    {MOCK_REQUESTS[item.id].map(req => (
+                      <View key={req.id} style={styles.requestHistoryItem}>
+                        <MaterialCommunityIcons name={req.type === 'Booking' ? 'calendar-check' : 'flash'} size={16} color={req.type === 'Booking' ? colors.primary : colors.secondary} style={{ marginRight: 4 }} />
+                        <Text style={styles.requestHistoryText}>{req.date}: {req.summary} <Text style={{ color: req.status === 'Completed' ? colors.secondary : colors.primaryDark }}>({req.status})</Text></Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
-              {(tab === 'businesses' || tab === 'farmers') ? (
-                <TouchableOpacity style={styles.removeBtn}>
-                  <Ionicons name="remove-circle" size={22} color={colors.error} />
-                </TouchableOpacity>
-              ) : (
-                <View style={{ minWidth: 22 }} />
-              )}
+              <TouchableOpacity style={styles.editBtn} onPress={() => handleEditClient(index)}>
+                <Ionicons name="create-outline" size={20} color={colors.secondary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveClient(index)}>
+                <Ionicons name="trash" size={20} color={colors.error} />
+              </TouchableOpacity>
             </View>
           </View>
         )}
-        ListEmptyComponent={<Text style={styles.emptyText}>No {tab} in your network.</Text>}
-        ListHeaderComponent={<ListHeader />}
-        ListFooterComponent={<ListFooter />}
-        contentContainerStyle={{ paddingBottom: 68 + (insets?.bottom || 0) }}
+        ListEmptyComponent={<Text style={styles.emptyText}>No clients added yet.</Text>}
+        contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       />
-      {/* Add to Network Modal */}
+      {/* Add/Edit Client Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent onRequestClose={() => setShowAddModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Connect with {addType === 'business' ? 'Business' : 'Farmer'}</Text>
+            <Text style={styles.modalTitle}>{editClientIdx !== null ? 'Edit Client' : 'Add Client'}</Text>
             <TextInput
               style={styles.input}
-              placeholder={`Search ${addType === 'business' ? 'businesses' : 'farmers'}...`}
-              value={addSearch}
-              onChangeText={setAddSearch}
+              placeholder="Client Name"
+              value={clientName}
+              onChangeText={setClientName}
             />
-            <View style={styles.filterRow}>
-              <View style={styles.filterCol}>
-                <Text style={styles.filterLabel}>Region:</Text>
-                <View style={styles.pickerWrap}>
-                  <Picker
-                    selectedValue={regionFilter}
-                    onValueChange={setRegionFilter}
-                    style={styles.picker}
-                  >
-                    {regions.map(r => <Picker.Item key={r} label={r} value={r} />)}
-                  </Picker>
-                </View>
+            <View style={styles.typeRow}>
+              <TouchableOpacity style={[styles.typeBtn, clientType === 'business' && styles.typeBtnActive]} onPress={() => setClientType('business')}>
+                <MaterialCommunityIcons name="office-building" size={20} color={clientType === 'business' ? colors.white : colors.primary} />
+                <Text style={[styles.typeBtnText, clientType === 'business' && { color: colors.white }]}>Business</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.typeBtn, clientType === 'individual' && styles.typeBtnActive]} onPress={() => setClientType('individual')}>
+                <MaterialCommunityIcons name="account" size={20} color={clientType === 'individual' ? colors.white : colors.secondary} />
+                <Text style={[styles.typeBtnText, clientType === 'individual' && { color: colors.white }]}>Individual</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={clientEmail}
+              onChangeText={setClientEmail}
+              keyboardType="email-address"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Phone"
+              value={clientPhone}
+              onChangeText={setClientPhone}
+              keyboardType="phone-pad"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Address"
+              value={clientAddress}
+              onChangeText={setClientAddress}
+            />
+            <View style={{ marginBottom: 10 }}>
+              <Text style={styles.inputDropdownLabel}>Region</Text>
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={clientRegion}
+                  onValueChange={setClientRegion}
+                  style={styles.picker}
+                >
+                  {regions.map(r => <Picker.Item key={r} label={r} value={r} />)}
+                </Picker>
               </View>
             </View>
-            <FlatList
-              data={filteredEntities}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.connectCard, selectedId === item.id && { borderColor: colors.primary, borderWidth: 2 }]}
-                  onPress={() => setSelectedId(item.id)}
-                  activeOpacity={0.85}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {addType === 'business' && <MaterialCommunityIcons name="office-building" size={22} color={colors.primary} style={{ marginRight: 10 }} />}
-                    {addType === 'farmer' && <MaterialCommunityIcons name="tractor" size={22} color={colors.secondary} style={{ marginRight: 10 }} />}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.connectName}>{item.name}</Text>
-                      <Text style={styles.connectInfo}>{item.email} • {item.phone} • {item.region}</Text>
-                    </View>
-                    {requestSent === item.id ? (
-                      <Text style={styles.requestSent}>Request Sent</Text>
-                    ) : (
-                      <Ionicons name={selectedId === item.id ? 'radio-button-on' : 'radio-button-off'} size={22} color={selectedId === item.id ? colors.primary : colors.text.light} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={<Text style={styles.emptyText}>No results found.</Text>}
-              style={{ maxHeight: 260, marginTop: 8 }}
-            />
             <View style={styles.modalActionsRow}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAddModal(false)}>
-                <Text style={styles.cancelText}>Close</Text>
+                <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, { opacity: selectedId && !requestSent ? 1 : 0.5 }]}
-                disabled={!selectedId || !!requestSent}
-                onPress={() => {
-                  if (selectedId) setRequestSent(selectedId);
-                }}
-              >
-                <Text style={styles.saveText}>Send Request</Text>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveClient}>
+                <Text style={styles.saveText}>{editClientIdx !== null ? 'Save Changes' : 'Add Client'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -313,46 +268,42 @@ export default function BrokerNetworkScreen() {
 
 const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: colors.background },
-  analyticsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18, marginTop: 8, gap: 8 },
-  analyticsCard: { flex: 1, alignItems: 'center', borderRadius: 16, padding: 14, marginHorizontal: 2, elevation: 1, shadowColor: colors.primary, shadowOpacity: 0.06, shadowRadius: 6 },
-  analyticsLabel: { fontSize: 13, color: colors.text.secondary, marginTop: 2 },
-  analyticsValue: { fontSize: 20, fontWeight: 'bold', color: colors.primary, marginTop: 2 },
-  segmentedControlWrap: { backgroundColor: colors.surface, borderRadius: 24, padding: 6, marginBottom: 18, marginTop: 8 },
-  segmentedRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  segmentedBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 22, backgroundColor: colors.surface, marginHorizontal: 4, borderWidth: 1, borderColor: colors.primary, minWidth: 100 },
-  segmentedIconTextWrap: { alignItems: 'center', justifyContent: 'center' },
-  segmentedText: { color: colors.primary, fontWeight: '700', fontSize: 14, marginTop: 4 },
-  segmentedTextActive: { color: colors.white },
-  segmentedBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  segmentedText: { color: colors.primary, fontWeight: '700', fontSize: 15 },
-  segmentedTextActive: { color: colors.white },
-  filterRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginTop: 2, gap: 12 },
-  filterCol: { flex: 1 },
-  filterLabel: { fontWeight: 'bold', color: colors.text.secondary, marginBottom: 2 },
-  sectionCard: { backgroundColor: colors.white, borderRadius: 18, padding: 16, marginBottom: 18, elevation: 2, shadowColor: colors.black, shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  headerWrap: { paddingTop: Platform.OS === 'android' ? 36 : 48, paddingBottom: 8, alignItems: 'center', backgroundColor: colors.primary, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, marginBottom: 10 },
+  title: { fontSize: 26, fontWeight: 'bold', color: colors.white, marginBottom: 2 },
+  subtitle: { fontSize: 15, color: colors.white, opacity: 0.85, marginBottom: 6 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 18, paddingHorizontal: 8 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.secondary, letterSpacing: 0.2 },
   addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, padding: 8, borderWidth: 1, borderColor: colors.primary },
   addBtnText: { color: colors.primary, fontWeight: 'bold', marginLeft: 4, fontSize: 15 },
-  networkCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 12, marginHorizontal: 8, elevation: 1, shadowColor: colors.primary, shadowOpacity: 0.04, shadowRadius: 4 },
-  networkCardRow: { flexDirection: 'row', alignItems: 'center' },
-  networkName: { fontSize: 16, color: colors.text.primary, fontWeight: '700' },
-  networkInfo: { fontSize: 13, color: colors.text.secondary, marginTop: 2 },
-  removeBtn: { marginLeft: 8 },
+  input: { backgroundColor: colors.background, borderRadius: 8, padding: 10, marginVertical: 6, fontSize: 15, borderWidth: 1, borderColor: colors.text.light, width: '100%' },
+  analyticsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18, marginTop: 8, gap: 8 },
+  analyticsCard: { flex: 1, alignItems: 'center', borderRadius: 16, padding: 14, marginHorizontal: 2, elevation: 1, shadowColor: colors.primary, shadowOpacity: 0.06, shadowRadius: 6 },
+  analyticsLabel: { fontSize: 13, color: colors.text.secondary, marginTop: 2 },
+  analyticsValue: { fontSize: 24, fontWeight: 'bold', color: colors.primaryDark, marginTop: 2, letterSpacing: 0.5 },
+  clientCard: { backgroundColor: colors.white, borderRadius: 14, padding: 14, marginBottom: 16, marginHorizontal: 8, elevation: 2, shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8 },
+  clientName: { fontSize: 17, color: colors.text.primary, fontWeight: '700' },
+  clientInfo: { fontSize: 13, color: colors.text.secondary, marginTop: 2 },
+  requestHistoryWrap: { marginTop: 6, backgroundColor: colors.background, borderRadius: 8, padding: 8 },
+  requestHistoryTitle: { fontWeight: 'bold', color: colors.primaryDark, fontSize: 13, marginBottom: 2 },
+  requestHistoryItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  requestHistoryText: { color: colors.text.primary, fontSize: 13 },
+  editBtn: { marginLeft: 8, marginRight: 2 },
+  removeBtn: { marginLeft: 2 },
   emptyText: { color: colors.text.light, fontSize: 14, textAlign: 'center', marginTop: 8 },
-  recentItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  recentText: { color: colors.text.primary, fontSize: 15 },
-  tipText: { color: colors.text.secondary, fontSize: 14, marginTop: 2 },
-  connectCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 12, marginBottom: 10, marginHorizontal: 2, elevation: 1, shadowColor: colors.primary, shadowOpacity: 0.03, shadowRadius: 2 },
-  connectName: { fontWeight: 'bold', color: colors.primary, fontSize: 15 },
-  connectInfo: { color: colors.text.secondary, fontSize: 13 },
-  connectBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 16, marginLeft: 10 },
-  connectBtnText: { color: colors.white, fontWeight: 'bold', fontSize: 14 },
-  requestSent: { color: colors.secondary, fontWeight: 'bold', fontSize: 14, marginLeft: 10 },
+  reminderHealthy: { backgroundColor: '#e6fbe6', borderRadius: 12, padding: 12, marginHorizontal: 16, marginTop: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center' },
+  reminderWarning: { backgroundColor: '#fffbe6', borderRadius: 12, padding: 12, marginHorizontal: 16, marginTop: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center' },
+  reminderDanger: { backgroundColor: '#ffe6e6', borderRadius: 12, padding: 12, marginHorizontal: 16, marginTop: 10, marginBottom: 8, flexDirection: 'row', alignItems: 'center' },
+  reminderText: { color: colors.primaryDark, fontSize: 14, flex: 1 },
+  reminderCloseBtn: { marginLeft: 10, padding: 2 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' },
   modalCard: { backgroundColor: colors.white, borderRadius: 18, padding: 22, width: '92%', shadowColor: colors.black, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: colors.primaryDark, marginBottom: 16, textAlign: 'center' },
-  input: { backgroundColor: colors.background, borderRadius: 8, padding: 10, marginVertical: 6, fontSize: 15, borderWidth: 1, borderColor: colors.text.light },
+  typeRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  typeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: colors.text.light },
+  typeBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  typeBtnText: { color: colors.primary, fontWeight: 'bold', marginLeft: 6, fontSize: 15 },
+  pickerWrap: { borderWidth: 1, borderColor: colors.text.light, borderRadius: 8, marginBottom: 8, backgroundColor: colors.surface },
+  picker: { height: 44, width: '100%' },
   modalActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 },
   cancelBtn: { backgroundColor: colors.background, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 18, borderWidth: 1, borderColor: colors.text.light, marginRight: 8 },
   cancelText: { color: colors.error, fontWeight: 'bold', fontSize: 15 },
