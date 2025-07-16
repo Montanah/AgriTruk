@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { CommonActions, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
@@ -51,6 +51,11 @@ export default function ManageTransporterScreen({ route }) {
   const [vehicleModal, setVehicleModal] = useState(false);
   const [vehicleEditIdx, setVehicleEditIdx] = useState(null);
   const [vehicleType, setVehicleType] = useState('');
+  const [vehicleMake, setVehicleMake] = useState('');
+  const [vehicleColor, setVehicleColor] = useState('');
+  const [vehicleCapacity, setVehicleCapacity] = useState('');
+  const [vehicleYear, setVehicleYear] = useState('');
+  const [vehicleDriveType, setVehicleDriveType] = useState('');
   const [vehicleReg, setVehicleReg] = useState('');
   const [refrigeration, setRefrigeration] = useState(false);
   const [humidityControl, setHumidityControl] = useState(false);
@@ -259,6 +264,27 @@ export default function ManageTransporterScreen({ route }) {
                 <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
                   <View style={styles.vehicleModalCard}>
                     <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
+                    {/* Make & Color Row */}
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputDropdownLabel}>Make *</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. Isuzu"
+                          value={vehicleMake}
+                          onChangeText={setVehicleMake}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputDropdownLabel}>Color *</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. White"
+                          value={vehicleColor}
+                          onChangeText={setVehicleColor}
+                        />
+                      </View>
+                    </View>
                     {/* Vehicle Type Dropdown */}
                     <View style={styles.inputDropdownWrap}>
                       <Text style={styles.inputDropdownLabel}>Vehicle Type *</Text>
@@ -277,6 +303,49 @@ export default function ManageTransporterScreen({ route }) {
                           ))}
                         </View>
                       )}
+                    </View>
+                    {/* Capacity, Year, Drive Type Row */}
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputDropdownLabel}>Capacity (tons)</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. 7.5"
+                          keyboardType="numeric"
+                          value={vehicleCapacity}
+                          onChangeText={setVehicleCapacity}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputDropdownLabel}>Year</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="e.g. 2018"
+                          keyboardType="numeric"
+                          value={vehicleYear}
+                          onChangeText={setVehicleYear}
+                          maxLength={4}
+                        />
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.inputDropdownLabel}>Drive Type</Text>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <TouchableOpacity
+                            style={[styles.input, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: vehicleDriveType === '2WD' ? colors.primary : colors.background, borderColor: vehicleDriveType === '2WD' ? colors.primary : colors.text.light }]}
+                            onPress={() => setVehicleDriveType('2WD')}
+                          >
+                            <Text style={{ color: vehicleDriveType === '2WD' ? '#fff' : colors.text.primary, fontWeight: 'bold' }}>2WD</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.input, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: vehicleDriveType === '4WD' ? colors.primary : colors.background, borderColor: vehicleDriveType === '4WD' ? colors.primary : colors.text.light }]}
+                            onPress={() => setVehicleDriveType('4WD')}
+                          >
+                            <Text style={{ color: vehicleDriveType === '4WD' ? '#fff' : colors.text.primary, fontWeight: 'bold' }}>4WD</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
                     </View>
                     <TextInput style={styles.input} placeholder="Registration Number *" value={vehicleReg} onChangeText={setVehicleReg} />
                     <View style={styles.featuresRow}>
@@ -573,7 +642,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 8,
-    marginTop: 60, // More space from top bar
+    marginTop: 60,
     marginBottom: 40,
   },
   section: { backgroundColor: colors.background, borderRadius: 12, padding: 10, marginBottom: 12 },
