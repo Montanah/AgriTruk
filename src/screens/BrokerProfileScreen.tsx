@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Modal, ScrollView } from 'react-native';
-import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import colors from '../constants/colors';
-import { CommonActions, useNavigation } from '@react-navigation/native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { signOut } from 'firebase/auth';
-import { auth, db } from '../firebaseConfig';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import colors from '../constants/colors';
+import { auth, db } from '../firebaseConfig';
 
 const mockSubscription = {
   plan: 'Pro',
@@ -61,13 +61,15 @@ export default function BrokerProfileScreen() {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigation.navigate('Welcome');
-    } catch (error) {
-      Alert.alert('Logout Error', 'Failed to logout. Please try again.');
-    }
-  };
+     try {
+       await signOut(auth);
+       setTimeout(() => {
+         navigation.navigate('Welcome');
+       }, 100);
+     } catch (error) {
+       Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+     }
+   };
 
   const handleSave = async () => {
     setEditing(false);
