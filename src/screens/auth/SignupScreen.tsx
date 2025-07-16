@@ -36,15 +36,15 @@ const countryOptions = [
 const roleAccents = {
   farmer: colors.primary,
   business: colors.secondary,
-  individual: colors.tertiary,
+  broker: colors.tertiary,
   driver: '#FF8C00', // Unique bold orange for drivers
 };
 
 const roleLabels = {
   farmer: 'Farmer',
   business: 'Business',
-  individual: 'Individual',
-  driver: 'Driver',
+  broker: 'Broker',
+  driver: 'Transporter',
 };
 
 const SignupScreen = () => {
@@ -375,6 +375,7 @@ const SignupScreen = () => {
                       driver: 'transporter',
                       individual: 'user',
                       business: 'user',
+                      broker: 'broker',
                     };
                     await apiRequest('/auth/register', {
                       method: 'POST',

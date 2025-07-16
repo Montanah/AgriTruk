@@ -121,16 +121,24 @@ export default function TransporterCompletionScreen() {
   };
 
   const isValid = () => {
-    return (
-      vehicleType &&
-      registration &&
-      profilePhoto &&
-      dlFile &&
-      logBookFile &&
-      insuranceFile &&
-      idFile &&
-      vehiclePhotos.length > 0
-    );
+    if (transporterType === 'individual') {
+      return (
+        vehicleType &&
+        registration &&
+        profilePhoto &&
+        dlFile &&
+        insuranceFile &&
+        idFile &&
+        vehiclePhotos.length > 0
+      );
+    } else {
+      return (
+        companyName &&
+        companyReg &&
+        companyContact &&
+        profilePhoto
+      );
+    }
   };
 
   const handleDlFile = async () => {
@@ -469,24 +477,6 @@ export default function TransporterCompletionScreen() {
             </View>
           </View>
           <View style={{ flexDirection: 'row', width: '100%', gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Log Book</Text>
-              <TouchableOpacity style={styles.photoPicker} onPress={handleLogBookFile}>
-                {logBookFile ? (
-                  logBookFile.mimeType && logBookFile.mimeType.startsWith('image/') ? (
-                    <Image source={{ uri: logBookFile.uri }} style={styles.dlPhoto} />
-                  ) : (
-                    <View style={{ alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="file-pdf-box" size={60} color={colors.error} />
-                      <Text style={{ color: colors.text.secondary, marginTop: 4 }}>{logBookFile.name || 'PDF File'}</Text>
-                    </View>
-                  )
-                ) : (
-                  <MaterialCommunityIcons name="book-open-variant" size={60} color={colors.text.light} />
-                )}
-                <Text style={styles.photoPickerText}>Upload Log Book</Text>
-              </TouchableOpacity>
-            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.sectionTitle}>Insurance</Text>
               <TouchableOpacity style={styles.photoPicker} onPress={handleInsuranceFile}>

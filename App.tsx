@@ -78,7 +78,7 @@ export default function App() {
   let initialRouteName = 'Welcome';
   let screens = null;
 
-  if (!user || (!isVerified && role !== 'transporter')) {
+  if (!user || (!isVerified && role !== 'transporter' && role !== 'broker')) {
     initialRouteName = 'Welcome';
     screens = (
       <>
@@ -92,6 +92,14 @@ export default function App() {
         <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
         {/* Temporary: allow navigation for UI testing */}
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+        <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+      </>
+    );
+  } else if (role === 'broker') {
+    initialRouteName = 'BrokerTabs';
+    screens = (
+      <>
+        <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
       </>
     );
   } else if (role === 'transporter' && !profileCompleted) {

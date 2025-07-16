@@ -41,26 +41,26 @@ const roles = [
     description: 'For agri-businesses and cooperatives',
   },
   {
-    key: 'individual',
-    label: 'Individual',
+    key: 'broker',
+    label: 'Broker',
     accent: colors.tertiary,
     icon: (animatedStyle: any) => (
       <Animated.View style={animatedStyle}>
-        <FontAwesome5 name="user" size={32} color={colors.tertiary} />
+        <FontAwesome5 name="user-tie" size={32} color={colors.tertiary} />
       </Animated.View>
     ),
-    description: 'For individuals needing transport',
+    description: 'For intermediaries connecting businesses, farmers, and transporters',
   },
   {
     key: 'driver',
-    label: 'Driver',
+    label: 'Transporter',
     accent: '#FF8C00',
     icon: (animatedStyle: any) => (
       <Animated.View style={animatedStyle}>
         <MaterialCommunityIcons name="truck" size={32} color="#FF8C00" />
       </Animated.View>
     ),
-    description: 'For transporters and drivers',
+    description: 'For transporters (individuals or companies)',
   },
 ];
 

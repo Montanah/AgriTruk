@@ -4,14 +4,35 @@ import React, { useState } from 'react';
 import { FlatList, Image, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import colors from '../constants/colors';
 import { mockMessages } from '../mocks/messages';
-import { MOCK_TRANSPORTERS } from '../mocks/transporters';
+import { MOCK_BOOKINGS } from '../mocks/bookings';
 import { mockTrip } from '../mocks/trip';
 
 const TripDetailsScreen = () => {
   const route = useRoute();
   const params = route.params || {};
-  const transporter = params.transporter || MOCK_TRANSPORTERS[0];
+  // booking param should be passed in navigation
+  const booking = params.booking || MOCK_BOOKINGS[0];
   const trip = params.trip || mockTrip;
+
+  // Determine communication target: assigned driver (for company) or transporter
+  let commTarget = null;
+  if (booking.transporterType === 'company' && booking.assignedDriver) {
+    commTarget = {
+      name: booking.assignedDriver.name,
+      phone: booking.assignedDriver.phone,
+      photo: booking.assignedDriver.photo,
+      role: 'Driver',
+    };
+  } else {
+    // fallback: transporter info (mocked for now)
+    commTarget = {
+      name: 'Transporter',
+      phone: '+254700000000',
+      photo: 'https://randomuser.me/api/portraits/men/32.jpg',
+      role: 'Transporter',
+    };
+  }
+
   const [chatVisible, setChatVisible] = useState(false);
   const [callVisible, setCallVisible] = useState(false);
   const [messages, setMessages] = useState(mockMessages);
@@ -39,15 +60,14 @@ const TripDetailsScreen = () => {
         <Text style={{ color: '#aaa', fontSize: 13, marginTop: 4 }}>Enable Google Maps API for live tracking</Text>
       </View>
       {/* Bottom Card */}
-      <View style={[styles.bottomCard, { marginBottom: 24 }]}>
+      <View style={[styles.bottomCard, { marginBottom: 24 }]}> 
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image source={{ uri: transporter.photo }} style={styles.avatar} />
+          <Image source={{ uri: commTarget.photo }} style={styles.avatar} />
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.name}>{transporter.name}</Text>
-            <Text style={styles.vehicle}>{transporter.vehicle} ({transporter.reg})</Text>
-            <Text style={styles.vehicleDetails}>Reg: <Text>{transporter.reg}</Text></Text>
-            <Text style={styles.vehicleDetails}>Trips Completed: <Text>{transporter.tripsCompleted || 42}</Text></Text>
-            <Text style={styles.rating}>Rating: {transporter.rating} ★</Text>
+            <Text style={styles.name}>{commTarget.name} <Text style={{ color: colors.secondary, fontSize: 13 }}>({commTarget.role})</Text></Text>
+            {booking.transporterType === 'company' && booking.assignedDriver && (
+              <Text style={styles.vehicleDetails}>Assigned Driver for this trip</Text>
+            )}
           </View>
           <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
             <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
@@ -55,7 +75,7 @@ const TripDetailsScreen = () => {
           <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
             <Ionicons name="call" size={22} color={colors.secondary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${transporter.phone}`)}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${commTarget.phone}`)}>
             <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
           </TouchableOpacity>
         </View>
@@ -70,7 +90,7 @@ const TripDetailsScreen = () => {
           <Text style={styles.statusText}>ETA: {trip.eta} ({trip.distance})</Text>
         </View>
         <View style={styles.actionRow}>
-          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8, alignSelf: 'flex-start' }]}>
+          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8, alignSelf: 'flex-start' }]}> 
             <Text style={styles.cancelText}>Cancel Trip</Text>
           </TouchableOpacity>
         </View>
@@ -103,7 +123,7 @@ const TripDetailsScreen = () => {
                 style={{ flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: 8, borderWidth: 1, borderColor: colors.text.light }}
                 value={input}
                 onChangeText={setInput}
-                placeholder="Type a message..."
+                placeholder={`Message ${commTarget.name}...`}
               />
               <TouchableOpacity onPress={sendMessage} style={{ marginLeft: 8 }}>
                 <Ionicons name="send" size={22} color={colors.primary} />
@@ -117,8 +137,8 @@ const TripDetailsScreen = () => {
         <View style={styles.modalBg}>
           <View style={styles.callModal}>
             <Ionicons name="call" size={48} color={colors.secondary} style={{ marginBottom: 12 }} />
-            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Calling Transporter...</Text>
-            <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>{transporter.name} ({transporter.phone})</Text>
+            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Calling {commTarget.role}...</Text>
+            <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>{commTarget.name} ({commTarget.phone})</Text>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setCallVisible(false)}>
               <Text style={styles.cancelText}>End Call</Text>
             </TouchableOpacity>

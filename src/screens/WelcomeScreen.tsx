@@ -39,8 +39,8 @@ const features = [
   {
     icon: <MaterialCommunityIcons name="truck" size={38} color={'#FF8C00'} />,
     graphic: <MaterialCommunityIcons name="truck" size={60} color={'#FF8C00'} />,
-    title: 'Driver',
-    description: 'For transporters and drivers',
+    title: 'Transporter',
+    description: 'For transporters (individuals or companies)',
     color: '#FF8C00',
     accent: '#FF8C00',
   },

@@ -7,6 +7,13 @@ export type BookingStatus =
   | 'completed'
   | 'cancelled';
 
+export interface AssignedDriver {
+  id: string;
+  name: string;
+  phone: string;
+  photo?: string;
+}
+
 export interface Booking {
   id: string;
   pickupLocation: string;
@@ -14,7 +21,8 @@ export interface Booking {
   pickupTime: string; // ISO string or empty for instant
   status: BookingStatus;
   type: BookingType;
-  transporterType: string; // <-- Add this field
+  transporterType: string; // 'individual' | 'company'
+  assignedDriver?: AssignedDriver; // For company bookings
 }
 
 export const MOCK_BOOKINGS: Booking[] = [
@@ -44,6 +52,12 @@ export const MOCK_BOOKINGS: Booking[] = [
     status: 'pending',
     type: 'instant',
     transporterType: 'company',
+    assignedDriver: {
+      id: 'd1',
+      name: 'John Driver',
+      phone: '+254700123456',
+      photo: 'https://randomuser.me/api/portraits/men/32.jpg',
+    },
   },
   {
     id: '4',

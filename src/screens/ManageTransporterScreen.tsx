@@ -3,7 +3,7 @@ import { CommonActions, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, FlatList } from 'react-native';
 import colors from '../constants/colors';
 import { auth } from '../firebaseConfig';
 
@@ -31,29 +31,36 @@ export default function ManageTransporterScreen({ route }) {
   };
 
   const handleSave = () => {
-    // TODO: Connect to real save logic
     setEditModal(false);
   };
 
-  // Vehicle modal state and fields for company/broker
+  // Vehicles and Drivers state
+  const [vehicles, setVehicles] = useState([]); // {id, type, reg, features, insurance, photos, assignedDriverId}
+  const [drivers, setDrivers] = useState([]); // {id, name, phone, photo, license}
+
+  // Vehicle modal state and fields
   const [vehicleModal, setVehicleModal] = useState(false);
+  const [vehicleEditIdx, setVehicleEditIdx] = useState(null);
   const [vehicleType, setVehicleType] = useState('');
   const [vehicleReg, setVehicleReg] = useState('');
   const [refrigeration, setRefrigeration] = useState(false);
   const [humidityControl, setHumidityControl] = useState(false);
   const [specialCargo, setSpecialCargo] = useState(false);
   const [vehicleFeatures, setVehicleFeatures] = useState('');
-  const [logbook, setLogbook] = useState(null);
-  const [vehiclePhotos, setVehiclePhotos] = useState([]);
   const [insurance, setInsurance] = useState(null);
+  const [vehiclePhotos, setVehiclePhotos] = useState([]);
+  const [assignedDriverId, setAssignedDriverId] = useState(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
 
   // Driver modal state and fields
   const [driverModal, setDriverModal] = useState(false);
+  const [driverEditIdx, setDriverEditIdx] = useState(null);
   const [driverName, setDriverName] = useState('');
   const [driverPhone, setDriverPhone] = useState('');
   const [driverPhoto, setDriverPhoto] = useState(null);
   const [driverLicense, setDriverLicense] = useState(null);
+
+  // Image/file pickers
   const pickDriverPhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.IMAGE, allowsEditing: true, quality: 0.7 });
     if (!result.canceled && result.assets && result.assets[0].uri) setDriverPhoto(result.assets[0]);
@@ -61,16 +68,6 @@ export default function ManageTransporterScreen({ route }) {
   const pickDriverLicense = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.ALL, allowsEditing: true, quality: 0.7 });
     if (!result.canceled && result.assets && result.assets[0].uri) setDriverLicense(result.assets[0]);
-  };
-  const handleAddDriver = () => {
-    // TODO: Save driver to backend
-    setDriverModal(false);
-    setDriverName(''); setDriverPhone(''); setDriverPhoto(null); setDriverLicense(null);
-  };
-
-  const pickLogbook = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.ALL, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setLogbook(result.assets[0]);
   };
   const pickVehiclePhotos = async () => {
     if (vehiclePhotos.length >= 5) return;
@@ -84,29 +81,150 @@ export default function ManageTransporterScreen({ route }) {
   const removeVehiclePhoto = (idx) => {
     setVehiclePhotos(vehiclePhotos.filter((_, i) => i !== idx));
   };
-  const handleAddVehicle = () => {
-    // TODO: Save vehicle to backend
+
+  // Vehicle add/edit logic
+  const openAddVehicle = () => {
+    setVehicleEditIdx(null);
+    setVehicleType(''); setVehicleReg(''); setRefrigeration(false); setHumidityControl(false); setSpecialCargo(false); setVehicleFeatures(''); setInsurance(null); setVehiclePhotos([]); setAssignedDriverId(null);
+    setVehicleModal(true);
+  };
+  const openEditVehicle = (idx) => {
+    const v = vehicles[idx];
+    setVehicleEditIdx(idx);
+    setVehicleType(v.type); setVehicleReg(v.reg); setRefrigeration(v.refrigeration); setHumidityControl(v.humidityControl); setSpecialCargo(v.specialCargo); setVehicleFeatures(v.features); setInsurance(v.insurance); setVehiclePhotos(v.photos); setAssignedDriverId(v.assignedDriverId || null);
+    setVehicleModal(true);
+  };
+  const handleSaveVehicle = () => {
+    // Validation
+    if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 3) {
+      Alert.alert('Missing Info', 'Please fill all required fields and upload at least 3 photos.');
+      return;
+    }
+    const vehicle = {
+      id: vehicleEditIdx !== null ? vehicles[vehicleEditIdx].id : Date.now().toString(),
+      type: vehicleType,
+      reg: vehicleReg,
+      refrigeration,
+      humidityControl,
+      specialCargo,
+      features: vehicleFeatures,
+      insurance,
+      photos: vehiclePhotos,
+      assignedDriverId,
+    };
+    let updated;
+    if (vehicleEditIdx !== null) {
+      updated = [...vehicles];
+      updated[vehicleEditIdx] = vehicle;
+    } else {
+      updated = [...vehicles, vehicle];
+    }
+    setVehicles(updated);
     setVehicleModal(false);
-    // Reset fields
-    setVehicleType(''); setVehicleReg('');
-    setRefrigeration(false); setHumidityControl(false); setSpecialCargo(false); setVehicleFeatures(''); setLogbook(null); setInsurance(null); setVehiclePhotos([]);
+  };
+  const handleRemoveVehicle = (idx) => {
+    setVehicles(vehicles.filter((_, i) => i !== idx));
+  };
+
+  // Driver add/edit logic
+  const openAddDriver = () => {
+    setDriverEditIdx(null);
+    setDriverName(''); setDriverPhone(''); setDriverPhoto(null); setDriverLicense(null);
+    setDriverModal(true);
+  };
+  const openEditDriver = (idx) => {
+    const d = drivers[idx];
+    setDriverEditIdx(idx);
+    setDriverName(d.name); setDriverPhone(d.phone); setDriverPhoto(d.photo); setDriverLicense(d.license);
+    setDriverModal(true);
+  };
+  const handleSaveDriver = () => {
+    if (!driverName || !driverPhoto || !driverLicense) {
+      Alert.alert('Missing Info', 'Please provide name, profile photo, and license.');
+      return;
+    }
+    const driver = {
+      id: driverEditIdx !== null ? drivers[driverEditIdx].id : Date.now().toString(),
+      name: driverName,
+      phone: driverPhone,
+      photo: driverPhoto,
+      license: driverLicense,
+    };
+    let updated;
+    if (driverEditIdx !== null) {
+      updated = [...drivers];
+      updated[driverEditIdx] = driver;
+    } else {
+      updated = [...drivers, driver];
+    }
+    setDrivers(updated);
+    setDriverModal(false);
+  };
+  const handleRemoveDriver = (idx) => {
+    setDrivers(drivers.filter((_, i) => i !== idx));
+    // Unassign from any vehicles
+    setVehicles(vehicles.map(v => v.assignedDriverId === drivers[idx].id ? { ...v, assignedDriverId: null } : v));
+  };
+
+  // Assignment logic
+  const assignDriverToVehicle = (vehicleIdx, driverId) => {
+    setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: driverId } : v));
   };
 
   if (transporterType === 'company') {
     return (
       <>
-        <ScrollView style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32 }]}>
+        <ScrollView style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32 }]}> 
           <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
+          {/* Vehicles List */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Vehicles</Text>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => setVehicleModal(true)}>
+            <TouchableOpacity style={styles.actionBtn} onPress={openAddVehicle}>
               <Ionicons name="add-circle" size={20} color={colors.primary} />
               <Text style={styles.actionText}>Add Vehicle</Text>
             </TouchableOpacity>
-            <Text style={styles.value}>- KDA 123A (Truck)</Text>
-            <Text style={styles.value}>- KDB 456B (Van)</Text>
+            <FlatList
+              data={vehicles}
+              keyExtractor={item => item.id}
+              renderItem={({ item, index }) => (
+                <View style={styles.vehicleListItem}>
+                  <Text style={styles.value}>{item.reg} ({item.type})</Text>
+                  <Text style={styles.value}>Assigned Driver: {item.assignedDriverId ? (drivers.find(d => d.id === item.assignedDriverId)?.name || 'Unknown') : 'None'}</Text>
+                  <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => openEditVehicle(index)}>
+                      <Ionicons name="create-outline" size={18} color={colors.secondary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveVehicle(index)}>
+                      <Ionicons name="trash" size={18} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                  {/* Assignment Dropdown */}
+                  <View style={{ marginTop: 6 }}>
+                    <Text style={styles.label}>Assign Driver:</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <FlatList
+                        data={drivers}
+                        horizontal
+                        keyExtractor={d => d.id}
+                        renderItem={({ item: d }) => (
+                          <TouchableOpacity
+                            style={[styles.driverAssignBtn, item.assignedDriverId === d.id && styles.driverAssignBtnActive]}
+                            onPress={() => assignDriverToVehicle(index, d.id)}
+                          >
+                            <Image source={{ uri: d.photo?.uri }} style={styles.driverAssignPhoto} />
+                            <Text style={styles.driverAssignName}>{d.name}</Text>
+                          </TouchableOpacity>
+                        )}
+                        ListEmptyComponent={<Text style={{ color: colors.text.light }}>No drivers</Text>}
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={<Text style={styles.value}>No vehicles added.</Text>}
+            />
           </View>
-          {/* Add Vehicle Modal */}
+          {/* Add/Edit Vehicle Modal */}
           <Modal
             visible={vehicleModal}
             animationType="slide"
@@ -116,10 +234,10 @@ export default function ManageTransporterScreen({ route }) {
             <View style={styles.modalOverlay}>
               <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
                 <View style={styles.vehicleModalCard}>
-                  <Text style={styles.editTitle}>Add Vehicle</Text>
+                  <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
                   {/* Vehicle Type Dropdown */}
                   <View style={styles.inputDropdownWrap}>
-                    <Text style={styles.inputDropdownLabel}>Vehicle Type</Text>
+                    <Text style={styles.inputDropdownLabel}>Vehicle Type *</Text>
                     <TouchableOpacity style={styles.inputDropdown} onPress={() => setShowTypeDropdown(!showTypeDropdown)}>
                       <Text style={{ color: vehicleType ? colors.text.primary : colors.text.light }}>
                         {vehicleType || 'Select vehicle type'}
@@ -136,7 +254,7 @@ export default function ManageTransporterScreen({ route }) {
                       </View>
                     )}
                   </View>
-                  <TextInput style={styles.input} placeholder="Registration Number" value={vehicleReg} onChangeText={setVehicleReg} />
+                  <TextInput style={styles.input} placeholder="Registration Number *" value={vehicleReg} onChangeText={setVehicleReg} />
                   <View style={styles.featuresRow}>
                     <TouchableOpacity style={[styles.featureBtn, refrigeration && styles.featureBtnActive]} onPress={() => setRefrigeration(!refrigeration)}>
                       <MaterialCommunityIcons name="snowflake" size={18} color={refrigeration ? colors.white : colors.primary} />
@@ -153,15 +271,7 @@ export default function ManageTransporterScreen({ route }) {
                   </View>
                   <TextInput style={styles.input} placeholder="Other Features (comma separated)" value={vehicleFeatures} onChangeText={setVehicleFeatures} />
                   <View style={styles.section}>
-                    <Text style={styles.editLabel}>Logbook (PDF or Image)</Text>
-                    <TouchableOpacity style={styles.uploadBtn} onPress={pickLogbook}>
-                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-                      <Text style={styles.uploadBtnText}>{logbook ? 'Change File' : 'Upload File'}</Text>
-                    </TouchableOpacity>
-                    {logbook && <Text style={styles.fileName}>{logbook.fileName || logbook.uri?.split('/').pop()}</Text>}
-                  </View>
-                  <View style={styles.section}>
-                    <Text style={styles.editLabel}>Insurance Document (PDF or Image)</Text>
+                    <Text style={styles.editLabel}>Insurance Document (PDF or Image) *</Text>
                     <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
                       <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
                       <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload File'}</Text>
@@ -169,7 +279,7 @@ export default function ManageTransporterScreen({ route }) {
                     {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
                   </View>
                   <View style={styles.section}>
-                    <Text style={styles.editLabel}>Vehicle Photos (3-5)</Text>
+                    <Text style={styles.editLabel}>Vehicle Photos (3-5) *</Text>
                     <View style={styles.photosRow}>
                       {vehiclePhotos.map((photo, idx) => (
                         <View key={idx} style={styles.photoWrap}>
@@ -191,24 +301,47 @@ export default function ManageTransporterScreen({ route }) {
                     <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
                       <Text style={styles.cancelText}>Cancel</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.saveBtn} onPress={handleAddVehicle}>
-                      <Text style={styles.saveText}>Add Vehicle</Text>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSaveVehicle}>
+                      <Text style={styles.saveText}>{vehicleEditIdx !== null ? 'Save Changes' : 'Add Vehicle'}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               </ScrollView>
             </View>
           </Modal>
+          {/* Drivers List */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Drivers</Text>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => setDriverModal(true)}>
+            <TouchableOpacity style={styles.actionBtn} onPress={openAddDriver}>
               <Ionicons name="add-circle" size={20} color={colors.primary} />
               <Text style={styles.actionText}>Add Driver</Text>
             </TouchableOpacity>
-            <Text style={styles.value}>- John Doe</Text>
-            <Text style={styles.value}>- Jane Smith</Text>
+            <FlatList
+              data={drivers}
+              keyExtractor={item => item.id}
+              renderItem={({ item, index }) => (
+                <View style={styles.driverListItem}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Image source={{ uri: item.photo?.uri }} style={styles.driverPhoto} />
+                    <View style={{ marginLeft: 10 }}>
+                      <Text style={styles.value}>{item.name}</Text>
+                      <Text style={styles.value}>{item.phone}</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => openEditDriver(index)}>
+                      <Ionicons name="create-outline" size={18} color={colors.secondary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveDriver(index)}>
+                      <Ionicons name="trash" size={18} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={<Text style={styles.value}>No drivers added.</Text>}
+            />
           </View>
-          {/* Add Driver Modal */}
+          {/* Add/Edit Driver Modal */}
           <Modal
             visible={driverModal}
             animationType="slide"
@@ -218,7 +351,7 @@ export default function ManageTransporterScreen({ route }) {
             <View style={styles.modalOverlay}>
               <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
                 <View style={styles.vehicleModalCard}>
-                  <Text style={styles.editTitle}>Add Driver</Text>
+                  <Text style={styles.editTitle}>{driverEditIdx !== null ? 'Edit Driver' : 'Add Driver'}</Text>
                   <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={pickDriverPhoto}>
                     {driverPhoto ? (
                       <Image source={{ uri: driverPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
@@ -227,12 +360,12 @@ export default function ManageTransporterScreen({ route }) {
                         <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
                       </View>
                     )}
-                    <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
+                    <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo *</Text>
                   </TouchableOpacity>
-                  <TextInput style={styles.input} placeholder="Driver Name" value={driverName} onChangeText={setDriverName} />
+                  <TextInput style={styles.input} placeholder="Driver Name *" value={driverName} onChangeText={setDriverName} />
                   <TextInput style={styles.input} placeholder="Phone Number" value={driverPhone} onChangeText={setDriverPhone} />
                   <View style={styles.section}>
-                    <Text style={styles.editLabel}>License Document (PDF or Image)</Text>
+                    <Text style={styles.editLabel}>License Document (PDF or Image) *</Text>
                     <TouchableOpacity style={styles.uploadBtn} onPress={pickDriverLicense}>
                       <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
                       <Text style={styles.uploadBtnText}>{driverLicense ? 'Change File' : 'Upload File'}</Text>
@@ -243,35 +376,14 @@ export default function ManageTransporterScreen({ route }) {
                     <TouchableOpacity style={styles.cancelBtn} onPress={() => setDriverModal(false)}>
                       <Text style={styles.cancelText}>Cancel</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.saveBtn} onPress={handleAddDriver}>
-                      <Text style={styles.saveText}>Add Driver</Text>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSaveDriver}>
+                      <Text style={styles.saveText}>{driverEditIdx !== null ? 'Save Changes' : 'Add Driver'}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               </ScrollView>
             </View>
           </Modal>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Assignments</Text>
-            <Text style={styles.value}>Depot X → Market Z: John Doe</Text>
-            <Text style={styles.value}>Farm Y → Shop Q: Jane Smith</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Outsourcing</Text>
-            <Text style={styles.value}>You can outsource jobs to other registered transporters.</Text>
-          </View>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Company Profile</Text>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
-              <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
-              <Text style={styles.actionText}>Edit Profile</Text>
-            </TouchableOpacity>
-            {/* Logout button for company/broker */}
-            <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
-              <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
-              <Text style={[styles.actionText, { color: colors.error }]}>Logout</Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
         {/* Edit Profile Modal (always rendered) */}
         <Modal
@@ -395,6 +507,15 @@ const styles = StyleSheet.create({
   value: { fontSize: 15, color: colors.text.primary, marginBottom: 2 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginTop: 2 },
   actionText: { color: colors.primary, fontWeight: 'bold', marginLeft: 6, fontSize: 15 },
+  vehicleListItem: { borderBottomWidth: 1, borderBottomColor: colors.background, paddingVertical: 10, marginBottom: 6 },
+  driverListItem: { borderBottomWidth: 1, borderBottomColor: colors.background, paddingVertical: 10, marginBottom: 6 },
+  editBtn: { marginRight: 10 },
+  removeBtn: {},
+  driverAssignBtn: { alignItems: 'center', marginRight: 10, padding: 6, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.text.light },
+  driverAssignBtnActive: { backgroundColor: colors.primary + '22', borderColor: colors.primary },
+  driverAssignPhoto: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#eee' },
+  driverAssignName: { fontSize: 12, color: colors.text.primary, marginTop: 2 },
+  driverPhoto: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#eee' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' },
   editModalCard: { backgroundColor: colors.white, borderRadius: 22, padding: 22, width: '92%', shadowColor: colors.black, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
   editTitle: { fontSize: 20, fontWeight: 'bold', color: colors.primaryDark, marginBottom: 16, textAlign: 'center' },
