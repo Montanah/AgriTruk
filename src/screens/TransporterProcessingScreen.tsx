@@ -1,10 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import LinearGradient from 'react-native-linear-gradient';
-import colors from '../constants/colors';
-import { fonts, spacing } from '../constants';
 import { useNavigation } from '@react-navigation/native';
+import React from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { fonts, spacing } from '../constants';
+import colors from '../constants/colors';
 
 export default function TransporterProcessingScreen({ route }) {
   // route.params?.transporterType can be 'individual' or 'company'
@@ -153,7 +153,7 @@ export default function TransporterProcessingScreen({ route }) {
       onPress={() => navigation.navigate('TransporterTabs', { transporterType })}
       >
       <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-      Go to {transporterType === 'company' ? 'Broker/Company' : 'Transporter'} Dashboard
+      Go to {transporterType === 'company' ? 'Company' : 'Transporter'} Dashboard
       </Text>
       </TouchableOpacity>
       </View>

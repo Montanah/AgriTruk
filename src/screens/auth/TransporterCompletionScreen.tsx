@@ -1,10 +1,13 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState, useRef, useEffect } from 'react';
-import { Animated, Easing } from 'react-native';
+import { getAuth } from 'firebase/auth';
+import { doc, getFirestore, setDoc } from 'firebase/firestore';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated, Easing,
   Image,
   ScrollView,
   StyleSheet,
@@ -14,13 +17,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Divider from '../../components/common/Divider';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 
 const VEHICLE_TYPES = [
   {
@@ -566,7 +566,7 @@ export default function TransporterCompletionScreen() {
             style={[styles.submitBtn, { backgroundColor: colors.secondary, marginBottom: 8 }]}
             onPress={() => navigation.navigate('TransporterProcessingScreen', { transporterType })}
           >
-            <Text style={styles.submitBtnText}>Go to Approval Status ({transporterType === 'company' ? 'Broker/Company' : 'Individual'})</Text>
+            <Text style={styles.submitBtnText}>Go to Approval Status ({transporterType === 'company' ? 'Company' : 'Individual'})</Text>
           </TouchableOpacity>
         </View>
       </View>

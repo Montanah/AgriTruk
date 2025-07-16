@@ -20,12 +20,7 @@ export default function ManageTransporterScreen({ route }) {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'WelcomeScreen' }],
-        })
-      );
+      // Navigation will be handled by App.tsx based on auth state
     } catch (error) {
       Alert.alert('Logout Error', 'Failed to logout. Please try again.');
     }
@@ -225,18 +220,23 @@ export default function ManageTransporterScreen({ route }) {
                     {/* Assignment Dropdown */}
                     <View style={{ marginTop: 6 }}>
                       <Text style={styles.label}>Assign Driver:</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                         {drivers.length === 0 ? (
                           <Text style={{ color: colors.text.light }}>No drivers</Text>
                         ) : (
                           drivers.map((d) => (
                             <TouchableOpacity
                               key={d.id}
-                              style={[styles.driverAssignBtn, item.assignedDriverId === d.id && styles.driverAssignBtnActive]}
+                              style={[styles.driverAssignBtn, item.assignedDriverId === d.id && styles.driverAssignBtnActive, { flexDirection: 'row', alignItems: 'center', marginBottom: 8, minWidth: 220 }]}
                               onPress={() => assignDriverToVehicle(index, d.id)}
                             >
                               <Image source={{ uri: d.photo?.uri }} style={styles.driverAssignPhoto} />
-                              <Text style={styles.driverAssignName}>{d.name}</Text>
+                              <View style={{ marginLeft: 8, flex: 1 }}>
+                                <Text style={styles.driverAssignName}>Name: {d.name}</Text>
+                                <Text style={styles.driverAssignName}>Contact: {d.phone}</Text>
+                                <Text style={styles.driverAssignName}>ID: {d.id}</Text>
+                                <Text style={styles.driverAssignName}>DL: {d.license ? (d.license.fileName || d.license.uri?.split('/').pop()) : 'N/A'}</Text>
+                              </View>
                             </TouchableOpacity>
                           ))
                         )}
