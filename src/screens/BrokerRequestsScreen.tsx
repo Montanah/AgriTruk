@@ -120,6 +120,7 @@ export default function BrokerRequestsScreen() {
     </View>
   );
 
+  const insets = require('react-native-safe-area-context').useSafeAreaInsets();
   return (
     <SafeAreaView style={styles.bg}>
       <FlatList
@@ -140,7 +141,7 @@ export default function BrokerRequestsScreen() {
         ListEmptyComponent={<Text style={styles.emptyText}>No requests/bookings yet.</Text>}
         ListHeaderComponent={<ListHeader />}
         ListFooterComponent={<ListFooter />}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 68 + (insets?.bottom || 0) }}
         showsVerticalScrollIndicator={false}
       />
 

@@ -206,6 +206,7 @@ export default function BrokerNetworkScreen() {
     </View>
   );
 
+  const insets = require('react-native-safe-area-context').useSafeAreaInsets();
   return (
     <SafeAreaView style={styles.bg}>
       <FlatList
@@ -234,7 +235,7 @@ export default function BrokerNetworkScreen() {
         ListEmptyComponent={<Text style={styles.emptyText}>No {tab} in your network.</Text>}
         ListHeaderComponent={<ListHeader />}
         ListFooterComponent={<ListFooter />}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 68 + (insets?.bottom || 0) }}
         showsVerticalScrollIndicator={false}
       />
       {/* Add to Network Modal */}

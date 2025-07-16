@@ -111,9 +111,10 @@ export default function BrokerProfileScreen() {
     Alert.alert('Plan Updated', `Your plan has been changed to ${planOptions.find(p => p.key === planKey)?.label}`);
   };
 
+  const insets = require('react-native-safe-area-context').useSafeAreaInsets();
   return (
     <SafeAreaView style={styles.bg}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 68 + (insets?.bottom || 0) }} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
           <MaterialCommunityIcons name="account-circle" size={80} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 10 }} />
           {loading ? (
