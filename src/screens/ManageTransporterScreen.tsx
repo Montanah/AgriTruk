@@ -20,7 +20,9 @@ export default function ManageTransporterScreen({ route }) {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      // Navigation will be handled by App.tsx based on auth state
+      setTimeout(() => {
+        navigation.navigate('Welcome');
+      }, 100);
     } catch (error) {
       Alert.alert('Logout Error', 'Failed to logout. Please try again.');
     }
