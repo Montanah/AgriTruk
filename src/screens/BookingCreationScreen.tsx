@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { notificationService } from '../../services/notificationService';
 
 const BookingCreationScreen = ({ navigation }) => {
   const [pickupLocation, setPickupLocation] = useState('');
@@ -19,6 +20,49 @@ const BookingCreationScreen = ({ navigation }) => {
       pickupTime, // as string
       status: 'pending',
     };
+    // Mock users (replace with real user context)
+    const customer = { id: 'C001', name: 'Green Agri Co.', email: 'info@greenagri.com', phone: '+254712345678' };
+    const broker = { id: 'B001', name: 'BrokerX', email: 'brokerx@trukapp.com', phone: '+254700999888' };
+    const admin = { id: 'ADMIN', name: 'Admin', email: 'admin@trukapp.com', phone: '+254700000000' };
+    // Trigger notifications
+    notificationService.sendEmail(
+      customer.email,
+      'Booking Created',
+      `Hi ${customer.name}, your booking for ${cargoDetails} at ${pickupLocation} on ${pickupTime} has been created.`,
+      'customer',
+      'request_status',
+      { booking }
+    );
+    notificationService.sendSMS(
+      customer.phone,
+      `Booking created: ${cargoDetails} at ${pickupLocation} on ${pickupTime}.`,
+      'customer',
+      'request_status',
+      { booking }
+    );
+    notificationService.sendInApp(
+      customer.id,
+      `Your booking for ${cargoDetails} at ${pickupLocation} on ${pickupTime} has been created.`,
+      'customer',
+      'request_status',
+      { booking }
+    );
+    // Notify broker
+    notificationService.sendInApp(
+      broker.id,
+      `New booking created by ${customer.name}: ${cargoDetails} at ${pickupLocation} on ${pickupTime}.`,
+      'broker',
+      'request_allocated',
+      { booking, customer }
+    );
+    // Notify admin
+    notificationService.sendInApp(
+      admin.id,
+      `New booking created: ${cargoDetails} at ${pickupLocation} on ${pickupTime}.`,
+      'admin',
+      'request_allocated',
+      { booking, customer }
+    );
     // Placeholder: Show confirmation and reset form
     Alert.alert('Booking created!', 'API integration pending.');
     setPickupLocation('');

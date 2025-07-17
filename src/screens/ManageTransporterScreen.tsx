@@ -8,6 +8,7 @@ import colors from '../constants/colors';
 import { auth } from '../firebaseConfig';
 import { mockDrivers } from '../../mock/mockDrivers';
 import { mockVehicles } from '../../mock/mockVehicles';
+import { notificationService } from '../../services/notificationService';
 
 export default function ManageTransporterScreen({ route }) {
   const transporterType = route?.params?.transporterType || 'company';
@@ -90,6 +91,29 @@ export default function ManageTransporterScreen({ route }) {
     };
     setDrivers([...drivers, driver]);
     setRecruitModal(false);
+    // Trigger notifications for driver recruitment
+    notificationService.sendEmail(
+      driver.email,
+      'Welcome to TRUKAPP',
+      `Hi ${driver.name}, you have been recruited as a driver. Please await vehicle assignment and further instructions.`,
+      'driver',
+      'driver_recruited',
+      { driver }
+    );
+    notificationService.sendSMS(
+      driver.phone,
+      `Welcome to TRUKAPP, ${driver.name}! You have been recruited as a driver.`,
+      'driver',
+      'driver_recruited',
+      { driver }
+    );
+    notificationService.sendInApp(
+      driver.id,
+      'You have been recruited as a driver. Please await vehicle assignment.',
+      'driver',
+      'driver_recruited',
+      { driver }
+    );
   };
 
   // Modularized image/file pickers for recruitment
@@ -185,6 +209,32 @@ export default function ManageTransporterScreen({ route }) {
     }
     setVehicles(updated);
     setVehicleModal(false);
+    // If editing, notify the assigned driver (if changed)
+    const assignedDriver = vehicle.assignedDriverId && drivers.find(d => d.id === vehicle.assignedDriverId);
+    if (assignedDriver) {
+      notificationService.sendEmail(
+        assignedDriver.email,
+        'Vehicle Assignment',
+        `Hi ${assignedDriver.name}, you have been assigned vehicle ${vehicle.reg} (${vehicle.type}).`,
+        'driver',
+        'vehicle_assigned',
+        { vehicle, driver: assignedDriver }
+      );
+      notificationService.sendSMS(
+        assignedDriver.phone,
+        `You have been assigned vehicle ${vehicle.reg} (${vehicle.type}).`,
+        'driver',
+        'vehicle_assigned',
+        { vehicle, driver: assignedDriver }
+      );
+      notificationService.sendInApp(
+        assignedDriver.id,
+        `You have been assigned vehicle ${vehicle.reg} (${vehicle.type}).`,
+        'driver',
+        'vehicle_assigned',
+        { vehicle, driver: assignedDriver }
+      );
+    }
   };
   const handleRemoveVehicle = (idx) => {
     setVehicles(vehicles.filter((_, i) => i !== idx));

@@ -6,6 +6,7 @@ import colors from '../constants/colors';
 import { mockMessages } from '../mocks/messages';
 import { MOCK_BOOKINGS } from '../mocks/bookings';
 import { mockTrip } from '../mocks/trip';
+import { notificationService } from '../../services/notificationService';
 
 const TripDetailsScreen = () => {
   const route = useRoute();
@@ -43,6 +44,36 @@ const TripDetailsScreen = () => {
       setMessages([...messages, { id: Date.now().toString(), from: 'customer', text: input }]);
       setInput('');
     }
+  };
+
+  // Mock users for notification demo
+  const customer = { id: 'C001', name: 'Green Agri Co.', email: 'info@greenagri.com', phone: '+254712345678' };
+  const driver = { id: 'D001', name: commTarget.name, email: 'driver@trukapp.com', phone: commTarget.phone };
+  const company = { id: 'COMP001', name: 'TransCo Ltd.', email: 'company@trukapp.com', phone: '+254700111222' };
+  const broker = { id: 'B001', name: 'BrokerX', email: 'brokerx@trukapp.com', phone: '+254700999888' };
+  const admin = { id: 'ADMIN', name: 'Admin', email: 'admin@trukapp.com', phone: '+254700000000' };
+
+  // Notification triggers for trip status changes
+  const notifyTripStatus = (status) => {
+    const tripSummary = `${trip.from} to ${trip.to}`;
+    // In-app
+    notificationService.sendInApp(customer.id, `Trip status: ${status} for ${tripSummary}`, 'customer', 'request_status', { trip, status });
+    notificationService.sendInApp(driver.id, `Trip status: ${status} for ${tripSummary}`, 'driver', 'request_status', { trip, status });
+    notificationService.sendInApp(company.id, `Trip status: ${status} for ${tripSummary}`, 'transporter', 'request_status', { trip, status });
+    notificationService.sendInApp(broker.id, `Trip status: ${status} for ${tripSummary}`, 'broker', 'request_status', { trip, status });
+    notificationService.sendInApp(admin.id, `Trip status: ${status} for ${tripSummary}`, 'admin', 'request_status', { trip, status });
+    // Email
+    notificationService.sendEmail(customer.email, `Trip ${status}`, `Your trip ${tripSummary} is now ${status}.`, 'customer', 'request_status', { trip, status });
+    notificationService.sendEmail(driver.email, `Trip ${status}`, `Trip ${tripSummary} is now ${status}.`, 'driver', 'request_status', { trip, status });
+    notificationService.sendEmail(company.email, `Trip ${status}`, `Trip ${tripSummary} is now ${status}.`, 'transporter', 'request_status', { trip, status });
+    notificationService.sendEmail(broker.email, `Trip ${status}`, `Trip ${tripSummary} is now ${status}.`, 'broker', 'request_status', { trip, status });
+    notificationService.sendEmail(admin.email, `Trip ${status}`, `Trip ${tripSummary} is now ${status}.`, 'admin', 'request_status', { trip, status });
+    // SMS
+    notificationService.sendSMS(customer.phone, `Trip ${status}: ${tripSummary}`, 'customer', 'request_status', { trip, status });
+    notificationService.sendSMS(driver.phone, `Trip ${status}: ${tripSummary}`, 'driver', 'request_status', { trip, status });
+    notificationService.sendSMS(company.phone, `Trip ${status}: ${tripSummary}`, 'transporter', 'request_status', { trip, status });
+    notificationService.sendSMS(broker.phone, `Trip ${status}: ${tripSummary}`, 'broker', 'request_status', { trip, status });
+    notificationService.sendSMS(admin.phone, `Trip ${status}: ${tripSummary}`, 'admin', 'request_status', { trip, status });
   };
 
   return (
@@ -90,7 +121,7 @@ const TripDetailsScreen = () => {
           <Text style={styles.statusText}>ETA: {trip.eta} ({trip.distance})</Text>
         </View>
         <View style={styles.actionRow}>
-          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8, alignSelf: 'flex-start' }]}> 
+          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8, alignSelf: 'flex-start' }]} onPress={() => notifyTripStatus('cancelled')}> 
             <Text style={styles.cancelText}>Cancel Trip</Text>
           </TouchableOpacity>
         </View>

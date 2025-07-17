@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Button, RefreshControl, TouchableOpacity } from 'react-native';
+import { notificationService } from '../../services/notificationService';
 
 // Dummy data for now; replace with API integration
 const dummyBookings = [
@@ -87,6 +88,25 @@ const BookingListScreen = ({ navigation }) => {
   const filteredBookings =
     activeTab === 'all' ? bookings : bookings.filter(b => b.status === activeTab);
 
+  const handleStatusChange = (item, newStatus) => {
+    // Update status in state (mock)
+    setBookings(prev => prev.map(b => b.id === item.id ? { ...b, status: newStatus } : b));
+    // Mock users (replace with real user context)
+    const customer = { id: 'C001', name: 'Green Agri Co.', email: 'info@greenagri.com', phone: '+254712345678' };
+    const broker = { id: 'B001', name: 'BrokerX', email: 'brokerx@trukapp.com', phone: '+254700999888' };
+    const admin = { id: 'ADMIN', name: 'Admin', email: 'admin@trukapp.com', phone: '+254700000000' };
+    // Notify all parties
+    notificationService.sendInApp(customer.id, `Booking status: ${newStatus} for ${item.cargoDetails}`, 'customer', 'request_status', { booking: item, status: newStatus });
+    notificationService.sendInApp(broker.id, `Booking status: ${newStatus} for ${item.cargoDetails}`, 'broker', 'request_status', { booking: item, status: newStatus });
+    notificationService.sendInApp(admin.id, `Booking status: ${newStatus} for ${item.cargoDetails}`, 'admin', 'request_status', { booking: item, status: newStatus });
+    notificationService.sendEmail(customer.email, `Booking ${newStatus}`, `Your booking for ${item.cargoDetails} is now ${newStatus}.`, 'customer', 'request_status', { booking: item, status: newStatus });
+    notificationService.sendEmail(broker.email, `Booking ${newStatus}`, `Booking for ${item.cargoDetails} is now ${newStatus}.`, 'broker', 'request_status', { booking: item, status: newStatus });
+    notificationService.sendEmail(admin.email, `Booking ${newStatus}`, `Booking for ${item.cargoDetails} is now ${newStatus}.`, 'admin', 'request_status', { booking: item, status: newStatus });
+    notificationService.sendSMS(customer.phone, `Booking ${newStatus}: ${item.cargoDetails}`, 'customer', 'request_status', { booking: item, status: newStatus });
+    notificationService.sendSMS(broker.phone, `Booking ${newStatus}: ${item.cargoDetails}`, 'broker', 'request_status', { booking: item, status: newStatus });
+    notificationService.sendSMS(admin.phone, `Booking ${newStatus}: ${item.cargoDetails}`, 'admin', 'request_status', { booking: item, status: newStatus });
+  };
+
   const renderItem = ({ item }) => (
     <View style={styles.bookingCard}>
       <Text style={styles.label}>Pickup Location:</Text>
@@ -96,6 +116,17 @@ const BookingListScreen = ({ navigation }) => {
       <Text style={styles.label}>Pickup Time:</Text>
       <Text>{new Date(item.pickupTime).toLocaleString()}</Text>
       <Text style={[styles.status, { color: statusColors[item.status] || '#000' }]}>Status: {item.status}</Text>
+      {/* Mock status change actions for demo */}
+      {item.status !== 'completed' && (
+        <TouchableOpacity style={{ marginTop: 8, backgroundColor: '#28a745', borderRadius: 8, padding: 8 }} onPress={() => handleStatusChange(item, 'completed')}>
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Mark as Completed</Text>
+        </TouchableOpacity>
+      )}
+      {item.status !== 'cancelled' && (
+        <TouchableOpacity style={{ marginTop: 8, backgroundColor: '#dc3545', borderRadius: 8, padding: 8 }} onPress={() => handleStatusChange(item, 'cancelled')}>
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Cancel Booking</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 

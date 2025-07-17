@@ -1,5 +1,6 @@
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -10,13 +11,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Animated,
-  KeyboardAvoidingView,
-  Alert,
+  View
 } from 'react-native';
+import { notificationService } from '../../services/notificationService';
 import colors from '../constants/colors';
-import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
 
 const MOCK_CLIENTS = [
   { id: 'C001', name: 'Green Agri Co.', type: 'business' },
@@ -55,6 +53,7 @@ const PRODUCT_SUGGESTIONS = [
   'Maize', 'Fruits', 'Beans', 'Wheat', 'Rice', 'Vegetables', 'Coffee', 'Tea', 'Livestock', 'Machinery', 'Electronics', 'Furniture', 'Clothing', 'Chemicals', 'Other',
 ];
 
+
 export default function BrokerRequestsScreen() {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestClientId, setRequestClientId] = useState('');
@@ -87,6 +86,36 @@ export default function BrokerRequestsScreen() {
       setError('Please fill all required fields.');
       return;
     }
+    // Mock users (replace with real user context)
+    const client = MOCK_CLIENTS.find(c => c.id === requestClientId) || { id: requestClientId, name: requestFor, email: 'client@trukapp.com', phone: '+254700111111' };
+    const broker = { id: 'B001', name: 'BrokerX', email: 'brokerx@trukapp.com', phone: '+254700999888' };
+    const admin = { id: 'ADMIN', name: 'Admin', email: 'admin@trukapp.com', phone: '+254700000000' };
+    const request = {
+      clientId: requestClientId,
+      for: requestFor,
+      pickupLocation,
+      dropoffLocation,
+      productType,
+      weight,
+      value,
+      additional,
+      perishableSpecs,
+      specialCargoSpecs,
+      pickupTime: pickupTime ? pickupTime.toLocaleString() : '',
+      requestType,
+      requestCategory,
+      status: 'pending',
+    };
+    // Notify all parties
+    notificationService.sendInApp(client.id, `Request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'customer', 'request_allocated', { request });
+    notificationService.sendEmail(client.email, 'Request Placed', `Your request for ${productType} from ${pickupLocation} to ${dropoffLocation} has been placed.`, 'customer', 'request_allocated', { request });
+    notificationService.sendSMS(client.phone, `Request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'customer', 'request_allocated', { request });
+    notificationService.sendInApp(broker.id, `Placed request for ${client.name}: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'broker', 'request_allocated', { request });
+    notificationService.sendEmail(broker.email, 'Request Placed', `Placed request for ${client.name}: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'broker', 'request_allocated', { request });
+    notificationService.sendSMS(broker.phone, `Placed request for ${client.name}: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'broker', 'request_allocated', { request });
+    notificationService.sendInApp(admin.id, `New request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'admin', 'request_allocated', { request });
+    notificationService.sendEmail(admin.email, 'Request Placed', `New request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'admin', 'request_allocated', { request });
+    notificationService.sendSMS(admin.phone, `New request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'admin', 'request_allocated', { request });
     setShowRequestModal(false);
     setRequestFor('');
     setRequestClientId('');
@@ -137,17 +166,17 @@ export default function BrokerRequestsScreen() {
     <View style={{ paddingHorizontal: 18, paddingTop: 24 }}>
       <View style={{ height: 16 }} />
       <View style={styles.analyticsRow}>
-        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}> 
+        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}>
           <MaterialCommunityIcons name="clipboard-list-outline" size={28} color={colors.primary} />
           <Text style={styles.analyticsValue}>{totalRequests}</Text>
           <Text style={styles.analyticsLabel}>Total</Text>
         </View>
-        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}> 
+        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}>
           <MaterialCommunityIcons name="check-circle-outline" size={28} color={colors.secondary} />
           <Text style={styles.analyticsValue}>{completed}</Text>
           <Text style={styles.analyticsLabel}>Completed</Text>
         </View>
-        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}> 
+        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}>
           <MaterialCommunityIcons name="clock-outline" size={28} color={colors.primaryDark} />
           <Text style={styles.analyticsValue}>{pending}</Text>
           <Text style={styles.analyticsLabel}>Pending</Text>
@@ -164,7 +193,7 @@ export default function BrokerRequestsScreen() {
         </View>
         <Text style={styles.revenueNote}>Commission Rate: <Text style={{ color: colors.secondary, fontWeight: 'bold' }}>{(mockRevenue.commissionRate * 100).toFixed(0)}%</Text></Text>
       </View>
-      <View style={[styles.sectionHeaderRow, { gap: 10, flexWrap: 'wrap' }]}> 
+      <View style={[styles.sectionHeaderRow, { gap: 10, flexWrap: 'wrap' }]}>
         <Text style={styles.sectionTitle}>Requests/Bookings</Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity style={styles.createBtn} onPress={() => setShowRequestModal(true)}>
@@ -182,7 +211,7 @@ export default function BrokerRequestsScreen() {
 
   const ListFooter = () => (
     <View style={{ paddingHorizontal: 18 }}>
-      <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}> 
+      <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}>
         <Text style={styles.sectionTitle}>Broker Tips</Text>
         <Text style={styles.tipText}>• Place requests for your clients and track their status here.</Text>
         <Text style={styles.tipText}>• Completed requests earn you commission.</Text>
