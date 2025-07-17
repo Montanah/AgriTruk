@@ -314,7 +314,7 @@ export default function TransporterCompletionScreen() {
                   <Ionicons name={makeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
                 </TouchableOpacity>
                 {makeDropdownOpen && (
-                  <View style={[styles.dropdownList, { zIndex: 100 }]}> 
+                  <View style={[styles.dropdownList, { zIndex: 100 }]}>
                     {['Isuzu', 'Scania', 'Fuso', 'Mercedes', 'Toyota', 'Hino', 'Tata', 'Other'].map(make => (
                       <TouchableOpacity key={make} style={styles.dropdownItem} onPress={() => { setVehicleMake(make); setMakeDropdownOpen(false); }}>
                         <Text style={{ color: colors.text.primary }}>{make}</Text>
@@ -337,7 +337,7 @@ export default function TransporterCompletionScreen() {
                   <Ionicons name={colorDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
                 </TouchableOpacity>
                 {colorDropdownOpen && (
-                  <View style={[styles.dropdownList, { zIndex: 100 }]}> 
+                  <View style={[styles.dropdownList, { zIndex: 100 }]}>
                     {['White', 'Blue', 'Red', 'Green', 'Yellow', 'Black', 'Grey', 'Other'].map(color => (
                       <TouchableOpacity key={color} style={styles.dropdownItem} onPress={() => { setVehicleColor(color); setColorDropdownOpen(false); }}>
                         <Text style={{ color: colors.text.primary }}>{color}</Text>
@@ -636,7 +636,7 @@ export default function TransporterCompletionScreen() {
             )}
             <Text style={styles.photoPickerText}>Upload Company Logo</Text>
           </TouchableOpacity>
-          <View style={[styles.card, { marginTop: 10 }]}> 
+          <View style={[styles.card, { marginTop: 10 }]}>
             <Text style={styles.label}>Assign Jobs to Drivers</Text>
             <Text style={{ color: colors.text.secondary, fontSize: 15, marginBottom: 6 }}>
               As a company, you can assign jobs to your own drivers. This feature will be available after your company profile is approved and you have an active subscription.

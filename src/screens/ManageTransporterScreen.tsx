@@ -6,6 +6,8 @@ import React, { useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import colors from '../constants/colors';
 import { auth } from '../firebaseConfig';
+import { mockDrivers } from '../../mock/mockDrivers';
+import { mockVehicles } from '../../mock/mockVehicles';
 
 export default function ManageTransporterScreen({ route }) {
   const transporterType = route?.params?.transporterType || 'company';
@@ -44,8 +46,65 @@ export default function ManageTransporterScreen({ route }) {
   };
 
   // Vehicles and Drivers state
-  const [vehicles, setVehicles] = useState([]); // {id, type, reg, features, insurance, photos, assignedDriverId}
-  const [drivers, setDrivers] = useState([]); // {id, name, phone, photo, license}
+  const [vehicles, setVehicles] = useState(mockVehicles); // {id, type, reg, features, insurance, photos, assignedDriverId}
+  const [drivers, setDrivers] = useState(mockDrivers); // {id, name, email, phone, photo, idDoc, license}
+  const [vehicleSearch, setVehicleSearch] = useState('');
+
+  // Assignment modal state
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignModalVehicleIdx, setAssignModalVehicleIdx] = useState(null);
+  const [driverSearch, setDriverSearch] = useState('');
+
+  // Recruit Driver modal state and fields
+  const [recruitModal, setRecruitModal] = useState(false);
+  const [recruitName, setRecruitName] = useState('');
+  const [recruitEmail, setRecruitEmail] = useState('');
+  const [recruitPhone, setRecruitPhone] = useState('');
+  const [recruitPhoto, setRecruitPhoto] = useState(null);
+  const [recruitIdDoc, setRecruitIdDoc] = useState(null);
+  const [recruitLicense, setRecruitLicense] = useState(null);
+
+  // Recruit driver logic
+  const openRecruitDriver = () => {
+    setRecruitName('');
+    setRecruitEmail('');
+    setRecruitPhone('');
+    setRecruitPhoto(null);
+    setRecruitIdDoc(null);
+    setRecruitLicense(null);
+    setRecruitModal(true);
+  };
+  const handleRecruitDriver = () => {
+    if (!recruitName || !recruitEmail || !recruitPhone || !recruitPhoto || !recruitIdDoc || !recruitLicense) {
+      Alert.alert('Missing Info', 'Please fill all required fields.');
+      return;
+    }
+    const driver = {
+      id: Date.now().toString(),
+      name: recruitName,
+      email: recruitEmail,
+      phone: recruitPhone,
+      photo: recruitPhoto,
+      idDoc: recruitIdDoc,
+      license: recruitLicense,
+    };
+    setDrivers([...drivers, driver]);
+    setRecruitModal(false);
+  };
+
+  // Modularized image/file pickers for recruitment
+  const pickDriverPhoto = async (setFn) => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.IMAGE, allowsEditing: true, quality: 0.7 });
+    if (!result.canceled && result.assets && result.assets[0].uri) setFn(result.assets[0]);
+  };
+  const pickDriverIdDoc = async (setFn) => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.ALL, allowsEditing: true, quality: 0.7 });
+    if (!result.canceled && result.assets && result.assets[0].uri) setFn(result.assets[0]);
+  };
+  const pickDriverLicense = async (setFn) => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.ALL, allowsEditing: true, quality: 0.7 });
+    if (!result.canceled && result.assets && result.assets[0].uri) setFn(result.assets[0]);
+  };
 
   // Vehicle modal state and fields
   const [vehicleModal, setVehicleModal] = useState(false);
@@ -74,15 +133,7 @@ export default function ManageTransporterScreen({ route }) {
   const [driverPhoto, setDriverPhoto] = useState(null);
   const [driverLicense, setDriverLicense] = useState(null);
 
-  // Image/file pickers
-  const pickDriverPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.IMAGE, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setDriverPhoto(result.assets[0]);
-  };
-  const pickDriverLicense = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.ALL, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setDriverLicense(result.assets[0]);
-  };
+  // Image/file pickers (handled above as modularized functions)
   const pickVehiclePhotos = async () => {
     if (vehiclePhotos.length >= 5) return;
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.IMAGE, allowsEditing: true, quality: 0.7 });
@@ -185,8 +236,7 @@ export default function ManageTransporterScreen({ route }) {
   if (transporterType === 'company') {
     return (
       <>
-        <View style={styles.bg}>
-          <View style={[styles.container, { paddingTop: 32 }]}> 
+        <ScrollView style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}> 
             <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
             {/* Profile Section */}
             <View style={styles.card}>
@@ -209,10 +259,23 @@ export default function ManageTransporterScreen({ route }) {
                 <Ionicons name="add-circle" size={20} color={colors.primary} />
                 <Text style={styles.actionText}>Add Vehicle</Text>
               </TouchableOpacity>
+              <TextInput
+                style={styles.input}
+                placeholder="Search vehicles..."
+                value={vehicleSearch}
+                onChangeText={setVehicleSearch}
+              />
               {vehicles.length === 0 ? (
                 <Text style={styles.value}>No vehicles added.</Text>
               ) : (
-                vehicles.map((item, index) => (
+                vehicles.filter(item => {
+                  const assignedDriver = drivers.find(d => d.id === item.assignedDriverId);
+                  return (
+                    item.reg.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
+                    item.type.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
+                    (assignedDriver && assignedDriver.name.toLowerCase().includes(vehicleSearch.toLowerCase()))
+                  );
+                }).map((item, index) => (
                   <View style={styles.vehicleListItem} key={item.id}>
                     <Text style={styles.value}>{item.reg} ({item.type})</Text>
                     <Text style={styles.value}>Assigned Driver: {item.assignedDriverId ? (drivers.find(d => d.id === item.assignedDriverId)?.name || 'Unknown') : 'None'}</Text>
@@ -224,35 +287,67 @@ export default function ManageTransporterScreen({ route }) {
                         <Ionicons name="trash" size={18} color={colors.error} />
                       </TouchableOpacity>
                     </View>
-                    {/* Assignment Dropdown */}
                     <View style={{ marginTop: 6 }}>
-                      <Text style={styles.label}>Assign Driver:</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                        {drivers.length === 0 ? (
-                          <Text style={{ color: colors.text.light }}>No drivers</Text>
-                        ) : (
-                          drivers.map((d) => (
-                            <TouchableOpacity
-                              key={d.id}
-                              style={[styles.driverAssignBtn, item.assignedDriverId === d.id && styles.driverAssignBtnActive, { flexDirection: 'row', alignItems: 'center', marginBottom: 8, minWidth: 220 }]}
-                              onPress={() => assignDriverToVehicle(index, d.id)}
-                            >
-                              <Image source={{ uri: d.photo?.uri }} style={styles.driverAssignPhoto} />
-                              <View style={{ marginLeft: 8, flex: 1 }}>
-                                <Text style={styles.driverAssignName}>Name: {d.name}</Text>
-                                <Text style={styles.driverAssignName}>Contact: {d.phone}</Text>
-                                <Text style={styles.driverAssignName}>ID: {d.id}</Text>
-                                <Text style={styles.driverAssignName}>DL: {d.license ? (d.license.fileName || d.license.uri?.split('/').pop()) : 'N/A'}</Text>
-                              </View>
-                            </TouchableOpacity>
-                          ))
-                        )}
-                      </View>
+                      <TouchableOpacity style={[styles.driverAssignBtn, { minWidth: 180, justifyContent: 'center' }]} onPress={() => { setAssignModalVehicleIdx(index); setShowAssignModal(true); }}>
+                        <Ionicons name="swap-horizontal" size={18} color={colors.primary} />
+                        <Text style={{ color: colors.primary, marginLeft: 8, fontWeight: 'bold' }}>Assign Driver</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 ))
               )}
             </View>
+            {/* Assign Driver Modal */}
+            <Modal
+              visible={showAssignModal}
+              animationType="slide"
+              transparent
+              onRequestClose={() => setShowAssignModal(false)}
+            >
+              <View style={styles.modalOverlay}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>Assign Driver</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Search drivers by name, email, or phone"
+                    value={driverSearch}
+                    onChangeText={setDriverSearch}
+                  />
+                  <ScrollView style={{ maxHeight: 320, width: '100%' }}>
+                    {drivers.filter(d =>
+                      d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                      d.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                      d.phone.toLowerCase().includes(driverSearch.toLowerCase())
+                    ).map((d) => (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={[styles.driverAssignBtn, vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && styles.driverAssignBtnActive, { flexDirection: 'row', alignItems: 'center', marginBottom: 8 }]}
+                        onPress={() => {
+                          assignDriverToVehicle(assignModalVehicleIdx, d.id);
+                          setShowAssignModal(false);
+                        }}
+                      >
+                        <Image source={{ uri: d.photo?.uri }} style={styles.driverAssignPhoto} />
+                        <View style={{ marginLeft: 8, flex: 1 }}>
+                          <Text style={styles.driverAssignName}>Name: {d.name}</Text>
+                          <Text style={styles.driverAssignName}>Contact: {d.phone}</Text>
+                          <Text style={styles.driverAssignName}>Email: {d.email}</Text>
+                          <Text style={styles.driverAssignName}>ID: {d.id}</Text>
+                        </View>
+                        {vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && (
+                          <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={{ marginLeft: 8 }} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAssignModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
             {/* Add/Edit Vehicle Modal */}
             <Modal
               visible={vehicleModal}
@@ -405,34 +500,97 @@ export default function ManageTransporterScreen({ route }) {
             {/* Drivers List */}
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Drivers</Text>
-              <TouchableOpacity style={styles.actionBtn} onPress={openAddDriver}>
+              <TouchableOpacity style={styles.actionBtn} onPress={openRecruitDriver}>
                 <Ionicons name="add-circle" size={20} color={colors.primary} />
-                <Text style={styles.actionText}>Add Driver</Text>
+                <Text style={styles.actionText}>Recruit Driver</Text>
               </TouchableOpacity>
+              <TextInput
+                style={styles.input}
+                placeholder="Search drivers..."
+                value={driverSearch}
+                onChangeText={setDriverSearch}
+              />
               {drivers.length === 0 ? (
                 <Text style={styles.value}>No drivers added.</Text>
               ) : (
-                drivers.map((item, index) => (
-                  <View style={styles.driverListItem} key={item.id}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Image source={{ uri: item.photo?.uri }} style={styles.driverPhoto} />
-                      <View style={{ marginLeft: 10 }}>
-                        <Text style={styles.value}>{item.name}</Text>
-                        <Text style={styles.value}>{item.phone}</Text>
+                <ScrollView style={{ maxHeight: 340 }}>
+                  {drivers.filter(item =>
+                    item.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                    item.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                    item.phone.toLowerCase().includes(driverSearch.toLowerCase())
+                  ).map((item, index) => (
+                    <View style={styles.driverListItem} key={item.id}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Image source={{ uri: item.photo?.uri }} style={styles.driverPhoto} />
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text style={styles.value}>{item.name}</Text>
+                          <Text style={styles.value}>{item.email}</Text>
+                          <Text style={styles.value}>{item.phone}</Text>
+                        </View>
+                        <TouchableOpacity style={styles.editBtn} onPress={() => openEditDriver(index)}>
+                          <Ionicons name="create-outline" size={18} color={colors.secondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveDriver(index)}>
+                          <Ionicons name="trash" size={18} color={colors.error} />
+                        </TouchableOpacity>
                       </View>
                     </View>
-                    <View style={{ flexDirection: 'row', marginTop: 4 }}>
-                      <TouchableOpacity style={styles.editBtn} onPress={() => openEditDriver(index)}>
-                        <Ionicons name="create-outline" size={18} color={colors.secondary} />
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+            {/* Recruit Driver Modal */}
+            <Modal
+              visible={recruitModal}
+              animationType="slide"
+              transparent
+              onRequestClose={() => setRecruitModal(false)}
+            >
+              <View style={styles.modalOverlay}>
+                <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={styles.vehicleModalCard}>
+                    <Text style={styles.editTitle}>Recruit Driver</Text>
+                    <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={() => pickDriverPhoto(setRecruitPhoto)}>
+                      {recruitPhoto ? (
+                        <Image source={{ uri: recruitPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                      ) : (
+                        <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                        </View>
+                      )}
+                      <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo *</Text>
+                    </TouchableOpacity>
+                    <TextInput style={styles.input} placeholder="Driver Name *" value={recruitName} onChangeText={setRecruitName} />
+                    <TextInput style={styles.input} placeholder="Email *" value={recruitEmail} onChangeText={setRecruitEmail} keyboardType="email-address" />
+                    <TextInput style={styles.input} placeholder="Phone *" value={recruitPhone} onChangeText={setRecruitPhone} keyboardType="phone-pad" />
+                    <View style={styles.section}>
+                      <Text style={styles.editLabel}>ID Document (PDF or Image) *</Text>
+                      <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverIdDoc(setRecruitIdDoc)}>
+                        <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                        <Text style={styles.uploadBtnText}>{recruitIdDoc ? 'Change File' : 'Upload File'}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveDriver(index)}>
-                        <Ionicons name="trash" size={18} color={colors.error} />
+                      {recruitIdDoc && <Text style={styles.fileName}>{recruitIdDoc.fileName || recruitIdDoc.uri?.split('/').pop()}</Text>}
+                    </View>
+                    <View style={styles.section}>
+                      <Text style={styles.editLabel}>Driver's License (PDF or Image) *</Text>
+                      <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverLicense(setRecruitLicense)}>
+                        <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                        <Text style={styles.uploadBtnText}>{recruitLicense ? 'Change File' : 'Upload File'}</Text>
+                      </TouchableOpacity>
+                      {recruitLicense && <Text style={styles.fileName}>{recruitLicense.fileName || recruitLicense.uri?.split('/').pop()}</Text>}
+                    </View>
+                    <View style={styles.editActionsRow}>
+                      <TouchableOpacity style={styles.cancelBtn} onPress={() => setRecruitModal(false)}>
+                        <Text style={styles.cancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.saveBtn} onPress={handleRecruitDriver}>
+                        <Text style={styles.saveText}>Recruit</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
-                ))
-              )}
-            </View>
+                </ScrollView>
+              </View>
+            </Modal>
             {/* Add/Edit Driver Modal */}
             <Modal
               visible={driverModal}
@@ -444,7 +602,7 @@ export default function ManageTransporterScreen({ route }) {
                 <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
                   <View style={styles.vehicleModalCard}>
                     <Text style={styles.editTitle}>{driverEditIdx !== null ? 'Edit Driver' : 'Add Driver'}</Text>
-                    <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={pickDriverPhoto}>
+                    <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={() => pickDriverPhoto(setDriverPhoto)}>
                       {driverPhoto ? (
                         <Image source={{ uri: driverPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
                       ) : (
@@ -458,7 +616,7 @@ export default function ManageTransporterScreen({ route }) {
                     <TextInput style={styles.input} placeholder="Phone Number" value={driverPhone} onChangeText={setDriverPhone} />
                     <View style={styles.section}>
                       <Text style={styles.editLabel}>License Document (PDF or Image) *</Text>
-                      <TouchableOpacity style={styles.uploadBtn} onPress={pickDriverLicense}>
+                      <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverLicense(setDriverLicense)}>
                         <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
                         <Text style={styles.uploadBtnText}>{driverLicense ? 'Change File' : 'Upload File'}</Text>
                       </TouchableOpacity>
@@ -476,8 +634,7 @@ export default function ManageTransporterScreen({ route }) {
                 </ScrollView>
               </View>
             </Modal>
-          </View>
-        </View>
+          </ScrollView>
         {/* Edit Profile Modal (always rendered) */}
         <Modal
           visible={editModal}

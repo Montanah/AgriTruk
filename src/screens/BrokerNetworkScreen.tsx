@@ -1,7 +1,7 @@
-import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import React, { useState } from 'react';
-import { FlatList, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform } from 'react-native';
+import { FlatList, Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import colors from '../constants/colors';
 
 const regions = ['Nairobi', 'Central', 'Western', 'Rift Valley', 'Coast'];
@@ -119,13 +119,13 @@ export default function BrokerNetworkScreen() {
       {showReminder && (
         <View style={
           daysLeft > 15 ? styles.reminderHealthy :
-          daysLeft > 5 ? styles.reminderWarning :
-          styles.reminderDanger
+            daysLeft > 5 ? styles.reminderWarning :
+              styles.reminderDanger
         }>
           <Text style={styles.reminderText}>
             {daysLeft > 15 && 'Your subscription is healthy.'}
-            {daysLeft <= 15 && daysLeft > 5 && `Your subscription will renew in ${daysLeft} days (monthly). Consider checking your plan.`}
-            {daysLeft <= 5 && `Your subscription will renew in ${daysLeft} days (monthly)! Please renew to avoid interruption.`}
+            {daysLeft <= 15 && daysLeft > 5 && `Your subscription will renew in ${daysLeft} days. Consider checking your plan.`}
+            {daysLeft <= 5 && `Your subscription will renew in ${daysLeft} days! Please renew to avoid interruption.`}
           </Text>
           <TouchableOpacity onPress={() => setShowReminder(false)} style={styles.reminderCloseBtn}>
             <Ionicons name="close" size={18} color={colors.text.secondary} />
@@ -133,17 +133,17 @@ export default function BrokerNetworkScreen() {
         </View>
       )}
       <View style={styles.analyticsRow}>
-        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}> 
+        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}>
           <MaterialCommunityIcons name="office-building" size={28} color={colors.primary} />
           <Text style={styles.analyticsValue}>{totalBusinesses}</Text>
           <Text style={styles.analyticsLabel}>Businesses</Text>
         </View>
-        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}> 
+        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}>
           <MaterialCommunityIcons name="account" size={28} color={colors.secondary} />
           <Text style={styles.analyticsValue}>{totalIndividuals}</Text>
           <Text style={styles.analyticsLabel}>Individuals</Text>
         </View>
-        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}> 
+        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}>
           <MaterialCommunityIcons name="account-group" size={28} color={colors.primaryDark} />
           <Text style={styles.analyticsValue}>{totalClients}</Text>
           <Text style={styles.analyticsLabel}>Total Clients</Text>

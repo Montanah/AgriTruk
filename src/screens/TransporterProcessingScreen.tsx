@@ -113,55 +113,55 @@ export default function TransporterProcessingScreen({ route }) {
             </View>
           ))}
         </View>
-      <Text style={styles.waitingText}>Your documents are under review. You will be notified once your account is activated.</Text>
-      <View style={styles.tipsBox}>
-      <Ionicons name="information-circle-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
-      <Text style={styles.tipsText}>
-      {transporterType === 'company'
-      ? 'Tip: You can prepare your fleet and driver details for quick onboarding once approved.'
-      : 'Tip: Make sure your contact details are up to date for faster communication.'}
-      </Text>
-      </View>
-      <Pressable
-      style={({ pressed }) => [
-      styles.refreshBtn,
-      pressed && { backgroundColor: colors.primary + '22' },
-      ]}
-      onPress={() => {/* Placeholder for refresh logic */}}
-      >
-      <Ionicons name="refresh" size={20} color={colors.primary} style={{ marginRight: 6 }} />
-      <Text style={styles.refreshBtnText}>Refresh Status</Text>
-      </Pressable>
+        <Text style={styles.waitingText}>Your documents are under review. You will be notified once your account is activated.</Text>
+        <View style={styles.tipsBox}>
+          <Ionicons name="information-circle-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
+          <Text style={styles.tipsText}>
+            {transporterType === 'company'
+              ? 'Tip: You can prepare your fleet and driver details for quick onboarding once approved.'
+              : 'Tip: Make sure your contact details are up to date for faster communication.'}
+          </Text>
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.refreshBtn,
+            pressed && { backgroundColor: colors.primary + '22' },
+          ]}
+          onPress={() => {/* Placeholder for refresh logic */ }}
+        >
+          <Ionicons name="refresh" size={20} color={colors.primary} style={{ marginRight: 6 }} />
+          <Text style={styles.refreshBtnText}>Refresh Status</Text>
+        </Pressable>
       </View>
       <View style={{ marginTop: 32, width: '100%' }}>
-      <Text style={{ textAlign: 'center', color: colors.text.light, marginBottom: 8 }}>
-      For UI testing only:
-      </Text>
-      <View style={{ alignItems: 'center' }}>
-      <Text style={{ color: colors.text.secondary, marginBottom: 4 }}>
-      Go to {transporterType === 'company' ? 'Broker/Company' : 'Transporter'} Dashboard
-      </Text>
-      <View style={{ width: 220 }}>
-      <TouchableOpacity
-      style={{
-      backgroundColor: colors.primary,
-      borderRadius: 10,
-      paddingVertical: 12,
-      alignItems: 'center',
-      marginBottom: 8,
-      }}
-      onPress={() => navigation.navigate('TransporterTabs', { transporterType })}
-      >
-      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-      Go to {transporterType === 'company' ? 'Company' : 'Transporter'} Dashboard
-      </Text>
-      </TouchableOpacity>
+        <Text style={{ textAlign: 'center', color: colors.text.light, marginBottom: 8 }}>
+          For UI testing only:
+        </Text>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={{ color: colors.text.secondary, marginBottom: 4 }}>
+            Go to {transporterType === 'company' ? 'Company' : 'Transporter'} Dashboard
+          </Text>
+          <View style={{ width: 220 }}>
+            <TouchableOpacity
+              style={{
+                backgroundColor: colors.primary,
+                borderRadius: 10,
+                paddingVertical: 12,
+                alignItems: 'center',
+                marginBottom: 8,
+              }}
+              onPress={() => navigation.navigate('TransporterTabs', { transporterType })}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+                Go to {transporterType === 'company' ? 'Company' : 'Transporter'} Dashboard
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
-      </View>
-      </View>
-      </View>
-      );
-      }
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
