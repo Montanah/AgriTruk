@@ -3,7 +3,8 @@ import { useNavigation } from '@react-navigation/native';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import { auth, db } from '../firebaseConfig';
@@ -33,6 +34,12 @@ export default function BrokerProfileScreen() {
   const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
+  const [profilePhoto, setProfilePhoto] = useState(null);
+
+  const pickProfilePhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.IMAGE, allowsEditing: true, quality: 0.7 });
+    if (!result.canceled && result.assets && result.assets[0].uri) setProfilePhoto(result.assets[0]);
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -118,40 +125,55 @@ export default function BrokerProfileScreen() {
     <SafeAreaView style={styles.bg}>
       <ScrollView contentContainerStyle={{ paddingBottom: 68 + (insets?.bottom || 0) }} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
-          <MaterialCommunityIcons name="account-circle" size={80} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 10 }} />
           {loading ? (
             <Text style={styles.loadingText}>Loading...</Text>
-          ) : editing ? (
-            <>
-              <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Name" />
-              <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Email" keyboardType="email-address" />
-              <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="Phone" keyboardType="phone-pad" />
-              <View style={styles.actionsRow}>
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                  <Text style={styles.saveText}>Save</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditing(false)}>
-                  <Text style={styles.cancelText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </>
           ) : (
             <>
-              <Text style={styles.profileName}>{name}</Text>
-              <Text style={styles.profileInfo}>{email}</Text>
-              <Text style={styles.profileInfo}>{phone}</Text>
-              <Text style={styles.profileRole}>Role: <Text style={{ color: colors.secondary, fontWeight: 'bold' }}>Broker</Text></Text>
-              <Text style={styles.profileInfo}>Last Login: 2024-06-12 09:30</Text>
-              <View style={styles.profileActionsRow}>
-                <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)}>
-                  <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
-                  <Text style={styles.editText}>Edit Profile</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.editBtn} onPress={() => setShowPwdModal(true)}>
-                  <Ionicons name="key-outline" size={20} color={colors.primaryDark} />
-                  <Text style={styles.editText}>Change Password</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={{ alignSelf: 'center', marginBottom: 16 }}
+                onPress={editing ? pickProfilePhoto : undefined}
+                activeOpacity={editing ? 0.7 : 1}
+              >
+                {profilePhoto ? (
+                  <Image source={{ uri: profilePhoto.uri || profilePhoto }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                ) : (
+                  <MaterialCommunityIcons name="account-circle" size={80} color={colors.primary} />
+                )}
+                {editing && <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>}
+              </TouchableOpacity>
+              {editing ? (
+                <>
+                  <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Name" />
+                  <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Email" keyboardType="email-address" />
+                  <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="Phone" keyboardType="phone-pad" />
+                  <View style={styles.actionsRow}>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                      <Text style={styles.saveText}>Save</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditing(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.profileName}>{name}</Text>
+                  <Text style={styles.profileInfo}>{email}</Text>
+                  <Text style={styles.profileInfo}>{phone}</Text>
+                  <Text style={styles.profileRole}>Role: <Text style={{ color: colors.secondary, fontWeight: 'bold' }}>Broker</Text></Text>
+                  <Text style={styles.profileInfo}>Last Login: 2024-06-12 09:30</Text>
+                  <View style={styles.profileActionsRow}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)}>
+                      <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
+                      <Text style={styles.editText}>Edit Profile</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => setShowPwdModal(true)}>
+                      <Ionicons name="key-outline" size={20} color={colors.primaryDark} />
+                      <Text style={styles.editText}>Change Password</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </>
           )}
         </View>

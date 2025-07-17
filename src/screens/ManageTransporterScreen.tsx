@@ -18,6 +18,18 @@ export default function ManageTransporterScreen({ route }) {
   const [editName, setEditName] = useState('John Doe');
   const [editPhone, setEditPhone] = useState('+254700111222');
   const [editPassword, setEditPassword] = useState('');
+  const [editProfilePhoto, setEditProfilePhoto] = useState(null);
+
+  const pickProfilePhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+      setEditProfilePhoto({ uri: result.assets[0].uri });
+    }
+  };
 
   // Updated logout handler: sign out and reset navigation to WelcomeScreen
   const handleLogout = async () => {
@@ -294,6 +306,14 @@ export default function ManageTransporterScreen({ route }) {
               <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
                 <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
                 <Text style={styles.actionText}>Edit Profile</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ alignItems: 'center', marginBottom: 8 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
+                {editProfilePhoto ? (
+                  <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                ) : (
+                  <MaterialCommunityIcons name="account-circle" size={80} color={colors.primary} />
+                )}
+                <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
               </TouchableOpacity>
               <Text style={styles.value}>Name: {editName}</Text>
               <Text style={styles.value}>Phone: {editPhone}</Text>
@@ -695,6 +715,16 @@ export default function ManageTransporterScreen({ route }) {
           <View style={styles.modalOverlay}>
             <View style={styles.editModalCard}>
               <Text style={styles.editTitle}>Edit Profile</Text>
+              <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
+                {editProfilePhoto ? (
+                  <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                ) : (
+                  <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                  </View>
+                )}
+                <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
+              </TouchableOpacity>
               <View style={styles.editFieldWrap}>
                 <Text style={styles.editLabel}>Full Name</Text>
                 <TextInput

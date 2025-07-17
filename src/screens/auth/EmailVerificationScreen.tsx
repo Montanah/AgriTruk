@@ -56,6 +56,16 @@ const EmailVerificationScreen = ({ navigation, route }) => {
         }, { merge: true });
       }
       setVerified(true);
+      if (role === 'broker') {
+        navigation.replace('VerifyIdentificationDocument', {
+          broker: {
+            name: user.displayName || '',
+            email: user.email,
+            phone: phone,
+          },
+        });
+        return;
+      }
       setTimeout(async () => {
         // Sign out and sign in again to trigger App.tsx navigation
         const { signOut, signInWithEmailAndPassword } = await import('firebase/auth');

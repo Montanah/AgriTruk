@@ -96,15 +96,31 @@ export default function App() {
         {/* Temporary: allow navigation for UI testing */}
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
         <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+        <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
       </>
     );
   } else if (role === 'broker') {
-    initialRouteName = 'BrokerTabs';
-    screens = (
-      <>
-        <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
-      </>
-    );
+    if (!isVerified) {
+      initialRouteName = 'VerifyIdentificationDocument';
+      screens = (
+        <>
+          <Stack.Screen
+            name="VerifyIdentificationDocument"
+            component={require('./src/screens/VerifyIdentificationDocumentScreen').default}
+            initialParams={{ broker: { name: user?.displayName || '', email: user?.email, phone: user?.phoneNumber || '' } }}
+          />
+          <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+        </>
+      );
+    } else {
+      initialRouteName = 'BrokerTabs';
+      screens = (
+        <>
+          <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+          <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+        </>
+      );
+    }
   } else if (role === 'transporter' && !profileCompleted) {
     initialRouteName = 'TransporterCompletionScreen';
     screens = (
