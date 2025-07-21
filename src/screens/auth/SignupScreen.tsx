@@ -41,7 +41,7 @@ const roleAccents = {
 };
 
 const roleLabels = {
-  farmer: 'Farmer',
+  farmer: 'Shipper',
   business: 'Business',
   broker: 'Broker',
   driver: 'Transporter',

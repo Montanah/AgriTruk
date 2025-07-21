@@ -15,22 +15,22 @@ export default function RevenueScreen({ route }) {
     const [analytics, setAnalytics] = useState({ drivers: [], jobs: [] });
 
     useEffect(() => {
-    let mounted = true;
-    setLoading(true);
-    setError('');
-    // Use mock data for UI
-    setTimeout(() => {
-    if (!mounted) return;
-    setInventory(revenueCompanyMock.inventory || []);
-    setRevenue(revenueCompanyMock.totalRevenue || 0);
-    setOutstanding(revenueCompanyMock.outstandingPayments || 0);
-    setAnalytics({
-    drivers: revenueCompanyMock.topDrivers || [],
-    jobs: revenueCompanyMock.frequentJobs || [],
-    });
-    setLoading(false);
-    }, 800); // Simulate network delay
-    return () => { mounted = false; };
+      let mounted = true;
+      setLoading(true);
+      setError('');
+      // Use mock data for UI
+      setTimeout(() => {
+        if (!mounted) return;
+        setInventory(revenueCompanyMock.inventory || []);
+        setRevenue(revenueCompanyMock.totalRevenue || 0);
+        setOutstanding(revenueCompanyMock.outstandingPayments || 0);
+        setAnalytics({
+          drivers: revenueCompanyMock.topDrivers || [],
+          jobs: revenueCompanyMock.frequentJobs || [],
+        });
+        setLoading(false);
+      }, 800); // Simulate network delay
+      return () => { mounted = false; };
     }, []);
 
     if (loading) {
@@ -54,7 +54,7 @@ export default function RevenueScreen({ route }) {
 
     return (
       <ScrollView style={styles.bg} contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Company/Broker Revenue</Text>
+        <Text style={styles.title}>Company Revenue</Text>
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Total Revenue Collected</Text>
           <Text style={styles.amount}>Ksh {revenue.toLocaleString()}</Text>
@@ -96,10 +96,10 @@ export default function RevenueScreen({ route }) {
           <Text style={styles.value}>
             {inventory.length > 0
               ? inventory
-                  .sort((a: any, b: any) => (b.revenue || 0) - (a.revenue || 0))
-                  .slice(0, 3)
-                  .map((v: any) => `${v.name} (Ksh ${v.revenue?.toLocaleString() || '0'})`)
-                  .join(', ')
+                .sort((a: any, b: any) => (b.revenue || 0) - (a.revenue || 0))
+                .slice(0, 3)
+                .map((v: any) => `${v.name} (Ksh ${v.revenue?.toLocaleString() || '0'})`)
+                .join(', ')
               : 'N/A'}
           </Text>
           <Text style={styles.label}>Top Performing Drivers</Text>

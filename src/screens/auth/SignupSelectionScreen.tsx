@@ -20,14 +20,14 @@ const { width } = Dimensions.get('window');
 const roles = [
   {
     key: 'farmer',
-    label: 'Farmer',
+    label: 'Shipper',
     accent: colors.primary,
     icon: (animatedStyle: any) => (
       <Animated.View style={animatedStyle}>
         <FontAwesome5 name="tractor" size={32} color={colors.primary} />
       </Animated.View>
     ),
-    description: 'For farmers moving produce to market',
+    description: 'For farmers and individuals who want to move goods, cargo, or luggage from one place to another.',
   },
   {
     key: 'business',
@@ -38,7 +38,7 @@ const roles = [
         <Ionicons name="business" size={32} color={colors.secondary} />
       </Animated.View>
     ),
-    description: 'For agri-businesses and cooperatives',
+    description: 'For businesses and corporates needing logistics and cargo transport services.',
   },
   {
     key: 'broker',
