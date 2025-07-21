@@ -18,11 +18,13 @@ import WelcomeScreen from './src/screens/WelcomeScreen';
 
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
+import { NotificationProvider } from './src/components/Notification/NotificationContext';
 import { auth, db } from './src/firebaseConfig';
 
 const Stack = createStackNavigator();
 
 LogBox.ignoreLogs(['useInsertionEffect must not schedule updates']);
+
 
 export default function App() {
   const [user, setUser] = React.useState<User | null>(null);
@@ -167,13 +169,13 @@ export default function App() {
   }
 
   return (
-    <>
+    <NotificationProvider>
       <StatusBar style="dark" translucent />
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
           {screens}
         </Stack.Navigator>
       </NavigationContainer>
-    </>
+    </NotificationProvider>
   );
 }

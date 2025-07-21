@@ -77,6 +77,7 @@ const PRODUCT_SUGGESTIONS = [
 
 import { MOCK_TRANSPORTERS } from '../mocks/transporters';
 import { notificationService } from '../../services/notificationService';
+import NotificationBell from '../components/Notification/NotificationBell';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -176,6 +177,9 @@ const ServiceRequestScreen = () => {
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar style="light" />
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 10, paddingRight: 8, backgroundColor: accent }}>
+        <NotificationBell />
+      </View>
       <View style={{ height: Platform.OS === 'ios' ? 44 : 32, backgroundColor: accent, width: '100%' }} />
       <LinearGradient
         colors={[accent, colors.secondary, colors.primaryDark, '#222']}

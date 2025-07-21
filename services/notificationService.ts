@@ -22,17 +22,19 @@ export interface NotificationPayload {
   data?: any;
 }
 
+import { pushInAppNotification } from '../src/components/Notification/NotificationContextSingleton';
+
 export const notificationService = {
   send: async (payload: NotificationPayload) => {
-    // In production, integrate with SendGrid, Twilio, FCM, etc.
-    // For now, just log to mockNotifications
     const { to, channel, audience, type, subject, message, data } = payload;
-    // eslint-disable-next-line no-console
-    console.log(`[NOTIFY] [${channel}] [${audience}] [${type}] To: ${to} | Subject: ${subject || ''} | Message: ${message}`);
-    // Optionally push to mock notification log
-    if (typeof window !== 'undefined' && window.mockNotifications) {
-      window.mockNotifications.push({ ...payload, timestamp: new Date().toISOString() });
+    if (channel === 'in-app') {
+      pushInAppNotification({
+        title: subject || (type ? type.replace(/_/g, ' ').toUpperCase() : 'Notification'),
+        message,
+        type,
+      });
     }
+    // In production, integrate with SendGrid, Twilio, FCM, etc. for email and sms
   },
   // Convenience methods
   sendEmail: async (to: string, subject: string, message: string, audience: NotificationAudience, type: NotificationType, data?: any) =>

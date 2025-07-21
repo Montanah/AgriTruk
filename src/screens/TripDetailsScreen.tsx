@@ -2,11 +2,12 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useRoute } from '@react-navigation/native';
 import React, { useState } from 'react';
 import { FlatList, Image, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import colors from '../constants/colors';
-import { mockMessages } from '../mocks/messages';
-import { MOCK_BOOKINGS } from '../mocks/bookings';
-import { mockTrip } from '../mocks/trip';
+import NotificationBell from '../components/Notification/NotificationBell';
 import { notificationService } from '../../services/notificationService';
+import colors from '../constants/colors';
+import { MOCK_BOOKINGS } from '../mocks/bookings';
+import { mockMessages } from '../mocks/messages';
+import { mockTrip } from '../mocks/trip';
 
 const TripDetailsScreen = () => {
   const route = useRoute();
@@ -90,6 +91,9 @@ const TripDetailsScreen = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 18, paddingRight: 8 }}>
+        <NotificationBell />
+      </View>
       <View style={styles.mapCard}>
         <Ionicons name="map" size={64} color="#bbb" />
         <Text style={{ color: '#888', fontSize: 18, marginTop: 12, fontWeight: '600' }}>Map will appear here</Text>
@@ -97,7 +101,7 @@ const TripDetailsScreen = () => {
       </View>
       <View style={styles.divider} />
       {/* Bottom Card - Clean, At-a-Glance Trip Details */}
-      <View style={[styles.bottomCard, { marginBottom: 24 }]}> 
+      <View style={[styles.bottomCard, { marginBottom: 24 }]}>
         {/* Trip Reference and Status */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           {booking.reference && (
@@ -112,7 +116,7 @@ const TripDetailsScreen = () => {
           </View>
         </View>
         {/* Route Info */}
-        <View style={[styles.tripInfoRow, { marginBottom: 4 }]}> 
+        <View style={[styles.tripInfoRow, { marginBottom: 4 }]}>
           <FontAwesome5 name="map-marker-alt" size={16} color={colors.primary} />
           <Text style={styles.tripInfoText}>From: <Text style={{ fontWeight: 'bold' }}>{booking.pickupLocation || trip.from}</Text></Text>
           <FontAwesome5 name="flag-checkered" size={16} color={colors.secondary} style={{ marginLeft: 12 }} />
@@ -172,7 +176,7 @@ const TripDetailsScreen = () => {
           </View>
         </View>
         {/* Action Row: Cancel + Contact Buttons */}
-        <View style={styles.actionRowSplit}> 
+        <View style={styles.actionRowSplit}>
           <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8 }]} onPress={() => notifyTripStatus('cancelled')}>
             <Text style={styles.cancelText}>Cancel Trip</Text>
           </TouchableOpacity>
