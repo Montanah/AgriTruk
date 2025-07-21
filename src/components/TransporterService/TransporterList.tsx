@@ -19,7 +19,10 @@ const TransporterList: FC<Props> = ({ transporters, onSelect }) => {
           <View>
             <Text style={styles.name}>{item.name}</Text>
             <Text style={styles.details}>
-              {item.vehicleType} • {item.plateNumber}
+              {item.vehicleType} • {item.vehicleMake} • {item.vehicleColor} • {item.capacity}T • {item.reg}
+            </Text>
+            <Text style={styles.details}>
+              EST: {item.est} | {item.refrigeration ? 'Refrigerated' : ''} {item.humidityControl ? 'Humidity Ctrl' : ''}
             </Text>
           </View>
           <Text style={[styles.status, item.subscriptionActive ? styles.active : styles.inactive]}>

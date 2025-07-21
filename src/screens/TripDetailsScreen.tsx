@@ -12,17 +12,29 @@ const TripDetailsScreen = () => {
   const route = useRoute();
   const params = route.params || {};
   // booking param should be passed in navigation
+  // Prefer navigation params for booking and trip, fallback to mock
   const booking = params.booking || MOCK_BOOKINGS[0];
   const trip = params.trip || mockTrip;
+  // If transporter/vehicle are passed directly, use them
+  const selectedTransporter = params.transporter || booking.transporter;
+  const selectedVehicle = params.vehicle || booking.vehicle;
 
-  // Determine communication target: assigned driver (for company) or transporter
+  // Determine communication target: assigned driver (for company) or selected transporter
   let commTarget = null;
+  let transporter = booking.transporter || {};
   if (booking.transporterType === 'company' && booking.assignedDriver) {
     commTarget = {
       name: booking.assignedDriver.name,
       phone: booking.assignedDriver.phone,
       photo: booking.assignedDriver.photo,
       role: 'Driver',
+    };
+  } else if (transporter && transporter.name) {
+    commTarget = {
+      name: transporter.name,
+      phone: transporter.phone,
+      photo: transporter.photo || 'https://randomuser.me/api/portraits/men/32.jpg',
+      role: 'Transporter',
     };
   } else {
     // fallback: transporter info (mocked for now)
@@ -78,52 +90,103 @@ const TripDetailsScreen = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{
-        flex: 1,
-        backgroundColor: '#e0e0e0',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 18,
-        margin: 12,
-      }}>
+      <View style={styles.mapCard}>
         <Ionicons name="map" size={64} color="#bbb" />
-        <Text style={{ color: '#888', fontSize: 18, marginTop: 12 }}>Map will appear here</Text>
+        <Text style={{ color: '#888', fontSize: 18, marginTop: 12, fontWeight: '600' }}>Map will appear here</Text>
         <Text style={{ color: '#aaa', fontSize: 13, marginTop: 4 }}>Enable Google Maps API for live tracking</Text>
       </View>
-      {/* Bottom Card */}
+      <View style={styles.divider} />
+      {/* Bottom Card - Clean, At-a-Glance Trip Details */}
       <View style={[styles.bottomCard, { marginBottom: 24 }]}> 
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Image source={{ uri: commTarget.photo }} style={styles.avatar} />
+        {/* Trip Reference and Status */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          {booking.reference && (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="identifier" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
+              <Text style={{ color: colors.text.secondary, fontWeight: 'bold', fontSize: 13 }}>Ref: {booking.reference}</Text>
+            </View>
+          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <MaterialCommunityIcons name="progress-clock" size={16} color={colors.primary} style={{ marginRight: 4 }} />
+            <Text style={[styles.statusText, { fontSize: 15 }]}>Status: <Text style={{ color: colors.primary }}>{trip.status}</Text></Text>
+          </View>
+        </View>
+        {/* Route Info */}
+        <View style={[styles.tripInfoRow, { marginBottom: 4 }]}> 
+          <FontAwesome5 name="map-marker-alt" size={16} color={colors.primary} />
+          <Text style={styles.tripInfoText}>From: <Text style={{ fontWeight: 'bold' }}>{booking.pickupLocation || trip.from}</Text></Text>
+          <FontAwesome5 name="flag-checkered" size={16} color={colors.secondary} style={{ marginLeft: 12 }} />
+          <Text style={styles.tripInfoText}>To: <Text style={{ fontWeight: 'bold' }}>{booking.toLocation || '--'}</Text></Text>
+        </View>
+        {/* ETA and Distance (distance in brackets, from params > booking > trip) */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f5f5f5', borderRadius: 8, padding: 6, alignSelf: 'flex-start' }}>
+          <Ionicons name="time" size={18} color={colors.secondary} style={{ marginRight: 4 }} />
+          <Text style={[styles.tripInfoText, { fontWeight: 'bold', marginRight: 4 }]}>ETA:</Text>
+          <Text style={[styles.tripInfoText, { fontWeight: 'bold', color: colors.primary }]}>{params.eta || booking.eta || trip.eta} {(params.distance || booking.distance || trip.distance) ? `(${params.distance || booking.distance || trip.distance})` : ''}</Text>
+        </View>
+        {/* Transporter & Vehicle Info - horizontal, compact, with graphics, two fields per row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f8fafc', borderRadius: 12, padding: 10 }}>
+          <Image source={{ uri: (selectedTransporter && selectedTransporter.photo) || commTarget.photo }} style={styles.avatar} />
           <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.name}>{commTarget.name} <Text style={{ color: colors.secondary, fontSize: 13 }}>({commTarget.role})</Text></Text>
+            <Text style={styles.name}>{(selectedTransporter && selectedTransporter.name) || commTarget.name}</Text>
             {booking.transporterType === 'company' && booking.assignedDriver && (
               <Text style={styles.vehicleDetails}>Assigned Driver for this trip</Text>
             )}
+            {/* Vehicle details - horizontal rows, two fields per row */}
+            {selectedVehicle && (
+              <View style={{ marginTop: 8 }}>
+                <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="truck" size={16} color={colors.primary} style={{ marginRight: 2 }} />
+                    <Text style={styles.vehicleDetails}>Type: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.type}</Text></Text>
+                  </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="palette" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
+                    <Text style={styles.vehicleDetails}>Color: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.color}</Text></Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="car-cog" size={16} color={colors.tertiary} style={{ marginRight: 2 }} />
+                    <Text style={styles.vehicleDetails}>Make: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.make}</Text></Text>
+                  </View>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="weight-kilogram" size={16} color={colors.primary} style={{ marginRight: 2 }} />
+                    <Text style={styles.vehicleDetails}>Capacity: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.capacity}</Text></Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', marginBottom: 2 }}>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                    <MaterialCommunityIcons name="card-account-details" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
+                    <Text style={styles.vehicleDetails}>Reg: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.plate}</Text></Text>
+                  </View>
+                  {selectedVehicle.driveType && (
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name="car-shift-pattern" size={16} color={colors.primary} style={{ marginRight: 2 }} />
+                      <Text style={styles.vehicleDetails}>Drive: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.driveType}</Text></Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
           </View>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
-            <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
-            <Ionicons name="call" size={22} color={colors.secondary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${commTarget.phone}`)}>
-            <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
-          </TouchableOpacity>
         </View>
-        <View style={styles.tripInfoRow}>
-          <FontAwesome5 name="map-marker-alt" size={16} color={colors.primary} />
-          <Text style={styles.tripInfoText}>From: <Text>{trip.from}</Text></Text>
-          <FontAwesome5 name="flag-checkered" size={16} color={colors.secondary} style={{ marginLeft: 12 }} />
-          <Text style={styles.tripInfoText}>To: <Text>{trip.to}</Text></Text>
-        </View>
-        <View style={styles.statusRow}>
-          <Text style={styles.statusText}>Status: {trip.status}</Text>
-          <Text style={styles.statusText}>ETA: {trip.eta} ({trip.distance})</Text>
-        </View>
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8, alignSelf: 'flex-start' }]} onPress={() => notifyTripStatus('cancelled')}> 
+        {/* Action Row: Cancel + Contact Buttons */}
+        <View style={styles.actionRowSplit}> 
+          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8 }]} onPress={() => notifyTripStatus('cancelled')}>
             <Text style={styles.cancelText}>Cancel Trip</Text>
           </TouchableOpacity>
+          <View style={styles.actionIconsRight}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
+              <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
+              <Ionicons name="call" size={22} color={colors.secondary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${(selectedTransporter && selectedTransporter.phone) || commTarget.phone}`)}>
+              <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
       {/* Chat Modal */}
@@ -181,33 +244,82 @@ const TripDetailsScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  mapCard: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    margin: 16,
+    shadowColor: colors.black,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  divider: {
+    height: 8,
+    backgroundColor: '#f1f1f1',
+    width: '100%',
+    marginBottom: 0,
+  },
   bottomCard: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     backgroundColor: colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 18,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 22,
     shadowColor: colors.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowOpacity: 0.13,
+    shadowRadius: 16,
+    elevation: 16,
+    borderWidth: 0.5,
+    borderColor: '#f0f0f0',
   },
   avatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#eee' },
   name: { fontWeight: 'bold', fontSize: 17 },
   vehicle: { color: colors.text.secondary, fontSize: 14 },
   rating: { color: colors.secondary, fontWeight: 'bold', fontSize: 14 },
   vehicleDetails: { color: colors.text.secondary, fontSize: 13, marginTop: 1 },
-  iconBtn: { marginLeft: 10, backgroundColor: colors.background, borderRadius: 20, padding: 8 },
+  iconBtn: {
+    marginLeft: 0,
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    padding: 10,
+    shadowColor: colors.black,
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
+  },
   tripInfoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   tripInfoText: { marginLeft: 4, marginRight: 12, color: colors.text.primary, fontSize: 14 },
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
   statusText: { color: colors.text.secondary, fontWeight: '600', fontSize: 14 },
-  actionRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 14 },
-  cancelBtn: { backgroundColor: colors.error, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 18 },
-  cancelText: { color: '#fff', fontWeight: 'bold' },
+  actionRowSplit: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 18,
+    gap: 10,
+  },
+  actionIconsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cancelBtn: {
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    shadowColor: colors.error,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cancelText: { color: '#fff', fontWeight: 'bold', fontSize: 15, letterSpacing: 0.2 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' },
   chatModal: { backgroundColor: colors.white, borderRadius: 18, padding: 16, width: '90%', height: 340, shadowColor: colors.black, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
   callModal: { backgroundColor: colors.white, borderRadius: 18, padding: 24, alignItems: 'center', width: 300 },

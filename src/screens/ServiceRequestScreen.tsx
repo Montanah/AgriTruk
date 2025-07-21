@@ -708,8 +708,8 @@ const ServiceRequestScreen = () => {
                           style={{
                             backgroundColor: colors.surface,
                             borderRadius: 14,
-                            padding: 16,
-                            marginBottom: 12,
+                            padding: 14,
+                            marginBottom: 10,
                             flexDirection: 'row',
                             alignItems: 'center',
                             shadowColor: colors.black,
@@ -718,12 +718,12 @@ const ServiceRequestScreen = () => {
                             elevation: 2,
                           }}
                         >
-                          <View style={{ marginRight: 16 }}>
+                          <View style={{ marginRight: 14 }}>
                             <View
                               style={{
-                                width: 54,
-                                height: 54,
-                                borderRadius: 27,
+                                width: 48,
+                                height: 48,
+                                borderRadius: 24,
                                 backgroundColor: '#eee',
                                 overflow: 'hidden',
                                 justifyContent: 'center',
@@ -732,19 +732,51 @@ const ServiceRequestScreen = () => {
                             >
                               <Animated.Image
                                 source={{ uri: t.photo }}
-                                style={{ width: 54, height: 54, borderRadius: 27 }}
+                                style={{ width: 48, height: 48, borderRadius: 24 }}
                               />
                             </View>
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{t.name}</Text>
-                            <Text style={{ color: colors.text.secondary, fontSize: 14 }}>{t.vehicle}</Text>
-                            <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
-                              Rating: {t.rating} ★
-                            </Text>
-                            <Text style={{ color: accent, fontWeight: 'bold', fontSize: 15 }}>
-                              Est. Cost: Ksh {(t.costPerKm * 10).toFixed(2)}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                              <Text style={{ fontWeight: 'bold', fontSize: 15, flex: 1 }}>{t.name}</Text>
+                              <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13, marginLeft: 8 }}>{t.est}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                              <Text style={{ color: colors.text.secondary, fontSize: 13, flex: 1 }}>
+                                {t.vehicleType} • {t.capacity}T
+                              </Text>
+                              <View style={{
+                                width: 14,
+                                height: 14,
+                                borderRadius: 7,
+                                backgroundColor: t.vehicleColor ? t.vehicleColor.toLowerCase() : '#ccc',
+                                borderWidth: 1,
+                                borderColor: '#ddd',
+                                marginLeft: 8,
+                              }} />
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                              {t.refrigeration && (
+                                <MaterialCommunityIcons name="snowflake" size={15} color={accent} style={{ marginRight: 6 }} />
+                              )}
+                              {t.humidityControl && (
+                                <MaterialCommunityIcons name="water-percent" size={15} color={accent} style={{ marginRight: 6 }} />
+                              )}
+                              {t.driveType && (
+                                <MaterialCommunityIcons name="car-shift-pattern" size={15} color={accent} style={{ marginRight: 6 }} />
+                              )}
+                              <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
+                                {t.vehicleMake} • {t.reg}
+                              </Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text style={{ color: colors.text.secondary, fontSize: 13, flex: 1 }}>
+                                Rating: {t.rating} ★
+                              </Text>
+                              <Text style={{ color: accent, fontWeight: 'bold', fontSize: 14 }}>
+                                Ksh {(t.costPerKm * 10).toFixed(2)}
+                              </Text>
+                            </View>
                           </View>
                           <TouchableOpacity
                             style={{
@@ -752,8 +784,37 @@ const ServiceRequestScreen = () => {
                               borderRadius: 8,
                               paddingVertical: 8,
                               paddingHorizontal: 16,
+                              marginLeft: 8,
                             }}
-                            onPress={() => navigation.navigate('TripDetails', { transporter: t, trip: { from: fromLocation, to: toLocation, status: 'On Transit', eta: '12 min', distance: '4.2 km', route: [ { latitude: -1.2921, longitude: 36.8219 }, { latitude: -1.3000, longitude: 36.8300 } ], transporterLocation: { latitude: -1.2950, longitude: 36.8250 }, destination: { latitude: -1.3000, longitude: 36.8300 } } })}
+                            onPress={() => navigation.navigate('TripDetails', {
+  booking: {
+    id: t.id,
+    pickupLocation: fromLocation,
+    toLocation: toLocation,
+    cargoDetails: productType + (weight ? `, ${weight} kg` : ''),
+    pickupTime: '',
+    status: 'in-progress',
+    type: 'instant',
+    transporterType: 'individual',
+    transporter: {
+      id: t.id,
+      name: t.name,
+      phone: t.phone,
+      photo: t.photo,
+    },
+    vehicle: {
+      type: t.vehicleType,
+      color: t.vehicleColor,
+      make: t.vehicleMake,
+      capacity: t.capacity + 'T',
+      plate: t.reg,
+      driveType: t.driveType || '',
+    },
+    reference: 'REF-' + t.id,
+    eta: t.est,
+    distance: '',
+  }
+})}
                           >
                             <Text style={{ color: colors.white, fontWeight: 'bold' }}>Select</Text>
                           </TouchableOpacity>
