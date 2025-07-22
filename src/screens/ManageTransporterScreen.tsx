@@ -1,4 +1,5 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
@@ -145,12 +146,79 @@ export default function ManageTransporterScreen({ route }) {
   // Vehicle modal state and fields
   const [vehicleModal, setVehicleModal] = useState(false);
   const [vehicleEditIdx, setVehicleEditIdx] = useState(null);
+  const VEHICLE_TYPES = [
+    {
+      label: 'Truck',
+      value: 'truck',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="truck" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Tractor',
+      value: 'tractor',
+      icon: (active: boolean) => (
+        <FontAwesome5 name="tractor" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Trailer',
+      value: 'trailer',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="truck-trailer" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Tanker',
+      value: 'tanker',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="truck-cargo-container" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Flatbed',
+      value: 'flatbed',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="truck-flatbed" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Van',
+      value: 'van',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="van-utility" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Pickup',
+      value: 'pickup',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="car-pickup" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Refrigerated Truck',
+      value: 'refrigerated_truck',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="snowflake" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Other',
+      value: 'other',
+      icon: (active: boolean) => (
+        <Ionicons name="car-outline" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+  ];
   const [vehicleType, setVehicleType] = useState('');
+  const [showVehicleTypeDropdown, setShowVehicleTypeDropdown] = useState(false);
   const [vehicleMake, setVehicleMake] = useState('');
   const [vehicleColor, setVehicleColor] = useState('');
   const [vehicleCapacity, setVehicleCapacity] = useState('');
   const [vehicleYear, setVehicleYear] = useState('');
   const [vehicleDriveType, setVehicleDriveType] = useState('');
+  const [bodyType, setBodyType] = useState('closed'); // 'closed' or 'open'
   const [vehicleReg, setVehicleReg] = useState('');
   const [refrigeration, setRefrigeration] = useState(false);
   const [humidityControl, setHumidityControl] = useState(false);
@@ -204,6 +272,7 @@ export default function ManageTransporterScreen({ route }) {
       id: vehicleEditIdx !== null ? vehicles[vehicleEditIdx].id : Date.now().toString(),
       type: vehicleType,
       reg: vehicleReg,
+      bodyType,
       refrigeration,
       humidityControl,
       specialCargo,
@@ -429,89 +498,15 @@ export default function ManageTransporterScreen({ route }) {
                 <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
                   <View style={styles.vehicleModalCard}>
                     <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
-                    {/* Make & Color Row */}
-                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.inputDropdownLabel}>Make *</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="e.g. Isuzu"
-                          value={vehicleMake}
-                          onChangeText={setVehicleMake}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.inputDropdownLabel}>Color *</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="e.g. White"
-                          value={vehicleColor}
-                          onChangeText={setVehicleColor}
-                        />
-                      </View>
-                    </View>
-                    {/* Vehicle Type Dropdown */}
-                    <View style={styles.inputDropdownWrap}>
-                      <Text style={styles.inputDropdownLabel}>Vehicle Type *</Text>
-                      <TouchableOpacity style={styles.inputDropdown} onPress={() => setShowTypeDropdown(!showTypeDropdown)}>
-                        <Text style={{ color: vehicleType ? colors.text.primary : colors.text.light }}>
-                          {vehicleType || 'Select vehicle type'}
-                        </Text>
-                        <Ionicons name={showTypeDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={colors.text.secondary} />
-                      </TouchableOpacity>
-                      {showTypeDropdown && (
-                        <View style={styles.dropdownList}>
-                          {['Truck', 'Van', 'Refrigerated Van', 'Flatbed', 'Tanker', 'Pickup', 'Trailer'].map(type => (
-                            <TouchableOpacity key={type} style={styles.dropdownItem} onPress={() => { setVehicleType(type); setShowTypeDropdown(false); }}>
-                              <Text style={{ color: colors.text.primary }}>{type}</Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-                    </View>
-                    {/* Capacity, Year, Drive Type Row */}
-                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.inputDropdownLabel}>Capacity (tons)</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="e.g. 7.5"
-                          keyboardType="numeric"
-                          value={vehicleCapacity}
-                          onChangeText={setVehicleCapacity}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.inputDropdownLabel}>Year</Text>
-                        <TextInput
-                          style={styles.input}
-                          placeholder="e.g. 2018"
-                          keyboardType="numeric"
-                          value={vehicleYear}
-                          onChangeText={setVehicleYear}
-                          maxLength={4}
-                        />
-                      </View>
-                    </View>
-                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.inputDropdownLabel}>Drive Type</Text>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                          <TouchableOpacity
-                            style={[styles.input, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: vehicleDriveType === '2WD' ? colors.primary : colors.background, borderColor: vehicleDriveType === '2WD' ? colors.primary : colors.text.light }]}
-                            onPress={() => setVehicleDriveType('2WD')}
-                          >
-                            <Text style={{ color: vehicleDriveType === '2WD' ? '#fff' : colors.text.primary, fontWeight: 'bold' }}>2WD</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.input, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: vehicleDriveType === '4WD' ? colors.primary : colors.background, borderColor: vehicleDriveType === '4WD' ? colors.primary : colors.text.light }]}
-                            onPress={() => setVehicleDriveType('4WD')}
-                          >
-                            <Text style={{ color: vehicleDriveType === '4WD' ? '#fff' : colors.text.primary, fontWeight: 'bold' }}>4WD</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </View>
+                    {/* Vehicle Details Form (Reusable) */}
+                    <VehicleDetailsForm
+                      initial={{}}
+                      onChange={() => {}}
+                      onPhotoAdd={pickVehiclePhotos}
+                      onPhotoRemove={removeVehiclePhoto}
+                      vehiclePhotos={vehiclePhotos}
+                      error={null}
+                    />
                     <TextInput style={styles.input} placeholder="Registration Number *" value={vehicleReg} onChangeText={setVehicleReg} />
                     <View style={styles.featuresRow}>
                       <TouchableOpacity style={[styles.featureBtn, refrigeration && styles.featureBtnActive]} onPress={() => setRefrigeration(!refrigeration)}>
@@ -797,132 +792,14 @@ export default function ManageTransporterScreen({ route }) {
               <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
                 <View style={styles.vehicleModalCard}>
                   <Text style={styles.editTitle}>Add Vehicle</Text>
-                  {/* Make & Color Row */}
-                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inputDropdownLabel}>Make *</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="e.g. Isuzu"
-                        value={vehicleMake}
-                        onChangeText={setVehicleMake}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inputDropdownLabel}>Color *</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="e.g. White"
-                        value={vehicleColor}
-                        onChangeText={setVehicleColor}
-                      />
-                    </View>
-                  </View>
-                  {/* Vehicle Type Dropdown */}
-                  <View style={styles.inputDropdownWrap}>
-                    <Text style={styles.inputDropdownLabel}>Vehicle Type *</Text>
-                    <TouchableOpacity style={styles.inputDropdown} onPress={() => setShowTypeDropdown(!showTypeDropdown)}>
-                      <Text style={{ color: vehicleType ? colors.text.primary : colors.text.light }}>
-                        {vehicleType || 'Select vehicle type'}
-                      </Text>
-                      <Ionicons name={showTypeDropdown ? 'chevron-up' : 'chevron-down'} size={18} color={colors.text.secondary} />
-                    </TouchableOpacity>
-                    {showTypeDropdown && (
-                      <View style={styles.dropdownList}>
-                        {['Truck', 'Van', 'Refrigerated Van', 'Flatbed', 'Tanker', 'Pickup', 'Trailer'].map(type => (
-                          <TouchableOpacity key={type} style={styles.dropdownItem} onPress={() => { setVehicleType(type); setShowTypeDropdown(false); }}>
-                            <Text style={{ color: colors.text.primary }}>{type}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                  {/* Capacity, Year, Drive Type Row */}
-                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inputDropdownLabel}>Capacity (tons)</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="e.g. 7.5"
-                        keyboardType="numeric"
-                        value={vehicleCapacity}
-                        onChangeText={setVehicleCapacity}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inputDropdownLabel}>Year</Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="e.g. 2018"
-                        keyboardType="numeric"
-                        value={vehicleYear}
-                        onChangeText={setVehicleYear}
-                        maxLength={4}
-                      />
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 8 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.inputDropdownLabel}>Drive Type</Text>
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
-                        <TouchableOpacity
-                          style={[styles.input, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: vehicleDriveType === '2WD' ? colors.primary : colors.background, borderColor: vehicleDriveType === '2WD' ? colors.primary : colors.text.light }]}
-                          onPress={() => setVehicleDriveType('2WD')}
-                        >
-                          <Text style={{ color: vehicleDriveType === '2WD' ? '#fff' : colors.text.primary, fontWeight: 'bold' }}>2WD</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.input, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: vehicleDriveType === '4WD' ? colors.primary : colors.background, borderColor: vehicleDriveType === '4WD' ? colors.primary : colors.text.light }]}
-                          onPress={() => setVehicleDriveType('4WD')}
-                        >
-                          <Text style={{ color: vehicleDriveType === '4WD' ? '#fff' : colors.text.primary, fontWeight: 'bold' }}>4WD</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                  <TextInput style={styles.input} placeholder="Registration Number *" value={vehicleReg} onChangeText={setVehicleReg} />
-                  <View style={styles.featuresRow}>
-                    <TouchableOpacity style={[styles.featureBtn, refrigeration && styles.featureBtnActive]} onPress={() => setRefrigeration(!refrigeration)}>
-                      <MaterialCommunityIcons name="snowflake" size={18} color={refrigeration ? colors.white : colors.primary} />
-                      <Text style={[styles.featureText, refrigeration && { color: colors.white }]}>Refrigeration</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.featureBtn, humidityControl && styles.featureBtnActive]} onPress={() => setHumidityControl(!humidityControl)}>
-                      <MaterialCommunityIcons name="water-percent" size={18} color={humidityControl ? colors.white : colors.primary} />
-                      <Text style={[styles.featureText, humidityControl && { color: colors.white }]}>Humidity Control</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.featureBtn, specialCargo && styles.featureBtnActive]} onPress={() => setSpecialCargo(!specialCargo)}>
-                      <MaterialCommunityIcons name="cube-outline" size={18} color={specialCargo ? colors.white : colors.primary} />
-                      <Text style={[styles.featureText, specialCargo && { color: colors.white }]}>Special Cargo</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TextInput style={styles.input} placeholder="Other Features (comma separated)" value={vehicleFeatures} onChangeText={setVehicleFeatures} />
-                  <View style={styles.section}>
-                    <Text style={styles.editLabel}>Insurance Document (PDF or Image) *</Text>
-                    <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
-                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-                      <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload File'}</Text>
-                    </TouchableOpacity>
-                    {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
-                  </View>
-                  <View style={styles.section}>
-                    <Text style={styles.editLabel}>Vehicle Photos (3-5) *</Text>
-                    <View style={styles.photosRow}>
-                      {vehiclePhotos.map((photo, idx) => (
-                        <View key={idx} style={styles.photoWrap}>
-                          <Image source={{ uri: photo.uri }} style={styles.photo} />
-                          <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeVehiclePhoto(idx)}>
-                            <Ionicons name="close-circle" size={20} color={colors.error} />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                      {vehiclePhotos.length < 5 && (
-                        <TouchableOpacity style={styles.addPhotoBtn} onPress={pickVehiclePhotos}>
-                          <Ionicons name="add" size={28} color={colors.primary} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <Text style={styles.photoHint}>Add at least 3 photos</Text>
-                  </View>
+                  <VehicleDetailsForm
+                    initial={{}}
+                    onChange={() => {}}
+                    onPhotoAdd={pickVehiclePhotos}
+                    onPhotoRemove={removeVehiclePhoto}
+                    vehiclePhotos={vehiclePhotos}
+                    error={null}
+                  />
                   <View style={styles.editActionsRow}>
                     <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
                       <Text style={styles.cancelText}>Cancel</Text>
