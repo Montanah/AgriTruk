@@ -40,6 +40,9 @@ export default function VehicleDetailsForm({
   const [humidityControl, setHumidityControl] = useState(initial?.humidityControl || false);
   const [refrigeration, setRefrigeration] = useState(initial?.refrigeration || false);
   const [vehicleFeatures, setVehicleFeatures] = useState(initial?.vehicleFeatures || '');
+  const [specialFragile, setSpecialFragile] = useState(initial?.specialFeatures?.includes('fragile') || false);
+  const [specialOversized, setSpecialOversized] = useState(initial?.specialFeatures?.includes('oversized') || false);
+  const [specialHazardous, setSpecialHazardous] = useState(initial?.specialFeatures?.includes('hazardous') || false);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {

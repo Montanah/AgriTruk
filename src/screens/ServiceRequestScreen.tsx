@@ -711,86 +711,87 @@ const ServiceRequestScreen = () => {
                           key={t.id}
                           style={{
                             backgroundColor: colors.surface,
-                            borderRadius: 14,
-                            padding: 14,
-                            marginBottom: 10,
-                            flexDirection: 'row',
-                            alignItems: 'center',
+                            borderRadius: 16,
+                            padding: 16,
+                            marginBottom: 16,
                             shadowColor: colors.black,
-                            shadowOpacity: 0.06,
-                            shadowRadius: 6,
+                            shadowOpacity: 0.08,
+                            shadowRadius: 8,
                             elevation: 2,
                           }}
                         >
-                          <View style={{ marginRight: 14 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                             <View
                               style={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: 24,
+                                width: 54,
+                                height: 54,
+                                borderRadius: 27,
                                 backgroundColor: '#eee',
                                 overflow: 'hidden',
                                 justifyContent: 'center',
                                 alignItems: 'center',
+                                marginRight: 16,
                               }}
                             >
                               <Animated.Image
                                 source={{ uri: t.photo }}
-                                style={{ width: 48, height: 48, borderRadius: 24 }}
+                                style={{ width: 54, height: 54, borderRadius: 27 }}
                               />
                             </View>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                              <Text style={{ fontWeight: 'bold', fontSize: 15, flex: 1 }}>{t.name}</Text>
-                              <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13, marginLeft: 8 }}>{t.est}</Text>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontWeight: 'bold', fontSize: 16, color: colors.text.primary }}>{t.name}</Text>
+                              <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13 }}>{t.est}</Text>
                             </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                              <Text style={{ color: colors.text.secondary, fontSize: 13, flex: 1 }}>
-                                {t.vehicleType} • {t.capacity}T
-                              </Text>
-                              <View style={{
-                                width: 14,
-                                height: 14,
-                                borderRadius: 7,
-                                backgroundColor: t.vehicleColor ? t.vehicleColor.toLowerCase() : '#ccc',
-                                borderWidth: 1,
-                                borderColor: '#ddd',
+                            <View style={{ alignItems: 'flex-end' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <MaterialCommunityIcons name="star" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
+                                <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15 }}>{t.rating}</Text>
+                              </View>
+                              <Text style={{ color: t.status === 'Active' ? colors.success : colors.warning, fontWeight: 'bold', fontSize: 12 }}>{t.status}</Text>
+                            </View>
+                          </View>
+                          <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
+                            {t.vehicleType}{t.bodyType ? ` (${t.bodyType})` : ''} • {t.vehicleMake} • {t.vehicleColor} • {t.capacity}T • {t.reg}
+                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+                            {t.refrigeration && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                                <MaterialCommunityIcons name="snowflake" size={15} color={accent} style={{ marginRight: 2 }} />
+                                <Text style={{ color: accent, fontSize: 13 }}>Refrigerated</Text>
+                              </View>
+                            )}
+                            {t.humidityControl && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                                <MaterialCommunityIcons name="water-percent" size={15} color={accent} style={{ marginRight: 2 }} />
+                                <Text style={{ color: accent, fontSize: 13 }}>Humidity Ctrl</Text>
+                              </View>
+                            )}
+                            {t.driveType && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                                <MaterialCommunityIcons name="car-shift-pattern" size={15} color={accent} style={{ marginRight: 2 }} />
+                                <Text style={{ color: accent, fontSize: 13 }}>{t.driveType}</Text>
+                              </View>
+                            )}
+                            {t.specialCargo && t.specialCargo.length > 0 && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                                <MaterialCommunityIcons name="cube-outline" size={15} color={accent} style={{ marginRight: 2 }} />
+                                <Text style={{ color: accent, fontSize: 13 }}>Special: {t.specialCargo.join(', ')}</Text>
+                              </View>
+                            )}
+                          </View>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                            <Text style={{ color: accent, fontWeight: 'bold', fontSize: 15 }}>
+                              Ksh {(t.costPerKm * 10).toFixed(2)}
+                            </Text>
+                            <TouchableOpacity
+                              style={{
+                                backgroundColor: accent,
+                                borderRadius: 8,
+                                paddingVertical: 10,
+                                paddingHorizontal: 32,
                                 marginLeft: 8,
-                              }} />
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                              {t.refrigeration && (
-                                <MaterialCommunityIcons name="snowflake" size={15} color={accent} style={{ marginRight: 6 }} />
-                              )}
-                              {t.humidityControl && (
-                                <MaterialCommunityIcons name="water-percent" size={15} color={accent} style={{ marginRight: 6 }} />
-                              )}
-                              {t.driveType && (
-                                <MaterialCommunityIcons name="car-shift-pattern" size={15} color={accent} style={{ marginRight: 6 }} />
-                              )}
-                              <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
-                                {t.vehicleMake} • {t.reg}
-                              </Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Text style={{ color: colors.text.secondary, fontSize: 13, flex: 1 }}>
-                                Rating: {t.rating} ★
-                              </Text>
-                              <Text style={{ color: accent, fontWeight: 'bold', fontSize: 14 }}>
-                                Ksh {(t.costPerKm * 10).toFixed(2)}
-                              </Text>
-                            </View>
-                          </View>
-                          <TouchableOpacity
-                            style={{
-                              backgroundColor: accent,
-                              borderRadius: 8,
-                              paddingVertical: 8,
-                              paddingHorizontal: 16,
-                              marginLeft: 8,
-                            }}
-                            onPress={() => navigation.navigate('TripDetails', {
+                              }}
+                              onPress={() => navigation.navigate('TripDetails', {
   booking: {
     id: t.id,
     pickupLocation: fromLocation,
@@ -819,9 +820,10 @@ const ServiceRequestScreen = () => {
     distance: '',
   }
 })}
-                          >
-                            <Text style={{ color: colors.white, fontWeight: 'bold' }}>Select</Text>
-                          </TouchableOpacity>
+                            >
+                              <Text style={{ color: colors.white, fontWeight: 'bold', fontSize: 16 }}>Select</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       ))
                     )

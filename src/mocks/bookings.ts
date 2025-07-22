@@ -62,6 +62,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     },
     vehicle: {
       type: 'Pickup',
+      bodyType: 'open',
       color: 'White',
       make: 'Isuzu',
       capacity: '1 ton',
@@ -87,6 +88,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     },
     vehicle: {
       type: 'Van',
+      bodyType: 'closed',
       color: 'Blue',
       make: 'Toyota',
       capacity: '2 tons',
@@ -117,7 +119,8 @@ export const MOCK_BOOKINGS: Booking[] = [
       photo: 'https://randomuser.me/api/portraits/men/46.jpg',
     },
     vehicle: {
-      type: 'Closed Truck',
+      type: 'Truck',
+      bodyType: 'closed',
       color: 'White',
       make: 'Isuzu',
       capacity: '10T',
@@ -143,6 +146,7 @@ export const MOCK_BOOKINGS: Booking[] = [
     },
     vehicle: {
       type: 'Lorry',
+      bodyType: 'open',
       color: 'Silver',
       make: 'Nissan',
       capacity: '5 tons',

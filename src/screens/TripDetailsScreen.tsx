@@ -142,13 +142,36 @@ const TripDetailsScreen = () => {
                 <View style={{ flexDirection: 'row', marginBottom: 4 }}>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                     <MaterialCommunityIcons name="truck" size={16} color={colors.primary} style={{ marginRight: 2 }} />
-                    <Text style={styles.vehicleDetails}>Type: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.type}</Text></Text>
+                    <Text style={styles.vehicleDetails}>Type: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.type}{selectedVehicle.bodyType ? ` (${selectedVehicle.bodyType})` : ''}</Text></Text>
                   </View>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                     <MaterialCommunityIcons name="palette" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
                     <Text style={styles.vehicleDetails}>Color: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.color}</Text></Text>
                   </View>
                 </View>
+                {/* Special Features Row */}
+                {(selectedVehicle.specialFeatures && selectedVehicle.specialFeatures.length > 0) && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+                    {selectedVehicle.specialFeatures.includes('fragile') && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10, marginBottom: 2 }}>
+                        <MaterialCommunityIcons name="cube-outline" size={15} color={colors.secondary} style={{ marginRight: 2 }} />
+                        <Text style={{ color: colors.secondary, fontSize: 13, fontWeight: 'bold' }}>Fragile</Text>
+                      </View>
+                    )}
+                    {selectedVehicle.specialFeatures.includes('oversized') && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10, marginBottom: 2 }}>
+                        <MaterialCommunityIcons name="resize" size={15} color={colors.secondary} style={{ marginRight: 2 }} />
+                        <Text style={{ color: colors.secondary, fontSize: 13, fontWeight: 'bold' }}>Oversized</Text>
+                      </View>
+                    )}
+                    {selectedVehicle.specialFeatures.includes('hazardous') && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10, marginBottom: 2 }}>
+                        <MaterialCommunityIcons name="alert-decagram" size={15} color={colors.secondary} style={{ marginRight: 2 }} />
+                        <Text style={{ color: colors.secondary, fontSize: 13, fontWeight: 'bold' }}>Hazardous</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
                 <View style={{ flexDirection: 'row', marginBottom: 4 }}>
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                     <MaterialCommunityIcons name="car-cog" size={16} color={colors.tertiary} style={{ marginRight: 2 }} />

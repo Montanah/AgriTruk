@@ -92,6 +92,11 @@ const BookingCard: React.FC<BookingCardProps> = ({
           <Text style={styles.value}>
             {assignedTransporter.name} ({assignedTransporter.phone})
           </Text>
+          {booking.vehicle && (
+            <Text style={styles.value}>
+              Vehicle: {booking.vehicle.type}{booking.vehicle.bodyType ? ` (${booking.vehicle.bodyType})` : ''} • {booking.vehicle.plate}
+            </Text>
+          )}
         </>
       ) : (
         <Text style={styles.valueItalic}>Not Assigned</Text>

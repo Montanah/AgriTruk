@@ -12,7 +12,7 @@ const TransporterProfile: FC<Props> = ({ transporter }) => {
     <View style={styles.container}>
       <Text style={styles.name}>{transporter.name}</Text>
       <Text style={styles.details}>
-        Vehicle: {transporter.vehicleType} • {transporter.plateNumber}
+        Vehicle: {transporter.vehicleType}{transporter.bodyType ? ` (${transporter.bodyType})` : ''} • {transporter.plateNumber}
       </Text>
       <Text style={styles.details}>Phone: {transporter.phone}</Text>
       <Text style={styles.subscription}>
