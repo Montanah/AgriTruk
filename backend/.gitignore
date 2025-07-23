@@ -81,3 +81,8 @@ firebase.json
 .firebaserc
 config/firestoreSetup.js
 utils/gettoken.js
+thoughts.txt
+utils/createSuperAdmin.js
+utils/sendSms.js
+utils/testtemplate.js
+uploads

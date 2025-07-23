@@ -104,55 +104,6 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadFields, cr
 
 /**
  * @swagger
- * /api/transporters/:
- *   get:
- *     summary: Get all transporters
- *     description: Retrieve a list of all transporters. Accessible by users, transporters, and admins.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of transporters retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 count:
- *                   type: integer
- *                 transporters:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       transporterId:
- *                         type: string
- *                       driverName:
- *                         type: string
- *                       phoneNumber:
- *                         type: string
- *                       email:
- *                         type: string
- *                       status:
- *                         type: string
- *                       rating:
- *                         type: number
- *                       totalTrips:
- *                         type: integer
- *                       vehicleType:
- *                         type: string
- *                       vehicleRegistration:
- *                         type: string
- *       401:
- *         description: Unauthorized - user must be logged in
- *       500:
- *         description: Internal server error
- */
-router.get('/', authenticateToken, requireRole(['admin']), getAllTransporters);
-
-/**
- * @swagger
  * /api/transporters/available/list:
  *   get:
  *     summary: List available transporters

@@ -25,6 +25,9 @@ const User = {
       loginVerification: userData.loginVerification || false,
       isVerified: userData.isVerified || false,
       emailVerified: userData.isVerified || false,
+      name_lower: userData.name ? userData.name.toLowerCase() : null,
+      email_lower: userData.email ? userData.email.toLowerCase() : null,
+      phone_lower: userData.phone ? userData.phone.toLowerCase().replace(/[^\d]/g, '') : null,
       lastActive: userData.lastActive || admin.firestore.Timestamp.now(),
       lastLogin: userData.lastLogin || admin.firestore.Timestamp.now(),
       createdAt: admin.firestore.Timestamp.now(),
@@ -45,6 +48,9 @@ const User = {
    * Update a user document by UID
    */
   async update(uid, updates) {
+     if (updates.name) updates.name_lower = updates.name.toLowerCase();
+    if (updates.email) updates.email_lower = updates.email.toLowerCase();
+    if (updates.phone) updates.phone_clean = updates.phone.replace(/[^\d]/g, '');
     const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
     await db.collection(USERS_COLLECTION).doc(uid).update(updated);
     return updated;
@@ -64,7 +70,52 @@ const User = {
       .where('permissionId', 'in', permissionIds)
       .get();
     return permissionsSnapshot.docs.map(doc => ({ permissionId: doc.id, ...doc.data() }));
-  }
+  },
+  async search(query, limit = 20) {
+    if (!query || query.trim() === '') {
+      throw new Error('Search query cannot be empty');
+    }
+
+    const searchTerm = query.toLowerCase().trim();
+    const phoneSearch = query.replace(/[^\d]/g, '');
+    const usersRef = db.collection(USERS_COLLECTION);
+    
+    // Create queries for each searchable field
+    const queries = [
+      // Name search (partial match)
+      usersRef.where('name_lower', '>=', searchTerm)
+              .where('name_lower', '<=', searchTerm + '\uf8ff'),
+      
+      // Email search (partial match)
+      usersRef.where('email_lower', '>=', searchTerm)
+              .where('email_lower', '<=', searchTerm + '\uf8ff'),
+      
+      // Phone search (starts with)
+      usersRef.where('phone_clean', '>=', phoneSearch)
+              .where('phone_clean', '<=', phoneSearch + '\uf8ff')
+    ];
+
+    // Execute all queries in parallel
+    const snapshots = await Promise.all(
+      queries.map(q => q.limit(limit).get())
+    );
+
+    // Combine and deduplicate results
+    const results = new Map();
+    
+    snapshots.forEach(snapshot => {
+      snapshot.docs.forEach(doc => {
+        results.set(doc.id, { id: doc.id, ...doc.data() });
+      });
+    });
+
+    return Array.from(results.values()).slice(0, limit);
+  },
+
+  async getAllUsers() {
+    const snapshot = await db.collection(USERS_COLLECTION).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = User;

@@ -68,22 +68,6 @@ const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewar
  */
 router.post('/', authenticateToken, requireRole('transporter'),validateCompanyCreation, createCompany);
 
-/**
- * @swagger
- * /api/companies:
- *   get:
- *     summary: Get all companies
- *     description: Retrieves a list of all companies.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Companies retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/', authenticateToken, requireRole('admin'), getAllCompanies);
 
 /**
  * @swagger

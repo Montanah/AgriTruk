@@ -300,40 +300,6 @@ router.put('/update', authenticateToken, upload.single('profilePhoto'), authCont
 
 /**
  * @swagger
- * /api/auth/delete:
- *   delete:
- *     summary: Delete user profile
- *     description: Delete the authenticated user's profile from Firestore (not the Firebase Auth account).
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: User profile deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.delete("/delete", authenticateToken, authController.deleteUser);
-
-/**
- * @swagger
  * /api/auth/update-password:
  *   put:
  *     summary: Update user password
@@ -376,34 +342,6 @@ router.delete("/delete", authenticateToken, authController.deleteUser);
  *               $ref: '#/components/schemas/Error'
  */
 router.put("/update-password", authenticateToken, authController.updatePassword);
-
-/**
- * @swagger
- * /api/auth/delete-account:
- *   delete:
- *     summary: Delete user account
- *     description: Delete the authenticated user's Firebase Auth account and Firestore profile.
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: User account deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       50044:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.delete("/delete-account", authenticateToken, authController.deleteAccount);
 
 /**
  * @swagger
@@ -557,6 +495,40 @@ router.patch("/update-fcm-token", authenticateToken, authController.updateFcmTok
 
 /**
  * @swagger
+ * /api/auth/delete:
+ *   delete:
+ *     summary: Delete user profile
+ *     description: Delete the authenticated user's profile from Firestore (not the Firebase Auth account).
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.delete("/delete", authenticateToken, authController.deactivateAccount);
+
+/**
+ * @swagger
  * /api/auth/admin-dashboard:
  *   get:
  *     summary: Access admin dashboard
@@ -594,6 +566,5 @@ router.get("/admin-dashboard",
     res.json({ message: "Admin access granted" });
   }
 );
-
 
 module.exports = router

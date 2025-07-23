@@ -2,7 +2,7 @@ const fs = require('fs');
 const { uploadImage } = require('../utils/upload');
 const Transporter = require("../models/Transporter");
 const User = require("../models/User");
-const logActivity = require("../utils/activityLogger");
+const { logActivity } = require("../utils/activityLogger");
 
 exports.createTransporter = async (req, res) => {
   try {
@@ -156,7 +156,7 @@ exports.getAllTransporters = async (req, res) => {
   console.log('Fetching all transporters');
   try {
     const transporters = await Transporter.getAll();
-    await logActivity(req.user.uid, 'get_all_transporters', req);
+    await logActivity(req.admin.adminId, 'get_all_transporters', req);
     res.status(200).json({
       message: "Transporters retrieved successfully",
       transporters

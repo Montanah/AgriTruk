@@ -3,7 +3,7 @@ const CargoBooking = require('../models/CargoBooking');
 const Dispute = require('../models/Dispute');
 const Transporter = require('../models/Transporter');
 const User = require('../models/User');
-const logActivity = require('../utils/activityLogger');
+const { logActivity } = require('../utils/activityLogger');
 
 exports.createDispute = async (req, res) => {
   try {

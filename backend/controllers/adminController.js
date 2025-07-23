@@ -1,13 +1,14 @@
 const Transporter = require("../models/Transporter");
-const logActivity = require("../utils/activityLogger");
+const AgriBooking = require("../models/AgriBooking");
+const CargoBooking  = require("../models/CargoBooking");
+const { logAdminActivity } = require("../utils/activityLogger");
 const User = require('../models/User');
 const Permission = require('../models/Permission');
-
 
 exports.approveTransporter = async (req, res) => {
   try {
     const updated = await Transporter.approve(req.params.transporterId);
-    await logActivity(req.user.uid, 'approve_transporter', req);
+    await logAdminActivity(req.admin.adminId, 'approve_transporter', req,  { type: 'transporter', id: transporterId });
     res.status(200).json({ message: 'Transporter approved', updated });
   } catch (error) {
     console.error('Approve transporter error:', error);
@@ -19,7 +20,7 @@ exports.rejectTransporter = async (req, res) => {
   try {
     const reason = req.body.reason || 'Unqualified';
     const result = await Transporter.reject(req.params.transporterId, reason); 
-    await logActivity(req.user.uid, 'reject_transporter', req);
+    await logAdminActivity(req.admin.adminId, 'reject_transporter', req,  { type: 'transporter', id: transporterId });
     res.status(200).json({ message: 'Transporter rejected', result });
   } catch (err) {
     console.error('Reject transporter error:', err);
@@ -27,11 +28,10 @@ exports.rejectTransporter = async (req, res) => {
   }
 };
 
-
 exports.deleteTransporter = async (req, res) => {
   try {
     await Transporter.delete(req.params.transporterId);
-    await logActivity(req.user.uid, 'delete_transporter', req);
+    await logAdminActivity(req.admin.adminId, 'delete_transporter', req, { type: 'transporter', id: transporterId });
     res.status(200).json({ message: 'Transporter deleted successfully' });
   } catch (error) {
     console.error('Delete transporter error:', error);
@@ -72,5 +72,76 @@ exports.updateAdminPermissions = async (req, res) => {
     } else {
       res.status(500).json({ message: 'Failed to update admin permissions' });
     }
+  }
+};
+
+exports.getAllBookings = async (req, res) => {
+  try {
+    const agriBookings = await AgriBooking.getAllBookings();
+    const cargoBookings = await CargoBooking.getAllBookings();
+    
+    // Add type labels and merge
+    const allBookings = [
+      ...agriBookings.map(booking => ({ ...booking, type: 'agri' })),
+      ...cargoBookings.map(booking => ({ ...booking, type: 'cargo' }))
+    ];
+    console.log(req.admin.adminId);
+    try {
+      await logAdminActivity(req.admin.adminId, 'get_all_bookings', req);
+    } catch (error) {
+      console.error('Admin activity log error:', error);  
+    }
+    
+    res.status(200).json({ 
+      message: 'All bookings retrieved successfully', 
+      bookings: allBookings,
+      count: allBookings.length 
+    });
+  } catch (error) {
+    console.error('Get all bookings error:', error);
+    res.status(500).json({ message: 'Failed to retrieve all bookings' });
+  }
+};
+
+exports.searchUsers = async (req, res) => {
+  try {
+    console.log('Searching for users...');
+    console.log(req.query);
+    const { query } = req.query;
+    const limit = parseInt(req.query.limit) || 20;
+    
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query parameter is required'
+      });
+    }
+
+    const results = await User.search(query, limit);
+
+    await logAdminActivity(req.admin.adminId, 'search_users', req, { query });
+    
+    res.status(200).json({
+      success: true,
+      count: results.length,
+      users: results
+    });
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to perform search'
+    });
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.getAllUsers();
+    await logAdminActivity(req.admin.adminId, 'get_all_users', req);
+    res.status(200).json({ message: 'All users retrieved successfully', users });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ message: 'Failed to retrieve all users' });
   }
 };

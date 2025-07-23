@@ -5,7 +5,7 @@ const generateOtp = require("../utils/generateOtp");
 const sendEmail = require("../utils/sendEmail");
 const {getMFATemplate, getResetPasswordTemplate, getSuccessTemplate } = require("../utils/sendMailTemplate");
 const getGeoLocation = require("../utils/locationHelper");
-const logActivity = require("../utils/activityLogger");
+const { logActivity } = require("../utils/activityLogger");
 const { uploadImage } = require('../utils/upload');
 const fs = require('fs');
 // const sendSms = require('../utils/sendSms');
@@ -515,5 +515,16 @@ exports.resendCode = async (req, res) => {
       code: "ERR_RESEND_CODE_FAILED",
       message: "Failed to resend verification code"
     });
+  }
+};
+
+exports.deactivateAccount = async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    await User.update(uid, { status: 'inactive' });
+    res.status(200).json({ message: 'Account deactivated successfully' });
+  } catch (error) {
+    console.error('Deactivate account error:', error);
+    res.status(500).json({ message: 'Failed to deactivate account' });
   }
 };

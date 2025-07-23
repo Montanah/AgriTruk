@@ -1,5 +1,5 @@
 const AgriBooking = require("../models/AgriBooking");
-const logActivity = require("../utils/activityLogger");
+const  { logActivity } = require("../utils/activityLogger");
 
 exports.createAgriBooking = async (req, res) => {
   try {

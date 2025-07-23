@@ -1,5 +1,5 @@
 const CargoBooking = require("../models/CargoBooking");
-const logActivity = require("../utils/activityLogger");
+const { logActivity } = require("../utils/activityLogger");
 const admin = require("../config/firebase");
 
 exports.createCargoBooking = async (req, res) => {

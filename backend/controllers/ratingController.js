@@ -1,5 +1,5 @@
 const Rating = require("../models/Rating");
-const logActivity = require("../utils/activityLogger");
+const { logActivity } = require("../utils/activityLogger");
 
 exports.createRating = async (req, res) => {
   try {

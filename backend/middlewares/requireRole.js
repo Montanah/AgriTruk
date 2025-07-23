@@ -4,25 +4,32 @@ const User = require("../models/User");
 const requireRole = (allowedRoles) => {
   return async (req, res, next) => {
     try {
-      const uid = req.user?.uid;
+      const uid = req.user?.uid || req.admin.adminId;
+      console.log("UID:", uid);
       // console.log("Checking user role for UID:", uid);
       if (!uid) return res.status(401).json({ message: "User not authenticated" });
 
-      const userDoc = await admin.firestore().collection("users").doc(uid).get();
-
+      // const userDoc = await admin.firestore().collection("users").doc(uid).get() || await admin.firestore().collection("admins").doc(uid).get();
+      let userDoc = await admin.firestore().collection("users").doc(uid).get();
+      if (!userDoc.exists) {
+        userDoc = await admin.firestore().collection("admins").doc(uid).get();
+      }
+      
       if (!userDoc.exists) {
         return res.status(404).json({ message: "User profile not found" });
       }
 
-      const userRole = userDoc.data().role || "user";
+      //const userRole = userDoc.data().role || "user";
+      const data = userDoc.data();
+      const userRole = data?.role;
 
       if (!Array.isArray(allowedRoles)) {
         allowedRoles = [allowedRoles];  
       }
 
       // Check if the user's role is in the list of allowed roles
-      // console.log("User role:", userRole);
-      // console.log("Allowed roles:", allowedRoles);
+      console.log("User role:", userRole);
+      console.log("Allowed roles:", allowedRoles);
 
       if (!allowedRoles.includes(userRole)) {
         return res.status(403).json({
@@ -30,7 +37,7 @@ const requireRole = (allowedRoles) => {
           message: "Insufficient permissions",
         });
       }
-
+      req.user = req.user || {};
       req.user.role = userRole; 
       next();
     } catch (err) {
@@ -39,7 +46,6 @@ const requireRole = (allowedRoles) => {
     }
   };
 };
-
 
 const requireAuth = (allowedRoles, requiredPermission = null) => {
   return async (req, res, next) => {

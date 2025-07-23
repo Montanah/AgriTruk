@@ -1,5 +1,5 @@
 const Company = require('../models/Company');
-const logActivity = require('../utils/activityLogger');
+const  { logActivity } = require('../utils/activityLogger');
 const sendEmail = require("../utils/sendEmail");
 
 exports.createCompany = async (req, res) => {
@@ -128,6 +128,7 @@ exports.rejectCompany = async (req, res) => {
 exports.getAllCompanies = async (req, res) => {
   try {
     const companies = await Company.getAll();
+    await logActivity(req.admin.adminId, 'get_all_companies', req);
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get all companies error:', err);
