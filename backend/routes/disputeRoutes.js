@@ -13,6 +13,7 @@ const {
   deleteDispute,
   getAllDisputes
 } = require('../controllers/disputeController');
+const { authorize, authenticate } = require("../middlewares/adminAuth");
 
 /**
  * @swagger
@@ -81,23 +82,6 @@ const {
  *         description: Internal server error
  */
 router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin']), createDispute);
-
-/**
- * @swagger
- * /api/disputes:
- *   get:
- *     summary: Get all disputes
- *     description: Retrieves a list of all disputes.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Disputes retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/', authenticateToken, requireRole('admin'), getAllDisputes);
 
 /**
  * @swagger
@@ -184,56 +168,6 @@ router.put('/:disputeId', authenticateToken, requireRole(['user', 'transporter',
 
 /**
  * @swagger
- * /api/disputes/{disputeId}/resolve:
- *   patch:
- *     summary: Resolve a dispute
- *     description: Resolves a dispute with resolution details.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: disputeId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the dispute to resolve
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - resolution
- *             properties:
- *               resolution:
- *                 type: string
- *                 description: The resolution details
- *               amountRefunded:
- *                 type: number
- *                 description: The amount refunded (optional)
- *               comments:
- *                 type: string
- *                 description: Additional resolution comments
- *             example:
- *               resolution: "Refund issued"
- *               amountRefunded: 1000
- *               comments: "Processed on July 04, 2025"
- *     responses:
- *       200:
- *         description: Dispute resolved successfully
- *       400:
- *         description: Resolution details are required
- *       404:
- *         description: Dispute not found
- *       500:
- *         description: Internal server error
- */
-router.patch('/:disputeId/resolve', authenticateToken, requireRole('admin'), resolveDispute);
-
-/**
- * @swagger
  * /api/disputes/booking/{bookingId}:
  *   get:
  *     summary: Get disputes by booking ID
@@ -255,30 +189,6 @@ router.patch('/:disputeId/resolve', authenticateToken, requireRole('admin'), res
  *         description: Internal server error
  */
 router.get('/booking/:bookingId', authenticateToken, requireRole(['user', 'transporter', 'admin']), getDisputesByBookingId);
-
-/**
- * @swagger
- * /api/disputes/status/{status}:
- *   get:
- *     summary: Get disputes by status
- *     description: Retrieves all disputes with a specific status.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: status
- *         required: true
- *         schema:
- *           type: string
- *         description: The status of the disputes (e.g., open, resolved)
- *     responses:
- *       200:
- *         description: Disputes retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/status/:status', authenticateToken, requireRole('admin'), getDisputesByStatus);
 
 /**
  * @swagger
@@ -328,6 +238,6 @@ router.get('/openedBy/:openedBy', authenticateToken, requireRole(['user', 'trans
  *       500:
  *         description: Internal server error
  */
-router.delete('/:disputeId', authenticateToken, requireRole('admin'), deleteDispute);
+router.delete('/:disputeId', authenticate, requireRole('admin'), authorize(['manage_disputes', 'super_admin']), deleteDispute);
 
 module.exports = router;

@@ -253,7 +253,7 @@ router.delete('/:transporterId', authenticateToken, requireRole('admin'), delete
  *   put:
  *     summary: Approve a transporter
  *     description: Allows an admin to approve a pending transporter.
- *     tags: [Admin]
+ *     tags: [Admin Actions]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -276,7 +276,7 @@ router.put('/:transporterId/approve', authenticateToken, requireRole('admin'), a
  *   put:
  *     summary: Reject a transporter
  *     description: Allows an admin to reject a pending transporter with an optional reason.
- *     tags: [Admin]
+ *     tags: [Admin Actions]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -355,7 +355,7 @@ router.patch('/:transporterId/availability', authenticateToken, requireRole('tra
  *   patch:
  *     summary: Update transporter rating
  *     description: Admins can update a transporter’s average rating.
- *     tags: [Admin]
+ *     tags: [Admin Actions]
  *     security:
  *       - bearerAuth: []
  *     parameters:

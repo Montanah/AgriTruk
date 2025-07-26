@@ -6,6 +6,7 @@ const AgriBooking = {
     const booking = {
       bookingId: bookingData.bookingId || db.collection('agriBookings').doc().id,
       requestId: bookingData.requestId,
+      bookingType: bookingData.bookingType || 'instant' || 'booking',
       userId: bookingData.userId,
       transporterId: bookingData.transporterId || null,
       vehicleId: bookingData.vehicleId || null,
@@ -26,10 +27,12 @@ const AgriBooking = {
       toLocation: bookingData.toLocation || null,
       weightKg: bookingData.weightKg || null,
       productType: bookingData.productType || null,
+      value: bookingData.value || null,
       specialRequest: bookingData.specialRequest || null,
       perishable: bookingData.perishable || false,
       needsRefrigeration: bookingData.needsRefrigeration || false,
-      urgentDelivery: bookingData.urgentDelivery || false
+      urgentDelivery: bookingData.urgentDelivery || false,
+      pickUpDate: bookingData.pickUpDate || null
     };
     await db.collection('agriBookings').doc(booking.bookingId).set(booking);
     return booking;

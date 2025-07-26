@@ -8,14 +8,16 @@ const {
   updateCompany,
   approveCompany,
   rejectCompany,
-  getAllCompanies,
   deleteCompany,
   getCompaniesByTransporter,
   getCompaniesByStatus,
   getCompaniesByTransporterAndStatus,
-  getAllForTransporter,
-  searchCompany
+  getAllForTransporter
 } = require('../controllers/companyController');
+const {
+  authenticate,
+  authorize
+} = require("../middlewares/adminAuth");
 const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewares/validationMiddleware');
 
 /**
@@ -67,67 +69,6 @@ const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewar
  *         description: Internal server error
  */
 router.post('/', authenticateToken, requireRole('transporter'),validateCompanyCreation, createCompany);
-
-
-/**
- * @swagger
- * /api/companies/search:
- *   get:
- *     summary: Search companies
- *     description: Retrieves a paginated list of companies based on a search term across company name or registration number, and status.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of items per page
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *         description: Filter by status (e.g., pending, approved, rejected)
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search term for company name or registration number
- *     responses:
- *       200:
- *         description: Companies retrieved successfully
- *         content:
- *           application/json:
- *             example:
- *               companies:
- *                 - companyId: "comp123"
- *                   companyName: "Green Farms Ltd"
- *                   companyRegistration: "REG123456"
- *                   status: "approved"
- *                   transporterId: "trans123"
- *                 - companyId: "comp124"
- *                   companyName: "Blue Agro Ltd"
- *                   companyRegistration: "REG789012"
- *                   status: "pending"
- *                   transporterId: "trans124"
- *               currentPage: 1
- *               totalPages: 5
- *               totalItems: 50
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             example: { message: 'Failed to fetch companies' }
- */
-router.get('/search', authenticateToken, requireRole('admin'), searchCompany);
 
 /**
  * @swagger
@@ -208,7 +149,7 @@ router.put('/:companyId', authenticateToken, requireRole('transporter'), validat
  *   patch:
  *     summary: Approve a company
  *     description: Approves a pending company.
- *     tags: [Admin]
+ *     tags: [Admin Actions] 
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -226,7 +167,7 @@ router.put('/:companyId', authenticateToken, requireRole('transporter'), validat
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/approve', authenticateToken, requireRole('admin'), approveCompany);
+router.patch('/:companyId/approve', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), approveCompany);
 
 /**
  * @swagger
@@ -234,7 +175,7 @@ router.patch('/:companyId/approve', authenticateToken, requireRole('admin'), app
  *   patch:
  *     summary: Reject a company
  *     description: Rejects a pending company with a reason.
- *     tags: [Admin]
+ *     tags: [Admin Actions]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -268,7 +209,7 @@ router.patch('/:companyId/approve', authenticateToken, requireRole('admin'), app
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/reject', authenticateToken, requireRole('admin'), rejectCompany);
+router.patch('/:companyId/reject', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectCompany);
 
 /**
  * @swagger
@@ -293,30 +234,6 @@ router.patch('/:companyId/reject', authenticateToken, requireRole('admin'), reje
  *         description: Internal server error
  */
 router.get('/transporter/:transporterId', authenticateToken, requireRole(['transporter', 'admin']), getCompaniesByTransporter);
-
-/**
- * @swagger
- * /api/companies/status/{status}:
- *   get:
- *     summary: Get companies by status
- *     description: Retrieves all companies with a specific status.
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: status
- *         required: true
- *         schema:
- *           type: string
- *         description: The status of the companies (e.g., pending, approved, rejected)
- *     responses:
- *       200:
- *         description: Companies retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/status/:status', authenticateToken, requireRole('admin'), getCompaniesByStatus);
 
 /**
  * @swagger
@@ -396,6 +313,6 @@ router.get('/transporter/:transporterId/all', authenticateToken, requireRole(['t
  *       500:
  *         description: Internal server error
  */
-router.delete('/companies/:companyId', authenticateToken, requireRole('admin'), deleteCompany);
+router.delete('/companies/:companyId', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), deleteCompany);
 
 module.exports = router;

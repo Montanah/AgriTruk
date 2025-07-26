@@ -16,12 +16,20 @@ const {
 const { requireRole } = require('../middlewares/requireRole');
 const companyController = require('../controllers/companyController');
 const transporterController = require('../controllers/transporterController');
+const disputeController = require('../controllers/disputeController');
+const brokerController = require('../controllers/brokerController');
 
 /**
  * @swagger
  * tags:
  *   - name: Admin
  *     description: Admin management endpoints
+ *   - name: Admin Views
+ *     description: Admin management GET endpoints
+ *   - name: Admin Actions
+ *     description: Admin management Action (PATCH) endpoints
+ *   - name: Admin Management
+ *     description: Admin management endpoints for admin dashboard
  * components:
  *   securitySchemes:
  *     bearerAuth:
@@ -73,7 +81,7 @@ const transporterController = require('../controllers/transporterController');
  * @swagger
  * /api/admin/login:
  *   post:
- *     tags: [AdminManagement]
+ *     tags: [Admin Management]
  *     summary: Login as an admin
  *     requestBody:
  *       required: true
@@ -103,7 +111,7 @@ router.use(authenticate);
  * @swagger
  * /api/admin/profile:
  *   get:
- *     tags: [AdminManagement]
+ *     tags: [Admin Management]
  *     summary: Get the logged-in admin's profile
  *     security:
  *       - bearerAuth: []
@@ -121,7 +129,7 @@ router.get('/profile', AdminController.getProfile);
  * @swagger
  * /api/admin/profile:
  *   put:
- *     tags: [AdminManagement]
+ *     tags: [Admin Management]
  *     summary: Update the logged-in admin's profile
  *     security:
  *       - bearerAuth: []
@@ -147,7 +155,7 @@ router.put('/profile', AdminController.updateProfile);
  * @swagger
  * /api/admin/create:
  *   post:
- *     tags: [AdminManagement]
+ *     tags: [Admin Management]
  *     summary: Create a new admin (Super Admin only)
  *     security:
  *       - bearerAuth: []
@@ -167,7 +175,7 @@ router.post('/create', requireSuperAdmin, AdminController.createAdmin);
  * @swagger
  * /api/admin/all:
  *   get:
- *     tags: [AdminManagement]
+ *     tags: [Admin Management]
  *     summary: Get a list of all admins (Super Admin only)
  *     security:
  *       - bearerAuth: []
@@ -332,6 +340,7 @@ router.get('/users', authenticate, authorize(['manage_users', 'view_users', 'sup
  */
 router.get('/companies', authenticate, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllCompanies);
 
+
 /**
  * @swagger
  * /api/admin/transporters:
@@ -381,6 +390,137 @@ router.get('/companies', authenticate, requireRole('admin'), authorize(['view_co
  */
 router.get('/transporters', authenticate, requireRole(['admin']), authorize(['view_transporters', 'manage_transporters', 'super_admin']),  transporterController.getAllTransporters);
 
+
+/**
+ * @swagger
+ * /api/admin/brokers:
+ *   get:
+ *     summary: Get all brokers
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Brokers retrieved successfully
+ *       500:
+ *         description: Server error
+ */
+router.get('/brokers', authenticate, requireRole('admin'), authorize(['view_brokers', 'manage_brokers', 'super_admin']), brokerController.getAllBrokers);
+/**
+ * @swagger
+ * /api/admin/disputes/status/{status}:
+ *   get:
+ *     summary: Get disputes by status
+ *     description: Retrieves all disputes with a specific status.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: status
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The status of the disputes (e.g., open, resolved)
+ *     responses:
+ *       200:
+ *         description: Disputes retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/disputes/status/:status', authenticate, requireRole('admin'), authorize(['view_disputes', 'manage_disputes', 'super_admin']), disputeController.getDisputesByStatus);
+
+/**
+ * @swagger
+ * /api/admin/disputes:
+ *   get:
+ *     summary: Get all disputes
+ *     description: Retrieves a list of all disputes.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Disputes retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/disputes', authenticate, requireRole('admin'), authorize(['view_disputes', 'manage_disputes', 'super_admin']), disputeController.getAllDisputes);
+
+/**
+ * @swagger
+ * /api/admin/brokers/{brokerId}:
+ *   get:
+ *     summary: Get broker details
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brokerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Broker retrieved successfully
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/brokers/:brokerId', authorize(['view_brokers', 'super_admin']), brokerController.getBroker);
+
+/**
+ * @swagger
+ * /api/admin/disputes/{disputeId}/resolve:
+ *   patch:
+ *     summary: Resolve a dispute
+ *     description: Resolves a dispute with resolution details.
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: disputeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the dispute to resolve
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - resolution
+ *             properties:
+ *               resolution:
+ *                 type: string
+ *                 description: The resolution details
+ *               amountRefunded:
+ *                 type: number
+ *                 description: The amount refunded (optional)
+ *               comments:
+ *                 type: string
+ *                 description: Additional resolution comments
+ *             example:
+ *               resolution: "Refund issued"
+ *               amountRefunded: 1000
+ *               comments: "Processed on July 04, 2025"
+ *     responses:
+ *       200:
+ *         description: Dispute resolved successfully
+ *       400:
+ *         description: Resolution details are required
+ *       404:
+ *         description: Dispute not found
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/disputes/:disputeId/resolve', authenticate, requireRole('admin'), authorize(['manage_disputes', 'super_admin']), disputeController.resolveDispute);
+
 router.get('/settings/manage', authorize(['manage_settings', 'super_admin']), (req, res) => {
   res.json({
     success: true,
@@ -393,7 +533,7 @@ router.get('/settings/manage', authorize(['manage_settings', 'super_admin']), (r
  * @swagger
  * /api/admin/{adminId}:
  *   get:
- *     tags: [AdminManagement]
+ *     tags: [Admin Management]
  *     summary: Get a single admin by ID (Self or Super Admin)
  *     security:
  *       - bearerAuth: []
@@ -415,9 +555,171 @@ router.get('/:adminId', requireSelfOrSuperAdmin, AdminController.getAdmin);
 
 /**
  * @swagger
+ * /api/admin/companies/search:
+ *   get:
+ *     summary: Search companies
+ *     description: Retrieves a paginated list of companies based on a search term across company name or registration number, and status.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Filter by status (e.g., pending, approved, rejected)
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for company name or registration number
+ *     responses:
+ *       200:
+ *         description: Companies retrieved successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               companies:
+ *                 - companyId: "comp123"
+ *                   companyName: "Green Farms Ltd"
+ *                   companyRegistration: "REG123456"
+ *                   status: "approved"
+ *                   transporterId: "trans123"
+ *                 - companyId: "comp124"
+ *                   companyName: "Blue Agro Ltd"
+ *                   companyRegistration: "REG789012"
+ *                   status: "pending"
+ *                   transporterId: "trans124"
+ *               currentPage: 1
+ *               totalPages: 5
+ *               totalItems: 50
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             example: { message: 'Failed to fetch companies' }
+ */
+router.get('/companies/search', authenticate, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.searchCompany);
+
+/**
+ * @swagger
+ * /api/admin/companies/transporter/{transporterId}:
+ *   get:
+ *     summary: Get companies by transporter
+ *     description: Retrieves all companies for a specific transporter.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transporterId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the transporter
+ *     responses:
+ *       200:
+ *         description: Companies retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/transporter/:transporterId', authenticate, requireRole([ 'admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByTransporter);
+
+/**
+ * @swagger
+ * /api/admin/companies/status/{status}:
+ *   get:
+ *     summary: Get companies by status
+ *     description: Retrieves all companies with a specific status.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: status
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The status of the companies (e.g., pending, approved, rejected)
+ *     responses:
+ *       200:
+ *         description: Companies retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/status/:status', authenticate, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByStatus);
+
+/**
+ * @swagger
+ * /api/admin/companies/transporter/{transporterId}/status/{status}:
+ *   get:
+ *     summary: Get companies by transporter and status
+ *     description: Retrieves all companies for a transporter with a specific status.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transporterId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the transporter
+ *       - in: path
+ *         name: status
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The status of the companies (e.g., pending, approved, rejected)
+ *     responses:
+ *       200:
+ *         description: Companies retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/transporter/:transporterId/status/:status', authenticate, requireRole(['transporter', 'admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByTransporterAndStatus);
+
+/**
+ * @swagger
+ * /api/admin/companies/transporter/{transporterId}/all:
+ *   get:
+ *     summary: Get all companies for a transporter
+ *     description: Retrieves all companies associated with a specific transporter.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transporterId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the transporter
+ *     responses:
+ *       200:
+ *         description: Companies retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/transporter/:transporterId/all', authenticate, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllForTransporter);
+
+/**
+ * @swagger
  * /api/admin/{adminId}:
  *   put:
- *     tags: [AdminManagement]
+ *     tags: [Admin Management]
  *     summary: Update an admin (Super Admin only)
  *     security:
  *       - bearerAuth: []
@@ -443,7 +745,7 @@ router.put('/:adminId', requireSuperAdmin, AdminController.updateAdmin);
  * @swagger
  * /api/admin/{adminId}:
  *   delete:
- *     tags: [AdminManagement]
+ *     tags: [Admin Management]
  *     summary: Delete an admin (Super Admin only)
  *     security:
  *       - bearerAuth: []

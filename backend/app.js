@@ -11,6 +11,7 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const companyRoutes = require('./routes/companyRoutes');
 const disputeRoutes = require('./routes/disputeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const brokerRoutes = require('./routes/brokerRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
@@ -38,6 +39,7 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/brokers', brokerRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).send('Welcome to root URL of Server');
@@ -57,6 +59,6 @@ app.use((req, res) => {
     });
 });
 // Log all routes
-console.log('Registered routes:', listEndpoints(app));
+//console.log('Registered routes:', listEndpoints(app));
 
 module.exports = app;

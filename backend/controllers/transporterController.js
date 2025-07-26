@@ -69,6 +69,7 @@ exports.createTransporter = async (req, res) => {
 
       if (req.files.idImage) {
         const publicId = await uploadImage(req.files.idImage[0].path);
+        console.log(publicId);
         idUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`
         fs.unlinkSync(req.files.idImage[0].path);
       }

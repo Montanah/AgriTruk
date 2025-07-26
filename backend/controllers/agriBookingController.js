@@ -4,14 +4,17 @@ const  { logActivity } = require("../utils/activityLogger");
 exports.createAgriBooking = async (req, res) => {
   try {
     const {
+      bookingType = "instant",
       weightKg,
       productType,
       specialRequest,
       perishable,
       needsRefrigeration,
+      value,
       urgentDelivery,
       fromLocation,
       toLocation,
+      pickUpDate
     } = req.body;
 
     const user = req.user?.uid || null; 
@@ -20,11 +23,23 @@ exports.createAgriBooking = async (req, res) => {
         return res.status(400).json({ message: 'Required fields are missing' });
     }
 
+    let validatedPickUpDate = null;
+    if (bookingType === 'booking') {
+      if (!pickUpDate) {
+        return res.status(400).json({ message: 'pickUpDate is required for booking type' });
+      }
+      validatedPickUpDate = new Date(pickUpDate);
+      if (isNaN(validatedPickUpDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid pickUpDate format' });
+      }
+    }
+
     const requestId = req.body.requestId || 
       `AGR-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)}`;
 
     const bookingData = {
       requestId,
+      bookingType,
       userId: user,
       weightKg,
       productType,
@@ -35,6 +50,8 @@ exports.createAgriBooking = async (req, res) => {
       fromLocation,
       toLocation,
       status: 'pending',
+      value,
+      pickUpDate: bookingType === 'booking' ? admin.firestore.Timestamp.fromDate(validatedPickUpDate) : null,
     };
 
     const booking = await AgriBooking.create(bookingData);

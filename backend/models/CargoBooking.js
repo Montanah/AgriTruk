@@ -7,6 +7,7 @@ const CargoBooking = {
     const booking = {
       bookingId: bookingData.bookingId || db.collection('cargoBookings').doc().id,
       requestId: bookingData.requestId,
+      bookingType: bookingData.bookingType || 'instant' || 'booking',
       userId: bookingData.userId,
       transporterId: bookingData.transporterId || null,
       vehicleId: bookingData.vehicleId || null,
@@ -29,7 +30,8 @@ const CargoBooking = {
       cargoType: bookingData.cargoType || null,
       cargoValue: bookingData.cargoValue || null,
       specialRequest: bookingData.specialRequest || null,
-      special: bookingData.special || false
+      special: bookingData.special || false,
+      pickUpDate: bookingData.pickUpDate || null
     };
     await db.collection('cargoBookings').doc(booking.bookingId).set(booking);
     return booking;

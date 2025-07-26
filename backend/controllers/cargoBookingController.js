@@ -5,13 +5,15 @@ const admin = require("../config/firebase");
 exports.createCargoBooking = async (req, res) => {
   try {
     const {
+      bookingType = 'instant',
       fromLocation,
       toLocation,
       weightKg,
       cargoType,
       cargoValue,
       specialRequest,
-      special
+      special,
+      pickUpDate,
     } = req.body;
 
     const userId = req.user?.uid || null;
@@ -21,10 +23,24 @@ exports.createCargoBooking = async (req, res) => {
         message: "Required fields are missing" 
       });
     }
+
+    let validatedPickUpDate = null;
+    if (bookingType === 'booking') {
+      if (!pickUpDate) {
+        return res.status(400).json({ message: 'pickUpDate is required for booking type' });
+      }
+      validatedPickUpDate = new Date(pickUpDate);
+      if (isNaN(validatedPickUpDate.getTime())) {
+        return res.status(400).json({ message: 'Invalid pickUpDate format' });
+      }
+    }
+
     const requestId = req.body.requestId || 
       `AGR-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)}`;
+    
     const bookingData = {
       requestId,
+      bookingType,
       userId,
       fromLocation,
       toLocation,
@@ -32,6 +48,8 @@ exports.createCargoBooking = async (req, res) => {
       cargoType,
       cargoValue,
       specialRequest,
+      status: 'pending',
+      pickUpDate: bookingType === 'booking' ? admin.firestore.Timestamp.fromDate(validatedPickUpDate) : null,
       special: !!special
     };
    
