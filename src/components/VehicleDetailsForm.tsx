@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, Switch, Animated, Easing, StyleSheet } from 'react-native';
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import colors from '../constants/colors';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Image, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { fonts, spacing } from '../constants';
+import colors from '../constants/colors';
+import ImagePickerModal from './common/ImagePickerModal';
 
 const VEHICLE_TYPES = [
   { label: 'Truck', value: 'truck', icon: (active: boolean) => <FontAwesome5 name="truck" size={28} color={active ? colors.white : colors.primary} /> },
@@ -16,6 +17,7 @@ const VEHICLE_TYPES = [
   { label: 'Other', value: 'other', icon: (active: boolean) => <Ionicons name="car-outline" size={28} color={active ? colors.white : colors.text.primary} /> },
 ];
 
+
 export default function VehicleDetailsForm({
   initial,
   onChange,
@@ -27,6 +29,41 @@ export default function VehicleDetailsForm({
 }) {
   // State for dropdowns and fields
   const [vehicleType, setVehicleType] = useState(initial?.vehicleType || '');
+  // Image picker modal state
+  const [pickerVisible, setPickerVisible] = useState(false);
+
+  // Handler for photo add using modal
+  const handlePhotoAdd = () => {
+    setPickerVisible(true);
+  };
+  const handleImagePickerSelect = async (choice) => {
+    setPickerVisible(false);
+    let result;
+    if (choice === 'camera') {
+      const { status } = await import('expo-image-picker').then(m => m.requestCameraPermissionsAsync());
+      if (status !== 'granted') return;
+      result = await import('expo-image-picker').then(m => m.launchCameraAsync({
+        mediaTypes: m.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      }));
+    } else if (choice === 'gallery') {
+      const { status } = await import('expo-image-picker').then(m => m.requestMediaLibraryPermissionsAsync());
+      if (status !== 'granted') return;
+      result = await import('expo-image-picker').then(m => m.launchImageLibraryAsync({
+        mediaTypes: m.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      }));
+    } else {
+      return;
+    }
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      onPhotoAdd(result.assets[0]);
+    }
+  };
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [vehicleMake, setVehicleMake] = useState(initial?.vehicleMake || '');
   const [vehicleColor, setVehicleColor] = useState(initial?.vehicleColor || '');
@@ -89,7 +126,7 @@ export default function VehicleDetailsForm({
             <Ionicons name={makeDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
           </TouchableOpacity>
           {makeDropdownOpen && (
-            <View style={[styles.dropdownList, { zIndex: 100 }]}> 
+            <View style={[styles.dropdownList, { zIndex: 100 }]}>
               {['Isuzu', 'Scania', 'Fuso', 'Mercedes', 'Toyota', 'Hino', 'Tata', 'Other'].map(make => (
                 <TouchableOpacity key={make} style={styles.dropdownItem} onPress={() => { setVehicleMake(make); setMakeDropdownOpen(false); }}>
                   <Text style={{ color: colors.text.primary }}>{make}</Text>
@@ -112,7 +149,7 @@ export default function VehicleDetailsForm({
             <Ionicons name={colorDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
           </TouchableOpacity>
           {colorDropdownOpen && (
-            <View style={[styles.dropdownList, { zIndex: 100 }]}> 
+            <View style={[styles.dropdownList, { zIndex: 100 }]}>
               {['White', 'Blue', 'Red', 'Green', 'Yellow', 'Black', 'Grey', 'Other'].map(color => (
                 <TouchableOpacity key={color} style={styles.dropdownItem} onPress={() => { setVehicleColor(color); setColorDropdownOpen(false); }}>
                   <Text style={{ color: colors.text.primary }}>{color}</Text>
@@ -301,11 +338,16 @@ export default function VehicleDetailsForm({
           </View>
         ))}
         {vehiclePhotos.length < 4 && (
-          <TouchableOpacity style={{ alignItems: 'center', justifyContent: 'center', padding: 8, borderRadius: 12, borderWidth: 1.2, borderColor: colors.primary, backgroundColor: '#fafbfc', marginBottom: 10 }} onPress={onPhotoAdd}>
+          <TouchableOpacity style={{ alignItems: 'center', justifyContent: 'center', padding: 8, borderRadius: 12, borderWidth: 1.2, borderColor: colors.primary, backgroundColor: '#fafbfc', marginBottom: 10 }} onPress={handlePhotoAdd}>
             <Ionicons name="add-circle" size={38} color={colors.primary} />
             <Text style={{ color: colors.primary, fontWeight: '600', fontSize: fonts.size.sm, marginTop: 2 }}>Add Photo</Text>
           </TouchableOpacity>
         )}
+        <ImagePickerModal
+          visible={pickerVisible}
+          onSelect={handleImagePickerSelect}
+          onCancel={() => setPickerVisible(false)}
+        />
       </View>
       {error ? <Text style={{ color: colors.error, marginBottom: spacing.md, fontSize: fonts.size.md, textAlign: 'center' }}>{error}</Text> : null}
     </View>

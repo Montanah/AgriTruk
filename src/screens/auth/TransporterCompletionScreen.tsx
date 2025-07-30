@@ -3,8 +3,9 @@ import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { getAuth } from 'firebase/auth';
-import { doc, getFirestore, setDoc } from 'firebase/firestore';
 import React, { useEffect, useRef, useState } from 'react';
+import { apiRequest, uploadToCloudinary } from '../../utils/api';
+import ImagePickerModal from '../../components/common/ImagePickerModal';
 import {
   ActivityIndicator,
   Animated, Easing,
@@ -98,21 +99,48 @@ export default function TransporterCompletionScreen() {
   const [companyReg, setCompanyReg] = useState('');
   const [companyContact, setCompanyContact] = useState('');
 
-  // Image picker helper
-  const pickImage = async (onPick) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      setError('Permission to access media library is required!');
+  // Image picker modal state
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [onImagePicked, setOnImagePicked] = useState(() => (img) => {});
+
+  // Image picker helper using modal
+  const pickImage = (onPick) => {
+    setOnImagePicked(() => onPick);
+    setPickerVisible(true);
+  };
+
+  const handleImagePickerSelect = async (choice) => {
+    setPickerVisible(false);
+    let result;
+    if (choice === 'camera') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        setError('Permission to access camera is required!');
+        return;
+      }
+      result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      });
+    } else if (choice === 'gallery') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setError('Permission to access media library is required!');
+        return;
+      }
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      });
+    } else {
       return;
     }
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
-    });
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      onPick(result.assets[0]);
+      onImagePicked(result.assets[0]);
     }
   };
 
@@ -197,29 +225,65 @@ export default function TransporterCompletionScreen() {
     setError('');
     setUploading(true);
     try {
-      // TODO: Upload images to backend/cloud, get URLs, and save all data to Firestore
-      // For now, just save the transporter profile to the "transporters" collection
+      // Upload images/documents to Cloudinary and get URLs
+      const uploadFile = async (file) => {
+        if (!file) return null;
+        if (file.uri) return await uploadToCloudinary(file.uri);
+        return null;
+      };
+      const profilePhotoUrl = await uploadFile(profilePhoto);
+      const vehiclePhotoUrls = await Promise.all(vehiclePhotos.map(uploadFile));
+      const dlFileUrl = await uploadFile(dlFile);
+      const idFileUrl = await uploadFile(idFile);
+      const insuranceFileUrl = await uploadFile(insuranceFile);
+      const logBookFileUrl = await uploadFile(logBookFile);
+
+      // Get user ID (assume JWT or user context provides this, else flag for backend fix)
       const auth = getAuth();
-      const db = getFirestore();
       const user = auth.currentUser;
       if (!user) throw new Error('Not authenticated');
-      const transporterProfile = {
-        transporterId: user.uid,
-        profilePhoto: profilePhoto ? profilePhoto.uri : null,
-        vehiclePhotos: vehiclePhotos.map((img) => img.uri),
-        vehicleType,
-        registration,
-        humidityControl,
-        refrigeration,
-        dlFile: dlFile ? dlFile.uri : null,
-        idFile: idFile ? idFile.uri : null,
-        logBookFile: logBookFile ? logBookFile.uri : null,
-        insuranceFile: insuranceFile ? insuranceFile.uri : null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        status: 'pending',
-      };
-      await setDoc(doc(db, 'transporters', user.uid), transporterProfile);
+      const userId = user.uid;
+
+      if (transporterType === 'individual') {
+        // Submit to backend /transporters endpoint
+        const payload = {
+          transporterId: userId,
+          profilePhoto: profilePhotoUrl,
+          vehiclePhotos: vehiclePhotoUrls,
+          vehicleType,
+          registration,
+          humidityControl,
+          refrigeration,
+          dlFile: dlFileUrl,
+          idFile: idFileUrl,
+          logBookFile: logBookFileUrl,
+          insuranceFile: insuranceFileUrl,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'pending',
+        };
+        // Backend must accept this payload at POST /transporters
+        await apiRequest('/transporters', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        // Submit to backend /companies endpoint
+        const payload = {
+          companyName,
+          companyReg,
+          companyContact,
+          profilePhoto: profilePhotoUrl,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'pending',
+        };
+        // Backend must accept this payload at POST /companies
+        await apiRequest('/companies', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
       // After submit, let App.tsx handle navigation based on updated profile/status
     } catch (e) {
       setError('Failed to submit profile. Please try again.');
@@ -306,24 +370,6 @@ export default function TransporterCompletionScreen() {
           vehiclePhotos={vehiclePhotos}
           error={error}
           />
-
-          <Text style={styles.sectionTitle}>Vehicle Photos</Text>
-          <View style={styles.photoRow}>
-            {vehiclePhotos.map((img, idx) => (
-              <View key={idx} style={styles.vehiclePhotoWrap}>
-                <Image source={{ uri: img.uri }} style={styles.vehiclePhoto} />
-                <TouchableOpacity style={styles.removePhotoBtn} onPress={() => handleRemoveVehiclePhoto(idx)}>
-                  <Ionicons name="close-circle" size={22} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
-            {vehiclePhotos.length < 4 && (
-              <TouchableOpacity style={styles.addPhotoBtn} onPress={handleAddVehiclePhoto}>
-                <Ionicons name="add-circle" size={38} color={colors.primary} />
-                <Text style={styles.addPhotoText}>Add Photo</Text>
-              </TouchableOpacity>
-            )}
-          </View>
 
           {/* Grouped Document Uploads: DL + ID, Logbook + Insurance */}
           <View style={{ flexDirection: 'row', width: '100%', gap: 12 }}>
@@ -443,21 +489,32 @@ export default function TransporterCompletionScreen() {
       <View style={{ paddingBottom: insets.bottom + 18, width: '100%' }}>
         <TouchableOpacity
           style={[styles.submitBtn, { backgroundColor: isValid() ? colors.primary : colors.text.light }]}
-          onPress={handleSubmit}
+          onPress={async () => {
+            setError('');
+            setUploading(true);
+            let success = false;
+            try {
+              await handleSubmit();
+              success = true;
+            } catch (e) {
+              setError('Failed to submit profile. Please try again.');
+            } finally {
+              setUploading(false);
+            }
+            if (success) {
+              navigation.navigate('TransporterProcessingScreen', { transporterType });
+            }
+          }}
           disabled={!isValid() || uploading}
         >
           {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
         </TouchableOpacity>
-        {/* TEMPORARY LINKS FOR UI TESTING */}
-        <View style={{ marginTop: 18 }}>
-          <TouchableOpacity
-            style={[styles.submitBtn, { backgroundColor: colors.secondary, marginBottom: 8 }]}
-            onPress={() => navigation.navigate('TransporterProcessingScreen', { transporterType })}
-          >
-            <Text style={styles.submitBtnText}>Go to Approval Status ({transporterType === 'company' ? 'Company' : 'Individual'})</Text>
-          </TouchableOpacity>
-        </View>
       </View>
+    <ImagePickerModal
+      visible={pickerVisible}
+      onSelect={handleImagePickerSelect}
+      onCancel={() => setPickerVisible(false)}
+    />
     </ScrollView>
   );
 }

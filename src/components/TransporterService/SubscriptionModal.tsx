@@ -7,7 +7,11 @@ import {
     View,
 } from 'react-native';
 
-const plans = ['monthly', '6 months', 'yearly'];
+const plans = [
+  { key: 'monthly', label: 'Monthly', price: 199 },
+  { key: 'quarterly', label: 'Quarterly', price: 499 },
+  { key: 'annual', label: 'Annual', price: 1599 },
+];
 
 const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe }) => {
   return (
@@ -17,14 +21,15 @@ const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe
           <Text style={styles.title}>Choose a Plan</Text>
           {plans.map((plan) => (
             <TouchableOpacity
-              key={plan}
+              key={plan.key}
               style={[
                 styles.planButton,
-                selectedPlan === plan && styles.selected,
+                selectedPlan === plan.key && styles.selected,
               ]}
-              onPress={() => setSelectedPlan(plan)}
+              onPress={() => setSelectedPlan(plan.key)}
             >
-              <Text style={styles.planText}>{plan.toUpperCase()}</Text>
+              <Text style={styles.planLabel}>{plan.label}</Text>
+              <Text style={styles.planPrice}>Ksh {plan.price} / {plan.key === 'monthly' ? 'month' : plan.key === 'quarterly' ? '3 months' : 'year'}</Text>
             </TouchableOpacity>
           ))}
 
@@ -74,8 +79,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     borderColor: '#333',
   },
-  planText: {
-    fontSize: 16,
+  planLabel: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  planPrice: {
+    fontSize: 15,
+    color: '#555',
+    marginBottom: 2,
   },
   actions: {
     flexDirection: 'row',

@@ -127,37 +127,19 @@ export default function TransporterProcessingScreen({ route }) {
             styles.refreshBtn,
             pressed && { backgroundColor: colors.primary + '22' },
           ]}
-          onPress={() => {/* Placeholder for refresh logic */ }}
+          onPress={async () => {
+            // Real backend refresh logic
+            // Example: fetch status from /transporters/:id or /companies/:id
+            // You may need to get the user id from context or auth
+            // Show a loading indicator or feedback as needed
+            // TODO: Implement actual backend status check here
+            // For now, just a placeholder
+            alert('Refreshing status from backend... (implement real API call)');
+          }}
         >
           <Ionicons name="refresh" size={20} color={colors.primary} style={{ marginRight: 6 }} />
           <Text style={styles.refreshBtnText}>Refresh Status</Text>
         </Pressable>
-      </View>
-      <View style={{ marginTop: 32, width: '100%' }}>
-        <Text style={{ textAlign: 'center', color: colors.text.light, marginBottom: 8 }}>
-          For UI testing only:
-        </Text>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ color: colors.text.secondary, marginBottom: 4 }}>
-            Go to {transporterType === 'company' ? 'Company' : 'Transporter'} Dashboard
-          </Text>
-          <View style={{ width: 220 }}>
-            <TouchableOpacity
-              style={{
-                backgroundColor: colors.primary,
-                borderRadius: 10,
-                paddingVertical: 12,
-                alignItems: 'center',
-                marginBottom: 8,
-              }}
-              onPress={() => navigation.navigate('TransporterTabs', { transporterType })}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-                Go to {transporterType === 'company' ? 'Company' : 'Transporter'} Dashboard
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </View>
     </View>
   );

@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 
-import { Booking, MOCK_BOOKINGS } from '../mocks/bookings';
+import { Booking } from '../mocks/bookings';
+import { useAssignedJobs } from '../hooks/UseAssignedJobs';
 
 import AssignTransporterModal from '../components/TransporterService/AssignTransporterModal';
 import BookingCard from '../components/TransporterService/BookingCard';
@@ -31,7 +32,7 @@ const TransporterServiceScreen = () => {
     avatarUrl: undefined,
   };
 
-  const [bookings, setBookings] = useState<Booking[]>(MOCK_BOOKINGS);
+  const { jobs: bookings, loading, error } = useAssignedJobs('agri');
 
   const [showSubscription, setShowSubscription] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('monthly');
@@ -76,16 +77,31 @@ const TransporterServiceScreen = () => {
     );
   };
 
-  const handleAccept = (id: string) => {
-    console.log(`Accepted booking: ${id}`);
+  const handleAccept = async (id: string) => {
+    try {
+      await apiRequest(`/bookings/agri/${id}/accept`, { method: 'PATCH' });
+      // Optionally refetch jobs or update state
+    } catch (err) {
+      console.error('Accept failed', err);
+    }
   };
 
-  const handleReject = (id: string) => {
-    console.log(`Rejected booking: ${id}`);
+  const handleReject = async (id: string) => {
+    try {
+      await apiRequest(`/bookings/agri/${id}/reject`, { method: 'PATCH' });
+      // Optionally refetch jobs or update state
+    } catch (err) {
+      console.error('Reject failed', err);
+    }
   };
 
-  const handleComplete = (id: string) => {
-    console.log(`Completed booking: ${id}`);
+  const handleComplete = async (id: string) => {
+    try {
+      await apiRequest(`/bookings/agri/${id}/complete`, { method: 'PATCH' });
+      // Optionally refetch jobs or update state
+    } catch (err) {
+      console.error('Complete failed', err);
+    }
   };
 
   const renderItem = ({ item }: { item: Booking }) => (

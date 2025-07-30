@@ -75,9 +75,9 @@ const PRODUCT_SUGGESTIONS = [
   'Other',
 ];
 
-import { MOCK_TRANSPORTERS } from '../mocks/transporters';
-import { notificationService } from '../../services/notificationService';
+import { useTransporters } from '../hooks/UseTransporters';
 import NotificationBell from '../components/Notification/NotificationBell';
+import { apiRequest } from '../utils/api';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -103,6 +103,7 @@ const ServiceRequestScreen = () => {
   const [showTransporters, setShowTransporters] = useState(false);
   const [filteredTransporters, setFilteredTransporters] = useState([]);
   const [loadingTransporters, setLoadingTransporters] = useState(false);
+  const { transporters, loading: loadingAllTransporters, error: transportersError } = useTransporters();
   const [formCollapsed, setFormCollapsed] = useState(false);
   const scrollRef = useRef(null);
 
@@ -525,12 +526,8 @@ const ServiceRequestScreen = () => {
                 disabled={!isValid()}
                 onPress={() => {
                   if (requestType === 'booking') {
-                    // TODO: Integrate with backend booking API
-                    // Mock users (replace with real user context)
-                    const customer = { id: 'C001', name: 'Green Agri Co.', email: 'info@greenagri.com', phone: '+254712345678' };
-                    const broker = { id: 'B001', name: 'BrokerX', email: 'brokerx@trukapp.com', phone: '+254700999888' };
-                    const admin = { id: 'ADMIN', name: 'Admin', email: 'admin@trukapp.com', phone: '+254700000000' };
-                    const booking = {
+                    // Integrate with backend booking API
+                    const bookingPayload = {
                       fromLocation,
                       toLocation,
                       productType,
@@ -539,62 +536,42 @@ const ServiceRequestScreen = () => {
                       additional,
                       perishableSpecs,
                       specialCargoSpecs,
-                      pickupTime: pickupTime ? pickupTime.toLocaleString() : '',
+                      pickupTime: pickupTime ? pickupTime.toISOString() : '',
                       requestType,
-                      status: 'pending',
                     };
-                    notificationService.sendEmail(
-                      customer.email,
-                      'Service Booking Placed',
-                      `Hi ${customer.name}, your booking from ${fromLocation} to ${toLocation} for ${productType} has been placed.`,
-                      'customer',
-                      'request_status',
-                      { booking }
-                    );
-                    notificationService.sendInApp(
-                      customer.id,
-                      `Your booking from ${fromLocation} to ${toLocation} for ${productType} has been placed.`,
-                      'customer',
-                      'request_status',
-                      { booking }
-                    );
-                    notificationService.sendInApp(
-                      broker.id,
-                      `New booking by ${customer.name}: ${productType} from ${fromLocation} to ${toLocation}.`,
-                      'broker',
-                      'request_allocated',
-                      { booking, customer }
-                    );
-                    notificationService.sendInApp(
-                      admin.id,
-                      `New booking: ${productType} from ${fromLocation} to ${toLocation}.`,
-                      'admin',
-                      'request_allocated',
-                      { booking, customer }
-                    );
-                    Alert.alert('Booking placed!', 'Your booking has been created. (API integration pending)');
+                    const endpoint = activeTab === 'agriTRUK' ? '/bookings/agri' : '/bookings/cargo';
+                    apiRequest(endpoint, {
+                      method: 'POST',
+                      body: JSON.stringify(bookingPayload),
+                    })
+                      .then(() => {
+                        Alert.alert('Booking placed!', 'Your booking has been created successfully.');
+                      })
+                      .catch((err) => {
+                        Alert.alert('Booking failed', err.message || 'Failed to create booking');
+                      });
                   } else {
                     setLoadingTransporters(true);
                     setShowTransporters(false);
                     setFormCollapsed(true);
                     setTimeout(() => {
-                      let filtered = MOCK_TRANSPORTERS.filter((t) => {
+                      let filtered = transporters.filter((t) => {
                         if (activeTab === 'agriTRUK') {
                           if (isPerishable) {
                             return (
-                              t.canHandle.includes('perishable') &&
-                              perishableSpecs.every((spec) => t.perishableSpecs.includes(spec))
+                              t.canHandle?.includes('perishable') &&
+                              perishableSpecs.every((spec) => t.perishableSpecs?.includes(spec))
                             );
                           }
-                          return t.canHandle.includes('agri');
+                          return t.canHandle?.includes('agri');
                         } else {
                           if (isSpecialCargo) {
                             return (
-                              t.canHandle.includes('cargo') &&
-                              specialCargoSpecs.every((spec) => t.specialCargo.includes(spec))
+                              t.canHandle?.includes('cargo') &&
+                              specialCargoSpecs.every((spec) => t.specialCargo?.includes(spec))
                             );
                           }
-                          return t.canHandle.includes('cargo');
+                          return t.canHandle?.includes('cargo');
                         }
                       });
                       setFilteredTransporters(filtered);
@@ -602,53 +579,6 @@ const ServiceRequestScreen = () => {
                       setShowTransporters(true);
                       if (scrollRef.current) {
                         scrollRef.current.scrollToEnd({ animated: true });
-                      }
-                      // If a transporter is matched, notify all parties
-                      if (filtered.length > 0) {
-                        const matched = filtered[0]; // For demo, pick the first
-                        const customer = { id: 'C001', name: 'Green Agri Co.', email: 'info@greenagri.com', phone: '+254712345678' };
-                        const broker = { id: 'B001', name: 'BrokerX', email: 'brokerx@trukapp.com', phone: '+254700999888' };
-                        const admin = { id: 'ADMIN', name: 'Admin', email: 'admin@trukapp.com', phone: '+254700000000' };
-                        const request = {
-                          fromLocation,
-                          toLocation,
-                          productType,
-                          weight,
-                          value,
-                          additional,
-                          perishableSpecs,
-                          specialCargoSpecs,
-                          requestType: 'instant',
-                          status: 'matched',
-                        };
-                        notificationService.sendInApp(
-                          customer.id,
-                          `Your instant request has been matched with transporter ${matched.name}.`,
-                          'customer',
-                          'request_status',
-                          { request, matched }
-                        );
-                        notificationService.sendInApp(
-                          matched.id,
-                          `You have been matched to a new instant request from ${customer.name}: ${productType} from ${fromLocation} to ${toLocation}.`,
-                          'transporter',
-                          'request_allocated',
-                          { request, customer }
-                        );
-                        notificationService.sendInApp(
-                          broker.id,
-                          `Instant request matched: ${productType} from ${fromLocation} to ${toLocation}.`,
-                          'broker',
-                          'request_allocated',
-                          { request, customer, matched }
-                        );
-                        notificationService.sendInApp(
-                          admin.id,
-                          `Instant request matched: ${productType} from ${fromLocation} to ${toLocation}.`,
-                          'admin',
-                          'request_allocated',
-                          { request, customer, matched }
-                        );
                       }
                     }, 1400);
                   }

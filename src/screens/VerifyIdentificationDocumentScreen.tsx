@@ -12,7 +12,46 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }) => {
   const [status, setStatus] = useState('not_uploaded'); // 'not_uploaded', 'pending', 'verified', 'rejected'
 
   const handlePickIdDoc = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'] });
+    // Camera/gallery option for ID upload
+    const options = [
+      { label: 'Take Photo', value: 'camera' },
+      { label: 'Choose from Gallery', value: 'gallery' },
+      { label: 'Cancel', value: 'cancel' },
+    ];
+    // Use a simple prompt for now (replace with ActionSheet for better UX)
+    const choice = await new Promise((resolve) => {
+      let res = window?.prompt
+        ? window.prompt('Choose option: camera/gallery')
+        : null;
+      if (res === 'camera' || res === 'gallery') resolve(res);
+      else resolve('gallery');
+    });
+    let result;
+    if (choice === 'camera') {
+      const { status } = await import('expo-image-picker').then(m => m.requestCameraPermissionsAsync());
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      result = await import('expo-image-picker').then(m => m.launchCameraAsync({
+        mediaTypes: m.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      }));
+    } else {
+      const { status } = await import('expo-image-picker').then(m => m.requestMediaLibraryPermissionsAsync());
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      result = await import('expo-image-picker').then(m => m.launchImageLibraryAsync({
+        mediaTypes: m.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      }));
+    }
     if (!result.canceled && result.assets && result.assets[0]) {
       setIdDoc(result.assets[0]);
       setStatus('pending');
