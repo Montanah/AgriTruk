@@ -1,0 +1,165 @@
+const admin = require("../config/firebase");
+const db = admin.firestore();
+const Transporter = require('../models/Transporter');
+const AgriBooking = require('../models/AgriBooking');
+const CargoBooking = require('../models/CargoBooking');
+const Request = require('../models/Request');
+const Notification = require('../models/Notification');
+const { sendEmail } = require('../utils/sendEmail');
+const { haversineDistance, calculateDistance } = require('../utils/geoUtils');
+
+class MatchingService {
+  static async matchBooking(bookingId, bookingType) {
+    let booking;
+    switch (bookingType) {
+      case 'agri':
+        booking = await AgriBooking.get(bookingId);
+        break;
+      case 'cargo':
+        booking = await CargoBooking.get(bookingId);
+        break;
+      case 'broker':
+        booking = await Request.get(bookingId);
+        break;
+      default:
+        throw new Error('Unknown booking type');
+    }
+    if (booking.status !== 'pending') return null;
+
+    const transporters = await db.collection('transporters')
+      .where('acceptingBooking', '==', true)
+      .where('status', '==', 'approved')
+      .get();
+    const suitableTransporters = [];
+
+    for (const doc of transporters.docs) {
+      const transporter = { id: doc.id, ...doc.data() };
+      const weightKg = booking.weightKg || 0; // Default to 0 if undefined
+      if (!transporter.vehicleCapacity || transporter.vehicleCapacity < weightKg * 2) continue;
+
+      const lastLocation = transporter.lastKnownLocation;
+      const fromLocation = booking.fromLocation || booking.pickUpLocation; // Handle variation
+      if (lastLocation && fromLocation) {
+        const distance = calculateDistance(lastLocation, fromLocation);
+        if (distance > 50) continue; // Within 50 km, adjust as needed
+      }
+
+      const needsRefrigeration = booking.needsRefrigeration || booking.requiresRefrigeration || false; // Handle variation
+      if (needsRefrigeration && !transporter.refrigerated) continue;
+      if (booking.urgentDelivery && !transporter.vehicleType?.includes('urgent')) continue;
+
+      suitableTransporters.push(transporter);
+    }
+
+    suitableTransporters.sort((a, b) => b.rating - a.rating || b.vehicleCapacity - a.vehicleCapacity);
+
+    if (suitableTransporters.length > 0) {
+      const matchedTransporter = suitableTransporters[0];
+      let updateData = {
+        matchedTransporterId: matchedTransporter.transporterId,
+        status: 'matched',
+      };
+      switch (bookingType) {
+        case 'agri':
+          await AgriBooking.update(bookingId, updateData);
+          break;
+        case 'cargo':
+          await CargoBooking.update(bookingId, updateData);
+          break;
+        case 'broker':
+          await Request.update(bookingId, updateData);
+          break;
+      }
+      await this.notifyMatch(booking, matchedTransporter, bookingType);
+      return matchedTransporter;
+    }
+    return null;
+  }
+
+  static async matchConsolidatedBookings(bookingIds, bookingType) {
+    if (!Array.isArray(bookingIds) || bookingIds.length < 2) {
+      throw new Error('At least two booking IDs are required for consolidation');
+    }
+
+    let bookings;
+    switch (bookingType) {
+      case 'agri':
+        bookings = await Promise.all(bookingIds.map(id => AgriBooking.get(id)));
+        break;
+      case 'cargo':
+        bookings = await Promise.all(bookingIds.map(id => CargoBooking.get(id)));
+        break;
+      case 'broker':
+        bookings = await Promise.all(bookingIds.map(id => Request.get(id)));
+        break;
+      default:
+        throw new Error('Unknown booking type');
+    }
+    const totalWeight = bookings.reduce((sum, b) => sum + (b.weightKg || 0), 0);
+    const consolidatedBooking = {
+      bookingId: db.collection('requests').doc().id, // Use agriBookings for consistency
+      requestId: `${bookings.map(b => b.requestId).join('_')}`,
+      bookingType: 'consolidated',
+      userId: bookings[0].userId, // Assuming same user or broker
+      fromLocation: bookings[0].fromLocation || bookings[0].pickUpLocation, // Handle variation
+      toLocation: bookings[bookings.length - 1].toLocation || bookings[bookings.length - 1].dropOffLocation, // Handle variation
+      weightKg: totalWeight,
+      status: 'pending',
+      consolidated: true,
+      pickUpDate: bookings[0].pickUpDate,
+    };
+    const newBooking = await Request.create(consolidatedBooking); // Store as AgriBooking for now
+    const matchedTransporter = await this.matchBooking(newBooking.bookingId, 'agri');
+    return { newBooking, matchedTransporter };
+  }
+
+  static async notifyMatch(booking, transporter, bookingType) {
+    const notificationData = {
+      userId: booking.userId,
+      userType: 'user', // Adjust if broker-initiated
+      type: 'booking_matched',
+      message: `Your ${bookingType} booking ${booking.bookingId} has been matched with transporter ${transporter.transporterId}.`,
+    };
+    await Notification.create(notificationData);
+    if (transporter.notificationPreferences?.method === 'email' || transporter.notificationPreferences?.method === 'both') {
+      await sendEmail(transporter.email, 'Booking Matched', notificationData.message);
+    }
+    const transporterNotification = {
+      userId: transporter.transporterId,
+      userType: 'transporter',
+      type: 'new_match',
+      message: `You have been matched with ${bookingType} booking ${booking.bookingId} from ${booking.fromLocation || booking.pickUpLocation} to ${booking.toLocation || booking.dropOffLocation}.`,
+    };
+    await Notification.create(transporterNotification);
+    if (transporter.notificationPreferences?.method === 'email' || transporter.notificationPreferences?.method === 'both') {
+      await sendEmail(transporter.email, 'New Match', transporterNotification.message);
+    }
+  }
+
+  static async getAvailableBookingsForTransporter(transporterId) {
+    const transporter = await Transporter.get(transporterId);
+    const agriBookings = await AgriBooking.getPendingBookings();
+    const cargoBookings = await CargoBooking.getPendingBookings();
+    const requests = await Request.getPendingRequests();
+
+    // Add type labels and merge
+    const pendingBookings = [
+      ...agriBookings.map(booking => ({ ...booking, type: 'agri' })),
+      ...cargoBookings.map(booking => ({ ...booking, type: 'cargo' })),
+      ...requests.map(booking => ({ ...booking, type: 'broker' }))
+    ];
+
+    return pendingBookings.filter(booking => {
+      const fromLocation = booking.fromLocation || booking.pickUpLocation; // Handle variation
+      const distance = fromLocation ? calculateDistance(
+        transporter.lastKnownLocation,
+        fromLocation
+      ) : Infinity;
+      const needsRefrigeration = booking.needsRefrigeration || booking.requiresRefrigeration || false; // Handle variation
+      return distance <= 50 && transporter.vehicleCapacity >= (booking.weightKg || 0) * 2 &&
+             (!needsRefrigeration || transporter.refrigerated);
+    });
+  }
+}
+
+module.exports = MatchingService;

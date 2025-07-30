@@ -297,8 +297,8 @@ router.post('/requests', authenticateToken, requireRole(['user', 'broker']), Bro
  *       500:
  *         description: Server error
  */
-router.post('/requests/consolidate', authenticateToken, requireRole(['broker', 'admin']), BrokerController.consolidateRequests);
-
+// router.post('/requests/consolidate', authenticateToken, requireRole(['broker', 'admin']), BrokerController.consolidateRequests);
+router.post('/requests/consolidate', authenticateToken, requireRole(['broker', 'admin']), BrokerController.consolidateAndMatch);
 /**
  * @swagger
  * /api/brokers/clients/{clientId}/requests:

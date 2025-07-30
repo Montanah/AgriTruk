@@ -31,7 +31,9 @@ const CargoBooking = {
       cargoValue: bookingData.cargoValue || null,
       specialRequest: bookingData.specialRequest || null,
       special: bookingData.special || false,
-      pickUpDate: bookingData.pickUpDate || null
+      pickUpDate: bookingData.pickUpDate || null,
+      consolidated: bookingData.consolidated || false, // Flag for consolidated requests
+      matchedTransporterId: bookingData.matchedTransporterId || null,
     };
     await db.collection('cargoBookings').doc(booking.bookingId).set(booking);
     return booking;
@@ -107,6 +109,7 @@ const CargoBooking = {
         await db.collection('cargoBookings').doc(bookingId).update(updates);
         return updates;
     }, 
+    
     async getByTransporterId(transporterId) {
         if (!transporterId) throw new Error('Transporter ID is required to fetch bookings');
         const query = db.collection('cargoBookings').where('transporterId', '==', transporterId);
@@ -118,7 +121,14 @@ const CargoBooking = {
             bookings.push({ bookingId: doc.id, ...doc.data() });
         });
         return bookings;
-    }
+    },
+    async getPendingBookings() {
+    const snapshot = await db
+      .collection('cargoBookings')
+      .where('status', '==', 'pending')
+      .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = CargoBooking;

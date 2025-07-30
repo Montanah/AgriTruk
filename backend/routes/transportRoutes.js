@@ -7,7 +7,7 @@ const {
   createTransporter,
   getTransporter,
   updateTransporter,
-  getAllTransporters,
+  getAvailableBookings,
   getAvailableTransporters,
   toggleAvailability,
   updateRating
@@ -118,6 +118,24 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadFields, cr
  *         description: Internal server error
  */
 router.get('/available/list', authenticateToken, requireRole(['admin', 'user']), getAvailableTransporters);
+
+
+/**
+ * @swagger
+ * /api/transporters/getAvailableBookings:
+ *   get:
+ *     summary: Get available bookings for transporters
+ *     description: Returns a list of available bookings for transporters.
+ *     tags: [Transporters]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of available bookings
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/getAvailableBookings', authenticateToken, requireRole('transporter'), getAvailableBookings);
 
 /**
  * @swagger
@@ -384,5 +402,4 @@ router.patch('/:transporterId/availability', authenticateToken, requireRole('tra
  *         description: Internal server error
  */
 router.patch('/:transporterId/rating', authenticateToken, requireRole('admin'), updateRating);
-
 module.exports = router;

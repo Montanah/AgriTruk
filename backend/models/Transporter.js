@@ -5,7 +5,8 @@ const db = admin.firestore();
 const Transporter = {
   async create(transporterData) {
     const transporter = {
-      transporterId: transporterData.transporterId,
+      transporterId: transporterData.transporterId || db.collection('transporters').doc().id,
+      // transporterId: transporterData.transporterId,
       driverName: transporterData.driverName || null,
       phoneNumber: transporterData.phoneNumber || null,
       driverProfileImage: transporterData.driverProfileImage || null,
@@ -28,6 +29,9 @@ const Transporter = {
       rating: transporterData.rating || 0,
       rejectionReason: transporterData.rejectionReason || null,
       businessType: transporterData.businessType || 'individual', // Default to 'individual'
+      currentRoute: transporterData.currentRoute || [], // Array of { location, timestamp }
+      lastKnownLocation: transporterData.lastKnownLocation || null,
+      notificationPreferences: transporterData.notificationPreferences || { method: 'both' },
       // Timestamps
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
@@ -78,6 +82,14 @@ async reject(transporterId, reason) {
 
     if (snapshot.empty) return [];
       return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
+  },
+  async setLocation(transporterId, location) {
+    const updates = {
+      lastKnownLocation: location,
+      updatedAt: admin.firestore.Timestamp.now(),
+    };
+    await db.collection('transporters').doc(transporterId).update(updates);
+    return updates;
   },
 };
 

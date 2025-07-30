@@ -7,6 +7,7 @@ const { uploadImage } = require('../utils/upload');
 const fs = require('fs');
 const sendEmail = require("../utils/sendEmail");
 const Notification = require('../models/Notification');
+const MatchingService = require('../services/matchingService');
 
 exports.createBroker = async (req, res) => {
   try {
@@ -280,6 +281,7 @@ exports.consolidateRequests = async (req, res) => {
     // if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
     //   await sendEmail(email, 'Broker Account Created', notificationData.message);
     // }
+
     res.status(200).json({
       success: true,
       message: 'Requests consolidated successfully',
@@ -497,6 +499,25 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update profile',
+    });
+  }
+};
+
+exports.consolidateAndMatch = async (req, res) => {
+  try {
+    const requestIds = req.body.requestIds;
+    const { newBooking, matchedTransporter } = await MatchingService.matchConsolidatedBookings(requestIds);
+
+    res.status(200).json({
+      success: true,
+      message: 'Bookings consolidated and matched successfully',
+      newBooking, 
+      matchedTransporter,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error consolidating bookings: ${error.message}`,
     });
   }
 };

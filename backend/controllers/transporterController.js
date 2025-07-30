@@ -4,6 +4,7 @@ const Transporter = require("../models/Transporter");
 const User = require("../models/User");
 const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const Notification = require("../models/Notification");
+const MatchingService = require('../services/matchingService');
 
 exports.createTransporter = async (req, res) => {
   try {
@@ -242,3 +243,28 @@ exports.updateRating = async (req, res) => {
   }
 };
 
+exports.getAvailableBookings = async (req, res) => {
+  try {
+    const transporterId = req.user.uid;
+    const availableBookings = await MatchingService.getAvailableBookingsForTransporter(transporterId);
+
+    await logActivity(transporterId, 'get_available_bookings', req);
+
+    await Notification.create({
+      type: "Get Available Bookings",
+      message: `You searched for available bookings. Transporter ID: ${transporterId}`,
+      userId: req.user.uid,
+      userType: "transporter",
+    });
+    res.status(200).json({
+      success: true,
+      message: 'Available bookings retrieved successfully',
+      availableBookings,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error retrieving available bookings: ${error.message}`,
+    });
+  }
+};

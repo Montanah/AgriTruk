@@ -2,6 +2,7 @@ const CargoBooking = require("../models/CargoBooking");
 const { logActivity } = require("../utils/activityLogger");
 const admin = require("../config/firebase");
 const Notification = require("../models/Notification");
+const matchingService = require('../services/matchingService');
 
 exports.createCargoBooking = async (req, res) => {
   try {
@@ -66,9 +67,12 @@ exports.createCargoBooking = async (req, res) => {
       userType: "user",
     });
 
+    const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
+
     res.status(201).json({
       message: "CargoTRUK booking created successfully",
-      booking
+      booking,
+      matchedTransporter,
     });
   } catch (error) {
     console.error("Create cargo booking error:", error);

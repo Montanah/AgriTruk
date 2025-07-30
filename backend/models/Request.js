@@ -2,9 +2,10 @@ const admin = require('../config/firebase');
 const db = admin.firestore();
 
 const Request = {
-  async create(requestData, clientId) {
+  async create(requestData) {
     const requestRef = await db.collection('requests').add({
-      clientId,
+      brokerId: requestData.brokerId,
+      clientId: requestData.clientId,
       category: requestData.category,
       type: requestData.type, // 'instant' or other
       pickUpLocation: requestData.pickUpLocation,
@@ -91,6 +92,14 @@ const Request = {
       requestIds.map(id => db.collection('requests').doc(id).get())
     );
     return requests.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getPendingBookings() {
+    const snapshot = await db
+      .collection('requests')
+      .where('status', '==', 'pending')
+      .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
 };
 

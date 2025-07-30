@@ -488,7 +488,6 @@ router.delete('/agri/:bookingId', authenticateToken, requireRole('admin'), delet
  */
 router.post('/cargo', authenticateToken, requireRole('user'), createCargoBooking);
 
-
 /**
  * @swagger
  * /api/bookings/cargo:

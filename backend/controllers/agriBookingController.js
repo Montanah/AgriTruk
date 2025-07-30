@@ -1,6 +1,7 @@
 const AgriBooking = require("../models/AgriBooking");
 const  { logActivity } = require("../utils/activityLogger");
 const Notification = require("../models/Notification");
+const MatchingService = require('../services/matchingService');
 
 exports.createAgriBooking = async (req, res) => {
   try {
@@ -66,11 +67,15 @@ exports.createAgriBooking = async (req, res) => {
       message: `A new booking has been created. Booking ID: ${booking.bookingId}`,
       userId: user,
       userType: "user",
-    })
+    });
+
+    const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
 
     res.status(201).json({
+      success: true,
       message: "AgriTRUK booking created successfully",
-      booking
+      booking,
+      matchedTransporter
     });
   } catch (error) {
     console.error("Create agri booking error:", error);
@@ -396,3 +401,23 @@ exports.completeAgriBooking = async (req, res) => {
     });
   }
 };
+
+exports.consolidateAndMatch = async (req, res) => {
+  try {
+    const requestIds = req.body.requestIds;
+    const { newBooking, matchedTransporter } = await MatchingService.matchConsolidatedBookings(requestIds);
+
+    res.status(200).json({
+      success: true,
+      message: 'Bookings consolidated and matched successfully',
+      newBooking, 
+      matchedTransporter,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error consolidating bookings: ${error.message}`,
+    });
+  }
+};
+

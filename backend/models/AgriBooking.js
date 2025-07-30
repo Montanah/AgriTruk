@@ -32,7 +32,9 @@ const AgriBooking = {
       perishable: bookingData.perishable || false,
       needsRefrigeration: bookingData.needsRefrigeration || false,
       urgentDelivery: bookingData.urgentDelivery || false,
-      pickUpDate: bookingData.pickUpDate || null
+      pickUpDate: bookingData.pickUpDate || null,
+      consolidated: bookingData.consolidated || false, // Flag for consolidated requests
+      matchedTransporterId: bookingData.matchedTransporterId || null,
     };
     await db.collection('agriBookings').doc(booking.bookingId).set(booking);
     return booking;
@@ -129,7 +131,14 @@ const AgriBooking = {
         };
         await db.collection('agriBookings').doc(bookingId).update(updates);
         return updates;
-    }
+    },
+    async getPendingBookings() {
+    const snapshot = await db
+      .collection('agriBookings')
+      .where('status', '==', 'pending')
+      .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = AgriBooking;
