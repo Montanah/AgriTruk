@@ -47,9 +47,9 @@ exports.createBroker = async (req, res) => {
     };
     await Notification.create(notificationData);
 
-    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
-      await sendEmail(email, 'Broker Account Created', notificationData.message);
-    } 
+    // if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+    //   await sendEmail(email, 'Broker Account Created', notificationData.message);
+    // } 
 
     res.status(201).json({
       success: true,
@@ -82,9 +82,9 @@ exports.getBroker = async (req, res) => {
     };
 
     await Notification.create(notificationData);
-    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
-      await sendEmail(email, 'Broker Account Created', notificationData.message);
-    }
+    // if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+    //   await sendEmail(email, 'Broker Account Created', notificationData.message);
+    // }
     res.status(200).json({
       success: true,
       message: 'Broker retrieved successfully',
@@ -132,9 +132,9 @@ exports.addClient = async (req, res) => {
       message: 'A new client has been added to your account.',
     };
     await Notification.create(notificationData);
-    if (brokerRecord.notificationPreferences.method === 'email' || brokerRecord.notificationPreferences.method === 'both') {
-      await sendEmail(email, 'Client Account Created', notificationData.message);
-    }
+    // if (brokerRecord.notificationPreferences.method === 'email' || brokerRecord.notificationPreferences.method === 'both') {
+    //   await sendEmail(email, 'Client Account Created', notificationData.message);
+    // }
     res.status(201).json({
       success: true,
       message: 'Client created successfully',
@@ -213,9 +213,9 @@ exports.createRequest = async (req, res) => {
       message: 'A new request has been added to your account.',
     };
     await Notification.create(notificationData);
-    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
-      await sendEmail(email, 'Broker Account Created', notificationData.message);
-    }
+    // if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+    //   await sendEmail(email, 'Broker Account Created', notificationData.message);
+    // }
     res.status(201).json({
       success: true,
       message: 'Request created successfully',
@@ -277,9 +277,9 @@ exports.consolidateRequests = async (req, res) => {
       message: 'Requests consolidated successfully',
     };
     await Notification.create(notificationData);
-    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
-      await sendEmail(email, 'Broker Account Created', notificationData.message);
-    }
+    // if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+    //   await sendEmail(email, 'Broker Account Created', notificationData.message);
+    // }
     res.status(200).json({
       success: true,
       message: 'Requests consolidated successfully',
@@ -309,9 +309,9 @@ exports.getRequestsByClient = async (req, res) => {
       message: 'Requests retrieved successfully',
     };
     await Notification.create(notificationData);
-    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
-      await sendEmail(email, 'Broker Account Created', notificationData.message);
-    }
+    // if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+    //   await sendEmail(email, 'Broker Account Created', notificationData.message);
+    // }
 
     res.status(200).json({
       success: true,
@@ -368,9 +368,9 @@ exports.deactivateClient = async (req, res) => {
     };
     await Notification.create(notificationData);
 
-    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
-      await sendEmail(email, 'Broker Account Created', notificationData.message);
-    }
+    // if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+    //   await sendEmail(email, 'Broker Account Created', notificationData.message);
+    // }
     res.json({
       success: true,
       message: 'Client deactivated successfully',
@@ -437,9 +437,9 @@ exports.restoreClient = async (req, res) => {
 
     await Notification.create(notificationData);
     
-    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
-      await sendEmail(email, 'Broker Account Created', notificationData.message);
-    }
+    // if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+    //   await sendEmail(email, 'Broker Account Created', notificationData.message);
+    // }
     res.json({
       success: true,
       message: 'Client restored successfully',
