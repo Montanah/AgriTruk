@@ -12,6 +12,7 @@ const companyRoutes = require('./routes/companyRoutes');
 const disputeRoutes = require('./routes/disputeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const brokerRoutes = require('./routes/brokerRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
@@ -40,6 +41,7 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/brokers', brokerRoutes);
+app.use('/api/notification', notificationRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).send('Welcome to root URL of Server');

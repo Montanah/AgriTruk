@@ -28,6 +28,7 @@ const User = {
       name_lower: userData.name ? userData.name.toLowerCase() : null,
       email_lower: userData.email ? userData.email.toLowerCase() : null,
       phone_lower: userData.phone ? userData.phone.toLowerCase().replace(/[^\d]/g, '') : null,
+      notificationPreferences: userData.notificationPreferences || { method: 'both' },
       lastActive: userData.lastActive || admin.firestore.Timestamp.now(),
       lastLogin: userData.lastLogin || admin.firestore.Timestamp.now(),
       createdAt: admin.firestore.Timestamp.now(),

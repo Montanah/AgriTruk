@@ -5,6 +5,8 @@ const Request = require('../models/Request');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const { uploadImage } = require('../utils/upload');
 const fs = require('fs');
+const sendEmail = require("../utils/sendEmail");
+const Notification = require('../models/Notification');
 
 exports.createBroker = async (req, res) => {
   try {
@@ -37,6 +39,18 @@ exports.createBroker = async (req, res) => {
     const broker = await Broker.create(brokerData);
     await logActivity(uid, 'create_broker', req);
 
+    const notificationData = {
+      userId: uid,
+      userType: 'broker',
+      type: 'broker_created',
+      message: 'Your broker account has been created successfully and is pending approval.',
+    };
+    await Notification.create(notificationData);
+
+    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+      await sendEmail(email, 'Broker Account Created', notificationData.message);
+    } 
+
     res.status(201).json({
       success: true,
       message: 'Broker created successfully',
@@ -59,6 +73,18 @@ exports.getBroker = async (req, res) => {
   try {
     const broker = await Broker.get(req.params.brokerId);
     await logAdminActivity(req.user.uid, 'get_broker', req);
+
+    const notificationData = {
+      userId: broker.userId,
+      userType: 'broker',
+      type: 'broker_retrieved',
+      message: 'Your broker account has been retrieved successfully.',
+    };
+
+    await Notification.create(notificationData);
+    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+      await sendEmail(email, 'Broker Account Created', notificationData.message);
+    }
     res.status(200).json({
       success: true,
       message: 'Broker retrieved successfully',
@@ -82,9 +108,9 @@ exports.addClient = async (req, res) => {
     };
 
     const userId = req.user.uid;
-    // console.log('User ID:', userId);
+   
     const brokerRecord = await Broker.getByUserId(userId);
-    // console.log('Broker Record:', brokerRecord);
+    
     if (!brokerRecord || !brokerRecord.id) {
       return res.status(400).json({ success: false, message: 'Broker not found' });
     }
@@ -99,6 +125,16 @@ exports.addClient = async (req, res) => {
 
     await logActivity(userId, 'create_client', req);
 
+    const notificationData = {
+      userId: userId,
+      userType: 'broker',
+      type: 'client_created',
+      message: 'A new client has been added to your account.',
+    };
+    await Notification.create(notificationData);
+    if (brokerRecord.notificationPreferences.method === 'email' || brokerRecord.notificationPreferences.method === 'both') {
+      await sendEmail(email, 'Client Account Created', notificationData.message);
+    }
     res.status(201).json({
       success: true,
       message: 'Client created successfully',
@@ -141,7 +177,21 @@ exports.getClients = async (req, res) => {
 
 exports.createRequest = async (req, res) => {
   try {
+    const userId = req.user.uid;
+    const brokerId = await Broker.getByUserId(userId);
+    if (!brokerId) {
+      return res.status(400).json({ success: false, message: 'Broker ID is required' });
+    }
+    const clientId = req.body.clientId;
+
+    // check if client exists
+    const existingClient = await Client.get(clientId);
+    if (!existingClient) {
+      return res.status(404).json({ success: false, message: 'Client not found' });
+    }
     const requestData = {
+      brokerId: brokerId.id,
+      clientId: clientId,
       category: req.body.category,
       type: req.body.type,
       pickUpLocation: req.body.pickUpLocation,
@@ -151,13 +201,21 @@ exports.createRequest = async (req, res) => {
       value: req.body.value,
       additionalRequest: req.body.additionalRequest,
     };
-    const clientId = req.params.clientId;
-    if (!clientId) {
-      return res.status(400).json({ success: false, message: 'Client ID is required' });
-    }
+    
     const request = await Request.create(requestData, clientId);
 
     await logActivity(req.user.uid, 'create_request', req);
+
+    const notificationData = {
+      userId: userId,
+      userType: 'broker',
+      type: 'new_request',
+      message: 'A new request has been added to your account.',
+    };
+    await Notification.create(notificationData);
+    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+      await sendEmail(email, 'Broker Account Created', notificationData.message);
+    }
     res.status(201).json({
       success: true,
       message: 'Request created successfully',
@@ -211,6 +269,17 @@ exports.consolidateRequests = async (req, res) => {
     // const consolidated = await Request.consolidate(requestIds);
 
     await logActivity(req.user.uid, 'consolidate_requests', req);
+
+    const notificationData = {
+      userId: req.user.uid,
+      userType: 'broker',
+      type: 'consolidated_requests',
+      message: 'Requests consolidated successfully',
+    };
+    await Notification.create(notificationData);
+    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+      await sendEmail(email, 'Broker Account Created', notificationData.message);
+    }
     res.status(200).json({
       success: true,
       message: 'Requests consolidated successfully',
@@ -233,6 +302,17 @@ exports.getRequestsByClient = async (req, res) => {
     const requests = await Request.getByClient(clientId);
 
     await logActivity(req.user.uid, 'get_requests_by_client', req);
+    const notificationData = {
+      userId: req.user.uid,
+      userType: 'broker',
+      type: 'get_requests_by_client',
+      message: 'Requests retrieved successfully',
+    };
+    await Notification.create(notificationData);
+    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+      await sendEmail(email, 'Broker Account Created', notificationData.message);
+    }
+
     res.status(200).json({
       success: true,
       message: 'Requests retrieved successfully',
@@ -249,6 +329,17 @@ exports.getRequestsByClient = async (req, res) => {
 exports.getAllBrokers = async (req, res) => {
   try {
     const brokers = await Broker.getAll();
+    
+    await logAdminActivity(req.admin.adminId, 'get_all_brokers', req);
+
+    const notificationData = {
+      userId: req.admin.adminId,
+      userType: 'admin',
+      type: 'get_all_brokers',
+      message: 'Brokers retrieved successfully',
+    };
+    await Notification.create(notificationData);
+    
     res.status(200).json({
       success: true,
       message: 'Brokers retrieved successfully',
@@ -268,6 +359,18 @@ exports.deactivateClient = async (req, res) => {
     await Client.softDelete(clientId);
 
     await logActivity(req.user.uid, 'deactivate_client', req);
+
+    const notificationData = {
+      userId: req.user.uid,
+      userType: 'broker',
+      type: 'deactivate_client',
+      message: 'Client deactivated successfully',
+    };
+    await Notification.create(notificationData);
+
+    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+      await sendEmail(email, 'Broker Account Created', notificationData.message);
+    }
     res.json({
       success: true,
       message: 'Client deactivated successfully',
@@ -293,6 +396,13 @@ exports.deleteClient = async (req, res) => {
     await Client.hardDelete(clientId);
 
     await logAdminActivity(req.admin.adminId, 'delete_client', req);
+
+    const notificationData = {
+      userId: req.admin.adminId,
+      userType: 'admin',
+      type: 'delete_client',
+      message: 'Client deleted successfully',
+    }
     res.json({
       success: true,
       message: 'Client deleted successfully',
@@ -317,6 +427,19 @@ exports.restoreClient = async (req, res) => {
     const { clientId } = req.params;
     await Client.restore(clientId);
     await logActivity(req.user.uid, 'restore_client', req);
+    
+    const notificationData = {
+      userId: req.user.uid,
+      userType: 'broker',
+      type: 'restore_client',
+      message: 'Client restored successfully',
+    };
+
+    await Notification.create(notificationData);
+    
+    if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
+      await sendEmail(email, 'Broker Account Created', notificationData.message);
+    }
     res.json({
       success: true,
       message: 'Client restored successfully',
@@ -356,6 +479,14 @@ exports.updateProfile = async (req, res) => {
     const updatedClient = await Client.update(clientId, filteredUpdates);
 
     await logActivity(req.user.uid, 'update_profile', req);
+    
+    const notificationData = {
+      userId: req.user.uid,
+      userType: 'broker',
+      type: 'update_profile',
+      message: 'Profile updated successfully',
+    };
+    await Notification.create(notificationData);
     res.json({
       success: true,
       message: 'Profile updated successfully',
@@ -369,18 +500,3 @@ exports.updateProfile = async (req, res) => {
     });
   }
 };
-
-// module.exports = {
-//   createBroker,
-//   getBroker,
-//   addClient,
-//   getClients,
-//   createRequest,
-//   consolidateRequests,
-//   getRequestsByClient,
-//   getAllBrokers,
-//   deactivateClient,
-//   deleteClient,
-//   restoreClient,
-//   updateProfile,
-// };

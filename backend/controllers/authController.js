@@ -5,9 +5,10 @@ const generateOtp = require("../utils/generateOtp");
 const sendEmail = require("../utils/sendEmail");
 const {getMFATemplate, getResetPasswordTemplate, getSuccessTemplate } = require("../utils/sendMailTemplate");
 const getGeoLocation = require("../utils/locationHelper");
-const { logActivity } = require("../utils/activityLogger");
+const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const { uploadImage } = require('../utils/upload');
 const fs = require('fs');
+const Notification = require('../models/Notification');
 // const sendSms = require('../utils/sendSms');
 
 exports.verifyUser = async (req, res) => {
@@ -109,6 +110,13 @@ exports.registerUser = async (req, res) => {
     });
 
     await logActivity(uid, 'user_registration', req);
+
+    await Notification.create({
+      userId: uid,
+      type: 'Welcome to AgriTruk',
+      message: 'Your account has been created successfully',
+      UserType: 'user',
+    });
 
     res.status(201).json({ message: "User profile created", user });
   } catch (error) {
@@ -314,6 +322,13 @@ exports.updatePassword = async (req, res) => {
 
         await logActivity(req.user.uid, 'password_update', req);
 
+        await Notification.create({
+            type: "Update Password",
+            message: "You updated your password",
+            userId: req.user.uid,
+            userType: "user",
+        })
+
         res.status(200).json({
             message: 'Password updated successfully'
         });
@@ -412,6 +427,13 @@ exports.deleteAccount = async (req, res) => {
         // Log the account deletion activity
         await logActivity(uid, 'account_deletion', req);
 
+        await Notification.create({
+            type: "Account Deletion",
+            message: "You deleted your account",
+            userId: uid,
+            userType: "user",
+        })
+
         res.status(200).json({
             message: 'User account deleted successfully'
         });
@@ -456,6 +478,13 @@ exports.deleteUser = async (req, res) => {
 
     // Log the user deletion activity
     await logActivity(uid, 'user_deletion', req);
+
+    await Notification.create({
+      type: "Account Deletion",
+      message: "You deleted your account",
+      userId: uid,
+      userType: "user",
+    })
 
     res.status(200).json({
       message: 'User account deleted successfully'
@@ -522,6 +551,15 @@ exports.deactivateAccount = async (req, res) => {
   try {
     const uid = req.user.uid;
     await User.update(uid, { status: 'inactive' });
+
+    await logActivity(req.user.uid, 'account_deactivation', req);
+
+    await Notification.create({
+      type: "Account Deactivation",
+      message: "You deactivated your account",
+      userId: req.user.uid,
+      userType: "user",
+    })
     res.status(200).json({ message: 'Account deactivated successfully' });
   } catch (error) {
     console.error('Deactivate account error:', error);

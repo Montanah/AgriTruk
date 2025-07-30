@@ -1,5 +1,6 @@
 const Rating = require("../models/Rating");
-const { logActivity } = require("../utils/activityLogger");
+const { logActivity, logAdminActivity } = require("../utils/activityLogger");
+const Notification = require("../models/Notification");
 
 exports.createRating = async (req, res) => {
   try {
@@ -19,6 +20,13 @@ exports.createRating = async (req, res) => {
 
     await logActivity(req.user.uid, "create_rating", req);
 
+    await Notification.create({
+      type: "Create Rating",
+      message: `You rated a transporter. Transporter ID: ${transporterId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
     res.status(201).json({ message: "Rating submitted", rating: ratingDoc });
   } catch (err) {
     console.error("Create rating error:", err);
@@ -32,6 +40,8 @@ exports.getTransporterRatings = async (req, res) => {
 
     const ratings = await Rating.getAllForTransporter(transporterId);
     const avg = await Rating.getAverageForTransporter(transporterId);
+
+    await logAdminActivity(req.admin.adminId, "get_transporter_ratings", req);
 
     res.status(200).json({ averageRating: avg, ratings });
   } catch (err) {

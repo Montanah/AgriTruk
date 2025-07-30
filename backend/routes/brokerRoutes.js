@@ -229,18 +229,12 @@ router.put('/restore/:clientId', authenticateToken, requireRole('broker'), Broke
 
 /**
  * @swagger
- * /api/brokers/clients/{clientId}/requests:
+ * /api/brokers/requests:
  *   post:
  *     summary: Create a new request for a client
  *     tags: [Broker]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: clientId
- *         required: true
- *         schema:
- *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -248,6 +242,8 @@ router.put('/restore/:clientId', authenticateToken, requireRole('broker'), Broke
  *           schema:
  *             type: object
  *             properties:
+ *               clientId:
+ *                 type: string
  *               category:
  *                 type: string
  *               type:
@@ -272,7 +268,7 @@ router.put('/restore/:clientId', authenticateToken, requireRole('broker'), Broke
  *       500:
  *         description: Server error
  */
-router.post('/clients/:clientId/requests', authenticateToken, requireRole(['user', 'broker']), BrokerController.createRequest);
+router.post('/requests', authenticateToken, requireRole(['user', 'broker']), BrokerController.createRequest);
 
 /**
  * @swagger

@@ -1,5 +1,6 @@
 const AgriBooking = require("../models/AgriBooking");
 const  { logActivity } = require("../utils/activityLogger");
+const Notification = require("../models/Notification");
 
 exports.createAgriBooking = async (req, res) => {
   try {
@@ -59,6 +60,14 @@ exports.createAgriBooking = async (req, res) => {
     // Log activity
     await logActivity(req.user.uid, 'create_agri_booking', req);
 
+    // Send notification to admin
+    await Notification.create({
+      type: "New AgriTRUK Booking",
+      message: `A new booking has been created. Booking ID: ${booking.bookingId}`,
+      userId: user,
+      userType: "user",
+    })
+
     res.status(201).json({
       message: "AgriTRUK booking created successfully",
       booking
@@ -85,6 +94,13 @@ exports.acceptAgriBooking = async (req, res) => {
     const updates = await AgriBooking.acceptBooking(bookingId, transporterId, vehicleId);
 
     await logActivity(req.user.uid, 'accept_agri_booking', req);
+
+    await Notification.create({
+      type: "AgriTRUK Booking Accepted",
+      message: `Your booking has been accepted. Booking ID: ${bookingId}`,
+      userId: driverId,
+      userType: "transporter",
+    })
 
     res.status(200).json({
       message: "Booking accepted successfully",
@@ -115,6 +131,13 @@ exports.getAgriBooking = async (req, res) => {
     }
 
     await logActivity(req.user.uid, 'get_agri_booking', req);
+
+    await Notification.create({
+      type: "Get AgriTRUK Booking",
+      message: `You searched for one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
 
     res.status(200).json({
       message: "AgriTRUK booking retrieved successfully",
@@ -165,6 +188,13 @@ exports.updateAgriBooking = async (req, res) => {
 
     await logActivity(req.user.uid, 'update_agri_booking', req);
 
+    await Notification.create({
+      type: "Update AgriTRUK Booking",
+      message: `You updated one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
     res.status(200).json({
       message: "AgriTRUK booking updated successfully",
       booking: updatedBooking
@@ -193,6 +223,13 @@ exports.cancelAgriBooking = async (req, res) => {
     }
 
     await logActivity(req.user.uid, 'cancel_agri_booking', req);
+
+    await Notification.create({
+      type: "Cancel AgriTRUK Booking",
+      message: `You cancelled one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
 
     res.status(200).json({
       message: "AgriTRUK booking cancelled successfully",
@@ -223,6 +260,13 @@ exports.startAgriBooking = async (req, res) => {
 
     await logActivity(req.user.uid, 'start_agri_booking', req);
 
+    await Notification.create({
+      type: "Start AgriTRUK Booking",
+      message: `You started one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
     res.status(200).json({
       message: "AgriTRUK booking started successfully",
       booking: started
@@ -241,7 +285,15 @@ exports.rejectAgriBooking = async (req, res) => {
     const { bookingId } = req.params;
     const reason = req.body.reason || 'Unqualified';
     const result = await AgriBooking.rejectBooking(bookingId, reason);
+
     await logActivity(req.user.uid, 'reject_agri_booking', req);
+
+    await Notification.create({
+      type: "Reject AgriTRUK Booking",
+      message: `You rejected one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    })
     res.status(200).json({ message: 'AgriTRUK booking rejected', result });
   } catch (error) {
     console.error("Reject agri booking error:", error);
@@ -254,6 +306,13 @@ exports.deleteAgriBooking = async (req, res) => {
     const { bookingId } = req.params;
     await AgriBooking.delete(bookingId);
     await logActivity(req.user.uid, 'delete_agri_booking', req);
+
+    await Notification.create({
+      type: "Delete AgriTRUK Booking",
+      message: `You deleted one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    })
     res.status(200).json({ message: 'AgriTRUK booking deleted successfully' });
   } catch (error) {
     console.error("Delete agri booking error:", error);
@@ -268,6 +327,13 @@ exports.getUserAgriBookings = async (req, res) => {
     if (!userId) return res.status(400).json({ message: 'User ID is required' });
     const bookings = await AgriBooking.getByUserId(userId);
     await logActivity(userId, 'get_user_agri_bookings', req);
+
+    await Notification.create({
+      type: "Get User AgriTRUK Bookings",
+      message: `You searched for your agriTRUK bookings. User ID: ${userId}`,
+      userId: req.user.uid,
+      userType: "user",
+    })
     res.status(200).json({ message: "User's AgriTRUK bookings retrieved successfully", bookings });
   } catch (error) {
     console.error("Get user agri bookings error:", error);
@@ -281,6 +347,13 @@ exports.getTransporterAgriBookings = async (req, res) => {
     if (!transporterId) return res.status(400).json({ message: 'Transporter ID is required' });
     const bookings = await AgriBooking.getAllTransporterBookings(transporterId);
     await logActivity(transporterId, 'get_transporter_agri_bookings', req);
+
+    await Notification.create({
+      type: "Get Transporter AgriTRUK Bookings",
+      message: `You searched for your agriTRUK bookings. Transporter ID: ${transporterId}`,
+      userId: req.user.uid,
+      userType: "transporter",
+    })
     res.status(200).json({ message: "Transporter's AgriTRUK bookings retrieved successfully", bookings });
   } catch (error) {
     console.error("Get transporter agri bookings error:", error);
@@ -303,6 +376,13 @@ exports.completeAgriBooking = async (req, res) => {
     }
 
     await logActivity(req.user.uid, 'complete_agri_booking', req);
+
+    await Notification.create({
+      type: "Complete AgriTRUK Booking",
+      message: `You completed one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    })
 
     res.status(200).json({
       message: "AgriTRUK booking completed successfully",

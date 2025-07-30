@@ -2,7 +2,8 @@ const fs = require('fs');
 const { uploadImage } = require('../utils/upload');
 const Transporter = require("../models/Transporter");
 const User = require("../models/User");
-const { logActivity } = require("../utils/activityLogger");
+const { logActivity, logAdminActivity } = require("../utils/activityLogger");
+const Notification = require("../models/Notification");
 
 exports.createTransporter = async (req, res) => {
   try {
@@ -104,6 +105,13 @@ exports.createTransporter = async (req, res) => {
 
     await logActivity(req.user.uid, 'create_transporter', req);
 
+    await Notification.create({
+      type: "Create Transporter",
+      message: `You created a transporter. Transporter ID: ${transporter.transporterId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
     res.status(201).json({
       message: "Transporter created successfully",
       transporter
@@ -144,8 +152,15 @@ exports.getTransporter = async (req, res) => {
 
 exports.updateTransporter = async (req, res) => {
   try {
-    const updated = await Transporter.update(req.params.transporterId, req.body); // Changed to transporterId
+    const updated = await Transporter.update(req.params.transporterId, req.body); 
     await logActivity(req.user.uid, 'update_transporter', req);
+    
+    await Notification.create({
+      type: "Update Transporter",
+      message: `You updated a transporter. Transporter ID: ${req.params.transporterId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
     res.status(200).json({ message: 'Transporter updated', updated });
   } catch (error) {
     console.error('Update transporter error:', error);
@@ -157,7 +172,8 @@ exports.getAllTransporters = async (req, res) => {
   console.log('Fetching all transporters');
   try {
     const transporters = await Transporter.getAll();
-    await logActivity(req.admin.adminId, 'get_all_transporters', req);
+    await logAdminActivity(req.admin.adminId, 'get_all_transporters', req);
+
     res.status(200).json({
       message: "Transporters retrieved successfully",
       transporters
@@ -178,6 +194,15 @@ exports.toggleAvailability = async (req, res) => {
     }
 
     const updated = await Transporter.update(transporterId, { availability });
+
+    await logActivity(req.user.uid, 'toggle_availability', req);
+
+    await Notification.create({
+      type: "Toggle Transporter Availability",
+      message: `You toggled the availability of a transporter. Transporter ID: ${transporterId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
     res.status(200).json({ message: 'Availability updated successfully', transporter: updated });
   } catch (error) {
     console.error('Toggle availability error:', error);
@@ -188,6 +213,9 @@ exports.toggleAvailability = async (req, res) => {
 exports.getAvailableTransporters = async (req, res) => {
   try {
     const available = await Transporter.getByAvailability(true);
+
+    await logAdminActivity(req.admin.adminId, 'get_available_transporters', req);
+
     res.status(200).json({ transporters: available });
   } catch (error) {
     console.error('Get available transporters error:', error);
@@ -205,6 +233,8 @@ exports.updateRating = async (req, res) => {
     }
 
     const updated = await Transporter.update(transporterId, { rating });
+
+    await logAdminActivity(req.admin.adminId, 'update_rating', req);
     res.status(200).json({ message: 'Rating updated', transporter: updated });
   } catch (error) {
     console.error('Update rating error:', error);

@@ -1,6 +1,8 @@
 const Company = require('../models/Company');
-const  { logActivity } = require('../utils/activityLogger');
+const  { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const sendEmail = require("../utils/sendEmail");
+const Notification = require('../models/Notification');
+const Transporter = require('../models/Transporter');
 
 exports.createCompany = async (req, res) => {
   try {
@@ -21,6 +23,13 @@ exports.createCompany = async (req, res) => {
     };
     const company = await Company.create(companyData);
     await logActivity(req.user.uid, 'create_company', req);
+
+    await Notification.create({
+      type: "Create Company",
+      message: `You created a new company. Company ID: ${company.id}`,
+      userId: req.user.uid,
+      userType: "business",
+    });
     res.status(201).json({ message: 'Company created successfully', company });
   } catch (err) {
     console.error('Create company error:', err);
@@ -33,6 +42,9 @@ exports.getCompany = async (req, res) => {
     const { companyId } = req.params;
     const company = await Company.get(companyId);
     if (!company) return res.status(404).json({ message: 'Company not found' });
+
+    await logAdminActivity(req.admin.adminId, 'get_company', req);
+
     res.status(200).json(company);
   } catch (err) {
     console.error('Get company error:', err);
@@ -56,6 +68,13 @@ exports.updateCompany = async (req, res) => {
 
     const updatedCompany = await Company.update(companyId, updates);
     await logActivity(req.user.uid, 'update_company', req);
+
+    await Notification.create({
+      type: "Update Company",
+      message: `You updated a company. Company ID: ${companyId}`,
+      userId: req.user.uid,
+      userType: "business",
+    });
     res.status(200).json({ message: 'Company updated successfully', company: updatedCompany });
   } catch (err) {
     console.error('Update company error:', err);
@@ -80,7 +99,14 @@ exports.approveCompany = async (req, res) => {
       html: `<p>Your Company has been approved</p>`
     });
 
-    await logActivity(req.user.uid, 'approve_company', req);
+    await logAdminActivity(req.admin.adminId, 'approve_company', req);
+
+    await Notification.create({
+      type: "Approved Company",
+      message: `Your company was approved. Company ID: ${companyId}`,
+      userId: updatedCompany.transporterId,
+      userType: "user",
+    })
     res.status(200).json({ message: 'Company approved successfully', company: updatedCompany });
   } catch (err) {
     console.error('Approve company error:', err);
@@ -111,9 +137,16 @@ exports.rejectCompany = async (req, res) => {
       text: `Your company has been rejected because of: ${reason}`,
     //   html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
       html: `<p>Your company has been rejected because of: <strong>${reason}</strong></p>`
-    });
+    }); 
 
-    await logActivity(req.user.uid, 'reject_company', req);
+    await logAdminActivity(req.admin.adminId, 'reject_company', req);
+
+    await Notification.create({
+      type: "Rejected Company",
+      message: `Your company was rejected. Company ID: ${companyId}`,
+      userId: updatedCompany.transporterId,
+      userType: "user",
+    })
     res.status(200).json({ message: 'Company rejected successfully', company: updatedCompany });
   } catch (err) {
     console.error('Reject company error:', err);
@@ -128,7 +161,7 @@ exports.rejectCompany = async (req, res) => {
 exports.getAllCompanies = async (req, res) => {
   try {
     const companies = await Company.getAll();
-    await logActivity(req.admin.adminId, 'get_all_companies', req);
+    await logAdminActivity(req.admin.adminId, 'get_all_companies', req);
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get all companies error:', err);
@@ -140,7 +173,7 @@ exports.deleteCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
     await Company.delete(companyId);
-    await logActivity(req.user.uid, 'delete_company', req);
+    await logAdminActivity(req.admin.adminId, 'delete_company', req);
     res.status(200).json({ message: 'Company deleted successfully' });
   } catch (err) {
     console.error('Delete company error:', err);
@@ -156,6 +189,8 @@ exports.getCompaniesByTransporter = async (req, res) => {
   try {
     const { transporterId } = req.params;
     const companies = await Company.getByTransporter(transporterId);
+
+    await logAdminActivity(req.admin.adminId, 'get_companies_by_transporter', req);
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get companies by transporter error:', err);
@@ -167,6 +202,9 @@ exports.getCompaniesByStatus = async (req, res) => {
   try {
     const { status } = req.params;
     const companies = await Company.getByStatus(status);
+
+    await logAdminActivity(req.admin.adminId, 'get_companies_by_status', req);
+
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get companies by status error:', err);
@@ -178,6 +216,9 @@ exports.getCompaniesByTransporterAndStatus = async (req, res) => {
   try {
     const { transporterId, status } = req.params;
     const companies = await Company.getByTransporterAndStatus(transporterId, status);
+
+    await logAdminActivity(req.admin.adminId, 'get_companies_by_transporter_and_status', req);
+
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get companies by transporter and status error:', err);
@@ -189,6 +230,8 @@ exports.getAllForTransporter = async (req, res) => {
   try {
     const { transporterId } = req.params;
     const companies = await Company.getAllForTransporter(transporterId);
+
+    await logAdminActivity(req.admin.adminId, 'get_all_companies_for_transporter', req);
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get all companies for transporter error:', err);
@@ -200,6 +243,8 @@ exports.searchCompany = async (req, res) => {
   try {
     const { page = 1, limit = 10, status, search } = req.query;
     const result = await Company.search({ page, limit, status, search });
+
+    await logAdminActivity(req.admin.adminId, 'search_companies', req);
     res.status(200).json(result);
   } catch (err) {
     console.error('Search companies error:', err);

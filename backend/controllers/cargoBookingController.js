@@ -1,6 +1,7 @@
 const CargoBooking = require("../models/CargoBooking");
 const { logActivity } = require("../utils/activityLogger");
 const admin = require("../config/firebase");
+const Notification = require("../models/Notification");
 
 exports.createCargoBooking = async (req, res) => {
   try {
@@ -58,6 +59,13 @@ exports.createCargoBooking = async (req, res) => {
     // Log activity
     await logActivity(req.user.uid, 'create_cargo_booking', req);
 
+    await Notification.create({
+      type: "New CargoTRUK Booking",
+      message: `You have a new booking. Booking ID: ${requestId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
     res.status(201).json({
       message: "CargoTRUK booking created successfully",
       booking
@@ -77,6 +85,13 @@ exports.getCargoBooking = async (req, res) => {
 
     // Log the activity
     await logActivity(req.user.uid, 'get_cargo_booking', req);
+
+    await Notification.create({
+      type: "Get CargoTRUK Booking",
+      message: `You searched for one booking. Booking ID: ${req.params.bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
 
     res.status(200).json({
       message: "CargoTRUK booking retrieved successfully",
@@ -98,6 +113,13 @@ exports.updateCargoBooking = async (req, res) => {
     // Log the activity
     await logActivity(req.user.uid, 'update_cargo_booking', req);
 
+    await Notification.create({
+      type: "Update CargoTRUK Booking",
+      message: `You updated one booking. Booking ID: ${req.params.bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
     res.status(200).json({ message: 'CargoTRUK booking updated', updated });
   } catch (error) {
     console.error('Update cargo booking error:', error);
@@ -115,6 +137,14 @@ exports.acceptCargoBooking = async (req, res) => {
     const updates = await CargoBooking.acceptBooking(bookingId, transporterId, vehicleId);
     // Log the acceptance
     await logActivity(req.user.uid, 'accept_cargo_booking', req);
+
+    await Notification.create({
+      type: "CargoTRUK Booking Accepted",
+      message: `Your booking has been accepted. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "transporter",
+    });
+
     res.status(200).json({
       message: "CargoTRUK booking accepted successfully",
       booking: updates
@@ -137,6 +167,13 @@ exports.rejectCargoBooking = async (req, res) => {
     // Log the rejection
     await logActivity(req.user.uid, 'reject_cargo_booking', req);
 
+    await Notification.create({
+      type: "CargoTRUK Booking Rejected",
+      message: `Your booking has been rejected. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "transporter",
+    });
+
     res.status(200).json({ message: 'CargoTRUK booking rejected', result });
   } catch (error) {
     console.error('Reject cargo booking error:', error);
@@ -151,6 +188,13 @@ exports.deleteCargoBooking = async (req, res) => {
     // Log the deletion
     await logActivity(req.user.uid, 'delete_cargo_booking', req);
 
+    await Notification.create({
+      type: "CargoTRUK Booking Deleted",
+      message: `Your booking has been deleted. Booking ID: ${req.params.bookingId}`,
+      userId: req.user.uid,
+      userType: "transporter",
+    });
+
     res.status(200).json({ message: 'CargoTRUK booking deleted successfully' });
   } catch (error) {
     console.error('Delete cargo booking error:', error);
@@ -164,6 +208,13 @@ exports.getAllCargoBookings = async (req, res) => {
     
     // Log the retrieval
     await logActivity(req.user.uid, 'get_all_cargo_bookings', req);
+
+    await Notification.create({
+      type: "Get All CargoTRUK Bookings",
+      message: "You searched for all cargoTRUK bookings",
+      userId: req.user.uid,
+      userType: "user",
+    });
 
     res.status(200).json({
       message: "All CargoTRUK bookings retrieved successfully",
@@ -188,6 +239,13 @@ exports.getUserCargoBookings = async (req, res) => {
     // Log the retrieval
     await logActivity(userId, 'get_user_cargo_bookings', req);
 
+    await Notification.create({
+      type: "Get User CargoTRUK Bookings",
+      message: `You searched for your cargoTRUK bookings. User ID: ${userId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
     res.status(200).json({
       message: "User's CargoTRUK bookings retrieved successfully",
       bookings
@@ -209,6 +267,13 @@ exports.getTransporterCargoBookings = async (req, res) => {
     // Log the retrieval
     await logActivity(transporterId, 'get_transporter_cargo_bookings', req);
 
+    await Notification.create({
+      type: "Get Transporter CargoTRUK Bookings",
+      message: `You searched for your cargoTRUK bookings. Transporter ID: ${transporterId}`,
+      userId: req.user.uid,
+      userType: "transporter",
+    });
+
     res.status(200).json({
       message: "Transporter's CargoTRUK bookings retrieved successfully",
       bookings
@@ -226,6 +291,14 @@ exports.cancelCargoBooking = async (req, res) => {
     const cancelled = await CargoBooking.cancelBooking(bookingId);
     if (!cancelled) return res.status(404).json({ message: 'Booking not found' });
     await logActivity(req.user.uid, 'cancel_cargo_booking', req);
+
+    await Notification.create({
+      type: "Cancel CargoTRUK Booking",
+      message: `You cancelled one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
     res.status(200).json({ message: "CargoTRUK booking cancelled successfully", booking: cancelled });
   } catch (error) {
     console.error("Cancel cargo booking error:", error);
@@ -240,6 +313,14 @@ exports.startCargoBooking = async (req, res) => {
     const started = await CargoBooking.startBooking(bookingId);
     if (!started) return res.status(404).json({ message: 'Booking not found' });
     await logActivity(req.user.uid, 'start_cargo_booking', req);
+
+    await Notification.create({
+      type: "Start CargoTRUK Booking",
+      message: `You started one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "transporter",
+    });
+    
     res.status(200).json({ message: "CargoTRUK booking started successfully", booking: started });
   } catch (error) {
     console.error("Start cargo booking error:", error);
