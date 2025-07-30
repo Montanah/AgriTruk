@@ -6,11 +6,12 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
 import colors from '../constants/colors';
 import { auth, db } from '../firebaseConfig';
 
 const mockSubscription = {
-  plan: 'Pro',
+  plan: 'Monthly',
   status: 'Active',
   renewal: '2024-07-01',
 };
@@ -29,7 +30,7 @@ export default function BrokerProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [showPwdModal, setShowPwdModal] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
-  const [currentPlan, setCurrentPlan] = useState('pro');
+  const [currentPlan, setCurrentPlan] = useState('monthly');
   const [currentSub, setCurrentSub] = useState(mockSubscription);
   const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
@@ -213,37 +214,25 @@ export default function BrokerProfileScreen() {
         </View>
       </Modal>
       {/* Manage Plan Modal */}
-      <Modal visible={showPlanModal} animationType="slide" transparent onRequestClose={() => setShowPlanModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Manage Plan</Text>
-            {planOptions.map(plan => (
-              <TouchableOpacity
-                key={plan.key}
-                style={[styles.planOption, currentPlan === plan.key && styles.planOptionActive]}
-                onPress={() => handlePlanChange(plan.key)}
-                disabled={currentPlan === plan.key}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <MaterialCommunityIcons name={plan.key === 'basic' ? 'star-outline' : plan.key === 'pro' ? 'star' : 'star-shooting'} size={22} color={currentPlan === plan.key ? colors.secondary : colors.primaryDark} style={{ marginRight: 10 }} />
-                  <Text style={[styles.planLabel, currentPlan === plan.key && { color: colors.secondary }]}>{plan.label}</Text>
-                  <Text style={styles.planPrice}>{plan.price}</Text>
-                </View>
-                <View style={{ marginTop: 6, marginLeft: 32 }}>
-                  {plan.features.map((f, i) => (
-                    <Text key={i} style={styles.planFeature}>• {f}</Text>
-                  ))}
-                </View>
-              </TouchableOpacity>
-            ))}
-            <View style={styles.modalActionsRow}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPlanModal(false)}>
-                <Text style={styles.cancelText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {showPlanModal && (
+        <SubscriptionModal
+          selectedPlan={currentPlan}
+          setSelectedPlan={setCurrentPlan}
+          onClose={() => setShowPlanModal(false)}
+          onSubscribe={() => {
+            let planLabel = 'Monthly';
+            if (currentPlan === 'quarterly') planLabel = 'Quarterly';
+            if (currentPlan === 'annual') planLabel = 'Annual';
+            setCurrentSub({
+              plan: planLabel,
+              status: 'Active',
+              renewal: '2024-07-01',
+            });
+            setShowPlanModal(false);
+            Alert.alert('Plan Updated', `Your plan has been changed to ${planLabel}`);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
