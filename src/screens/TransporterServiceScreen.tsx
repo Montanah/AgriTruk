@@ -16,6 +16,7 @@ import BookingCard from '../components/TransporterService/BookingCard';
 import Header from '../components/TransporterService/Header';
 import Insights from '../components/TransporterService/Insights';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
+import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 
 type TransporterType = 'company' | 'individual' | 'broker';
 type RouteParams = { params?: { transporterType?: TransporterType } };
@@ -122,6 +123,9 @@ const TransporterServiceScreen = () => {
       }
     : undefined;
 
+  // For demo, use a mock tripId. In real app, get from active trip state.
+  const activeTripId = 'TRIP123';
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -162,6 +166,9 @@ const TransporterServiceScreen = () => {
               currencyCode="KES"
               fleetStats={fleetStats}
             />
+
+            {/* Available Loads Along Route */}
+            <AvailableLoadsAlongRoute tripId={activeTripId} />
 
             <Text style={styles.sectionTitle}>Instant Requests</Text>
           </View>

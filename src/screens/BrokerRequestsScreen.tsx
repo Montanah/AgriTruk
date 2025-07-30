@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   FlatList,
   Modal,
@@ -53,6 +53,7 @@ const PRODUCT_SUGGESTIONS = [
   'Maize', 'Fruits', 'Beans', 'Wheat', 'Rice', 'Vegetables', 'Coffee', 'Tea', 'Livestock', 'Machinery', 'Electronics', 'Furniture', 'Clothing', 'Chemicals', 'Other',
 ];
 
+const API_BASE = '/api/brokers';
 
 export default function BrokerRequestsScreen() {
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -79,110 +80,186 @@ export default function BrokerRequestsScreen() {
   const [formCollapsed, setFormCollapsed] = useState(false);
   const [error, setError] = useState('');
   const [requestFor, setRequestFor] = useState('');
+  const [clients, setClients] = useState(null); // null = loading, [] = no clients
+  const [requests, setRequests] = useState(null); // null = loading, [] = no requests
+  const [usingMock, setUsingMock] = useState(false);
   const scrollRef = useRef(null);
 
-  function handlePlaceRequest() {
+  // Fetch clients and requests on mount
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        // TODO: Replace with your auth token logic
+        const token = '';
+        const resClients = await fetch(API_BASE + '/clients', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!resClients.ok) throw new Error('Failed to fetch clients');
+        const dataClients = await resClients.json();
+        setClients(dataClients.data);
+        // Fetch requests for the first client (or all clients if needed)
+        if (dataClients.data && dataClients.data.length > 0) {
+          const firstClientId = dataClients.data[0].id;
+          const resRequests = await fetch(`${API_BASE}/clients/${firstClientId}/requests`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!resRequests.ok) throw new Error('Failed to fetch requests');
+          const dataRequests = await resRequests.json();
+          setRequests(dataRequests.data);
+        } else {
+          setRequests([]);
+        }
+        setUsingMock(false);
+      } catch (e) {
+        setClients(MOCK_CLIENTS);
+        setRequests(mockRequests);
+        setUsingMock(true);
+      }
+    }
+    fetchData();
+  }, []);
+
+  async function handlePlaceRequest() {
     if (!requestClientId || !pickupLocation || !dropoffLocation || !productType || !weight) {
       setError('Please fill all required fields.');
       return;
     }
-    // Mock users (replace with real user context)
-    const client = MOCK_CLIENTS.find(c => c.id === requestClientId) || { id: requestClientId, name: requestFor, email: 'client@trukapp.com', phone: '+254700111111' };
-    const broker = { id: 'B001', name: 'BrokerX', email: 'brokerx@trukapp.com', phone: '+254700999888' };
-    const admin = { id: 'ADMIN', name: 'Admin', email: 'admin@trukapp.com', phone: '+254700000000' };
-    const request = {
-      clientId: requestClientId,
-      for: requestFor,
-      pickupLocation,
-      dropoffLocation,
-      productType,
-      weight,
-      value,
-      additional,
-      perishableSpecs,
-      specialCargoSpecs,
-      pickupTime: pickupTime ? pickupTime.toLocaleString() : '',
-      requestType,
-      requestCategory,
-      status: 'pending',
-    };
-    // Notify all parties
-    notificationService.sendInApp(client.id, `Request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'customer', 'request_allocated', { request });
-    notificationService.sendEmail(client.email, 'Request Placed', `Your request for ${productType} from ${pickupLocation} to ${dropoffLocation} has been placed.`, 'customer', 'request_allocated', { request });
-    notificationService.sendSMS(client.phone, `Request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'customer', 'request_allocated', { request });
-    notificationService.sendInApp(broker.id, `Placed request for ${client.name}: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'broker', 'request_allocated', { request });
-    notificationService.sendEmail(broker.email, 'Request Placed', `Placed request for ${client.name}: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'broker', 'request_allocated', { request });
-    notificationService.sendSMS(broker.phone, `Placed request for ${client.name}: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'broker', 'request_allocated', { request });
-    notificationService.sendInApp(admin.id, `New request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'admin', 'request_allocated', { request });
-    notificationService.sendEmail(admin.email, 'Request Placed', `New request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'admin', 'request_allocated', { request });
-    notificationService.sendSMS(admin.phone, `New request placed: ${productType} from ${pickupLocation} to ${dropoffLocation}`, 'admin', 'request_allocated', { request });
-    setShowRequestModal(false);
-    setRequestFor('');
-    setRequestClientId('');
-    setPickupLocation('');
-    setDropoffLocation('');
-    setProductType('');
-    setWeight('');
-    setValue('');
-    setAdditional('');
-    setRequestType('instant');
-    setRequestCategory('cargo');
-    setIsPerishable(false);
-    setIsSpecialCargo(false);
-    setPerishableSpecs([]);
-    setSpecialCargoSpecs([]);
-    setPickupTime(null);
-    setError('');
-    setLoadingTransporters(true);
-    setShowTransporters(false);
-    setFormCollapsed(true);
-    setTimeout(() => {
-      setFilteredTransporters(mockTransporters);
-      setLoadingTransporters(false);
-      setShowTransporters(true);
-      if (scrollRef.current) {
-        scrollRef.current.scrollToEnd({ animated: true });
+    if (!usingMock) {
+      try {
+        // TODO: Replace with your auth token logic
+        const token = '';
+        const body = {
+          category: requestCategory,
+          type: requestType,
+          pickUpLocation: pickupLocation,
+          dropOffLocation: dropoffLocation,
+          productType,
+          weightKg: Number(weight),
+          value: value ? Number(value) : undefined,
+          additionalRequest: additional,
+        };
+        const res = await fetch(`${API_BASE}/clients/${requestClientId}/requests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error('Failed to place request');
+        alert('Request/Booking placed!');
+        setShowRequestModal(false);
+        setRequestFor('');
+        setRequestClientId('');
+        setPickupLocation('');
+        setDropoffLocation('');
+        setProductType('');
+        setWeight('');
+        setValue('');
+        setAdditional('');
+        setRequestType('instant');
+        setRequestCategory('cargo');
+        setIsPerishable(false);
+        setIsSpecialCargo(false);
+        setPerishableSpecs([]);
+        setSpecialCargoSpecs([]);
+        setPickupTime(null);
+        setError('');
+        // Optionally, refetch requests
+      } catch (e) {
+        alert('Failed to place request. Using mock.');
+        setUsingMock(true);
       }
-    }, 1200);
-    alert('Request/Booking placed!');
+    } else {
+      // Fallback to mock logic
+      alert('Request/Booking placed! (mock)');
+      setShowRequestModal(false);
+      setRequestFor('');
+      setRequestClientId('');
+      setPickupLocation('');
+      setDropoffLocation('');
+      setProductType('');
+      setWeight('');
+      setValue('');
+      setAdditional('');
+      setRequestType('instant');
+      setRequestCategory('cargo');
+      setIsPerishable(false);
+      setIsSpecialCargo(false);
+      setPerishableSpecs([]);
+      setSpecialCargoSpecs([]);
+      setPickupTime(null);
+      setError('');
+    }
   }
 
-  // Consolidate selected requests
-  function handleConsolidateRequests() {
-    if (selectedRequests.length < 2) {
-      alert('Select at least two requests to consolidate.');
+  async function handleConsolidateRequests() {
+    if (selectedRequests.length === 0) {
+      alert('Select at least one request to handle.');
       return;
     }
-    alert('Consolidated ' + selectedRequests.length + ' requests into a bulk shipment!');
-    setSelectedRequests([]);
+    if (selectedRequests.length === 1) {
+      alert('Handled 1 request (no consolidation needed).');
+      setSelectedRequests([]);
+      return;
+    }
+    if (!usingMock) {
+      try {
+        // TODO: Replace with your auth token logic
+        const token = '';
+        const body = { requestIds: selectedRequests };
+        const res = await fetch(`${API_BASE}/requests/consolidate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error('Failed to consolidate requests');
+        alert('Consolidated ' + selectedRequests.length + ' requests into a bulk shipment!');
+        setSelectedRequests([]);
+        // Optionally, refetch requests
+      } catch (e) {
+        alert('Failed to consolidate. Using mock.');
+        setUsingMock(true);
+      }
+    } else {
+      alert('Consolidated ' + selectedRequests.length + ' requests into a bulk shipment! (mock)');
+      setSelectedRequests([]);
+    }
   }
 
-  const totalRequests = mockRequests.length;
-  const completed = mockRequests.filter(r => r.status === 'Completed').length;
-  const pending = mockRequests.filter(r => r.status === 'Pending').length;
-  const totalRevenue = mockRequests.reduce((sum, r) => sum + (r.status === 'Completed' ? r.amount : 0), 0);
+  // Use real or mock data for UI
+  const clientList = clients && clients.length > 0 ? clients : MOCK_CLIENTS;
+  const requestList = requests && requests.length > 0 ? requests : mockRequests;
+
+  const totalRequests = requestList.length;
+  const completed = requestList.filter(r => r.status === 'Completed').length;
+  const pending = requestList.filter(r => r.status === 'Pending').length;
+  const totalRevenue = requestList.reduce((sum, r) => sum + (r.status === 'Completed' ? r.amount : 0), 0);
 
   const ListHeader = () => (
-    <View style={{ paddingHorizontal: 18, paddingTop: 24 }}>
-      <View style={{ height: 16 }} />
+    <View style={styles.headerContainer}>
+      <View style={{ height: 24 }} />
       <View style={styles.analyticsRow}>
-        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.analyticsCard, styles.cardShadow, { backgroundColor: colors.surface }]}> 
           <MaterialCommunityIcons name="clipboard-list-outline" size={28} color={colors.primary} />
           <Text style={styles.analyticsValue}>{totalRequests}</Text>
           <Text style={styles.analyticsLabel}>Total</Text>
         </View>
-        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.analyticsCard, styles.cardShadow, { backgroundColor: colors.surface }]}> 
           <MaterialCommunityIcons name="check-circle-outline" size={28} color={colors.secondary} />
           <Text style={styles.analyticsValue}>{completed}</Text>
           <Text style={styles.analyticsLabel}>Completed</Text>
         </View>
-        <View style={[styles.analyticsCard, { backgroundColor: colors.surface }]}>
+        <View style={[styles.analyticsCard, styles.cardShadow, { backgroundColor: colors.surface }]}> 
           <MaterialCommunityIcons name="clock-outline" size={28} color={colors.primaryDark} />
           <Text style={styles.analyticsValue}>{pending}</Text>
           <Text style={styles.analyticsLabel}>Pending</Text>
         </View>
       </View>
-      <View style={styles.revenueCard}>
+      <View style={[styles.revenueCard, styles.cardShadow]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
           <MaterialCommunityIcons name="cash-multiple" size={28} color={colors.primaryDark} style={{ marginRight: 8 }} />
           <Text style={styles.revenueTitle}>Revenue & Commission</Text>
@@ -193,7 +270,7 @@ export default function BrokerRequestsScreen() {
         </View>
         <Text style={styles.revenueNote}>Commission Rate: <Text style={{ color: colors.secondary, fontWeight: 'bold' }}>{(mockRevenue.commissionRate * 100).toFixed(0)}%</Text></Text>
       </View>
-      <View style={[styles.sectionHeaderRow, { gap: 10, flexWrap: 'wrap' }]}>
+      <View style={[styles.sectionHeaderRow, styles.sectionHeaderCard, { gap: 10, flexWrap: 'wrap' }]}> 
         <Text style={styles.sectionTitle}>Requests/Bookings</Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity style={styles.createBtn} onPress={() => setShowRequestModal(true)}>
@@ -211,7 +288,7 @@ export default function BrokerRequestsScreen() {
 
   const ListFooter = () => (
     <View style={{ paddingHorizontal: 18 }}>
-      <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}>
+      <View style={[styles.sectionCard, { backgroundColor: colors.surface }]}> 
         <Text style={styles.sectionTitle}>Broker Tips</Text>
         <Text style={styles.tipText}>• Place requests for your clients and track their status here.</Text>
         <Text style={styles.tipText}>• Completed requests earn you commission.</Text>
@@ -223,14 +300,15 @@ export default function BrokerRequestsScreen() {
 
   const insets = require('react-native-safe-area-context').useSafeAreaInsets();
   return (
-    <SafeAreaView style={styles.bg}>
+    <SafeAreaView style={styles.safeArea}>
       <FlatList
-        data={mockRequests}
+        data={requestList}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity
-            style={[styles.requestCard, selectedRequests.includes(item.id) && { borderColor: colors.secondary, borderWidth: 2 }]}
-            onLongPress={() => {
+            style={[styles.requestCard, selectedRequests.includes(item.id) && { borderColor: colors.secondary, borderWidth: 2, backgroundColor: '#f2f7fa' }]}
+            activeOpacity={0.8}
+            onPress={() => {
               setSelectedRequests(selectedRequests.includes(item.id)
                 ? selectedRequests.filter(id => id !== item.id)
                 : [...selectedRequests, item.id]);
@@ -240,17 +318,32 @@ export default function BrokerRequestsScreen() {
               <MaterialCommunityIcons name={item.type === 'Booking' ? 'calendar-check' : 'flash'} size={24} color={item.type === 'Booking' ? colors.primary : colors.secondary} style={{ marginRight: 12 }} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.requestFor}>{item.for}</Text>
-                <Text style={styles.requestInfo}>{item.type} • {item.category === 'agri' ? 'Agri' : 'Cargo'} • Ksh {item.amount.toLocaleString()}</Text>
+                <Text style={styles.requestInfo}>{item.type} • {item.category === 'agri' ? 'Agri' : 'Cargo'} • Ksh {item.amount?.toLocaleString?.() ?? item.amount}</Text>
                 <Text style={styles.requestStatusLabel}>Status: <Text style={[styles.requestStatus, item.status === 'Completed' ? { color: colors.secondary } : { color: colors.primaryDark }]}>{item.status}</Text></Text>
                 <Text style={styles.requestSummary}>{item.summary}</Text>
               </View>
+              <TouchableOpacity
+                style={styles.checkboxWrap}
+                onPress={() => {
+                  setSelectedRequests(selectedRequests.includes(item.id)
+                    ? selectedRequests.filter(id => id !== item.id)
+                    : [...selectedRequests, item.id]);
+                }}
+                activeOpacity={0.7}
+              >
+                {selectedRequests.includes(item.id) ? (
+                  <MaterialCommunityIcons name="checkbox-marked" size={26} color={colors.secondary} />
+                ) : (
+                  <MaterialCommunityIcons name="checkbox-blank-outline" size={26} color={colors.text.light} />
+                )}
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>No requests/bookings yet.</Text>}
         ListHeaderComponent={<ListHeader />}
         ListFooterComponent={<ListFooter />}
-        contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 10 }}
+        contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 20 }}
         showsVerticalScrollIndicator={false}
       />
       {/* Request Modal */}
@@ -288,11 +381,11 @@ export default function BrokerRequestsScreen() {
                 <View style={styles.pickerWrap}>
                   <Picker selectedValue={requestClientId} onValueChange={val => {
                     setRequestClientId(val);
-                    const client = MOCK_CLIENTS.find(c => c.id === val);
+                    const client = clientList.find(c => c.id === val);
                     setRequestFor(client ? client.name : '');
                   }} style={styles.picker}>
                     <Picker.Item label="Select..." value="" />
-                    {MOCK_CLIENTS.map(c => (
+                    {clientList.map(c => (
                       <Picker.Item key={c.id} label={`${c.name} (${c.type === 'business' ? 'Business' : 'Individual'})`} value={c.id} />
                     ))}
                   </Picker>
@@ -357,12 +450,20 @@ export default function BrokerRequestsScreen() {
                 </>
               )}
               {error ? <Text style={styles.error}>{error}</Text> : null}
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: '#2e7d32', marginTop: 12 }]}
-                onPress={handlePlaceRequest}
-              >
-                <Text style={styles.saveText}>Place Request</Text>
-              </TouchableOpacity>
+              <View style={styles.modalActionsRow}>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: '#2e7d32', flex: 1 }]}
+                  onPress={handlePlaceRequest}
+                >
+                  <Text style={styles.saveText}>Place Request</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cancelBtn, { flex: 1 }]}
+                  onPress={() => setShowRequestModal(false)}
+                >
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </ScrollView>
           </View>
         </View>
@@ -404,9 +505,55 @@ const styles = StyleSheet.create({
   inputLabel: { fontWeight: 'bold', color: colors.text.secondary, marginTop: 8, marginBottom: 2 },
   pickerWrap: { borderWidth: 1, borderColor: colors.text.light, borderRadius: 8, marginBottom: 8, backgroundColor: colors.surface },
   picker: { height: Platform.OS === 'ios' ? 120 : 44, width: '100%' },
-  modalActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 },
-  cancelBtn: { backgroundColor: colors.background, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 18, borderWidth: 1, borderColor: colors.text.light, marginRight: 8 },
-  cancelText: { color: colors.error, fontWeight: 'bold', fontSize: 15 },
-  saveBtn: { backgroundColor: colors.primary, borderRadius: 8, padding: 10, alignItems: 'center', marginTop: 8 },
-  saveText: { color: colors.white, fontWeight: 'bold' },
+  modalActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 14,
+    marginTop: 18,
+  },
+  cancelBtn: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 0,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 0,
+    marginLeft: 0,
+    marginTop: 0,
+    minHeight: 48,
+    flex: 1,
+  },
+  cancelText: {
+    color: colors.error,
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  saveBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    flex: 1,
+  },
+  saveText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  checkboxWrap: {
+    marginLeft: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 32,
+    width: 32,
+  },
 });

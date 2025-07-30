@@ -8,6 +8,7 @@ import colors from '../constants/colors';
 import { MOCK_BOOKINGS } from '../mocks/bookings';
 import { mockMessages } from '../mocks/messages';
 import { mockTrip } from '../mocks/trip';
+import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 
 const TripDetailsScreen = () => {
   const route = useRoute();
@@ -89,6 +90,9 @@ const TripDetailsScreen = () => {
     notificationService.sendSMS(admin.phone, `Trip ${status}: ${tripSummary}`, 'admin', 'request_status', { trip, status });
   };
 
+  // Use trip.id or booking.id as tripId for AvailableLoadsAlongRoute
+  const tripId = trip.id || booking.id || 'TRIP123';
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 18, paddingRight: 8 }}>
@@ -99,6 +103,8 @@ const TripDetailsScreen = () => {
         <Text style={{ color: '#888', fontSize: 18, marginTop: 12, fontWeight: '600' }}>Map will appear here</Text>
         <Text style={{ color: '#aaa', fontSize: 13, marginTop: 4 }}>Enable Google Maps API for live tracking</Text>
       </View>
+      {/* Available Loads Along Route */}
+      <AvailableLoadsAlongRoute tripId={tripId} />
       <View style={styles.divider} />
       {/* Bottom Card - Clean, At-a-Glance Trip Details */}
       <View style={[styles.bottomCard, { marginBottom: 24 }]}>
