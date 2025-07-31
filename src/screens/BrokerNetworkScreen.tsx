@@ -97,16 +97,16 @@ export default function BrokerNetworkScreen() {
     setShowAddModal(true);
   };
   const handleRemoveClient = (idx) => {
-    setClients(clients.filter((_, i) => i !== idx));
+    setClients((clients || []).filter((_, i) => i !== idx));
   };
 
   // Filtered clients for search
-  const filteredClients = clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+  const filteredClients = (clients || []).filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
 
   // Analytics
-  const totalBusinesses = clients.filter(c => c.type === 'business').length;
-  const totalIndividuals = clients.filter(c => c.type === 'individual').length;
-  const totalClients = clients.length;
+  const totalBusinesses = (clients || []).filter(c => c.type === 'business').length;
+  const totalIndividuals = (clients || []).filter(c => c.type === 'individual').length;
+  const totalClients = (clients || []).length;
 
   const daysLeft = getDaysLeftInMonth();
 

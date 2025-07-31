@@ -19,7 +19,7 @@ const { width } = Dimensions.get('window');
 
 const roles = [
   {
-    key: 'farmer',
+    key: 'shipper',
     label: 'Shipper',
     accent: colors.primary,
     icon: (animatedStyle: any) => (
@@ -27,7 +27,7 @@ const roles = [
         <FontAwesome5 name="tractor" size={32} color={colors.primary} />
       </Animated.View>
     ),
-    description: 'For farmers and individuals who want to move goods, cargo, or luggage from one place to another.',
+    description: 'For shippers who want to move goods, cargo, or luggage from one place to another.',
   },
   {
     key: 'business',
@@ -49,7 +49,7 @@ const roles = [
         <FontAwesome5 name="user-tie" size={32} color={colors.tertiary} />
       </Animated.View>
     ),
-    description: 'For intermediaries connecting businesses, farmers, and transporters',
+    description: 'For intermediaries connecting businesses, shippers, and transporters',
   },
   {
     key: 'driver',

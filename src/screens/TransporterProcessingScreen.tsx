@@ -128,13 +128,39 @@ export default function TransporterProcessingScreen({ route }) {
             pressed && { backgroundColor: colors.primary + '22' },
           ]}
           onPress={async () => {
-            // Real backend refresh logic
-            // Example: fetch status from /transporters/:id or /companies/:id
-            // You may need to get the user id from context or auth
-            // Show a loading indicator or feedback as needed
-            // TODO: Implement actual backend status check here
-            // For now, just a placeholder
-            alert('Refreshing status from backend... (implement real API call)');
+            try {
+              // Get user ID from Firebase Auth
+              const { getAuth } = require('firebase/auth');
+              const auth = getAuth();
+              const user = auth.currentUser;
+              if (!user) {
+                alert('Not authenticated');
+                return;
+              }
+              // Determine endpoint based on transporterType
+              const endpoint = transporterType === 'company'
+                ? `https://agritruk-backend.onrender.com/api/companies/${user.uid}`
+                : `https://agritruk-backend.onrender.com/api/transporters/${user.uid}`;
+              // Get JWT token
+              const token = await user.getIdToken();
+              // Fetch status from backend with Authorization header
+              const res = await fetch(endpoint, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                alert(data.message || 'Failed to fetch status');
+                return;
+              }
+              // Show status (customize as needed)
+              alert(`Status: ${data.status || data.body?.status || 'unknown'}`);
+              // Optionally, update UI state here
+            } catch (err) {
+              alert('Error refreshing status: ' + err.message);
+            }
           }}
         >
           <Ionicons name="refresh" size={20} color={colors.primary} style={{ marginRight: 6 }} />

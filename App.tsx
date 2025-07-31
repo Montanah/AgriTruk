@@ -168,14 +168,18 @@ export default function App() {
     );
   }
 
+  // Wrap the entire app in a global error boundary
+  const ErrorBoundary = require('./src/components/ErrorBoundary').default;
   return (
-    <NotificationProvider>
-      <StatusBar style="dark" translucent />
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
-          {screens}
-        </Stack.Navigator>
-      </NavigationContainer>
-    </NotificationProvider>
+    <ErrorBoundary>
+      <NotificationProvider>
+        <StatusBar style="dark" translucent />
+        <NavigationContainer>
+          <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+            {screens}
+          </Stack.Navigator>
+        </NavigationContainer>
+      </NotificationProvider>
+    </ErrorBoundary>
   );
 }

@@ -71,6 +71,11 @@ export default function TransporterCompletionScreen() {
   const [vehicleColor, setVehicleColor] = useState('');
   const [makeDropdownOpen, setMakeDropdownOpen] = useState(false);
   const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
+  const [maxCapacity, setMaxCapacity] = useState('');
+  const [year, setYear] = useState('');
+  const [driveType, setDriveType] = useState('');
+  const [bodyType, setBodyType] = useState('closed');
+  const [vehicleFeatures, setVehicleFeatures] = useState('');
   const dropdownAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -82,13 +87,11 @@ export default function TransporterCompletionScreen() {
     }).start();
   }, [dropdownOpen]);
   const [registration, setRegistration] = useState('');
-  const [maxCapacity, setMaxCapacity] = useState('');
-  const [year, setYear] = useState('');
-  const [driveType, setDriveType] = useState('');
   const [humidityControl, setHumidityControl] = useState(false);
   const [refrigeration, setRefrigeration] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [vehiclePhotos, setVehiclePhotos] = useState([]);
+  const [photoJustAdded, setPhotoJustAdded] = useState(false);
   const [dlFile, setDlFile] = useState(null); // can be image or pdf
   const [idFile, setIdFile] = useState(null); // driver's ID
   const [insuranceFile, setInsuranceFile] = useState(null); // insurance
@@ -145,7 +148,10 @@ export default function TransporterCompletionScreen() {
   };
 
   const handleAddVehiclePhoto = () => {
-    pickImage((img) => setVehiclePhotos((prev) => [...prev, img]));
+    pickImage((img) => {
+      setVehiclePhotos((prev) => [...prev, img]);
+      setPhotoJustAdded(true);
+    });
   };
 
   const handleRemoveVehiclePhoto = (idx) => {
@@ -155,6 +161,14 @@ export default function TransporterCompletionScreen() {
   const handleProfilePhoto = () => {
     pickImage(setProfilePhoto);
   };
+
+  // Debounce submit after adding a photo
+  React.useEffect(() => {
+    if (photoJustAdded) {
+      const timer = setTimeout(() => setPhotoJustAdded(false), 350);
+      return () => clearTimeout(timer);
+    }
+  }, [photoJustAdded]);
 
   const isValid = () => {
     if (transporterType === 'individual') {
@@ -223,6 +237,21 @@ export default function TransporterCompletionScreen() {
 
   const handleSubmit = async () => {
     setError('');
+    // Robust validation before uploading
+    if (transporterType === 'individual') {
+      if (!vehicleType) { setError('Please select a vehicle type.'); return; }
+      if (!registration) { setError('Please enter the vehicle registration number.'); return; }
+      if (!profilePhoto) { setError('Please upload a profile photo.'); return; }
+      if (!dlFile) { setError("Please upload the driver's license."); return; }
+      if (!insuranceFile) { setError('Please upload the insurance document.'); return; }
+      if (!idFile) { setError("Please upload the driver's ID."); return; }
+      if (!vehiclePhotos || vehiclePhotos.length === 0) { setError('Please add at least one vehicle photo.'); return; }
+    } else {
+      if (!companyName) { setError('Please enter the company name.'); return; }
+      if (!companyReg) { setError('Please enter the company registration number.'); return; }
+      if (!companyContact) { setError('Please enter the company contact number.'); return; }
+      if (!profilePhoto) { setError('Please upload a company logo.'); return; }
+    }
     setUploading(true);
     try {
       // Upload images/documents to Cloudinary and get URLs
@@ -245,13 +274,27 @@ export default function TransporterCompletionScreen() {
       const userId = user.uid;
 
       if (transporterType === 'individual') {
+        // Gather initial user info from Firebase Auth
+        const displayName = user.displayName || '';
+        const email = user.email || '';
+        const phone = user.phoneNumber || '';
         // Submit to backend /transporters endpoint
         const payload = {
           transporterId: userId,
+          displayName,
+          email,
+          phone,
           profilePhoto: profilePhotoUrl,
           vehiclePhotos: vehiclePhotoUrls,
           vehicleType,
+          vehicleMake,
+          vehicleColor,
           registration,
+          maxCapacity,
+          year,
+          driveType,
+          bodyType,
+          vehicleFeatures,
           humidityControl,
           refrigeration,
           dlFile: dlFileUrl,
@@ -268,11 +311,18 @@ export default function TransporterCompletionScreen() {
           body: JSON.stringify(payload),
         });
       } else {
+        // Gather initial user info from Firebase Auth
+        const displayName = user.displayName || '';
+        const email = user.email || '';
+        const phone = user.phoneNumber || '';
         // Submit to backend /companies endpoint
         const payload = {
           companyName,
           companyReg,
           companyContact,
+          displayName,
+          email,
+          phone,
           profilePhoto: profilePhotoUrl,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -363,12 +413,22 @@ export default function TransporterCompletionScreen() {
 
           <Text style={styles.sectionTitle}>Vehicle Details</Text>
           <VehicleDetailsForm
-          initial={{}}
-          onChange={() => {}}
-          onPhotoAdd={handleAddVehiclePhoto}
-          onPhotoRemove={handleRemoveVehiclePhoto}
-          vehiclePhotos={vehiclePhotos}
-          error={error}
+            initial={{ vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures }}
+            onChange={({ vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures }) => {
+              setVehicleType(vehicleType);
+              setVehicleMake(vehicleMake);
+              setVehicleColor(vehicleColor);
+              setRegistration(registration);
+              setMaxCapacity(maxCapacity);
+              setYear(year);
+              setDriveType(driveType);
+              setBodyType(bodyType);
+              setVehicleFeatures(vehicleFeatures);
+            }}
+            onPhotoAdd={handleAddVehiclePhoto}
+            onPhotoRemove={handleRemoveVehiclePhoto}
+            vehiclePhotos={vehiclePhotos}
+            error={error}
           />
 
           {/* Grouped Document Uploads: DL + ID, Logbook + Insurance */}
@@ -488,24 +548,24 @@ export default function TransporterCompletionScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={{ paddingBottom: insets.bottom + 18, width: '100%' }}>
         <TouchableOpacity
-          style={[styles.submitBtn, { backgroundColor: isValid() ? colors.primary : colors.text.light }]}
-          onPress={async () => {
-            setError('');
-            setUploading(true);
-            let success = false;
-            try {
-              await handleSubmit();
-              success = true;
-            } catch (e) {
-              setError('Failed to submit profile. Please try again.');
-            } finally {
-              setUploading(false);
-            }
-            if (success) {
-              navigation.navigate('TransporterProcessingScreen', { transporterType });
-            }
-          }}
-          disabled={!isValid() || uploading}
+        style={[styles.submitBtn, { backgroundColor: isValid() && !photoJustAdded ? colors.primary : colors.text.light }]}
+        onPress={async () => {
+        setError('');
+        setUploading(true);
+        let success = false;
+        try {
+        await handleSubmit();
+        success = true;
+        } catch (e) {
+        setError('Failed to submit profile. Please try again.');
+        } finally {
+        setUploading(false);
+        }
+        if (success) {
+        navigation.navigate('TransporterProcessingScreen', { transporterType });
+        }
+        }}
+        disabled={!isValid() || uploading || photoJustAdded}
         >
           {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
         </TouchableOpacity>

@@ -234,10 +234,10 @@ export default function BrokerRequestsScreen() {
   const clientList = clients && clients.length > 0 ? clients : MOCK_CLIENTS;
   const requestList = requests && requests.length > 0 ? requests : mockRequests;
 
-  const totalRequests = requestList.length;
-  const completed = requestList.filter(r => r.status === 'Completed').length;
-  const pending = requestList.filter(r => r.status === 'Pending').length;
-  const totalRevenue = requestList.reduce((sum, r) => sum + (r.status === 'Completed' ? r.amount : 0), 0);
+  const totalRequests = (requestList || []).length;
+  const completed = (requestList || []).filter(r => r.status === 'Completed').length;
+  const pending = (requestList || []).filter(r => r.status === 'Pending').length;
+  const totalRevenue = (requestList || []).reduce((sum, r) => sum + (r.status === 'Completed' ? r.amount : 0), 0);
 
   const ListHeader = () => (
     <View style={styles.headerContainer}>

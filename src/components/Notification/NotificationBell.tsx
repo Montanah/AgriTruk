@@ -7,7 +7,7 @@ import colors from '../../constants/colors';
 const NotificationBell: React.FC = () => {
   const { notifications, markAllRead } = useNotification();
   const [modalVisible, setModalVisible] = useState(false);
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = (notifications || []).filter(n => !n.read).length;
 
   return (
     <>

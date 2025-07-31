@@ -1,25 +1,38 @@
-import React, { useState, useRef } from 'react';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
+import React, { useRef, useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  Platform,
+  Alert,
   Animated,
   KeyboardAvoidingView,
   PanResponder,
-  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import * as SystemUI from 'expo-system-ui';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
-import { spacing, fonts } from '../constants';
+
+import NotificationBell from '../components/Notification/NotificationBell';
+import { useTransporters } from '../hooks/UseTransporters';
+import { apiRequest } from '../utils/api';
+
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+
+// import * as Location from 'expo-location';
+// import MapView, { Marker, Polyline } from 'react-native-maps';
+// import { GOOGLE_MAPS_API_KEY } from '@env';
+// import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 
 const TAB_UNDERLINE_WIDTH = 120;
 const TAB_COUNT = 2;
@@ -75,23 +88,32 @@ const PRODUCT_SUGGESTIONS = [
   'Other',
 ];
 
-import { useTransporters } from '../hooks/UseTransporters';
-import NotificationBell from '../components/Notification/NotificationBell';
-import { apiRequest } from '../utils/api';
-
-import { useNavigation } from '@react-navigation/native';
+type RootStackParamList = {
+  TripDetails: { booking: any };
+  // ...other screens
+};
 
 const ServiceRequestScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [activeTab, setActiveTab] = useState('agriTRUK');
   const [fromLocation, setFromLocation] = useState('Current Location');
+  // const [fromCoords, setFromCoords] = useState(null); // { latitude, longitude }
+  // const [toLocation, setToLocation] = useState('');
+  // const [toCoords, setToCoords] = useState(null); // { latitude, longitude }
+  // const [distance, setDistance] = useState('');
+  // const [routeCoords, setRouteCoords] = useState([]); // For Polyline
+  // TEMP: Use static values to avoid errors
+  const [fromCoords, setFromCoords] = useState({ latitude: 0, longitude: 0 });
   const [toLocation, setToLocation] = useState('');
+  const [toCoords, setToCoords] = useState({ latitude: 0, longitude: 0 });
+  const [distance, setDistance] = useState('');
+  const [routeCoords, setRouteCoords] = useState([]);
   const [productType, setProductType] = useState('');
   const [showProductSuggestions, setShowProductSuggestions] = useState(false);
   const [isPerishable, setIsPerishable] = useState(false);
-  const [perishableSpecs, setPerishableSpecs] = useState([]);
+  const [perishableSpecs, setPerishableSpecs] = useState<string[]>([]);
   const [isSpecialCargo, setIsSpecialCargo] = useState(false);
-  const [specialCargoSpecs, setSpecialCargoSpecs] = useState([]);
+  const [specialCargoSpecs, setSpecialCargoSpecs] = useState<string[]>([]);
   const [weight, setWeight] = useState('');
   const [value, setValue] = useState('');
   const [additional, setAdditional] = useState('');
@@ -101,9 +123,38 @@ const ServiceRequestScreen = () => {
   const pan = useRef(new Animated.ValueXY()).current;
   const [containerWidth, setContainerWidth] = useState(0);
   const [showTransporters, setShowTransporters] = useState(false);
-  const [filteredTransporters, setFilteredTransporters] = useState([]);
+  const [loadingGeo, setLoadingGeo] = useState(true);
+  const [loadingDistance, setLoadingDistance] = useState(false);
+  type Transporter = {
+    id: string;
+    name: string;
+    phone: string;
+    photo: string;
+    est: string;
+    rating: number;
+    status: string;
+    vehicleType: string;
+    bodyType?: string;
+    vehicleMake: string;
+    vehicleColor: string;
+    capacity: number;
+    reg: string;
+    driveType?: string;
+    refrigeration?: boolean;
+    humidityControl?: boolean;
+    canHandle?: string[];
+    perishableSpecs?: string[];
+    specialCargo?: string[];
+    costPerKm: number;
+  };
+
+  const [filteredTransporters, setFilteredTransporters] = useState<Transporter[]>([]);
   const [loadingTransporters, setLoadingTransporters] = useState(false);
-  const { transporters, loading: loadingAllTransporters, error: transportersError } = useTransporters();
+  let { transporters, loading: loadingAllTransporters, error: transportersError } = useTransporters();
+  if (!Array.isArray(transporters)) {
+    console.warn('transporters is not an array or is undefined, defaulting to []', transporters);
+    transporters = [];
+  }
   const [formCollapsed, setFormCollapsed] = useState(false);
   const scrollRef = useRef(null);
 
@@ -146,9 +197,97 @@ const ServiceRequestScreen = () => {
     }),
   ).current;
 
-  React.useEffect(() => {
+  useEffect(() => {
     SystemUI.setBackgroundColorAsync(accent);
   }, [activeTab]);
+
+  // TEMP: Comment out geolocation and distance fetching
+  // useEffect(() => {
+  //   (async () => {
+  //     setLoadingGeo(true);
+  //     let { status } = await Location.requestForegroundPermissionsAsync();
+  //     if (status !== 'granted') {
+  //       setError('Permission to access location was denied');
+  //       setLoadingGeo(false);
+  //       return;
+  //     }
+  //     let location = await Location.getCurrentPositionAsync({});
+  //     setFromCoords({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+  //     setFromLocation('Current Location');
+  //     setLoadingGeo(false);
+  //   })();
+  // }, []);
+
+  // useEffect(() => {
+  //   if (fromCoords && toCoords) {
+  //     setLoadingDistance(true);
+  //     // Distance Matrix API
+  //     fetch(
+  //       `https://maps.googleapis.com/maps/api/distancematrix/json?units=metric&origins=${fromCoords.latitude},${fromCoords.longitude}&destinations=${toCoords.latitude},${toCoords.longitude}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`
+  //     )
+  //       .then((res) => res.json())
+  //       .then((data) => {
+  //         if (
+  //           data.rows &&
+  //           data.rows[0] &&
+  //           data.rows[0].elements &&
+  //           data.rows[0].elements[0] &&
+  //           data.rows[0].elements[0].distance
+  //         ) {
+  //           setDistance(data.rows[0].elements[0].distance.text);
+  //         } else {
+  //           setDistance('');
+  //         }
+  //         setLoadingDistance(false);
+  //       })
+  //       .catch(() => {
+  //         setDistance('');
+  //         setLoadingDistance(false);
+  //       });
+  //     // Directions API for route polyline
+  //     fetch(
+  //       `https://maps.googleapis.com/maps/api/directions/json?origin=${fromCoords.latitude},${fromCoords.longitude}&destination=${toCoords.latitude},${toCoords.longitude}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`
+  //     )
+  //       .then((res) => res.json())
+  //       .then((data) => {
+  //         if (data.routes && data.routes[0] && data.routes[0].overview_polyline) {
+  //           const points = decodePolyline(data.routes[0].overview_polyline.points);
+  //           setRouteCoords(points);
+  //         } else {
+  //           setRouteCoords([]);
+  //         }
+  //       })
+  //       .catch(() => setRouteCoords([]));
+  //   }
+  // }, [fromCoords, toCoords]);
+
+  // Polyline decoder
+  function decodePolyline(encoded) {
+    let points = [];
+    let index = 0, len = encoded.length;
+    let lat = 0, lng = 0;
+    while (index < len) {
+      let b, shift = 0, result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+      shift = 0;
+      result = 0;
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+      let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+      points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+    }
+    return points;
+  }
 
   const handleTabSwitch = (key, idx) => {
     setActiveTab(key);
@@ -166,7 +305,7 @@ const ServiceRequestScreen = () => {
 
   // Validation
   const isValid = () => {
-    if (!fromLocation || !toLocation || !weight || !productType) return false;
+    if (!fromCoords || !toCoords || !weight || !productType) return false;
     if (activeTab === 'agriTRUK' && isPerishable && perishableSpecs.length === 0) return false;
     if (activeTab === 'cargoTRUK' && isSpecialCargo && specialCargoSpecs.length === 0) return false;
     if (requestType === 'booking' && !pickupTime) return false;
@@ -220,15 +359,17 @@ const ServiceRequestScreen = () => {
               <Animated.View
                 style={[
                   styles.tabUnderline,
-                  containerWidth && {
-                    left: anim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [
-                        getUnderlineLeft(0, containerWidth),
-                        getUnderlineLeft(1, containerWidth),
-                      ],
-                    }),
-                  },
+                  ...(containerWidth
+                    ? [{
+                      left: anim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [
+                          getUnderlineLeft(0, containerWidth),
+                          getUnderlineLeft(1, containerWidth),
+                        ],
+                      }),
+                    }]
+                    : []),
                   {
                     backgroundColor: colors.white,
                     shadowColor: accent,
@@ -243,18 +384,116 @@ const ServiceRequestScreen = () => {
             {/* Request Type Toggle */}
             <View style={styles.toggleRow}>
               <TouchableOpacity
-                style={[styles.toggleBtn, requestType === 'instant' && { backgroundColor: accent }]}
+                style={[
+                  styles.toggleBtn,
+                  requestType === 'instant' && {
+                    backgroundColor: accent,
+                    borderColor: accent,
+                    borderWidth: 2,
+                    shadowColor: accent,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.18,
+                    shadowRadius: 6,
+                    elevation: 4,
+                  },
+                ]}
+                activeOpacity={0.85}
                 onPress={() => setRequestType('instant')}
               >
-                <Text style={[styles.toggleLabel, requestType === 'instant' && { color: colors.white }]}>Instant</Text>
+                <Text
+                  style={[
+                    styles.toggleLabel,
+                    requestType === 'instant' && {
+                      color: colors.white,
+                      fontWeight: 'bold',
+                      fontSize: fonts.size.lg,
+                      letterSpacing: 0.5,
+                    },
+                  ]}
+                >
+                  Instant
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.toggleBtn, requestType === 'booking' && { backgroundColor: accent }]}
+                style={[
+                  styles.toggleBtn,
+                  requestType === 'booking' && {
+                    backgroundColor: accent,
+                    borderColor: accent,
+                    borderWidth: 2,
+                    shadowColor: accent,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.18,
+                    shadowRadius: 6,
+                    elevation: 4,
+                  },
+                ]}
+                activeOpacity={0.85}
                 onPress={() => setRequestType('booking')}
               >
-                <Text style={[styles.toggleLabel, requestType === 'booking' && { color: colors.white }]}>Booking</Text>
+                <Text
+                  style={[
+                    styles.toggleLabel,
+                    requestType === 'booking' && {
+                      color: colors.white,
+                      fontWeight: 'bold',
+                      fontSize: fonts.size.lg,
+                      letterSpacing: 0.5,
+                    },
+                  ]}
+                >
+                  Booking
+                </Text>
               </TouchableOpacity>
             </View>
+            {/* Map Section (TEMPORARILY DISABLED) */}
+            {/* <View style={{ width: '100%', height: 220, borderRadius: 16, overflow: 'hidden', marginBottom: 18, backgroundColor: '#eaeaea' }}>
+              {loadingGeo ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                  <ActivityIndicator size="large" color={accent} />
+                  <Text style={{ color: accent, marginTop: 8 }}>Getting your location...</Text>
+                </View>
+              ) : (
+                <MapView
+                  style={{ flex: 1 }}
+                  region={
+                    fromCoords && toCoords
+                      ? {
+                          latitude: (fromCoords.latitude + toCoords.latitude) / 2,
+                          longitude: (fromCoords.longitude + toCoords.longitude) / 2,
+                          latitudeDelta: Math.abs(fromCoords.latitude - toCoords.latitude) * 2 + 0.05,
+                          longitudeDelta: Math.abs(fromCoords.longitude - toCoords.longitude) * 2 + 0.05,
+                        }
+                      : fromCoords
+                      ? {
+                          latitude: fromCoords.latitude,
+                          longitude: fromCoords.longitude,
+                          latitudeDelta: 0.05,
+                          longitudeDelta: 0.05,
+                        }
+                      : {
+                          latitude: 0,
+                          longitude: 0,
+                          latitudeDelta: 0.05,
+                          longitudeDelta: 0.05,
+                        }
+                  }
+                  showsUserLocation={true}
+                  showsMyLocationButton={true}
+                  provider={Platform.OS === 'android' ? 'google' : undefined}
+                >
+                  {fromCoords && (
+                    <Marker coordinate={fromCoords} title="From" description={fromLocation} pinColor={colors.primary} />
+                  )}
+                  {toCoords && (
+                    <Marker coordinate={toCoords} title="To" description={toLocation} pinColor={colors.secondary} />
+                  )}
+                  {routeCoords.length > 0 && (
+                    <Polyline coordinates={routeCoords} strokeColor={accent} strokeWidth={4} />
+                  )}
+                </MapView>
+              )}
+            </View> */}
             {/* Form Card */}
             <View style={styles.formCard}>
               {formCollapsed && (
@@ -270,12 +509,12 @@ const ServiceRequestScreen = () => {
                 <TouchableOpacity style={styles.locationInput}>
                   <Ionicons name="locate" size={18} color={accent} style={{ marginRight: 8 }} />
                   <Text style={styles.locationText}>{fromLocation}</Text>
-                  <Text style={styles.changeText}>Change</Text>
+                  <Text style={styles.changeText}>Current</Text>
                 </TouchableOpacity>
                 <Text style={styles.label}>To</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter destination (autocomplete)"
+                  placeholder="Enter destination"
                   value={toLocation}
                   onChangeText={setToLocation}
                   placeholderTextColor={colors.text.light}
@@ -299,7 +538,7 @@ const ServiceRequestScreen = () => {
                 />
                 {showProductSuggestions && (
                   <View style={styles.suggestionBox}>
-                    {PRODUCT_SUGGESTIONS.filter((p) =>
+                    {(PRODUCT_SUGGESTIONS || []).filter((p) =>
                       p.toLowerCase().includes(productType.toLowerCase()),
                     ).map((suggestion) => (
                       <TouchableOpacity
@@ -488,6 +727,17 @@ const ServiceRequestScreen = () => {
                   </>
                 )}
                 {error ? <Text style={styles.error}>{error}</Text> : null}
+                {loadingDistance && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                    <ActivityIndicator size="small" color={accent} />
+                    <Text style={{ marginLeft: 8, color: accent }}>Calculating distance...</Text>
+                  </View>
+                )}
+                {distance && !loadingDistance && (
+                  <Text style={{ color: accent, fontWeight: 'bold', marginTop: 8 }}>
+                    Distance: {distance}
+                  </Text>
+                )}
               </>}
               {/* Summary Card */}
               <View style={styles.summaryCard}>
@@ -517,6 +767,9 @@ const ServiceRequestScreen = () => {
                   <Text style={styles.summaryText}>Pickup Time: {pickupTime ? pickupTime.toLocaleString() : '---'}</Text>
                 )}
                 <Text style={styles.summaryText}>Type: {requestType === 'booking' ? 'Booking' : 'Instant'}</Text>
+                {distance && !loadingDistance && (
+                  <Text style={[styles.summaryText, { color: accent }]}>Distance: {distance}</Text>
+                )}
               </View>
               <TouchableOpacity
                 style={[
@@ -538,6 +791,9 @@ const ServiceRequestScreen = () => {
                       specialCargoSpecs,
                       pickupTime: pickupTime ? pickupTime.toISOString() : '',
                       requestType,
+                      fromCoords,
+                      toCoords,
+                      distance,
                     };
                     const endpoint = activeTab === 'agriTRUK' ? '/bookings/agri' : '/bookings/cargo';
                     apiRequest(endpoint, {
@@ -555,7 +811,7 @@ const ServiceRequestScreen = () => {
                     setShowTransporters(false);
                     setFormCollapsed(true);
                     setTimeout(() => {
-                      let filtered = transporters.filter((t) => {
+                      let filtered = (transporters || []).filter((t) => {
                         if (activeTab === 'agriTRUK') {
                           if (isPerishable) {
                             return (
@@ -636,126 +892,129 @@ const ServiceRequestScreen = () => {
                         No suitable transporters found for your request.
                       </Text>
                     ) : (
-                      filteredTransporters.map((t) => (
-                        <View
-                          key={t.id}
-                          style={{
-                            backgroundColor: colors.surface,
-                            borderRadius: 16,
-                            padding: 16,
-                            marginBottom: 16,
-                            shadowColor: colors.black,
-                            shadowOpacity: 0.08,
-                            shadowRadius: 8,
-                            elevation: 2,
-                          }}
-                        >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                            <View
-                              style={{
-                                width: 54,
-                                height: 54,
-                                borderRadius: 27,
-                                backgroundColor: '#eee',
-                                overflow: 'hidden',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                marginRight: 16,
-                              }}
-                            >
-                              <Animated.Image
-                                source={{ uri: t.photo }}
-                                style={{ width: 54, height: 54, borderRadius: 27 }}
-                              />
+                      filteredTransporters.map((t) => {
+                        // Calculate estimated amount if possible
+                        let estAmount = '';
+                        let distNum = parseFloat((distance || '').replace(/[^\d.]/g, ''));
+                        if (!isNaN(distNum) && t.costPerKm) {
+                          estAmount = `KES ${(distNum * t.costPerKm).toFixed(2)}`;
+                        }
+                        return (
+                          <View
+                            key={t.id}
+                            style={{
+                              backgroundColor: colors.surface,
+                              borderRadius: 16,
+                              padding: 16,
+                              marginBottom: 16,
+                              shadowColor: colors.black,
+                              shadowOpacity: 0.08,
+                              shadowRadius: 8,
+                              elevation: 2,
+                            }}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                              <View
+                                style={{
+                                  width: 54,
+                                  height: 54,
+                                  borderRadius: 27,
+                                  backgroundColor: '#eee',
+                                  overflow: 'hidden',
+                                  justifyContent: 'center',
+                                  alignItems: 'center',
+                                  marginRight: 16,
+                                }}
+                              >
+                                <Animated.Image
+                                  source={{ uri: t.photo }}
+                                  style={{ width: 54, height: 54, borderRadius: 27 }}
+                                />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontWeight: 'bold', fontSize: 16, color: colors.text.primary }}>{t.name}</Text>
+                                <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13 }}>ETA: {t.est || 'N/A'}</Text>
+                              </View>
+                              <View style={{ alignItems: 'flex-end' }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <MaterialCommunityIcons name="star" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
+                                  <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15 }}>{t.rating}</Text>
+                                </View>
+                                <Text style={{ color: t.status === 'Active' ? colors.success : colors.warning, fontWeight: 'bold', fontSize: 12 }}>{t.status}</Text>
+                              </View>
                             </View>
-                            <View style={{ flex: 1 }}>
-                              <Text style={{ fontWeight: 'bold', fontSize: 16, color: colors.text.primary }}>{t.name}</Text>
-                              <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13 }}>{t.est}</Text>
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <MaterialCommunityIcons name="star" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
-                                <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15 }}>{t.rating}</Text>
-                              </View>
-                              <Text style={{ color: t.status === 'Active' ? colors.success : colors.warning, fontWeight: 'bold', fontSize: 12 }}>{t.status}</Text>
-                            </View>
-                          </View>
-                          <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
-                            {t.vehicleType}{t.bodyType ? ` (${t.bodyType})` : ''} • {t.vehicleMake} • {t.vehicleColor} • {t.capacity}T • {t.reg}
-                          </Text>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                            {t.refrigeration && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                                <MaterialCommunityIcons name="snowflake" size={15} color={accent} style={{ marginRight: 2 }} />
-                                <Text style={{ color: accent, fontSize: 13 }}>Refrigerated</Text>
-                              </View>
-                            )}
-                            {t.humidityControl && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                                <MaterialCommunityIcons name="water-percent" size={15} color={accent} style={{ marginRight: 2 }} />
-                                <Text style={{ color: accent, fontSize: 13 }}>Humidity Ctrl</Text>
-                              </View>
-                            )}
-                            {t.driveType && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                                <MaterialCommunityIcons name="car-shift-pattern" size={15} color={accent} style={{ marginRight: 2 }} />
-                                <Text style={{ color: accent, fontSize: 13 }}>{t.driveType}</Text>
-                              </View>
-                            )}
-                            {t.specialCargo && t.specialCargo.length > 0 && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                                <MaterialCommunityIcons name="cube-outline" size={15} color={accent} style={{ marginRight: 2 }} />
-                                <Text style={{ color: accent, fontSize: 13 }}>Special: {t.specialCargo.join(', ')}</Text>
-                              </View>
-                            )}
-                          </View>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
-                            <Text style={{ color: accent, fontWeight: 'bold', fontSize: 15 }}>
-                              Ksh {(t.costPerKm * 10).toFixed(2)}
+                            <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
+                              {t.vehicleType}{t.bodyType ? ` (${t.bodyType})` : ''} • {t.vehicleMake} • {t.vehicleColor} • {t.capacity}T • {t.reg}
                             </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+                              {t.refrigeration && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                                  <MaterialCommunityIcons name="snowflake" size={15} color={accent} style={{ marginRight: 2 }} />
+                                  <Text style={{ color: accent, fontSize: 13 }}>Refrigerated</Text>
+                                </View>
+                              )}
+                              {t.humidityControl && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                                  <MaterialCommunityIcons name="water-percent" size={15} color={accent} style={{ marginRight: 2 }} />
+                                  <Text style={{ color: accent, fontSize: 13 }}>Humidity Ctrl</Text>
+                                </View>
+                              )}
+                              {t.driveType && (
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                                  <MaterialCommunityIcons name="car" size={15} color={accent} style={{ marginRight: 2 }} />
+                                  <Text style={{ color: accent, fontSize: 13 }}>{t.driveType}</Text>
+                                </View>
+                              )}
+                            </View>
+                            {estAmount && (
+                              <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
+                                Estimated Amount: {estAmount}
+                              </Text>
+                            )}
                             <TouchableOpacity
                               style={{
                                 backgroundColor: accent,
-                                borderRadius: 8,
-                                paddingVertical: 10,
-                                paddingHorizontal: 32,
-                                marginLeft: 8,
+                                borderRadius: 10,
+                                paddingVertical: 8,
+                                paddingHorizontal: 18,
+                                alignSelf: 'flex-end',
+                                marginTop: 8,
                               }}
                               onPress={() => navigation.navigate('TripDetails', {
-  booking: {
-    id: t.id,
-    pickupLocation: fromLocation,
-    toLocation: toLocation,
-    cargoDetails: productType + (weight ? `, ${weight} kg` : ''),
-    pickupTime: '',
-    status: 'in-progress',
-    type: 'instant',
-    transporterType: 'individual',
-    transporter: {
-      id: t.id,
-      name: t.name,
-      phone: t.phone,
-      photo: t.photo,
-    },
-    vehicle: {
-      type: t.vehicleType,
-      color: t.vehicleColor,
-      make: t.vehicleMake,
-      capacity: t.capacity + 'T',
-      plate: t.reg,
-      driveType: t.driveType || '',
-    },
-    reference: 'REF-' + t.id,
-    eta: t.est,
-    distance: '',
-  }
-})}
+                                booking: {
+                                  id: t.id,
+                                  pickupLocation: fromLocation,
+                                  toLocation: toLocation,
+                                  cargoDetails: productType + (weight ? `, ${weight} kg` : ''),
+                                  pickupTime: '',
+                                  status: 'in-progress',
+                                  type: 'instant',
+                                  transporterType: 'individual',
+                                  transporter: {
+                                    id: t.id,
+                                    name: t.name,
+                                    phone: t.phone,
+                                    photo: t.photo,
+                                  },
+                                  vehicle: {
+                                    type: t.vehicleType,
+                                    color: t.vehicleColor,
+                                    make: t.vehicleMake,
+                                    capacity: t.capacity + 'T',
+                                    plate: t.reg,
+                                    driveType: t.driveType || '',
+                                  },
+                                  reference: 'REF-' + t.id,
+                                  eta: t.est,
+                                  distance: distance,
+                                }
+                              })}
                             >
                               <Text style={{ color: colors.white, fontWeight: 'bold', fontSize: 16 }}>Select</Text>
                             </TouchableOpacity>
                           </View>
-                        </View>
-                      ))
+                        );
+                      })
                     )
                   ) : null}
                 </View>

@@ -12,7 +12,6 @@ export const useTransporters = () => {
       setLoading(true);
       setError(null);
       try {
-        // Adjust endpoint as per backend API
         const data = await apiRequest('/transporters/available/list');
         if (Array.isArray(data) && data.length > 0) {
           setTransporters(data);
@@ -29,7 +28,7 @@ export const useTransporters = () => {
   }, []);
 
   return {
-    transporters,
+    transporters: Array.isArray(transporters) ? transporters : [],
     loading,
     error,
   };

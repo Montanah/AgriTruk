@@ -51,7 +51,7 @@ const TransporterServiceScreen = () => {
     active: true,
   });
 
-  const instantRequests = bookings.filter(
+  const instantRequests = (bookings || []).filter(
     (req) => req.type === 'instant' && ['pending', 'accepted'].includes(req.status)
   );
 

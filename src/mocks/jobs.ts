@@ -10,6 +10,13 @@ export const MOCK_REQUESTS = [
     price: 1500,
     status: 'Incoming',
     customer: { name: 'Jane Doe', phone: '+254712345678' },
+    transporter: {
+      id: 't1',
+      name: 'Jana',
+      photo: 'https://randomuser.me/api/portraits/women/44.jpg',
+      costPerKm: 120,
+      est: '20 min',
+    },
   },
   {
     id: 'REQ-102',
@@ -22,6 +29,13 @@ export const MOCK_REQUESTS = [
     price: 900,
     status: 'Incoming',
     customer: { name: 'John Smith', phone: '+254798765432' },
+    transporter: {
+      id: 't2',
+      name: 'Moses',
+      photo: 'https://randomuser.me/api/portraits/men/45.jpg',
+      costPerKm: 100,
+      est: '10 min',
+    },
   },
 ];
 

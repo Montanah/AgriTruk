@@ -97,7 +97,7 @@ const ActivityScreen = () => {
   const [selected, setSelected] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  const filtered = MOCK_ACTIVITIES.filter((a) => {
+  const filtered = (MOCK_ACTIVITIES || []).filter((a) => {
     if (filter === 'Active') return a.status === 'On Transit' || a.status === 'Pending';
     if (filter === 'Completed') return a.status === 'Completed';
     if (filter === 'Cancelled') return a.status === 'Cancelled';

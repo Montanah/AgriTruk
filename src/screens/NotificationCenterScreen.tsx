@@ -16,7 +16,7 @@ export default function NotificationCenterScreen({ userId, role, onReadAll }) {
 
   useEffect(() => {
     // Filter notifications for this user/role
-    const filtered = mockNotifications.filter(
+    const filtered = (mockNotifications || []).filter(
       n => (n.to === userId || n.audience === role)
     ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     setNotifications(filtered);

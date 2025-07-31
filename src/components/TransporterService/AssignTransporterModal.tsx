@@ -47,7 +47,7 @@ const AssignTransporterModal: React.FC<Props> = ({
   }, [transporter]);
 
   const filteredTransporters = useMemo(() => {
-    return transporters.filter((t) =>
+    return (transporters || []).filter((t) =>
       t.name.toLowerCase().includes(search.toLowerCase())
     );
   }, [search, transporters]);

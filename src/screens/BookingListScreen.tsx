@@ -78,15 +78,15 @@ const BookingListScreen = ({ navigation }) => {
   };
 
   // Analytics
-  const total = bookings.length;
-  const completed = bookings.filter(b => b.status === 'completed').length;
-  const pending = bookings.filter(b => b.status === 'pending').length;
-  const accepted = bookings.filter(b => b.status === 'accepted').length;
-  const cancelled = bookings.filter(b => b.status === 'cancelled').length;
+  const total = (bookings || []).length;
+  const completed = (bookings || []).filter(b => b.status === 'completed').length;
+  const pending = (bookings || []).filter(b => b.status === 'pending').length;
+  const accepted = (bookings || []).filter(b => b.status === 'accepted').length;
+  const cancelled = (bookings || []).filter(b => b.status === 'cancelled').length;
 
   // Filter bookings by status
   const filteredBookings =
-    activeTab === 'all' ? bookings : bookings.filter(b => b.status === activeTab);
+    activeTab === 'all' ? (bookings || []) : (bookings || []).filter(b => b.status === activeTab);
 
   const handleStatusChange = (item, newStatus) => {
     // Update status in state (mock)

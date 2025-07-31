@@ -27,6 +27,7 @@ export interface Transporter {
   name: string;
   phone: string;
   photo?: string;
+  costPerKm?: number;
 }
 
 export interface Booking {
@@ -59,6 +60,7 @@ export const MOCK_BOOKINGS: Booking[] = [
       name: 'Jana',
       phone: '+254700111111',
       photo: 'https://randomuser.me/api/portraits/women/44.jpg',
+      costPerKm: 120,
     },
     vehicle: {
       type: 'Pickup',
@@ -85,6 +87,7 @@ export const MOCK_BOOKINGS: Booking[] = [
       name: 'Moses',
       phone: '+254700222222',
       photo: 'https://randomuser.me/api/portraits/men/45.jpg',
+      costPerKm: 100,
     },
     vehicle: {
       type: 'Van',
@@ -117,6 +120,7 @@ export const MOCK_BOOKINGS: Booking[] = [
       name: 'TransCo Ltd.',
       phone: '+254700333333',
       photo: 'https://randomuser.me/api/portraits/men/46.jpg',
+      costPerKm: 150,
     },
     vehicle: {
       type: 'Truck',
@@ -143,6 +147,7 @@ export const MOCK_BOOKINGS: Booking[] = [
       name: 'Ali',
       phone: '+254700444444',
       photo: 'https://randomuser.me/api/portraits/men/47.jpg',
+      costPerKm: 90,
     },
     vehicle: {
       type: 'Lorry',
