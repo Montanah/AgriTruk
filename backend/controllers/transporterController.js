@@ -215,7 +215,8 @@ exports.getAvailableTransporters = async (req, res) => {
   try {
     const available = await Transporter.getByAvailability(true);
 
-    await logAdminActivity(req.admin.adminId, 'get_available_transporters', req);
+    // await logAdminActivity(req.admin.adminId, 'get_available_transporters', req);
+    await logActivity(req.user.uid, 'get_available_transporters', req);
 
     res.status(200).json({ transporters: available });
   } catch (error) {

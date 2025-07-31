@@ -76,7 +76,7 @@ async reject(transporterId, reason) {
   },
   async getByAvailability(status) {
     const snapshot = await db.collection('transporters')
-      .where('availability', '==', status)
+      .where('acceptingBooking', '==', status)
       .where('status', '==', 'approved')
       .get();
 
