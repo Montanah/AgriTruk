@@ -181,19 +181,23 @@ const SignupScreen = () => {
               <Ionicons name="arrow-back" size={24} color={accent} />
             </TouchableOpacity>
             <View style={styles.formCard}>
+              {/* Consider centralizing asset imports for maintainability */}
               <TouchableOpacity
-                style={[styles.googleBtn, { borderColor: accent }]}
-                onPress={() => promptAsync()}
-                activeOpacity={0.85}
-                disabled={!request}
+              style={[styles.googleBtn, { borderColor: accent, opacity: loading ? 0.6 : 1 }]}
+              onPress={() => promptAsync()}
+              activeOpacity={0.85}
+              disabled={!request || loading}
+              accessibilityLabel="Continue with Google"
               >
-                <Image
-                  source={require('../../../assets/images/google_g.png')}
-                  style={styles.googleIcon}
-                />
-                <Text style={[styles.googleBtnText, { color: colors.text.primary }]}>
-                  Continue with Google
-                </Text>
+              <Image
+              source={require('../../../assets/images/google_g.png')}
+              style={styles.googleIcon}
+              />
+              {loading ? (
+              <Text style={[styles.googleBtnText, { color: colors.text.primary }]}>Loading...</Text>
+              ) : (
+              <Text style={[styles.googleBtnText, { color: colors.text.primary }]}>Continue with Google</Text>
+              )}
               </TouchableOpacity>
               <View style={styles.orSeparatorWrap}>
                 <View style={styles.orLine} />
@@ -420,10 +424,8 @@ const SignupScreen = () => {
                 You are signing up as{' '}
                 <Text style={{ fontWeight: 'bold', color: accent }}>{label}</Text>
               </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
-                <Text style={[styles.signInText, { color: accent }]}>
-                  Already have an account? Sign In
-                </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('SignIn')} accessibilityLabel="Go to Sign In">
+              <Text style={[styles.signInText, { color: accent }]}>Already have an account? Sign In</Text>
               </TouchableOpacity>
             </View>
           </View>

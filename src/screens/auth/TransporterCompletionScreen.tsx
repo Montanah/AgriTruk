@@ -2,24 +2,22 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { useCameraPermissions, useMediaLibraryPermissions } from 'expo-image-picker';
 import { getAuth } from 'firebase/auth';
 import React, { useEffect, useRef, useState } from 'react';
-import { apiRequest, uploadToCloudinary } from '../../utils/api';
-import ImagePickerModal from '../../components/common/ImagePickerModal';
 import {
   ActivityIndicator,
   Animated, Easing,
   Image,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Divider from '../../components/common/Divider';
+import ImagePickerModal from '../../components/common/ImagePickerModal';
 import VehicleDetailsForm from '../../components/VehicleDetailsForm';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
@@ -63,6 +61,7 @@ const VEHICLE_TYPES = [
 ];
 
 export default function TransporterCompletionScreen() {
+  console.log('Rendering TransporterCompletionScreen');
   const navigation = useNavigation();
   const [transporterType, setTransporterType] = useState('individual'); // 'individual' or 'company'
   const [vehicleType, setVehicleType] = useState('');
@@ -104,7 +103,9 @@ export default function TransporterCompletionScreen() {
 
   // Image picker modal state
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [onImagePicked, setOnImagePicked] = useState(() => (img) => {});
+  const [onImagePicked, setOnImagePicked] = useState(() => (img) => { });
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [mediaPermission, requestMediaPermission] = useMediaLibraryPermissions();
 
   // Image picker helper using modal
   const pickImage = (onPick) => {
@@ -115,35 +116,44 @@ export default function TransporterCompletionScreen() {
   const handleImagePickerSelect = async (choice) => {
     setPickerVisible(false);
     let result;
-    if (choice === 'camera') {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Permission to access camera is required!');
+    try {
+      if (choice === 'camera') {
+        if (!cameraPermission?.granted) {
+          const { status } = await requestCameraPermission();
+          if (status !== 'granted') {
+            setError('Permission to access camera is required!');
+            return;
+          }
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.IMAGE,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.7,
+        });
+      } else if (choice === 'gallery') {
+        if (!mediaPermission?.granted) {
+          const { status } = await requestMediaPermission();
+          if (status !== 'granted') {
+            setError('Permission to access media library is required!');
+            return;
+          }
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.IMAGE,
+          allowsEditing: true,
+          aspect: [4, 3],
+          quality: 0.7,
+        });
+      } else {
         return;
       }
-      result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.7,
-      });
-    } else if (choice === 'gallery') {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Permission to access media library is required!');
-        return;
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        onImagePicked(result.assets[0]);
       }
-      result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.7,
-      });
-    } else {
-      return;
-    }
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      onImagePicked(result.assets[0]);
+    } catch (err) {
+      setError('Failed to open image picker.');
+      console.error('Image picker error:', err);
     }
   };
 
@@ -172,7 +182,7 @@ export default function TransporterCompletionScreen() {
 
   const isValid = () => {
     if (transporterType === 'individual') {
-      return (
+      const valid = (
         vehicleType &&
         registration &&
         profilePhoto &&
@@ -181,13 +191,32 @@ export default function TransporterCompletionScreen() {
         idFile &&
         vehiclePhotos.length > 0
       );
+      console.log('[isValid] transporterType: individual', {
+        vehicleType,
+        registration,
+        profilePhoto,
+        dlFile,
+        insuranceFile,
+        idFile,
+        vehiclePhotosLength: vehiclePhotos.length,
+        valid
+      });
+      return valid;
     } else {
-      return (
+      const valid = (
         companyName &&
         companyReg &&
         companyContact &&
         profilePhoto
       );
+      console.log('[isValid] transporterType: company', {
+        companyName,
+        companyReg,
+        companyContact,
+        profilePhoto,
+        valid
+      });
+      return valid;
     }
   };
 
@@ -236,21 +265,22 @@ export default function TransporterCompletionScreen() {
   };
 
   const handleSubmit = async () => {
+    console.log('handleSubmit called');
     setError('');
     // Robust validation before uploading
     if (transporterType === 'individual') {
-      if (!vehicleType) { setError('Please select a vehicle type.'); return false; }
-      if (!registration) { setError('Please enter the vehicle registration number.'); return false; }
-      if (!profilePhoto) { setError('Please upload a profile photo.'); return false; }
-      if (!dlFile) { setError("Please upload the driver's license."); return false; }
-      if (!insuranceFile) { setError('Please upload the insurance document.'); return false; }
-      if (!idFile) { setError("Please upload the driver's ID."); return false; }
-      if (!vehiclePhotos || vehiclePhotos.length === 0) { setError('Please add at least one vehicle photo.'); return false; }
+      if (!vehicleType) { console.log('Validation failed: vehicleType'); setError('Please select a vehicle type.'); return false; }
+      if (!registration) { console.log('Validation failed: registration'); setError('Please enter the vehicle registration number.'); return false; }
+      if (!profilePhoto) { console.log('Validation failed: profilePhoto'); setError('Please upload a profile photo.'); return false; }
+      if (!dlFile) { console.log('Validation failed: dlFile'); setError("Please upload the driver's license."); return false; }
+      if (!insuranceFile) { console.log('Validation failed: insuranceFile'); setError('Please upload the insurance document.'); return false; }
+      if (!idFile) { console.log('Validation failed: idFile'); setError("Please upload the driver's ID."); return false; }
+      if (!vehiclePhotos || vehiclePhotos.length === 0) { console.log('Validation failed: vehiclePhotos'); setError('Please add at least one vehicle photo.'); return false; }
     } else {
-      if (!companyName) { setError('Please enter the company name.'); return false; }
-      if (!companyReg) { setError('Please enter the company registration number.'); return false; }
-      if (!companyContact) { setError('Please enter the company contact number.'); return false; }
-      if (!profilePhoto) { setError('Please upload a company logo.'); return false; }
+      if (!companyName) { console.log('Validation failed: companyName'); setError('Please enter the company name.'); return false; }
+      if (!companyReg) { console.log('Validation failed: companyReg'); setError('Please enter the company registration number.'); return false; }
+      if (!companyContact) { console.log('Validation failed: companyContact'); setError('Please enter the company contact number.'); return false; }
+      if (!profilePhoto) { console.log('Validation failed: profilePhoto (company)'); setError('Please upload a company logo.'); return false; }
     }
     setUploading(true);
     try {
@@ -265,46 +295,65 @@ export default function TransporterCompletionScreen() {
         formData.append('vehicleRegistration', registration);
         formData.append('vehicleMake', vehicleMake);
         formData.append('vehicleColor', vehicleColor);
-        formData.append('vehicleModel', vehicleMake); // using make as model if no separate model field
-        formData.append('vehicleYear', year);
-        formData.append('vehicleCapacity', maxCapacity);
-        formData.append('driveType', driveType);
-        formData.append('bodyType', bodyType);
-        formData.append('vehicleFeatures', vehicleFeatures);
-        formData.append('humidityControl', humidityControl);
-        formData.append('refrigerated', refrigeration);
+        formData.append('vehicleModel', vehicleMake); // or use a separate model field if available
+        formData.append('vehicleYear', year ? String(year) : '');
+        if (maxCapacity && !isNaN(parseInt(maxCapacity, 10))) {
+          formData.append('vehicleCapacity', String(parseInt(maxCapacity, 10)));
+        }
+        formData.append('driveType', driveType || '');
+        formData.append('bodyType', bodyType || '');
+        formData.append('vehicleFeatures', vehicleFeatures || '');
+        formData.append('humidityControl', humidityControl ? 'true' : 'false');
+        formData.append('refrigerated', refrigeration ? 'true' : 'false');
         formData.append('transporterType', transporterType);
-        // Files
-        if (profilePhoto && profilePhoto.uri) formData.append('profileImage', { uri: profilePhoto.uri, name: 'profile.jpg', type: 'image/jpeg' });
-        if (dlFile && dlFile.uri) formData.append('license', { uri: dlFile.uri, name: 'license.jpg', type: 'image/jpeg' });
-        if (insuranceFile && insuranceFile.uri) formData.append('insurance', { uri: insuranceFile.uri, name: 'insurance.jpg', type: 'image/jpeg' });
+        // Files (use new backend field names)
+        if (profilePhoto && profilePhoto.uri) formData.append('profilePhoto', { uri: profilePhoto.uri, name: 'profile.jpg', type: 'image/jpeg' });
+        if (dlFile && dlFile.uri) formData.append('dlFile', { uri: dlFile.uri, name: 'license.jpg', type: 'image/jpeg' });
+        if (insuranceFile && insuranceFile.uri) formData.append('insuranceFile', { uri: insuranceFile.uri, name: 'insurance.jpg', type: 'image/jpeg' });
         if (logBookFile && logBookFile.uri) formData.append('logbook', { uri: logBookFile.uri, name: 'logbook.jpg', type: 'image/jpeg' });
-        if (idFile && idFile.uri) formData.append('idImage', { uri: idFile.uri, name: 'id.jpg', type: 'image/jpeg' });
+        if (idFile && idFile.uri) formData.append('idFile', { uri: idFile.uri, name: 'id.jpg', type: 'image/jpeg' });
         if (vehiclePhotos && vehiclePhotos.length > 0) {
           vehiclePhotos.forEach((img, idx) => {
-            if (img.uri) formData.append('vehicleImage', { uri: img.uri, name: `vehicle_${idx}.jpg`, type: 'image/jpeg' });
+            if (img.uri) {
+              formData.append('vehiclePhoto', { uri: img.uri, name: `vehicle_${idx}.jpg`, type: 'image/jpeg' });
+            }
           });
         }
         // Debug: log all FormData fields and files
+        console.log('--- FormData about to be sent ---');
         for (let pair of formData.entries()) {
           if (typeof pair[1] === 'object' && pair[1] && pair[1].uri) {
-            console.log('FormData file:', pair[0], pair[1].name, pair[1].type, pair[1].uri);
+            console.log('[FormData file]', pair[0], {
+              name: pair[1].name,
+              type: pair[1].type,
+              uri: pair[1].uri
+            });
           } else {
-            console.log('FormData field:', pair[0], pair[1]);
+            console.log('[FormData field]', pair[0], pair[1]);
           }
         }
         // Auth header
         const token = await user.getIdToken();
-        const res = await fetch('/api/transporters/', {
+        console.log('--- Sending POST https://agritruk-backend.onrender.com/api/transporters/ ---');
+        // Remove manual Content-Type for FormData, let fetch set it
+        const res = await fetch('https://agritruk-backend.onrender.com/api/transporters/', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
+            // 'Content-Type': 'multipart/form-data', // DO NOT set this manually
           },
           body: formData,
         });
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = { message: res.statusText };
+        }
+        console.log('--- Backend response ---');
+        console.log('Status:', res.status);
+        console.log('Response:', data);
         if (!res.ok) {
-          const data = await res.json();
           setError(data.message || 'Failed to submit profile.');
           return false;
         }
@@ -546,32 +595,50 @@ export default function TransporterCompletionScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={{ paddingBottom: insets.bottom + 18, width: '100%' }}>
         <TouchableOpacity
-        style={[styles.submitBtn, { backgroundColor: isValid() && !photoJustAdded ? colors.primary : colors.text.light }]}
-        onPress={async () => {
-        setError('');
-        setUploading(true);
-        let success = false;
-        try {
-          success = await handleSubmit();
-        } catch (e) {
-          setError('Failed to submit profile. Please try again.');
-        } finally {
-          setUploading(false);
-        }
-        if (success) {
-          navigation.navigate('TransporterProcessingScreen', { transporterType });
-        }
-        }}
-        disabled={!isValid() || uploading || photoJustAdded}
+          style={[styles.submitBtn, { backgroundColor: isValid() && !photoJustAdded ? colors.primary : colors.text.light }]}
+          onPress={async () => {
+            alert('Submit button pressed');
+            console.log('Submit button pressed');
+            console.log('[Submit] State snapshot:', {
+              transporterType,
+              vehicleType,
+              registration,
+              profilePhoto,
+              dlFile,
+              insuranceFile,
+              idFile,
+              vehiclePhotosLength: vehiclePhotos.length,
+              companyName,
+              companyReg,
+              companyContact,
+              uploading,
+              photoJustAdded,
+              isValid: isValid()
+            });
+            setError('');
+            setUploading(true);
+            let success = false;
+            try {
+              success = await handleSubmit();
+            } catch (e) {
+              setError('Failed to submit profile. Please try again.');
+            } finally {
+              setUploading(false);
+            }
+            if (success) {
+              navigation.navigate('TransporterProcessingScreen', { transporterType });
+            }
+          }}
+          disabled={!isValid() || uploading || photoJustAdded}
         >
           {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
         </TouchableOpacity>
       </View>
-    <ImagePickerModal
-      visible={pickerVisible}
-      onSelect={handleImagePickerSelect}
-      onCancel={() => setPickerVisible(false)}
-    />
+      <ImagePickerModal
+        visible={pickerVisible}
+        onSelect={handleImagePickerSelect}
+        onCancel={() => setPickerVisible(false)}
+      />
     </ScrollView>
   );
 }

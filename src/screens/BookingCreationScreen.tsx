@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, Button, StyleSheet, Alert, Platform } from 'react-native';
-import MapView, { Marker, Polyline, LatLng } from 'react-native-maps';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { notificationService } from '../../services/notificationService';
+import BookingMap from './BookingMap';
 
 const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
 
@@ -198,22 +198,12 @@ const BookingCreationScreen = ({ navigation }) => {
         nearbyPlacesAPI="GooglePlacesSearch"
         debounce={300}
       />
-      <View style={{ height: 200, marginBottom: 15 }}>
-        <MapView
-          ref={mapRef}
-          style={{ flex: 1 }}
-          initialRegion={{
-            latitude: pickupCoords?.latitude || -1.2921,
-            longitude: pickupCoords?.longitude || 36.8219,
-            latitudeDelta: 0.1,
-            longitudeDelta: 0.1,
-          }}
-        >
-          {pickupCoords && <Marker coordinate={pickupCoords} title="Pickup" />}
-          {dropoffCoords && <Marker coordinate={dropoffCoords} title="Dropoff" pinColor="blue" />}
-          {routeCoords.length > 0 && <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#4285F4" />}
-        </MapView>
-      </View>
+      <BookingMap
+        ref={mapRef}
+        pickupCoords={pickupCoords}
+        dropoffCoords={dropoffCoords}
+        routeCoords={routeCoords}
+      />
       <TextInput
         style={styles.input}
         placeholder="Cargo Details"

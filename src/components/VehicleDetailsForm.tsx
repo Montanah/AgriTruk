@@ -29,43 +29,9 @@ export default function VehicleDetailsForm({
 }) {
   // State for dropdowns and fields
   const [vehicleType, setVehicleType] = useState(initial?.vehicleType || '');
-  // Image picker modal state
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const latestOnPhotoAdd = useRef(onPhotoAdd);
-  useEffect(() => { latestOnPhotoAdd.current = onPhotoAdd; }, [onPhotoAdd]);
-
-  // Handler for photo add using modal
+  // Remove all picker/modal logic from here. Only call onPhotoAdd from the parent.
   const handlePhotoAdd = () => {
-    setPickerVisible(true);
-  };
-  const handleImagePickerSelect = async (choice) => {
-    setPickerVisible(false);
-    let result;
-    if (choice === 'camera') {
-      const { status } = await import('expo-image-picker').then(m => m.requestCameraPermissionsAsync());
-      if (status !== 'granted') return;
-      result = await import('expo-image-picker').then(m => m.launchCameraAsync({
-        mediaTypes: m.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.7,
-      }));
-    } else if (choice === 'gallery') {
-      const { status } = await import('expo-image-picker').then(m => m.requestMediaLibraryPermissionsAsync());
-      if (status !== 'granted') return;
-      result = await import('expo-image-picker').then(m => m.launchImageLibraryAsync({
-        mediaTypes: m.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.7,
-      }));
-    } else {
-      return;
-    }
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      // Always use the latest onPhotoAdd
-      latestOnPhotoAdd.current(result.assets[0]);
-    }
+    onPhotoAdd && onPhotoAdd();
   };
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [vehicleMake, setVehicleMake] = useState(initial?.vehicleMake || '');
@@ -346,11 +312,6 @@ export default function VehicleDetailsForm({
             <Text style={{ color: colors.primary, fontWeight: '600', fontSize: fonts.size.sm, marginTop: 2 }}>Add Photo</Text>
           </TouchableOpacity>
         )}
-        <ImagePickerModal
-          visible={pickerVisible}
-          onSelect={handleImagePickerSelect}
-          onCancel={() => setPickerVisible(false)}
-        />
       </View>
       {error ? <Text style={{ color: colors.error, marginBottom: spacing.md, fontSize: fonts.size.md, textAlign: 'center' }}>{error}</Text> : null}
     </View>

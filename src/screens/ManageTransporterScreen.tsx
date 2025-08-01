@@ -229,6 +229,19 @@ export default function ManageTransporterScreen({ route }) {
   const [assignedDriverId, setAssignedDriverId] = useState(null);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
 
+  // Robust photo add handler (always uses latest state)
+  const pickVehiclePhotos = async () => {
+    if (vehiclePhotos.length >= 5) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.IMAGE, allowsEditing: true, quality: 0.7 });
+    if (!result.canceled && result.assets && result.assets[0].uri) {
+      setVehiclePhotos(prev => [...prev, result.assets[0]]);
+    }
+  };
+  // Robust photo remove handler
+  const removeVehiclePhoto = (idx) => {
+    setVehiclePhotos(prev => prev.filter((_, i) => i !== idx));
+  };
+
   // Driver modal state and fields
   const [driverModal, setDriverModal] = useState(false);
   const [driverEditIdx, setDriverEditIdx] = useState(null);
@@ -238,17 +251,9 @@ export default function ManageTransporterScreen({ route }) {
   const [driverLicense, setDriverLicense] = useState(null);
 
   // Image/file pickers (handled above as modularized functions)
-  const pickVehiclePhotos = async () => {
-    if (vehiclePhotos.length >= 5) return;
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.IMAGE, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setVehiclePhotos([...vehiclePhotos, result.assets[0]]);
-  };
   const pickInsurance = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType.ALL, allowsEditing: true, quality: 0.7 });
     if (!result.canceled && result.assets && result.assets[0].uri) setInsurance(result.assets[0]);
-  };
-  const removeVehiclePhoto = (idx) => {
-    setVehiclePhotos(vehiclePhotos.filter((_, i) => i !== idx));
   };
 
   // Vehicle add/edit logic
