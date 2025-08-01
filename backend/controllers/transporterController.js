@@ -70,10 +70,19 @@ exports.createTransporter = async (req, res) => {
         fs.unlinkSync(req.files.profileImage[0].path);
       }
 
+      // if (req.files.vehicleImage) {
+      //   const publicId = await uploadImage(req.files.vehicleImage[0].path);
+      //   vehicleImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
+      //   fs.unlinkSync(req.files.vehicleImage[0].path);
+      // }
       if (req.files.vehicleImage) {
-        const publicId = await uploadImage(req.files.vehicleImage[0].path);
-        vehicleImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.vehicleImage[0].path);
+        // Handle multiple vehicle images
+        for (const file of req.files.vehicleImage) {
+          const publicId = await uploadImage(file.path);
+          const imageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
+          vehicleImagesUrl.push(imageUrl);
+          fs.unlinkSync(file.path);
+        }
       }
 
       if (req.files.idImage) {

@@ -28,7 +28,7 @@ const uploadFields = upload.fields([
   { name: 'insurance', maxCount: 1 },
   { name: 'logbook', maxCount: 1 },
   { name: 'profileImage', maxCount: 1 },
-  { name: 'vehicleImage', maxCount: 1 }
+  { name: 'vehicleImage', maxCount: 5 }
 ]);
 
 /**
