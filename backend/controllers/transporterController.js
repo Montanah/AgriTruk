@@ -32,6 +32,22 @@ exports.createTransporter = async (req, res) => {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
+    if (transporterType !== 'individual' && transporterType !== 'company') {
+      return res.status(400).json({ message: 'Invalid transporter type' });
+    }
+
+    if (!req.files) {
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+
+    const plate = vehicleRegistration.trim().toUpperCase();
+
+    const regex = /^K?[A-Z]{2} ?\d{3}[A-Z]$/;
+
+    if (!(plate.length === 7 || plate.length === 8) || !regex.test(plate)) {
+      return res.status(400).json({ message: 'Invalid vehicle registration number' });
+    }
+
     const uid = req.user?.uid;
 
     const userData = await User.get(uid);

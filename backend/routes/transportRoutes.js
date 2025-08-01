@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole }= require("../middlewares/requireRole");
+const { authenticate, authorize } = require("../middlewares/adminAuth");
 
 const {
   createTransporter,
@@ -300,7 +301,7 @@ router.delete('/:transporterId', authenticateToken, requireRole('admin'), delete
  *       500:
  *         description: Internal server error
  */
-router.put('/:transporterId/approve', authenticateToken, requireRole('admin'), approveTransporter);
+router.put('/:transporterId/approve', authenticate, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), approveTransporter);
 
 /**
  * @swagger

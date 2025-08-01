@@ -7,7 +7,20 @@ const Permission = require('../models/Permission');
 
 exports.approveTransporter = async (req, res) => {
   try {
-    const updated = await Transporter.approve(req.params.transporterId);
+    const transporterId = req.params.transporterId;
+
+    //check if transporter exists
+    if (!(await Transporter.get(transporterId))) {
+      return res.status(404).json({ message: 'Transporter not found' });
+    }
+
+    //check if transporter is already approved
+    const transporter = await Transporter.get(transporterId);
+    if (transporter.status === 'approved') {
+      return res.status(400).json({ message: 'Transporter is already approved' });
+    }
+
+    const updated = await Transporter.approve(transporterId);
     await logAdminActivity(req.admin.adminId, 'approve_transporter', req,  { type: 'transporter', id: transporterId });
     res.status(200).json({ message: 'Transporter approved', updated });
   } catch (error) {
@@ -19,8 +32,17 @@ exports.approveTransporter = async (req, res) => {
 exports.rejectTransporter = async (req, res) => {
   try {
     const reason = req.body.reason || 'Unqualified';
-    const result = await Transporter.reject(req.params.transporterId, reason); 
+
+    const transporterId = req.params.transporterId;
+    // check if transporter exists
+    if (!(await Transporter.get(transporterId))) {
+      return res.status(404).json({ message: 'Transporter not found' });
+    };
+
+    const result = await Transporter.reject(transporterId, reason); 
+
     await logAdminActivity(req.admin.adminId, 'reject_transporter', req,  { type: 'transporter', id: transporterId });
+    
     res.status(200).json({ message: 'Transporter rejected', result });
   } catch (err) {
     console.error('Reject transporter error:', err);
