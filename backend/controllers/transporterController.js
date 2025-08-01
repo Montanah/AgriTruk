@@ -8,6 +8,8 @@ const MatchingService = require('../services/matchingService');
 
 exports.createTransporter = async (req, res) => {
   try {
+
+    console.log('Creating transporter...');
     const { 
       vehicleType,
       vehicleRegistration,
@@ -112,7 +114,8 @@ exports.createTransporter = async (req, res) => {
       rating: 0, 
       transporterType, 
     };
-
+    
+    console.log(transporterData);
     const transporter = await Transporter.create(transporterData);
 
     await logActivity(req.user.uid, 'create_transporter', req);
