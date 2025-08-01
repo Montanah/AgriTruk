@@ -40,34 +40,34 @@ exports.createTransporter = async (req, res) => {
     // Handle multiple file uploads
     let licenseUrl = null;
     let insuranceUrl = null;
-    let logbookUrl = null;
+    // let logbookUrl = null;
     let profileImageUrl = null;
     let vehicleImageUrl = null;
     let idUrl = null;
 
      if (req.files) {
-      if (req.files.license) {
-        const publicId = await uploadImage(req.files.license[0].path);
+      if (req.files.dlFile) {
+        const publicId = await uploadImage(req.files.dlFile[0].path);
         licenseUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.license[0].path);
+        fs.unlinkSync(req.files.dlFile[0].path);
       }
 
-      if (req.files.insurance) {
-        const publicId = await uploadImage(req.files.insurance[0].path);
+      if (req.files.insuranceFile) {
+        const publicId = await uploadImage(req.files.insuranceFile[0].path);
         insuranceUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.insurance[0].path);
+        fs.unlinkSync(req.files.insuranceFile[0].path);
       }
 
-      if (req.files.logbook) {
-        const publicId = await uploadImage(req.files.logbook[0].path);
-        logbookUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.logbook[0].path);
-      }
+      // if (req.files.logbook) {
+      //   const publicId = await uploadImage(req.files.logbook[0].path);
+      //   logbookUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
+      //   fs.unlinkSync(req.files.logbook[0].path);
+      // }
 
-      if (req.files.profileImage) {
-        const publicId = await uploadImage(req.files.profileImage[0].path);
+      if (req.files.profilePhoto) {
+        const publicId = await uploadImage(req.files.profilePhoto[0].path);
         profileImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.profileImage[0].path);
+        fs.unlinkSync(req.files.profilePhoto[0].path);
       }
 
       // if (req.files.vehicleImage) {
@@ -75,9 +75,8 @@ exports.createTransporter = async (req, res) => {
       //   vehicleImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
       //   fs.unlinkSync(req.files.vehicleImage[0].path);
       // }
-      if (req.files.vehicleImage) {
-        // Handle multiple vehicle images
-        for (const file of req.files.vehicleImage) {
+      if (req.files.vehiclePhoto) {
+        for (const file of req.files.vehiclePhoto) {
           const publicId = await uploadImage(file.path);
           const imageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
           vehicleImagesUrl.push(imageUrl);
@@ -85,11 +84,11 @@ exports.createTransporter = async (req, res) => {
         }
       }
 
-      if (req.files.idImage) {
-        const publicId = await uploadImage(req.files.idImage[0].path);
-        console.log(publicId);
-        idUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`
-        fs.unlinkSync(req.files.idImage[0].path);
+      if (req.files.idFile) {
+        const publicId = await uploadImage(req.files.idFile[0].path);
+        console.log('Uploaded ID publicId:', publicId); // Debug
+        idUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
+        fs.unlinkSync(req.files.idFile[0].path);
       }
     }
 
@@ -115,7 +114,7 @@ exports.createTransporter = async (req, res) => {
       vehicleImagesUrl: vehicleImageUrl ? [vehicleImageUrl] : [],
       humidityControl: humidityControl === "false",
       refrigerated: refrigerated === "false",
-      logbookUrl,
+      // logbookUrl,
       insuranceUrl,
       acceptingBooking: false,
       status: "pending",

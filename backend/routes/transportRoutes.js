@@ -24,11 +24,11 @@ const upload = multer({ dest: 'uploads/' });
 
 // Middleware for multiple files
 const uploadFields = upload.fields([
-  { name: 'license', maxCount: 1 },
-  { name: 'insurance', maxCount: 1 },
-  { name: 'logbook', maxCount: 1 },
-  { name: 'profileImage', maxCount: 1 },
-  { name: 'vehicleImage', maxCount: 5 }
+  { name: 'dlFile', maxCount: 1 },           // Driver's license
+  { name: 'idFile', maxCount: 1 },           // ID document
+  { name: 'insuranceFile', maxCount: 1 },    // Insurance
+  { name: 'profilePhoto', maxCount: 1 },     // Profile photo
+  { name: 'vehiclePhoto', maxCount: 5 }      // Multiple vehicle photos
 ]);
 
 /**
