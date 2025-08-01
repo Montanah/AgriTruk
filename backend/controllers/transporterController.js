@@ -8,9 +8,9 @@ const MatchingService = require('../services/matchingService');
 
 exports.createTransporter = async (req, res) => {
   try {
-    console.log('Creating transporter...');
-    console.log('Request body:', req.body); // Debug: Log the body
-    console.log('Request files:', req.files); // Debug: Log all files
+    // console.log('Creating transporter...');
+    // console.log('Request body:', req.body); // Debug: Log the body
+    // console.log('Request files:', req.files); // Debug: Log all files
 
     const { 
       vehicleType,
@@ -51,9 +51,11 @@ exports.createTransporter = async (req, res) => {
     const uid = req.user?.uid;
 
     const userData = await User.get(uid);
-    const email = userData?.email || null;
-    const driverName = userData?.name || null;
-    const phoneNumber = userData?.phone || null;
+    const email = userData?.email;
+    const driverName = userData?.name;
+    const phoneNumber = userData?.phone;
+
+    console.log('User data:', driverName);
     
     // Handle multiple file uploads dynamically
     let licenseUrl = null;
@@ -66,7 +68,7 @@ exports.createTransporter = async (req, res) => {
     if (req.files) {
       const uploadTasks = req.files.map(async file => {
         const fieldName = file.fieldname;
-        console.log(`Processing file: ${fieldName}, path: ${file.path}`); // Debug
+        // console.log(`Processing file: ${fieldName}, path: ${file.path}`); 
 
         switch (fieldName) {
           case 'dlFile':

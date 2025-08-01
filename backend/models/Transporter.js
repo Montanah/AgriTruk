@@ -8,7 +8,7 @@ const Transporter = {
       transporterId: transporterData.userId || db.collection('transporters').doc().id,
       userId: transporterData.transporterId,
       transporterType: transporterData.transporterType || 'individual',
-      displayName: transporterData.driverName || null,
+      displayName: transporterData.displayName || 'Unnamed Transporter', 
       phoneNumber: transporterData.phoneNumber || null,
       driverProfileImage: transporterData.driverProfileImage || null,
       email: transporterData.email || null,
@@ -30,7 +30,7 @@ const Transporter = {
       driverLicense: transporterData.driverLicense || null,
       logbookUrl: transporterData.logbookUrl || null,
       insuranceUrl: transporterData.insuranceUrl || null,
-      driverIdUrl: transporterData.driverIdUrl,
+      driverIdUrl: transporterData.driverIdUrl || null, // Added fallback
       // Trip details
       acceptingBooking: transporterData.acceptingBooking || false,
       status: transporterData.status || 'pending',
@@ -45,6 +45,7 @@ const Transporter = {
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
+   
     await db.collection('transporters').doc(transporterData.transporterId).set(transporter);
     return transporter;
   },
@@ -59,22 +60,22 @@ const Transporter = {
     return updated;
   },
   async approve(transporterId) {
-  const updates = {
-    status: 'approved',
-    updatedAt: admin.firestore.Timestamp.now()
-  };
-  await db.collection('transporters').doc(transporterId).update(updates);
-  return updates;
-},
-async reject(transporterId, reason) {
-  const updates = {
-    status: 'rejected',
-    rejectionReason: reason || 'Not specified',
-    updatedAt: admin.firestore.Timestamp.now()
-  };
-  await db.collection('transporters').doc(transporterId).update(updates);
-  return updates;
-},
+    const updates = {
+      status: 'approved',
+      updatedAt: admin.firestore.Timestamp.now()
+    };
+    await db.collection('transporters').doc(transporterId).update(updates);
+    return updates;
+  },
+  async reject(transporterId, reason) {
+    const updates = {
+      status: 'rejected',
+      rejectionReason: reason || 'Not specified',
+      updatedAt: admin.firestore.Timestamp.now()
+    };
+    await db.collection('transporters').doc(transporterId).update(updates);
+    return updates;
+  },
   async delete(transporterId) {
     await db.collection('transporters').doc(transporterId).delete();
     return { message: 'Transporter deleted successfully' };
@@ -90,7 +91,7 @@ async reject(transporterId, reason) {
       .get();
 
     if (snapshot.empty) return [];
-      return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
+    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
   },
   async setLocation(transporterId, location) {
     const updates = {
