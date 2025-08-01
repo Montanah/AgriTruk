@@ -6,12 +6,19 @@ const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const Notification = require("../models/Notification");
 const MatchingService = require('../services/matchingService');
 
+const fs = require('fs');
+const path = require('path');
+const Transporter = require('../models/Transporter');
+const { uploadImage } = require('../utils/upload');
+const { logActivity } = require('../utils/activityLogger');
+const Notification = require('../models/Notification');
+
 exports.createTransporter = async (req, res) => {
   try {
-
     console.log('Creating transporter...');
-    console.log('Request body:', req.body); 
-    console.log('Request files:', req.files);
+    console.log('Request body:', req.body); // Debug: Log the body
+    console.log('Request files:', req.files); // Debug: Log all files
+
     const { 
       vehicleType,
       vehicleRegistration,
@@ -26,9 +33,9 @@ exports.createTransporter = async (req, res) => {
       humidityControl,
       refrigerated,
       transporterType = 'individual' 
-     } = req.body;
+    } = req.body;
 
-    if (!vehicleType || !vehicleRegistration ||! vehicleColor || !vehicleMake || !vehicleModel || !vehicleCapacity || !transporterType) {
+    if (!vehicleType || !vehicleRegistration || !vehicleColor || !vehicleMake || !vehicleModel || !vehicleCapacity || !transporterType) {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
@@ -39,70 +46,68 @@ exports.createTransporter = async (req, res) => {
     const driverName = userData?.name || null;
     const phoneNumber = userData?.phone || null;
     
-    // Handle multiple file uploads
+    // Handle multiple file uploads dynamically
     let licenseUrl = null;
     let insuranceUrl = null;
-    // let logbookUrl = null;
+    let logbookUrl = null;
     let profileImageUrl = null;
-    let vehicleImageUrl = null;
+    let vehicleImagesUrl = []; // Ensure this is always an array
     let idUrl = null;
 
-     if (req.files) {
-      if (req.files.dlFile) {
-        const publicId = await uploadImage(req.files.dlFile[0].path);
-        licenseUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.dlFile[0].path);
-      }
+    if (req.files) {
+      req.files.forEach(file => {
+        const fieldName = file.fieldname;
+        console.log(`Processing file: ${fieldName}, path: ${file.path}`); // Debug
 
-      if (req.files.insuranceFile) {
-        const publicId = await uploadImage(req.files.insuranceFile[0].path);
-        insuranceUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.insuranceFile[0].path);
-      }
-
-      // if (req.files.logbook) {
-      //   const publicId = await uploadImage(req.files.logbook[0].path);
-      //   logbookUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-      //   fs.unlinkSync(req.files.logbook[0].path);
-      // }
-
-      if (req.files.profilePhoto) {
-        const publicId = await uploadImage(req.files.profilePhoto[0].path);
-        profileImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.profilePhoto[0].path);
-      }
-
-      // if (req.files.vehicleImage) {
-      //   const publicId = await uploadImage(req.files.vehicleImage[0].path);
-      //   vehicleImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-      //   fs.unlinkSync(req.files.vehicleImage[0].path);
-      // }
-      if (req.files.vehiclePhoto) {
-        for (const file of req.files.vehiclePhoto) {
-          const publicId = await uploadImage(file.path);
-          const imageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-          vehicleImageUrl.push(imageUrl);
-          fs.unlinkSync(file.path);
+        switch (fieldName) {
+          case 'dlFile':
+            const licensePublicId = await uploadImage(file.path);
+            licenseUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${licensePublicId}.jpg`;
+            fs.unlinkSync(file.path);
+            break;
+          case 'insuranceFile':
+            const insurancePublicId = await uploadImage(file.path);
+            insuranceUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${insurancePublicId}.jpg`;
+            fs.unlinkSync(file.path);
+            break;
+          case 'profilePhoto':
+            const profilePublicId = await uploadImage(file.path);
+            profileImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${profilePublicId}.jpg`;
+            fs.unlinkSync(file.path);
+            break;
+          case 'vehiclePhoto':
+            const vehiclePublicId = await uploadImage(file.path);
+            const vehicleImageUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${vehiclePublicId}.jpg`;
+            console.log(`Before push, vehicleImagesUrl:`, vehicleImagesUrl); // Debug
+            if (Array.isArray(vehicleImagesUrl)) {
+              vehicleImagesUrl.push(vehicleImageUrl); // Ensure it's an array before push
+            } else {
+              vehicleImagesUrl = [vehicleImageUrl]; // Reset to array if corrupted
+            }
+            console.log(`After push, vehicleImagesUrl:`, vehicleImagesUrl); // Debug
+            fs.unlinkSync(file.path);
+            break;
+          case 'idFile':
+            const idPublicId = await uploadImage(file.path);
+            console.log('Uploaded ID publicId:', idPublicId); // Debug
+            idUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${idPublicId}.jpg`;
+            fs.unlinkSync(file.path);
+            break;
+          default:
+            console.log(`Ignoring unexpected field: ${fieldName}`);
+            fs.unlinkSync(file.path); // Clean up unexpected files
         }
-      }
-
-      if (req.files.idFile) {
-        const publicId = await uploadImage(req.files.idFile[0].path);
-        console.log('Uploaded ID publicId:', publicId); // Debug
-        idUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.idFile[0].path);
-      }
+      });
     }
 
     const transporterData = {
       transporterId: uid,
       userId: uid,
-      driverName,
+      transportType: transporterType,
+      displayName: driverName,
       phoneNumber,
       driverProfileImage: profileImageUrl,
-      driverIdUrl: idUrl,
       email,
-      driverLicense: licenseUrl,
       vehicleType,
       vehicleRegistration,
       vehicleColor,
@@ -113,19 +118,24 @@ exports.createTransporter = async (req, res) => {
       vehicleMake,
       vehicleModel,
       vehicleCapacity,
-      vehicleImagesUrl: vehicleImageUrl ? [vehicleImageUrl] : [],
-      humidityControl: humidityControl === "false",
-      refrigerated: refrigerated === "false",
-      // logbookUrl,
+      vehicleImagesUrl,
+      humidityControl: humidityControl === "false" ? false : !!humidityControl,
+      refrigerated: refrigerated === "false" ? false : !!refrigerated,
+      driverLicense: licenseUrl,
+      logbookUrl,
       insuranceUrl,
+      driverIdUrl: idUrl,
       acceptingBooking: false,
       status: "pending",
+      rejectionReason: null,
       totalTrips: 0,
-      rating: 0, 
-      transporterType, 
+      rating: 0,
+      currentRoute: [],
+      lastKnownLocation: null,
+      notificationPreferences: { method: 'both' },
     };
     
-    console.log(transporterData);
+    console.log('Transporter data:', transporterData); // Debug
     const transporter = await Transporter.create(transporterData);
 
     await logActivity(req.user.uid, 'create_transporter', req);
@@ -146,14 +156,12 @@ exports.createTransporter = async (req, res) => {
     
     // Clean up any uploaded files
     if (req.files) {
-      for (let key in req.files) {
-        req.files[key].forEach(file => {
-          if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        });
-      }
+      req.files.forEach(file => {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      });
     }
 
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
