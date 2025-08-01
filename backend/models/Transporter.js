@@ -5,30 +5,39 @@ const db = admin.firestore();
 const Transporter = {
   async create(transporterData) {
     const transporter = {
-      transporterId: transporterData.transporterId || db.collection('transporters').doc().id,
-      // transporterId: transporterData.transporterId,
-      driverName: transporterData.driverName || null,
+      transporterId: transporterData.userId || db.collection('transporters').doc().id,
+      userId: transporterData.transporterId,
+      transportType: transporterData.transportType || 'driver',
+      displayName: transporterData.driverName || null,
       phoneNumber: transporterData.phoneNumber || null,
       driverProfileImage: transporterData.driverProfileImage || null,
-      driverIdUrl: transporterData.driverIdUrl,
       email: transporterData.email || null,
-      driverLicense: transporterData.driverLicense || null,
+      // Vehicle details
       vehicleType: transporterData.vehicleType || null,
       vehicleRegistration: transporterData.vehicleRegistration || null,
+      vehicleColor: transporterData.vehicleColor || null,
       vehicleMake: transporterData.vehicleMake || null,
       vehicleModel: transporterData.vehicleModel || null,
+      vehicleYear: transporterData.vehicleYear || null,
       vehicleCapacity: transporterData.vehicleCapacity || null,
-      vehicleImagesUrl: transporterData.vehicleImagesUrl || [],
+      driveType: transporterData.driveType || null,
+      bodyType: transporterData.bodyType || null,
+      vehicleFeatures: transporterData.vehicleFeatures || null,
       humidityControl: transporterData.vehicleFeatures || false,
       refrigerated: transporterData.refrigerated || false,
+      // documents
+      vehicleImagesUrl: transporterData.vehicleImagesUrl || [],
+      driverLicense: transporterData.driverLicense || null,
       logbookUrl: transporterData.logbookUrl || null,
       insuranceUrl: transporterData.insuranceUrl || null,
+      driverIdUrl: transporterData.driverIdUrl,
+      // Trip details
       acceptingBooking: transporterData.acceptingBooking || false,
       status: transporterData.status || 'pending',
+      rejectionReason: transporterData.rejectionReason || null,
       totalTrips: transporterData.totalTrips || 0,
       rating: transporterData.rating || 0,
-      rejectionReason: transporterData.rejectionReason || null,
-      businessType: transporterData.businessType || 'individual', // Default to 'individual'
+      // Geo details
       currentRoute: transporterData.currentRoute || [], // Array of { location, timestamp }
       lastKnownLocation: transporterData.lastKnownLocation || null,
       notificationPreferences: transporterData.notificationPreferences || { method: 'both' },

@@ -56,7 +56,7 @@ exports.registerUser = async (req, res) => {
   const uid = req.user.uid;
   const email = req.user.email;
 
-  if (!["farmer", "transporter", "admin", "user", "broker"].includes(role)) {
+  if (!["shipper", "transporter", "admin", "user", "broker"].includes(role)) {
     return res.status(400).json({ message: "Invalid role" });
   }
 

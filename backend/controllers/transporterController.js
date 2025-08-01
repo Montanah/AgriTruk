@@ -11,15 +11,20 @@ exports.createTransporter = async (req, res) => {
     const { 
       vehicleType,
       vehicleRegistration,
+      vehicleColor,
       vehicleMake,
       vehicleModel,
+      vehicleYear,
       vehicleCapacity,
+      driveType,
+      bodyType,
+      vehicleFeatures,
       humidityControl,
       refrigerated,
-      businessType = 'individual' 
+      transporterType = 'individual' 
      } = req.body;
 
-    if (!vehicleType || !vehicleRegistration ) {
+    if (!vehicleType || !vehicleRegistration ||! vehicleColor || !vehicleMake || !vehicleModel || !vehicleCapacity || !transporterType) {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
@@ -79,6 +84,7 @@ exports.createTransporter = async (req, res) => {
 
     const transporterData = {
       transporterId: uid,
+      userId: uid,
       driverName,
       phoneNumber,
       driverProfileImage: profileImageUrl,
@@ -87,6 +93,11 @@ exports.createTransporter = async (req, res) => {
       driverLicense: licenseUrl,
       vehicleType,
       vehicleRegistration,
+      vehicleColor,
+      vehicleYear,
+      driveType,
+      bodyType,
+      vehicleFeatures,
       vehicleMake,
       vehicleModel,
       vehicleCapacity,
@@ -99,7 +110,7 @@ exports.createTransporter = async (req, res) => {
       status: "pending",
       totalTrips: 0,
       rating: 0, 
-      businessType, 
+      transporterType, 
     };
 
     const transporter = await Transporter.create(transporterData);

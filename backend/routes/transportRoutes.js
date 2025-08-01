@@ -55,7 +55,7 @@ const uploadFields = upload.fields([
  *             type: object
  *             required:
  *               - license
- *               - insurance
+ *               - vehicleColor
  *               - logbook
  *               - vehicleType
  *               - vehicleRegistration
@@ -67,15 +67,25 @@ const uploadFields = upload.fields([
  *                 type: string
  *               vehicleMake:
  *                 type: string
+ *               vehicleColor:
+ *                 type: string
+ *               vehicleYear:
+ *                 type: integer
  *               vehicleModel:
  *                 type: string
  *               vehicleCapacity:
  *                 type: integer
+ *               vehicleFeatures:
+ *                 type: string
+ *               driveType:
+ *                 type: string
+ *               bodyType:
+ *                 type: string
  *               humidityControl:
  *                 type: boolean
  *               refrigerated:
  *                 type: boolean
- *               businessType:
+ *               transporterType:
  *                 type: string
  *               license:
  *                 type: string
