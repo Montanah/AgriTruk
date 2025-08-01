@@ -10,6 +10,8 @@ exports.createTransporter = async (req, res) => {
   try {
 
     console.log('Creating transporter...');
+    console.log('Request body:', req.body); 
+    console.log('Request files:', req.files);
     const { 
       vehicleType,
       vehicleRegistration,
