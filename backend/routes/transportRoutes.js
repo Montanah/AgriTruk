@@ -23,13 +23,14 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); 
 
 // Middleware for multiple files
-const uploadFields = upload.fields([
-  { name: 'dlFile', maxCount: 1 },           // Driver's license
-  { name: 'idFile', maxCount: 1 },           // ID document
-  { name: 'insuranceFile', maxCount: 1 },    // Insurance
-  { name: 'profilePhoto', maxCount: 1 },     // Profile photo
-  { name: 'vehiclePhoto', maxCount: 5 }      // Multiple vehicle photos
-]);
+// const uploadFields = upload.fields([
+//   { name: 'dlFile', maxCount: 1 },          
+//   { name: 'idFile', maxCount: 1 },           
+//   { name: 'insuranceFile', maxCount: 1 },    
+//   { name: 'profilePhoto', maxCount: 1 },    
+//   { name: 'vehiclePhoto', maxCount: 5 }      
+// ]);
+const uploadAny = upload.any();
 
 /**
  * @swagger
@@ -54,12 +55,14 @@ const uploadFields = upload.fields([
  *           schema:
  *             type: object
  *             required:
- *               - license
- *               - vehicleColor
- *               - logbook
  *               - vehicleType
  *               - vehicleRegistration
- *               - vehicleImage
+ *               - vehicleColor
+ *               - vehicleMake
+ *               - vehicleModel
+ *               - vehicleCapacity
+ *               - transporterType
+ *               - dlFile
  *             properties:
  *               vehicleType:
  *                 type: string
@@ -87,30 +90,31 @@ const uploadFields = upload.fields([
  *                 type: boolean
  *               transporterType:
  *                 type: string
- *               license:
+ *               dlFile:
  *                 type: string
  *                 format: binary
- *               insurance:
+ *               insuranceFile:
  *                 type: string
  *                 format: binary
- *               logbook:
+ *               profilePhoto:
  *                 type: string
  *                 format: binary
- *               profileImage:
- *                 type: string
- *                 format: binary
- *               vehicleImage:
- *                 type: string
- *                 format: binary
+ *               vehiclePhoto:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *     responses:
  *       201:
  *         description: Transporter created successfully
  *       400:
  *         description: Missing required fields
+ *       401:
+ *         description: Unauthorized
  *       500:
  *         description: Internal server error
  */
-router.post('/', authenticateToken, requireRole('transporter'), uploadFields, createTransporter);
+router.post('/', authenticateToken, requireRole('transporter'), uploadAny, createTransporter);
 
 /**
  * @swagger

@@ -20,6 +20,9 @@ const uploadImage = async (imagePath) => {
 
     try {
       // Upload the image
+      // if (!imagePath || !fs.existsSync(imagePath)) {
+      //   throw new Error(`Invalid image path: ${imagePath}`);
+      // }
       const result = await cloudinary.uploader.upload(imagePath, options);
       console.log('Uploaded to Cloudinary:', result.secure_url);
       return result.secure_url;
