@@ -100,7 +100,7 @@ exports.createTransporter = async (req, res) => {
     const transporterData = {
       transporterId: uid,
       userId: uid,
-      transportType: transporterType,
+      transporterType: transporterType,
       displayName: driverName,
       phoneNumber,
       driverProfileImage: profileImageUrl,

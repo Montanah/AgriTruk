@@ -7,7 +7,7 @@ const Transporter = {
     const transporter = {
       transporterId: transporterData.userId || db.collection('transporters').doc().id,
       userId: transporterData.transporterId,
-      transportType: transporterData.transportType || 'driver',
+      transporterType: transporterData.transporterType || 'individual',
       displayName: transporterData.driverName || null,
       phoneNumber: transporterData.phoneNumber || null,
       driverProfileImage: transporterData.driverProfileImage || null,
