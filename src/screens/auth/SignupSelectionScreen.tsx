@@ -52,7 +52,7 @@ const roles = [
     description: 'For intermediaries connecting businesses, shippers, and transporters',
   },
   {
-    key: 'driver',
+    key: 'transporter',
     label: 'Transporter',
     accent: '#FF8C00',
     icon: (animatedStyle: any) => (
@@ -179,7 +179,7 @@ const SignupSelectionScreen = () => {
                 <View
                   style={[
                     styles.cardWrap,
-                    role.key === 'driver' && { borderColor: '#FF8C00', borderWidth: 0.5 },
+                    role.key === 'transporter' && { borderColor: '#FF8C00', borderWidth: 0.5 },
                   ]}
                 >
                   <LinearGradient
@@ -191,7 +191,7 @@ const SignupSelectionScreen = () => {
                   <Animated.View
                     style={[
                       styles.accentDot,
-                      role.key === 'driver'
+                      role.key === 'transporter'
                         ? { backgroundColor: '#FF8C00', shadowColor: '#FF8C00' }
                         : { backgroundColor: role.accent, shadowColor: role.accent },
                       {
@@ -213,7 +213,7 @@ const SignupSelectionScreen = () => {
                     <Text
                       style={[
                         styles.roleLabel,
-                        role.key === 'driver' ? { color: '#FF8C00' } : { color: role.accent },
+                        role.key === 'transporter' ? { color: '#FF8C00' } : { color: role.accent },
                       ]}
                     >
                       {role.label}

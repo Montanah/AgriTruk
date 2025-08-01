@@ -31,6 +31,8 @@ export default function VehicleDetailsForm({
   const [vehicleType, setVehicleType] = useState(initial?.vehicleType || '');
   // Image picker modal state
   const [pickerVisible, setPickerVisible] = useState(false);
+  const latestOnPhotoAdd = useRef(onPhotoAdd);
+  useEffect(() => { latestOnPhotoAdd.current = onPhotoAdd; }, [onPhotoAdd]);
 
   // Handler for photo add using modal
   const handlePhotoAdd = () => {
@@ -61,7 +63,8 @@ export default function VehicleDetailsForm({
       return;
     }
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      onPhotoAdd(result.assets[0]);
+      // Always use the latest onPhotoAdd
+      latestOnPhotoAdd.current(result.assets[0]);
     }
   };
   const [dropdownOpen, setDropdownOpen] = useState(false);

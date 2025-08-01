@@ -778,66 +778,37 @@ const ServiceRequestScreen = () => {
                 ]}
                 disabled={!isValid()}
                 onPress={() => {
-                  if (requestType === 'booking') {
-                    // Integrate with backend booking API
-                    const bookingPayload = {
-                      fromLocation,
-                      toLocation,
-                      productType,
-                      weight,
-                      value,
-                      additional,
-                      perishableSpecs,
-                      specialCargoSpecs,
-                      pickupTime: pickupTime ? pickupTime.toISOString() : '',
-                      requestType,
-                      fromCoords,
-                      toCoords,
-                      distance,
-                    };
-                    const endpoint = activeTab === 'agriTRUK' ? '/bookings/agri' : '/bookings/cargo';
-                    apiRequest(endpoint, {
-                      method: 'POST',
-                      body: JSON.stringify(bookingPayload),
+                  // Always post job to backend as a job posting (for both instant and booking)
+                  const bookingPayload = {
+                    fromLocation,
+                    toLocation,
+                    productType,
+                    weight,
+                    value,
+                    additional,
+                    perishableSpecs,
+                    specialCargoSpecs,
+                    pickupTime: requestType === 'booking'
+                      ? (pickupTime ? pickupTime.toISOString() : '')
+                      : new Date().toISOString(),
+                    requestType,
+                    fromCoords,
+                    toCoords,
+                    distance,
+                    status: 'pending', // initial status for new job posting
+                  };
+                  const endpoint = activeTab === 'agriTRUK' ? '/bookings/agri' : '/bookings/cargo';
+                  apiRequest(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify(bookingPayload),
+                  })
+                    .then(() => {
+                      Alert.alert('Job posted!', 'Your request has been posted and is visible to transporters.');
+                      // Optionally, reset form or navigate
                     })
-                      .then(() => {
-                        Alert.alert('Booking placed!', 'Your booking has been created successfully.');
-                      })
-                      .catch((err) => {
-                        Alert.alert('Booking failed', err.message || 'Failed to create booking');
-                      });
-                  } else {
-                    setLoadingTransporters(true);
-                    setShowTransporters(false);
-                    setFormCollapsed(true);
-                    setTimeout(() => {
-                      let filtered = (transporters || []).filter((t) => {
-                        if (activeTab === 'agriTRUK') {
-                          if (isPerishable) {
-                            return (
-                              t.canHandle?.includes('perishable') &&
-                              perishableSpecs.every((spec) => t.perishableSpecs?.includes(spec))
-                            );
-                          }
-                          return t.canHandle?.includes('agri');
-                        } else {
-                          if (isSpecialCargo) {
-                            return (
-                              t.canHandle?.includes('cargo') &&
-                              specialCargoSpecs.every((spec) => t.specialCargo?.includes(spec))
-                            );
-                          }
-                          return t.canHandle?.includes('cargo');
-                        }
-                      });
-                      setFilteredTransporters(filtered);
-                      setLoadingTransporters(false);
-                      setShowTransporters(true);
-                      if (scrollRef.current) {
-                        scrollRef.current.scrollToEnd({ animated: true });
-                      }
-                    }, 1400);
-                  }
+                    .catch((err) => {
+                      Alert.alert('Job posting failed', err.message || 'Failed to post job');
+                    });
                 }}
               >
                 <Text style={styles.findBtnText}>{requestType === 'booking' ? 'Place Booking' : 'Find Transporters'}</Text>

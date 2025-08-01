@@ -239,104 +239,102 @@ export default function TransporterCompletionScreen() {
     setError('');
     // Robust validation before uploading
     if (transporterType === 'individual') {
-      if (!vehicleType) { setError('Please select a vehicle type.'); return; }
-      if (!registration) { setError('Please enter the vehicle registration number.'); return; }
-      if (!profilePhoto) { setError('Please upload a profile photo.'); return; }
-      if (!dlFile) { setError("Please upload the driver's license."); return; }
-      if (!insuranceFile) { setError('Please upload the insurance document.'); return; }
-      if (!idFile) { setError("Please upload the driver's ID."); return; }
-      if (!vehiclePhotos || vehiclePhotos.length === 0) { setError('Please add at least one vehicle photo.'); return; }
+      if (!vehicleType) { setError('Please select a vehicle type.'); return false; }
+      if (!registration) { setError('Please enter the vehicle registration number.'); return false; }
+      if (!profilePhoto) { setError('Please upload a profile photo.'); return false; }
+      if (!dlFile) { setError("Please upload the driver's license."); return false; }
+      if (!insuranceFile) { setError('Please upload the insurance document.'); return false; }
+      if (!idFile) { setError("Please upload the driver's ID."); return false; }
+      if (!vehiclePhotos || vehiclePhotos.length === 0) { setError('Please add at least one vehicle photo.'); return false; }
     } else {
-      if (!companyName) { setError('Please enter the company name.'); return; }
-      if (!companyReg) { setError('Please enter the company registration number.'); return; }
-      if (!companyContact) { setError('Please enter the company contact number.'); return; }
-      if (!profilePhoto) { setError('Please upload a company logo.'); return; }
+      if (!companyName) { setError('Please enter the company name.'); return false; }
+      if (!companyReg) { setError('Please enter the company registration number.'); return false; }
+      if (!companyContact) { setError('Please enter the company contact number.'); return false; }
+      if (!profilePhoto) { setError('Please upload a company logo.'); return false; }
     }
     setUploading(true);
     try {
-      // Upload images/documents to Cloudinary and get URLs
-      const uploadFile = async (file) => {
-        if (!file) return null;
-        if (file.uri) return await uploadToCloudinary(file.uri);
-        return null;
-      };
-      const profilePhotoUrl = await uploadFile(profilePhoto);
-      const vehiclePhotoUrls = await Promise.all(vehiclePhotos.map(uploadFile));
-      const dlFileUrl = await uploadFile(dlFile);
-      const idFileUrl = await uploadFile(idFile);
-      const insuranceFileUrl = await uploadFile(insuranceFile);
-      const logBookFileUrl = await uploadFile(logBookFile);
-
-      // Get user ID (assume JWT or user context provides this, else flag for backend fix)
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) throw new Error('Not authenticated');
       const userId = user.uid;
-
       if (transporterType === 'individual') {
-        // Gather initial user info from Firebase Auth
-        const displayName = user.displayName || '';
-        const email = user.email || '';
-        const phone = user.phoneNumber || '';
-        // Submit to backend /transporters endpoint
-        const payload = {
-          transporterId: userId,
-          displayName,
-          email,
-          phone,
-          profilePhoto: profilePhotoUrl,
-          vehiclePhotos: vehiclePhotoUrls,
-          vehicleType,
-          vehicleMake,
-          vehicleColor,
-          registration,
-          maxCapacity,
-          year,
-          driveType,
-          bodyType,
-          vehicleFeatures,
-          humidityControl,
-          refrigeration,
-          dlFile: dlFileUrl,
-          idFile: idFileUrl,
-          logBookFile: logBookFileUrl,
-          insuranceFile: insuranceFileUrl,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          status: 'pending',
-        };
-        // Backend must accept this payload at POST /transporters
-        await apiRequest('/transporters', {
+        // Prepare FormData for multipart/form-data
+        const formData = new FormData();
+        formData.append('vehicleType', vehicleType);
+        formData.append('vehicleRegistration', registration);
+        formData.append('vehicleMake', vehicleMake);
+        formData.append('vehicleColor', vehicleColor);
+        formData.append('vehicleModel', vehicleMake); // using make as model if no separate model field
+        formData.append('vehicleYear', year);
+        formData.append('vehicleCapacity', maxCapacity);
+        formData.append('driveType', driveType);
+        formData.append('bodyType', bodyType);
+        formData.append('vehicleFeatures', vehicleFeatures);
+        formData.append('humidityControl', humidityControl);
+        formData.append('refrigerated', refrigeration);
+        formData.append('transporterType', transporterType);
+        // Files
+        if (profilePhoto && profilePhoto.uri) formData.append('profileImage', { uri: profilePhoto.uri, name: 'profile.jpg', type: 'image/jpeg' });
+        if (dlFile && dlFile.uri) formData.append('license', { uri: dlFile.uri, name: 'license.jpg', type: 'image/jpeg' });
+        if (insuranceFile && insuranceFile.uri) formData.append('insurance', { uri: insuranceFile.uri, name: 'insurance.jpg', type: 'image/jpeg' });
+        if (logBookFile && logBookFile.uri) formData.append('logbook', { uri: logBookFile.uri, name: 'logbook.jpg', type: 'image/jpeg' });
+        if (idFile && idFile.uri) formData.append('idImage', { uri: idFile.uri, name: 'id.jpg', type: 'image/jpeg' });
+        if (vehiclePhotos && vehiclePhotos.length > 0) {
+          vehiclePhotos.forEach((img, idx) => {
+            if (img.uri) formData.append('vehicleImage', { uri: img.uri, name: `vehicle_${idx}.jpg`, type: 'image/jpeg' });
+          });
+        }
+        // Debug: log all FormData fields and files
+        for (let pair of formData.entries()) {
+          if (typeof pair[1] === 'object' && pair[1] && pair[1].uri) {
+            console.log('FormData file:', pair[0], pair[1].name, pair[1].type, pair[1].uri);
+          } else {
+            console.log('FormData field:', pair[0], pair[1]);
+          }
+        }
+        // Auth header
+        const token = await user.getIdToken();
+        const res = await fetch('/api/transporters/', {
           method: 'POST',
-          body: JSON.stringify(payload),
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+          body: formData,
         });
+        if (!res.ok) {
+          const data = await res.json();
+          setError(data.message || 'Failed to submit profile.');
+          return false;
+        }
+        return true;
       } else {
-        // Gather initial user info from Firebase Auth
-        const displayName = user.displayName || '';
-        const email = user.email || '';
-        const phone = user.phoneNumber || '';
-        // Submit to backend /companies endpoint
+        // Company: use correct field names
         const payload = {
-          companyName,
-          companyReg,
-          companyContact,
-          displayName,
-          email,
-          phone,
-          profilePhoto: profilePhotoUrl,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          status: 'pending',
+          name: companyName,
+          registration: companyReg,
+          contact: companyContact,
         };
-        // Backend must accept this payload at POST /companies
-        await apiRequest('/companies', {
+        const token = await user.getIdToken();
+        const res = await fetch('/api/companies', {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify(payload),
         });
+        if (!res.ok) {
+          const data = await res.json();
+          setError(data.message || 'Failed to submit profile.');
+          return false;
+        }
+        return true;
       }
-      // After submit, let App.tsx handle navigation based on updated profile/status
     } catch (e) {
       setError('Failed to submit profile. Please try again.');
+      return false;
     } finally {
       setUploading(false);
     }
@@ -554,15 +552,14 @@ export default function TransporterCompletionScreen() {
         setUploading(true);
         let success = false;
         try {
-        await handleSubmit();
-        success = true;
+          success = await handleSubmit();
         } catch (e) {
-        setError('Failed to submit profile. Please try again.');
+          setError('Failed to submit profile. Please try again.');
         } finally {
-        setUploading(false);
+          setUploading(false);
         }
         if (success) {
-        navigation.navigate('TransporterProcessingScreen', { transporterType });
+          navigation.navigate('TransporterProcessingScreen', { transporterType });
         }
         }}
         disabled={!isValid() || uploading || photoJustAdded}

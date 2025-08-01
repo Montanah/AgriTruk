@@ -34,17 +34,17 @@ const countryOptions = [
 ];
 
 const roleAccents = {
-  farmer: colors.primary,
-  business: colors.secondary,
+  shipper: colors.primary,
   broker: colors.tertiary,
-  driver: '#FF8C00', // Unique bold orange for drivers
+  business: colors.secondary,
+  transporter: '#FF8C00', // Unique bold orange for transporters
 };
 
 const roleLabels = {
-  farmer: 'Shipper',
-  business: 'Business',
+  shipper: 'Shipper',
   broker: 'Broker',
-  driver: 'Transporter',
+  business: 'Business',
+  transporter: 'Transporter',
 };
 
 const SignupScreen = () => {
@@ -371,11 +371,10 @@ const SignupScreen = () => {
                     const { apiRequest } = await import('../../utils/api');
                     // Map frontend role to backend role
                     const backendRoleMap = {
-                      farmer: 'farmer',
-                      driver: 'transporter',
-                      individual: 'user',
-                      business: 'user',
+                      shipper: 'shipper',
                       broker: 'broker',
+                      business: 'business',
+                      transporter: 'transporter',
                     };
                     await apiRequest('/auth/register', {
                       method: 'POST',
@@ -388,7 +387,7 @@ const SignupScreen = () => {
                       }),
                     });
                     // Backend sends code, not link
-                    navigation.navigate('EmailVerification', { email, phone, role: role === 'driver' ? 'transporter' : role, password });
+                    navigation.navigate('EmailVerification', { email, phone, role, password });
                   } catch (err) {
                     // Firebase Auth error handling
                     let msg = 'Signup failed.';
