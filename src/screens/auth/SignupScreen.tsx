@@ -21,8 +21,10 @@ import colors from '../../constants/colors';
 
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithCredential, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiRequest } from '../../utils/api';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -342,37 +344,36 @@ const SignupScreen = () => {
               <TouchableOpacity
                 style={[styles.signupBtn, { backgroundColor: accent }]}
                 onPress={async () => {
+                  if (loading) return;
+                  
                   setError('');
-                  setLoading(true);
+                  
+                  // Validation
                   if (!name || !email || !phone || !password || !confirmPassword) {
                     setError('All fields are required.');
-                    setLoading(false);
                     return;
                   }
                   if (password !== confirmPassword) {
                     setError('Passwords do not match.');
-                    setLoading(false);
                     return;
                   }
+
+                  setLoading(true);
+                  
                   try {
                     // Firebase Auth signup
-                    const { createUserWithEmailAndPassword } = await import(
-                      'firebase/auth'
-                    );
-                    const { auth } = await import('../../firebaseConfig');
                     const userCredential = await createUserWithEmailAndPassword(
                       auth,
                       email,
                       password,
                     );
+                    
                     // Get Firebase JWT
                     const idToken = await userCredential.user.getIdToken();
+                    
                     // Store JWT for future requests
-                    const AsyncStorage = (await import('@react-native-async-storage/async-storage'))
-                      .default;
                     await AsyncStorage.setItem('jwt', idToken);
-                    // Register user profile in backend and send verification code
-                    const { apiRequest } = await import('../../utils/api');
+                    
                     // Map frontend role to backend role
                     const backendRoleMap = {
                       shipper: 'shipper',
@@ -380,9 +381,14 @@ const SignupScreen = () => {
                       business: 'business',
                       transporter: 'transporter',
                     };
+                    
+                    // Register user profile in backend and send verification code
                     await apiRequest('/auth/register', {
                       method: 'POST',
-                      headers: { Authorization: `Bearer ${idToken}` },
+                      headers: { 
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                      },
                       body: JSON.stringify({
                         name,
                         email,
@@ -390,23 +396,34 @@ const SignupScreen = () => {
                         role: backendRoleMap[role],
                       }),
                     });
-                    // Backend sends code, not link
-                    navigation.navigate('EmailVerification', { email, phone, role, password });
+                    
+                    // Navigate to email verification
+                    navigation.navigate('EmailVerification', { 
+                      email, 
+                      phone: selectedCountry.code + phone, 
+                      role, 
+                      password 
+                    });
                   } catch (err) {
-                    // Firebase Auth error handling
-                    let msg = 'Signup failed.';
+                    console.error('Signup error:', err);
+                    
+                    // Handle different types of errors
+                    let msg = 'Signup failed. Please try again.';
+                    
                     if (err.code === 'auth/email-already-in-use') {
-                      msg =
-                        'This email is already registered. Please sign in or use a different email.';
+                      msg = 'This email is already registered. Please sign in or use a different email.';
                     } else if (err.code === 'auth/invalid-email') {
                       msg = 'Please enter a valid email address.';
                     } else if (err.code === 'auth/weak-password') {
                       msg = 'Password should be at least 6 characters.';
                     } else if (err.code === 'auth/network-request-failed') {
                       msg = 'Network error. Please check your connection.';
+                    } else if (err.message && err.message.includes('network')) {
+                      msg = 'Network error. Please check your connection and try again.';
                     } else if (err.message) {
                       msg = err.message;
                     }
+                    
                     setError(msg);
                   } finally {
                     setLoading(false);

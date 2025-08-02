@@ -61,7 +61,6 @@ const VEHICLE_TYPES = [
 ];
 
 export default function TransporterCompletionScreen() {
-  console.log('Rendering TransporterCompletionScreen');
   const navigation = useNavigation();
   const [transporterType, setTransporterType] = useState('individual'); // 'individual' or 'company'
   const [vehicleType, setVehicleType] = useState('');
@@ -182,7 +181,7 @@ export default function TransporterCompletionScreen() {
 
   const isValid = () => {
     if (transporterType === 'individual') {
-      const valid = (
+      return (
         vehicleType &&
         registration &&
         profilePhoto &&
@@ -191,32 +190,13 @@ export default function TransporterCompletionScreen() {
         idFile &&
         vehiclePhotos.length > 0
       );
-      console.log('[isValid] transporterType: individual', {
-        vehicleType,
-        registration,
-        profilePhoto,
-        dlFile,
-        insuranceFile,
-        idFile,
-        vehiclePhotosLength: vehiclePhotos.length,
-        valid
-      });
-      return valid;
     } else {
-      const valid = (
+      return (
         companyName &&
         companyReg &&
         companyContact &&
         profilePhoto
       );
-      console.log('[isValid] transporterType: company', {
-        companyName,
-        companyReg,
-        companyContact,
-        profilePhoto,
-        valid
-      });
-      return valid;
     }
   };
 
@@ -265,29 +245,29 @@ export default function TransporterCompletionScreen() {
   };
 
   const handleSubmit = async () => {
-    console.log('handleSubmit called');
     setError('');
-    // Robust validation before uploading
+    
+    // Validation
     if (transporterType === 'individual') {
-      if (!vehicleType) { console.log('Validation failed: vehicleType'); setError('Please select a vehicle type.'); return false; }
-      if (!registration) { console.log('Validation failed: registration'); setError('Please enter the vehicle registration number.'); return false; }
-      if (!profilePhoto) { console.log('Validation failed: profilePhoto'); setError('Please upload a profile photo.'); return false; }
-      if (!dlFile) { console.log('Validation failed: dlFile'); setError("Please upload the driver's license."); return false; }
-      if (!insuranceFile) { console.log('Validation failed: insuranceFile'); setError('Please upload the insurance document.'); return false; }
-      if (!idFile) { console.log('Validation failed: idFile'); setError("Please upload the driver's ID."); return false; }
-      if (!vehiclePhotos || vehiclePhotos.length === 0) { console.log('Validation failed: vehiclePhotos'); setError('Please add at least one vehicle photo.'); return false; }
+      if (!vehicleType) { setError('Please select a vehicle type.'); return false; }
+      if (!registration) { setError('Please enter the vehicle registration number.'); return false; }
+      if (!profilePhoto) { setError('Please upload a profile photo.'); return false; }
+      if (!dlFile) { setError("Please upload the driver's license."); return false; }
+      if (!insuranceFile) { setError('Please upload the insurance document.'); return false; }
+      if (!idFile) { setError("Please upload the driver's ID."); return false; }
+      if (!vehiclePhotos || vehiclePhotos.length === 0) { setError('Please add at least one vehicle photo.'); return false; }
     } else {
-      if (!companyName) { console.log('Validation failed: companyName'); setError('Please enter the company name.'); return false; }
-      if (!companyReg) { console.log('Validation failed: companyReg'); setError('Please enter the company registration number.'); return false; }
-      if (!companyContact) { console.log('Validation failed: companyContact'); setError('Please enter the company contact number.'); return false; }
-      if (!profilePhoto) { console.log('Validation failed: profilePhoto (company)'); setError('Please upload a company logo.'); return false; }
+      if (!companyName) { setError('Please enter the company name.'); return false; }
+      if (!companyReg) { setError('Please enter the company registration number.'); return false; }
+      if (!companyContact) { setError('Please enter the company contact number.'); return false; }
+      if (!profilePhoto) { setError('Please upload a company logo.'); return false; }
     }
-    setUploading(true);
+
     try {
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) throw new Error('Not authenticated');
-      const userId = user.uid;
+
       if (transporterType === 'individual') {
         // Prepare FormData for multipart/form-data
         const formData = new FormData();
@@ -295,7 +275,7 @@ export default function TransporterCompletionScreen() {
         formData.append('vehicleRegistration', registration);
         formData.append('vehicleMake', vehicleMake);
         formData.append('vehicleColor', vehicleColor);
-        formData.append('vehicleModel', vehicleMake); // or use a separate model field if available
+        formData.append('vehicleModel', vehicleMake);
         formData.append('vehicleYear', year ? String(year) : '');
         if (maxCapacity && !isNaN(parseInt(maxCapacity, 10))) {
           formData.append('vehicleCapacity', String(parseInt(maxCapacity, 10)));
@@ -306,7 +286,8 @@ export default function TransporterCompletionScreen() {
         formData.append('humidityControl', humidityControl ? 'true' : 'false');
         formData.append('refrigerated', refrigeration ? 'true' : 'false');
         formData.append('transporterType', transporterType);
-        // Files (use new backend field names)
+
+        // Files
         if (profilePhoto && profilePhoto.uri) formData.append('profilePhoto', { uri: profilePhoto.uri, name: 'profile.jpg', type: 'image/jpeg' });
         if (dlFile && dlFile.uri) formData.append('dlFile', { uri: dlFile.uri, name: 'license.jpg', type: 'image/jpeg' });
         if (insuranceFile && insuranceFile.uri) formData.append('insuranceFile', { uri: insuranceFile.uri, name: 'insurance.jpg', type: 'image/jpeg' });
@@ -319,47 +300,40 @@ export default function TransporterCompletionScreen() {
             }
           });
         }
-        // Debug: log all FormData fields and files
-        console.log('--- FormData about to be sent ---');
-        for (let pair of formData.entries()) {
-          if (typeof pair[1] === 'object' && pair[1] && pair[1].uri) {
-            console.log('[FormData file]', pair[0], {
-              name: pair[1].name,
-              type: pair[1].type,
-              uri: pair[1].uri
-            });
-          } else {
-            console.log('[FormData field]', pair[0], pair[1]);
-          }
-        }
-        // Auth header
+
         const token = await user.getIdToken();
-        console.log('--- Sending POST https://agritruk-backend.onrender.com/api/transporters/ ---');
-        // Remove manual Content-Type for FormData, let fetch set it
         const res = await fetch('https://agritruk-backend.onrender.com/api/transporters/', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            // 'Content-Type': 'multipart/form-data', // DO NOT set this manually
           },
           body: formData,
         });
-        let data = {};
+
+        let data = null;
+        let parseError = null;
         try {
           data = await res.json();
         } catch (e) {
-          data = { message: res.statusText };
+          parseError = e;
         }
-        console.log('--- Backend response ---');
-        console.log('Status:', res.status);
-        console.log('Response:', data);
-        if (!res.ok) {
-          setError(data.message || 'Failed to submit profile.');
+
+        if (res.ok) {
+          // Success: navigate immediately
+          return true;
+        } else {
+          // Try to show backend error message if available
+          let errorMsg = 'Failed to submit profile.';
+          if (data && data.message) errorMsg = data.message;
+          else if (parseError) errorMsg = 'Server error: could not parse response.';
+          else if (res.statusText) errorMsg = res.statusText;
+          setError(errorMsg);
+          // Optionally log for debugging
+          console.error('Profile submit error:', { status: res.status, data, parseError });
           return false;
         }
-        return true;
       } else {
-        // Company: use correct field names
+        // Company submission
         const payload = {
           name: companyName,
           registration: companyReg,
@@ -384,8 +358,6 @@ export default function TransporterCompletionScreen() {
     } catch (e) {
       setError('Failed to submit profile. Please try again.');
       return false;
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -597,36 +569,18 @@ export default function TransporterCompletionScreen() {
         <TouchableOpacity
           style={[styles.submitBtn, { backgroundColor: isValid() && !photoJustAdded ? colors.primary : colors.text.light }]}
           onPress={async () => {
-            alert('Submit button pressed');
-            console.log('Submit button pressed');
-            console.log('[Submit] State snapshot:', {
-              transporterType,
-              vehicleType,
-              registration,
-              profilePhoto,
-              dlFile,
-              insuranceFile,
-              idFile,
-              vehiclePhotosLength: vehiclePhotos.length,
-              companyName,
-              companyReg,
-              companyContact,
-              uploading,
-              photoJustAdded,
-              isValid: isValid()
-            });
-            setError('');
+            if (uploading || !isValid() || photoJustAdded) return;
+            
             setUploading(true);
-            let success = false;
             try {
-              success = await handleSubmit();
+              const success = await handleSubmit();
+              if (success) {
+                navigation.navigate('TransporterProcessingScreen', { transporterType });
+              }
             } catch (e) {
               setError('Failed to submit profile. Please try again.');
             } finally {
               setUploading(false);
-            }
-            if (success) {
-              navigation.navigate('TransporterProcessingScreen', { transporterType });
             }
           }}
           disabled={!isValid() || uploading || photoJustAdded}
