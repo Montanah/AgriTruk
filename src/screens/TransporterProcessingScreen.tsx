@@ -57,11 +57,12 @@ export default function TransporterProcessingScreen({ route }) {
             // If approved, navigate to dashboard after short delay
             if (data.transporter.status === 'approved') {
               setTimeout(() => {
-                if (data.transporter.transporterType === 'company') {
-                  navigation.reset({ index: 0, routes: [{ name: 'CompanyDashboardScreen' }] });
-                } else {
-                  navigation.reset({ index: 0, routes: [{ name: 'TransporterDashboardScreen' }] });
-                }
+                navigation.reset({
+                  index: 0,
+                  routes: [
+                    { name: 'TransporterTabs', params: { transporterType: data.transporter.transporterType || transporterType } },
+                  ],
+                });
               }, 1200);
             }
           }
@@ -263,11 +264,12 @@ export default function TransporterProcessingScreen({ route }) {
               // If approved, navigate to dashboard
               if (status === 'approved') {
                 setTimeout(() => {
-                  if ((data.transporter && data.transporter.transporterType) === 'company' || transporterType === 'company') {
-                    navigation.reset({ index: 0, routes: [{ name: 'CompanyDashboardScreen' }] });
-                  } else {
-                    navigation.reset({ index: 0, routes: [{ name: 'TransporterDashboardScreen' }] });
-                  }
+                  navigation.reset({
+                    index: 0,
+                    routes: [
+                      { name: 'TransporterTabs', params: { transporterType: (data.transporter && data.transporter.transporterType) || transporterType } },
+                    ],
+                  });
                 }, 1200);
               }
             } catch (err) {

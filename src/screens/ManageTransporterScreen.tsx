@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import colors from '../constants/colors';
 import { auth } from '../firebaseConfig';
 import { mockDrivers } from '../../mock/mockDrivers';
@@ -16,10 +16,39 @@ export default function ManageTransporterScreen({ route }) {
   const navigation = useNavigation();
   // Modal state and profile state for individual
   const [editModal, setEditModal] = useState(false);
-  const [editName, setEditName] = useState('John Doe');
-  const [editPhone, setEditPhone] = useState('+254700111222');
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editProfilePhoto, setEditProfilePhoto] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+        const token = await user.getIdToken();
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEditName(data.transporter?.displayName || '');
+          setEditPhone(data.transporter?.phoneNumber || '');
+          if (data.transporter?.driverProfileImage) {
+            setEditProfilePhoto({ uri: data.transporter.driverProfileImage });
+          }
+        }
+      } catch {}
+      setLoadingProfile(false);
+    };
+    fetchProfile();
+  }, []);
 
   const pickProfilePhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -384,6 +413,8 @@ export default function ManageTransporterScreen({ route }) {
               <TouchableOpacity style={{ alignItems: 'center', marginBottom: 8 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
                 {editProfilePhoto ? (
                   <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                ) : loadingProfile ? (
+                  <ActivityIndicator size="large" color={colors.primary} />
                 ) : (
                   <MaterialCommunityIcons name="account-circle" size={80} color={colors.primary} />
                 )}
@@ -769,22 +800,112 @@ export default function ManageTransporterScreen({ route }) {
       </>
     );
   } else {
+    // Individual transporter: fetch and show real profile
+    const [individualProfile, setIndividualProfile] = useState(null);
+    const [loadingIndividualProfile, setLoadingIndividualProfile] = useState(true);
+    const [individualProfilePhoto, setIndividualProfilePhoto] = useState(null);
+    React.useEffect(() => {
+      const fetchProfile = async () => {
+        try {
+          const { getAuth } = require('firebase/auth');
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (!user) return;
+          const token = await user.getIdToken();
+          const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setIndividualProfile(data.transporter);
+            if (data.transporter?.driverProfileImage) {
+              setIndividualProfilePhoto({ uri: data.transporter.driverProfileImage });
+            }
+          }
+        } catch {}
+        setLoadingIndividualProfile(false);
+      };
+      fetchProfile();
+    }, []);
     return (
       <>
         {/* --- INDIVIDUAL UI --- */}
         <ScrollView style={styles.bg} contentContainerStyle={styles.container}>
           <Text style={styles.title}>Manage My Vehicle & Profile</Text>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Vehicle</Text>
-            <Text style={styles.value}>KDA 123A (Truck)</Text>
-            {/* Read-only vehicle details here, replace with real data as needed */}
-            <TouchableOpacity style={styles.actionBtn} onPress={() => setVehicleModal(true)}>
-              <Ionicons name="add-circle" size={20} color={colors.primary} />
-              <Text style={styles.actionText}>Add Vehicle</Text>
+          <View style={[styles.card, { alignItems: 'center', paddingTop: 24, paddingBottom: 18, marginBottom: 12 }]}>
+            <TouchableOpacity style={{ alignItems: 'center', marginBottom: 8 }} onPress={() => setEditModal(true)} activeOpacity={0.8}>
+              {individualProfilePhoto ? (
+                <Image source={{ uri: individualProfilePhoto.uri }} style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.background, marginBottom: 10, borderWidth: 2, borderColor: colors.primary }} />
+              ) : loadingIndividualProfile ? (
+                <ActivityIndicator size="large" color={colors.primary} />
+              ) : (
+                <MaterialCommunityIcons name="account-circle" size={100} color={colors.primary} style={{ marginBottom: 10 }} />
+              )}
+              <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 18, marginBottom: 2 }}>{individualProfile?.displayName || ''}</Text>
+              <Text style={{ color: colors.text.secondary, fontSize: 15 }}>{individualProfile?.phoneNumber || ''}</Text>
+              <TouchableOpacity style={{ marginTop: 10, backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22 }} onPress={() => setEditModal(true)}>
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Edit Profile</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
-            <Text style={{ color: colors.secondary, fontSize: 13, marginTop: 4 }}>
-              Adding a new vehicle will require fresh approval. Existing vehicle details cannot be edited.
-            </Text>
+          </View>
+          <View style={[styles.card, { marginTop: 8 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={styles.sectionTitle}>Vehicle</Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.primary,
+                  borderRadius: 50,
+                  width: 44,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: colors.primary,
+                  shadowOpacity: 0.18,
+                  shadowRadius: 8,
+                  elevation: 3,
+                }}
+                onPress={() => setVehicleModal(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add" size={28} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            {individualProfile ? (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="truck" size={22} color={colors.primary} style={{ marginRight: 8 }} />
+                  <Text style={styles.value}>{individualProfile.vehicleMake} ({individualProfile.vehicleType})</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="identifier" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
+                  <Text style={styles.value}>{individualProfile.vehicleRegistration}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="palette" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
+                  <Text style={styles.value}>{individualProfile.vehicleColor} {individualProfile.vehicleYear ? `• ${individualProfile.vehicleYear}` : ''}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
+                  <Text style={styles.value}>{individualProfile.vehicleCapacity ? `${individualProfile.vehicleCapacity} tons` : ''}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="car-cog" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
+                  <Text style={styles.value}>{individualProfile.bodyType} • {individualProfile.driveType}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                  <MaterialCommunityIcons name="star-circle" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
+                  <Text style={styles.value}>{individualProfile.vehicleFeatures || 'No special features'}</Text>
+                </View>
+                {individualProfile.vehicleImagesUrl && individualProfile.vehicleImagesUrl.length > 0 && (
+                  <Image source={{ uri: individualProfile.vehicleImagesUrl[0] }} style={{ width: 120, height: 90, borderRadius: 12, marginTop: 8, backgroundColor: '#eee' }} />
+                )}
+              </>
+            ) : (
+              <Text style={styles.value}>No vehicle data found.</Text>
+            )}
           </View>
           {/* Add Vehicle Modal for Individual */}
           <Modal
@@ -796,7 +917,7 @@ export default function ManageTransporterScreen({ route }) {
             <View style={styles.modalOverlay}>
               <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
                 <View style={styles.vehicleModalCard}>
-                  <Text style={styles.editTitle}>Add Vehicle</Text>
+                  <Text style={styles.editTitle}>Add/Replace Vehicle</Text>
                   <VehicleDetailsForm
                     initial={{}}
                     onChange={() => {}}
@@ -809,26 +930,26 @@ export default function ManageTransporterScreen({ route }) {
                     <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
                       <Text style={styles.cancelText}>Cancel</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.saveBtn} onPress={() => { setVehicleModal(false); Alert.alert('Vehicle Submitted', 'Your new vehicle has been submitted for approval. You will be notified once it is approved.'); }}>
-                      <Text style={styles.saveText}>Submit for Approval</Text>
+                    <TouchableOpacity style={styles.saveBtn} onPress={() => {
+                      // Replace the current vehicle with the new one
+                      // (In real app, send to backend and refetch profile)
+                      setVehicleModal(false);
+                      Alert.alert('Vehicle Updated', 'Your vehicle has been replaced. Await approval if required.');
+                    }}>
+                      <Text style={styles.saveText}>Save Vehicle</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               </ScrollView>
             </View>
           </Modal>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Profile</Text>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
-              <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
-              <Text style={styles.actionText}>Edit Profile</Text>
-            </TouchableOpacity>
-            <Text style={styles.value}>Name: John Doe</Text>
-            <Text style={styles.value}>Phone: +254700111222</Text>
-            {/* Logout button for individual transporter */}
-            <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
-              <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
-              <Text style={[styles.actionText, { color: colors.error }]}>Logout</Text>
+          {/* Subscription Section */}
+          <View style={[styles.card, { marginTop: 8, alignItems: 'center', paddingVertical: 18, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.primary + '33' }]}> 
+            <MaterialCommunityIcons name="credit-card-check-outline" size={28} color={colors.primary} style={{ marginBottom: 4 }} />
+            <Text style={{ fontWeight: 'bold', fontSize: 15, color: colors.primary, marginBottom: 2 }}>Subscription</Text>
+            <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 6 }}>Active Plan: <Text style={{ color: colors.success, fontWeight: 'bold' }}>Monthly</Text></Text>
+            <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 18, marginTop: 4 }} onPress={() => Alert.alert('Subscription', 'Subscription management coming soon!')}>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Manage Subscription</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

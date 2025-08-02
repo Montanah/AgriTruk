@@ -28,10 +28,32 @@ const TransporterServiceScreen = () => {
   const transporterType: TransporterType = route?.params?.transporterType ?? 'company';
   const isCompanyOrBroker = transporterType === 'company' || transporterType === 'broker';
 
-  const user = {
-    firstName: 'Derrick',
-    avatarUrl: undefined,
-  };
+  const [profile, setProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+        const token = await user.getIdToken();
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(data.transporter);
+        }
+      } catch {}
+      setLoadingProfile(false);
+    };
+    fetchProfile();
+  }, []);
 
   const { jobs: bookings, loading, error } = useAssignedJobs('agri');
 
@@ -51,7 +73,9 @@ const TransporterServiceScreen = () => {
     active: true,
   });
 
-  const instantRequests = (bookings || []).filter(
+  // Defensive: ensure bookings is always an array
+  const safeBookings = Array.isArray(bookings) ? bookings : [];
+  const instantRequests = safeBookings.filter(
     (req) => req.type === 'instant' && ['pending', 'accepted'].includes(req.status)
   );
 
@@ -143,7 +167,11 @@ const TransporterServiceScreen = () => {
               transporterType={transporterType}
               navigation={navigation}
               onShowSubscription={() => setShowSubscription(true)}
-              user={user}
+              user={{
+                firstName: profile?.displayName || '',
+                avatarUrl: profile?.driverProfileImage || undefined,
+                // add more fields as needed
+              }}
             />
 
             {notification && (

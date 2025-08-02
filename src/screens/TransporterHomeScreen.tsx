@@ -1,74 +1,59 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import colors from '../constants/colors';
 import { spacing, fonts } from '../constants';
 import Divider from '../components/common/Divider';
 import { useNavigation } from '@react-navigation/native';
-
-// Mock data for incoming requests
-const MOCK_REQUESTS = [
-  {
-    id: 'REQ001',
-    customer: 'Jane Doe',
-    from: 'Nairobi',
-    to: 'Mombasa',
-    product: 'Fruits',
-    weight: 1200,
-    status: 'Pending',
-    eta: '5h 30m',
-    price: 18000,
-    contact: '+254712345678',
-    special: ['Refrigerated'],
-  },
-  {
-    id: 'REQ002',
-    customer: 'John Smith',
-    from: 'Eldoret',
-    to: 'Kisumu',
-    product: 'Machinery',
-    weight: 3000,
-    status: 'Pending',
-    eta: '2h 10m',
-    price: 9500,
-    contact: '+254798765432',
-    special: ['Oversized'],
-  },
-  {
-    id: 'REQ003',
-    customer: 'Mary Wanjiku',
-    from: 'Nakuru',
-    to: 'Kericho',
-    product: 'Tea',
-    weight: 800,
-    status: 'Pending',
-    eta: '1h 45m',
-    price: 6000,
-    contact: '+254701234567',
-    special: [],
-  },
-];
-
-const MOCK_CURRENT_TRIP = {
-  id: 'TRIP001',
-  customer: 'Jane Doe',
-  from: 'Nairobi',
-  to: 'Mombasa',
-  product: 'Fruits',
-  weight: 1200,
-  status: 'On Transit',
-  eta: '4h 10m',
-  price: 18000,
-  contact: '+254712345678',
-  special: ['Refrigerated'],
-  route: [
-    { latitude: -1.2921, longitude: 36.8219 },
-    { latitude: -1.3000, longitude: 36.8300 },
-  ],
-};
+import TransporterProfile from '../components/TransporterService/TransporterProfile';
 
 export default function TransporterHomeScreen() {
   const navigation = useNavigation();
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) throw new Error('Not authenticated');
+        const token = await user.getIdToken();
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!res.ok) throw new Error('Failed to fetch profile');
+        const data = await res.json();
+        setProfile(data.transporter);
+      } catch (err) {
+        setError(err.message || 'Failed to load profile');
+      }
+      setLoading(false);
+    };
+    fetchProfile();
+  }, []);
+
+  // Fallback to mock data for trips/requests if no real data yet
+  const MOCK_REQUESTS = [
+    {
+      id: 'REQ001', customer: 'Jane Doe', from: 'Nairobi', to: 'Mombasa', product: 'Fruits', weight: 1200, status: 'Pending', eta: '5h 30m', price: 18000, contact: '+254712345678', special: ['Refrigerated'],
+    },
+    {
+      id: 'REQ002', customer: 'John Smith', from: 'Eldoret', to: 'Kisumu', product: 'Machinery', weight: 3000, status: 'Pending', eta: '2h 10m', price: 9500, contact: '+254798765432', special: ['Oversized'],
+    },
+    {
+      id: 'REQ003', customer: 'Mary Wanjiku', from: 'Nakuru', to: 'Kericho', product: 'Tea', weight: 800, status: 'Pending', eta: '1h 45m', price: 6000, contact: '+254701234567', special: [],
+    },
+  ];
+  const MOCK_CURRENT_TRIP = {
+    id: 'TRIP001', customer: 'Jane Doe', from: 'Nairobi', to: 'Mombasa', product: 'Fruits', weight: 1200, status: 'On Transit', eta: '4h 10m', price: 18000, contact: '+254712345678', special: ['Refrigerated'],
+    route: [ { latitude: -1.2921, longitude: 36.8219 }, { latitude: -1.3000, longitude: 36.8300 } ],
+  };
   const [requests, setRequests] = useState(MOCK_REQUESTS.map(r => ({ ...r, status: 'Pending' })));
   const [currentTrip, setCurrentTrip] = useState(MOCK_CURRENT_TRIP);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -95,14 +80,48 @@ export default function TransporterHomeScreen() {
     setSelectedRequest(null);
   };
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 16, color: colors.primary, fontWeight: 'bold' }}>Loading profile...</Text>
+      </View>
+    );
+  }
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={{ color: colors.error, fontWeight: 'bold' }}>{error}</Text>
+      </View>
+    );
+  }
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>Transporter Dashboard</Text>
       <Divider style={{ marginVertical: spacing.md }} />
-      {/* Current Trip */}
-      {currentTrip ? (
+      {/* Profile Details */}
+      {profile && (
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Current Trip</Text>
+          <Text style={styles.sectionTitle}>Profile Details</Text>
+          <TransporterProfile
+            transporter={{
+              name: profile.displayName || profile.name || '',
+              phone: profile.phoneNumber || profile.phone || '',
+              vehicleType: profile.vehicleType || '',
+              bodyType: profile.bodyType || '',
+              plateNumber: profile.vehicleRegistration || profile.plateNumber || '',
+              subscriptionActive: typeof profile.subscriptionActive === 'boolean' ? profile.subscriptionActive : true,
+              // Add more mappings as needed
+            }}
+          />
+          <Text style={styles.label}>Email: <Text style={styles.value}>{profile.email}</Text></Text>
+          <Text style={styles.label}>Status: <Text style={[styles.value, { color: colors.secondary }]}>{profile.status}</Text></Text>
+        </View>
+      )}
+      {/* Current Trip (mock fallback) */}
+      {currentTrip && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Current Trip (Demo)</Text>
           <Text style={styles.label}>Customer: <Text style={styles.value}>{currentTrip.customer}</Text></Text>
           <Text style={styles.label}>From: <Text style={styles.value}>{currentTrip.from}</Text></Text>
           <Text style={styles.label}>To: <Text style={styles.value}>{currentTrip.to}</Text></Text>
@@ -122,10 +141,10 @@ export default function TransporterHomeScreen() {
             <Text style={styles.detailsBtnText}>View Trip Details</Text>
           </TouchableOpacity>
         </View>
-      ) : null}
-      {/* Incoming Requests */}
+      )}
+      {/* Incoming Requests (mock fallback) */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Incoming Requests</Text>
+        <Text style={styles.sectionTitle}>Incoming Requests (Demo)</Text>
         {requests.length === 0 ? (
           <Text style={styles.emptyText}>No new requests at the moment.</Text>
         ) : (
@@ -168,7 +187,7 @@ export default function TransporterHomeScreen() {
           />
         )}
       </View>
-      {/* Modal for request details and actions */}
+      {/* Modal for request details and actions (mock fallback) */}
       {showModal && selectedRequest && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
