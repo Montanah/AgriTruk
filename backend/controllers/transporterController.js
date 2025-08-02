@@ -27,7 +27,7 @@ exports.createTransporter = async (req, res) => {
       refrigerated,
       transporterType = 'individual' 
     } = req.body;
-
+    console.log("humidy and refrigerated", humidityControl, refrigerated);
     if (!vehicleType || !vehicleRegistration || !vehicleColor || !vehicleMake || !vehicleModel || !vehicleCapacity || !transporterType) {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
