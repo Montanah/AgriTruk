@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Image } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
@@ -10,6 +10,38 @@ export default function TransporterProcessingScreen({ route }) {
   // route.params?.transporterType can be 'individual' or 'company'
   const transporterType = route?.params?.transporterType || 'individual';
   const navigation = useNavigation();
+  const [profilePhotoUrl, setProfilePhotoUrl] = React.useState(null);
+  const [loadingProfile, setLoadingProfile] = React.useState(true);
+
+  // Fetch profile photo on mount
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+        const token = await user.getIdToken();
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.transporter && data.transporter.driverProfileImage) {
+            setProfilePhotoUrl(data.transporter.driverProfileImage);
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+      setLoadingProfile(false);
+    };
+    fetchProfile();
+  }, []);
+
   // Animated glowing ring effect (LED-like)
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
   const pulseAnim = React.useRef(new Animated.Value(1)).current;
@@ -88,7 +120,17 @@ export default function TransporterProcessingScreen({ route }) {
           />
         </Animated.View>
         <View style={styles.profileIconWrap}>
-          <Ionicons name={transporterType === 'company' ? 'business-outline' : 'person-circle-outline'} size={80} color={'#00FF6A'} />
+          {loadingProfile ? (
+            <ActivityIndicator size="large" color={colors.primary} />
+          ) : profilePhotoUrl ? (
+            <Image
+              source={{ uri: profilePhotoUrl }}
+              style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: '#eee' }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons name={transporterType === 'company' ? 'business-outline' : 'person-circle-outline'} size={80} color={'#00FF6A'} />
+          )}
         </View>
       </View>
       <View style={styles.cardWrap}>
@@ -99,19 +141,45 @@ export default function TransporterProcessingScreen({ route }) {
             : 'Your profile and documents have been submitted and are being reviewed by our admin team.'}
         </Text>
         {/* Progress Timeline */}
-        <View style={styles.timelineRow}>
-          {steps.map((step, idx) => (
-            <View key={step.label} style={styles.timelineStep}>
-              <Ionicons
-                name={step.icon}
-                size={32}
-                color={idx === 1 ? colors.primary : colors.text.light}
-                style={{ marginBottom: 4 }}
-              />
-              <Text style={[styles.timelineLabel, idx === 1 && { color: colors.primary, fontWeight: 'bold' }]}>{step.label}</Text>
-              {idx < steps.length - 1 && <View style={styles.timelineBar} />}
-            </View>
-          ))}
+        <View style={styles.progressStepperRow}>
+          {steps.map((step, idx) => {
+            // For demo, always highlight 'Under Review' as current
+            const isCurrent = idx === 1;
+            const isCompleted = idx < 1;
+            return (
+              <React.Fragment key={step.label}>
+                <View style={[styles.progressStepCircle, isCurrent && styles.progressStepCircleActive, isCompleted && styles.progressStepCircleCompleted]}>
+                  <LinearGradient
+                    colors={isCurrent ? ['#00FF6A', '#00C853'] : isCompleted ? ['#00C853', '#00FF6A'] : ['#e0e0e0', '#f5f5f5']}
+                    style={styles.progressStepGradient}
+                  >
+                    <Ionicons
+                      name={step.icon}
+                      size={26}
+                      color={isCurrent || isCompleted ? '#fff' : colors.text.light}
+                      style={{ alignSelf: 'center' }}
+                    />
+                  </LinearGradient>
+                </View>
+                {idx < steps.length - 1 && (
+                  <View style={[styles.progressStepBar, isCompleted && styles.progressStepBarCompleted, isCurrent && styles.progressStepBarActive]} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </View>
+        <View style={styles.progressStepperLabelsRow}>
+          {steps.map((step, idx) => {
+            const isCurrent = idx === 1;
+            return (
+              <Text
+                key={step.label}
+                style={[styles.progressStepperLabel, isCurrent && styles.progressStepperLabelActive]}
+              >
+                {step.label}
+              </Text>
+            );
+          })}
         </View>
         <Text style={styles.waitingText}>Your documents are under review. You will be notified once your account is activated.</Text>
         <View style={styles.tipsBox}>
@@ -237,33 +305,81 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 340,
   },
-  timelineRow: {
+  progressStepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: spacing.lg,
     width: '100%',
+    minHeight: 54,
   },
-  timelineStep: {
+  progressStepCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f5f5f5',
     alignItems: 'center',
-    flexDirection: 'column',
-    flex: 1,
-    position: 'relative',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    elevation: 2,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    marginHorizontal: 2,
   },
-  timelineLabel: {
+  progressStepCircleActive: {
+    borderColor: '#00FF6A',
+    backgroundColor: '#00FF6A22',
+    elevation: 4,
+    shadowOpacity: 0.18,
+  },
+  progressStepCircleCompleted: {
+    borderColor: '#00C853',
+    backgroundColor: '#00C85322',
+  },
+  progressStepGradient: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressStepBar: {
+    height: 6,
+    width: 32,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+    marginHorizontal: 2,
+  },
+  progressStepBarActive: {
+    backgroundColor: '#00FF6A',
+  },
+  progressStepBarCompleted: {
+    backgroundColor: '#00C853',
+  },
+  progressStepperLabelsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginBottom: spacing.md,
+  },
+  progressStepperLabel: {
+    flex: 1,
     fontSize: fonts.size.sm,
     color: colors.text.light,
     textAlign: 'center',
-    marginBottom: 2,
+    marginTop: 4,
+    fontWeight: '500',
   },
-  timelineBar: {
-    position: 'absolute',
-    top: 16,
-    right: -8,
-    width: 16,
-    height: 2,
-    backgroundColor: colors.text.light,
-    zIndex: 0,
+  progressStepperLabelActive: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: fonts.size.md,
+    textShadowColor: '#00FF6A44',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   waitingText: {
     color: colors.text.secondary,

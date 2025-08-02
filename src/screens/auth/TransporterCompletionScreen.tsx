@@ -63,6 +63,46 @@ const VEHICLE_TYPES = [
 export default function TransporterCompletionScreen() {
   const navigation = useNavigation();
   const [transporterType, setTransporterType] = useState('individual'); // 'individual' or 'company'
+  const [checkingProfile, setCheckingProfile] = useState(true);
+
+  useEffect(() => {
+    // On mount, check if transporter profile exists and is complete
+    const checkProfile = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) {
+          setCheckingProfile(false);
+          return;
+        }
+        const token = await user.getIdToken();
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Consider profile complete if status exists and is not null
+          if (data.transporter && data.transporter.status) {
+            navigation.reset({
+              index: 0,
+              routes: [
+                { name: 'TransporterProcessingScreen', params: { transporterType: data.transporter.transporterType || 'individual' } },
+              ],
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        // Ignore error, allow form to show
+      }
+      setCheckingProfile(false);
+    };
+    checkProfile();
+  }, [navigation]);
   const [vehicleType, setVehicleType] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [vehicleMake, setVehicleMake] = useState('');
@@ -362,6 +402,15 @@ export default function TransporterCompletionScreen() {
   };
 
   const insets = useSafeAreaInsets();
+
+  if (checkingProfile) {
+    return (
+      <View style={styles.statusCheckerContainer}>
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 18 }} />
+        <Text style={styles.statusCheckerText}>Checking profile status...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -845,6 +894,21 @@ const styles = StyleSheet.create({
     color: colors.error,
     marginBottom: spacing.md,
     fontSize: fonts.size.md,
+    textAlign: 'center',
+  },
+  statusCheckerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    width: '100%',
+    height: '100%',
+  },
+  statusCheckerText: {
+    color: colors.primary,
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    marginTop: 8,
     textAlign: 'center',
   },
 });
