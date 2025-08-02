@@ -12,8 +12,26 @@ export default function TransporterProcessingScreen({ route }) {
   const navigation = useNavigation();
   const [profilePhotoUrl, setProfilePhotoUrl] = React.useState(null);
   const [loadingProfile, setLoadingProfile] = React.useState(true);
+  const [currentStatus, setCurrentStatus] = React.useState('pending'); // pending, under review, approved, rejected, etc.
+  const [statusMessage, setStatusMessage] = React.useState('Your documents are under review. You will be notified once your account is activated.');
 
-  // Fetch profile photo on mount
+  // Helper to map status to step index
+  const getStepIndex = (status) => {
+    if (!status) return 0;
+    if (status === 'approved') return 2;
+    if (status === 'pending' || status === 'under review' || status === 'under_review') return 1;
+    return 0;
+  };
+
+  // Helper to get user-friendly status message
+  const getStatusMessage = (status) => {
+    if (status === 'approved') return 'Your account has been approved! Redirecting to dashboard...';
+    if (status === 'rejected') return 'Your documents were rejected. Please contact support or re-submit.';
+    if (status === 'pending' || status === 'under review' || status === 'under_review') return 'Your documents are under review. You will be notified once your account is activated.';
+    return 'Your profile status is being processed.';
+  };
+
+  // Fetch profile photo and status on mount
   React.useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -32,6 +50,20 @@ export default function TransporterProcessingScreen({ route }) {
           const data = await res.json();
           if (data.transporter && data.transporter.driverProfileImage) {
             setProfilePhotoUrl(data.transporter.driverProfileImage);
+          }
+          if (data.transporter && data.transporter.status) {
+            setCurrentStatus(data.transporter.status);
+            setStatusMessage(getStatusMessage(data.transporter.status));
+            // If approved, navigate to dashboard after short delay
+            if (data.transporter.status === 'approved') {
+              setTimeout(() => {
+                if (data.transporter.transporterType === 'company') {
+                  navigation.reset({ index: 0, routes: [{ name: 'CompanyDashboardScreen' }] });
+                } else {
+                  navigation.reset({ index: 0, routes: [{ name: 'TransporterDashboardScreen' }] });
+                }
+              }, 1200);
+            }
           }
         }
       } catch (err) {
@@ -143,9 +175,9 @@ export default function TransporterProcessingScreen({ route }) {
         {/* Progress Timeline */}
         <View style={styles.progressStepperRow}>
           {steps.map((step, idx) => {
-            // For demo, always highlight 'Under Review' as current
-            const isCurrent = idx === 1;
-            const isCompleted = idx < 1;
+            const stepIndex = getStepIndex(currentStatus);
+            const isCurrent = idx === stepIndex;
+            const isCompleted = idx < stepIndex;
             return (
               <React.Fragment key={step.label}>
                 <View style={[styles.progressStepCircle, isCurrent && styles.progressStepCircleActive, isCompleted && styles.progressStepCircleCompleted]}>
@@ -170,7 +202,8 @@ export default function TransporterProcessingScreen({ route }) {
         </View>
         <View style={styles.progressStepperLabelsRow}>
           {steps.map((step, idx) => {
-            const isCurrent = idx === 1;
+            const stepIndex = getStepIndex(currentStatus);
+            const isCurrent = idx === stepIndex;
             return (
               <Text
                 key={step.label}
@@ -181,7 +214,7 @@ export default function TransporterProcessingScreen({ route }) {
             );
           })}
         </View>
-        <Text style={styles.waitingText}>Your documents are under review. You will be notified once your account is activated.</Text>
+        <Text style={styles.waitingText}>{statusMessage}</Text>
         <View style={styles.tipsBox}>
           <Ionicons name="information-circle-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
           <Text style={styles.tipsText}>
@@ -220,14 +253,25 @@ export default function TransporterProcessingScreen({ route }) {
               });
               const data = await res.json();
               if (!res.ok) {
-                alert(data.message || 'Failed to fetch status');
+                setStatusMessage(data.message || 'Failed to fetch status');
                 return;
               }
-              // Show status (customize as needed)
-              alert(`Status: ${data.status || data.body?.status || 'unknown'}`);
-              // Optionally, update UI state here
+              // Update status and message
+              let status = data.status || data.body?.status || (data.transporter && data.transporter.status) || 'unknown';
+              setCurrentStatus(status);
+              setStatusMessage(getStatusMessage(status));
+              // If approved, navigate to dashboard
+              if (status === 'approved') {
+                setTimeout(() => {
+                  if ((data.transporter && data.transporter.transporterType) === 'company' || transporterType === 'company') {
+                    navigation.reset({ index: 0, routes: [{ name: 'CompanyDashboardScreen' }] });
+                  } else {
+                    navigation.reset({ index: 0, routes: [{ name: 'TransporterDashboardScreen' }] });
+                  }
+                }, 1200);
+              }
             } catch (err) {
-              alert('Error refreshing status: ' + err.message);
+              setStatusMessage('Error refreshing status: ' + err.message);
             }
           }}
         >

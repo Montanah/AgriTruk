@@ -83,19 +83,38 @@ export default function TransporterCompletionScreen() {
             'Content-Type': 'application/json',
           },
         });
+        let data = null;
+        let shouldNavigate = false;
         if (res.ok) {
-          const data = await res.json();
-          // Consider profile complete if status exists and is not null
-          if (data.transporter && data.transporter.status) {
-            navigation.reset({
-              index: 0,
-              routes: [
-                { name: 'TransporterProcessingScreen', params: { transporterType: data.transporter.transporterType || 'individual' } },
-              ],
-            });
-            return;
+          try {
+            data = await res.json();
+          } catch (e) {
+            data = null;
           }
         }
+        // Only navigate if transporter profile exists and is truly complete
+        if (
+          res.ok &&
+          data &&
+          typeof data.transporter === 'object' &&
+          data.transporter !== null &&
+          !Array.isArray(data.transporter) &&
+          Object.keys(data.transporter).length > 0 &&
+          typeof data.transporter.status === 'string' &&
+          data.transporter.status.length > 0
+        ) {
+          shouldNavigate = true;
+        }
+        if (shouldNavigate) {
+          navigation.reset({
+            index: 0,
+            routes: [
+              { name: 'TransporterProcessingScreen', params: { transporterType: data.transporter.transporterType || 'individual' } },
+            ],
+          });
+          return;
+        }
+        // If 404 or no transporter, allow form to show
       } catch (err) {
         // Ignore error, allow form to show
       }
@@ -286,7 +305,7 @@ export default function TransporterCompletionScreen() {
 
   const handleSubmit = async () => {
     setError('');
-    
+
     // Validation
     if (transporterType === 'individual') {
       if (!vehicleType) { setError('Please select a vehicle type.'); return false; }
@@ -482,7 +501,7 @@ export default function TransporterCompletionScreen() {
           <Text style={styles.sectionTitle}>Vehicle Details</Text>
           <VehicleDetailsForm
             initial={{ vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures }}
-            onChange={({ vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures }) => {
+            onChange={({ vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures, humidityControl, refrigeration }) => {
               setVehicleType(vehicleType);
               setVehicleMake(vehicleMake);
               setVehicleColor(vehicleColor);
@@ -492,6 +511,8 @@ export default function TransporterCompletionScreen() {
               setDriveType(driveType);
               setBodyType(bodyType);
               setVehicleFeatures(vehicleFeatures);
+              setHumidityControl(humidityControl);
+              setRefrigeration(refrigeration);
             }}
             onPhotoAdd={handleAddVehiclePhoto}
             onPhotoRemove={handleRemoveVehiclePhoto}
@@ -619,7 +640,7 @@ export default function TransporterCompletionScreen() {
           style={[styles.submitBtn, { backgroundColor: isValid() && !photoJustAdded ? colors.primary : colors.text.light }]}
           onPress={async () => {
             if (uploading || !isValid() || photoJustAdded) return;
-            
+
             setUploading(true);
             try {
               const success = await handleSubmit();
