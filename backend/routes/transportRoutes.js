@@ -132,7 +132,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, creat
  *       500:
  *         description: Internal server error
  */
-router.get('/available/list', authenticateToken, requireRole(['admin', 'user']), getAvailableTransporters);
+router.get('/available/list', authenticateToken, requireRole(['admin', 'shipper']), getAvailableTransporters);
 
 
 /**
@@ -175,7 +175,7 @@ router.get('/getAvailableBookings', authenticateToken, requireRole('transporter'
  *       500:
  *         description: Internal server error
  */
-router.get('/:transporterId', authenticateToken, requireRole(['transporter', 'admin', 'user']), getTransporter);
+router.get('/:transporterId', authenticateToken, requireRole(['transporter', 'admin', 'shipper']), getTransporter);
 
 /**
  * @swagger
@@ -346,7 +346,7 @@ router.put('/:transporterId/approve', authenticate, requireRole('admin'), author
  *       500:
  *         description: Internal server error
  */
-router.put('/:transporterId/reject', authenticateToken, requireRole('admin'), rejectTransporter);
+router.put('/:transporterId/reject', authenticate, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), rejectTransporter);
 
 /**
  * @swagger
@@ -416,5 +416,5 @@ router.patch('/:transporterId/availability', authenticateToken, requireRole('tra
  *       500:
  *         description: Internal server error
  */
-router.patch('/:transporterId/rating', authenticateToken, requireRole('admin'), updateRating);
+router.patch('/:transporterId/rating', authenticate, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), updateRating);
 module.exports = router;
