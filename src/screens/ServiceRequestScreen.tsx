@@ -116,6 +116,8 @@ const ServiceRequestScreen = () => {
   const [specialCargoSpecs, setSpecialCargoSpecs] = useState<string[]>([]);
   const [weight, setWeight] = useState('');
   const [value, setValue] = useState('');
+  const [insureGoods, setInsureGoods] = useState(false);
+  const INSURANCE_PERCENT = 0.02; // 2% insurance rate
   const [additional, setAdditional] = useState('');
   const [error, setError] = useState('');
   const [anim] = useState(new Animated.Value(0));
@@ -309,6 +311,7 @@ const ServiceRequestScreen = () => {
     if (activeTab === 'agriTRUK' && isPerishable && perishableSpecs.length === 0) return false;
     if (activeTab === 'cargoTRUK' && isSpecialCargo && specialCargoSpecs.length === 0) return false;
     if (requestType === 'booking' && !pickupTime) return false;
+    if (insureGoods && (!value || isNaN(Number(value)) || Number(value) <= 0)) return false;
     return true;
   };
 
@@ -505,55 +508,79 @@ const ServiceRequestScreen = () => {
                 </TouchableOpacity>
               )}
               {!formCollapsed && <>
-                <Text style={styles.label}>From</Text>
-                <TouchableOpacity style={styles.locationInput}>
-                  <Ionicons name="locate" size={18} color={accent} style={{ marginRight: 8 }} />
-                  <Text style={styles.locationText}>{fromLocation}</Text>
-                  <Text style={styles.changeText}>Current</Text>
-                </TouchableOpacity>
-                <Text style={styles.label}>To</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter destination"
-                  value={toLocation}
-                  onChangeText={setToLocation}
-                  placeholderTextColor={colors.text.light}
-                />
-                <Text style={styles.label}>Product Type</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder={
-                    activeTab === 'agriTRUK'
-                      ? 'e.g. Maize, Fruits, Beans…'
-                      : 'e.g. Electronics, Furniture, Clothing…'
-                  }
-                  value={productType}
-                  onChangeText={(text) => {
-                    setProductType(text);
-                    setShowProductSuggestions(text.length > 0);
-                  }}
-                  onFocus={() => setShowProductSuggestions(productType.length > 0)}
-                  onBlur={() => setTimeout(() => setShowProductSuggestions(false), 200)}
-                  placeholderTextColor={colors.text.light}
-                />
-                {showProductSuggestions && (
-                  <View style={styles.suggestionBox}>
-                    {(PRODUCT_SUGGESTIONS || []).filter((p) =>
-                      p.toLowerCase().includes(productType.toLowerCase()),
-                    ).map((suggestion) => (
-                      <TouchableOpacity
-                        key={suggestion}
-                        style={styles.suggestionItem}
-                        onPress={() => {
-                          setProductType(suggestion);
-                          setShowProductSuggestions(false);
-                        }}
-                      >
-                        <Text style={styles.suggestionText}>{suggestion}</Text>
-                      </TouchableOpacity>
-                    ))}
+                {/* Section: Locations */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionHeader}>Transport Details</Text>
+                  <View style={styles.fromToCard}>
+                    <View style={styles.fromToRowVertical}>
+                      <Text style={styles.label}>From</Text>
+                      <View style={styles.toInputWrap}>
+                        <Ionicons name="locate" size={20} color={accent} style={{ marginRight: 10 }} />
+                        <TextInput
+                          style={styles.toInput}
+                          placeholder="Current Location"
+                          value={fromLocation}
+                          onChangeText={setFromLocation}
+                          placeholderTextColor={colors.text.light}
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.fromToDivider} />
+                    <View style={styles.fromToRowVertical}>
+                      <Text style={styles.label}>To</Text>
+                      <View style={styles.toInputWrap}>
+                        <Ionicons name="location-outline" size={20} color={colors.secondary} style={{ marginRight: 10 }} />
+                        <TextInput
+                          style={styles.toInput}
+                          placeholder="Enter destination"
+                          value={toLocation}
+                          onChangeText={setToLocation}
+                          placeholderTextColor={colors.text.light}
+                        />
+                      </View>
+                    </View>
                   </View>
-                )}
+                </View>
+                {/* Section: Product Details */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionHeader}>Goods Details</Text>
+                  <Text style={styles.label}>Product Type</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={
+                      activeTab === 'agriTRUK'
+                        ? 'e.g. Maize, Fruits, Beans…'
+                        : 'e.g. Electronics, Furniture, Clothing…'
+                    }
+                    value={productType}
+                    onChangeText={(text) => {
+                      setProductType(text);
+                      setShowProductSuggestions(text.length > 0);
+                    }}
+                    onFocus={() => setShowProductSuggestions(productType.length > 0)}
+                    onBlur={() => setTimeout(() => setShowProductSuggestions(false), 200)}
+                    placeholderTextColor={colors.text.light}
+                  />
+                  {showProductSuggestions && (
+                    <View style={styles.suggestionBox}>
+                      {(PRODUCT_SUGGESTIONS || []).filter((p) =>
+                        p.toLowerCase().includes(productType.toLowerCase()),
+                      ).map((suggestion) => (
+                        <TouchableOpacity
+                          key={suggestion}
+                          style={styles.suggestionItem}
+                          onPress={() => {
+                            setProductType(suggestion);
+                            setShowProductSuggestions(false);
+                          }}
+                        >
+                          <Text style={styles.suggestionText}>{suggestion}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                  {/* Dynamic Fields removed to prevent duplication */}
+                </View>
                 {/* Dynamic Fields */}
                 {activeTab === 'agriTRUK' && (
                   <>
@@ -675,33 +702,64 @@ const ServiceRequestScreen = () => {
                     )}
                   </>
                 )}
-                {/* Common Fields */}
-                <Text style={styles.label}>Weight (kg)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter weight"
-                  keyboardType="numeric"
-                  value={weight}
-                  onChangeText={setWeight}
-                  placeholderTextColor={colors.text.light}
-                />
-                <Text style={styles.label}>Value (optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter value"
-                  keyboardType="numeric"
-                  value={value}
-                  onChangeText={setValue}
-                  placeholderTextColor={colors.text.light}
-                />
-                <Text style={styles.label}>Additional/Special Request</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Any additional info for the driver"
-                  value={additional}
-                  onChangeText={setAdditional}
-                  placeholderTextColor={colors.text.light}
-                />
+                {/* Section: Insurance & Weight */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionHeader}>Insurance & Weight</Text>
+                  <View style={styles.insuranceRow}>
+                    <Text style={styles.label}>Insure Goods?</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.switchBtn,
+                        insureGoods && { backgroundColor: colors.secondary, borderColor: colors.secondary },
+                      ]}
+                      onPress={() => setInsureGoods((v) => !v)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={[
+                        styles.switchKnob,
+                        insureGoods && { backgroundColor: colors.white, left: 24 },
+                      ]} />
+                      <Text style={{ color: insureGoods ? colors.white : colors.text.primary, fontWeight: 'bold', marginLeft: 36 }}>{insureGoods ? 'Yes' : 'No'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.label}>Weight (kg)</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Enter weight"
+                        keyboardType="numeric"
+                        value={weight}
+                        onChangeText={setWeight}
+                        placeholderTextColor={colors.text.light}
+                      />
+                    </View>
+                    {insureGoods && (
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.label}>Value of Goods</Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter value"
+                          keyboardType="numeric"
+                          value={value}
+                          onChangeText={setValue}
+                          placeholderTextColor={colors.text.light}
+                        />
+                      </View>
+                    )}
+                  </View>
+                </View>
+                {/* Section: Additional Notes */}
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionHeader}>Additional/Special Request</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Any additional info for the driver"
+                    value={additional}
+                    onChangeText={setAdditional}
+                    placeholderTextColor={colors.text.light}
+                  />
+                </View>
                 {/* Booking Pickup Time Field */}
                 {requestType === 'booking' && (
                   <>
@@ -742,9 +800,10 @@ const ServiceRequestScreen = () => {
               {/* Summary Card */}
               <View style={styles.summaryCard}>
                 <Text style={[styles.summaryTitle, { color: accent }]}>Summary</Text>
-                <Text style={styles.summaryText}>From: {fromLocation}</Text>
-                <Text style={styles.summaryText}>To: {toLocation || '---'}</Text>
-                <Text style={styles.summaryText}>Weight: {weight || '---'} kg</Text>
+                <View style={{ height: 1, backgroundColor: colors.text.light + '33', marginVertical: 8 }} />
+                <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>From:</Text> {fromLocation}</Text>
+                <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>To:</Text> {toLocation || '---'}</Text>
+                <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>Weight:</Text> {weight || '---'} kg</Text>
                 {activeTab === 'agriTRUK' && isPerishable && (
                   <Text style={styles.summaryText}>
                     Perishable:{' '}
@@ -761,14 +820,19 @@ const ServiceRequestScreen = () => {
                       .join(', ') || '---'}
                   </Text>
                 )}
-                <Text style={styles.summaryText}>Value: {value || '---'}</Text>
-                <Text style={styles.summaryText}>Notes: {additional || '---'}</Text>
+                {insureGoods && (
+                  <Text style={styles.summaryText}>
+                    Insurance: {value ? `KES ${(Number(value) * INSURANCE_PERCENT).toFixed(2)} (2% of KES ${value})` : '---'}
+                  </Text>
+                )}
+                <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>Value:</Text> {insureGoods ? (value || '---') : 'N/A'}</Text>
+                <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>Notes:</Text> {additional || '---'}</Text>
                 {requestType === 'booking' && (
                   <Text style={styles.summaryText}>Pickup Time: {pickupTime ? pickupTime.toLocaleString() : '---'}</Text>
                 )}
-                <Text style={styles.summaryText}>Type: {requestType === 'booking' ? 'Booking' : 'Instant'}</Text>
+                <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>Type:</Text> {requestType === 'booking' ? 'Booking' : 'Instant'}</Text>
                 {distance && !loadingDistance && (
-                  <Text style={[styles.summaryText, { color: accent }]}>Distance: {distance}</Text>
+                  <Text style={[styles.summaryText, { color: accent }]}><Text style={{ fontWeight: 'bold' }}>Distance:</Text> {distance}</Text>
                 )}
               </View>
               <TouchableOpacity
@@ -778,37 +842,57 @@ const ServiceRequestScreen = () => {
                 ]}
                 disabled={!isValid()}
                 onPress={() => {
-                  // Always post job to backend as a job posting (for both instant and booking)
-                  const bookingPayload = {
-                    fromLocation,
-                    toLocation,
-                    productType,
-                    weight,
-                    value,
-                    additional,
-                    perishableSpecs,
-                    specialCargoSpecs,
-                    pickupTime: requestType === 'booking'
-                      ? (pickupTime ? pickupTime.toISOString() : '')
-                      : new Date().toISOString(),
-                    requestType,
-                    fromCoords,
-                    toCoords,
-                    distance,
-                    status: 'pending', // initial status for new job posting
-                  };
-                  const endpoint = activeTab === 'agriTRUK' ? '/bookings/agri' : '/bookings/cargo';
-                  apiRequest(endpoint, {
-                    method: 'POST',
-                    body: JSON.stringify(bookingPayload),
-                  })
-                    .then(() => {
-                      Alert.alert('Job posted!', 'Your request has been posted and is visible to transporters.');
-                      // Optionally, reset form or navigate
-                    })
-                    .catch((err) => {
-                      Alert.alert('Job posting failed', err.message || 'Failed to post job');
+                  // Calculate insurance cost if needed
+                  let insuranceCost = 0;
+                  if (insureGoods && value && !isNaN(Number(value))) {
+                    insuranceCost = Number(value) * INSURANCE_PERCENT;
+                  }
+                  // For instant: show available transporters, for booking: post job
+                  if (requestType === 'instant') {
+                    setLoadingTransporters(true);
+                    // Filter logic can be improved as needed
+                    const filtered = transporters.filter(t => {
+                      if (weight && t.capacity < parseFloat(weight)) return false;
+                      if (isPerishable && !t.refrigeration) return false;
+                      if (isSpecialCargo && !t.specialCargo) return false;
+                      return true;
                     });
+                    setFilteredTransporters(filtered);
+                    setShowTransporters(true);
+                    setLoadingTransporters(false);
+                  } else {
+                    // Booking: post as a job
+                    const bookingPayload = {
+                      fromLocation,
+                      toLocation,
+                      productType,
+                      weight,
+                      value: insureGoods ? value : '',
+                      insureGoods,
+                      insuranceCost,
+                      additional,
+                      perishableSpecs,
+                      specialCargoSpecs,
+                      pickupTime: pickupTime ? pickupTime.toISOString() : '',
+                      requestType,
+                      fromCoords,
+                      toCoords,
+                      distance,
+                      status: 'pending',
+                    };
+                    const endpoint = activeTab === 'agriTRUK' ? '/bookings/agri' : '/bookings/cargo';
+                    apiRequest(endpoint, {
+                      method: 'POST',
+                      body: JSON.stringify(bookingPayload),
+                    })
+                      .then(() => {
+                        Alert.alert('Job posted!', 'Your booking has been posted and is visible to transporters.');
+                        // Optionally, reset form or navigate
+                      })
+                      .catch((err) => {
+                        Alert.alert('Job posting failed', err.message || 'Failed to post job');
+                      });
+                  }
                 }}
               >
                 <Text style={styles.findBtnText}>{requestType === 'booking' ? 'Place Booking' : 'Find Transporters'}</Text>
@@ -1179,6 +1263,115 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     fontWeight: '600',
   },
+  fromToCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'column',
+    gap: 0,
+    width: '100%',
+    marginBottom: 4,
+    shadowColor: colors.black,
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  fromToRowVertical: {
+    flexDirection: 'column',
+    marginBottom: 0,
+    width: '100%',
+  },
+  fromInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginTop: 2,
+    marginBottom: 2,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+  },
+  fromCurrentBadge: {
+    backgroundColor: colors.secondary,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 10,
+  },
+  fromCurrentText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  fromToDivider: {
+    height: 1,
+    backgroundColor: colors.text.light + '33',
+    marginVertical: 10,
+    width: '100%',
+  },
+  toInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginTop: 2,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+  },
+  toInput: {
+    flex: 1,
+    fontSize: fonts.size.md,
+    color: colors.text.primary,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    padding: 0,
+  },
+  sectionCard: {
+    backgroundColor: colors.background,
+    borderRadius: 14,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    width: '100%',
+    shadowColor: colors.black,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  sectionHeader: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.primaryDark,
+    marginBottom: 6,
+    letterSpacing: 0.2,
+  },
+  switchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    borderColor: colors.text.light,
+    backgroundColor: colors.surface,
+    minWidth: 70,
+    position: 'relative',
+    marginLeft: 12,
+  },
+  switchKnob: {
+    position: 'absolute',
+    left: 2,
+    top: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.secondary,
+    zIndex: 2,
+    transition: 'left 0.2s',
+  },
   summaryCard: {
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -1191,6 +1384,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 2,
+  },
+  insuranceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+    marginTop: 2,
+    width: '100%',
+    gap: 12,
   },
   summaryTitle: {
     fontSize: fonts.size.lg,
