@@ -1,20 +1,30 @@
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import VehicleDetailsForm from '../components/VehicleDetailsForm';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
-import colors from '../constants/colors';
-import { auth } from '../firebaseConfig';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { mockDrivers } from '../../mock/mockDrivers';
 import { mockVehicles } from '../../mock/mockVehicles';
 import { notificationService } from '../../services/notificationService';
+import VehicleDetailsForm from '../components/VehicleDetailsForm';
+import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
+import colors from '../constants/colors';
+import { auth } from '../firebaseConfig';
 
 export default function ManageTransporterScreen({ route }) {
   const transporterType = route?.params?.transporterType || 'company';
   const navigation = useNavigation();
   // Modal state and profile state for individual
+  const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState('monthly');
+  const handlePayment = () => {
+    Alert.alert('Payment', 'Proceed to payment flow here.');
+  };
+  const handleSubscribe = () => {
+    setSubscriptionModalVisible(false);
+    Alert.alert('Plan Updated', `Your plan is now: ${selectedPlan}`);
+  };
   const [editModal, setEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -44,7 +54,7 @@ export default function ManageTransporterScreen({ route }) {
             setEditProfilePhoto({ uri: data.transporter.driverProfileImage });
           }
         }
-      } catch {}
+      } catch { }
       setLoadingProfile(false);
     };
     fetchProfile();
@@ -401,341 +411,341 @@ export default function ManageTransporterScreen({ route }) {
   if (transporterType === 'company') {
     return (
       <>
-        <ScrollView style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}> 
-            <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
-            {/* Profile Section */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Profile</Text>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
-                <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
-                <Text style={styles.actionText}>Edit Profile</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ alignItems: 'center', marginBottom: 8 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
-                {editProfilePhoto ? (
-                  <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
-                ) : loadingProfile ? (
-                  <ActivityIndicator size="large" color={colors.primary} />
-                ) : (
-                  <MaterialCommunityIcons name="account-circle" size={80} color={colors.primary} />
-                )}
-                <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
-              </TouchableOpacity>
-              <Text style={styles.value}>Name: {editName}</Text>
-              <Text style={styles.value}>Phone: {editPhone}</Text>
-              <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
-                <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
-                <Text style={[styles.actionText, { color: colors.error }]}>Logout</Text>
-              </TouchableOpacity>
-            </View>
-            {/* Vehicles List */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Vehicles</Text>
-              <TouchableOpacity style={styles.actionBtn} onPress={openAddVehicle}>
-                <Ionicons name="add-circle" size={20} color={colors.primary} />
-                <Text style={styles.actionText}>Add Vehicle</Text>
-              </TouchableOpacity>
-              <TextInput
-                style={styles.input}
-                placeholder="Search vehicles..."
-                value={vehicleSearch}
-                onChangeText={setVehicleSearch}
-              />
-              {vehicles.length === 0 ? (
-                <Text style={styles.value}>No vehicles added.</Text>
+        <ScrollView style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}>
+          <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
+          {/* Profile Section */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Profile</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
+              <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
+              <Text style={styles.actionText}>Edit Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ alignItems: 'center', marginBottom: 8 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
+              {editProfilePhoto ? (
+                <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+              ) : loadingProfile ? (
+                <ActivityIndicator size="large" color={colors.primary} />
               ) : (
-                vehicles.filter(item => {
-                  const assignedDriver = drivers.find(d => d.id === item.assignedDriverId);
-                  return (
-                    item.reg.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-                    item.type.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-                    (assignedDriver && assignedDriver.name.toLowerCase().includes(vehicleSearch.toLowerCase()))
-                  );
-                }).map((item, index) => (
-                  <View style={styles.vehicleListItem} key={item.id}>
-                    <Text style={styles.value}>{item.reg} ({item.type})</Text>
-                    <Text style={styles.value}>Assigned Driver: {item.assignedDriverId ? (drivers.find(d => d.id === item.assignedDriverId)?.name || 'Unknown') : 'None'}</Text>
-                    <View style={{ flexDirection: 'row', marginTop: 4 }}>
-                      <TouchableOpacity style={styles.editBtn} onPress={() => openEditVehicle(index)}>
-                        <Ionicons name="create-outline" size={18} color={colors.secondary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveVehicle(index)}>
-                        <Ionicons name="trash" size={18} color={colors.error} />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={{ marginTop: 6 }}>
-                      <TouchableOpacity style={[styles.driverAssignBtn, { minWidth: 180, justifyContent: 'center' }]} onPress={() => { setAssignModalVehicleIdx(index); setShowAssignModal(true); }}>
-                        <Ionicons name="swap-horizontal" size={18} color={colors.primary} />
-                        <Text style={{ color: colors.primary, marginLeft: 8, fontWeight: 'bold' }}>Assign Driver</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
+                <MaterialCommunityIcons name="account-circle" size={80} color={colors.primary} />
               )}
-            </View>
-            {/* Assign Driver Modal */}
-            <Modal
-              visible={showAssignModal}
-              animationType="slide"
-              transparent
-              onRequestClose={() => setShowAssignModal(false)}
-            >
-              <View style={styles.modalOverlay}>
-                <View style={styles.vehicleModalCard}>
-                  <Text style={styles.editTitle}>Assign Driver</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Search drivers by name, email, or phone"
-                    value={driverSearch}
-                    onChangeText={setDriverSearch}
-                  />
-                  <ScrollView style={{ maxHeight: 320, width: '100%' }}>
-                    {drivers.filter(d =>
-                      d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                      d.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                      d.phone.toLowerCase().includes(driverSearch.toLowerCase())
-                    ).map((d) => (
-                      <TouchableOpacity
-                        key={d.id}
-                        style={[styles.driverAssignBtn, vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && styles.driverAssignBtnActive, { flexDirection: 'row', alignItems: 'center', marginBottom: 8 }]}
-                        onPress={() => {
-                          assignDriverToVehicle(assignModalVehicleIdx, d.id);
-                          setShowAssignModal(false);
-                        }}
-                      >
-                        <Image source={{ uri: d.photo?.uri }} style={styles.driverAssignPhoto} />
-                        <View style={{ marginLeft: 8, flex: 1 }}>
-                          <Text style={styles.driverAssignName}>Name: {d.name}</Text>
-                          <Text style={styles.driverAssignName}>Contact: {d.phone}</Text>
-                          <Text style={styles.driverAssignName}>Email: {d.email}</Text>
-                          <Text style={styles.driverAssignName}>ID: {d.id}</Text>
-                        </View>
-                        {vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && (
-                          <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={{ marginLeft: 8 }} />
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                  <View style={styles.editActionsRow}>
-                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAssignModal(false)}>
-                      <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
+            </TouchableOpacity>
+            <Text style={styles.value}>Name: {editName}</Text>
+            <Text style={styles.value}>Phone: {editPhone}</Text>
+            <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
+              <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
+              <Text style={[styles.actionText, { color: colors.error }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+          {/* Vehicles List */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Vehicles</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={openAddVehicle}>
+              <Ionicons name="add-circle" size={20} color={colors.primary} />
+              <Text style={styles.actionText}>Add Vehicle</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="Search vehicles..."
+              value={vehicleSearch}
+              onChangeText={setVehicleSearch}
+            />
+            {vehicles.length === 0 ? (
+              <Text style={styles.value}>No vehicles added.</Text>
+            ) : (
+              vehicles.filter(item => {
+                const assignedDriver = drivers.find(d => d.id === item.assignedDriverId);
+                return (
+                  item.reg.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
+                  item.type.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
+                  (assignedDriver && assignedDriver.name.toLowerCase().includes(vehicleSearch.toLowerCase()))
+                );
+              }).map((item, index) => (
+                <View style={styles.vehicleListItem} key={item.id}>
+                  <Text style={styles.value}>{item.reg} ({item.type})</Text>
+                  <Text style={styles.value}>Assigned Driver: {item.assignedDriverId ? (drivers.find(d => d.id === item.assignedDriverId)?.name || 'Unknown') : 'None'}</Text>
+                  <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => openEditVehicle(index)}>
+                      <Ionicons name="create-outline" size={18} color={colors.secondary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveVehicle(index)}>
+                      <Ionicons name="trash" size={18} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ marginTop: 6 }}>
+                    <TouchableOpacity style={[styles.driverAssignBtn, { minWidth: 180, justifyContent: 'center' }]} onPress={() => { setAssignModalVehicleIdx(index); setShowAssignModal(true); }}>
+                      <Ionicons name="swap-horizontal" size={18} color={colors.primary} />
+                      <Text style={{ color: colors.primary, marginLeft: 8, fontWeight: 'bold' }}>Assign Driver</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
-            </Modal>
-            {/* Add/Edit Vehicle Modal */}
-            <Modal
-              visible={vehicleModal}
-              animationType="slide"
-              transparent
-              onRequestClose={() => setVehicleModal(false)}
-            >
-              <View style={styles.modalOverlay}>
-                <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
-                  <View style={styles.vehicleModalCard}>
-                    <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
-                    {/* Vehicle Details Form (Reusable) */}
-                    <VehicleDetailsForm
-                      initial={{}}
-                      onChange={() => {}}
-                      onPhotoAdd={pickVehiclePhotos}
-                      onPhotoRemove={removeVehiclePhoto}
-                      vehiclePhotos={vehiclePhotos}
-                      error={null}
-                    />
-                    <TextInput style={styles.input} placeholder="Registration Number *" value={vehicleReg} onChangeText={setVehicleReg} />
-                    <View style={styles.featuresRow}>
-                      <TouchableOpacity style={[styles.featureBtn, refrigeration && styles.featureBtnActive]} onPress={() => setRefrigeration(!refrigeration)}>
-                        <MaterialCommunityIcons name="snowflake" size={18} color={refrigeration ? colors.white : colors.primary} />
-                        <Text style={[styles.featureText, refrigeration && { color: colors.white }]}>Refrigeration</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.featureBtn, humidityControl && styles.featureBtnActive]} onPress={() => setHumidityControl(!humidityControl)}>
-                        <MaterialCommunityIcons name="water-percent" size={18} color={humidityControl ? colors.white : colors.primary} />
-                        <Text style={[styles.featureText, humidityControl && { color: colors.white }]}>Humidity Control</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.featureBtn, specialCargo && styles.featureBtnActive]} onPress={() => setSpecialCargo(!specialCargo)}>
-                        <MaterialCommunityIcons name="cube-outline" size={18} color={specialCargo ? colors.white : colors.primary} />
-                        <Text style={[styles.featureText, specialCargo && { color: colors.white }]}>Special Cargo</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <TextInput style={styles.input} placeholder="Other Features (comma separated)" value={vehicleFeatures} onChangeText={setVehicleFeatures} />
-                    <View style={styles.section}>
-                      <Text style={styles.editLabel}>Insurance Document (PDF or Image) *</Text>
-                      <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
-                        <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-                        <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload File'}</Text>
-                      </TouchableOpacity>
-                      {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
-                    </View>
-                    <View style={styles.section}>
-                      <Text style={styles.editLabel}>Vehicle Photos (3-5) *</Text>
-                      <View style={styles.photosRow}>
-                        {vehiclePhotos.map((photo, idx) => (
-                          <View key={idx} style={styles.photoWrap}>
-                            <Image source={{ uri: photo.uri }} style={styles.photo} />
-                            <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeVehiclePhoto(idx)}>
-                              <Ionicons name="close-circle" size={20} color={colors.error} />
-                            </TouchableOpacity>
-                          </View>
-                        ))}
-                        {vehiclePhotos.length < 5 && (
-                          <TouchableOpacity style={styles.addPhotoBtn} onPress={pickVehiclePhotos}>
-                            <Ionicons name="add" size={28} color={colors.primary} />
-                          </TouchableOpacity>
-                        )}
+              ))
+            )}
+          </View>
+          {/* Assign Driver Modal */}
+          <Modal
+            visible={showAssignModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setShowAssignModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.vehicleModalCard}>
+                <Text style={styles.editTitle}>Assign Driver</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Search drivers by name, email, or phone"
+                  value={driverSearch}
+                  onChangeText={setDriverSearch}
+                />
+                <ScrollView style={{ maxHeight: 320, width: '100%' }}>
+                  {drivers.filter(d =>
+                    d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                    d.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                    d.phone.toLowerCase().includes(driverSearch.toLowerCase())
+                  ).map((d) => (
+                    <TouchableOpacity
+                      key={d.id}
+                      style={[styles.driverAssignBtn, vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && styles.driverAssignBtnActive, { flexDirection: 'row', alignItems: 'center', marginBottom: 8 }]}
+                      onPress={() => {
+                        assignDriverToVehicle(assignModalVehicleIdx, d.id);
+                        setShowAssignModal(false);
+                      }}
+                    >
+                      <Image source={{ uri: d.photo?.uri }} style={styles.driverAssignPhoto} />
+                      <View style={{ marginLeft: 8, flex: 1 }}>
+                        <Text style={styles.driverAssignName}>Name: {d.name}</Text>
+                        <Text style={styles.driverAssignName}>Contact: {d.phone}</Text>
+                        <Text style={styles.driverAssignName}>Email: {d.email}</Text>
+                        <Text style={styles.driverAssignName}>ID: {d.id}</Text>
                       </View>
-                      <Text style={styles.photoHint}>Add at least 3 photos</Text>
-                    </View>
-                    <View style={styles.editActionsRow}>
-                      <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
-                        <Text style={styles.cancelText}>Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.saveBtn} onPress={handleSaveVehicle}>
-                        <Text style={styles.saveText}>{vehicleEditIdx !== null ? 'Save Changes' : 'Add Vehicle'}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </ScrollView>
-              </View>
-            </Modal>
-            {/* Drivers List */}
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Drivers</Text>
-              <TouchableOpacity style={styles.actionBtn} onPress={openRecruitDriver}>
-                <Ionicons name="add-circle" size={20} color={colors.primary} />
-                <Text style={styles.actionText}>Recruit Driver</Text>
-              </TouchableOpacity>
-              <TextInput
-                style={styles.input}
-                placeholder="Search drivers..."
-                value={driverSearch}
-                onChangeText={setDriverSearch}
-              />
-              {drivers.length === 0 ? (
-                <Text style={styles.value}>No drivers added.</Text>
-              ) : (
-                <ScrollView style={{ maxHeight: 340 }}>
-                  {drivers.filter(item =>
-                    item.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                    item.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                    item.phone.toLowerCase().includes(driverSearch.toLowerCase())
-                  ).map((item, index) => (
-                    <View style={styles.driverListItem} key={item.id}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Image source={{ uri: item.photo?.uri }} style={styles.driverPhoto} />
-                        <View style={{ marginLeft: 10, flex: 1 }}>
-                          <Text style={styles.value}>{item.name}</Text>
-                          <Text style={styles.value}>{item.email}</Text>
-                          <Text style={styles.value}>{item.phone}</Text>
-                        </View>
-                        <TouchableOpacity style={styles.editBtn} onPress={() => openEditDriver(index)}>
-                          <Ionicons name="create-outline" size={18} color={colors.secondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveDriver(index)}>
-                          <Ionicons name="trash" size={18} color={colors.error} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                      {vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && (
+                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={{ marginLeft: 8 }} />
+                      )}
+                    </TouchableOpacity>
                   ))}
                 </ScrollView>
-              )}
+                <View style={styles.editActionsRow}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAssignModal(false)}>
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-            {/* Recruit Driver Modal */}
-            <Modal
-              visible={recruitModal}
-              animationType="slide"
-              transparent
-              onRequestClose={() => setRecruitModal(false)}
-            >
-              <View style={styles.modalOverlay}>
-                <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
-                  <View style={styles.vehicleModalCard}>
-                    <Text style={styles.editTitle}>Recruit Driver</Text>
-                    <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={() => pickDriverPhoto(setRecruitPhoto)}>
-                      {recruitPhoto ? (
-                        <Image source={{ uri: recruitPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
-                      ) : (
-                        <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
-                        </View>
-                      )}
-                      <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo *</Text>
+          </Modal>
+          {/* Add/Edit Vehicle Modal */}
+          <Modal
+            visible={vehicleModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setVehicleModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
+                  {/* Vehicle Details Form (Reusable) */}
+                  <VehicleDetailsForm
+                    initial={{}}
+                    onChange={() => { }}
+                    onPhotoAdd={pickVehiclePhotos}
+                    onPhotoRemove={removeVehiclePhoto}
+                    vehiclePhotos={vehiclePhotos}
+                    error={null}
+                  />
+                  <TextInput style={styles.input} placeholder="Registration Number *" value={vehicleReg} onChangeText={setVehicleReg} />
+                  <View style={styles.featuresRow}>
+                    <TouchableOpacity style={[styles.featureBtn, refrigeration && styles.featureBtnActive]} onPress={() => setRefrigeration(!refrigeration)}>
+                      <MaterialCommunityIcons name="snowflake" size={18} color={refrigeration ? colors.white : colors.primary} />
+                      <Text style={[styles.featureText, refrigeration && { color: colors.white }]}>Refrigeration</Text>
                     </TouchableOpacity>
-                    <TextInput style={styles.input} placeholder="Driver Name *" value={recruitName} onChangeText={setRecruitName} />
-                    <TextInput style={styles.input} placeholder="Email *" value={recruitEmail} onChangeText={setRecruitEmail} keyboardType="email-address" />
-                    <TextInput style={styles.input} placeholder="Phone *" value={recruitPhone} onChangeText={setRecruitPhone} keyboardType="phone-pad" />
-                    <View style={styles.section}>
-                      <Text style={styles.editLabel}>ID Document (PDF or Image) *</Text>
-                      <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverIdDoc(setRecruitIdDoc)}>
-                        <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-                        <Text style={styles.uploadBtnText}>{recruitIdDoc ? 'Change File' : 'Upload File'}</Text>
-                      </TouchableOpacity>
-                      {recruitIdDoc && <Text style={styles.fileName}>{recruitIdDoc.fileName || recruitIdDoc.uri?.split('/').pop()}</Text>}
+                    <TouchableOpacity style={[styles.featureBtn, humidityControl && styles.featureBtnActive]} onPress={() => setHumidityControl(!humidityControl)}>
+                      <MaterialCommunityIcons name="water-percent" size={18} color={humidityControl ? colors.white : colors.primary} />
+                      <Text style={[styles.featureText, humidityControl && { color: colors.white }]}>Humidity Control</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.featureBtn, specialCargo && styles.featureBtnActive]} onPress={() => setSpecialCargo(!specialCargo)}>
+                      <MaterialCommunityIcons name="cube-outline" size={18} color={specialCargo ? colors.white : colors.primary} />
+                      <Text style={[styles.featureText, specialCargo && { color: colors.white }]}>Special Cargo</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TextInput style={styles.input} placeholder="Other Features (comma separated)" value={vehicleFeatures} onChangeText={setVehicleFeatures} />
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>Insurance Document (PDF or Image) *</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload File'}</Text>
+                    </TouchableOpacity>
+                    {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>Vehicle Photos (3-5) *</Text>
+                    <View style={styles.photosRow}>
+                      {vehiclePhotos.map((photo, idx) => (
+                        <View key={idx} style={styles.photoWrap}>
+                          <Image source={{ uri: photo.uri }} style={styles.photo} />
+                          <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeVehiclePhoto(idx)}>
+                            <Ionicons name="close-circle" size={20} color={colors.error} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                      {vehiclePhotos.length < 5 && (
+                        <TouchableOpacity style={styles.addPhotoBtn} onPress={pickVehiclePhotos}>
+                          <Ionicons name="add" size={28} color={colors.primary} />
+                        </TouchableOpacity>
+                      )}
                     </View>
-                    <View style={styles.section}>
-                      <Text style={styles.editLabel}>Driver's License (PDF or Image) *</Text>
-                      <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverLicense(setRecruitLicense)}>
-                        <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-                        <Text style={styles.uploadBtnText}>{recruitLicense ? 'Change File' : 'Upload File'}</Text>
+                    <Text style={styles.photoHint}>Add at least 3 photos</Text>
+                  </View>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSaveVehicle}>
+                      <Text style={styles.saveText}>{vehicleEditIdx !== null ? 'Save Changes' : 'Add Vehicle'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+          {/* Drivers List */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Drivers</Text>
+            <TouchableOpacity style={styles.actionBtn} onPress={openRecruitDriver}>
+              <Ionicons name="add-circle" size={20} color={colors.primary} />
+              <Text style={styles.actionText}>Recruit Driver</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="Search drivers..."
+              value={driverSearch}
+              onChangeText={setDriverSearch}
+            />
+            {drivers.length === 0 ? (
+              <Text style={styles.value}>No drivers added.</Text>
+            ) : (
+              <ScrollView style={{ maxHeight: 340 }}>
+                {drivers.filter(item =>
+                  item.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                  item.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
+                  item.phone.toLowerCase().includes(driverSearch.toLowerCase())
+                ).map((item, index) => (
+                  <View style={styles.driverListItem} key={item.id}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Image source={{ uri: item.photo?.uri }} style={styles.driverPhoto} />
+                      <View style={{ marginLeft: 10, flex: 1 }}>
+                        <Text style={styles.value}>{item.name}</Text>
+                        <Text style={styles.value}>{item.email}</Text>
+                        <Text style={styles.value}>{item.phone}</Text>
+                      </View>
+                      <TouchableOpacity style={styles.editBtn} onPress={() => openEditDriver(index)}>
+                        <Ionicons name="create-outline" size={18} color={colors.secondary} />
                       </TouchableOpacity>
-                      {recruitLicense && <Text style={styles.fileName}>{recruitLicense.fileName || recruitLicense.uri?.split('/').pop()}</Text>}
-                    </View>
-                    <View style={styles.editActionsRow}>
-                      <TouchableOpacity style={styles.cancelBtn} onPress={() => setRecruitModal(false)}>
-                        <Text style={styles.cancelText}>Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.saveBtn} onPress={handleRecruitDriver}>
-                        <Text style={styles.saveText}>Recruit</Text>
+                      <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveDriver(index)}>
+                        <Ionicons name="trash" size={18} color={colors.error} />
                       </TouchableOpacity>
                     </View>
                   </View>
-                </ScrollView>
-              </View>
-            </Modal>
-            {/* Add/Edit Driver Modal */}
-            <Modal
-              visible={driverModal}
-              animationType="slide"
-              transparent
-              onRequestClose={() => setDriverModal(false)}
-            >
-              <View style={styles.modalOverlay}>
-                <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
-                  <View style={styles.vehicleModalCard}>
-                    <Text style={styles.editTitle}>{driverEditIdx !== null ? 'Edit Driver' : 'Add Driver'}</Text>
-                    <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={() => pickDriverPhoto(setDriverPhoto)}>
-                      {driverPhoto ? (
-                        <Image source={{ uri: driverPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
-                      ) : (
-                        <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
-                        </View>
-                      )}
-                      <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo *</Text>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+          {/* Recruit Driver Modal */}
+          <Modal
+            visible={recruitModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setRecruitModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>Recruit Driver</Text>
+                  <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={() => pickDriverPhoto(setRecruitPhoto)}>
+                    {recruitPhoto ? (
+                      <Image source={{ uri: recruitPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                    ) : (
+                      <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                      </View>
+                    )}
+                    <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo *</Text>
+                  </TouchableOpacity>
+                  <TextInput style={styles.input} placeholder="Driver Name *" value={recruitName} onChangeText={setRecruitName} />
+                  <TextInput style={styles.input} placeholder="Email *" value={recruitEmail} onChangeText={setRecruitEmail} keyboardType="email-address" />
+                  <TextInput style={styles.input} placeholder="Phone *" value={recruitPhone} onChangeText={setRecruitPhone} keyboardType="phone-pad" />
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>ID Document (PDF or Image) *</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverIdDoc(setRecruitIdDoc)}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{recruitIdDoc ? 'Change File' : 'Upload File'}</Text>
                     </TouchableOpacity>
-                    <TextInput style={styles.input} placeholder="Driver Name *" value={driverName} onChangeText={setDriverName} />
-                    <TextInput style={styles.input} placeholder="Phone Number" value={driverPhone} onChangeText={setDriverPhone} />
-                    <View style={styles.section}>
-                      <Text style={styles.editLabel}>License Document (PDF or Image) *</Text>
-                      <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverLicense(setDriverLicense)}>
-                        <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-                        <Text style={styles.uploadBtnText}>{driverLicense ? 'Change File' : 'Upload File'}</Text>
-                      </TouchableOpacity>
-                      {driverLicense && <Text style={styles.fileName}>{driverLicense.fileName || driverLicense.uri?.split('/').pop()}</Text>}
-                    </View>
-                    <View style={styles.editActionsRow}>
-                      <TouchableOpacity style={styles.cancelBtn} onPress={() => setDriverModal(false)}>
-                        <Text style={styles.cancelText}>Cancel</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.saveBtn} onPress={handleSaveDriver}>
-                        <Text style={styles.saveText}>{driverEditIdx !== null ? 'Save Changes' : 'Add Driver'}</Text>
-                      </TouchableOpacity>
-                    </View>
+                    {recruitIdDoc && <Text style={styles.fileName}>{recruitIdDoc.fileName || recruitIdDoc.uri?.split('/').pop()}</Text>}
                   </View>
-                </ScrollView>
-              </View>
-            </Modal>
-          </ScrollView>
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>Driver's License (PDF or Image) *</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverLicense(setRecruitLicense)}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{recruitLicense ? 'Change File' : 'Upload File'}</Text>
+                    </TouchableOpacity>
+                    {recruitLicense && <Text style={styles.fileName}>{recruitLicense.fileName || recruitLicense.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setRecruitModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleRecruitDriver}>
+                      <Text style={styles.saveText}>Recruit</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+          {/* Add/Edit Driver Modal */}
+          <Modal
+            visible={driverModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setDriverModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>{driverEditIdx !== null ? 'Edit Driver' : 'Add Driver'}</Text>
+                  <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={() => pickDriverPhoto(setDriverPhoto)}>
+                    {driverPhoto ? (
+                      <Image source={{ uri: driverPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                    ) : (
+                      <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                      </View>
+                    )}
+                    <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo *</Text>
+                  </TouchableOpacity>
+                  <TextInput style={styles.input} placeholder="Driver Name *" value={driverName} onChangeText={setDriverName} />
+                  <TextInput style={styles.input} placeholder="Phone Number" value={driverPhone} onChangeText={setDriverPhone} />
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>License Document (PDF or Image) *</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverLicense(setDriverLicense)}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{driverLicense ? 'Change File' : 'Upload File'}</Text>
+                    </TouchableOpacity>
+                    {driverLicense && <Text style={styles.fileName}>{driverLicense.fileName || driverLicense.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setDriverModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSaveDriver}>
+                      <Text style={styles.saveText}>{driverEditIdx !== null ? 'Save Changes' : 'Add Driver'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+        </ScrollView>
         {/* Edit Profile Modal (always rendered) */}
         <Modal
           visible={editModal}
@@ -825,18 +835,22 @@ export default function ManageTransporterScreen({ route }) {
               setIndividualProfilePhoto({ uri: data.transporter.driverProfileImage });
             }
           }
-        } catch {}
+        } catch { }
         setLoadingIndividualProfile(false);
       };
       fetchProfile();
     }, []);
+    // Modal state for insurance and photo gallery
+    const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
+    const [licenseModalVisible, setLicenseModalVisible] = useState(false);
+    const [photoGalleryModalVisible, setPhotoGalleryModalVisible] = useState(false);
     return (
       <>
         {/* --- INDIVIDUAL UI --- */}
-        <ScrollView style={styles.bg} contentContainerStyle={styles.container}>
+        <ScrollView style={styles.bg} contentContainerStyle={{ ...styles.container, paddingBottom: 120 }}>
           <Text style={styles.title}>Manage My Vehicle & Profile</Text>
           <View style={[styles.card, { alignItems: 'center', paddingTop: 24, paddingBottom: 18, marginBottom: 12 }]}>
-            <TouchableOpacity style={{ alignItems: 'center', marginBottom: 8 }} onPress={() => setEditModal(true)} activeOpacity={0.8}>
+            <View style={{ alignItems: 'center', marginBottom: 8 }}>
               {individualProfilePhoto ? (
                 <Image source={{ uri: individualProfilePhoto.uri }} style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.background, marginBottom: 10, borderWidth: 2, borderColor: colors.primary }} />
               ) : loadingIndividualProfile ? (
@@ -846,10 +860,15 @@ export default function ManageTransporterScreen({ route }) {
               )}
               <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 18, marginBottom: 2 }}>{individualProfile?.displayName || ''}</Text>
               <Text style={{ color: colors.text.secondary, fontSize: 15 }}>{individualProfile?.phoneNumber || ''}</Text>
-              <TouchableOpacity style={{ marginTop: 10, backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22 }} onPress={() => setEditModal(true)}>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 6 }}>
+              <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, marginRight: 8 }} onPress={() => setEditModal(true)}>
                 <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Edit Profile</Text>
               </TouchableOpacity>
-            </TouchableOpacity>
+              <TouchableOpacity style={{ backgroundColor: colors.error, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22 }} onPress={handleLogout}>
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Logout</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <View style={[styles.card, { marginTop: 8 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -874,37 +893,155 @@ export default function ManageTransporterScreen({ route }) {
               </TouchableOpacity>
             </View>
             {individualProfile ? (
-              <>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <MaterialCommunityIcons name="truck" size={22} color={colors.primary} style={{ marginRight: 8 }} />
-                  <Text style={styles.value}>{individualProfile.vehicleMake} ({individualProfile.vehicleType})</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <MaterialCommunityIcons name="identifier" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
-                  <Text style={styles.value}>{individualProfile.vehicleRegistration}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <MaterialCommunityIcons name="palette" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
-                  <Text style={styles.value}>{individualProfile.vehicleColor} {individualProfile.vehicleYear ? `• ${individualProfile.vehicleYear}` : ''}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
-                  <Text style={styles.value}>{individualProfile.vehicleCapacity ? `${individualProfile.vehicleCapacity} tons` : ''}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <MaterialCommunityIcons name="car-cog" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
-                  <Text style={styles.value}>{individualProfile.bodyType} • {individualProfile.driveType}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                  <MaterialCommunityIcons name="star-circle" size={20} color={colors.secondary} style={{ marginRight: 8 }} />
-                  <Text style={styles.value}>{individualProfile.vehicleFeatures || 'No special features'}</Text>
-                </View>
-                {individualProfile.vehicleImagesUrl && individualProfile.vehicleImagesUrl.length > 0 && (
-                  <Image source={{ uri: individualProfile.vehicleImagesUrl[0] }} style={{ width: 120, height: 90, borderRadius: 12, marginTop: 8, backgroundColor: '#eee' }} />
+              <View style={{ alignItems: 'center', marginBottom: 8 }}>
+                {/* Main Photo with overlay registration */}
+                {individualProfile.vehicleImagesUrl && individualProfile.vehicleImagesUrl.length > 0 ? (
+                  <View style={{ width: 210, height: 130, borderRadius: 18, overflow: 'hidden', marginBottom: 10, backgroundColor: '#eee', elevation: 2, shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8 }}>
+                    <Image source={{ uri: individualProfile.vehicleImagesUrl[0] }} style={{ width: 210, height: 130, resizeMode: 'cover' }} />
+                    <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.primary + 'cc', paddingVertical: 4, alignItems: 'center' }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, letterSpacing: 1 }}>{individualProfile.vehicleRegistration}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={{ width: 120, height: 90, borderRadius: 12, backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                    <MaterialCommunityIcons name="truck" size={48} color={colors.primary} />
+                  </View>
                 )}
-              </>
+                {/* Main Info and Status */}
+                <Text style={{ fontWeight: 'bold', fontSize: 20, color: colors.primaryDark, marginBottom: 4 }}>{individualProfile.vehicleMake} ({individualProfile.vehicleType})</Text>
+                {/* Documents Card */}
+                <View style={{ width: '100%', backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 12, marginTop: 2, elevation: 1 }}>
+                  <Text style={{ fontWeight: 'bold', fontSize: 15, color: colors.secondary, marginBottom: 8 }}>Documents</Text>
+                  {/* Insurance Row */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name={individualProfile.insuranceUrl ? 'shield-check' : 'shield-alert'} size={20} color={individualProfile.insuranceUrl ? colors.success : colors.error} style={{ marginRight: 8 }} />
+                      <Text style={{ color: individualProfile.insuranceUrl ? colors.success : colors.error, fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>Insurance</Text>
+                      <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
+                        {individualProfile.insuranceUrl ? 'Uploaded' : 'Not Uploaded'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setInsuranceModalVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 14 }}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13, marginLeft: 6 }}>Renew</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: colors.text.light, marginVertical: 4, width: '100%' }} />
+                  {/* DL Row */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2, justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name={individualProfile.driverLicense ? 'card-account-details-outline' : 'card-account-details-outline'} size={20} color={individualProfile.driverLicense ? colors.success : colors.error} style={{ marginRight: 8 }} />
+                      <Text style={{ color: individualProfile.driverLicense ? colors.success : colors.error, fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>Driver's License</Text>
+                      <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
+                        {individualProfile.driverLicense ? 'Uploaded' : 'Not Uploaded'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setLicenseModalVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 14 }}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13, marginLeft: 6 }}>Renew</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                {/* End Documents Card */}
+
+                {/* Features Card */}
+                <View style={{ width: '100%', backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 12, marginTop: 2, elevation: 1 }}>
+                  <Text style={{ fontWeight: 'bold', fontSize: 15, color: colors.secondary, marginBottom: 8 }}>Features</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 2 }}>
+                    {/* Capacity */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary + '11', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="weight-kilogram" size={16} color={colors.primary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.primary, fontSize: 13 }}>{individualProfile.vehicleCapacity ? `${individualProfile.vehicleCapacity}t` : '--'}</Text>
+                    </View>
+                    {/* Body Type */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.secondary + '11', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="car-cog" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.secondary, fontSize: 13 }}>{individualProfile.bodyType ? individualProfile.bodyType.charAt(0).toUpperCase() + individualProfile.bodyType.slice(1) : '--'}</Text>
+                    </View>
+                    {/* Drive Type */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.secondary + '11', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="steering" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.secondary, fontSize: 13 }}>{individualProfile.driveType ? individualProfile.driveType : '--'}</Text>
+                    </View>
+                    {/* Refrigeration */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: individualProfile.refrigeration ? '#e0f7fa' : colors.text.light + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="snowflake" size={16} color={individualProfile.refrigeration ? colors.primary : colors.text.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: individualProfile.refrigeration ? colors.primary : colors.text.secondary, fontSize: 13 }}>Refrigeration</Text>
+                    </View>
+                    {/* Humidity */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: individualProfile.humidityControl ? '#e3f2fd' : colors.text.light + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="water-percent" size={16} color={individualProfile.humidityControl ? colors.primary : colors.text.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: individualProfile.humidityControl ? colors.primary : colors.text.secondary, fontSize: 13 }}>Humidity</Text>
+                    </View>
+                    {/* Special Cargo */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: individualProfile.specialCargo ? '#f3e5f5' : colors.text.light + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="cube-outline" size={16} color={individualProfile.specialCargo ? colors.primary : colors.text.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: individualProfile.specialCargo ? colors.primary : colors.text.secondary, fontSize: 13 }}>Special Cargo</Text>
+                    </View>
+                    {/* Other Features */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: individualProfile.vehicleFeatures ? colors.primary + '22' : colors.text.light + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="star-circle" size={16} color={individualProfile.vehicleFeatures ? colors.primary : colors.text.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: individualProfile.vehicleFeatures ? colors.primary : colors.text.secondary, fontSize: 13 }}>{individualProfile.vehicleFeatures ? individualProfile.vehicleFeatures : 'Other Features'}</Text>
+                    </View>
+                  </View>
+                </View>
+                {/* End Features Card */}
+                {/* Body Type Toggle */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10, backgroundColor: colors.background, borderRadius: 10, padding: 6 }}>
+                  <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 14, marginRight: 8 }}>Body:</Text>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: individualProfile.bodyType === 'closed' ? colors.primary : colors.surface,
+                      borderRadius: 8,
+                      paddingVertical: 6,
+                      paddingHorizontal: 18,
+                      marginRight: 6,
+                    }}
+                    onPress={() => {
+                      // TODO: update backend; for now, just show feedback
+                      Alert.alert('Body Type', 'Switch to Closed (backend update needed)');
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: individualProfile.bodyType === 'closed' ? '#fff' : colors.primary, fontWeight: 'bold' }}>Closed</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: individualProfile.bodyType === 'open' ? colors.primary : colors.surface,
+                      borderRadius: 8,
+                      paddingVertical: 6,
+                      paddingHorizontal: 18,
+                    }}
+                    onPress={() => {
+                      // TODO: update backend; for now, just show feedback
+                      Alert.alert('Body Type', 'Switch to Open (backend update needed)');
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: individualProfile.bodyType === 'open' ? '#fff' : colors.primary, fontWeight: 'bold' }}>Open</Text>
+                  </TouchableOpacity>
+                </View>
+                {/* Action Row */}
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 2, gap: 10 }}>
+                  <TouchableOpacity onPress={() => setPhotoGalleryModalVisible(true)} style={{ marginHorizontal: 4 }}>
+                    <MaterialCommunityIcons name="image-multiple" size={22} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setVehicleModal(true)} style={{ marginHorizontal: 4 }}>
+                    <MaterialCommunityIcons name="pencil" size={22} color={colors.secondary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setInsuranceModalVisible(true)} style={{ marginHorizontal: 4 }}>
+                    <MaterialCommunityIcons name="file-document-edit" size={22} color={colors.secondary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
             ) : (
-              <Text style={styles.value}>No vehicle data found.</Text>
+              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                <MaterialCommunityIcons name="truck-plus" size={60} color={colors.primary} style={{ marginBottom: 10 }} />
+                <Text style={{ color: colors.text.secondary, fontSize: 16, marginBottom: 8 }}>No vehicle data found.</Text>
+                <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 28, marginTop: 8 }} onPress={() => setVehicleModal(true)}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Add Vehicle</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
           {/* Add Vehicle Modal for Individual */}
@@ -920,7 +1057,7 @@ export default function ManageTransporterScreen({ route }) {
                   <Text style={styles.editTitle}>Add/Replace Vehicle</Text>
                   <VehicleDetailsForm
                     initial={{}}
-                    onChange={() => {}}
+                    onChange={() => { }}
                     onPhotoAdd={pickVehiclePhotos}
                     onPhotoRemove={removeVehiclePhoto}
                     vehiclePhotos={vehiclePhotos}
@@ -944,14 +1081,72 @@ export default function ManageTransporterScreen({ route }) {
             </View>
           </Modal>
           {/* Subscription Section */}
-          <View style={[styles.card, { marginTop: 8, alignItems: 'center', paddingVertical: 18, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.primary + '33' }]}> 
-            <MaterialCommunityIcons name="credit-card-check-outline" size={28} color={colors.primary} style={{ marginBottom: 4 }} />
-            <Text style={{ fontWeight: 'bold', fontSize: 15, color: colors.primary, marginBottom: 2 }}>Subscription</Text>
-            <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 6 }}>Active Plan: <Text style={{ color: colors.success, fontWeight: 'bold' }}>Monthly</Text></Text>
-            <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 18, marginTop: 4 }} onPress={() => Alert.alert('Subscription', 'Subscription management coming soon!')}>
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Manage Subscription</Text>
-            </TouchableOpacity>
+          {/* Subscription Card */}
+          <View style={{ width: '100%', backgroundColor: colors.background, borderRadius: 12, padding: 16, marginBottom: 24, marginTop: 2, elevation: 1, alignSelf: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <MaterialCommunityIcons name="credit-card-check-outline" size={26} color={colors.primary} style={{ marginRight: 8 }} />
+              <Text style={{ fontWeight: 'bold', fontSize: 17, color: colors.primaryDark }}>Subscription</Text>
+            </View>
+            {(() => {
+              let plan = selectedPlan === 'monthly'
+                ? 'Monthly'
+                : selectedPlan === 'quarterly'
+                ? 'Quarterly'
+                : selectedPlan === 'annual'
+                ? 'Annual'
+                : 'Monthly';
+              let daysRemaining = 0;
+              let isTrial = false;
+              let percent = 0;
+              if (individualProfile && individualProfile.createdAt) {
+                const created = individualProfile.createdAt.seconds ? new Date(individualProfile.createdAt.seconds * 1000) : new Date(individualProfile.createdAt);
+                const now = new Date();
+                const diff = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+                if (diff < 30) {
+                  plan = 'Free Trial';
+                  daysRemaining = 30 - diff;
+                  isTrial = true;
+                  percent = (30 - daysRemaining) / 30;
+                } else {
+                  daysRemaining = 30 - ((diff - 30) % 30);
+                  percent = (30 - daysRemaining) / 30;
+                }
+              }
+              return (
+                <>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={{ color: isTrial ? colors.success : colors.primary, fontSize: 15, fontWeight: 'bold', marginRight: 8 }}>{plan}</Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 14 }}>
+                      {isTrial ? 'Trial ends' : 'Plan ends'} in <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{daysRemaining}</Text> days
+                    </Text>
+                  </View>
+                  <View style={{ width: '100%', height: 8, backgroundColor: colors.text.light + '33', borderRadius: 6, marginVertical: 8, overflow: 'hidden', alignSelf: 'center' }}>
+                    <View style={{ width: `${Math.round(percent * 100)}%`, height: 8, backgroundColor: isTrial ? colors.success : colors.primary, borderRadius: 6 }} />
+                  </View>
+                </>
+              );
+            })()}
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
+              <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center' }} onPress={() => setSubscriptionModalVisible(true)}>
+                <MaterialCommunityIcons name="cog-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Manage</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ backgroundColor: colors.secondary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center' }} onPress={handlePayment}>
+                <MaterialCommunityIcons name="refresh" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Renew</Text>
+              </TouchableOpacity>
+            </View>
           </View>
+          {/* End Subscription Card */}
+          {/* Subscription Plans Modal */}
+          {subscriptionModalVisible && (
+            <SubscriptionModal
+              selectedPlan={selectedPlan}
+              setSelectedPlan={setSelectedPlan}
+              onClose={() => setSubscriptionModalVisible(false)}
+              onSubscribe={handleSubscribe}
+            />
+          )}
         </ScrollView>
         {/* Edit Profile Modal (always rendered) */}
         <Modal
