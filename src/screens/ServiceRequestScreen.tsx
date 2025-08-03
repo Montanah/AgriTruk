@@ -2,8 +2,9 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   KeyboardAvoidingView,
@@ -15,7 +16,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -59,9 +59,15 @@ const SERVICES = [
 ];
 
 const CARGO_SPECIALS = [
-  { key: 'fragile', label: 'Fragile' },
-  { key: 'oversized', label: 'Oversized' },
-  { key: 'hazardous', label: 'Hazardous' },
+  { key: 'fragile', label: 'Fragile (Glass, Electronics, etc.)' },
+  { key: 'oversized', label: 'Oversized (Machinery, Construction)' },
+  { key: 'hazardous', label: 'Hazardous (Chemicals, Batteries)' },
+  { key: 'temperature', label: 'Temperature Controlled' },
+  { key: 'highvalue', label: 'High Value' },
+  { key: 'livestock', label: 'Livestock/Animals' },
+  { key: 'bulk', label: 'Bulk (Grains, Aggregates)' },
+  { key: 'perishable', label: 'Perishable (Food, Flowers)' },
+  { key: 'other', label: 'Other (Specify Below)' },
 ];
 
 const AGRI_PERISHABLES = [
