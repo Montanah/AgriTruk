@@ -24,10 +24,13 @@ import colors from '../constants/colors';
 
 import NotificationBell from '../components/Notification/NotificationBell';
 import { useTransporters } from '../hooks/UseTransporters';
+import { mockTransporters as importedMockTransporters } from '../mocks/transporters';
 import { apiRequest } from '../utils/api';
 
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
+
+const mockTransporters = Array.isArray(importedMockTransporters) ? importedMockTransporters : [];
 
 // import * as Location from 'expo-location';
 // import MapView, { Marker, Polyline } from 'react-native-maps';
@@ -396,14 +399,16 @@ const ServiceRequestScreen = () => {
                 style={[
                   styles.toggleBtn,
                   requestType === 'instant' && {
-                    backgroundColor: accent,
+                    backgroundColor: colors.primary,
                     borderColor: accent,
-                    borderWidth: 2,
+                    borderWidth: 3,
                     shadowColor: accent,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.18,
-                    shadowRadius: 6,
-                    elevation: 4,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.28,
+                    shadowRadius: 10,
+                    elevation: 8,
+                    // Extra outline for clarity
+                    zIndex: 2,
                   },
                 ]}
                 activeOpacity={0.85}
@@ -415,8 +420,11 @@ const ServiceRequestScreen = () => {
                     requestType === 'instant' && {
                       color: colors.white,
                       fontWeight: 'bold',
-                      fontSize: fonts.size.lg,
+                      fontSize: fonts.size.xl || (fonts.size.lg + 2),
                       letterSpacing: 0.5,
+                      textShadowColor: accent,
+                      textShadowOffset: { width: 0, height: 1 },
+                      textShadowRadius: 2,
                     },
                   ]}
                 >
@@ -427,14 +435,16 @@ const ServiceRequestScreen = () => {
                 style={[
                   styles.toggleBtn,
                   requestType === 'booking' && {
-                    backgroundColor: accent,
+                    backgroundColor: colors.primary,
                     borderColor: accent,
-                    borderWidth: 2,
+                    borderWidth: 3,
                     shadowColor: accent,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.18,
-                    shadowRadius: 6,
-                    elevation: 4,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.28,
+                    shadowRadius: 10,
+                    elevation: 8,
+                    // Extra outline for clarity
+                    zIndex: 2,
                   },
                 ]}
                 activeOpacity={0.85}
@@ -446,8 +456,11 @@ const ServiceRequestScreen = () => {
                     requestType === 'booking' && {
                       color: colors.white,
                       fontWeight: 'bold',
-                      fontSize: fonts.size.lg,
+                      fontSize: fonts.size.xl || (fonts.size.lg + 2),
                       letterSpacing: 0.5,
+                      textShadowColor: accent,
+                      textShadowOffset: { width: 0, height: 1 },
+                      textShadowRadius: 2,
                     },
                   ]}
                 >
@@ -853,19 +866,30 @@ const ServiceRequestScreen = () => {
                   if (insureGoods && value && !isNaN(Number(value))) {
                     insuranceCost = Number(value) * INSURANCE_PERCENT;
                   }
-                  // For instant: show available transporters, for booking: post job
                   if (requestType === 'instant') {
                     setLoadingTransporters(true);
-                    // Filter logic can be improved as needed
-                    const filtered = transporters.filter(t => {
-                      if (weight && t.capacity < parseFloat(weight)) return false;
-                      if (isPerishable && !t.refrigeration) return false;
-                      if (isSpecialCargo && !t.specialCargo) return false;
-                      return true;
-                    });
-                    setFilteredTransporters(filtered);
-                    setShowTransporters(true);
-                    setLoadingTransporters(false);
+                    setShowTransporters(false);
+                    setFilteredTransporters([]);
+                    setTimeout(() => {
+                      // Combine real and mock transporters for demo
+                      let allTransporters = [];
+                      if (Array.isArray(transporters)) {
+                        allTransporters = [...transporters];
+                      }
+                      if (Array.isArray(mockTransporters)) {
+                        allTransporters = [...allTransporters, ...mockTransporters];
+                      }
+                      const filtered = allTransporters.filter(t => {
+                        if (weight && t.capacity < parseFloat(weight)) return false;
+                        if (isPerishable && !t.refrigeration) return false;
+                        if (isSpecialCargo && !t.specialCargo) return false;
+                        return true;
+                      });
+                      setFilteredTransporters(filtered);
+                      setShowTransporters(true);
+                      setLoadingTransporters(false);
+                    }, 1000); // Simulate loading delay for demo
+                    // Do NOT post to backend here for instant
                   } else {
                     // Booking: post as a job
                     const bookingPayload = {
