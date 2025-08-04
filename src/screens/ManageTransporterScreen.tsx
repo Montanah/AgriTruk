@@ -62,7 +62,7 @@ export default function ManageTransporterScreen({ route }) {
 
   const pickProfilePhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Image,
       allowsEditing: true,
       quality: 0.7,
     });
@@ -814,6 +814,18 @@ export default function ManageTransporterScreen({ route }) {
     const [individualProfile, setIndividualProfile] = useState(null);
     const [loadingIndividualProfile, setLoadingIndividualProfile] = useState(true);
     const [individualProfilePhoto, setIndividualProfilePhoto] = useState(null);
+    // Add: image picker for individual profile
+    const pickIndividualProfilePhoto = async () => {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        setIndividualProfilePhoto({ uri: result.assets[0].uri });
+        // Optionally: upload to backend here
+      }
+    };
     React.useEffect(() => {
       const fetchProfile = async () => {
         try {
@@ -1158,6 +1170,17 @@ export default function ManageTransporterScreen({ route }) {
           <View style={styles.modalOverlay}>
             <View style={styles.editModalCard}>
               <Text style={styles.editTitle}>Edit Profile</Text>
+              {/* Profile Photo Picker for Individual */}
+              <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={pickIndividualProfilePhoto} activeOpacity={0.7}>
+                {individualProfilePhoto ? (
+                  <Image source={{ uri: individualProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                ) : (
+                  <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                  </View>
+                )}
+                <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
+              </TouchableOpacity>
               <View style={styles.editFieldWrap}>
                 <Text style={styles.editLabel}>Full Name</Text>
                 <TextInput

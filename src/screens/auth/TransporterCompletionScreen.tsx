@@ -64,15 +64,24 @@ export default function TransporterCompletionScreen() {
   const navigation = useNavigation();
   const [transporterType, setTransporterType] = useState('individual'); // 'individual' or 'company'
   const [checkingProfile, setCheckingProfile] = useState(true);
+  const [profileCheckError, setProfileCheckError] = useState('');
 
-  useEffect(() => {
-    // On mount, check if transporter profile exists and is complete
-    const checkProfile = async () => {
+  const runProfileCheck = React.useCallback(() => {
+    setCheckingProfile(true);
+    setProfileCheckError('');
+    let didTimeout = false;
+    const timeout = setTimeout(() => {
+      didTimeout = true;
+      setCheckingProfile(false);
+      setProfileCheckError('Profile check timed out. Please check your connection and try again.');
+    }, 8000); // 8 seconds
+    (async () => {
       try {
         const { getAuth } = require('firebase/auth');
         const auth = getAuth();
         const user = auth.currentUser;
         if (!user) {
+          clearTimeout(timeout);
           setCheckingProfile(false);
           return;
         }
@@ -106,6 +115,7 @@ export default function TransporterCompletionScreen() {
           shouldNavigate = true;
         }
         if (shouldNavigate) {
+          clearTimeout(timeout);
           navigation.reset({
             index: 0,
             routes: [
@@ -118,10 +128,16 @@ export default function TransporterCompletionScreen() {
       } catch (err) {
         // Ignore error, allow form to show
       }
-      setCheckingProfile(false);
-    };
-    checkProfile();
+      if (!didTimeout) {
+        clearTimeout(timeout);
+        setCheckingProfile(false);
+      }
+    })();
   }, [navigation]);
+
+  useEffect(() => {
+    runProfileCheck();
+  }, [runProfileCheck]);
   const [vehicleType, setVehicleType] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [vehicleMake, setVehicleMake] = useState('');
@@ -427,6 +443,19 @@ export default function TransporterCompletionScreen() {
       <View style={styles.statusCheckerContainer}>
         <ActivityIndicator size="large" color={colors.primary} style={{ marginBottom: 18 }} />
         <Text style={styles.statusCheckerText}>Checking profile status...</Text>
+      </View>
+    );
+  }
+  if (profileCheckError) {
+    return (
+      <View style={styles.statusCheckerContainer}>
+        <Text style={[styles.statusCheckerText, { color: colors.error }]}>{profileCheckError}</Text>
+        <TouchableOpacity
+          style={{ marginTop: 18, backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 22 }}
+          onPress={runProfileCheck}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }

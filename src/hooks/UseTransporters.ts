@@ -11,8 +11,18 @@ export const useTransporters = () => {
     const load = async () => {
       setLoading(true);
       setError(null);
+      let didTimeout = false;
+      // Set a timeout to fallback to mock data if API is too slow
+      const timeout = setTimeout(() => {
+        didTimeout = true;
+        setError('Transporter API timed out, using mock data.');
+        setTransporters(MOCK_TRANSPORTERS);
+        setLoading(false);
+      }, 2000); // 2 seconds
       try {
         const data = await apiRequest('/transporters/available/list');
+        if (didTimeout) return; // Already handled by timeout
+        clearTimeout(timeout);
         // Always merge real and mock transporters for display
         let normalizedReal: any[] = [];
         if (Array.isArray(data) && data.length > 0) {
@@ -33,11 +43,14 @@ export const useTransporters = () => {
         }));
         // If real transporters exist, show both real and mock; else, just mock
         setTransporters(normalizedReal.length > 0 ? [...normalizedReal, ...normalizedMock] : normalizedMock);
+        setLoading(false);
       } catch (err: any) {
+        if (didTimeout) return;
+        clearTimeout(timeout);
         setError(err.message || 'Failed to fetch transporters');
         setTransporters(MOCK_TRANSPORTERS);
+        setLoading(false);
       }
-      setLoading(false);
     };
     load();
   }, []);
