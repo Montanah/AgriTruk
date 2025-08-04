@@ -56,7 +56,7 @@ exports.registerUser = async (req, res) => {
   const uid = req.user.uid;
   const email = req.user.email;
 
-  if (!["shipper", "transporter", "admin", "user", "broker"].includes(role)) {
+  if (!["shipper", "transporter", "admin", "user", "broker", "business"].includes(role)) {
     return res.status(400).json({ message: "Invalid role" });
   }
 
@@ -231,12 +231,7 @@ exports.getUser = async (req, res) => {
     try {
       const userData = await User.get(req.user.uid);
       
-      res.status(200).json({
-        uid: req.user.uid,
-        email: req.user.email || null,
-        phone: req.user.phone || null,
-        role: userData.role || 'user'
-     });
+      res.status(200).json({userData})
     } catch (error) {
       console.error('Profile error:', error);
       res.status(500).json({

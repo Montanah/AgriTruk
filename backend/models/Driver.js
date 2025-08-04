@@ -1,0 +1,69 @@
+const admin = require("../config/firebase");
+const { updateAvailability } = require("./Vehicle");
+const db = admin.firestore();
+
+const Driver = {
+  async create(companyId, driverData) {
+    const driverId = driverData.driverId || db.collection('companies').doc(companyId).collection('drivers').doc().id;
+    const driver = {
+      driverId,
+      name: driverData.name || null,
+      email: driverData.email || null,
+      phone: driverData.phone || null,
+      photo: driverData.photo || null,
+      idDoc: driverData.idDoc || null,
+      license: driverData.license || null,
+      status: driverData.status || 'pending',
+      availability: driverData.availability || false,
+      createdAt: admin.firestore.Timestamp.now(),
+      updatedAt: admin.firestore.Timestamp.now(),
+    };
+    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).set(driver);
+    return driver;
+  },
+
+  async get(companyId, driverId) {
+    const doc = await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).get();
+    if (!doc.exists) throw new Error('Driver not found');
+    return { id: doc.id, ...doc.data() };
+  },
+
+  async update(companyId, driverId, updates) {
+    const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
+    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update(updated);
+    return updated;
+  },
+
+  async getAll(companyId) {
+    const snapshot = await db.collection('companies').doc(companyId).collection('drivers').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getByEmail(companyId, email) {
+    console.log(`Searching for email ${email} in company ${companyId}`); // Debug
+    const querySnapshot = await db.collection('companies')
+      .doc(companyId)
+      .collection('drivers')
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+    console.log('Query snapshot:', querySnapshot.empty); // Debug
+    return querySnapshot.empty ? null : querySnapshot.docs[0].data();
+  },
+
+  async getByPhone(companyId, phone) {
+    const querySnapshot = await db.collection('companies')
+      .doc(companyId)
+      .collection('drivers')
+      .where('phone', '==', phone)
+      .limit(1)
+      .get();
+    return querySnapshot.empty ? null : querySnapshot.docs[0].data();
+  },
+
+  async updateAvailability(companyId,driverId, availability) {
+    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update({ availability });
+  }
+};
+
+module.exports = Driver;

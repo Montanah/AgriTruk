@@ -19,7 +19,12 @@ const {
   authorize
 } = require("../middlewares/adminAuth");
 const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewares/validationMiddleware');
+const CompanyController = require("../controllers/companyController");
 
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' }); 
+
+const uploadAny = upload.any();
 /**
  * @swagger
  * tags:
@@ -69,6 +74,267 @@ const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewar
  *         description: Internal server error
  */
 router.post('/', authenticateToken, requireRole('transporter'),validateCompanyCreation, createCompany);
+
+/**
+ * @swagger
+ * /api/companies/{companyId}/vehicles:
+ *   post:
+ *     summary: Create a new vehicle for a company
+ *     description: Creates a new vehicle associated with a company.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path 
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company to create a vehicle for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reg
+ *               - model
+ *               - year
+ *             properties:
+ *               type:
+ *                 type: string
+ *                 description: The type of the vehicle
+ *               reg:
+ *                 type: string
+ *                 description: The make of the vehicle
+ *               year:
+ *                 type: number
+ *                 description: The year of manufacturer the vehicle
+ *               color:
+ *                 type: string
+ *                 description: The color of the vehicle
+ *               capacity:
+ *                 type: number
+ *                 description: The capacity of the vehicle
+ *               model:
+ *                 type: string
+ *                 description: The model of the vehicle
+ *               features:
+ *                 type: number
+ *                 description: The extra features of the vehicle
+ *               bodyType:
+ *                 type: string
+ *                 description: The body type of the vehicle
+ *               refrigeration:
+ *                 type: boolean
+ *                 description: Whether the vehicle has refrigeration
+ *               humidityControl:
+ *                 type: boolean
+ *                 description: Whether the vehicle has humidity control
+ *               specialCargo:
+ *                 type: boolean
+ *                 description: Whether the vehicle has special cargo
+ *               insurance:
+ *                 type: string
+ *                 format: binary
+ *                 description: The insurance details of the vehicle
+ *               photos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: The photos of the vehicle
+ *               est:
+ *                 type: string
+ *                 description: The estimated value of the vehicle
+ *             example:
+ *               make: "Toyota" 
+ *               model: "Camry"
+ *               year: 2022
+ *     responses:
+ *       201:
+ *         description: Vehicle created successfully
+ *       400:
+ *         description: Missing required fields or validation errors
+ *       500:
+ *         description: Internal server error
+*/
+router.post('/:companyId/vehicles', authenticateToken, requireRole(['transporter']), uploadAny, CompanyController.createVehicle);
+
+/** 
+ * @swagger
+ * /api/companies/{companyId}/drivers:
+ *   post:  
+ *     summary: Create a driver for a company
+ *     description: Creates a new driver associated with a company.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company to create a driver for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - phone
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: The name of the driver
+ *               email:
+ *                 type: string
+ *                 description: The email address of the driver
+ *               phone:
+ *                 type: string
+ *                 description: The phone number of the driver
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *                 description: The photo URL of the driver
+ *               idDoc:
+ *                 type: string
+ *                 format: binary
+ *                 description: The ID document of the driver
+ *               license:
+ *                 type: string
+ *                 format: binary
+ *                 description: The license of the driver
+ *     responses:
+ *       201:
+ *         description: Driver created successfully
+ *       400:
+ *         description: Missing required fields or validation errors
+ *       500:
+ *         description: Internal server error
+*/
+router.post('/:companyId/drivers', authenticateToken, requireRole(['transporter']), uploadAny, CompanyController.createDriver);
+
+/**
+ * @swagger
+ * /api/companies/{companyId}/vehicles:
+ *   get:
+ *     summary: Get all vehicles for a company
+ *     description: Retrieves a list of all vehicles associated with a company.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company to retrieve vehicles for
+ *     responses:
+ *       200:
+ *         description: Vehicles retrieved successfully
+ *       404:
+ *         description: Company not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:companyId/vehicles', authenticateToken, requireRole(['transporter']), CompanyController.getAllVehicles);
+
+/** 
+ * @swagger
+ * /api/companies/{companyId}/drivers:
+ *   get:
+ *     summary: Get all drivers for a company
+ *     description: Retrieves a list of all drivers associated with a company.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company to retrieve drivers for
+ *     responses:
+ *       200:
+ *         description: Drivers retrieved successfully
+ *       404:
+ *         description: Company not found
+ *       500:
+ *         description: Internal server error
+*/
+router.get('/:companyId/drivers', authenticateToken, requireRole(['transporter']), CompanyController.getAllDrivers);
+
+/** 
+ * @swagger
+ * /api/companies/{companyId}/vehicles/{vehicleId}:
+ *   get:
+ *     summary: Get a vehicle by ID
+ *     description: Retrieves details of a specific vehicle.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company to retrieve a vehicle from
+ *       - in: path
+ *         name: vehicleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the vehicle to retrieve
+ *     responses:
+ *       200:
+ *         description: Vehicle retrieved successfully
+ *       404:
+ *         description: Vehicle not found
+ *       500:
+ *         description: Internal server error
+*/
+router.get('/:companyId/vehicles/:vehicleId', authenticateToken, requireRole(['transporter']), CompanyController.getVehicle);
+
+/** 
+ * @swagger
+ * /api/companies/{companyId}/drivers/{driverId}:
+ *   get:
+ *     summary: Get a driver by ID
+ *     description: Retrieves details of a specific driver.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company to retrieve a driver from
+ *       - in: path
+ *         name: driverId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the driver to retrieve
+ *     responses:
+ *       200:
+ *         description: Driver retrieved successfully
+ *       404:
+ *         description: Driver not found
+ *       500:
+ *         description: Internal server error
+*/
+router.get('/:companyId/drivers/:driverId', authenticateToken, requireRole(['transporter']), CompanyController.getDriver);
 
 /**
  * @swagger

@@ -1,8 +1,12 @@
 const Company = require('../models/Company');
-const  { logActivity, logAdminActivity } = require('../utils/activityLogger');
+const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const sendEmail = require("../utils/sendEmail");
 const Notification = require('../models/Notification');
 const Transporter = require('../models/Transporter');
+const Vehicle = require('../models/Vehicle');
+const Driver = require('../models/Driver');
+const fs = require('fs');
+const { uploadImage } = require('../utils/upload');
 
 exports.createCompany = async (req, res) => {
   try {
@@ -43,7 +47,7 @@ exports.getCompany = async (req, res) => {
     const company = await Company.get(companyId);
     if (!company) return res.status(404).json({ message: 'Company not found' });
 
-    await logAdminActivity(req.admin.adminId, 'get_company', req);
+    await logAdminActivity(req.user.uid, 'get_company', req);
 
     res.status(200).json(company);
   } catch (err) {
@@ -135,9 +139,9 @@ exports.rejectCompany = async (req, res) => {
       to: email,
       subject: 'Company Approval Status',
       text: `Your company has been rejected because of: ${reason}`,
-    //   html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
+      //   html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
       html: `<p>Your company has been rejected because of: <strong>${reason}</strong></p>`
-    }); 
+    });
 
     await logAdminActivity(req.admin.adminId, 'reject_company', req);
 
@@ -249,5 +253,447 @@ exports.searchCompany = async (req, res) => {
   } catch (err) {
     console.error('Search companies error:', err);
     res.status(500).json({ message: 'Failed to fetch companies' });
+  }
+};
+
+//Company Vehicles Controller
+
+exports.createVehicle = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+
+    // Check if the company exists
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Check if the company is approved
+    if (company.status !== 'approved') {
+      return res.status(403).json({ message: 'Company is not approved' });
+    }
+
+    // check registration number
+    const existingVehicle = await Vehicle.getByRegistration(req.body.registration);
+    if (existingVehicle) {
+      return res.status(400).json({ message: 'Vehicle with the same registration number already exists' });
+    }
+
+    // check format of registration number
+    
+    if (!req.files) {
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+
+    const { vehicleRegistration } = req.body;
+
+    const plate = vehicleRegistration.trim().toUpperCase();
+
+    const regex = /^K?[A-Z]{2} ?\d{3}[A-Z]$/;
+
+    if (!(plate.length === 7 || plate.length === 8) || !regex.test(plate)) {
+      return res.status(400).json({ message: 'Invalid vehicle registration number' });
+    }
+
+    // Handle multiple file uploads dynamically
+    let insuranceUrl = null;
+    let vehicleImagesUrl = [];
+
+    if (req.files) {
+      const uploadTasks = req.files.map(async file => {
+        const fieldName = file.fieldname;
+        // console.log(`Processing file: ${fieldName}, path: ${file.path}`); 
+
+        switch (fieldName) {
+          case 'insurance':
+            const insurancePublicId = await uploadImage(file.path);
+            if (insurancePublicId) {
+              insuranceUrl = insurancePublicId;
+              fs.unlinkSync(file.path);
+            }
+            break;
+          case 'photos':
+            const vehiclePublicId = await uploadImage(file.path);
+            if (vehiclePublicId) {
+              vehicleImagesUrl.push(vehiclePublicId);
+              fs.unlinkSync(file.path);
+            }
+            break;
+          default:
+            console.log(`Ignoring unexpected field: ${fieldName}`);
+            fs.unlinkSync(file.path); // Clean up unexpected files
+        }
+      });
+
+      await Promise.all(uploadTasks); // Wait for all uploads to complete
+    }
+
+
+    const vehicleData = {
+      type: req.body.type,
+      reg: req.body.reg,
+      bodyType: req.body.bodyType,
+      capacity: req.body.capacity,
+      year: req.body.year,
+      color: req.body.color,
+      model: req.body.model,
+      refrigeration: req.body.refrigeration,
+      humidityControl: req.body.humidityControl,
+      specialCargo: req.body.specialCargo,
+      features: req.body.features,
+      insurance: insuranceUrl,
+      photos: vehicleImagesUrl,
+      assignedDriverId: req.body.assignedDriverId,
+      est: req.body.est,
+      status: req.body.status,
+    };
+    const vehicle = await Vehicle.create(companyId, vehicleData);
+
+    await logActivity(req.user.uid, 'create_vehicle', req);
+
+    await Notification.create({
+      type: "Vehicle Created",
+      message: `A new vehicle has been created. Vehicle ID: ${vehicle.vehicleId}`,
+      userId: req.user.uid,
+      userType: "company",
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Vehicle created successfully',
+      data: vehicle,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error creating vehicle: ${error.message}`,
+    });
+  }
+};
+
+exports.getVehicle = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const vehicle = await Vehicle.get(companyId, req.params.vehicleId);
+
+    await logActivity(req.user.uid, 'get_vehicle', req);
+
+    await Notification.create({
+      type: "Vehicle Retrieved",
+      message: `A vehicle has been retrieved. Vehicle ID: ${vehicle.vehicleId}`,
+      userId: req.user.uid,
+      userType: "company",
+    });
+    res.status(200).json({
+      success: true,
+      message: 'Vehicle retrieved successfully',
+      data: vehicle,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error retrieving vehicle: ${error.message}`,
+    });
+  }
+};
+
+exports.getAllVehicles = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const vehicles = await Vehicle.getAll(companyId);
+
+    await logActivity(req.user.uid, 'get_all_vehicles', req);
+
+    await Notification.create({
+      type: "Vehicles Retrieved",
+      message: `Vehicles have been retrieved. Company ID: ${companyId}`,
+      userId: req.user.uid,
+      userType: "company",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Vehicles retrieved successfully',
+      data: vehicles,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error retrieving vehicles: ${error.message}`,
+    });
+  }
+};
+
+exports.updateVehicle = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const vehicleId = req.params.vehicleId;
+    const vehicleData = {
+      type: req.body.type,
+      reg: req.body.reg,
+      bodyType: req.body.bodyType,
+      refrigeration: req.body.refrigeration,
+      humidityControl: req.body.humidityControl,
+      specialCargo: req.body.specialCargo,
+      features: req.body.features,
+      insurance: req.body.insurance,
+      photos: req.body.photos,
+      assignedDriverId: req.body.assignedDriverId,
+      est: req.body.est,
+      status: req.body.status,
+    };
+    const vehicle = await Vehicle.update(companyId, vehicleId, vehicleData);
+
+    await logActivity(req.user.uid, 'update_vehicle', req);
+
+    await Notification.create({
+      type: "Vehicle Updated",
+      message: `A vehicle has been updated. Vehicle ID: ${vehicle.vehicleId}`,
+      userId: req.user.uid,
+      userType: "company",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Vehicle updated successfully',
+      data: vehicle,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error updating vehicle: ${error.message}`,
+    });
+  }
+};
+
+exports.updateAvailability = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const vehicleId = req.params.vehicleId;
+    const availability = req.body.availability;
+    await Vehicle.updateAvailability(vehicleId, availability);
+
+    await logActivity(req.user.uid, 'update_availability', req);
+
+    await Notification.create({
+      type: "Vehicle Availability Updated",
+      message: `The availability of a vehicle has been updated. Vehicle ID: ${vehicleId}`,
+      userId: req.user.uid,
+      userType: "company",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Vehicle availability updated successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error updating vehicle availability: ${error.message}`,
+    });
+  }
+};
+
+//Drivers Controller
+exports.createDriver = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+
+    //check if company exists
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found',
+      });
+    }
+
+    // check is company is approved
+    if (company.status === 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Company is not approved yet',
+      });
+    }
+
+    // Check for existing driver
+    const existingDriver = await Driver.getByEmail(companyId, req.body.email);
+    console.log("company", companyId);
+    console.log("email", req.body.email);
+    console.log('Existing driver:', existingDriver);
+    if (existingDriver && existingDriver.email) {
+      console.log('Blocking creation due to existing driver');
+      return res.status(400).json({
+        success: false,
+        message: 'Driver with this email already exists',
+      });
+    }
+
+    // Check for existing driver
+    const existingDriver2 = await Driver.getByPhone(companyId, req.body.phone);
+    if (existingDriver2 && existingDriver2.phone) {
+      console.log('Blocking creation due to existing driver');
+      return res.status(400).json({
+        success: false,
+        message: 'Driver with this phone number already exists',
+      });
+    }
+
+    console.log('Creating driver...');
+    console.log('Request body:', req.body);
+    console.log('Request files structure:', req.files);
+
+    const status = 'active';
+
+    // Validate required fields
+    const { name, email, phone } = req.body;
+    if (!name || !email || !phone || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: name, email, phone, or status',
+      });
+    }
+
+    // Handle multiple file uploads
+    let licenseUrl = null;
+    let profileImageUrl = null;
+    let idUrl = null;
+
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        switch (file.fieldname) {
+          case 'license':
+            const licensePublicId = await uploadImage(file.path, file.mimetype.startsWith('application/') ? 'raw' : 'image');
+            if (licensePublicId) {
+              licenseUrl = licensePublicId;
+              fs.unlinkSync(file.path);
+            } else {
+              console.error('Failed to upload license image');
+            }
+            break;
+          case 'photo':
+            const photoPublicId = await uploadImage(file.path, file.mimetype.startsWith('application/') ? 'raw' : 'image');
+            if (photoPublicId) {
+              profileImageUrl = photoPublicId;
+              fs.unlinkSync(file.path);
+            } else {
+              console.error('Failed to upload profile image');
+            }
+            break;
+          case 'idDoc':
+            const idPublicId = await uploadImage(file.path, file.mimetype.startsWith('application/') ? 'raw' : 'image');
+            if (idPublicId) {
+              console.log('Uploaded ID publicId:', idPublicId);
+              idUrl = idPublicId;
+              fs.unlinkSync(file.path);
+            } else {
+              console.error('Failed to upload ID image');
+            }
+            break;
+          default:
+            console.log(`Ignoring unexpected field: ${file.fieldname}`);
+            fs.unlinkSync(file.path); // Clean up unexpected files
+        }
+      }
+    } else {
+      console.log('No files received in request');
+    }
+
+    console.log('License URL:', licenseUrl);
+    console.log('Profile Image URL:', profileImageUrl);
+    console.log('ID URL:', idUrl);
+
+    const driverData = {
+      name,
+      email,
+      phone,
+      photo: profileImageUrl,
+      idDoc: idUrl,
+      license: licenseUrl,
+      status,
+    };
+    const driver = await Driver.create(companyId, driverData);
+    res.status(201).json({
+      success: true,
+      message: 'Driver created successfully',
+      data: driver,
+    });
+  } catch (error) {
+    console.error('Error creating driver:', error);
+
+    // Clean up any uploaded files in case of error
+    if (req.files) {
+      for (const file of req.files) {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: `Error creating driver: ${error.message}`,
+    });
+  }
+};
+exports.getDriver = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const driver = await Driver.get(companyId, req.params.driverId);
+    res.status(200).json({
+      success: true,
+      message: 'Driver retrieved successfully',
+      data: driver,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error retrieving driver: ${error.message}`,
+    });
+  }
+};
+
+exports.getAllDrivers = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const drivers = await Driver.getAll(companyId);
+    res.status(200).json({
+      success: true,
+      message: 'Drivers retrieved successfully',
+      data: drivers,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error retrieving drivers: ${error.message}`,
+    });
+  }
+};
+
+exports.updateDriversAvailability = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const driverId = req.params.driverId;
+    const availability = req.body.availability;
+    await Driver.updateAvailability(driverId, availability);
+
+    await logActivity(req.user.uid, 'update_availability', req);
+
+    await Notification.create({
+      type: "Driver Availability Updated",
+      message: `The availability of a driver has been updated. Vehicle ID: ${driverId}`,
+      userId: req.user.uid,
+      userType: "company",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Driver availability updated successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error updating driver availability: ${error.message}`,
+    });
   }
 };
