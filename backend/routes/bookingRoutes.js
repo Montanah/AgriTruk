@@ -412,7 +412,7 @@ router.patch('/agri/:bookingId/complete', authenticateToken, requireRole('transp
  *   delete:
  *     summary: Delete an agriTRUK booking
  *     description: Deletes a specific agriTRUK booking.
- *     tags: [Admin Actions]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -752,7 +752,7 @@ router.patch('/cargo/:bookingId/start', authenticateToken, requireRole('transpor
  *   delete:
  *     summary: Delete a cargoTRUK booking
  *     description: Deletes a specific cargoTRUK booking.
- *     tags: [Admin Actions]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:

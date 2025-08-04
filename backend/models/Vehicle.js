@@ -4,6 +4,8 @@ const db = admin.firestore();
 const Vehicle = {
   async create(companyId, vehicleData) {
     const vehicleId = vehicleData.vehicleId || db.collection('companies').doc(companyId).collection('vehicles').doc().id;
+    console.log('Generating vehicleId:', vehicleId); // Debug vehicleId
+    console.log('Document path:', `companies/${companyId}/vehicles/${vehicleId}`);
     const vehicle = {
       vehicleId,
       type: vehicleData.type || null,
@@ -68,7 +70,8 @@ const Vehicle = {
 
   async getByRegistration(companyId, reg) {
     const snapshot = await db.collection('companies').doc(companyId).collection('vehicles').where('reg', '==', reg).get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return snapshot.empty ? null : snapshot.docs[0].data();
   },
 };
 

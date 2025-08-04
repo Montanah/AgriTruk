@@ -135,6 +135,14 @@ exports.updateCompany = async (req, res) => {
 exports.approveCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
+    console.log("Approve Company", companyId);
+    // Check if the company exists
+    const company = await Company.get(companyId);
+    console.log("Company", company);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
     const updatedCompany = await Company.approve(companyId);
     const email = updatedCompany?.companyContact;
     await sendEmail({
@@ -303,7 +311,11 @@ exports.searchCompany = async (req, res) => {
 exports.createVehicle = async (req, res) => {
   try {
     const companyId = req.params.companyId;
-
+    
+    //validate companyId
+    if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {
+      return res.status(400).json({ message: 'Invalid company ID' });
+    }
     // Check if the company exists
     const company = await Company.get(companyId);
     if (!company) {
@@ -315,11 +327,18 @@ exports.createVehicle = async (req, res) => {
       return res.status(403).json({ message: 'Company is not approved' });
     }
 
+    const reg = req.body.reg;
+
+    if (!reg || typeof reg !== 'string' || reg.trim() === '') {
+      return res.status(400).json({ message: 'Invalid registration number' });
+    }
+   
     // check registration number
-    const existingVehicle = await Vehicle.getByRegistration(req.body.registration);
+    const existingVehicle = await Vehicle.getByRegistration(companyId, reg);
     if (existingVehicle) {
       return res.status(400).json({ message: 'Vehicle with the same registration number already exists' });
     }
+   // console.log("existingVehicle", existingVehicle);
 
     // check format of registration number
     
@@ -327,9 +346,7 @@ exports.createVehicle = async (req, res) => {
       return res.status(400).json({ message: 'No files uploaded' });
     }
 
-    const { vehicleRegistration } = req.body;
-
-    const plate = vehicleRegistration.trim().toUpperCase();
+    const plate = reg.trim().toUpperCase();
 
     const regex = /^K?[A-Z]{2} ?\d{3}[A-Z]$/;
 
@@ -344,7 +361,7 @@ exports.createVehicle = async (req, res) => {
     if (req.files) {
       const uploadTasks = req.files.map(async file => {
         const fieldName = file.fieldname;
-        // console.log(`Processing file: ${fieldName}, path: ${file.path}`); 
+        //console.log(`Processing file: ${fieldName}, path: ${file.path}`); 
 
         switch (fieldName) {
           case 'insurance':
@@ -389,6 +406,8 @@ exports.createVehicle = async (req, res) => {
       est: req.body.est,
       status: req.body.status,
     };
+
+    console.log(vehicleData);
     const vehicle = await Vehicle.create(companyId, vehicleData);
 
     await logActivity(req.user.uid, 'create_vehicle', req);
