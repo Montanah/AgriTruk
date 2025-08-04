@@ -1,4 +1,5 @@
 const admin = require("../config/firebase");
+const { approve, reject } = require("./Transporter");
 const db = admin.firestore();
 
 const Vehicle = {
@@ -73,6 +74,25 @@ const Vehicle = {
     // return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return snapshot.empty ? null : snapshot.docs[0].data();
   },
+
+  async approve(companyId, vehicleId) {
+    const updates = {
+      status: 'approved',
+      updatedAt: admin.firestore.Timestamp.now(),
+    }
+    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).update(updates);
+    return updates;
+  },
+
+  async reject(companyId, vehicleId, reason) {
+    const updates = {
+      status: 'rejected',
+      rejectionReason: reason || 'Not specified',
+      updatedAt: admin.firestore.Timestamp.now(),
+    }
+    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).update(updates);
+    return updates;
+  }
 };
 
 module.exports = Vehicle;

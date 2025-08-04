@@ -87,11 +87,22 @@ exports.getCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
     const company = await Company.get(companyId);
+
     if (!company) return res.status(404).json({ message: 'Company not found' });
+    
+    const vehicles = await Vehicle.getAll(companyId);
+    
+    const drivers = await Driver.getAll(companyId);
 
-    await logAdminActivity(req.user.uid, 'get_company', req);
+    await logActivity(req.user.uid, 'get_company', req);
 
-    res.status(200).json(company);
+    const responseData = {
+      company,
+      vehicles,
+      drivers,
+    };
+
+    res.status(200).json(responseData);
   } catch (err) {
     console.error('Get company error:', err);
     res.status(500).json({ message: 'Failed to fetch company' });
@@ -244,7 +255,7 @@ exports.getCompaniesByTransporter = async (req, res) => {
     const { transporterId } = req.params;
     const companies = await Company.getByTransporter(transporterId);
 
-    await logAdminActivity(req.admin.adminId, 'get_companies_by_transporter', req);
+    // await logAdminActivity(req.admin.adminId, 'get_companies_by_transporter', req);
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get companies by transporter error:', err);
@@ -283,7 +294,7 @@ exports.getCompaniesByTransporterAndStatus = async (req, res) => {
 exports.getAllForTransporter = async (req, res) => {
   try {
     const { transporterId } = req.params;
-    const companies = await Company.getAllForTransporter(transporterId);
+    const companies = await Company.getByTransporter(transporterId);
 
     await logAdminActivity(req.admin.adminId, 'get_all_companies_for_transporter', req);
     res.status(200).json(companies);
@@ -758,3 +769,71 @@ exports.updateDriversAvailability = async (req, res) => {
     });
   }
 };
+
+exports.approveVehicle = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const vehicleId = req.params.vehicleId;
+    await Vehicle.approve(companyId, vehicleId);
+    res.status(200).json({
+      success: true,
+      message: 'Vehicle approved successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error approving vehicle: ${error.message}`,
+    });
+  }
+};
+
+exports.rejectVehicle = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const vehicleId = req.params.vehicleId;
+    await Vehicle.reject(companyId, vehicleId);
+    res.status(200).json({
+      success: true,
+      message: 'Vehicle rejected successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error rejecting vehicle: ${error.message}`,
+    });
+  }
+};
+
+exports.approveCompanyDriver = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const driverId = req.params.driverId;
+    await Driver.approve(companyId, driverId);
+    res.status(200).json({
+      success: true,
+      message: 'Driver approved successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error approving driver: ${error.message}`,
+    });
+  }
+};
+
+exports.rejectCompanyDriver = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const driverId = req.params.driverId;
+    await Driver.reject(companyId, driverId);
+    res.status(200).json({
+      success: true,
+      message: 'Driver rejected successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error rejecting driver: ${error.message}`,
+    });
+  }
+}

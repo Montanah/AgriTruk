@@ -1,4 +1,5 @@
 const admin = require("../config/firebase");
+const { approve, reject } = require("./Transporter");
 const { updateAvailability } = require("./Vehicle");
 const db = admin.firestore();
 
@@ -63,7 +64,26 @@ const Driver = {
 
   async updateAvailability(companyId,driverId, availability) {
     await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update({ availability });
-  }
+  },
+
+  async approve(companyId, driverId) {
+    const updates = {
+      status: 'approved',
+      updatedAt: admin.firestore.Timestamp.now(),
+    };
+    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update(updates);
+    return updates;
+  },
+
+  async reject(companyId, driverId, reason) {
+    const updates = {
+      status: 'rejected',
+      rejectionReason: reason || 'Not specified',
+      updatedAt: admin.firestore.Timestamp.now(),
+    };
+    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update(updates);
+    return updates;
+  },
 };
 
 module.exports = Driver;
