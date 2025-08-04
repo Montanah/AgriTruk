@@ -34,7 +34,7 @@ const uploadAny = upload.any();
 
 /**
  * @swagger
- * /api/companies:
+ * /api/companies/:
  *   post:
  *     summary: Create a new company
  *     description: Creates a new company associated with a transporter.
