@@ -1,10 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
 import colors from '../constants/colors';
@@ -69,15 +69,15 @@ export default function BrokerProfileScreen() {
   }, []);
 
   const handleLogout = async () => {
-     try {
-       await signOut(auth);
-       setTimeout(() => {
-         navigation.navigate('Welcome');
-       }, 100);
-     } catch (error) {
-       Alert.alert('Logout Error', 'Failed to logout. Please try again.');
-     }
-   };
+    try {
+      await signOut(auth);
+      setTimeout(() => {
+        navigation.navigate('Welcome');
+      }, 100);
+    } catch (error) {
+      Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+    }
+  };
 
   const handleSave = async () => {
     setEditing(false);
@@ -161,7 +161,7 @@ export default function BrokerProfileScreen() {
                   <Text style={styles.profileName}>{name}</Text>
                   <Text style={styles.profileInfo}>{email}</Text>
                   <Text style={styles.profileInfo}>{phone}</Text>
-                  <Text style={styles.profileRole}>Role: <Text style={{ color: colors.secondary, fontWeight: 'bold' }}>Broker</Text></Text>
+                  <Text style={styles.profileRole}><Text style={{ color: colors.secondary, fontWeight: 'bold' }}>Broker</Text></Text>
                   <Text style={styles.profileInfo}>Last Login: 2024-06-12 09:30</Text>
                   <View style={styles.profileActionsRow}>
                     <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)}>

@@ -60,6 +60,41 @@ const VEHICLE_TYPES = [
   },
 ];
 
+// Helper to check if transporter profile is truly complete
+function isTransporterProfileComplete(transporter) {
+  if (!transporter) return false;
+  // Required fields for a completed profile (individual)
+  const requiredFields = [
+    'driverProfileImage',
+    'driverLicense',
+    'insuranceUrl',
+    'vehicleType',
+    'vehicleRegistration',
+    'vehicleMake',
+    'vehicleColor',
+    'vehicleYear',
+    'bodyType',
+    'driveType',
+    'email',
+    'phoneNumber',
+    'status',
+  ];
+  for (const field of requiredFields) {
+    if (!transporter[field] || typeof transporter[field] !== 'string' || transporter[field].length === 0) {
+      return false;
+    }
+  }
+  // At least one vehicle image
+  if (!Array.isArray(transporter.vehicleImagesUrl) || transporter.vehicleImagesUrl.length === 0) {
+    return false;
+  }
+  // Status must be at least 'pending', 'under_review', or 'approved'
+  if (!['pending', 'under_review', 'approved'].includes(transporter.status)) {
+    return false;
+  }
+  return true;
+}
+
 export default function TransporterCompletionScreen() {
   const navigation = useNavigation();
   const [transporterType, setTransporterType] = useState('individual'); // 'individual' or 'company'
@@ -86,13 +121,26 @@ export default function TransporterCompletionScreen() {
           return;
         }
         const token = await user.getIdToken();
-        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        let data = null;
+        let res, data = null;
+        try {
+          res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+        } catch (fetchErr) {
+          clearTimeout(timeout);
+          setCheckingProfile(false);
+          setProfileCheckError('Network error: Could not reach backend.');
+          return;
+        }
+        if (!res) {
+          clearTimeout(timeout);
+          setCheckingProfile(false);
+          setProfileCheckError('No response from backend.');
+          return;
+        }
         let shouldNavigate = false;
         if (res.ok) {
           try {
@@ -100,33 +148,54 @@ export default function TransporterCompletionScreen() {
           } catch (e) {
             data = null;
           }
+        } else {
+          // Show backend error if available
+          let errMsg = 'Profile check failed.';
+          try {
+            const errData = await res.json();
+            if (errData && errData.message) errMsg = errData.message;
+          } catch {}
+          clearTimeout(timeout);
+          setCheckingProfile(false);
+          setProfileCheckError(errMsg + ` (HTTP ${res.status})`);
+          return;
         }
-        // Only navigate if transporter profile exists and is truly complete
+        // Decide navigation based on profile completeness and status
         if (
           res.ok &&
           data &&
           typeof data.transporter === 'object' &&
           data.transporter !== null &&
           !Array.isArray(data.transporter) &&
-          Object.keys(data.transporter).length > 0 &&
-          typeof data.transporter.status === 'string' &&
-          data.transporter.status.length > 0
+          Object.keys(data.transporter).length > 0
         ) {
-          shouldNavigate = true;
+          if (isTransporterProfileComplete(data.transporter)) {
+            if (data.transporter.status === 'approved') {
+              clearTimeout(timeout);
+              navigation.reset({
+                index: 0,
+                routes: [
+                  { name: 'TransporterTabs', params: { transporterType: data.transporter.transporterType || 'individual' } },
+                ],
+              });
+              return;
+            } else if (['pending', 'under_review'].includes(data.transporter.status)) {
+              clearTimeout(timeout);
+              navigation.reset({
+                index: 0,
+                routes: [
+                  { name: 'TransporterProcessingScreen', params: { transporterType: data.transporter.transporterType || 'individual' } },
+                ],
+              });
+              return;
+            }
+          }
         }
-        if (shouldNavigate) {
-          clearTimeout(timeout);
-          navigation.reset({
-            index: 0,
-            routes: [
-              { name: 'TransporterProcessingScreen', params: { transporterType: data.transporter.transporterType || 'individual' } },
-            ],
-          });
-          return;
-        }
-        // If 404 or no transporter, allow form to show
+        // If not complete or no transporter, allow form to show
       } catch (err) {
-        // Ignore error, allow form to show
+        clearTimeout(timeout);
+        setCheckingProfile(false);
+        setProfileCheckError('Unexpected error: ' + (err && err.message ? err.message : String(err)));
       }
       if (!didTimeout) {
         clearTimeout(timeout);
@@ -174,6 +243,21 @@ export default function TransporterCompletionScreen() {
   const [companyName, setCompanyName] = useState('');
   const [companyReg, setCompanyReg] = useState('');
   const [companyContact, setCompanyContact] = useState('');
+
+  // Prefill company name and contact from Firebase Auth when switching to company tab
+  useEffect(() => {
+    if (transporterType === 'company') {
+      try {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          setCompanyName(user.displayName || '');
+          setCompanyContact(user.phoneNumber || '');
+        }
+      } catch (e) {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transporterType]);
 
   // Image picker modal state
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -408,27 +492,97 @@ export default function TransporterCompletionScreen() {
           return false;
         }
       } else {
-        // Company submission
-        const payload = {
-          name: companyName,
-          registration: companyReg,
-          contact: companyContact,
-        };
+        // Company submission (use FormData to include logo)
+        const formData = new FormData();
+        formData.append('name', companyName);
+        formData.append('registration', companyReg);
+        formData.append('contact', companyContact);
+        if (profilePhoto && profilePhoto.uri) {
+          formData.append('logo', { uri: profilePhoto.uri, name: 'logo.jpg', type: 'image/jpeg' });
+        }
         const token = await user.getIdToken();
-        const res = await fetch('/api/companies', {
+        // 1. Log FormData for companies endpoint
+        console.log('Submitting to /api/companies with:');
+        for (let pair of formData.entries()) {
+          if (typeof pair[1] === 'object' && pair[1] !== null) {
+            console.log(pair[0], '{ name:', pair[1].name, ', type:', pair[1].type, ', uri:', pair[1].uri, '}');
+          } else {
+            console.log(pair[0], pair[1]);
+          }
+        }
+        const res = await fetch('https://agritruk-backend.onrender.com/api/companies', {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData,
+        });
+        if (!res.ok) {
+          let data = null;
+          try { data = await res.json(); } catch {}
+          setError((data && data.message) || 'Failed to submit profile.');
+          return false;
+        }
+        // 2. Also update the transporter document with company details
+        const transporterForm = new FormData();
+        transporterForm.append('transporterType', 'company');
+        transporterForm.append('companyName', companyName);
+        transporterForm.append('companyReg', companyReg);
+        transporterForm.append('companyContact', companyContact);
+        if (profilePhoto && profilePhoto.uri) {
+          transporterForm.append('companyLogo', { uri: profilePhoto.uri, name: 'logo.jpg', type: 'image/jpeg' });
+        }
+        // Log FormData for transporter document
+        console.log('Submitting to /api/transporters/ with:');
+        for (let pair of transporterForm.entries()) {
+          if (typeof pair[1] === 'object' && pair[1] !== null) {
+            console.log(pair[0], '{ name:', pair[1].name, ', type:', pair[1].type, ', uri:', pair[1].uri, '}');
+          } else {
+            console.log(pair[0], pair[1]);
+          }
+        }
+        const transporterRes = await fetch('https://agritruk-backend.onrender.com/api/transporters/', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: transporterForm,
+        });
+        if (!transporterRes.ok) {
+          let data = null;
+          try { data = await transporterRes.json(); } catch {}
+          setError((data && data.message) || 'Failed to update transporter profile.');
+          return false;
+        }
+        // After submission, fetch company profile and check completeness
+        const companyRes = await fetch(`https://agritruk-backend.onrender.com/api/companies/${user.uid}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(payload),
         });
-        if (!res.ok) {
-          const data = await res.json();
-          setError(data.message || 'Failed to submit profile.');
+        if (companyRes.ok) {
+          let companyData = null;
+          try { companyData = await companyRes.json(); } catch {}
+          // Check if company profile is complete (name, registration, contact, logo)
+          if (
+            companyData &&
+            typeof companyData === 'object' &&
+            companyData.name &&
+            companyData.registration &&
+            companyData.contact &&
+            companyData.logo
+          ) {
+            navigation.navigate('TransporterProcessingScreen', { transporterType });
+            return true;
+          } else {
+            setError('Company profile is incomplete after submission. Please try again.');
+            return false;
+          }
+        } else {
+          setError('Failed to fetch company profile after submission.');
           return false;
         }
-        return true;
       }
     } catch (e) {
       setError('Failed to submit profile. Please try again.');
@@ -619,21 +773,24 @@ export default function TransporterCompletionScreen() {
             <Text style={styles.label}>Company Name</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Acme Transporters Ltd."
+              placeholder="Enter company name as registered (e.g. Acme Transporters Ltd.)"
+              placeholderTextColor={colors.text.light}
               value={companyName}
               onChangeText={setCompanyName}
             />
             <Text style={styles.label}>Company Registration Number</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. CPR/2023/123456"
+              placeholder="Enter registration number (e.g. CPR/2023/123456)"
+              placeholderTextColor={colors.text.light}
               value={companyReg}
               onChangeText={setCompanyReg}
             />
             <Text style={styles.label}>Contact Number</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. +254712345678"
+              placeholder="Enter company contact (e.g. +254712345678)"
+              placeholderTextColor={colors.text.light}
               value={companyContact}
               onChangeText={setCompanyContact}
               keyboardType="phone-pad"

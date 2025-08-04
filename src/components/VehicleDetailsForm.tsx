@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
-import ImagePickerModal from './common/ImagePickerModal';
 
 const VEHICLE_TYPES = [
   { label: 'Truck', value: 'truck', icon: (active: boolean) => <FontAwesome5 name="truck" size={28} color={active ? colors.white : colors.primary} /> },
@@ -225,6 +224,7 @@ export default function VehicleDetailsForm({
           <TextInput
             style={styles.input}
             placeholder="e.g. 7.5"
+            placeholderTextColor={colors.text.light}
             keyboardType="numeric"
             value={maxCapacity}
             onChangeText={setMaxCapacity}
@@ -235,6 +235,7 @@ export default function VehicleDetailsForm({
           <TextInput
             style={styles.input}
             placeholder="e.g. 2018"
+            placeholderTextColor={colors.text.light}
             keyboardType="numeric"
             value={year}
             onChangeText={setYear}
@@ -266,6 +267,7 @@ export default function VehicleDetailsForm({
       <TextInput
         style={styles.input}
         placeholder="e.g. KDA 123A"
+        placeholderTextColor={colors.text.light}
         value={registration}
         onChangeText={setRegistration}
         autoCapitalize="characters"
@@ -291,7 +293,8 @@ export default function VehicleDetailsForm({
       <Text style={styles.label}>Other Features</Text>
       <TextInput
         style={styles.input}
-        placeholder="Comma separated features"
+        placeholder="separated by commas (e.g. GPS, Air Suspension)"
+        placeholderTextColor={colors.text.light}
         value={vehicleFeatures}
         onChangeText={setVehicleFeatures}
       />
