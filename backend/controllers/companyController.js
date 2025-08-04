@@ -16,12 +16,49 @@ exports.createCompany = async (req, res) => {
     if (!name || !registration || !contact) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
+
+    // Check if company already exists
+    const existingCompanyByRegistration = await Company.getByRegistration(registration);
+    console.log("Existing company by registration:", existingCompanyByRegistration);
+    if (existingCompanyByRegistration) {
+      return res.status(400).json({ message: 'Company with the same registration number already exists' });
+    }
+
+    const existingCompanyByName = await Company.getByName(name);
+    console.log("Existing company by name:", existingCompanyByName);
+    if (existingCompanyByName) {
+      return res.status(400).json({ message: 'Company with the same name already exists' });
+    }
+
+    let logoUrl = null;
+
+    console.log('Received logo file:', req.file);
+
+    if (req.file) {
+      console.log('Processing logo file:', req.file.originalname, req.file.mimetype, req.file.path); // Debug file
+      try {
+        logoUrl = await uploadImage(req.file.path);
+        if (logoUrl) {
+          console.log('Logo uploaded successfully:', logoUrl);
+          fs.unlinkSync(req.file.path); 
+        } else {
+          console.error('Failed to upload logo, continuing without logo');
+        }
+      } catch (uploadError) {
+        console.error('Upload error:', uploadError.message);
+        return res.status(500).json({ message: 'Failed to upload logo' });
+      }
+    } else {
+      console.log('No logo file received');
+    }
+
     const companyData = {
       name,
       registration,
       contact,
       transporterId: req.user.uid,
       status: 'pending',
+      logo: logoUrl, 
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -37,10 +74,15 @@ exports.createCompany = async (req, res) => {
     res.status(201).json({ message: 'Company created successfully', company });
   } catch (err) {
     console.error('Create company error:', err);
+
+    // Clean up file if upload failed and file exists
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
     res.status(500).json({ message: 'Failed to create company' });
   }
 };
-
 exports.getCompany = async (req, res) => {
   try {
     const { companyId } = req.params;

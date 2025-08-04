@@ -29,6 +29,7 @@ const {
   cancelCargoBooking,
   startCargoBooking
 } = require("../controllers/cargoBookingController");
+const { authenticate, authorize } = require('../middlewares/adminAuth');
 
 // AgriTRUK Routes
 
@@ -93,7 +94,7 @@ const {
  *       500:
  *         description: Internal server error
  */
-router.post('/agri', authenticateToken, requireRole('user'), createAgriBooking);
+router.post('/agri', authenticateToken, requireRole(['shipper', 'business']), createAgriBooking);
 
 /**
  * @swagger
@@ -110,7 +111,7 @@ router.post('/agri', authenticateToken, requireRole('user'), createAgriBooking);
  *       500:
  *         description: Internal server error
  */
-router.get('/agri', authenticateToken, requireRole(['transporter', 'admin', 'user']), getAgriBookings);
+router.get('/agri', authenticateToken, requireRole(['transporter', 'admin', 'shipper', 'business']), getAgriBookings);
 
 /**
  * @swagger
@@ -129,7 +130,7 @@ router.get('/agri', authenticateToken, requireRole(['transporter', 'admin', 'use
  *       500:
  *         description: Internal server error
  */
-router.get('/agri/user', authenticateToken, requireRole(['user', 'admin']), getUserAgriBookings);
+router.get('/agri/user', authenticateToken, requireRole(['shipper', 'business', 'admin']), getUserAgriBookings);
 
 /**
  * @swagger
@@ -148,7 +149,7 @@ router.get('/agri/user', authenticateToken, requireRole(['user', 'admin']), getU
  *       500:
  *         description: Internal server error
  */
-router.get('/agri/transporter', authenticateToken, requireRole(['transporter', 'admin', 'user']), getTransporterAgriBookings);
+router.get('/agri/transporter', authenticateToken, requireRole(['transporter', 'admin', 'shipper', 'business']), getTransporterAgriBookings);
 
 /**
  * @swagger
@@ -219,7 +220,7 @@ router.patch('/agri/:bookingId/accept', authenticateToken, requireRole('transpor
  *       500:
  *         description: Internal server error
  */
-router.get('/agri/:bookingId', authenticateToken, requireRole(['transporter', 'admin', 'user']), getAgriBooking);
+router.get('/agri/:bookingId', authenticateToken, requireRole(['transporter', 'admin', 'shipper', 'business']), getAgriBooking);
 
 /**
  * @swagger
@@ -266,7 +267,7 @@ router.get('/agri/:bookingId', authenticateToken, requireRole(['transporter', 'a
  *       500:
  *         description: Internal server error
  */
-router.put('/agri/:bookingId', authenticateToken, requireRole(['admin', 'user']), updateAgriBooking);
+router.put('/agri/:bookingId', authenticateToken, requireRole(['admin', 'shipper', 'business']), updateAgriBooking);
 
 /**
  * @swagger
@@ -294,7 +295,7 @@ router.put('/agri/:bookingId', authenticateToken, requireRole(['admin', 'user'])
  *       500:
  *         description: Internal server error
  */
-router.patch('/agri/:bookingId/cancel', authenticateToken, requireRole(['user', 'admin']), cancelAgriBooking);
+router.patch('/agri/:bookingId/cancel', authenticateToken, requireRole(['admin', 'shipper', 'business']), cancelAgriBooking);
 
 /**
  * @swagger
@@ -411,7 +412,7 @@ router.patch('/agri/:bookingId/complete', authenticateToken, requireRole('transp
  *   delete:
  *     summary: Delete an agriTRUK booking
  *     description: Deletes a specific agriTRUK booking.
- *     tags: [Admin]
+ *     tags: [Admin Actions]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -427,12 +428,12 @@ router.patch('/agri/:bookingId/complete', authenticateToken, requireRole('transp
  *       500:
  *         description: Internal server error
  */
-router.delete('/agri/:bookingId', authenticateToken, requireRole('admin'), deleteAgriBooking);
+router.delete('/agri/:bookingId', authenticate, requireRole('admin'), authorize(['manage_bookings', 'super_admin']), deleteAgriBooking);
 
 
 // CargoTRUK Routes
 
-/**router.patch('/agri/:bookingId/complete', authenticateToken, requireRole('transporter'), completeAgriBooking);
+/**
  * @swagger
  * /api/bookings/cargo:
  *   post:
@@ -486,7 +487,7 @@ router.delete('/agri/:bookingId', authenticateToken, requireRole('admin'), delet
  *       500:
  *         description: Internal server error
  */
-router.post('/cargo', authenticateToken, requireRole('user'), createCargoBooking);
+router.post('/cargo', authenticateToken, requireRole(['shipper', 'business']), createCargoBooking);
 
 /**
  * @swagger
@@ -503,7 +504,7 @@ router.post('/cargo', authenticateToken, requireRole('user'), createCargoBooking
  *       500:
  *         description: Internal server error
  */
-router.get('/cargo', authenticateToken, requireRole(['admin', 'user']), getAllCargoBookings);
+router.get('/cargo', authenticateToken, requireRole(['admin', 'shipper', 'business']), getAllCargoBookings);
 
 /**
  * @swagger
@@ -522,7 +523,7 @@ router.get('/cargo', authenticateToken, requireRole(['admin', 'user']), getAllCa
  *       500:
  *         description: Internal server error
  */
-router.get('/cargo/user', authenticateToken, requireRole(['admin', 'user']), getUserCargoBookings);
+router.get('/cargo/user', authenticateToken, requireRole(['admin', 'shipper', 'business']), getUserCargoBookings);
 
 /**
  * @swagger
@@ -541,7 +542,7 @@ router.get('/cargo/user', authenticateToken, requireRole(['admin', 'user']), get
  *       500:
  *         description: Internal server error
  */
-router.get('/cargo/transporter', authenticateToken, requireRole(['transporter', 'admin', 'user']), getTransporterCargoBookings);
+router.get('/cargo/transporter', authenticateToken, requireRole(['transporter', 'admin', 'shipper', 'business']), getTransporterCargoBookings);
 
 /**
  * @swagger
@@ -567,7 +568,7 @@ router.get('/cargo/transporter', authenticateToken, requireRole(['transporter', 
  *       500:
  *         description: Internal server error
  */
-router.get('/cargo/:bookingId', authenticateToken, requireRole(['transporter', 'admin', 'user']), getCargoBooking);
+router.get('/cargo/:bookingId', authenticateToken, requireRole(['transporter', 'admin', 'shipper', 'business']), getCargoBooking);
 
 /**
  * @swagger
@@ -608,7 +609,7 @@ router.get('/cargo/:bookingId', authenticateToken, requireRole(['transporter', '
  *       500:
  *         description: Internal server error
  */
-router.put('/cargo/:bookingId', authenticateToken, requireRole(['user', 'admin']), updateCargoBooking);
+router.put('/cargo/:bookingId', authenticateToken, requireRole(['shipper', 'admin', 'business']), updateCargoBooking);
 
 /**
  * @swagger
@@ -715,7 +716,7 @@ router.patch('/cargo/:bookingId/reject', authenticateToken, requireRole(['transp
  *       500:
  *         description: Internal server error
  */
-router.patch('/cargo/:bookingId/cancel', authenticateToken, requireRole(['user', 'admin']), cancelCargoBooking);
+router.patch('/cargo/:bookingId/cancel', authenticateToken, requireRole(['shipper', 'admin', 'business']), cancelCargoBooking);
 
 /**
  * @swagger
@@ -751,7 +752,7 @@ router.patch('/cargo/:bookingId/start', authenticateToken, requireRole('transpor
  *   delete:
  *     summary: Delete a cargoTRUK booking
  *     description: Deletes a specific cargoTRUK booking.
- *     tags: [Admin]
+ *     tags: [Admin Actions]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -767,7 +768,7 @@ router.patch('/cargo/:bookingId/start', authenticateToken, requireRole('transpor
  *       500:
  *         description: Internal server error
  */
-router.delete('/cargo/:bookingId', authenticateToken, requireRole('admin'), deleteCargoBooking);
+router.delete('/cargo/:bookingId', authenticate, requireRole('admin'), authorize(['manage_bookings', 'super_admin']), deleteCargoBooking);
 
 /**
  * @swagger
@@ -786,7 +787,7 @@ router.delete('/cargo/:bookingId', authenticateToken, requireRole('admin'), dele
  *       500:
  *         description: Internal server error
  */
-router.get('/agri/user', authenticateToken, requireRole(['user', 'admin']), getUserAgriBookings);
+router.get('/agri/user', authenticateToken, requireRole(['shipper', 'admin', 'business']), getUserAgriBookings);
 
 /**
  * @swagger
@@ -805,6 +806,6 @@ router.get('/agri/user', authenticateToken, requireRole(['user', 'admin']), getU
  *       500:
  *         description: Internal server error
  */
-router.get('/agri/transporter', authenticateToken, requireRole(['transporter', 'admin', 'user']), getTransporterAgriBookings);
+router.get('/agri/transporter', authenticateToken, requireRole(['transporter', 'admin', 'shipper', 'business']), getTransporterAgriBookings);
 
 module.exports = router;

@@ -44,7 +44,7 @@ const uploadAny = upload.any();
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -61,6 +61,10 @@ const uploadAny = upload.any();
  *               contact:
  *                 type: string
  *                 description: Contact information for the company
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *                 description: The logo of the company
  *             example:
  *               name: "Green Farms Ltd"
  *               registration: "REG123456"
@@ -73,7 +77,7 @@ const uploadAny = upload.any();
  *       500:
  *         description: Internal server error
  */
-router.post('/', authenticateToken, requireRole('transporter'),validateCompanyCreation, createCompany);
+router.post('/', authenticateToken, requireRole('transporter'),  upload.single('logo'), validateCompanyCreation, createCompany);
 
 /**
  * @swagger
