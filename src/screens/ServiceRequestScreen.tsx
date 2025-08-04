@@ -166,6 +166,7 @@ const ServiceRequestScreen = () => {
     console.warn('transporters is not an array or is undefined, defaulting to []', transporters);
     transporters = [];
   }
+  // Log only real transporters (from API, not mock)
   const [formCollapsed, setFormCollapsed] = useState(false);
   const scrollRef = useRef(null);
 
@@ -879,13 +880,20 @@ const ServiceRequestScreen = () => {
                       if (Array.isArray(mockTransporters)) {
                         allTransporters = [...allTransporters, ...mockTransporters];
                       }
-                      const filtered = allTransporters.filter(t => {
-                        if (weight && t.capacity < parseFloat(weight)) return false;
-                        if (isPerishable && !t.refrigeration) return false;
-                        if (isSpecialCargo && !t.specialCargo) return false;
-                        return true;
-                      });
-                      setFilteredTransporters(filtered);
+                      // DEMO: Show all transporters, no filtering
+                      // const filtered = allTransporters.filter(t => {
+                      //   if (weight && t.capacity && parseFloat(weight) > 0) {
+                      //     if (Number(t.capacity) < parseFloat(weight)) return false;
+                      //   }
+                      //   if (isPerishable) {
+                      //     if (!t.refrigeration) return false;
+                      //   }
+                      //   if (isSpecialCargo) {
+                      //     if (!t.specialCargo) return false;
+                      //   }
+                      //   return true;
+                      // });
+                      setFilteredTransporters(allTransporters);
                       setShowTransporters(true);
                       setLoadingTransporters(false);
                     }, 1000); // Simulate loading delay for demo
@@ -979,11 +987,31 @@ const ServiceRequestScreen = () => {
                     ) : (
                       filteredTransporters.map((t) => {
                         // Calculate estimated amount if possible
-                        let estAmount = '';
-                        let distNum = parseFloat((distance || '').replace(/[^\d.]/g, ''));
-                        if (!isNaN(distNum) && t.costPerKm) {
-                          estAmount = `KES ${(distNum * t.costPerKm).toFixed(2)}`;
+                        // Ensure costPerKm fallback
+                        const costPerKm = t.costPerKm || 100; // fallback default
+                        // Parse distance robustly (support e.g. '12 km', '12.5km', '12,000 km')
+                        let distNum = 0;
+                        if (typeof distance === 'string') {
+                          const match = distance.replace(/,/g, '').match(/([\d.]+)/);
+                          if (match) distNum = parseFloat(match[1]);
+                        } else if (typeof distance === 'number') {
+                          distNum = distance;
                         }
+                        let estAmount = '';
+                        if (!isNaN(distNum) && distNum > 0 && costPerKm) {
+                          const amt = distNum * costPerKm;
+                          // Shorten amount: e.g. 1200 -> 1.2K, 1200000 -> 1.2M
+                          const shortAmount = amt >= 1e6
+                            ? (amt / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'
+                            : amt >= 1e3
+                              ? (amt / 1e3).toFixed(1).replace(/\.0$/, '') + 'K'
+                              : amt.toFixed(0);
+                          estAmount = `KES ${shortAmount}`;
+                        }
+                        // Truncate name if too long
+                        const displayName = t.name && t.name.length > 18 ? t.name.slice(0, 16) + '…' : t.name;
+                        // Robust photo logic
+                        const photoUri = (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || t.photo || 'https://via.placeholder.com/54x54?text=TRUK';
                         return (
                           <View
                             key={t.id}
@@ -1012,12 +1040,13 @@ const ServiceRequestScreen = () => {
                                 }}
                               >
                                 <Animated.Image
-                                  source={{ uri: t.photo }}
+                                  source={{ uri: photoUri }}
                                   style={{ width: 54, height: 54, borderRadius: 27 }}
+                                  defaultSource={{ uri: 'https://via.placeholder.com/54x54?text=TRUK' }}
                                 />
                               </View>
                               <View style={{ flex: 1 }}>
-                                <Text style={{ fontWeight: 'bold', fontSize: 16, color: colors.text.primary }}>{t.name}</Text>
+                                <Text style={{ fontWeight: 'bold', fontSize: 16, color: colors.text.primary }} numberOfLines={1} ellipsizeMode="tail">{displayName}</Text>
                                 <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13 }}>ETA: {t.est || 'N/A'}</Text>
                               </View>
                               <View style={{ alignItems: 'flex-end' }}>
@@ -1051,11 +1080,9 @@ const ServiceRequestScreen = () => {
                                 </View>
                               )}
                             </View>
-                            {estAmount && (
-                              <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
-                                Estimated Amount: {estAmount}
-                              </Text>
-                            )}
+                            <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
+                              Est: {estAmount || 'N/A'}
+                            </Text>
                             <TouchableOpacity
                               style={{
                                 backgroundColor: accent,

@@ -21,7 +21,7 @@ export const MOCK_TRANSPORTERS = [
     driveType: '4WD',
     humidityControl: true,
     refrigeration: true,
-    est: '15 min',
+    est: '12 min',
     vehiclePhotos: [
       'https://randomuser.me/api/portraits/men/1.jpg',
     ],
@@ -48,7 +48,7 @@ export const MOCK_TRANSPORTERS = [
     driveType: '2WD',
     humidityControl: false,
     refrigeration: false,
-    est: '25 min',
+    est: '1 hr 5 min',
     vehiclePhotos: [
       'https://randomuser.me/api/portraits/women/2.jpg',
     ],
@@ -75,7 +75,7 @@ export const MOCK_TRANSPORTERS = [
     driveType: '2WD',
     humidityControl: false,
     refrigeration: false,
-    est: '40 min',
+    est: '2 hr 20 min',
     vehiclePhotos: [
       'https://randomuser.me/api/portraits/men/3.jpg',
     ],
