@@ -9,6 +9,7 @@ import fonts from '../../constants/fonts';
 import Spacer from '../../components/common/Spacer';
 import Button from '../../components/common/Button';
 import { useNavigation } from '@react-navigation/native';
+import FindTransporters from '../../components/FindTransporters';
 
 const SERVICES = [
   {
@@ -69,9 +70,21 @@ const BusinessRequestScreen = () => {
   const [perishableSpecs, setPerishableSpecs] = useState<string[]>([]);
   const [isSpecialCargo, setIsSpecialCargo] = useState(false);
   const [specialCargoSpecs, setSpecialCargoSpecs] = useState<string[]>([]);
+  const [specialRequestToTransporter, setSpecialRequestToTransporter] = useState('');
 
-  // Add to consolidation list (global)
+  // Add to consolidation list (global) with feedback and validation
+  const [justAdded, setJustAdded] = useState(false);
+  const [formError, setFormError] = useState('');
+  const validateForm = () => {
+    if (!fromLocation || !toLocation || !productType || !weight) {
+      setFormError('Please fill in all required fields: From, To, Product Type, and Weight.');
+      return false;
+    }
+    setFormError('');
+    return true;
+  };
   const handleAddToConsolidate = () => {
+    if (!validateForm()) return;
     addConsolidation({
       fromLocation,
       toLocation,
@@ -89,6 +102,7 @@ const BusinessRequestScreen = () => {
       perishableSpecs,
       isSpecialCargo,
       specialCargoSpecs,
+      specialRequestToTransporter,
       type: activeTab,
     });
     setFromLocation('');
@@ -106,6 +120,9 @@ const BusinessRequestScreen = () => {
     setPerishableSpecs([]);
     setIsSpecialCargo(false);
     setSpecialCargoSpecs([]);
+    setSpecialRequestToTransporter('');
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1200);
   };
 
   // Remove from consolidation list (global)
@@ -113,9 +130,14 @@ const BusinessRequestScreen = () => {
     removeConsolidation(id);
   };
 
-  // Submit request (single or consolidated)
+  // State to control showing transporter selection
+  const [showTransporters, setShowTransporters] = useState(false);
+  // Submit request (single or consolidated) with validation
   const handleSubmit = () => {
-    if (consolidations.length > 0) {
+    if (!validateForm()) return;
+    if (requestType === 'instant') {
+      setShowTransporters(true);
+    } else if (consolidations.length > 0) {
       alert('Consolidated request submitted!');
       clearConsolidations();
     } else {
@@ -213,6 +235,22 @@ const BusinessRequestScreen = () => {
         )}
         {/* Form Fields */}
         <View style={styles.formCard}>
+          {formError ? (
+            <View style={{ alignItems: 'center', marginBottom: 10 }}>
+              <View style={{ backgroundColor: colors.error, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="alert-circle" size={20} color={colors.white} style={{ marginRight: 6 }} />
+                <Text style={{ color: colors.white, fontWeight: 'bold', fontSize: 15 }}>{formError}</Text>
+              </View>
+            </View>
+          ) : null}
+          {justAdded && (
+            <View style={{ alignItems: 'center', marginBottom: 10 }}>
+              <View style={{ backgroundColor: colors.success, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center' }}>
+                <MaterialCommunityIcons name="check-circle" size={20} color={colors.white} style={{ marginRight: 6 }} />
+                <Text style={{ color: colors.white, fontWeight: 'bold', fontSize: 15 }}>Added!</Text>
+              </View>
+            </View>
+          )}
           <Text style={styles.label}>From</Text>
           <TextInput
             style={styles.input}
@@ -386,11 +424,20 @@ const BusinessRequestScreen = () => {
             </View>
           )}
         </View>
-        {/* Cost Estimate Widget */}
-        <View style={styles.estimateCard}>
-          <MaterialCommunityIcons name="calculator-variant" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
-          <Text style={styles.estimateLabel}>Estimated Cost:</Text>
-          <Text style={styles.estimateValue}>{costEstimate}</Text>
+        {/* Special Request to Transporter (optional) */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionHeader}>Special Request to Transporter (optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Message to transporter (max 100 chars)"
+            value={specialRequestToTransporter || ''}
+            onChangeText={text => setSpecialRequestToTransporter(text.slice(0, 100))}
+            placeholderTextColor={colors.text.light}
+            maxLength={100}
+          />
+          <Text style={{ alignSelf: 'flex-end', color: colors.text.light, fontSize: 12 }}>
+            {(specialRequestToTransporter || '').length}/100
+          </Text>
         </View>
         <Spacer size={18} />
         {/* Consolidation List */}
@@ -418,6 +465,25 @@ const BusinessRequestScreen = () => {
             <Text style={styles.actionBtnText}>Submit</Text>
           </TouchableOpacity>
         </View>
+        {/* Show FindTransporters for instant requests */}
+        {showTransporters && requestType === 'instant' && (
+          <FindTransporters
+            requests={consolidations.length > 0 ? consolidations : [{
+              fromLocation,
+              toLocation,
+              productType,
+              weight,
+              value: insureGoods ? insuranceValue : '',
+              insureGoods,
+              additional: '',
+              perishableSpecs,
+              specialCargoSpecs,
+              // Add more fields as needed
+            }]}
+            distance={''}
+            accent={accent}
+          />
+        )}
         <Spacer size={40} />
       </ScrollView>
     </SafeAreaView>

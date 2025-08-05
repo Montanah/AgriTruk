@@ -21,6 +21,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
+import { Picker } from '@react-native-picker/picker';
 
 import NotificationBell from '../components/Notification/NotificationBell';
 import { useTransporters } from '../hooks/UseTransporters';
@@ -29,6 +30,7 @@ import { apiRequest } from '../utils/api';
 
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
+import FindTransporters from '../components/FindTransporters';
 
 const mockTransporters = Array.isArray(importedMockTransporters) ? importedMockTransporters : [];
 
@@ -129,6 +131,11 @@ const ServiceRequestScreen = () => {
   const INSURANCE_PERCENT = 0.02; // 2% insurance rate
   const [additional, setAdditional] = useState('');
   const [error, setError] = useState('');
+  const [isBulk, setIsBulk] = useState(false);
+  const [isPriority, setIsPriority] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringFreq, setRecurringFreq] = useState('');
+  const [recurringCustom, setRecurringCustom] = useState('');
   const [anim] = useState(new Animated.Value(0));
   const tabIndex = activeTab === 'agriTRUK' ? 0 : 1;
   const pan = useRef(new Animated.ValueXY()).current;
@@ -561,71 +568,115 @@ const ServiceRequestScreen = () => {
                     </View>
                   </View>
                 </View>
-                {/* Section: Product Details */}
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionHeader}>Goods Details</Text>
-                  <Text style={styles.label}>Product Type</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder={
-                      activeTab === 'agriTRUK'
-                        ? 'e.g. Maize, Fruits, Beans…'
-                        : 'e.g. Electronics, Furniture, Clothing…'
-                    }
-                    value={productType}
-                    onChangeText={(text) => {
-                      setProductType(text);
-                      setShowProductSuggestions(text.length > 0);
-                    }}
-                    onFocus={() => setShowProductSuggestions(productType.length > 0)}
-                    onBlur={() => setTimeout(() => setShowProductSuggestions(false), 200)}
-                    placeholderTextColor={colors.text.light}
-                  />
-                  {showProductSuggestions && (
-                    <View style={styles.suggestionBox}>
-                      {(PRODUCT_SUGGESTIONS || []).filter((p) =>
-                        p.toLowerCase().includes(productType.toLowerCase()),
-                      ).map((suggestion) => (
-                        <TouchableOpacity
-                          key={suggestion}
-                          style={styles.suggestionItem}
-                          onPress={() => {
-                            setProductType(suggestion);
-                            setShowProductSuggestions(false);
-                          }}
-                        >
-                          <Text style={styles.suggestionText}>{suggestion}</Text>
-                        </TouchableOpacity>
-                      ))}
+                {/* Product Options and Type */}
+                <View style={styles.productCardWrap}>
+                  {/* Type Options: Priority, Recurring (only for bookings) */}
+                  {requestType === 'booking' && (
+                    <View style={styles.typeOptionsRowClean}>
+                      <TouchableOpacity
+                        style={[styles.typeOptionBtnClean, isPriority && styles.typeOptionBtnActiveClean]}
+                        onPress={() => setIsPriority((v) => !v)}
+                      >
+                        <MaterialCommunityIcons name="star" size={20} color={isPriority ? colors.white : colors.primary} />
+                        <Text style={[styles.typeOptionLabelClean, isPriority && styles.typeOptionLabelActiveClean]}>Priority</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.typeOptionBtnClean, isRecurring && styles.typeOptionBtnActiveClean]}
+                        onPress={() => setIsRecurring((v) => !v)}
+                      >
+                        <MaterialCommunityIcons name="repeat" size={20} color={isRecurring ? colors.white : colors.primary} />
+                        <Text style={[styles.typeOptionLabelClean, isRecurring && styles.typeOptionLabelActiveClean]}>Recurring</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
-                  {/* Dynamic Fields removed to prevent duplication */}
+                  {isRecurring && requestType === 'booking' && (
+                    <View style={{ marginBottom: 8, marginTop: 2 }}>
+                      <Text style={styles.label}>Frequency</Text>
+                      <View style={{ borderWidth: 1, borderColor: colors.text.light, borderRadius: 10, backgroundColor: colors.background, marginBottom: 0 }}>
+                        <Picker
+                          selectedValue={['Daily','Weekly','Monthly'].includes(recurringFreq) ? recurringFreq : (recurringFreq || recurringCustom ? 'Custom' : '')}
+                          onValueChange={val => {
+                            if (val === 'Custom') {
+                              setRecurringFreq('Custom');
+                              setRecurringCustom('');
+                            } else {
+                              setRecurringFreq(val);
+                              setRecurringCustom('');
+                            }
+                          }}
+                          style={{ width: '100%', color: colors.text.primary }}
+                          itemStyle={{ fontSize: 16 }}
+                        >
+                          <Picker.Item label="Select frequency" value="" color={colors.text.light} />
+                          <Picker.Item label="Daily" value="Daily" />
+                          <Picker.Item label="Weekly" value="Weekly" />
+                          <Picker.Item label="Monthly" value="Monthly" />
+                          <Picker.Item label="Custom" value="Custom" />
+                        </Picker>
+                      </View>
+                      {recurringFreq === 'Custom' && (
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Enter custom frequency"
+                          value={recurringCustom}
+                          onChangeText={text => setRecurringCustom(text)}
+                          placeholderTextColor={colors.text.light}
+                        />
+                      )}
+                    </View>
+                  )}
+                  <View style={styles.productFieldRow}>
+                    <Text style={styles.label}>Product Type</Text>
+                    <View style={{ flex: 1 }}>
+                      <TextInput
+                        style={styles.productInput}
+                        placeholder={
+                          activeTab === 'agriTRUK'
+                            ? 'e.g. Maize, Fruits, Beans…'
+                            : 'e.g. Electronics, Furniture, Clothing…'
+                        }
+                        value={productType}
+                        onChangeText={(text) => {
+                          setProductType(text);
+                          setShowProductSuggestions(text.length > 0);
+                        }}
+                        onFocus={() => setShowProductSuggestions(productType.length > 0)}
+                        onBlur={() => setTimeout(() => setShowProductSuggestions(false), 200)}
+                        placeholderTextColor={colors.text.light}
+                      />
+                      {showProductSuggestions && (
+                        <View style={styles.suggestionBoxProduct}>
+                          {(PRODUCT_SUGGESTIONS || []).filter((p) =>
+                            p.toLowerCase().includes(productType.toLowerCase()),
+                          ).map((suggestion) => (
+                            <TouchableOpacity
+                              key={suggestion}
+                              style={styles.suggestionItem}
+                              onPress={() => {
+                                setProductType(suggestion);
+                                setShowProductSuggestions(false);
+                              }}
+                            >
+                              <Text style={styles.suggestionText}>{suggestion}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </View>
                 </View>
                 {/* Dynamic Fields */}
                 {activeTab === 'agriTRUK' && (
                   <>
-                    <View style={styles.toggleRow}>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.label}>Perishable?</Text>
                       <TouchableOpacity
-                        style={[styles.toggleBtn, isPerishable && { backgroundColor: accent }]}
+                        style={[styles.switchBtn, isPerishable && { backgroundColor: colors.secondary, borderColor: colors.secondary }]}
                         onPress={() => setIsPerishable((v) => !v)}
+                        activeOpacity={0.85}
                       >
-                        <MaterialCommunityIcons
-                          name="snowflake"
-                          size={18}
-                          color={isPerishable ? colors.white : accent}
-                        />
-                        <Text style={[styles.toggleLabel, isPerishable && { color: colors.white }]}> Perishable </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.toggleBtn, !isPerishable && { backgroundColor: accent }]}
-                        onPress={() => setIsPerishable(false)}
-                      >
-                        <MaterialCommunityIcons
-                          name="leaf"
-                          size={18}
-                          color={!isPerishable ? colors.white : accent}
-                        />
-                        <Text style={[styles.toggleLabel, !isPerishable && { color: colors.white }]}> Normal </Text>
+                        <View style={[styles.switchKnob, isPerishable && { backgroundColor: colors.white, left: 24 }]} />
+                        <Text style={{ color: isPerishable ? colors.white : colors.text.primary, fontWeight: 'bold', marginLeft: 36 }}>{isPerishable ? 'Yes' : 'No'}</Text>
                       </TouchableOpacity>
                     </View>
                     {isPerishable && (
@@ -635,10 +686,7 @@ const ServiceRequestScreen = () => {
                             key={item.key}
                             style={[
                               styles.chip,
-                              perishableSpecs.includes(item.key) && {
-                                backgroundColor: accent,
-                                borderColor: accent,
-                              },
+                              perishableSpecs.includes(item.key) && { backgroundColor: accent, borderColor: accent },
                             ]}
                             onPress={() =>
                               setPerishableSpecs((prev) =>
@@ -648,14 +696,7 @@ const ServiceRequestScreen = () => {
                               )
                             }
                           >
-                            <Text
-                              style={[
-                                styles.chipText,
-                                perishableSpecs.includes(item.key) && { color: colors.white },
-                              ]}
-                            >
-                              {item.label}
-                            </Text>
+                            <Text style={[styles.chipText, perishableSpecs.includes(item.key) && { color: colors.white }]}>{item.label}</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -664,28 +705,15 @@ const ServiceRequestScreen = () => {
                 )}
                 {activeTab === 'cargoTRUK' && (
                   <>
-                    <View style={styles.toggleRow}>
+                    <View style={styles.rowBetween}>
+                      <Text style={styles.label}>Special Cargo?</Text>
                       <TouchableOpacity
-                        style={[styles.toggleBtn, isSpecialCargo && { backgroundColor: accent }]}
+                        style={[styles.switchBtn, isSpecialCargo && { backgroundColor: colors.secondary, borderColor: colors.secondary }]}
                         onPress={() => setIsSpecialCargo((v) => !v)}
+                        activeOpacity={0.85}
                       >
-                        <MaterialCommunityIcons
-                          name="alert-decagram"
-                          size={18}
-                          color={isSpecialCargo ? colors.white : accent}
-                        />
-                        <Text style={[styles.toggleLabel, isSpecialCargo && { color: colors.white }]}> Special Cargo </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.toggleBtn, !isSpecialCargo && { backgroundColor: accent }]}
-                        onPress={() => setIsSpecialCargo(false)}
-                      >
-                        <MaterialCommunityIcons
-                          name="cube-outline"
-                          size={18}
-                          color={!isSpecialCargo ? colors.white : accent}
-                        />
-                        <Text style={[styles.toggleLabel, !isSpecialCargo && { color: colors.white }]}> Normal </Text>
+                        <View style={[styles.switchKnob, isSpecialCargo && { backgroundColor: colors.white, left: 24 }]} />
+                        <Text style={{ color: isSpecialCargo ? colors.white : colors.text.primary, fontWeight: 'bold', marginLeft: 36 }}>{isSpecialCargo ? 'Yes' : 'No'}</Text>
                       </TouchableOpacity>
                     </View>
                     {isSpecialCargo && (
@@ -695,10 +723,7 @@ const ServiceRequestScreen = () => {
                             key={item.key}
                             style={[
                               styles.chip,
-                              specialCargoSpecs.includes(item.key) && {
-                                backgroundColor: accent,
-                                borderColor: accent,
-                              },
+                              specialCargoSpecs.includes(item.key) && { backgroundColor: accent, borderColor: accent },
                             ]}
                             onPress={() =>
                               setSpecialCargoSpecs((prev) =>
@@ -708,14 +733,7 @@ const ServiceRequestScreen = () => {
                               )
                             }
                           >
-                            <Text
-                              style={[
-                                styles.chipText,
-                                specialCargoSpecs.includes(item.key) && { color: colors.white },
-                              ]}
-                            >
-                              {item.label}
-                            </Text>
+                            <Text style={[styles.chipText, specialCargoSpecs.includes(item.key) && { color: colors.white }]}>{item.label}</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -723,9 +741,9 @@ const ServiceRequestScreen = () => {
                   </>
                 )}
                 {/* Section: Insurance & Weight */}
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionHeader}>Insurance & Weight</Text>
-                  <View style={styles.insuranceRow}>
+                {/* Insurance & Weight */}
+                <View style={{ marginBottom: 8 }}>
+                  <View style={styles.rowBetween}>
                     <Text style={styles.label}>Insure Goods?</Text>
                     <TouchableOpacity
                       style={[
@@ -774,11 +792,15 @@ const ServiceRequestScreen = () => {
                   <Text style={styles.sectionHeader}>Additional/Special Request</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Any additional info for the driver"
+                    placeholder="Message to transporter (max 100 chars)"
                     value={additional}
-                    onChangeText={setAdditional}
+                    onChangeText={text => setAdditional(text.slice(0, 100))}
                     placeholderTextColor={colors.text.light}
+                    maxLength={100}
                   />
+                  <Text style={{ alignSelf: 'flex-end', color: colors.text.light, fontSize: 12 }}>
+                    {additional.length}/100
+                  </Text>
                 </View>
                 {/* Booking Pickup Time Field */}
                 {requestType === 'booking' && (
@@ -846,6 +868,9 @@ const ServiceRequestScreen = () => {
                   </Text>
                 )}
                 <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>Value:</Text> {insureGoods ? (value || '---') : 'N/A'}</Text>
+                <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>Bulk:</Text> {isBulk ? 'Yes' : 'No'}</Text>
+                <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>Priority:</Text> {isPriority ? 'Yes' : 'No'}</Text>
+                <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>Recurring:</Text> {isRecurring ? `Yes (${recurringFreq})` : 'No'}</Text>
                 <Text style={styles.summaryText}><Text style={{ fontWeight: 'bold' }}>Notes:</Text> {additional || '---'}</Text>
                 {requestType === 'booking' && (
                   <Text style={styles.summaryText}>Pickup Time: {pickupTime ? pickupTime.toLocaleString() : '---'}</Text>
@@ -862,44 +887,13 @@ const ServiceRequestScreen = () => {
                 ]}
                 disabled={!isValid()}
                 onPress={() => {
-                  // Calculate insurance cost if needed
                   let insuranceCost = 0;
                   if (insureGoods && value && !isNaN(Number(value))) {
                     insuranceCost = Number(value) * INSURANCE_PERCENT;
                   }
                   if (requestType === 'instant') {
-                    setLoadingTransporters(true);
-                    setShowTransporters(false);
-                    setFilteredTransporters([]);
-                    setTimeout(() => {
-                      // Combine real and mock transporters for demo
-                      let allTransporters = [];
-                      if (Array.isArray(transporters)) {
-                        allTransporters = [...transporters];
-                      }
-                      if (Array.isArray(mockTransporters)) {
-                        allTransporters = [...allTransporters, ...mockTransporters];
-                      }
-                      // DEMO: Show all transporters, no filtering
-                      // const filtered = allTransporters.filter(t => {
-                      //   if (weight && t.capacity && parseFloat(weight) > 0) {
-                      //     if (Number(t.capacity) < parseFloat(weight)) return false;
-                      //   }
-                      //   if (isPerishable) {
-                      //     if (!t.refrigeration) return false;
-                      //   }
-                      //   if (isSpecialCargo) {
-                      //     if (!t.specialCargo) return false;
-                      //   }
-                      //   return true;
-                      // });
-                      setFilteredTransporters(allTransporters);
-                      setShowTransporters(true);
-                      setLoadingTransporters(false);
-                    }, 1000); // Simulate loading delay for demo
-                    // Do NOT post to backend here for instant
+                    setShowTransporters(true);
                   } else {
-                    // Booking: post as a job
                     const bookingPayload = {
                       fromLocation,
                       toLocation,
@@ -911,6 +905,10 @@ const ServiceRequestScreen = () => {
                       additional,
                       perishableSpecs,
                       specialCargoSpecs,
+                      isBulk,
+                      isPriority,
+                      isRecurring,
+                      recurringFreq,
                       pickupTime: pickupTime ? pickupTime.toISOString() : '',
                       requestType,
                       fromCoords,
@@ -925,7 +923,6 @@ const ServiceRequestScreen = () => {
                     })
                       .then(() => {
                         Alert.alert('Job posted!', 'Your booking has been posted and is visible to transporters.');
-                        // Optionally, reset form or navigate
                       })
                       .catch((err) => {
                         Alert.alert('Job posting failed', err.message || 'Failed to post job');
@@ -935,201 +932,26 @@ const ServiceRequestScreen = () => {
               >
                 <Text style={styles.findBtnText}>{requestType === 'booking' ? 'Place Booking' : 'Find Transporters'}</Text>
               </TouchableOpacity>
-              {/* Transporter List or Skeleton Loader */}
-              {requestType === 'instant' && (loadingTransporters || showTransporters) && (
-                <View style={{ width: '100%', marginTop: 16 }}>
-                  <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: accent }}>
-                    Available Transporters
-                  </Text>
-                  {loadingTransporters ? (
-                    <>
-                      <Text style={{ textAlign: 'center', color: accent, fontWeight: 'bold', marginBottom: 12, fontSize: 16 }}>
-                        Finding available transporters...
-                      </Text>
-                      {[1, 2, 3].map((i) => (
-                        <View
-                          key={i}
-                          style={{
-                            backgroundColor: colors.surface,
-                            borderRadius: 14,
-                            padding: 16,
-                            marginBottom: 12,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            opacity: 0.6,
-                          }}
-                        >
-                          <View style={{ marginRight: 16 }}>
-                            <View
-                              style={{
-                                width: 54,
-                                height: 54,
-                                borderRadius: 27,
-                                backgroundColor: '#e0e0e0',
-                              }}
-                            />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <View style={{ height: 16, width: '60%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 8 }} />
-                            <View style={{ height: 12, width: '40%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 6 }} />
-                            <View style={{ height: 10, width: '30%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 6 }} />
-                            <View style={{ height: 14, width: '50%', backgroundColor: '#e0e0e0', borderRadius: 8 }} />
-                          </View>
-                          <View style={{ width: 70, height: 32, backgroundColor: '#e0e0e0', borderRadius: 8 }} />
-                        </View>
-                      ))}
-                    </>
-                  ) : showTransporters ? (
-                    filteredTransporters.length === 0 ? (
-                      <Text style={{ color: colors.error, marginBottom: 12 }}>
-                        No suitable transporters found for your request.
-                      </Text>
-                    ) : (
-                      filteredTransporters.map((t) => {
-                        // Calculate estimated amount if possible
-                        // Ensure costPerKm fallback
-                        const costPerKm = t.costPerKm || 100; // fallback default
-                        // Parse distance robustly (support e.g. '12 km', '12.5km', '12,000 km')
-                        let distNum = 0;
-                        if (typeof distance === 'string') {
-                          const match = distance.replace(/,/g, '').match(/([\d.]+)/);
-                          if (match) distNum = parseFloat(match[1]);
-                        } else if (typeof distance === 'number') {
-                          distNum = distance;
-                        }
-                        let estAmount = '';
-                        if (!isNaN(distNum) && distNum > 0 && costPerKm) {
-                          const amt = distNum * costPerKm;
-                          // Shorten amount: e.g. 1200 -> 1.2K, 1200000 -> 1.2M
-                          const shortAmount = amt >= 1e6
-                            ? (amt / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'
-                            : amt >= 1e3
-                              ? (amt / 1e3).toFixed(1).replace(/\.0$/, '') + 'K'
-                              : amt.toFixed(0);
-                          estAmount = `KES ${shortAmount}`;
-                        }
-                        // Truncate name if too long
-                        const displayName = t.name && t.name.length > 18 ? t.name.slice(0, 16) + '…' : t.name;
-                        // Robust photo logic
-                        const photoUri = (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || t.photo || 'https://via.placeholder.com/54x54?text=TRUK';
-                        return (
-                          <View
-                            key={t.id}
-                            style={{
-                              backgroundColor: colors.surface,
-                              borderRadius: 16,
-                              padding: 16,
-                              marginBottom: 16,
-                              shadowColor: colors.black,
-                              shadowOpacity: 0.08,
-                              shadowRadius: 8,
-                              elevation: 2,
-                            }}
-                          >
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                              <View
-                                style={{
-                                  width: 54,
-                                  height: 54,
-                                  borderRadius: 27,
-                                  backgroundColor: '#eee',
-                                  overflow: 'hidden',
-                                  justifyContent: 'center',
-                                  alignItems: 'center',
-                                  marginRight: 16,
-                                }}
-                              >
-                                <Animated.Image
-                                  source={{ uri: photoUri }}
-                                  style={{ width: 54, height: 54, borderRadius: 27 }}
-                                  defaultSource={{ uri: 'https://via.placeholder.com/54x54?text=TRUK' }}
-                                />
-                              </View>
-                              <View style={{ flex: 1 }}>
-                                <Text style={{ fontWeight: 'bold', fontSize: 16, color: colors.text.primary }} numberOfLines={1} ellipsizeMode="tail">{displayName}</Text>
-                                <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13 }}>ETA: {t.est || 'N/A'}</Text>
-                              </View>
-                              <View style={{ alignItems: 'flex-end' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                  <MaterialCommunityIcons name="star" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
-                                  <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15 }}>{t.rating}</Text>
-                                </View>
-                                <Text style={{ color: t.status === 'Active' ? colors.success : colors.warning, fontWeight: 'bold', fontSize: 12 }}>{t.status}</Text>
-                              </View>
-                            </View>
-                            <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
-                              {t.vehicleType}{t.bodyType ? ` (${t.bodyType})` : ''} • {t.vehicleMake} • {t.vehicleColor} • {t.capacity}T • {t.reg}
-                            </Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                              {t.refrigeration && (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                                  <MaterialCommunityIcons name="snowflake" size={15} color={accent} style={{ marginRight: 2 }} />
-                                  <Text style={{ color: accent, fontSize: 13 }}>Refrigerated</Text>
-                                </View>
-                              )}
-                              {t.humidityControl && (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                                  <MaterialCommunityIcons name="water-percent" size={15} color={accent} style={{ marginRight: 2 }} />
-                                  <Text style={{ color: accent, fontSize: 13 }}>Humidity Ctrl</Text>
-                                </View>
-                              )}
-                              {t.driveType && (
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                                  <MaterialCommunityIcons name="car" size={15} color={accent} style={{ marginRight: 2 }} />
-                                  <Text style={{ color: accent, fontSize: 13 }}>{t.driveType}</Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
-                              Est: {estAmount || 'N/A'}
-                            </Text>
-                            <TouchableOpacity
-                              style={{
-                                backgroundColor: accent,
-                                borderRadius: 10,
-                                paddingVertical: 8,
-                                paddingHorizontal: 18,
-                                alignSelf: 'flex-end',
-                                marginTop: 8,
-                              }}
-                              onPress={() => navigation.navigate('TripDetails', {
-                                booking: {
-                                  id: t.id,
-                                  pickupLocation: fromLocation,
-                                  toLocation: toLocation,
-                                  cargoDetails: productType + (weight ? `, ${weight} kg` : ''),
-                                  pickupTime: '',
-                                  status: 'in-progress',
-                                  type: 'instant',
-                                  transporterType: 'individual',
-                                  transporter: {
-                                    id: t.id,
-                                    name: t.name,
-                                    phone: t.phone,
-                                    photo: t.photo,
-                                  },
-                                  vehicle: {
-                                    type: t.vehicleType,
-                                    color: t.vehicleColor,
-                                    make: t.vehicleMake,
-                                    capacity: t.capacity + 'T',
-                                    plate: t.reg,
-                                    driveType: t.driveType || '',
-                                  },
-                                  reference: 'REF-' + t.id,
-                                  eta: t.est,
-                                  distance: distance,
-                                }
-                              })}
-                            >
-                              <Text style={{ color: colors.white, fontWeight: 'bold', fontSize: 16 }}>Select</Text>
-                            </TouchableOpacity>
-                          </View>
-                        );
-                      })
-                    )
-                  ) : null}
-                </View>
+              {/* Use FindTransporters component for instant requests */}
+              {requestType === 'instant' && showTransporters && (
+                <FindTransporters
+                  requests={{
+                    fromLocation,
+                    toLocation,
+                    productType,
+                    weight,
+                    value: insureGoods ? value : '',
+                    insureGoods,
+                    additional,
+                    perishableSpecs,
+                    specialCargoSpecs,
+                    fromCoords,
+                    toCoords,
+                    distance,
+                  }}
+                  distance={distance}
+                  accent={accent}
+                />
               )}
             </View>
           </View>
@@ -1288,9 +1110,140 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     backgroundColor: colors.surface,
   },
+  // Cleaned up type options row and buttons
+  typeOptionsRowClean: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 0,
+    flexWrap: 'nowrap',
+    width: '100%',
+  },
+  typeOptionBtnClean: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 0,
+    marginRight: 8,
+    marginBottom: 0,
+    minWidth: 0,
+    justifyContent: 'center',
+    maxWidth: 120,
+  },
+  typeOptionBtnActiveClean: {
+    backgroundColor: colors.secondary,
+  },
+  typeOptionLabelClean: {
+    fontSize: fonts.size.md,
+    color: colors.primary,
+    fontWeight: '600',
+    marginLeft: 8,
+    textAlign: 'center',
+  },
+  typeOptionLabelActiveClean: {
+    color: colors.white,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
+    marginTop: 2,
+    gap: 0,
+  },
   suggestionBox: {
     position: 'absolute',
     top: 240,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.white,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    zIndex: 100,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    maxHeight: 180,
+  },
+  productCardWrap: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    width: '100%',
+    shadowColor: colors.black,
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  productFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 0,
+    width: '100%',
+  },
+  productInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    fontSize: fonts.size.md,
+    backgroundColor: colors.background,
+    color: colors.text.primary,
+    marginBottom: 0,
+    minHeight: 44,
+  },
+  recurringOptionsRowClean: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 0,
+    width: '100%',
+    gap: 8,
+  },
+  recurringOptionBtnClean: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 0,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    marginRight: 8,
+    minWidth: 70,
+    maxWidth: 120,
+    justifyContent: 'center',
+  },
+  recurringOptionBtnActiveClean: {
+    backgroundColor: colors.secondary,
+    borderColor: colors.secondary,
+  },
+  recurringOptionLabelClean: {
+    color: colors.text.primary,
+    fontWeight: '600',
+    fontSize: fonts.size.md,
+    textAlign: 'center',
+  },
+  recurringOptionLabelActiveClean: {
+    color: colors.white,
+  },
+  suggestionBoxProduct: {
+    position: 'absolute',
+    top: 44,
     left: 0,
     right: 0,
     backgroundColor: colors.white,
@@ -1408,26 +1361,25 @@ const styles = StyleSheet.create({
   switchBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    justifyContent: 'center',
+    borderRadius: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
     borderWidth: 1.5,
     borderColor: colors.text.light,
     backgroundColor: colors.surface,
-    minWidth: 70,
+    minWidth: 90,
     position: 'relative',
-    marginLeft: 12,
+    marginLeft: 0,
+    height: 40,
   },
   switchKnob: {
-    position: 'absolute',
-    left: 2,
-    top: 2,
     width: 20,
     height: 20,
     borderRadius: 10,
     backgroundColor: colors.secondary,
-    zIndex: 2,
-    transition: 'left 0.2s',
+    marginRight: 10,
+    alignSelf: 'center',
   },
   summaryCard: {
     backgroundColor: colors.surface,

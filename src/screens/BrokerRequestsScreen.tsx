@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { notificationService } from '../../services/notificationService';
 import colors from '../constants/colors';
+import FindTransporters from '../components/FindTransporters';
 
 const MOCK_CLIENTS = [
   { id: 'C001', name: 'Green Agri Co.', type: 'business' },
@@ -75,6 +76,7 @@ export default function BrokerRequestsScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedRequests, setSelectedRequests] = useState([]); // For consolidation
   const [showTransporters, setShowTransporters] = useState(false);
+  const [selectedInstantRequests, setSelectedInstantRequests] = useState([]);
   const [loadingTransporters, setLoadingTransporters] = useState(false);
   const [filteredTransporters, setFilteredTransporters] = useState([]);
   const [formCollapsed, setFormCollapsed] = useState(false);
@@ -238,6 +240,22 @@ export default function BrokerRequestsScreen() {
   const completed = (requestList || []).filter(r => r.status === 'Completed').length;
   const pending = (requestList || []).filter(r => r.status === 'Pending').length;
   const totalRevenue = (requestList || []).reduce((sum, r) => sum + (r.status === 'Completed' ? r.amount : 0), 0);
+
+  // Show FindTransporters when user selects instant requests
+  useEffect(() => {
+    if (selectedRequests.length > 0) {
+      // Get the selected request objects
+      const selectedObjs = requestList.filter(r => selectedRequests.includes(r.id) && r.type === 'Instant');
+      if (selectedObjs.length > 0) {
+        setSelectedInstantRequests(selectedObjs);
+        setShowTransporters(true);
+      } else {
+        setShowTransporters(false);
+      }
+    } else {
+      setShowTransporters(false);
+    }
+  }, [selectedRequests]);
 
   const ListHeader = () => (
     <View style={styles.headerContainer}>
@@ -468,6 +486,14 @@ export default function BrokerRequestsScreen() {
           </View>
         </View>
       </Modal>
+      {/* Show FindTransporters for selected instant requests */}
+      {showTransporters && selectedInstantRequests.length > 0 && (
+        <FindTransporters
+          requests={selectedInstantRequests}
+          distance={''}
+          accent={colors.secondary}
+        />
+      )}
     </SafeAreaView>
   );
 }

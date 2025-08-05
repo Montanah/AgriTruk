@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import { mockConsolidations } from '../../mocks/consolidations';
+import FindTransporters from '../../components/FindTransporters';
 
 // Remove mock data, use context instead
 
@@ -19,6 +20,8 @@ const ConsolidationScreen = ({ navigation }: any) => {
   const displayList = consolidations.length > 0 ? consolidations : mockConsolidations;
 
   // Only allow selection of same requestType
+  const [showTransporters, setShowTransporters] = useState(false);
+  const [selectedInstantRequests, setSelectedInstantRequests] = useState<any[]>([]);
   const handleSelect = (id: string) => {
     const selected = displayList.find(c => c.id === id);
     if (!selected) return;
@@ -46,13 +49,11 @@ const ConsolidationScreen = ({ navigation }: any) => {
     const selectedRequests = displayList.filter(c => selectedIds.includes(c.id));
     const type = selectedRequests[0].requestType;
     if (type === 'instant') {
-      // Navigate to transporter selection (to be implemented)
-      alert('Proceed to find available transporters for instant requests.');
+      setSelectedInstantRequests(selectedRequests);
+      setShowTransporters(true);
     } else {
-      // Navigate to booking confirmation for consolidated bookings
       navigation.navigate('BookingConfirmation', { requests: selectedRequests });
     }
-    // Optionally clear selected or processed requests
     setSelectedIds([]);
   };
 
@@ -114,6 +115,14 @@ const ConsolidationScreen = ({ navigation }: any) => {
         onPress={handleProceed}
         style={styles.newBtn}
       />
+      {/* Show FindTransporters for consolidated instant requests */}
+      {showTransporters && selectedInstantRequests.length > 0 && (
+        <FindTransporters
+          requests={selectedInstantRequests}
+          distance={''}
+          accent={colors.secondary}
+        />
+      )}
     </View>
   );
 };
