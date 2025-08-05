@@ -154,7 +154,7 @@ export default function TransporterCompletionScreen() {
           try {
             const errData = await res.json();
             if (errData && errData.message) errMsg = errData.message;
-          } catch {}
+          } catch { }
           clearTimeout(timeout);
           setCheckingProfile(false);
           setProfileCheckError(errMsg + ` (HTTP ${res.status})`);
@@ -244,17 +244,34 @@ export default function TransporterCompletionScreen() {
   const [companyReg, setCompanyReg] = useState('');
   const [companyContact, setCompanyContact] = useState('');
 
-  // Prefill company name and contact from Firebase Auth when switching to company tab
+  // Prefill company name and contact from Firebase Auth on mount and when user changes
+  // Prefill company name and contact from backend user document on company tab select
   useEffect(() => {
     if (transporterType === 'company') {
-      try {
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (user) {
-          setCompanyName(user.displayName || '');
-          setCompanyContact(user.phoneNumber || '');
-        }
-      } catch (e) {}
+      (async () => {
+        try {
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (user) {
+            const token = await user.getIdToken();
+            const res = await fetch(`https://agritruk-backend.onrender.com/api/users/${user.uid}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (res.ok) {
+              const userData = await res.json();
+              if (userData && userData.name && !companyName) setCompanyName(userData.name);
+              if (userData && userData.phone && !companyContact) setCompanyContact(userData.phone);
+            } else {
+              // fallback to auth fields if backend fails
+              if (!companyName) setCompanyName(user.displayName || user.email?.split('@')[0] || '');
+              if (!companyContact) setCompanyContact(user.phoneNumber || '');
+            }
+          }
+        } catch (e) { }
+      })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transporterType]);
@@ -492,65 +509,47 @@ export default function TransporterCompletionScreen() {
           return false;
         }
       } else {
-        // Company submission (use FormData to include logo)
-        const formData = new FormData();
-        formData.append('name', companyName);
-        formData.append('registration', companyReg);
-        formData.append('contact', companyContact);
-        if (profilePhoto && profilePhoto.uri) {
-          formData.append('logo', { uri: profilePhoto.uri, name: 'logo.jpg', type: 'image/jpeg' });
-        }
+        // Company submission (send JSON, not FormData)
+        const companyPayload = {
+          name: companyName,
+          registration: companyReg,
+          contact: companyContact
+        };
         const token = await user.getIdToken();
-        // 1. Log FormData for companies endpoint
-        console.log('Submitting to /api/companies with:');
-        for (let pair of formData.entries()) {
-          if (typeof pair[1] === 'object' && pair[1] !== null) {
-            console.log(pair[0], '{ name:', pair[1].name, ', type:', pair[1].type, ', uri:', pair[1].uri, '}');
-          } else {
-            console.log(pair[0], pair[1]);
-          }
-        }
+        console.log('Submitting to /api/companies with:', companyPayload);
         const res = await fetch('https://agritruk-backend.onrender.com/api/companies', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-          body: formData,
+          body: JSON.stringify(companyPayload),
         });
         if (!res.ok) {
           let data = null;
-          try { data = await res.json(); } catch {}
+          try { data = await res.json(); } catch { }
           setError((data && data.message) || 'Failed to submit profile.');
           return false;
         }
-        // 2. Also update the transporter document with company details
-        const transporterForm = new FormData();
-        transporterForm.append('transporterType', 'company');
-        transporterForm.append('companyName', companyName);
-        transporterForm.append('companyReg', companyReg);
-        transporterForm.append('companyContact', companyContact);
-        if (profilePhoto && profilePhoto.uri) {
-          transporterForm.append('companyLogo', { uri: profilePhoto.uri, name: 'logo.jpg', type: 'image/jpeg' });
-        }
-        // Log FormData for transporter document
-        console.log('Submitting to /api/transporters/ with:');
-        for (let pair of transporterForm.entries()) {
-          if (typeof pair[1] === 'object' && pair[1] !== null) {
-            console.log(pair[0], '{ name:', pair[1].name, ', type:', pair[1].type, ', uri:', pair[1].uri, '}');
-          } else {
-            console.log(pair[0], pair[1]);
-          }
-        }
-        const transporterRes = await fetch('https://agritruk-backend.onrender.com/api/transporters/', {
-          method: 'POST',
+        // 2. Also update the transporter document with company details (PATCH/POST as JSON)
+        const transporterPayload = {
+          transporterType: 'company',
+          companyName,
+          companyReg,
+          companyContact,
+        };
+        console.log('Updating transporter document with:', transporterPayload);
+        const transporterRes = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+          method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-          body: transporterForm,
+          body: JSON.stringify(transporterPayload),
         });
         if (!transporterRes.ok) {
           let data = null;
-          try { data = await transporterRes.json(); } catch {}
+          try { data = await transporterRes.json(); } catch { }
           setError((data && data.message) || 'Failed to update transporter profile.');
           return false;
         }
@@ -563,7 +562,7 @@ export default function TransporterCompletionScreen() {
         });
         if (companyRes.ok) {
           let companyData = null;
-          try { companyData = await companyRes.json(); } catch {}
+          try { companyData = await companyRes.json(); } catch { }
           // Check if company profile is complete (name, registration, contact, logo)
           if (
             companyData &&
@@ -769,8 +768,11 @@ export default function TransporterCompletionScreen() {
       {transporterType === 'company' && (
         <>
           <Text style={styles.sectionTitle}>Company Details</Text>
-          <View style={styles.card}>
-            <Text style={styles.label}>Company Name</Text>
+          <View style={[styles.card, { backgroundColor: colors.background, borderRadius: 18, padding: spacing.lg, marginBottom: spacing.md, shadowColor: colors.black, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+              <Ionicons name="business-outline" size={22} color={colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.label}>Company Name</Text>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Enter company name as registered (e.g. Acme Transporters Ltd.)"
@@ -778,7 +780,10 @@ export default function TransporterCompletionScreen() {
               value={companyName}
               onChangeText={setCompanyName}
             />
-            <Text style={styles.label}>Company Registration Number</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+              <MaterialCommunityIcons name="file-document-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
+              <Text style={styles.label}>Company Registration Number</Text>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Enter registration number (e.g. CPR/2023/123456)"
@@ -786,7 +791,10 @@ export default function TransporterCompletionScreen() {
               value={companyReg}
               onChangeText={setCompanyReg}
             />
-            <Text style={styles.label}>Contact Number</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+              <Ionicons name="call-outline" size={22} color={colors.tertiary} style={{ marginRight: 8 }} />
+              <Text style={styles.label}>Contact Number</Text>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Enter company contact (e.g. +254712345678)"
@@ -796,6 +804,7 @@ export default function TransporterCompletionScreen() {
               keyboardType="phone-pad"
             />
           </View>
+          <View style={{ height: 1, backgroundColor: colors.text.light + '33', marginVertical: spacing.md, width: '100%' }} />
           <Text style={styles.sectionTitle}>Profile Photo</Text>
           <TouchableOpacity style={styles.photoPicker} onPress={handleProfilePhoto}>
             {profilePhoto ? (
@@ -805,12 +814,12 @@ export default function TransporterCompletionScreen() {
             )}
             <Text style={styles.photoPickerText}>Upload Company Logo</Text>
           </TouchableOpacity>
-          <View style={[styles.card, { marginTop: 10 }]}>
+          <View style={[styles.card, { marginTop: 10, backgroundColor: colors.background, borderRadius: 18, padding: spacing.lg, borderWidth: 1, borderColor: colors.text.light + '22' }]}>
             <Text style={styles.label}>Assign Jobs to Drivers</Text>
             <Text style={{ color: colors.text.secondary, fontSize: 15, marginBottom: 6 }}>
               As a company, you can assign jobs to your own drivers. This feature will be available after your company profile is approved and you have an active subscription.
             </Text>
-            <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: colors.text.light }}>
+            <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: colors.text.light }}>
               <Ionicons name="people-outline" size={32} color={colors.primary} />
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginTop: 4, textAlign: 'center' }}>
                 Manage and assign jobs to your team from your dashboard.

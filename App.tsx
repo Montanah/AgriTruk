@@ -45,6 +45,7 @@ export default function App() {
             setIsVerified(!!data.isVerified);
             setRole(data.role || null);
             setProfileCompleted(!!data.profileCompleted);
+            console.log('Detected user role:', data.role); // DEBUG LOG
           } else {
             // Try transporters collection
             snap = await getDoc(firestoreDoc(db, 'transporters', firebaseUser.uid));
@@ -56,21 +57,25 @@ export default function App() {
               setProfileCompleted(completed);
               // Only set isVerified true if transporter is approved
               setIsVerified(data.status === 'approved');
+              console.log('Detected user role: transporter'); // DEBUG LOG
             } else {
               setIsVerified(false);
               setRole(null);
               setProfileCompleted(false);
+              console.log('Detected user role: null'); // DEBUG LOG
             }
           }
-        } catch {
+        } catch (e) {
           setIsVerified(false);
           setRole(null);
           setProfileCompleted(false);
+          console.log('Error detecting user role:', e); // DEBUG LOG
         }
       } else {
         setIsVerified(false);
         setRole(null);
         setProfileCompleted(false);
+        console.log('No user logged in'); // DEBUG LOG
       }
       setLoading(false);
     });
@@ -154,6 +159,28 @@ export default function App() {
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
       </>
     );
+  } else if (role === 'business') {
+    initialRouteName = 'BusinessStack';
+    screens = (
+      <>
+        <Stack.Screen name="BusinessStack" component={require('./src/navigation/BusinessStackNavigator').default} />
+        <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+        <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
+        <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
+      </>
+    );
+  } else if (role === 'shipper') {
+    initialRouteName = 'MainTabs';
+    screens = (
+      <>
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+        <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
+        <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
+        {/* Temporary: allow navigation for UI testing */}
+        <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+      </>
+    );
   } else {
     initialRouteName = 'MainTabs';
     screens = (
@@ -175,7 +202,7 @@ export default function App() {
       <NotificationProvider>
         <StatusBar style="dark" translucent />
         <NavigationContainer>
-          <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+          <Stack.Navigator key={role || 'guest'} screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
             {screens}
           </Stack.Navigator>
         </NavigationContainer>
