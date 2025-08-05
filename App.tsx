@@ -19,6 +19,7 @@ import WelcomeScreen from './src/screens/WelcomeScreen';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
 import { NotificationProvider } from './src/components/Notification/NotificationContext';
+import { ConsolidationProvider } from './src/context/ConsolidationContext';
 import { auth, db } from './src/firebaseConfig';
 
 const Stack = createStackNavigator();
@@ -199,14 +200,16 @@ export default function App() {
   const ErrorBoundary = require('./src/components/ErrorBoundary').default;
   return (
     <ErrorBoundary>
-      <NotificationProvider>
-        <StatusBar style="dark" translucent />
-        <NavigationContainer>
-          <Stack.Navigator key={role || 'guest'} screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
-            {screens}
-          </Stack.Navigator>
-        </NavigationContainer>
-      </NotificationProvider>
+      <ConsolidationProvider>
+        <NotificationProvider>
+          <StatusBar style="dark" translucent />
+          <NavigationContainer>
+            <Stack.Navigator key={role || 'guest'} screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+              {screens}
+            </Stack.Navigator>
+          </NavigationContainer>
+        </NotificationProvider>
+      </ConsolidationProvider>
     </ErrorBoundary>
   );
 }

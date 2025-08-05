@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useConsolidations } from '../../context/ConsolidationContext';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -57,7 +58,8 @@ const BusinessRequestScreen = () => {
   const [isPriority, setIsPriority] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringFreq, setRecurringFreq] = useState('');
-  const [consolidateList, setConsolidateList] = useState<any[]>([]);
+  // Use global consolidation context
+  const { consolidations, addConsolidation, removeConsolidation, clearConsolidations } = useConsolidations();
   const [showProductSuggestions, setShowProductSuggestions] = useState(false);
   const [insureGoods, setInsureGoods] = useState(false);
   const [insuranceValue, setInsuranceValue] = useState('');
@@ -66,9 +68,9 @@ const BusinessRequestScreen = () => {
   const [isSpecialCargo, setIsSpecialCargo] = useState(false);
   const [specialCargoSpecs, setSpecialCargoSpecs] = useState<string[]>([]);
 
-  // Add to consolidation list
+  // Add to consolidation list (global)
   const handleAddToConsolidate = () => {
-    setConsolidateList([...consolidateList, {
+    addConsolidation({
       fromLocation,
       toLocation,
       productType,
@@ -86,7 +88,7 @@ const BusinessRequestScreen = () => {
       isSpecialCargo,
       specialCargoSpecs,
       type: activeTab,
-    }]);
+    });
     setFromLocation('');
     setToLocation('');
     setProductType('');
@@ -104,16 +106,16 @@ const BusinessRequestScreen = () => {
     setSpecialCargoSpecs([]);
   };
 
-  // Remove from consolidation list
-  const handleRemoveFromConsolidate = (idx: number) => {
-    setConsolidateList(consolidateList.filter((_, i) => i !== idx));
+  // Remove from consolidation list (global)
+  const handleRemoveFromConsolidate = (id: string) => {
+    removeConsolidation(id);
   };
 
   // Submit request (single or consolidated)
   const handleSubmit = () => {
-    if (consolidateList.length > 0) {
+    if (consolidations.length > 0) {
       alert('Consolidated request submitted!');
-      setConsolidateList([]);
+      clearConsolidations();
     } else {
       alert('Request submitted!');
     }
@@ -378,13 +380,13 @@ const BusinessRequestScreen = () => {
         </View>
         <Spacer size={18} />
         {/* Consolidation List */}
-        {consolidateList.length > 0 && (
+        {consolidations.length > 0 && (
           <View style={styles.consolidateCard}>
             <Text style={styles.consolidateTitle}>Consolidation List</Text>
-            {consolidateList.map((item, idx) => (
-              <View key={idx} style={styles.consolidateItem}>
+            {consolidations.map((item, idx) => (
+              <View key={item.id || idx} style={styles.consolidateItem}>
                 <Text style={styles.consolidateText}>{item.fromLocation} → {item.toLocation} | {item.productType} | {item.weight}kg | {item.type === 'agriTRUK' ? 'Agri' : 'Cargo'}</Text>
-                <TouchableOpacity onPress={() => handleRemoveFromConsolidate(idx)}>
+                <TouchableOpacity onPress={() => handleRemoveFromConsolidate(item.id || '')}>
                   <Ionicons name="close-circle" size={20} color={colors.error} />
                 </TouchableOpacity>
               </View>
