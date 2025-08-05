@@ -54,7 +54,9 @@ const Vehicle = {
   },
 
   async assignDriver(companyId, vehicleId, driverId) {
+    console.log(`Assigning driver ${driverId} to vehicle ${vehicleId}`);
     await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).update({ assignedDriverId: driverId });
+    console.log(`Driver ${driverId} assigned to vehicle ${vehicleId}`);
   },
 
   async unassignDriver(companyId, vehicleId) {

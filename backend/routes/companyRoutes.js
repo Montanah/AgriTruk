@@ -17,7 +17,9 @@ const {
   approveVehicle,
   rejectCompanyDriver,
   rejectVehicle,
-  updateDriverProfile
+  updateDriverProfile,
+  updateVehicleProfile,
+  updateVehicleAssignment
 } = require('../controllers/companyController');
 const {
   authenticate,
@@ -775,4 +777,56 @@ router.patch('/:companyId/rejectDriver/:driverId', authenticate, requireRole('ad
  *         description: Internal server error
  */
 router.put('/:companyId/updateDriver/:driverId', authenticateToken, requireRole('transporter', 'driver'), uploadAny, updateDriverProfile);
+
+router.put('/:companyId/updateVehicle/:vehicleId', authenticateToken, requireRole('transporter', 'driver'), uploadAny, updateVehicleProfile); 
+
+/**
+ * @swagger
+ * /api/companies/{companyId}/vehicleStatus/{vehicleId}:
+ *   patch:
+ *     summary: Assign a vehicle to a driver / change availability
+ *     description: Assigns a vehicle to a driver / change availability .
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: vehicleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the vehicle to assign
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               driverId:
+ *                 type: string
+ *                 description: The ID of the driver to assign
+ *               action:
+ *                 type: string
+ *                 enum: [assign, unassign, update-availability]
+ *                 description: The action to perform (assign or unassign)
+ *               availability:
+ *                 type: boolean
+ *                 description: Whether the vehicle is available
+ *     responses:
+ *       200:
+ *         description: Vehicle assigned successfully
+ *       404:
+ *         description: Company or vehicle not found
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/:companyId/vehicleStatus/:vehicleId', authenticateToken, requireRole('transporter'), updateVehicleAssignment);
+
 module.exports = router;

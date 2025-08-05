@@ -775,6 +775,7 @@ exports.getAllDrivers = async (req, res) => {
   }
 };
 
+
 exports.updateDriversAvailability = async (req, res) => {
   try {
     const companyId = req.params.companyId;
@@ -966,5 +967,131 @@ exports.rejectCompanyDriver = async (req, res) => {
       success: false,
       message: `Error rejecting driver: ${error.message}`,
     });
+  }
+};
+
+exports.updateVehicleAssignment = async (req, res) => {
+  try {
+    const { companyId, vehicleId } = req.params;
+    const { action, driverId, availability } = req.body;
+    console.log("action", action, driverId, availability);
+
+    // Validate required parameters
+    if (!companyId || !vehicleId) {
+      return res.status(400).json({ success: false, message: 'Company ID and Vehicle ID are required' });
+    }
+
+    // Check if company exists
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found',
+      });
+    }
+
+    // Check if company is approved
+    if (company.status === 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Company is not approved yet',
+      });
+    }
+
+    // Check if vehicle exists
+    const vehicle = await Vehicle.get(companyId, vehicleId); // Include companyId
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found',
+      });
+    }
+
+    // Check if vehicle is approved
+    if (vehicle.status === 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Vehicle is not approved yet',
+      });
+    }
+
+    // Handle actions
+    switch (action) {
+      case 'assign':
+        // Check if driver exists
+        const driver = await Driver.get(companyId, driverId); // Include companyId
+        if (!driver) {
+          return res.status(404).json({
+            success: false,
+            message: 'Driver not found',
+          });
+        }
+
+        // Check if driver is approved
+        if (driver.status === 'pending') {
+          return res.status(400).json({
+            success: false,
+            message: 'Driver is not approved yet',
+          });
+        }
+
+        await Vehicle.assignDriver(companyId, vehicleId, driverId);
+        break;
+      case 'unassign':
+        await Vehicle.unassignDriver(companyId, vehicleId); // Include companyId
+        break;
+      case 'update-availability':
+        if (availability === undefined) {
+          return res.status(400).json({ success: false, message: 'Availability is required for update-availability action' });
+        }
+        await Vehicle.updateAvailability(companyId, vehicleId, availability);
+        break;
+      default:
+        return res.status(400).json({ success: false, message: 'Invalid action' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Vehicle assignment updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating vehicle assignment:', error);
+    res.status(500).json({
+      success: false,
+      message: `Error updating vehicle assignment: ${error.message}`,
+    });
+  }
+};
+exports.updateVehicleProfile = async (req, res) => {
+  try {
+    const { companyId, vehicleId } = req.params;
+
+    //check if company exists
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found',
+      });
+    }
+
+    //check if vehicle exists
+    const vehicle = await Vehicle.get(vehicleId);
+    if (!vehicle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vehicle not found',
+      });
+    }
+
+    const veh= await Vehicle.update(companyId, vehicleId, req.body);
+
+    res.status(200).json({
+      success: true,
+      message: 'Vehicle profile updated successfully',
+      veh,
+    });
+  } catch (error) {
+    
   }
 }
