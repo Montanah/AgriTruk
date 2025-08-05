@@ -4,6 +4,7 @@ import BusinessTabNavigator from './BusinessTabNavigator';
 import BusinessRequestScreen from '../screens/business/BusinessRequestScreen';
 import ConsolidationScreen from '../screens/business/ConsolidationScreen';
 import TrackingManagementScreen from '../screens/business/TrackingManagementScreen';
+import BookingConfirmationScreen from '../screens/BookingConfirmationScreen';
 
 const Stack = createStackNavigator();
 
@@ -13,6 +14,7 @@ const BusinessStackNavigator = () => (
     <Stack.Screen name="BusinessRequest" component={BusinessRequestScreen} />
     <Stack.Screen name="Consolidation" component={ConsolidationScreen} />
     <Stack.Screen name="TrackingManagement" component={TrackingManagementScreen} />
+    <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
   </Stack.Navigator>
 );
 

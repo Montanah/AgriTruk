@@ -13,9 +13,14 @@ import AvailableLoadsAlongRoute from '../components/TransporterService/Available
 const TripDetailsScreen = () => {
   const route = useRoute();
   const params = route.params || {};
+
+  // Support consolidated instant requests: params.requests (array) or single booking/trip
+  const requests = params.requests || null; // array of requests for consolidated
+  const isConsolidated = Array.isArray(requests) && requests.length > 1;
+
   // booking param should be passed in navigation
   // Prefer navigation params for booking and trip, fallback to mock
-  const booking = params.booking || MOCK_BOOKINGS[0];
+  const booking = params.booking || (requests && requests[0]) || MOCK_BOOKINGS[0];
   const trip = params.trip || mockTrip;
   // If transporter/vehicle are passed directly, use them
   const selectedTransporter = params.transporter || booking.transporter;
@@ -107,33 +112,52 @@ const TripDetailsScreen = () => {
       <AvailableLoadsAlongRoute tripId={tripId} />
       <View style={styles.divider} />
       {/* Bottom Card - Clean, At-a-Glance Trip Details */}
-      <View style={[styles.bottomCard, { marginBottom: 24 }]}>
-        {/* Trip Reference and Status */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          {booking.reference && (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <MaterialCommunityIcons name="identifier" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
-              <Text style={{ color: colors.text.secondary, fontWeight: 'bold', fontSize: 13 }}>Ref: {booking.reference}</Text>
-            </View>
-          )}
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <MaterialCommunityIcons name="progress-clock" size={16} color={colors.primary} style={{ marginRight: 4 }} />
-            <Text style={[styles.statusText, { fontSize: 15 }]}>Status: <Text style={{ color: colors.primary }}>{trip.status}</Text></Text>
-          </View>
-        </View>
-        {/* Route Info */}
-        <View style={[styles.tripInfoRow, { marginBottom: 4 }]}>
-          <FontAwesome5 name="map-marker-alt" size={16} color={colors.primary} />
-          <Text style={styles.tripInfoText}>From: <Text style={{ fontWeight: 'bold' }}>{booking.pickupLocation || trip.from}</Text></Text>
-          <FontAwesome5 name="flag-checkered" size={16} color={colors.secondary} style={{ marginLeft: 12 }} />
-          <Text style={styles.tripInfoText}>To: <Text style={{ fontWeight: 'bold' }}>{booking.toLocation || '--'}</Text></Text>
-        </View>
-        {/* ETA and Distance (distance in brackets, from params > booking > trip) */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f5f5f5', borderRadius: 8, padding: 6, alignSelf: 'flex-start' }}>
-          <Ionicons name="time" size={18} color={colors.secondary} style={{ marginRight: 4 }} />
-          <Text style={[styles.tripInfoText, { fontWeight: 'bold', marginRight: 4 }]}>ETA:</Text>
-          <Text style={[styles.tripInfoText, { fontWeight: 'bold', color: colors.primary }]}>{params.eta || booking.eta || trip.eta} {(params.distance || booking.distance || trip.distance) ? `(${params.distance || booking.distance || trip.distance})` : ''}</Text>
-        </View>
+      <View style={[styles.bottomCard, { marginBottom: 24 }]}> 
+      {/* Trip Reference and Status */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      {booking.reference && (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <MaterialCommunityIcons name="identifier" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
+      <Text style={{ color: colors.text.secondary, fontWeight: 'bold', fontSize: 13 }}>Ref: {booking.reference}</Text>
+      </View>
+      )}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <MaterialCommunityIcons name="progress-clock" size={16} color={colors.primary} style={{ marginRight: 4 }} />
+      <Text style={[styles.statusText, { fontSize: 15 }]}>Status: <Text style={{ color: colors.primary }}>{trip.status}</Text></Text>
+      </View>
+      </View>
+      {/* Consolidated Requests Summary */}
+      {isConsolidated ? (
+      <View style={{ marginBottom: 10 }}>
+      <Text style={{ fontWeight: 'bold', color: colors.secondary, fontSize: 15, marginBottom: 4 }}>Consolidated Requests:</Text>
+      <FlatList
+      data={requests}
+      keyExtractor={item => item.id}
+      renderItem={({ item, index }) => (
+      <View style={{ marginBottom: 6, backgroundColor: index % 2 === 0 ? colors.surface : colors.background, borderRadius: 8, padding: 8 }}>
+      <Text style={{ color: colors.primary, fontWeight: 'bold' }}>Request ID: {item.id}</Text>
+      <Text style={{ color: colors.text.primary }}>From: <Text style={{ fontWeight: 'bold' }}>{item.fromLocation}</Text></Text>
+      <Text style={{ color: colors.text.primary }}>To: <Text style={{ fontWeight: 'bold' }}>{item.toLocation}</Text></Text>
+      <Text style={{ color: colors.text.secondary }}>Product: {item.productType} | {item.weight}kg</Text>
+      </View>
+      )}
+      style={{ maxHeight: 120 }}
+      />
+      </View>
+      ) : (
+      <View style={[styles.tripInfoRow, { marginBottom: 4 }]}> 
+      <FontAwesome5 name="map-marker-alt" size={16} color={colors.primary} />
+      <Text style={styles.tripInfoText}>From: <Text style={{ fontWeight: 'bold' }}>{booking.pickupLocation || trip.from}</Text></Text>
+      <FontAwesome5 name="flag-checkered" size={16} color={colors.secondary} style={{ marginLeft: 12 }} />
+      <Text style={styles.tripInfoText}>To: <Text style={{ fontWeight: 'bold' }}>{booking.toLocation || '--'}</Text></Text>
+      </View>
+      )}
+      {/* ETA and Distance (distance in brackets, from params > booking > trip) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f5f5f5', borderRadius: 8, padding: 6, alignSelf: 'flex-start' }}>
+      <Ionicons name="time" size={18} color={colors.secondary} style={{ marginRight: 4 }} />
+      <Text style={[styles.tripInfoText, { fontWeight: 'bold', marginRight: 4 }]}>ETA:</Text>
+      <Text style={[styles.tripInfoText, { fontWeight: 'bold', color: colors.primary }]}>{params.eta || booking.eta || trip.eta} {(params.distance || booking.distance || trip.distance) ? `(${params.distance || booking.distance || trip.distance})` : ''}</Text>
+      </View>
         {/* Transporter & Vehicle Info - horizontal, compact, with graphics, two fields per row */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f8fafc', borderRadius: 12, padding: 10 }}>
           <Image source={{ uri: (selectedTransporter && selectedTransporter.photo) || commTarget.photo }} style={styles.avatar} />

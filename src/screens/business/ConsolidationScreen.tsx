@@ -49,8 +49,8 @@ const ConsolidationScreen = ({ navigation }: any) => {
       // Navigate to transporter selection (to be implemented)
       alert('Proceed to find available transporters for instant requests.');
     } else {
-      // Post as job for bookings (to be implemented)
-      alert('Booking requests posted as job for transporters.');
+      // Navigate to booking confirmation for consolidated bookings
+      navigation.navigate('BookingConfirmation', { requests: selectedRequests });
     }
     // Optionally clear selected or processed requests
     setSelectedIds([]);

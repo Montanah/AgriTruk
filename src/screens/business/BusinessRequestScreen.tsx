@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useConsolidations } from '../../context/ConsolidationContext';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
@@ -54,6 +55,7 @@ const BusinessRequestScreen = () => {
   const [productType, setProductType] = useState('');
   const [weight, setWeight] = useState('');
   const [date, setDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isBulk, setIsBulk] = useState(false);
   const [isPriority, setIsPriority] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -268,12 +270,24 @@ const BusinessRequestScreen = () => {
           {requestType === 'booking' && (
             <>
               <Text style={styles.label}>Pickup Date</Text>
-              <TextInput
+              <TouchableOpacity
                 style={styles.input}
-                placeholder="YYYY-MM-DD"
-                value={date}
-                onChangeText={setDate}
-                placeholderTextColor={colors.text.light}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.85}
+              >
+                <Text style={{ color: date ? colors.text.primary : colors.text.light }}>
+                  {date ? (typeof date === 'string' ? date : (date instanceof Date ? date.toLocaleString() : '')) : 'Select pickup date'}
+                </Text>
+              </TouchableOpacity>
+              <DateTimePickerModal
+                isVisible={showDatePicker}
+                mode="datetime"
+                date={date && typeof date !== 'string' ? date : new Date()}
+                onConfirm={d => {
+                  setDate(d);
+                  setShowDatePicker(false);
+                }}
+                onCancel={() => setShowDatePicker(false)}
               />
             </>
           )}
