@@ -7,7 +7,22 @@ const Vehicle = require('../models/Vehicle');
 const Driver = require('../models/Driver');
 const fs = require('fs');
 const { uploadImage } = require('../utils/upload');
+const admin = require("../config/firebase");
 
+const generateRandomPassword = () => {
+  const length = 10;
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    password += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return password;
+};
+
+const generateSignInLink = (email) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://trukap.com';
+  return `${frontendUrl}/auth/signin?email=${encodeURIComponent(email)}`;
+};
 exports.createCompany = async (req, res) => {
   try {
     const { name, registration, contact } = req.body;
@@ -725,6 +740,24 @@ exports.getDriver = async (req, res) => {
   }
 };
 
+exports.updateDriverProfile = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const driverId = req.params.driverId;
+    const driver = await Driver.update(companyId, driverId, req.body);
+    res.status(200).json({
+      success: true,
+      message: 'Driver updated successfully',
+      data: driver,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error updating driver: ${error.message}`,
+    });
+  }
+}
+
 exports.getAllDrivers = async (req, res) => {
   try {
     const companyId = req.params.companyId;
@@ -808,19 +841,117 @@ exports.approveCompanyDriver = async (req, res) => {
   try {
     const companyId = req.params.companyId;
     const driverId = req.params.driverId;
+    // Get driver Data
+    const driver = await Driver.get(companyId, driverId);
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    console.log('Driver Data:', driver);
+
+    // check if approved already
+    if (driver.status === 'approved') {
+      return res.status(400).json({ success: false, message: 'Driver is already approved' });
+    }
+
     await Driver.approve(companyId, driverId);
+    const pass =  generateRandomPassword(); 
+    const signInLink = generateSignInLink(driver.email);
+
+    // Create a Firebase Auth Account
+    let userRecord;
+    try {
+      try {
+        userRecord = await admin.auth().getUserByEmail(driver.email);
+       // console.log('User already exists, skipping creation...');
+      } catch (error) {
+        if (error.code === 'auth/user-not-found') {
+          //console.log('User not found, creating a new user...');
+          userRecord = await admin.auth().createUser({
+            email: driver.email,
+            phoneNumber: driver.phone.startsWith('+') ? driver.phone : `+${driver.phone}`,
+            displayName: driver.name,
+            password: pass,
+            emailVerified: false,
+            disabled: false,
+          });
+          //console.log('User created successfully:', userRecord.uid);
+        } else {
+          console.error('Error checking user existence:', error);
+          return res.status(500).json({ success: false, message: 'Error checking user existence' });
+        }
+      }
+      //console.log('User Record:', userRecord);
+
+      // Update Firebase ID if user creation was successful
+      const userId = userRecord ? userRecord.uid : null;
+      //console.log('User ID:', userId);  
+      if (userId) {
+       // console.log('Attempting to update Firebase ID with userId:', userId);
+        try {
+          await Driver.updateFirebaseId(companyId, driverId, userId);
+          //console.log('Firebase ID updated successfully for driver:', driverId);
+        } catch (updateError) {
+          console.error('Error updating Firebase ID:', updateError);
+          return res.status(500).json({ success: false, message: 'Error updating Firebase ID' });
+        }
+      } else {
+        console.error('No valid userId available for update');
+        return res.status(500).json({ success: false, message: 'No valid user ID available' });
+      }
+
+      await Notification.create({
+        type: "Driver Approved",
+        message: `A new driver has been approved. Driver ID: ${driverId}`,
+        userId: req.admin.adminId,
+        userType: "company",
+      });
+
+      await logAdminActivity(req.admin.adminId, 'approve_driver', req, driverId); 
+
+    } catch (error) {
+      console.error('Error creating/updating user:', error);
+      return res.status(500).json({ success: false, message: 'Error creating or updating user' });
+    }
+
+    //console.log('Driver approved successfully');
+    // Send welcome email outside the inner try-catch
+    const email = driver.email;
+    const name = driver.name;
+    //const password = process.env.DEFAULT_DRIVER_PASSWORD || 'driver1234';
+    try {
+      await sendEmail({
+        to: email,
+        subject: `${name} Welcome to TrukApp`,
+        text: `Your account has been created. Username: ${email} Password: ${pass}`,
+        html:
+          `<h2>Welcome to TrukApp!</h2>
+          <p>Your driver account has been approved.</p>
+          <p><strong>Email:</strong> ${driver.email}</p>
+          <p><strong>Temporary Password:</strong> ${pass}</p>
+          <p>You can sign in here: <a href="${signInLink}">Sign In</a></p>
+          <p>Please change your password after first login.</p>
+        `,
+      });
+      //console.log('Welcome email sent to:', email);
+    } catch (emailError) {
+      console.error('Error sending welcome email:', emailError);
+      // Continue without failing the request, as email is non-critical
+    }
+
     res.status(200).json({
       success: true,
       message: 'Driver approved successfully',
     });
   } catch (error) {
+    console.error('Error approving driver:', error);
+
     res.status(500).json({
       success: false,
       message: `Error approving driver: ${error.message}`,
     });
   }
 };
-
 exports.rejectCompanyDriver = async (req, res) => {
   try {
     const companyId = req.params.companyId;

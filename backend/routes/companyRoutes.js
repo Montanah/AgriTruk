@@ -16,7 +16,8 @@ const {
   approveCompanyDriver,
   approveVehicle,
   rejectCompanyDriver,
-  rejectVehicle
+  rejectVehicle,
+  updateDriverProfile
 } = require('../controllers/companyController');
 const {
   authenticate,
@@ -715,5 +716,63 @@ router.patch('/:companyId/approveDriver/:driverId', authenticate, requireRole('a
  *         description: Internal server error
  */
 router.patch('/:companyId/rejectDriver/:driverId', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectCompanyDriver);
-
+/**
+ * @swagger
+ * /api/companies/{companyId}/updateDriver/{driverId}:
+ *   put:
+ *     summary: Update a driver for a company
+ *     description: Updates a driver for a company.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: driverId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the driver to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: The name of the driver
+ *               email:
+ *                 type: string
+ *                 description: The email address of the driver
+ *               phone:
+ *                 type: string
+ *                 description: The phone number of the driver
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *                 description: The photo URL of the driver
+ *               idDoc:
+ *                 type: string
+ *                 format: binary
+ *                 description: The ID document of the driver
+ *               license:
+ *                 type: string
+ *                 format: binary
+ *                 description: The license of the driver
+ *     responses:
+ *       200:
+ *         description: Driver updated successfully
+ *       404:
+ *         description: Company or driver not found
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/:companyId/updateDriver/:driverId', authenticateToken, requireRole('transporter', 'driver'), uploadAny, updateDriverProfile);
 module.exports = router;

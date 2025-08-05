@@ -16,6 +16,10 @@ const Driver = {
       license: driverData.license || null,
       status: driverData.status || 'pending',
       availability: driverData.availability || false,
+      rejectionReason: driverData.rejectionReason || null,
+      // auth
+      userId: driverData.userId || null,
+      role: driverData.role || 'driver',
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
     };
@@ -83,6 +87,10 @@ const Driver = {
     };
     await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update(updates);
     return updates;
+  },
+
+  async updateFirebaseId(companyId, driverId, userId) {
+    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update({ userId });
   },
 };
 
