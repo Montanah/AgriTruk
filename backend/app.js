@@ -7,13 +7,15 @@ const listEndpoints = require('express-list-endpoints');
 const transporterRoutes = require('./routes/transportRoutes');
 const authRoutes = require('./routes/authRoutes');
 const activityRoutes = require('./routes/activityLog');
-const bookingRoutes = require('./routes/bookingRoutes');
+// const bookingRoutes = require('./mine/bookingRoutes');
 const companyRoutes = require('./routes/companyRoutes');
 const disputeRoutes = require('./routes/disputeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const brokerRoutes = require('./routes/brokerRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const agriBookingRoutes = require('./routes/agriBookingRoutes');
+const cargoBookingRoutes = require('./routes/cargoBookingRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
@@ -37,13 +39,15 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 app.use('/api/transporters', transporterRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/activity', activityRoutes);
-app.use('/api/bookings', bookingRoutes);
+// app.use('/api/bookings', bookingRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/brokers', brokerRoutes);
 app.use('/api/notification', notificationRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/agri', agriBookingRoutes);
+app.use('/api/cargo', cargoBookingRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).send('Welcome to root URL of Server');

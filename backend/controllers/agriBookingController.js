@@ -2,6 +2,9 @@ const AgriBooking = require("../models/AgriBooking");
 const  { logActivity } = require("../utils/activityLogger");
 const Notification = require("../models/Notification");
 const MatchingService = require('../services/matchingService');
+const admin = require("../config/firebase");
+const db = admin.firestore();
+
 
 exports.createAgriBooking = async (req, res) => {
   try {
@@ -69,13 +72,13 @@ exports.createAgriBooking = async (req, res) => {
       userType: "user",
     });
 
-    const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
+    // const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
 
     res.status(201).json({
       success: true,
       message: "AgriTRUK booking created successfully",
       booking,
-      matchedTransporter
+      //matchedTransporter
     });
   } catch (error) {
     console.error("Create agri booking error:", error);
@@ -421,3 +424,39 @@ exports.consolidateAndMatch = async (req, res) => {
   }
 };
 
+exports.searchAgriBookings = async (req, res) => {
+  try {
+    const { q, status, fromLocation, toLocation } = req.query;
+
+    let query = db.collection('agriBookings');
+
+    if (status) query = query.where('status', '==', status);
+    if (fromLocation) query = query.where('fromLocation', '==', fromLocation);
+    if (toLocation) query = query.where('toLocation', '==', toLocation);
+
+    const snapshot = await query.get();
+    let results = [];
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      data.id = doc.id;
+      results.push(data);
+    });
+
+    // Full-text "soft" search over productType, specialRequest, etc.
+    if (q) {
+      const qLower = q.toLowerCase();
+      results = results.filter(booking =>
+        (booking.productType && booking.productType.toLowerCase().includes(qLower)) ||
+        (booking.specialRequest && booking.specialRequest.toLowerCase().includes(qLower)) ||
+        (booking.fromLocation && booking.fromLocation.toLowerCase().includes(qLower)) ||
+        (booking.toLocation && booking.toLocation.toLowerCase().includes(qLower))
+      );
+    }
+
+    return res.status(200).json({ success: true, data: results });
+  } catch (error) {
+    console.error('Error searching bookings:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};

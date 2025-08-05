@@ -3,6 +3,7 @@ const { logActivity } = require("../utils/activityLogger");
 const admin = require("../config/firebase");
 const Notification = require("../models/Notification");
 const matchingService = require('../services/matchingService');
+const db = admin.firestore();
 
 exports.createCargoBooking = async (req, res) => {
   try {
@@ -67,12 +68,12 @@ exports.createCargoBooking = async (req, res) => {
       userType: "user",
     });
 
-    const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
+    // const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
 
     res.status(201).json({
       message: "CargoTRUK booking created successfully",
       booking,
-      matchedTransporter,
+      // matchedTransporter,
     });
   } catch (error) {
     console.error("Create cargo booking error:", error);
@@ -232,7 +233,8 @@ exports.getAllCargoBookings = async (req, res) => {
 
 exports.getUserCargoBookings = async (req, res) => {
   try {
-    const userId = req.user?.uid || null;
+    const userId = req.user?.uid || req.params.userId;
+
     console.log('User ID:', userId);
     if (!userId) {
       return res.status(400).json({ message: 'User ID is required' });
@@ -262,12 +264,14 @@ exports.getUserCargoBookings = async (req, res) => {
 
 exports.getTransporterCargoBookings = async (req, res) => {
   try {
-    const transporterId = req.user?.uid || null;
+    const transporterId = req.user?.uid || req.params.transporterId || null;
     if (!transporterId) {
       return res.status(400).json({ message: 'Transporter ID is required' });
     }
     
     const bookings = await CargoBooking.getByTransporterId(transporterId);
+
+    console.log('Transporter ID:', bookings);
     // Log the retrieval
     await logActivity(transporterId, 'get_transporter_cargo_bookings', req);
 
@@ -329,5 +333,42 @@ exports.startCargoBooking = async (req, res) => {
   } catch (error) {
     console.error("Start cargo booking error:", error);
     res.status(500).json({ code: "ERR_SERVER_ERROR", message: "Failed to start cargoTRUK booking" });
+  }
+};
+
+exports.searchCargoBookings = async (req, res) => {
+  try {
+    const { q, status, fromLocation, toLocation } = req.query;
+
+    let query = db.collection('cargoBookings');
+
+    if (status) query = query.where('status', '==', status);
+    if (fromLocation) query = query.where('fromLocation', '==', fromLocation);
+    if (toLocation) query = query.where('toLocation', '==', toLocation);
+
+    const snapshot = await query.get();
+    let results = [];
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      data.id = doc.id;
+      results.push(data);
+    });
+
+    // Full-text "soft" search over productType, specialRequest, etc.
+    if (q) {
+      const qLower = q.toLowerCase();
+      results = results.filter(booking =>
+        (booking.productType && booking.cargoType.toLowerCase().includes(qLower)) ||
+        (booking.specialRequest && booking.specialRequest.toLowerCase().includes(qLower)) ||
+        (booking.fromLocation && booking.fromLocation.toLowerCase().includes(qLower)) ||
+        (booking.toLocation && booking.toLocation.toLowerCase().includes(qLower))
+      );
+    }
+
+    return res.status(200).json({ success: true, data: results });
+  } catch (error) {
+    console.error('Error searching bookings:', error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
