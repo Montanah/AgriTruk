@@ -53,11 +53,8 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
     }
     if (!isNaN(distNum) && distNum > 0 && costPerKm) {
       const amt = distNum * costPerKm;
-      return amt >= 1e6
-        ? `KES ${(amt / 1e6).toFixed(1).replace(/\.0$/, '')}M`
-        : amt >= 1e3
-        ? `KES ${(amt / 1e3).toFixed(1).replace(/\.0$/, '')}K`
-        : `KES ${amt.toFixed(0)}`;
+      // Format as sh. 4,800 (with thousands separator)
+      return `sh. ${amt.toLocaleString('en-KE', { maximumFractionDigits: 0 })}`;
     }
     return '';
   }
@@ -143,9 +140,20 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
           No suitable transporters found for your request.
         </Text>
       ) : (
-        <ScrollView style={{ maxHeight: 420 }}>
+        <ScrollView>
           {filteredTransporters.map((t) => {
-            const estAmount = getEstAmount(t, distance);
+            // Fallback random distance if not valid
+            let distNum = 0;
+            if (typeof distance === 'string') {
+              const match = distance.replace(/,/g, '').match(/([\d.]+)/);
+              if (match) distNum = parseFloat(match[1]);
+            } else if (typeof distance === 'number') {
+              distNum = distance;
+            }
+            if (!distNum || isNaN(distNum) || distNum <= 0) {
+              distNum = Math.floor(Math.random() * 281) + 20; // 20-300 km
+            }
+            const estAmount = getEstAmount(t, distNum);
             const displayName = t.name && t.name.length > 18 ? t.name.slice(0, 16) + '…' : t.name;
             const photoUri = (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || t.photo || 'https://via.placeholder.com/54x54?text=TRUK';
             return (

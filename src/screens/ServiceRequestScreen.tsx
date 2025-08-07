@@ -891,43 +891,12 @@ const ServiceRequestScreen = () => {
                   if (insureGoods && value && !isNaN(Number(value))) {
                     insuranceCost = Number(value) * INSURANCE_PERCENT;
                   }
-                  if (requestType === 'instant') {
+                  // Always refresh search and show transporters, and collapse the form
+                  setShowTransporters(false); // force re-mount
+                  setTimeout(() => {
                     setShowTransporters(true);
-                  } else {
-                    const bookingPayload = {
-                      fromLocation,
-                      toLocation,
-                      productType,
-                      weight,
-                      value: insureGoods ? value : '',
-                      insureGoods,
-                      insuranceCost,
-                      additional,
-                      perishableSpecs,
-                      specialCargoSpecs,
-                      isBulk,
-                      isPriority,
-                      isRecurring,
-                      recurringFreq,
-                      pickupTime: pickupTime ? pickupTime.toISOString() : '',
-                      requestType,
-                      fromCoords,
-                      toCoords,
-                      distance,
-                      status: 'pending',
-                    };
-                    const endpoint = activeTab === 'agriTRUK' ? '/bookings/agri' : '/bookings/cargo';
-                    apiRequest(endpoint, {
-                      method: 'POST',
-                      body: JSON.stringify(bookingPayload),
-                    })
-                      .then(() => {
-                        Alert.alert('Job posted!', 'Your booking has been posted and is visible to transporters.');
-                      })
-                      .catch((err) => {
-                        Alert.alert('Job posting failed', err.message || 'Failed to post job');
-                      });
-                  }
+                    setFormCollapsed(true);
+                  }, 50);
                 }}
               >
                 <Text style={styles.findBtnText}>{requestType === 'booking' ? 'Place Booking' : 'Find Transporters'}</Text>
