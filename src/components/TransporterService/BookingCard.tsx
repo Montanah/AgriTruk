@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Booking } from '../../mocks/bookings';
 
 type BookingCardProps = {
@@ -61,17 +62,21 @@ const BookingCard: React.FC<BookingCardProps> = ({
     !assignedTransporter &&
     !!onAssign;
 
+  const isInstant = type === 'instant';
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={onPressDetails ? 0.8 : 1}
-      onPress={onPressDetails ? () => onPressDetails(id) : undefined}
-    >
-      <View style={[styles.tag, { backgroundColor: '#e6e6e6' }]}>
-        <Text style={styles.tagText}>
-          {type === 'booking' ? 'Booking' : 'Instant Request'}
-        </Text>
-      </View>
+  <TouchableOpacity
+  style={[styles.card, isInstant && styles.instantCard]}
+  activeOpacity={onPressDetails ? 0.8 : 1}
+  onPress={onPressDetails ? () => onPressDetails(id) : undefined}
+  >
+  <View style={[styles.tag, isInstant ? styles.instantTag : { backgroundColor: '#e6e6e6' }]}> 
+  {isInstant && (
+  <MaterialCommunityIcons name="flash" size={14} color="#fff" style={{ marginRight: 4 }} />
+  )}
+  <Text style={[styles.tagText, isInstant && { color: '#fff' }]}> 
+  {type === 'booking' ? 'Booking' : 'Instant Request'}
+  </Text>
+  </View>
 
       <Text style={styles.label}>Pickup Location:</Text>
       <Text style={styles.value}>{pickupLocation || 'N/A'}</Text>
@@ -116,33 +121,29 @@ const BookingCard: React.FC<BookingCardProps> = ({
       <View style={styles.buttonRow}>
         {status === 'pending' && (
           <>
-            <Button
-              title="Accept"
-              color={theme.colors.secondary}
-              onPress={() => onAccept(id)}
-            />
-            <Button
-              title="Reject"
-              color={theme.colors.error}
-              onPress={() => onReject(id)}
-            />
+            <TouchableOpacity style={[styles.actionBtn, styles.acceptBtn]} onPress={() => onAccept(id)}>
+              <MaterialCommunityIcons name="check-circle-outline" size={18} color="#fff" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnText}>Accept</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => onReject(id)}>
+              <MaterialCommunityIcons name="close-circle-outline" size={18} color="#fff" style={{ marginRight: 4 }} />
+              <Text style={styles.actionBtnText}>Reject</Text>
+            </TouchableOpacity>
           </>
         )}
 
         {canAssign && (
-          <Button
-            title="Assign Transporter"
-            color={theme.colors.primary}
-            onPress={() => onAssign?.(booking)}
-          />
+          <TouchableOpacity style={[styles.actionBtn, styles.assignBtn]} onPress={() => onAssign?.(booking)}>
+            <MaterialCommunityIcons name="account-plus-outline" size={18} color="#fff" style={{ marginRight: 4 }} />
+            <Text style={styles.actionBtnText}>Assign</Text>
+          </TouchableOpacity>
         )}
 
         {canComplete && (
-          <Button
-            title="Mark Complete"
-            color={theme.colors.success}
-            onPress={() => onComplete(id)}
-          />
+          <TouchableOpacity style={[styles.actionBtn, styles.completeBtn]} onPress={() => onComplete(id)}>
+            <MaterialCommunityIcons name="check-bold" size={18} color="#fff" style={{ marginRight: 4 }} />
+            <Text style={styles.actionBtnText}>Complete</Text>
+          </TouchableOpacity>
         )}
       </View>
     </TouchableOpacity>
@@ -163,17 +164,53 @@ const styles = StyleSheet.create({
     elevation: 1,
     marginBottom: 12,
   },
+  instantCard: {
+    borderColor: theme.colors.secondary,
+    backgroundColor: '#f7fbff',
+  },
   tag: {
     alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
     marginBottom: 8,
   },
+  instantTag: {
+    backgroundColor: theme.colors.secondary,
+  },
   tagText: {
     color: theme.colors.text.primary,
     fontSize: 12,
     fontWeight: '600',
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    marginRight: 8,
+    marginBottom: 6,
+  },
+  acceptBtn: {
+    backgroundColor: theme.colors.secondary,
+  },
+  rejectBtn: {
+    backgroundColor: theme.colors.error,
+  },
+  assignBtn: {
+    backgroundColor: theme.colors.primary,
+  },
+  completeBtn: {
+    backgroundColor: theme.colors.success,
+  },
+  actionBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 2,
   },
   label: {
     fontWeight: '600',

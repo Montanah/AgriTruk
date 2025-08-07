@@ -54,7 +54,7 @@ export default function Header({
         <TouchableOpacity
           style={styles.tabButton}
           onPress={() =>
-            navigation.navigate('TransporterBookingManagement', {
+            navigation.navigate('ManageRequests', {
               transporterType,
             })
           }
