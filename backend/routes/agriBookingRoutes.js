@@ -119,7 +119,8 @@ const {
 
 // GET: /api/agri?userId=x&transporterId=y
 router.get('/', authenticateToken, requireRole(['transporter', 'admin', 'shipper', 'business']), async (req, res) => {
-  const { bookingId } = req.params;
+  const { bookingId } = req.query;
+  
   const { userId, transporterId } = req.query;
 
   if (bookingId) {

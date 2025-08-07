@@ -35,6 +35,13 @@ const AgriBooking = {
       pickUpDate: bookingData.pickUpDate || null,
       consolidated: bookingData.consolidated || false, // Flag for consolidated requests
       matchedTransporterId: bookingData.matchedTransporterId || null,
+      recurrence: bookingData.recurrence || {
+        isRecurring: false,
+        frequency: null,           
+        endDate: null,             
+        daysOfWeek: [],            
+        interval: 1               
+      },
     };
     await db.collection('agriBookings').doc(booking.bookingId).set(booking);
     return booking;

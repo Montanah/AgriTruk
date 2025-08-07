@@ -2,9 +2,9 @@ exports.getMFATemplate = function (code, location, ip, device) {
   return `
     <div style="max-width: 500px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border-radius: 10px; border: 1px solid #ddd;">
       <div style="text-align: center;">
-        <img src="https://res.cloudinary.com/dr1rttpke/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="Ubiquiti Logo" style="width: 60px; margin-bottom: 20px;" />
-        <h2 style="color: #000;">AgriTruk SignUp Verification</h2>
-        <p>Use this code to authenticate your agritruk app Sign up.</p>
+        <img src="https://res.cloudinary.com/trukapp/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="Truk Logo" style="width: 60px; margin-bottom: 20px;" />
+        <h2 style="color: #000;">Truk SignUp Verification</h2>
+        <p>Use this code to authenticate your truk app Sign up.</p>
         <h1 style="letter-spacing: 5px; font-size: 40px; margin: 20px 0;">${code}</h1>
         <p>The code will remain valid for the <strong>next 10 minutes</strong>.</p>
         <hr style="margin: 30px 0;" />
@@ -23,12 +23,12 @@ exports.getSuccessTemplate = function (location, ip, device) {
   return `
     <div style="max-width: 500px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border-radius: 10px; border: 1px solid #ddd;">
       <div style="text-align: center;">
-        <img src="https://res.cloudinary.com/dr1rttpke/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="AgriTruk Logo" style="width: 60px; margin-bottom: 20px;" />
+        <img src="https://res.cloudinary.com/dr1rttpke/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="Truk Logo" style="width: 60px; margin-bottom: 20px;" />
         <h2 style="color: #28a745;">✅ Email Verified Successfully</h2>
-        <p style="font-size: 16px;">Your email has been successfully verified. You can now log in and continue using AgriTruk services.</p>
+        <p style="font-size: 16px;">Your email has been successfully verified. You can now log in and continue using Truk services.</p>
 
         <a href="" style="display: inline-block; margin: 20px auto; padding: 12px 25px; background-color: #28a745; color: white; text-decoration: none; font-size: 16px; border-radius: 5px;">
-          Go to AgriTruk
+          Go to Truk
         </a>
 
         <hr style="margin: 30px 0;" />
@@ -49,8 +49,8 @@ exports.getResetPasswordTemplate = function (code, location, ip, device) {
     <div style="max-width: 500px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border-radius: 10px; border: 1px solid #ddd;">
       <div style="text-align: center;">
         <img src="https://res.cloudinary.com/dr1rttpke/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="Ubiquiti Logo" style="width: 60px; margin-bottom: 20px;" />
-        <h2 style="color: #000;">AgriTruk Password Reset</h2>
-        <p>Use this code to reset your AgriTruk account password.</p>
+        <h2 style="color: #000;">Truk Password Reset</h2>
+        <p>Use this code to reset your Truk account password.</p>
         <h1 style="letter-spacing: 5px; font-size: 40px; margin: 20px 0;">${code}</h1>
         <p>The code will remain valid for the <strong>next 10 minutes</strong>.</p>
         <hr style="margin: 30px 0;" />

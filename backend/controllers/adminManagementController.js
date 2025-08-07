@@ -1,4 +1,4 @@
-const Admin = require('../models/Admin'); // Your existing model
+const Admin = require('../models/Admin'); 
 const admin = require('../config/firebase');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -8,6 +8,7 @@ const AdminManagementController = {
   async login(req, res) {
     try {
       const { email, password, firebaseToken } = req.body;
+      console.log(req.body);
 
       if (!email || (!password && !firebaseToken)) {
         return res.status(400).json({

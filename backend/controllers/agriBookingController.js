@@ -125,9 +125,9 @@ exports.acceptAgriBooking = async (req, res) => {
 
 exports.getAgriBooking = async (req, res) => {
   try {
-    console.log("Fetching agri booking with ID:", req.params.bookingId);
-    const { bookingId } = req.params;
-
+    
+    const { bookingId } = req.query;
+    console.log("Fetching agri booking with ID:", bookingId);
     if (!bookingId) {
       return res.status(400).json({ message: 'Booking ID is required' });
     }

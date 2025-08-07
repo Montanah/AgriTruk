@@ -9,7 +9,10 @@ const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const { uploadImage } = require('../utils/upload');
 const fs = require('fs');
 const Notification = require('../models/Notification');
-// const sendSms = require('../utils/sendSms');
+const SMSService = require('../utils/sendSms');
+
+const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
+
 
 exports.verifyUser = async (req, res) => {
     const { email, phone, password } = req.body;
@@ -49,6 +52,18 @@ exports.verifyUser = async (req, res) => {
         });
     }
 };
+
+function formatPhoneNumber(phone) {
+  // Convert 07... to 2547...
+  if (phone.startsWith('0') && phone.length === 10) {
+    return `254${phone.substring(1)}`;
+  }
+  // Ensure international format
+  if (phone.startsWith('+')) {
+    return phone.substring(1);
+  }
+  return phone;
+}
 
 exports.registerUser = async (req, res) => {
   const { name, phone, role, location, userType, languagePreference, profilePhotoUrl } = req.body;
@@ -108,6 +123,21 @@ exports.registerUser = async (req, res) => {
       html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
       // html: `<p>Your AgriTruk verification code is: <strong>${verificationCode}</strong></p>`
     });
+
+    // Send SMS to user
+    const formattedPhone = formatPhoneNumber(phone);
+    try {
+      const smsMessage = `Your Truk verification code is: ${verificationCode}`;
+      await smsService.sendSMS(
+        'TRUK LTD', 
+        smsMessage,
+        formattedPhone
+      );
+      console.log('Verification SMS sent successfully');
+    } catch (smsError) {
+      console.error('Failed to send verification SMS:', smsError);
+      // Don't fail the registration if SMS fails, just log it
+    }
 
     await logActivity(uid, 'user_registration', req);
 
