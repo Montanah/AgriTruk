@@ -56,24 +56,9 @@ const EmailVerificationScreen = ({ navigation, route }) => {
         }, { merge: true });
       }
       setVerified(true);
-      if (role === 'broker') {
-        navigation.replace('VerifyIdentificationDocument', {
-          broker: {
-            name: user.displayName || '',
-            email: user.email,
-            phone: phone,
-          },
-        });
-        return;
-      }
-      setTimeout(async () => {
-        // Sign out and sign in again to trigger App.tsx navigation
-        const { signOut, signInWithEmailAndPassword } = await import('firebase/auth');
-        await signOut(auth);
-        await signInWithEmailAndPassword(auth, email, password);
-        // Clear password from memory
-        route.params.password = undefined;
-      }, 1200);
+      // After email verification, do not navigate to PhoneOTPScreen. Let App.tsx handle navigation.
+      // Optionally, you can show a success message or spinner here.
+      // The user will be routed by App.tsx after re-login.
     } catch (err) {
       setError(err?.message || JSON.stringify(err) || 'Verification failed.');
     } finally {

@@ -59,6 +59,7 @@ const SignupScreen = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [signupMethod, setSignupMethod] = useState<'phone' | 'email'>('phone');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -215,50 +216,92 @@ const SignupScreen = () => {
                 autoCapitalize="words"
                 placeholderTextColor={colors.text.light}
               />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                placeholderTextColor={colors.text.light}
-              />
-              <View style={styles.phoneRow}>
+              <View style={{ flexDirection: 'row', marginBottom: spacing.md }}>
                 <TouchableOpacity
-                  style={styles.countryCodeBtn}
-                  activeOpacity={0.8}
-                  onPress={() => setShowCountryDropdown((v) => !v)}
+                  style={{
+                    flex: 1,
+                    backgroundColor: signupMethod === 'phone' ? colors.primary : colors.surface,
+                    padding: 12,
+                    borderRadius: 8,
+                    marginRight: 6,
+                    borderWidth: 1.2,
+                    borderColor: colors.primary,
+                  }}
+                  onPress={() => setSignupMethod('phone')}
                 >
-                  <Text style={styles.countryCodeText}>
-                    {selectedCountry.flag} {selectedCountry.code}
-                  </Text>
-                  <Ionicons
-                    name={showCountryDropdown ? 'chevron-up' : 'chevron-down'}
-                    size={18}
-                    color={colors.text.secondary}
-                    style={{ marginLeft: 4 }}
-                  />
+                  <Text style={{
+                    color: signupMethod === 'phone' ? '#fff' : colors.primary,
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                  }}>Sign up with Phone</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: signupMethod === 'email' ? colors.primary : colors.surface,
+                    padding: 12,
+                    borderRadius: 8,
+                    marginLeft: 6,
+                    borderWidth: 1.2,
+                    borderColor: colors.primary,
+                  }}
+                  onPress={() => setSignupMethod('email')}
+                >
+                  <Text style={{
+                    color: signupMethod === 'email' ? '#fff' : colors.primary,
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                  }}>Sign up with Email</Text>
+                </TouchableOpacity>
+              </View>
+              {signupMethod === 'email' && (
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      flex: 1,
-                      marginBottom: 0,
-                      borderTopLeftRadius: 0,
-                      borderBottomLeftRadius: 0,
-                      borderLeftWidth: 0,
-                    },
-                  ]}
-                  placeholder="Phone Number"
-                  value={phone}
-                  onChangeText={setPhone}
+                  style={styles.input}
+                  placeholder="Email"
+                  value={email}
+                  onChangeText={setEmail}
                   autoCapitalize="none"
-                  keyboardType="phone-pad"
+                  keyboardType="email-address"
                   placeholderTextColor={colors.text.light}
                 />
-              </View>
+              )}
+              {signupMethod === 'phone' && (
+                <View style={styles.phoneRow}>
+                  <TouchableOpacity
+                    style={styles.countryCodeBtn}
+                    activeOpacity={0.8}
+                    onPress={() => setShowCountryDropdown((v) => !v)}
+                  >
+                    <Text style={styles.countryCodeText}>
+                      {selectedCountry.flag} {selectedCountry.code}
+                    </Text>
+                    <Ionicons
+                      name={showCountryDropdown ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color={colors.text.secondary}
+                      style={{ marginLeft: 4 }}
+                    />
+                  </TouchableOpacity>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        flex: 1,
+                        marginBottom: 0,
+                        borderTopLeftRadius: 0,
+                        borderBottomLeftRadius: 0,
+                        borderLeftWidth: 0,
+                      },
+                    ]}
+                    placeholder="Phone Number"
+                    value={phone}
+                    onChangeText={setPhone}
+                    autoCapitalize="none"
+                    keyboardType="phone-pad"
+                    placeholderTextColor={colors.text.light}
+                  />
+                </View>
+              )}
               {showCountryDropdown && (
                 <>
                   <TouchableWithoutFeedback onPress={() => setShowCountryDropdown(false)}>
@@ -349,7 +392,7 @@ const SignupScreen = () => {
                   setError('');
                   
                   // Validation
-                  if (!name || !email || !phone || !password || !confirmPassword) {
+                  if (!name || !password || !confirmPassword || (signupMethod === 'phone' && !phone) || (signupMethod === 'email' && !email)) {
                     setError('All fields are required.');
                     return;
                   }
@@ -383,6 +426,7 @@ const SignupScreen = () => {
                     };
                     
                     // Register user profile in backend and send verification code
+                    console.log('Registering user in backend...');
                     await apiRequest('/auth/register', {
                       method: 'POST',
                       headers: { 
@@ -396,20 +440,27 @@ const SignupScreen = () => {
                         role: backendRoleMap[role],
                       }),
                     });
-                    
-                    // Navigate to email verification
-                    navigation.navigate('EmailVerification', { 
-                      email, 
-                      phone: selectedCountry.code + phone, 
-                      role, 
-                      password 
-                    });
+                    console.log('Backend registration complete, navigating to verification screen');
+                    if (signupMethod === 'phone') {
+                      navigation.navigate('PhoneOTPScreen', { 
+                        email, 
+                        phone: selectedCountry.code + phone, 
+                        role, 
+                        password 
+                      });
+                    } else {
+                      navigation.navigate('EmailVerification', {
+                        email,
+                        phone: selectedCountry.code + phone,
+                        role,
+                        password
+                      });
+                    }
                   } catch (err) {
                     console.error('Signup error:', err);
-                    
+                    alert('Signup error: ' + (err?.message || JSON.stringify(err)));
                     // Handle different types of errors
                     let msg = 'Signup failed. Please try again.';
-                    
                     if (err.code === 'auth/email-already-in-use') {
                       msg = 'This email is already registered. Please sign in or use a different email.';
                     } else if (err.code === 'auth/invalid-email') {
@@ -423,7 +474,6 @@ const SignupScreen = () => {
                     } else if (err.message) {
                       msg = err.message;
                     }
-                    
                     setError(msg);
                   } finally {
                     setLoading(false);

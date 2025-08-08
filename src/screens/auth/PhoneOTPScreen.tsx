@@ -1,60 +1,71 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, PermissionsAndroid } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import { spacing, fonts } from '../../constants';
 // For Android SMS Retriever
-// import SmsRetriever from 'react-native-sms-retriever';
+declare const require: any;
+let SmsRetriever: any;
+if (Platform.OS === 'android') {
+  try {
+    SmsRetriever = require('react-native-sms-retriever');
+  } catch {}
+}
 
 const PhoneOTPScreen = ({ navigation, route }) => {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { phone, email, role } = route.params || {};
+  const { phone, email, role, idToken, password } = route.params || {};
 
   // Attempt SMS autofill/auto-read (Android only, pseudo-code)
   useEffect(() => {
-    // Uncomment and install react-native-sms-retriever for real implementation
-    // if (Platform.OS === 'android') {
-    //   SmsRetriever.startSmsRetriever()
-    //     .then(() => {
-    //       SmsRetriever.addSmsListener(event => {
-    //         const codeMatch = event.message.match(/\d{4,6}/);
-    //         if (codeMatch) setOtp(codeMatch[0]);
-    //         SmsRetriever.removeSmsListener();
-    //       });
-    //     })
-    //     .catch(() => {});
-    // }
+    // Request SMS read permission and start SMS Retriever for auto-fill (Android only)
+    async function setupSmsRetriever() {
+      if (Platform.OS === 'android' && SmsRetriever) {
+        try {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
+            {
+              title: 'SMS Permission',
+              message: 'Allow TRUKAPP to read your SMS for OTP auto-fill.',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            },
+          );
+          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+            await SmsRetriever.startSmsRetriever();
+            SmsRetriever.addSmsListener((event: any) => {
+              const codeMatch = event.message.match(/\d{4,6}/);
+              if (codeMatch) setOtp(codeMatch[0]);
+              SmsRetriever.removeSmsListener();
+            });
+          }
+        } catch (e) {}
+      }
+    }
+    setupSmsRetriever();
   }, []);
 
   const handleVerify = async () => {
     setError('');
     setLoading(true);
     try {
-      const { auth } = await import('../../firebaseConfig');
-      const { PhoneAuthProvider, signInWithCredential } = await import('firebase/auth');
-      // Assume verificationId is passed from previous step (should be set when sending OTP)
-      const verificationId = route.params?.verificationId;
-      if (!verificationId) throw new Error('Missing verificationId.');
-      const credential = PhoneAuthProvider.credential(verificationId, otp);
-      await signInWithCredential(auth, credential);
-      // Get Firebase JWT
-      const idToken = await auth.currentUser?.getIdToken();
-      // Update backend profile (optional)
       const { apiRequest } = await import('../../utils/api');
-      await apiRequest('/auth/update', {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ phone }),
+      await apiRequest('/auth/verify-code', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: otp }),
       });
-      if (role === 'transporter') {
-        navigation.navigate('TransporterProfileCompletionScreen', { phone, email });
-      } else {
-        navigation.navigate('ServiceRequest');
-      }
+      // After phone verification, do not navigate to EmailVerificationScreen. Let App.tsx handle navigation.
+      const { auth } = await import('../../firebaseConfig');
+      const { signOut, signInWithEmailAndPassword } = await import('firebase/auth');
+      await signOut(auth);
+      await signInWithEmailAndPassword(auth, email, password);
+      // Navigation will be handled by App.tsx auth state
     } catch (err) {
       setError('OTP verification failed.');
     } finally {
@@ -66,9 +77,11 @@ const PhoneOTPScreen = ({ navigation, route }) => {
     setError('');
     setLoading(true);
     try {
-      // You would trigger Firebase to resend the OTP here
-      // This is a placeholder; actual implementation requires sending a new OTP
-      setError('Resend OTP is not implemented in this demo.');
+      const { apiRequest } = await import('../../utils/api');
+      await apiRequest('/auth/resend-code', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
     } catch (err) {
       setError('Failed to resend OTP.');
     } finally {
