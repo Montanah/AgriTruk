@@ -18,6 +18,7 @@ const companyController = require('../controllers/companyController');
 const transporterController = require('../controllers/transporterController');
 const disputeController = require('../controllers/disputeController');
 const brokerController = require('../controllers/brokerController');
+const AnalyticsController = require('../controllers/analyticsController');
 
 /**
  * @swagger
@@ -857,5 +858,32 @@ router.delete("/delete-account/:uid", requireSuperAdmin, authController.deleteAc
  *               $ref: '#/components/schemas/Error'
  */
 router.delete("/deactivate-account/:uid", requireSuperAdmin, authController.deactivateAccount);
+
+
+/**
+ * @swagger
+ * /api/admin/analytics/{date}:
+ *   post:
+ *     summary: Process and create analytics data for a specific date
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Date for analytics data (e.g., 2025-07-22)
+ *     responses:
+ *       201:
+ *         description: Analytics data processed and created successfully
+ *       400:
+ *         description: Invalid date format
+ *       500:
+ *         description: Server error
+ */
+router.post('/analytics/:date', authorize(['manage_analytics', 'super_admin']), AnalyticsController.createAnalytics);
+
 
 module.exports = router;

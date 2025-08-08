@@ -2,7 +2,7 @@ const Analytics = require('../models/Analytics');
 
 const createAnalytics = async (req, res) => {
   try {
-    const date = req.params.date; // Use date from URL parameter
+    const date = req.params.date; 
     if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return res.status(400).json({
         success: false,

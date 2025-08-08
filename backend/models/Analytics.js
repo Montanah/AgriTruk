@@ -20,27 +20,53 @@ const Analytics = {
 
       // Example: Compute other metrics (you can add similar logic for other fields)
       const bookingsSnapshot = await db
-        .collection('bookings')
+        .collection('cargoBookings')
         .where('date', '==', date)
         .get();
-      const totalBookings = bookingsSnapshot.size;
+      const totalBookings = await db.collection('cargoBookings').get();
+      const totalCargoBookings = totalBookings.size;
       const completedBookings = bookingsSnapshot.docs.filter(
         doc => doc.data().status === 'completed'
       ).length;
       const bookingCompletionRate = totalBookings > 0 ? (completedBookings / totalBookings) : 0;
 
+      const agriBookingsSnapshot = await db
+        .collection('agriBookings')
+        .where('date', '==', date)
+        .get();
+      const totalAgri = await db.collection('agriBookings').get();
+      const totalAgriBookings = totalAgri.size;
+      const completedAgriBookings = agriBookingsSnapshot.docs.filter(
+        doc => doc.data().status === 'completed'
+      ).length;
+      const agriBookingCompletionRate = totalAgriBookings > 0 ? (completedAgriBookings / totalAgriBookings) : 0;  
+
+      const transportersSnapshot = await db
+        .collection('transporters')
+        .where('status', '==', 'approved')
+        .get();
+      const activeTransporters = transportersSnapshot.size;
+
+      const usersSnapshot = await db.collection('users').get();
+      const totalUsers = usersSnapshot.size;
+      const newUsers = usersSnapshot.docs.filter(doc => doc.data().createdAt.toDate() >= startOfDay).length;
+
       // Construct analytics data
       const analytics = {
         date,
         dailyActiveUsers,
+        totalCargoBookings,
+        totalAgriBookings,
         bookingCompletionRate,
+        agriBookingCompletionRate,
         totalRevenue: 0, // Add logic to compute from payments collection if needed
         failedPayments: 0, // Add logic to compute
-        activeTransporters: 0, // Add logic to compute
+        totalUsers,
+        activeTransporters, 
         pendingRequests: 0, // Add logic to compute
-        activeBookings: totalBookings,
+        activeBookings: totalBookings + totalAgriBookings,
         activeSubscribers: 0, // Add logic to compute
-        newUsers: 0, // Add logic to compute
+        newUsers, // Add logic to compute
         mpesaSuccessRate: 0, // Add logic to compute
         airtelSuccessRate: 0, // Fixed typo from AirtelSuccessRate
         paystackSuccessRate: 0, // Add logic to compute

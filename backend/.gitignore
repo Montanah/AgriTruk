@@ -73,7 +73,7 @@ node_modules/
 serviceAccountKey.json
 config/firestore.indexes.json
 config/firestore.rules
-
+utils/fixdb.js
 node_modules
 firestore.indexes.json
 firebaserc
