@@ -1,6 +1,6 @@
 const Subscribers = require('../models/Subscribers');
 const SubscriptionPlans = require('../models/SubscriptionsPlans');
-const PaymentService = require('../services/paymentService');
+const PaymentService = require('../services/PaymentService');
 
 exports.manageSubscription = async (req, res) => {
   try {
