@@ -13,46 +13,6 @@ const SMSService = require('../utils/sendSms');
 
 const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
 
-
-exports.verifyUser = async (req, res) => {
-    const { email, phone, password } = req.body;
-
-    try {
-        let user;
-        if  (email && password) {
-            user = await admin.auth().getUserByEmail(email);
-        } else if (phone) {
-        user = await admin.auth().getUserByPhoneNumber(phone);
-        } else {
-        return res.status(400).json({
-            code: 'ERR_INVALID_INPUT',
-            message: 'Email/password or phone number required'
-        });
-        }
-
-        // Generate custom token for client (if needed)
-        const customToken = await admin.auth().createCustomToken(user.uid);
-
-        const userData = await User.get(user.uid);
-
-        res.status(200).json({
-            token: customToken,
-            user: {
-                uid: user.uid,
-                email: user.email || null,
-                phone: user.phoneNumber || null,
-                role: userData.role || 'user'
-            }
-        });
-    } catch (error) {
-        console.error('Auth error:', error);
-        res.status(400).json({
-            code: 'ERR_INVALID_CREDENTIALS',
-            message: error.message || 'Authentication failed'
-        });
-    }
-};
-
 function formatPhoneNumber(phone) {
   // Convert 07... to 2547...
   if (phone.startsWith('0') && phone.length === 10) {
@@ -96,7 +56,8 @@ exports.registerUser = async (req, res) => {
     }
     
     // Save to Firestore
-    const verificationCode = generateOtp();
+    const emailVerificationCode = generateOtp();
+    const phoneVerificationCode = generateOtp();
 
     // Create user in Firestore via model
     const user = await User.create({
@@ -109,9 +70,12 @@ exports.registerUser = async (req, res) => {
       location,
       languagePreference,
       profilePhotoUrl,
-      verificationCode,
-      fcmToken: null, 
+      emailVerificationCode: emailVerificationCode, 
+      phoneVerificationCode: phoneVerificationCode,
+      emailVerified: false,
+      phoneVerified: false,
       isVerified: false,
+      phoneVerificationExpires: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000)), // expires in 10 mins
       verificationExpires: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000)) // expires in 10 mins
     });
 
@@ -119,15 +83,15 @@ exports.registerUser = async (req, res) => {
     await sendEmail({
       to: email,
       subject: 'Your AgriTruk Verification Code',
-      text: `Your verification code is: ${verificationCode}`,
-      html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
+      text: `Your verification code is: ${emailVerificationCode}`,
+      html: getMFATemplate(emailVerificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
       // html: `<p>Your AgriTruk verification code is: <strong>${verificationCode}</strong></p>`
     });
 
     // Send SMS to user
     const formattedPhone = formatPhoneNumber(phone);
     try {
-      const smsMessage = `Your Truk verification code is: ${verificationCode}`;
+      const smsMessage = `Your Truk verification code is: ${phoneVerificationCode}`;
       await smsService.sendSMS(
         'TRUK LTD', 
         smsMessage,
@@ -158,7 +122,7 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-exports.verifyCode = async (req, res) => {
+exports.verifyEmailCode = async (req, res) => {
   const { code } = req.body;
   const uid = req.user.uid;
   const ipAddress = req.ip || 'unknown';
@@ -170,16 +134,16 @@ exports.verifyCode = async (req, res) => {
     const userData =await User.get(uid);
     const userRef = admin.firestore().collection("users").doc(uid);
 
-    if (userData.isVerified) {
-      return res.status(200).json({ message: "User already verified" });
+    if (userData.emailVerified) {
+      return res.status(200).json({ message: "User already email verified" });
     }
 
     const now = admin.firestore.Timestamp.now();
 
-    console.log('stored code:', userData.verificationCode);
+    console.log('stored code:', userData.emailVerificationCode);
     console.log('current code:', code);
 
-    if (userData.verificationCode !== code) {
+    if (userData.emailVerificationCode !== code) {
       return res.status(400).json({ message: "Invalid verification code" });
     }
 
@@ -188,16 +152,21 @@ exports.verifyCode = async (req, res) => {
     }
 
     await userRef.update({
-      isVerified: true,
       emailVerified: true,
-      verificationCode: admin.firestore.FieldValue.delete(),
+      emailVerificationCode: admin.firestore.FieldValue.delete(),
       verificationExpires: admin.firestore.FieldValue.delete()
     });
-
+    
+    // Check if phone also verified → set isVerified
+    const updatedUser = await User.get(uid);
+    if (updatedUser.emailVerified && updatedUser.phoneVerified) {
+      await userRef.update({ isVerified: true });
+    }
+    
     const userAgent = req.headers['user-agent'] 
       ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "") 
       : 'unknown';
-    
+
     const location = await getGeoLocation(ipAddress);
 
     //send success email
@@ -217,45 +186,114 @@ exports.verifyCode = async (req, res) => {
   }
 };
 
-exports.resendVerificationEmail = async (req, res) => {
-  const { email } = req.body;
-  console.log('Resending verification email to:', email);
+exports.verifyPhoneCode = async (req, res) => {
+  const { code } = req.body;
+  const uid = req.user.uid;
+
   try {
-    const link = await admin.auth().generateEmailVerificationLink(email, {
-      url: process.env.CLIENT_URL || 'http://localhost:3000',
-      handleCodeInApp: true
+    const userData =await User.get(uid);
+    const userRef = admin.firestore().collection("users").doc(uid);
+
+    if (userData.phoneVerified) {
+      return res.status(200).json({ message: "User already is phone verified" });
+    }
+
+    const now = admin.firestore.Timestamp.now();
+
+    console.log('stored code:', userData.phoneVerificationCode);
+    console.log('current code:', code);
+
+    if (userData.phoneVerificationCode !== code) {
+      return res.status(400).json({ message: "Invalid verification code" });
+    }
+
+    if (userData.phoneVerificationExpires.toMillis() < now.toMillis()) {
+      return res.status(400).json({ message: "Verification code expired" });
+    }
+
+    await userRef.update({
+      phoneVerified: true,
+      phoneVerificationCode: admin.firestore.FieldValue.delete(),
+      phoneVerificationExpires: admin.firestore.FieldValue.delete()
     });
 
-    await sendEmail({
-      to: email,
-      subject: 'Verify your email',
-      text: `Click the link to verify your email: ${link}`,
-      html: `<p>Click the link to verify your email: <a href="${link}">${link}</a></p>`
-    });
+    // Check if email also verified → set isVerified
+    const updatedUser = await User.get(uid);
+    if (updatedUser.emailVerified && updatedUser.phoneVerified) {
+      await userRef.update({ isVerified: true });
+    }
 
-    // Log the email verification activity
-    const userAgent = req.headers['user-agent'] 
-      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "") 
-      : 'unknown';
+   await logActivity(uid, 'phone_verification', req);
 
-    await ActivityLog.log(req.user.uid, {
-      event: 'email_reverification',
-      device: userAgent,
-      ip: req.ip || 'unknown',
-      timestamp: admin.firestore.Timestamp.now()
-    });
-
-    res.status(200).json({
-      message: 'Verification email sent successfully'
-    });
+    res.status(200).json({ message: "User verified successfully" });
   } catch (error) {
-    console.error('Email verification error:', error);
-    res.status(500).json({
-      code: 'EMAIL_VERIFICATION_FAILED',
-      message: 'Failed to send verification email'
-    });
+    console.error("Verification error:", error);
+    res.status(500).json({ message: "Failed to verify user" });
   }
 };
+
+exports.resendVerificationCode = async (req, res) => {
+  const { type } = req.body; // 'email' or 'phone'
+  const uid = req.user.uid;
+
+  if (!['email', 'phone'].includes(type)) {
+    return res.status(400).json({ message: "Invalid verification type" });
+  }
+
+  try {
+    const userData = await User.get(uid);
+    const userRef = admin.firestore().collection("users").doc(uid);
+
+    const now = admin.firestore.Timestamp.now();
+    const expiresAt = admin.firestore.Timestamp.fromMillis(
+      now.toMillis() + 10 * 60 * 1000 // 10 min expiry
+    );
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+
+    if (type === 'email') {
+      if (userData.emailVerified) {
+        return res.status(200).json({ message: "Email already verified" });
+      }
+
+      await userRef.update({
+        emailVerificationCode: verificationCode,
+        verificationExpires: expiresAt
+      });
+
+      // Send verification email
+      await sendEmail({
+        to: userData.email,
+        subject: "Email Verification Code",
+        text: `Your verification code is: ${verificationCode}`,
+        html: `<p>Your verification code is: <strong>${verificationCode}</strong></p>`
+      });
+
+      await logActivity(uid, 'resend_email_verification', req);
+    }
+
+    if (type === 'phone') {
+      if (userData.phoneVerified) {
+        return res.status(200).json({ message: "Phone already verified" });
+      }
+
+      await userRef.update({
+        phoneVerificationCode: verificationCode,
+        phoneVerificationExpires: expiresAt
+      });
+
+      // Send SMS (replace sendSMS with your provider integration)
+      await sendSMS(userData.phone, `Your verification code is: ${verificationCode}`);
+
+      await logActivity(uid, 'resend_phone_verification', req);
+    }
+
+    res.status(200).json({ message: "Verification code resent successfully" });
+  } catch (error) {
+    console.error("Resend verification error:", error);
+    res.status(500).json({ message: "Failed to resend verification code" });
+  }
+};
+
 
 exports.getUser = async (req, res) => {
     try {
@@ -381,33 +419,6 @@ exports.getUserRole = async (req, res) => {
     }
 };
 
-exports.getFcmToken = async (req, res) => {
-    try {
-        const userDoc = await admin.firestore()
-            .collection('users')
-            .doc(req.user.uid)
-            .get();
-
-        if (!userDoc.exists) {
-            return res.status(404).json({
-                code: 'ERR_USER_NOT_FOUND',
-                message: 'User not found'
-            });
-        }
-
-        const userData = userDoc.data();
-        res.status(200).json({
-            fcmToken: userData.fcmToken || null
-        });
-    } catch (error) {
-        console.error('Get FCM token error:', error);
-        res.status(500).json({
-            code: 'ERR_SERVER_ERROR',
-            message: 'Internal server error'
-        });
-    }
-};
-
 exports.verifyToken = async (req, res) => {
   try {
     const { uid, email, phone_number } = req.user;
@@ -471,25 +482,6 @@ exports.deleteAccount = async (req, res) => {
     }
 };
 
-exports.updateFcmToken = async (req, res) => {
-  const { fcmToken } = req.body;
-  if (!fcmToken) return res.status(400).json({ message: "FCM token required" });
-
-  try {
-    await User.update(req.user.uid,{
-      fcmToken,
-      updatedAt: admin.firestore.Timestamp.now()
-    });
-
-    // Log the FCM token update activity
-    await logActivity(req.user.uid, 'fcm_token_update', req);
-
-    res.status(200).json({ message: "FCM token updated" });
-  } catch (err) {
-    res.status(500).json({ message: "Failed to update FCM token" });
-  }
-};
-
 exports.deleteUser = async (req, res) => {
   const uid = req.params.uid;
   if (!uid) return res.status(400).json({ message: "User ID required" });
@@ -537,7 +529,7 @@ exports.resendCode = async (req, res) => {
     const newCode = generateOtp();
 
     await User.update(uid,{
-      verificationCode: newCode,
+      emailVerificationCode: newCode,
       verificationExpires: admin.firestore.Timestamp.fromDate(
         new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
       ),
@@ -561,6 +553,52 @@ exports.resendCode = async (req, res) => {
     await logActivity(uid, 'code_resend', req);
 
     console.log("Verification code resent successfully to:", email);
+
+    res.status(200).json({ message: "Verification code resent successfully" });
+  } catch (error) {
+    console.error("Resend code error:", error);
+    res.status(500).json({
+      code: "ERR_RESEND_CODE_FAILED",
+      message: "Failed to resend verification code"
+    });
+  }
+};
+
+exports.resendPhoneCode = async (req, res) => {
+  const uid = req.user.uid;
+
+  try {
+    const userData = await User.get(uid);
+    if (userData.phoneVerified) {
+      return res.status(400).json({ message: "User is already verified" });
+    }
+
+    const newCode = generateOtp();
+
+    await User.update(uid,{
+      phoneVerificationCode: newCode,
+      phoneVerificationExpires: admin.firestore.Timestamp.fromDate(
+        new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+      ),
+      updatedAt: admin.firestore.Timestamp.now()
+    });
+
+    // Send SMS to user
+    const formattedPhone = formatPhoneNumber(userData.phone);
+    try {
+      const smsMessage = `Your Truk verification code is: ${newCode}`;
+      await smsService.sendSMS(
+        'TRUK LTD', 
+        smsMessage,
+        formattedPhone
+      );
+      console.log('Verification SMS sent successfully');
+    } catch (smsError) {
+      console.error('Failed to send verification SMS:', smsError);
+      // Don't fail the registration if SMS fails, just log it
+    }
+
+    await logActivity(uid, 'code_resend', req);
 
     res.status(200).json({ message: "Verification code resent successfully" });
   } catch (error) {

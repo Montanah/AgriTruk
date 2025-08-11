@@ -9,21 +9,23 @@ const User = {
   async create(userData) {
     const user = {
       uid: userData.uid,
-      name: userData.name || '',
-      email: userData.email || null,
-      phone: userData.phone || null,
-      role: userData.role || 'user' || 'shipper',
-      userType: userData.userType || 'shipper',
+      name: userData.name,
+      email: userData.email,
+      phone: userData.phone,
+      role: userData.role || 'shipper',
+      profilePhotoUrl: userData.profilePhotoUrl || null,
       languagePreference: userData.languagePreference || 'en',
       location: userData.location || null,
-      profilePhotoUrl: userData.profilePhotoUrl || null,
       status: userData.status || 'active',
-      verificationCode: userData.verificationCode || null,
+      emailVerificationCode: userData.emailVerificationCode || null,
       verificationExpires: userData.verificationExpires || null,
-      fcmToken: userData.fcmToken || null,
+      phoneVerificationCode: userData.phoneVerificationCode || null,
+      phoneVerificationExpires: userData.phoneVerificationExpires || null,
       loginVerification: userData.loginVerification || false,
       isVerified: userData.isVerified || false,
-      emailVerified: userData.isVerified || false,
+      emailVerified: userData.isEmailVerified || false,
+      phoneVerified: userData.isPhoneVerified || false,
+      //searchable fields
       name_lower: userData.name ? userData.name.toLowerCase() : null,
       email_lower: userData.email ? userData.email.toLowerCase() : null,
       phone_lower: userData.phone ? userData.phone.toLowerCase().replace(/[^\d]/g, '') : null,
@@ -115,6 +117,16 @@ const User = {
   async getAllUsers() {
     const snapshot = await db.collection(USERS_COLLECTION).get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+  
+  async getUserByEmail(email) {
+    const snapshot = await db.collection(USERS_COLLECTION).where('email', '==', email).get();
+    return snapshot.empty ? null : snapshot.docs[0].data();
+  },
+
+  async getUserByPhone(phone) {
+    const snapshot = await db.collection(USERS_COLLECTION).where('phone', '==', phone).get();
+    return snapshot.empty ? null : snapshot.docs[0].data();
   },
 };
 

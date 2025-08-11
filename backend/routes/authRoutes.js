@@ -5,6 +5,7 @@ const { requireRole } = require("../middlewares/requireRole");
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const loadUserProfile = require("../middlewares/loadUserProfile");
 const multer = require("multer");
+const { authorize, authenticate } = require("../middlewares/adminAuth");
 const upload = multer({ dest: "uploads/" }); 
 // Swagger documentation
 /**
@@ -131,76 +132,6 @@ const upload = multer({ dest: "uploads/" });
  */
 router.post("/register", authenticateToken, authController.registerUser);
 
-/**
- * @swagger
- * /api/auth/verify-code:
- *   post:
- *     summary: Verify user code
- *     description: Verify the code sent to the user's email for account verification.
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - code
- *             properties:
- *               code:
- *                 type: string
- *     responses:
- *       200:
- *         description: Code verified successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       400:
- *         description: Bad request, invalid input
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.post("/verify-code", authenticateToken, authController.verifyCode);
-
-/**
- * @swagger
- * /api/auth/resend-code:
- *   post:
- *     summary: Resend verification code
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Verification code resent successfully
- *       400:
- *         description: User already verified or invalid request
- *       404:
- *         description: User not found
- *       500:
- *         description: Internal server error
- */
-router.post("/resend-code", authenticateToken, authController.resendCode);
 /**
  * @swagger
  * /api/auth/profile:
@@ -381,41 +312,6 @@ router.get("/verify_token", authenticateToken, authController.verifyToken);
 
 /**
  * @swagger
- * /api/auth/user/fcm-token:
- *   get:
- *     summary: Get user's FCM token
- *     description: Retrieve the FCM token for the authenticated user.
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: FCM token retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 fcmToken:
- *                   type: string
- *                   nullable: true
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.get("/user/fcm-token", authenticateToken, authController.getFcmToken);
-
-/**
- * @swagger
  * /api/auth/user/role:
  *   get:
  *     summary: Get user role
@@ -451,50 +347,6 @@ router.get("/user/role", authenticateToken, authController.getUserRole);
 
 /**
  * @swagger
- * /api/auth/update-fcm-token:
- *   patch:
- *     summary: Update user's FCM token
- *     description: Update the FCM token for the authenticated user.
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [fcmToken]
- *             properties:
- *               fcmToken:
- *                 type: string
- *     responses:
- *       200:
- *         description: FCM token updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       400:
- *         description: FCM token required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       500:
- *         description: Internal server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.patch("/update-fcm-token", authenticateToken, authController.updateFcmToken);
-
-/**
- * @swagger
  * /api/auth/delete:
  *   delete:
  *     summary: Delete user profile
@@ -525,20 +377,31 @@ router.patch("/update-fcm-token", authenticateToken, authController.updateFcmTok
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete("/delete", authenticateToken, authController.deactivateAccount);
+router.delete("/delete", authenticate, requireRole('admin'), authorize(['manage_users', 'super_admin']), authController.deactivateAccount);
 
 /**
  * @swagger
- * /api/auth/admin-dashboard:
- *   get:
- *     summary: Access admin dashboard
- *     description: Access the admin dashboard, restricted to users with admin role.
+ * /api/auth/:
+ *   post:
+ *     summary: Verify user code
+ *     description: Verify the code sent to the user's email for account verification.
  *     tags: [Authentication]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
  *     responses:
  *       200:
- *         description: Admin access granted
+ *         description: Code verified successfully
  *         content:
  *           application/json:
  *             schema:
@@ -546,8 +409,8 @@ router.delete("/delete", authenticateToken, authController.deactivateAccount);
  *               properties:
  *                 message:
  *                   type: string
- *       403:
- *         description: Forbidden, admin role required
+ *       400:
+ *         description: Invalid input
  *         content:
  *           application/json:
  *             schema:
@@ -559,12 +422,30 @@ router.delete("/delete", authenticateToken, authController.deactivateAccount);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/admin-dashboard",
-  authenticateToken,
-  requireRole("admin"),
-  (req, res) => {
-    res.json({ message: "Admin access granted" });
+router.post("/", authenticateToken, async (req, res) => {
+  const { action } = req.body;
+  
+  try {
+    if (action === 'verify-email') {
+      return await authController.verifyEmailCode(req, res);
+    } else if (action === 'verify-phone') {
+      return await authController.verifyPhoneCode(req, res);
+    } else if (action === 'resend-email-code') {
+      return await authController.resendCode(req, res);
+    } else if (action === 'resend-phone-code') {
+      return await authController.resendPhoneCode(req, res);
+    } else {
+      return res.status(400).json({ 
+        code: "ERR_INVALID_ACTION",
+        message: "Invalid action" 
+      });
+    }
+  } catch (error) {
+    console.error('Profile error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Internal server error'
+    });
   }
-);
-
+});
 module.exports = router
