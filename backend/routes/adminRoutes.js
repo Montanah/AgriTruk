@@ -7,7 +7,6 @@ const {getAllBookings,
 } = require('../controllers/adminController');
 const authController = require("../controllers/authController");
 const {
-  authenticate,
   authorize,
   requireSuperAdmin,
   requireSelfOrSuperAdmin,
@@ -19,6 +18,7 @@ const transporterController = require('../controllers/transporterController');
 const disputeController = require('../controllers/disputeController');
 const brokerController = require('../controllers/brokerController');
 const AnalyticsController = require('../controllers/analyticsController');
+const { authenticateToken } = require('../middlewares/authMiddleware');
 
 /**
  * @swagger
@@ -106,7 +106,7 @@ router.post('/login', loginRateLimit, AdminController.login);
 router.post('/logout', AdminController.logout);
 
 // Protected routes - require authentication
-router.use(authenticate);
+router.use(authenticateToken);
 
 /**
  * @swagger
@@ -241,7 +241,7 @@ router.get('/reports/view', authorize(['view_reports', 'super_admin']), (req, re
  *               $ref: '#/components/schemas/Error'
  * 
  */
-router.get('/bookings', authenticate, authorize(['view_bookings', 'super_admin']), getAllBookings);
+router.get('/bookings', authenticateToken, authorize(['view_bookings', 'super_admin']), getAllBookings);
 /**
  * @swagger
  * /api/admin/users/search:
@@ -299,7 +299,7 @@ router.get('/bookings', authenticate, authorize(['view_bookings', 'super_admin']
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/users/search', authenticate, authorize(['manage_users', 'view_users', 'super_admin']), searchUsers);
+router.get('/users/search', authenticateToken, authorize(['manage_users', 'view_users', 'super_admin']), searchUsers);
 
 /**
  * @swagger
@@ -322,7 +322,7 @@ router.get('/users/search', authenticate, authorize(['manage_users', 'view_users
  *         description: Access denied
  *         content:
 */
-router.get('/users', authenticate, authorize(['manage_users', 'view_users', 'super_admin']), getAllUsers);
+router.get('/users', authenticateToken, authorize(['manage_users', 'view_users', 'super_admin']), getAllUsers);
 
 /**
  * @swagger
@@ -339,7 +339,7 @@ router.get('/users', authenticate, authorize(['manage_users', 'view_users', 'sup
  *       500:
  *         description: Internal server error
  */
-router.get('/companies', authenticate, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllCompanies);
+router.get('/companies', authenticateToken, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllCompanies);
 
 
 /**
@@ -389,7 +389,7 @@ router.get('/companies', authenticate, requireRole('admin'), authorize(['view_co
  *       500:
  *         description: Internal server error
  */
-router.get('/transporters', authenticate, requireRole(['admin']), authorize(['view_transporters', 'manage_transporters', 'super_admin']),  transporterController.getAllTransporters);
+router.get('/transporters', authenticateToken, requireRole(['admin']), authorize(['view_transporters', 'manage_transporters', 'super_admin']),  transporterController.getAllTransporters);
 
 
 /**
@@ -406,7 +406,7 @@ router.get('/transporters', authenticate, requireRole(['admin']), authorize(['vi
  *       500:
  *         description: Server error
  */
-router.get('/brokers', authenticate, requireRole('admin'), authorize(['view_brokers', 'manage_brokers', 'super_admin']), brokerController.getAllBrokers);
+router.get('/brokers', authenticateToken, requireRole('admin'), authorize(['view_brokers', 'manage_brokers', 'super_admin']), brokerController.getAllBrokers);
 /**
  * @swagger
  * /api/admin/disputes/status/{status}:
@@ -429,7 +429,7 @@ router.get('/brokers', authenticate, requireRole('admin'), authorize(['view_brok
  *       500:
  *         description: Internal server error
  */
-router.get('/disputes/status/:status', authenticate, requireRole('admin'), authorize(['view_disputes', 'manage_disputes', 'super_admin']), disputeController.getDisputesByStatus);
+router.get('/disputes/status/:status', authenticateToken, requireRole('admin'), authorize(['view_disputes', 'manage_disputes', 'super_admin']), disputeController.getDisputesByStatus);
 
 /**
  * @swagger
@@ -446,7 +446,7 @@ router.get('/disputes/status/:status', authenticate, requireRole('admin'), autho
  *       500:
  *         description: Internal server error
  */
-router.get('/disputes', authenticate, requireRole('admin'), authorize(['view_disputes', 'manage_disputes', 'super_admin']), disputeController.getAllDisputes);
+router.get('/disputes', authenticateToken, requireRole('admin'), authorize(['view_disputes', 'manage_disputes', 'super_admin']), disputeController.getAllDisputes);
 
 /**
  * @swagger
@@ -520,7 +520,7 @@ router.get('/brokers/:brokerId', authorize(['view_brokers', 'super_admin']), bro
  *       500:
  *         description: Internal server error
  */
-router.patch('/disputes/:disputeId/resolve', authenticate, requireRole('admin'), authorize(['manage_disputes', 'super_admin']), disputeController.resolveDispute);
+router.patch('/disputes/:disputeId/resolve', authenticateToken, requireRole('admin'), authorize(['manage_disputes', 'super_admin']), disputeController.resolveDispute);
 
 router.get('/settings/manage', authorize(['manage_settings', 'super_admin']), (req, res) => {
   res.json({
@@ -612,7 +612,7 @@ router.get('/:adminId', requireSelfOrSuperAdmin, AdminController.getAdmin);
  *           application/json:
  *             example: { message: 'Failed to fetch companies' }
  */
-router.get('/companies/search', authenticate, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.searchCompany);
+router.get('/companies/search', authenticateToken, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.searchCompany);
 
 /**
  * @swagger
@@ -636,7 +636,7 @@ router.get('/companies/search', authenticate, requireRole('admin'), authorize(['
  *       500:
  *         description: Internal server error
  */
-router.get('/transporter/:transporterId', authenticate, requireRole([ 'admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByTransporter);
+router.get('/transporter/:transporterId', authenticateToken, requireRole([ 'admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByTransporter);
 
 /**
  * @swagger
@@ -660,7 +660,7 @@ router.get('/transporter/:transporterId', authenticate, requireRole([ 'admin']),
  *       500:
  *         description: Internal server error
  */
-router.get('/status/:status', authenticate, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByStatus);
+router.get('/status/:status', authenticateToken, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByStatus);
 
 /**
  * @swagger
@@ -690,7 +690,7 @@ router.get('/status/:status', authenticate, requireRole('admin'), authorize(['vi
  *       500:
  *         description: Internal server error
  */
-router.get('/transporter/:transporterId/status/:status', authenticate, requireRole(['transporter', 'admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByTransporterAndStatus);
+router.get('/transporter/:transporterId/status/:status', authenticateToken, requireRole(['transporter', 'admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByTransporterAndStatus);
 
 /**
  * @swagger
@@ -714,7 +714,7 @@ router.get('/transporter/:transporterId/status/:status', authenticate, requireRo
  *       500:
  *         description: Internal server error
  */
-router.get('/transporter/:transporterId/all', authenticate, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllForTransporter);
+router.get('/transporter/:transporterId/all', authenticateToken, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllForTransporter);
 
 /**
  * @swagger

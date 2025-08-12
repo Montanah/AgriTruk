@@ -5,96 +5,166 @@ const bcrypt = require('bcryptjs');
 
 const AdminManagementController = {
   // Admin Login
-  async login(req, res) {
-    try {
-      const { email, password, firebaseToken } = req.body;
-      console.log(req.body);
+  // async login(req, res) {
+  //   try {
+  //     const { email, password, firebaseToken } = req.body;
+  //     console.log(req.body);
 
-      if (!email || (!password && !firebaseToken)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email and password or Firebase token required'
-        });
-      }
+  //     if (!email || (!password && !firebaseToken)) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: 'Email and password or Firebase token required'
+  //       });
+  //     }
 
-      let decodedToken;
+  //     let decodedToken;
       
-      // Verify Firebase token if provided
-      if (firebaseToken) {
-        try {
-          decodedToken = await admin.auth().verifyIdToken(firebaseToken);
-        } catch (error) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid Firebase token'
-          });
-        }
-      }
+  //     // Verify Firebase token if provided
+  //     if (firebaseToken) {
+  //       try {
+  //         decodedToken = await admin.auth().verifyIdToken(firebaseToken);
+  //       } catch (error) {
+  //         return res.status(401).json({
+  //           success: false,
+  //           message: 'Invalid Firebase token'
+  //         });
+  //       }
+  //     }
 
-      // Get admin by email or userId
-      const adminQuery = await admin.firestore()
-        .collection('admins')
-        .where('email', '==', email)
-        .where('status', '==', 'active')
-        .get();
+  //     // Get admin by email or userId
+  //     const adminQuery = await admin.firestore()
+  //       .collection('admins')
+  //       .where('email', '==', email)
+  //       .where('status', '==', 'active')
+  //       .get();
 
-      if (adminQuery.empty) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
+  //     if (adminQuery.empty) {
+  //       return res.status(401).json({
+  //         success: false,
+  //         message: 'Invalid credentials'
+  //       });
+  //     }
 
-      const adminDoc = adminQuery.docs[0];
-      const adminData = adminDoc.data();
+  //     const adminDoc = adminQuery.docs[0];
+  //     const adminData = adminDoc.data();
 
-      // If using Firebase token, verify the userId matches
-      if (firebaseToken && decodedToken.uid !== adminData.userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
+  //     // If using Firebase token, verify the userId matches
+  //     if (firebaseToken && decodedToken.uid !== adminData.userId) {
+  //       return res.status(401).json({
+  //         success: false,
+  //         message: 'Invalid credentials'
+  //       });
+  //     }
 
-      // Update last login
-      await Admin.update(adminData.adminId, {
-        lastLogin: admin.firestore.Timestamp.now()
+  //     // Update last login
+  //     await Admin.update(adminData.adminId, {
+  //       lastLogin: admin.firestore.Timestamp.now()
+  //     });
+
+  //     // Generate JWT token
+  //     const token = jwt.sign(
+  //       { 
+  //         adminId: adminData.adminId,
+  //         userId: adminData.userId,
+  //         email: adminData.email,
+  //         permissions: adminData.permissions
+  //       },
+  //       process.env.JWT_SECRET,
+  //       { expiresIn: '24h' }
+  //     );
+
+  //     res.json({
+  //       success: true,
+  //       message: 'Login successful',
+  //       data: {
+  //         admin: {
+  //           adminId: adminData.adminId,
+  //           name: adminData.name,
+  //           email: adminData.email,
+  //           permissions: adminData.permissions
+  //         },
+  //         token
+  //       }
+  //     });
+
+  //   } catch (error) {
+  //     console.error('Login error:', error);
+  //     res.status(500).json({
+  //       success: false,
+  //       message: 'Internal server error'
+  //     });
+  //   }
+  // },
+  async login(req, res) {
+  try {
+    const { firebaseToken } = req.body;
+
+    if (!firebaseToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Firebase token required'
+      });
+    }
+
+    // Verify Firebase token
+    const decodedToken = await admin.auth().verifyIdToken(firebaseToken);
+    const userId = decodedToken.uid;
+    const email = decodedToken.email;
+
+    // Get admin by userId (Firebase UID)
+    const adminQuery = await admin.firestore()
+      .collection('admins')
+      .where('userId', '==', userId)
+      .where('status', '==', 'active')
+      .limit(1)
+      .get();
+
+    if (adminQuery.empty) {
+      return res.status(401).json({
+        success: false,
+        message: 'Admin account not found or inactive'
+      });
+    }
+
+    const adminDoc = adminQuery.docs[0];
+    const adminData = adminDoc.data();
+
+    // Update last login
+    await admin.firestore()
+      .collection('admins')
+      .doc(adminDoc.id)
+      .update({
+        lastLogin: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      // Generate JWT token
-      const token = jwt.sign(
-        { 
-          adminId: adminData.adminId,
-          userId: adminData.userId,
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        admin: {
+          adminId: adminDoc.id,
+          name: adminData.name,
           email: adminData.email,
           permissions: adminData.permissions
         },
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' }
-      );
+        // You can return the Firebase token if needed
+        firebaseToken
+      }
+    });
 
-      res.json({
-        success: true,
-        message: 'Login successful',
-        data: {
-          admin: {
-            adminId: adminData.adminId,
-            name: adminData.name,
-            email: adminData.email,
-            permissions: adminData.permissions
-          },
-          token
-        }
-      });
-
-    } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  },
+  } catch (error) {
+    console.error('Login error:', error);
+    
+    const errorMessage = error.code === 'auth/id-token-expired' 
+      ? 'Firebase token expired' 
+      : 'Authentication failed';
+    
+    res.status(401).json({
+      success: false,
+      message: errorMessage
+    });
+  }
+},
 
   // Create Admin (Super Admin only)
   async createAdmin(req, res) {
@@ -352,7 +422,8 @@ const AdminManagementController = {
   // Get current admin profile
   async getProfile(req, res) {
     try {
-      const adminData = await Admin.get(req.admin.adminId);
+      console.log(req.user.user_id);
+      const adminData = await Admin.getByUserId(req.user.user_id);
       
       res.json({
         success: true,
