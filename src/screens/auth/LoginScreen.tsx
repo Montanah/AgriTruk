@@ -3,7 +3,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
-  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -12,10 +11,11 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../components/common/Button';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Spacer from '../../components/common/Spacer';
 import { colors, fonts, spacing } from '../../constants';
 
@@ -36,7 +36,6 @@ const LoginScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const truckAnim = React.useRef(new Animated.Value(0)).current;
 
   const countryOptions = [
     { code: '+255', flag: '🇹🇿' },
@@ -47,7 +46,7 @@ const LoginScreen = ({ navigation }: any) => {
 
   // Google Auth
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
@@ -63,33 +62,14 @@ const LoginScreen = ({ navigation }: any) => {
           // User is signed in, navigation will update via App.tsx
         })
         .catch((error) => {
-          setError('Google sign-in failed');
+          console.error('Google sign-in error:', error);
+          setError('Google sign-in failed. Please try again.');
         })
         .finally(() => setLoading(false));
     }
   }, [response]);
 
-  useEffect(() => {
-    if (loading) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(truckAnim, {
-            toValue: 1,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(truckAnim, {
-            toValue: 0,
-            duration: 0,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      truckAnim.stopAnimation();
-      truckAnim.setValue(0);
-    }
-  }, [loading]);
+
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
@@ -166,7 +146,7 @@ const LoginScreen = ({ navigation }: any) => {
                 />
               </View>
             )}
-            
+
             <Spacer size={spacing.md} />
             <View style={styles.passwordInputWrap}>
               <TextInput
@@ -203,13 +183,31 @@ const LoginScreen = ({ navigation }: any) => {
                   if (loginMode === 'email') {
                     // Use the imported auth instance directly
                     const { signInWithEmailAndPassword } = await import('firebase/auth');
-                    await signInWithEmailAndPassword(require('../../firebaseConfig').auth, email, password);
+                    const { auth } = await import('../../firebaseConfig');
+                    await signInWithEmailAndPassword(auth, email, password);
                   } else {
                     setError('Phone login is not implemented in this demo.');
                   }
                   // Navigation is handled by App.tsx auth state
                 } catch (e: any) {
-                  setError(e.message || 'Login failed. Please try again.');
+                  console.error('Login error:', e);
+                  let errorMessage = 'Login failed. Please try again.';
+
+                  if (e.code === 'auth/user-not-found') {
+                    errorMessage = 'No account found with this email. Please sign up.';
+                  } else if (e.code === 'auth/wrong-password') {
+                    errorMessage = 'Incorrect password. Please try again.';
+                  } else if (e.code === 'auth/invalid-email') {
+                    errorMessage = 'Please enter a valid email address.';
+                  } else if (e.code === 'auth/too-many-requests') {
+                    errorMessage = 'Too many failed attempts. Please try again later.';
+                  } else if (e.code === 'auth/network-request-failed') {
+                    errorMessage = 'Network error. Please check your connection.';
+                  } else if (e.message) {
+                    errorMessage = e.message;
+                  }
+
+                  setError(errorMessage);
                 }
                 setLoading(false);
               }}
@@ -217,9 +215,15 @@ const LoginScreen = ({ navigation }: any) => {
             />
             {error ? <Text style={{ color: colors.error, marginTop: 12, textAlign: 'center', fontWeight: '600' }}>{error}</Text> : null}
             <Spacer size={spacing.md} />
-            <TouchableOpacity onPress={() => navigation.navigate('SignupSelection')}>
-              <Text style={styles.signupText}>Don't have an account? Sign Up</Text>
-            </TouchableOpacity>
+            <Text style={styles.signupText}>
+              Don't have an account?{' '}
+              <Text
+                style={styles.signupLink}
+                onPress={() => navigation.navigate('SignupSelection')}
+              >
+                Sign Up
+              </Text>
+            </Text>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -247,36 +251,13 @@ const LoginScreen = ({ navigation }: any) => {
         </TouchableWithoutFeedback>
       )}
 
-      {loading && (
-        <View style={styles.loadingOverlay} pointerEvents="auto">
-          <View style={styles.loadingBox}>
-            <Animated.Image
-              source={require('../../../assets/images/TRUK Logo.png')}
-              style={[
-                styles.loadingLogo,
-                {
-                  transform: [
-                    {
-                      translateX: truckAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 80],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            />
-            <Text style={styles.loadingText}>Signing In...</Text>
-            <View style={{ marginTop: 18 }}>
-              <Animated.View style={{
-                transform: [{ rotate: truckAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
-              }}>
-                <View style={styles.spinner} />
-              </Animated.View>
-            </View>
-          </View>
-        </View>
-      )}
+      <LoadingSpinner
+        visible={loading}
+        message="Signing In..."
+        size="large"
+        type="pulse"
+        logo={true}
+      />
     </SafeAreaView>
   );
 };
@@ -456,10 +437,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   signupText: {
-    color: colors.primary,
+    color: colors.text.secondary,
     fontSize: fonts.size.md,
     textAlign: 'center',
     marginTop: spacing.md,
+  },
+  signupLink: {
+    color: colors.primary,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   countryModalOverlay: {
     position: 'absolute',
@@ -492,48 +478,7 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     color: colors.text.primary,
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 100,
-  },
-  loadingBox: {
-    backgroundColor: colors.white,
-    borderRadius: 18,
-    padding: 32,
-    alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  loadingLogo: {
-    width: 60,
-    height: 60,
-    marginBottom: 18,
-    resizeMode: 'contain',
-  },
-  loadingText: {
-    fontSize: fonts.size.lg,
-    color: colors.primary,
-    fontWeight: 'bold',
-    letterSpacing: 0.3,
-  },
-  spinner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 4,
-    borderColor: colors.secondary,
-    borderTopColor: colors.primary,
-    borderRightColor: colors.primary,
-    borderBottomColor: 'transparent',
-    borderLeftColor: 'transparent',
-    alignSelf: 'center',
-  },
+
 });
 
 export default LoginScreen;

@@ -1,26 +1,40 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform, PermissionsAndroid } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, PermissionsAndroid, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
-import { spacing, fonts } from '../../constants';
+import { apiRequest } from '../../utils/api';
+
+const { width } = Dimensions.get('window');
+
 // For Android SMS Retriever
 declare const require: any;
 let SmsRetriever: any;
 if (Platform.OS === 'android') {
   try {
     SmsRetriever = require('react-native-sms-retriever');
-  } catch {}
+  } catch { }
 }
 
 const PhoneOTPScreen = ({ navigation, route }) => {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { phone, email, role, idToken, password } = route.params || {};
+  const [resendLoading, setResendLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const { phone, email, role, password } = route.params || {};
 
-  // Attempt SMS autofill/auto-read (Android only, pseudo-code)
+  // Animation refs
+  const logoAnim = useRef(new Animated.Value(0)).current;
+  const inputAnim = useRef(new Animated.Value(0)).current;
+  const buttonAnim = useRef(new Animated.Value(1)).current;
+
+  // Attempt SMS autofill/auto-read (Android only)
   useEffect(() => {
     // Request SMS read permission and start SMS Retriever for auto-fill (Android only)
     async function setupSmsRetriever() {
@@ -44,87 +58,286 @@ const PhoneOTPScreen = ({ navigation, route }) => {
               SmsRetriever.removeSmsListener();
             });
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
     setupSmsRetriever();
   }, []);
 
+  // Start countdown for resend
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  // Animation on mount
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(logoAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(inputAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   const handleVerify = async () => {
+    if (!otp || otp.length < 4) {
+      setError('Please enter a valid 6-digit code.');
+      return;
+    }
+
     setError('');
     setLoading(true);
+
     try {
-      const { apiRequest } = await import('../../utils/api');
-      await apiRequest('/auth/verify-code', {
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      // Use the new API structure with action
+      await apiRequest('/auth', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: otp }),
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'verify-phone',
+          code: otp,
+        }),
       });
-      // After phone verification, do not navigate to EmailVerificationScreen. Let App.tsx handle navigation.
-      const { auth } = await import('../../firebaseConfig');
-      const { signOut, signInWithEmailAndPassword } = await import('firebase/auth');
-      await signOut(auth);
-      await signInWithEmailAndPassword(auth, email, password);
-      // Navigation will be handled by App.tsx auth state
+
+      // Success - user is now verified
+      console.log('Phone verification successful');
+
+      // Wait a moment for backend to update isVerified field
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Sign out and sign back in to refresh auth state with correct role
+      const auth = getAuth();
+
+      // Get the password from route params for re-authentication
+      const { password } = route.params || {};
+
+      if (password) {
+        // Sign out current user
+        await signOut(auth);
+
+        // Sign back in with email and password to refresh auth state
+        await signInWithEmailAndPassword(auth, email, password);
+
+        // Navigation will be handled automatically by App.tsx auth state listener
+        // based on the updated user role and verification status
+      } else {
+        // Fallback navigation if password not available
+        if (role === 'transporter') {
+          navigation.replace('TransporterCompletionScreen');
+        } else {
+          navigation.replace('Welcome');
+        }
+      }
     } catch (err) {
-      setError('OTP verification failed.');
+      console.error('Phone verification error:', err);
+      let errorMessage = 'Verification failed. Please try again.';
+
+      if (err.message?.includes('Invalid code')) {
+        errorMessage = 'Invalid verification code. Please check and try again.';
+      } else if (err.message?.includes('expired')) {
+        errorMessage = 'Verification code has expired. Please request a new one.';
+      } else if (err.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const handleResend = async () => {
+    if (countdown > 0 || resendLoading) return;
+
     setError('');
-    setLoading(true);
+    setResendLoading(true);
+
     try {
-      const { apiRequest } = await import('../../utils/api');
-      await apiRequest('/auth/resend-code', {
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      // Use the new API structure with action
+      await apiRequest('/auth', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${idToken}` },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'resend-phone-code',
+        }),
       });
+
+      setCountdown(60); // Start 60 second countdown
+      setError(''); // Clear any previous errors
     } catch (err) {
-      setError('Failed to resend OTP.');
+      console.error('Resend error:', err);
+      setError('Failed to resend code. Please try again.');
     } finally {
-      setLoading(false);
+      setResendLoading(false);
     }
+  };
+
+  const formatPhone = (phoneNumber) => {
+    if (!phoneNumber) return '';
+    // Format phone number for display (e.g., +254 712 345 678)
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    if (cleaned.length === 12 && cleaned.startsWith('254')) {
+      return `+${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 9)} ${cleaned.slice(9)}`;
+    }
+    return phoneNumber;
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
+      <LinearGradient
+        colors={[colors.primary, colors.primaryDark, colors.secondary, colors.background]}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+      />
       <View style={styles.container}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+          <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.title}>Verify Your Phone</Text>
-        <Text style={styles.subtitle}>
-          Enter the OTP sent to your phone number.
-          {'\n'}
-          {Platform.OS === 'android'
-            ? 'If you allow SMS permissions, the code will be auto-filled.'
-            : 'If your device supports SMS autofill, the code will be suggested.'}
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="OTP Code"
-          value={otp}
-          onChangeText={setOtp}
-          keyboardType="number-pad"
-          autoCapitalize="none"
-          autoComplete="sms-otp"
-          textContentType="oneTimeCode"
-        />
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        <TouchableOpacity
-          style={styles.verifyBtn}
-          onPress={handleVerify}
-          disabled={loading || !otp}
+
+        <Animated.View
+          style={[
+            styles.logoContainer,
+            {
+              opacity: logoAnim,
+              transform: [{
+                translateY: logoAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [50, 0],
+                }),
+              }],
+            },
+          ]}
         >
-          <Text style={styles.verifyBtnText}>{loading ? 'Verifying...' : 'Verify'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.resendBtn} onPress={handleResend} disabled={loading}>
-          <Text style={styles.resendBtnText}>Resend OTP</Text>
-        </TouchableOpacity>
+          <View style={styles.logoCircle}>
+            <Ionicons name="call" size={40} color={colors.primary} />
+          </View>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.contentContainer,
+            {
+              opacity: inputAnim,
+              transform: [{
+                translateY: inputAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [30, 0],
+                }),
+              }],
+            },
+          ]}
+        >
+          <Text style={styles.title}>Verify Your Phone</Text>
+          <Text style={styles.subtitle}>
+            Enter the 6-digit code sent to{'\n'}
+            <Text style={styles.phoneHighlight}>{formatPhone(phone)}</Text>
+          </Text>
+
+          <View style={styles.codeContainer}>
+            <TextInput
+              style={styles.codeInput}
+              placeholder="Enter 6-digit code"
+              value={otp}
+              onChangeText={(text) => {
+                const cleaned = text.replace(/\D/g, '');
+                setOtp(cleaned.slice(0, 6));
+              }}
+              keyboardType="number-pad"
+              autoCapitalize="none"
+              autoComplete="sms-otp"
+              textContentType="oneTimeCode"
+              maxLength={6}
+              placeholderTextColor={colors.text.light}
+            />
+            {Platform.OS === 'android' && (
+              <Text style={styles.autoFillNote}>
+                Code will be auto-filled if you allow SMS permissions
+              </Text>
+            )}
+          </View>
+
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={20} color={colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={[
+              styles.verifyBtn,
+              { opacity: loading ? 0.7 : 1 },
+            ]}
+            onPress={handleVerify}
+            disabled={loading || !otp || otp.length < 6}
+            activeOpacity={0.9}
+          >
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <Animated.View
+                  style={[
+                    styles.loadingSpinner,
+                    {
+                      transform: [{
+                        rotate: buttonAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '360deg'],
+                        }),
+                      }],
+                    },
+                  ]}
+                />
+                <Text style={styles.verifyBtnText}>Verifying...</Text>
+              </View>
+            ) : (
+              <Text style={styles.verifyBtnText}>Verify Phone</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.resendBtn,
+              { opacity: (countdown > 0 || resendLoading) ? 0.5 : 1 }
+            ]}
+            onPress={handleResend}
+            disabled={countdown > 0 || resendLoading}
+          >
+            {resendLoading ? (
+              <Text style={styles.resendBtnText}>Sending...</Text>
+            ) : countdown > 0 ? (
+              <Text style={styles.resendBtnText}>Resend in {countdown}s</Text>
+            ) : (
+              <Text style={styles.resendBtnText}>Resend Code</Text>
+            )}
+          </TouchableOpacity>
+        </Animated.View>
       </View>
     </SafeAreaView>
   );
@@ -133,7 +346,6 @@ const PhoneOTPScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -144,63 +356,137 @@ const styles = StyleSheet.create({
   backBtn: {
     position: 'absolute',
     top: Platform.OS === 'android' ? 36 : 48,
-    left: 0,
+    left: 24,
     zIndex: 10,
-    padding: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  logoCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  contentContainer: {
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
   },
   title: {
-    fontSize: fonts.size.xl,
+    fontSize: fonts.size.xl + 4,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: colors.white,
     marginBottom: spacing.md,
     fontFamily: fonts.family.bold,
     letterSpacing: 0.5,
-    marginTop: spacing.xl,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: fonts.size.md,
-    color: colors.text.secondary,
-    marginBottom: spacing.lg,
+    color: colors.white,
+    marginBottom: spacing.xl,
     textAlign: 'center',
+    lineHeight: 24,
   },
-  input: {
-    borderWidth: 1.2,
-    borderColor: colors.text.light,
-    borderRadius: 10,
-    padding: 14,
-    fontSize: fonts.size.md,
-    backgroundColor: colors.white,
-    marginBottom: spacing.md,
+  phoneHighlight: {
+    fontWeight: 'bold',
+    color: colors.white,
+  },
+  codeContainer: {
     width: '100%',
-    maxWidth: 340,
-    textAlign: 'center',
+    marginBottom: spacing.lg,
   },
-  error: {
-    color: colors.error,
+  codeInput: {
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 16,
+    padding: 18,
+    fontSize: fonts.size.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: colors.white,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    letterSpacing: 4,
+  },
+  autoFillNote: {
+    fontSize: fonts.size.sm,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    padding: 12,
+    borderRadius: 12,
     marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+  },
+  errorText: {
+    color: colors.error,
+    marginLeft: 8,
     fontSize: fonts.size.md,
+    flex: 1,
   },
   verifyBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.xl,
     marginTop: spacing.md,
     width: '100%',
     alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadingSpinner: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderTopColor: 'transparent',
+    marginRight: 8,
   },
   verifyBtnText: {
-    color: colors.white,
+    color: colors.primary,
     fontWeight: 'bold',
-    fontSize: fonts.size.md,
+    fontSize: fonts.size.md + 2,
+    letterSpacing: 0.5,
   },
   resendBtn: {
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
+    padding: spacing.md,
   },
   resendBtnText: {
-    color: colors.secondary,
+    color: colors.white,
     fontWeight: '600',
     fontSize: fonts.size.md,
+    textDecorationLine: 'underline',
   },
 });
 

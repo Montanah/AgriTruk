@@ -1,41 +1,382 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useState } from 'react';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Card from '../../components/common/Card';
-import Spacer from '../../components/common/Spacer';
-import { MaterialCommunityIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
+import spacing from '../../constants/spacing';
+
+// Mock data for demonstration
+const mockRequests = [
+  {
+    id: 'REQ001',
+    type: 'instant',
+    status: 'in_transit',
+    fromLocation: 'Nairobi',
+    toLocation: 'Mombasa',
+    productType: 'Electronics',
+    weight: '500kg',
+    createdAt: '2024-01-15T10:30:00Z',
+    transporter: { name: 'John Doe', phone: '+254712345678' },
+    isConsolidated: false,
+  },
+  {
+    id: 'REQ002',
+    type: 'booking',
+    status: 'pending',
+    fromLocation: 'Nakuru',
+    toLocation: 'Kisumu',
+    productType: 'Agricultural',
+    weight: '1000kg',
+    createdAt: '2024-01-14T14:20:00Z',
+    transporter: null,
+    isConsolidated: false,
+  },
+  {
+    id: 'CONS001',
+    type: 'instant',
+    status: 'delivered',
+    fromLocation: 'Multiple',
+    toLocation: 'Multiple',
+    productType: 'Mixed',
+    weight: '2500kg',
+    createdAt: '2024-01-13T09:15:00Z',
+    transporter: { name: 'TransCo Ltd', phone: '+254700111222' },
+    isConsolidated: true,
+    consolidatedRequests: [
+      { id: 'REQ003', fromLocation: 'Nairobi', toLocation: 'Mombasa', productType: 'Electronics', weight: '800kg' },
+      { id: 'REQ004', fromLocation: 'Nairobi', toLocation: 'Mombasa', productType: 'Furniture', weight: '1200kg' },
+      { id: 'REQ005', fromLocation: 'Nairobi', toLocation: 'Mombasa', productType: 'Clothing', weight: '500kg' },
+    ],
+  },
+  {
+    id: 'CONS002',
+    type: 'booking',
+    status: 'confirmed',
+    fromLocation: 'Multiple',
+    toLocation: 'Multiple',
+    productType: 'Mixed',
+    weight: '3000kg',
+    createdAt: '2024-01-12T16:45:00Z',
+    transporter: { name: 'LogiCorp', phone: '+254700333444' },
+    isConsolidated: true,
+    consolidatedRequests: [
+      { id: 'REQ006', fromLocation: 'Nakuru', toLocation: 'Kisumu', productType: 'Agricultural', weight: '1500kg' },
+      { id: 'REQ007', fromLocation: 'Nakuru', toLocation: 'Kisumu', productType: 'Machinery', weight: '1500kg' },
+    ],
+  },
+];
+
+interface RequestItem {
+  id: string;
+  type: 'instant' | 'booking';
+  status: string;
+  fromLocation: string;
+  toLocation: string;
+  productType: string;
+  weight: string;
+  createdAt: string;
+  transporter: { name: string; phone: string } | null;
+  isConsolidated: boolean;
+  consolidatedRequests?: Array<{
+    id: string;
+    fromLocation: string;
+    toLocation: string;
+    productType: string;
+    weight: string;
+  }>;
+}
 
 const BusinessManageScreen = ({ navigation }: any) => {
+  const [activeTab, setActiveTab] = useState('all'); // all, instant, booking
+  const [requests, setRequests] = useState<RequestItem[]>(mockRequests);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const fetchRequests = async () => {
+    setLoading(true);
+    try {
+      // TODO: Fetch from backend
+      // const response = await apiRequest('/business/requests');
+      // setRequests(response.data);
+      setTimeout(() => setLoading(false), 1000);
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+      setLoading(false);
+    }
+  };
+
+  const getFilteredRequests = () => {
+    if (activeTab === 'all') return requests;
+    return requests.filter(req => req.type === activeTab);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return colors.warning;
+      case 'confirmed': return colors.primary;
+      case 'in_transit': return colors.secondary;
+      case 'delivered': return colors.success;
+      case 'cancelled': return colors.error;
+      default: return colors.text.secondary;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return 'clock-outline';
+      case 'confirmed': return 'check-circle-outline';
+      case 'in_transit': return 'truck-delivery';
+      case 'delivered': return 'check-circle';
+      case 'cancelled': return 'close-circle';
+      default: return 'help-circle-outline';
+    }
+  };
+
+  const handleTrackRequest = (request: RequestItem) => {
+    if (request.isConsolidated) {
+      navigation.navigate('TrackingScreen', {
+        booking: request,
+        isConsolidated: true,
+        consolidatedRequests: request.consolidatedRequests
+      });
+    } else {
+      if (request.type === 'instant') {
+        navigation.navigate('TripDetailsScreen', {
+          booking: request,
+          isInstant: true
+        });
+      } else {
+        navigation.navigate('TrackingScreen', {
+          booking: request,
+          isConsolidated: false
+        });
+      }
+    }
+  };
+
+  const handleViewMap = (request: RequestItem) => {
+    navigation.navigate('MapViewScreen', {
+      booking: request,
+      isConsolidated: request.isConsolidated
+    });
+  };
+
+  const renderRequestItem = ({ item }: { item: RequestItem }) => (
+    <Card style={styles.requestCard}>
+      <View style={styles.requestHeader}>
+        <View style={styles.requestId}>
+          <Text style={styles.requestIdText}>#{item.id}</Text>
+          {item.isConsolidated && (
+            <View style={styles.consolidatedBadge}>
+              <MaterialCommunityIcons name="layers" size={12} color={colors.white} />
+              <Text style={styles.consolidatedText}>Consolidated</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.statusBadge}>
+          <MaterialCommunityIcons
+            name={getStatusIcon(item.status)}
+            size={16}
+            color={getStatusColor(item.status)}
+          />
+          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+            {item.status.replace('_', ' ').toUpperCase()}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.requestDetails}>
+        <View style={styles.routeInfo}>
+          <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
+          <View style={styles.routeText}>
+            <Text style={styles.routeLabel}>Route</Text>
+            <Text style={styles.routeValue}>
+              {item.isConsolidated ? 'Multiple Locations' : `${item.fromLocation} → ${item.toLocation}`}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.productInfo}>
+          <MaterialCommunityIcons name="package-variant" size={20} color={colors.secondary} />
+          <View style={styles.productText}>
+            <Text style={styles.productLabel}>Product</Text>
+            <Text style={styles.productValue}>
+              {item.isConsolidated ? 'Mixed Products' : item.productType}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.weightInfo}>
+          <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.tertiary} />
+          <View style={styles.weightText}>
+            <Text style={styles.weightLabel}>Weight</Text>
+            <Text style={styles.weightValue}>{item.weight}</Text>
+          </View>
+        </View>
+
+        {item.isConsolidated && (
+          <View style={styles.consolidatedDetails}>
+            <Text style={styles.consolidatedTitle}>Consolidated Requests:</Text>
+            {item.consolidatedRequests.map((req, index) => (
+              <View key={req.id} style={styles.consolidatedItem}>
+                <Text style={styles.consolidatedItemText}>
+                  • {req.fromLocation} → {req.toLocation} ({req.productType}, {req.weight})
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {item.transporter && (
+          <View style={styles.transporterInfo}>
+            <MaterialCommunityIcons name="account-tie" size={20} color={colors.success} />
+            <View style={styles.transporterText}>
+              <Text style={styles.transporterLabel}>Transporter</Text>
+              <Text style={styles.transporterValue}>{item.transporter.name}</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.requestMeta}>
+          <Text style={styles.requestDate}>
+            Created: {new Date(item.createdAt).toLocaleDateString()}
+          </Text>
+          <Text style={styles.requestType}>
+            {item.type.charAt(0).toUpperCase() + item.type.slice(1)} Request
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.requestActions}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.trackButton]}
+          onPress={() => handleTrackRequest(item)}
+        >
+          <MaterialCommunityIcons name="map-marker-radius" size={18} color={colors.white} />
+          <Text style={styles.trackButtonText}>Track</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.mapButton]}
+          onPress={() => handleViewMap(item)}
+        >
+          <MaterialCommunityIcons name="map" size={18} color={colors.primary} />
+          <Text style={styles.mapButtonText}>Map</Text>
+        </TouchableOpacity>
+
+        {item.transporter && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.contactButton]}
+            onPress={() => Alert.alert('Contact', `Call ${item.transporter.name} at ${item.transporter.phone}`)}
+          >
+            <MaterialCommunityIcons name="phone" size={18} color={colors.secondary} />
+            <Text style={styles.contactButtonText}>Contact</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </Card>
+  );
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Manage Logistics</Text>
-      <Card style={styles.actionCard}>
-        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('BusinessRequest')}>
-          <MaterialCommunityIcons name="cube-send" size={28} color={colors.secondary} style={styles.actionIcon} />
-          <View>
-            <Text style={styles.actionTitle}>Request Transport</Text>
-            <Text style={styles.actionDesc}>Place instant, booking, or bulk requests</Text>
-          </View>
+    <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={[colors.primary, colors.primaryDark, colors.secondary]}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Manage Requests</Text>
+          <TouchableOpacity onPress={fetchRequests} style={styles.refreshButton}>
+            <Ionicons name="refresh" size={24} color={colors.white} />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'all' && styles.activeTab]}
+          onPress={() => setActiveTab('all')}
+        >
+          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>All</Text>
         </TouchableOpacity>
-        <Spacer size={16} />
-        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('Consolidation')}>
-          <FontAwesome5 name="layer-group" size={26} color={colors.primary} style={styles.actionIcon} />
-          <View>
-            <Text style={styles.actionTitle}>Consolidate Shipments</Text>
-            <Text style={styles.actionDesc}>Combine multiple shipments for efficiency</Text>
-          </View>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'instant' && styles.activeTab]}
+          onPress={() => setActiveTab('instant')}
+        >
+          <Text style={[styles.tabText, activeTab === 'instant' && styles.activeTabText]}>Instant</Text>
         </TouchableOpacity>
-        <Spacer size={16} />
-        <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('TrackingManagement')}>
-          <MaterialCommunityIcons name="truck-delivery-outline" size={28} color={colors.primary} style={styles.actionIcon} />
-          <View>
-            <Text style={styles.actionTitle}>Track & Manage</Text>
-            <Text style={styles.actionDesc}>View and manage all your shipments</Text>
-          </View>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'booking' && styles.activeTab]}
+          onPress={() => setActiveTab('booking')}
+        >
+          <Text style={[styles.tabText, activeTab === 'booking' && styles.activeTabText]}>Bookings</Text>
         </TouchableOpacity>
-      </Card>
-    </View>
+      </View>
+
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={styles.quickActionButton}
+          onPress={() => navigation.navigate('BusinessRequest')}
+        >
+          <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
+          <Text style={styles.quickActionText}>New Request</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.quickActionButton}
+          onPress={() => navigation.navigate('Consolidation')}
+        >
+          <FontAwesome5 name="layer-group" size={24} color={colors.white} />
+          <Text style={styles.quickActionText}>Consolidate</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Requests List */}
+      <FlatList
+        data={getFilteredRequests()}
+        renderItem={renderRequestItem}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="package-variant" size={64} color={colors.text.light} />
+            <Text style={styles.emptyTitle}>No requests found</Text>
+            <Text style={styles.emptySubtitle}>
+              {activeTab === 'all'
+                ? 'Create your first request to get started'
+                : `No ${activeTab} requests available`
+              }
+            </Text>
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={() => navigation.navigate('BusinessRequest')}
+            >
+              <Text style={styles.createButtonText}>Create Request</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
+
+      <LoadingSpinner
+        visible={loading}
+        message="Loading Requests..."
+        size="large"
+        type="pulse"
+        logo={true}
+      />
+    </SafeAreaView>
   );
 };
 
@@ -43,49 +384,316 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: 24,
-    alignItems: 'center',
   },
-  title: {
-    fontSize: fonts.size.xl,
-    fontWeight: 'bold',
-    color: colors.primary,
-    alignSelf: 'flex-start',
-    marginBottom: 18,
-    fontFamily: fonts.family.bold,
+  headerGradient: {
+    paddingTop: 10,
+    paddingBottom: 20,
   },
-  actionCard: {
-    width: '100%',
-    alignItems: 'stretch',
-    paddingVertical: 18,
-    backgroundColor: colors.surface,
-  },
-  actionBtn: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  headerTitle: {
+    fontSize: fonts.size.xl,
+    fontWeight: 'bold',
+    color: colors.white,
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  tabContainer: {
+    flexDirection: 'row',
     backgroundColor: colors.white,
+    marginHorizontal: spacing.lg,
+    marginTop: -10,
     borderRadius: 12,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
+    padding: 4,
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  activeTab: {
+    backgroundColor: colors.primary,
+  },
+  tabText: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.text.secondary,
+  },
+  activeTabText: {
+    color: colors.white,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    gap: spacing.md,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.secondary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 12,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 1,
+    elevation: 2,
   },
-  actionIcon: {
-    marginRight: 18,
+  quickActionText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    marginLeft: spacing.sm,
   },
-  actionTitle: {
+  listContainer: {
+    padding: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  requestCard: {
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+  },
+  requestHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  requestId: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  requestIdText: {
     fontSize: fonts.size.lg,
     fontWeight: 'bold',
     color: colors.primary,
-    fontFamily: fonts.family.bold,
   },
-  actionDesc: {
+  consolidatedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.secondary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: spacing.sm,
+  },
+  consolidatedText: {
+    color: colors.white,
+    fontSize: fonts.size.xs,
+    fontWeight: 'bold',
+    marginLeft: 2,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+  },
+  statusText: {
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  requestDetails: {
+    gap: spacing.sm,
+  },
+  routeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  routeText: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  routeLabel: {
     fontSize: fonts.size.sm,
     color: colors.text.secondary,
-    marginTop: 2,
+  },
+  routeValue: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  productInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  productText: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  productLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+  },
+  productValue: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  weightInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  weightText: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  weightLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+  },
+  weightValue: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  consolidatedDetails: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  consolidatedTitle: {
+    fontSize: fonts.size.sm,
+    fontWeight: 'bold',
+    color: colors.secondary,
+    marginBottom: spacing.xs,
+  },
+  consolidatedItem: {
+    marginBottom: 2,
+  },
+  consolidatedItemText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
+  },
+  transporterInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  transporterText: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  transporterLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+  },
+  transporterValue: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  requestMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.text.light + '20',
+  },
+  requestDate: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+  },
+  requestType: {
+    fontSize: fonts.size.sm,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  requestActions: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+  },
+  trackButton: {
+    backgroundColor: colors.primary,
+  },
+  trackButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  mapButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  mapButtonText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  contactButton: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+  },
+  contactButtonText: {
+    color: colors.secondary,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl * 2,
+  },
+  emptyTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+  },
+  emptySubtitle: {
+    fontSize: fonts.size.md,
+    color: colors.text.light,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  createButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+  },
+  createButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: fonts.size.md,
   },
 });
 

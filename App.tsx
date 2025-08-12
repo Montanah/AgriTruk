@@ -113,6 +113,9 @@ export default function App() {
             initialParams={{ broker: { name: user?.displayName || '', email: user?.email, phone: user?.phoneNumber || '' } }}
           />
           <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+          <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+          <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+          <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
         </>
       );
     } else {
@@ -120,6 +123,9 @@ export default function App() {
       screens = (
         <>
           <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+          <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+          <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+          <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
           <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
         </>
       );
@@ -150,7 +156,9 @@ export default function App() {
         <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
         <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-        <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+        <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+        <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
         <Stack.Screen name="TransporterBookingManagement" component={require('./src/screens/TransporterBookingManagementScreen').default} />
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
       </>
@@ -160,7 +168,9 @@ export default function App() {
     screens = (
       <>
         <Stack.Screen name="BusinessStack" component={require('./src/navigation/BusinessStackNavigator').default} />
-        <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+        <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+        <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
       </>
@@ -170,7 +180,9 @@ export default function App() {
     screens = (
       <>
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-        <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+        <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+        <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
         {/* Temporary: allow navigation for UI testing */}
@@ -182,7 +194,9 @@ export default function App() {
     screens = (
       <>
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-        <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
+        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+        <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+        <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         <Stack.Screen name="BookingCreation" component={require('./src/screens/BookingCreationScreen').default} />
         {/* Temporary: allow navigation for UI testing */}
