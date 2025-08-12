@@ -7,7 +7,7 @@ const options = {
     info: {
       title: "AgriTruk Auth API",
       version: "1.0.0",
-      description: "API documentation for AgriTruk authentication and user management",
+      description: "API documentation for Truk App",
     },
     servers: [{ url: "http://localhost:5000" }],
     components: {

@@ -159,7 +159,7 @@ exports.verifyEmailCode = async (req, res) => {
     
     // Check if phone also verified → set isVerified
     const updatedUser = await User.get(uid);
-    if (updatedUser.emailVerified && updatedUser.phoneVerified) {
+    if (updatedUser.emailVerified || updatedUser.phoneVerified) {
       await userRef.update({ isVerified: true });
     }
     
@@ -219,7 +219,7 @@ exports.verifyPhoneCode = async (req, res) => {
 
     // Check if email also verified → set isVerified
     const updatedUser = await User.get(uid);
-    if (updatedUser.emailVerified && updatedUser.phoneVerified) {
+    if (updatedUser.emailVerified || updatedUser.phoneVerified) {
       await userRef.update({ isVerified: true });
     }
 

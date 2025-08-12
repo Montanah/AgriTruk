@@ -308,4 +308,139 @@ router.put('/admin/:id', authenticate, requireRole('admin'), authorize(['manage_
  */
 router.delete('/admin/:id', authenticate, requireRole('admin'), authorize(['manage_subscriptions', 'super_admin']), subscriptionController.deleteSubscriptionPlan);
 
+
+// Subscriber
+/**
+ * @swagger
+ * /api/subscriptions/subscriber/:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Create a new subscriber
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             properties:
+ *               planId:
+ *                 type: string
+ *                 description: The ID of the plan to subscribe to
+ *               userId:
+ *                 type: string
+ *                 description: The ID of the user to subscribe
+ *     responses:
+ *       201:
+ *         description: Subscriber created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Subscriber'
+ *       401:
+ *         description: User not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Access denied
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/subscriber/', authenticateToken, requireRole(['transporter', 'broker']), subscriptionController.createSubscriber);
+
+/**
+ * @swagger
+ * /api/subscriptions/subscriber/{id}:
+ *   get:
+ *     tags: [Subscriptions]
+ *     summary: Get a subscriber
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Subscriber retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Subscriber'
+ *       401:
+ *         description: User not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Access denied
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/subscriber/:id', authenticateToken, requireRole(['transporter', 'broker']), subscriptionController.getSubscriber);
+
+/**
+ * @swagger
+ * /api/subscriptions/admin/subscribers/:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Get all subscribers
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: subcriberId
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Subscribers found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: integer
+ *                 subscribers:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Subscriber'
+ *       401:
+ *         description: User not authenticated
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/admin/subscribers/', authenticate, requireRole('admin'), authorize(['manage_subscriptions', 'super_admin']), 
+    async (req, res) => {
+        const { subcriberId} = req.query;
+
+        if (subcriberId) {
+            return subscriptionController.getSubscriber(req, res);
+        }
+        return subscriptionController.getAllSubscribers(req, res);
+    },
+);
 module.exports = router;

@@ -1,7 +1,8 @@
 const Subscribers = require('../models/Subscribers');
 const SubscriptionPlans = require('../models/SubscriptionsPlans');
 const PaymentService = require('../services/PaymentService');
-
+const { logAdminActivity, logActivity } = require('../utils/activityLogger');
+const Users = require('../models/User');
 exports.manageSubscription = async (req, res) => {
   try {
     const { action, planId } = req.body;
@@ -192,6 +193,65 @@ exports.getSubscriptionPlan = async (req, res) => {
     res.status(200).json({ success: true, message: 'Subscription plan retrieved', data: plan });
   } catch (error) {
     console.error('Subscription plan error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+exports.createSubscriber = async (req, res) => {
+  try {
+    const userId = req.body.userId || req.user.uid;
+    // check user exists
+    const user = await Users.get(userId);
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid user' });
+    }
+    const planId = req.body.planId;
+    // check plan exists
+    const plan = await SubscriptionPlans.getSubscriptionPlan(planId);
+    if (!plan) {
+      return res.status(400).json({ success: false, message: 'Invalid plan' });
+    }
+    const startDate = new Date(Date.now());
+    const endDate = new Date(startDate); // Create a new Date object
+    endDate.setMonth(endDate.getMonth() + plan.duration);
+    const isActive = true;
+    const paymentStatus = 'pending';
+    const transactionId = null;
+    const autoRenew = req.body.autoRenew || false;
+    const subData = { userId, planId, startDate, endDate, isActive, autoRenew, paymentStatus, transactionId, status: 'active' };
+    console.log(subData);
+    const subscriber = await Subscribers.create(subData);
+    await logActivity(userId, 'create_subscriber', req);
+    // await logAdminActivity(req.admin.adminId, 'create_subscriber', req);
+    res.status(201).json({ success: true, message: 'Subscriber created', data: subscriber, user, plan });
+  } catch (error) {
+    console.error('Subscriber error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+exports.getAllSubscribers = async (req, res) => {
+  try {
+    const subscribers = await Subscribers.getAll();
+    await logAdminActivity(req.admin.adminId, 'get_all_subscribers', req);
+    res.status(200).json({ success: true, message: 'Subscribers retrieved', data: subscribers });
+  } catch (error) {
+    console.error('Subscribers error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+exports.getSubscriber = async (req, res) => {
+  try {
+    //console.log(req.params);
+    //console.log(req.query.subcriberId);
+    const subscriberId = req.params.id || req.query.subcriberId;
+    console.log(subscriberId);
+    const subscriber = await Subscribers.get(subscriberId);
+    await logAdminActivity(req.admin.adminId, 'get_subscriber', req);
+    res.status(200).json({ success: true, message: 'Subscriber retrieved', data: subscriber });
+  } catch (error) {
+    console.error('Subscriber error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

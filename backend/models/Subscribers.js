@@ -7,13 +7,15 @@ const Subscribers = {
             if (!userId || !planId || !startDate || !endDate) {
             throw new Error('userId, planId, startDate, and endDate are required');
         }
+        const subscriberId = db.collection('subscribers').doc().id;
         const subscriber = {
-            subscriberId: db.collection('subscribers').doc().id,
+            subscriberId,
             userId,
             planId,
+            status: subscriberData.status || 'active',
             startDate: admin.firestore.Timestamp.fromDate(new Date(startDate)),
             endDate: admin.firestore.Timestamp.fromDate(new Date(endDate)),
-            isActive,
+            isActive: isActive !== undefined ? isActive : true,
             autoRenew: autoRenew || false,
             paymentStatus: paymentStatus || 'pending',
             transactionId: transactionId || null,
@@ -21,9 +23,16 @@ const Subscribers = {
             createdAt: admin.firestore.Timestamp.now(),
             updatedAt: admin.firestore.Timestamp.now()
         },
-        subscriberRef = db.collection('subscribers').doc(subscriberData.subscriberId);
+        subscriberRef = db.collection('subscribers').doc(subscriberId);
+        console.log(subscriberData);
         await subscriberRef.set(subscriber);
-        return { id: subscriber.subscriberId, ...subscriber };
+        return { id: subscriberId, 
+            ...subscriber,
+            startDate: subscriber.startDate.toDate(),
+            endDate: subscriber.endDate.toDate(),
+            createdAt: subscriber.createdAt.toDate(),
+            updatedAt: subscriber.updatedAt.toDate()
+         };
     },
 
     async update(subscriberId, updates) {
