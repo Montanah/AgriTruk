@@ -23,7 +23,7 @@ const { swaggerUi, specs } = require('./config/swagger');
 const requestMetadata = require('./middlewares/requestMetadata');
 
 //app.use(helmet());
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -33,7 +33,10 @@ app.use(
     rateLimit({
         windowMs: 15 * 60 * 1000,
         max: 100,
-        message: 'Too many requests, please try again later'
+        message: 'Too many requests, please try again later',
+        validate: {
+            trustProxy: false
+        }
     })
 );
 
