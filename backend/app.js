@@ -23,6 +23,7 @@ const { swaggerUi, specs } = require('./config/swagger');
 const requestMetadata = require('./middlewares/requestMetadata');
 
 //app.use(helmet());
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
