@@ -412,7 +412,7 @@ router.get('/brokers', authenticateToken, requireRole('admin'), authorize(['view
  * /api/admin/permissions:
  *   get:
  *     summary: Get all permissions
- *     tags: [Admin Views]
+ *     tags: [Admin Management]
  *     security:
  *       - bearerAuth: []
  *     responses:
