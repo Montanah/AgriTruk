@@ -2,8 +2,21 @@ const Admin = require('../models/Admin');
 const admin = require('../config/firebase');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const Permission = require('../models/Permission');
+const sendEmail = require('../utils/sendEmail');
+const { generateRandomPassword } = require('./companyController');
 
 const AdminManagementController = {
+  //generate password
+  async generatePassword(req, res) {
+    const length = 10;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;  
+  },
   // Admin Login
   // async login(req, res) {
   //   try {
@@ -169,13 +182,33 @@ const AdminManagementController = {
   // Create Admin (Super Admin only)
   async createAdmin(req, res) {
     try {
-      const { name, email, phone, permissions, password } = req.body;
+      const { name, email, phone, permissions } = req.body;
       
-      if (!name || !email || !permissions) {
+      if (!name || !email || !permissions || !phone) {
         return res.status(400).json({
           success: false,
           message: 'Name, email, and permissions are required'
         });
+      }
+
+      //check permissions
+      const allValidPermissions = Object.values(Permission);
+      // console.log(allValidPermissions);
+      // console.log(permissions);
+      let finalPermissions = [];
+      
+      // Process permissions array
+      const inputPermissions = Array.isArray(permissions) ? permissions : [permissions];
+      
+      for (const perm of inputPermissions) {
+        if (allValidPermissions.includes(perm)) {
+          finalPermissions.push(perm);
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid permission or permission group: ${perm}`
+          });
+        }
       }
 
       // Check if admin already exists
@@ -191,14 +224,15 @@ const AdminManagementController = {
         });
       }
 
+      const password = generateRandomPassword();
       // Create Firebase user
       let firebaseUser;
       try {
         firebaseUser = await admin.auth().createUser({
           email,
-          password,
           displayName: name,
-          emailVerified: true
+          password,
+          emailVerified: false
         });
       } catch (firebaseError) {
         return res.status(400).json({
@@ -207,18 +241,49 @@ const AdminManagementController = {
         });
       }
 
+      finalPermissions = [...new Set(finalPermissions)];
+
       // Create admin record
       const adminData = {
+        adminId: firebaseUser.uid,
         userId: firebaseUser.uid,
         name,
         email,
         phone: phone || null,
-        permissions: Array.isArray(permissions) ? permissions : [permissions],
+        permissions: finalPermissions,
         status: 'active'
       };
 
       const newAdmin = await Admin.create(adminData);
 
+      //send password reset email
+      try {
+        const link = await admin.auth().generatePasswordResetLink(email);
+
+        await sendEmail ({
+          to: email,
+          subject: 'Password Reset',
+          text: `Click the following link to reset your password: ${link}`,
+          html: `<p>Click the following link to reset your password: <a href="${link}">${link}</a></p>`
+        });
+        // await sendEmail({
+        //   to: email,
+        //   subject: 'Your New Admin Account',
+        //   text: `Your temporary password is: ${password}\nPlease change it after logging in.`,
+        //   html: `
+        //     <p>Your temporary password is: <strong>${password}</strong></p>
+        //     <p>Please change it after logging in.</p>
+        //   `
+        // });
+        
+      } catch (emailError) {
+        await admin.auth().deleteUser(firebaseUser.uid);
+        await Admin.hardDelete(newAdmin.adminId);
+        return res.status(500).json({
+          success: false,
+          message: `Failed to send password reset email: ${emailError.message}`,
+        });
+      }
       res.status(201).json({
         success: true,
         message: 'Admin created successfully',
@@ -466,7 +531,7 @@ const AdminManagementController = {
         });
       }
 
-      const updatedAdmin = await Admin.update(req.admin.adminId, filteredUpdates);
+      const updatedAdmin = await Admin.update(req.user.uid, filteredUpdates);
       
       res.json({
         success: true,
@@ -485,7 +550,7 @@ const AdminManagementController = {
 
   async logout(req, res) {
     try {
-      await Admin.update(req.admin.adminId, { lastLogin: admin.firestore.Timestamp.now() });
+      await Admin.update(req.user.uid, { lastLogin: admin.firestore.Timestamp.now() });
       res.json({ success: true, message: 'Logged out successfully' });
     } catch (error) {
       console.error('Logout error:', error);

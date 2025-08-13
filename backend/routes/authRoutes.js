@@ -5,7 +5,7 @@ const { requireRole } = require("../middlewares/requireRole");
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const loadUserProfile = require("../middlewares/loadUserProfile");
 const multer = require("multer");
-const { authorize, authenticate } = require("../middlewares/adminAuth");
+const { authorize } = require("../middlewares/adminAuth");
 const upload = multer({ dest: "uploads/" }); 
 // Swagger documentation
 /**
@@ -377,7 +377,7 @@ router.get("/user/role", authenticateToken, authController.getUserRole);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete("/delete", authenticate, requireRole('admin'), authorize(['manage_users', 'super_admin']), authController.deactivateAccount);
+router.delete("/delete", authenticateToken, requireRole('admin'), authorize(['manage_users', 'super_admin']), authController.deactivateAccount);
 
 /**
  * @swagger

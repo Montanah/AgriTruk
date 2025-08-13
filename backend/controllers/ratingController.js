@@ -41,7 +41,7 @@ exports.getTransporterRatings = async (req, res) => {
     const ratings = await Rating.getAllForTransporter(transporterId);
     const avg = await Rating.getAverageForTransporter(transporterId);
 
-    await logAdminActivity(req.admin.adminId, "get_transporter_ratings", req);
+    await logAdminActivity(req.user.uid, "get_transporter_ratings", req);
 
     res.status(200).json({ averageRating: avg, ratings });
   } catch (err) {

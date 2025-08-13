@@ -1,4 +1,5 @@
 const admin = require("../config/firebase");
+const Admin = require("../models/Admin");
 const User = require("../models/User");
 
 const requireRole = (allowedRoles) => {
@@ -9,19 +10,26 @@ const requireRole = (allowedRoles) => {
       // console.log("Checking user role for UID:", uid);
       if (!uid) return res.status(401).json({ message: "User not authenticated" });
 
-      // const userDoc = await admin.firestore().collection("users").doc(uid).get() || await admin.firestore().collection("admins").doc(uid).get();
-      let userDoc = await admin.firestore().collection("users").doc(uid).get();
-      if (!userDoc.exists) {
-        userDoc = await admin.firestore().collection("admins").doc(uid).get();
-      }
-      
-      if (!userDoc.exists) {
-        return res.status(404).json({ message: "User profile not found" });
-      }
+      let userRole;
+      let userData;
 
-      //const userRole = userDoc.data().role || "user";
-      const data = userDoc.data();
-      const userRole = data?.role;
+      let userDoc = await admin.firestore().collection("users").doc(uid).get();
+      
+      if (userDoc.exists) {
+        userData = userDoc.data();
+        userRole = userData?.role;
+      } else {
+        // If not found in users, check admins
+        const adminData = await Admin.getByUserId(uid);
+        // console.log("Admin:", adminData);
+        
+        if (adminData) {
+          userData = adminData;
+          userRole = adminData.role;
+        } else {
+          return res.status(404).json({ message: "User profile not found" });
+        }
+      }
 
       if (!Array.isArray(allowedRoles)) {
         allowedRoles = [allowedRoles];  

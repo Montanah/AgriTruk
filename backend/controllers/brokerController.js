@@ -332,10 +332,10 @@ exports.getAllBrokers = async (req, res) => {
   try {
     const brokers = await Broker.getAll();
     
-    await logAdminActivity(req.admin.adminId, 'get_all_brokers', req);
+    await logAdminActivity(req.user.uid, 'get_all_brokers', req);
 
     const notificationData = {
-      userId: req.admin.adminId,
+      userId: req.user.uid,
       userType: 'admin',
       type: 'get_all_brokers',
       message: 'Brokers retrieved successfully',
@@ -397,14 +397,15 @@ exports.deleteClient = async (req, res) => {
     const { clientId } = req.params;
     await Client.hardDelete(clientId);
 
-    await logAdminActivity(req.admin.adminId, 'delete_client', req);
+    await logAdminActivity(req.user.uid, 'delete_client', req);
 
     const notificationData = {
-      userId: req.admin.adminId,
+      userId: req.user.uid,
       userType: 'admin',
       type: 'delete_client',
       message: 'Client deleted successfully',
     }
+    await Notification.create(notificationData);
     res.json({
       success: true,
       message: 'Client deleted successfully',

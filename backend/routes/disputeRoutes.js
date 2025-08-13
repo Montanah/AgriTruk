@@ -6,14 +6,11 @@ const {
   createDispute,
   getDispute,
   updateDispute,
-  resolveDispute,
   getDisputesByBookingId,
-  getDisputesByStatus,
   getDisputesByOpenedBy,
   deleteDispute,
-  getAllDisputes
 } = require('../controllers/disputeController');
-const { authorize, authenticate } = require("../middlewares/adminAuth");
+const { authorize } = require("../middlewares/adminAuth");
 
 /**
  * @swagger
@@ -238,6 +235,6 @@ router.get('/openedBy/:openedBy', authenticateToken, requireRole(['user', 'trans
  *       500:
  *         description: Internal server error
  */
-router.delete('/:disputeId', authenticate, requireRole('admin'), authorize(['manage_disputes', 'super_admin']), deleteDispute);
+router.delete('/:disputeId', authenticateToken, requireRole('admin'), authorize(['manage_disputes', 'super_admin']), deleteDispute);
 
 module.exports = router;

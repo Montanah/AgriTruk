@@ -220,7 +220,7 @@ exports.getAllTransporters = async (req, res) => {
   console.log('Fetching all transporters');
   try {
     const transporters = await Transporter.getAll();
-    await logAdminActivity(req.admin.adminId, 'get_all_transporters', req);
+    await logAdminActivity(req.user.uid, 'get_all_transporters', req);
 
     res.status(200).json({
       message: "Transporters retrieved successfully",
@@ -262,7 +262,7 @@ exports.getAvailableTransporters = async (req, res) => {
   try {
     const available = await Transporter.getByAvailability(true);
 
-    // await logAdminActivity(req.admin.adminId, 'get_available_transporters', req);
+    // await logAdminActivity(req.user.uid, 'get_available_transporters', req);
     await logActivity(req.user.uid, 'get_available_transporters', req);
 
     res.status(200).json({ transporters: available });
@@ -283,7 +283,7 @@ exports.updateRating = async (req, res) => {
 
     const updated = await Transporter.update(transporterId, { rating });
 
-    await logAdminActivity(req.admin.adminId, 'update_rating', req);
+    await logAdminActivity(req.user.uid, 'update_rating', req);
     res.status(200).json({ message: 'Rating updated', transporter: updated });
   } catch (error) {
     console.error('Update rating error:', error);

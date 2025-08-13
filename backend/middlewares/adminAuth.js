@@ -67,9 +67,14 @@ const authenticate = async (req, res, next) => {
 
 // Authorization middleware - check for specific permissions
 const authorize = (requiredPermissions = []) => {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     try {
-      const adminPermissions = req.admin.permissions || [];
+     
+      const userId = req.user.user_id;
+
+      const adminData = await Admin.getByUserId(userId);
+
+      const adminPermissions = adminData.permissions || [];
       
       // Super admin has all permissions
       if (adminPermissions.includes('super_admin')) {
@@ -100,10 +105,14 @@ const authorize = (requiredPermissions = []) => {
 };
 
 // Super admin only middleware
-const requireSuperAdmin = (req, res, next) => {
+// const requireSuperAdmin = (req, res, next) => {
+async function requireSuperAdmin(req, res, next) {
   try {
-    const adminPermissions = req.admin.permissions || [];
-    
+    const userId = req.user.user_id;
+
+    const adminData = await Admin.getByUserId(userId);
+
+    const adminPermissions = adminData.permissions || [];
     if (!adminPermissions.includes('super_admin')) {
       return res.status(403).json({
         success: false,
@@ -122,11 +131,12 @@ const requireSuperAdmin = (req, res, next) => {
 };
 
 // Self or super admin middleware (for profile operations)
-const requireSelfOrSuperAdmin = (req, res, next) => {
+const requireSelfOrSuperAdmin = async (req, res, next) => {
   try {
     const { adminId } = req.params;
-    const currentAdminId = req.admin.adminId;
-    const adminPermissions = req.admin.permissions || [];
+    const currentAdminId = req.user.user_id;
+    const adminData = await Admin.getByUserId(currentAdminId);
+    const adminPermissions = adminData.permissions || [];
     
     // Allow if it's the same admin or if current admin is super admin
     if (adminId === currentAdminId || adminPermissions.includes('super_admin')) {

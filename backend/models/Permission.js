@@ -1,37 +1,47 @@
-const admin = require("../config/firebase");
-const db = admin.firestore();
-
 const Permission = {
-  async create(permissionData) {
-    const permissionId = permissionData.permissionId || db.collection('permissions').doc().id;
-    const permission = {
-      permissionId,
-      name: permissionData.name,
-      description: permissionData.description || '',
-      status: permissionData.status || 'active',
-      createdAt: admin.firestore.Timestamp.now()
-    };
-    await db.collection('permissions').doc(permissionId).set(permission);
-    return permission;
-  },
-  async get(permissionId) {
-    const doc = await db.collection('permissions').doc(permissionId).get();
-    if (!doc.exists) throw new Error('Permission not found');
-    return { permissionId: doc.id, ...doc.data() };
-  },
-  async getAll() {
-    const snapshot = await db.collection('permissions').get();
-    return snapshot.docs.map(doc => ({ permissionId: doc.id, ...doc.data() }));
-  },
-  async update(permissionId, updates) {
-    const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
-    await db.collection('permissions').doc(permissionId).update(updated);
-    return this.get(permissionId);
-  },
-  async delete(permissionId) {
-    await db.collection('permissions').doc(permissionId).update({ status: 'inactive', updatedAt: admin.firestore.Timestamp.now() });
-    return { message: 'Permission marked as inactive' };
-  }
-};
+  //Users
+  "View Users": "view_users",
+  "Manage Users": "manage_users" ,
+
+  //Admin
+  "View Admins": "view_admins",
+  "Manage Admins": "manage_admins",
+
+  //Company
+  "View Companies": "view_companies",
+  "Manage Companies": "manage_companies",
+
+  //Transporter
+  "View Transporters": "view_transporters",
+  "Manage Transporters": "manage_transporters",
+
+  //Vehicle
+  "View Vehicles": "view_vehicles",
+  "Manage Vehicles": "manage_vehicles",
+
+  //Booking
+  "View Bookings": "view_bookings",
+  "Manage Bookings": "manage_bookings",
+
+  //disputes
+  "View Disputes": "view_disputes",
+  "Manage Disputes": "manage_disputes",
+
+  //Settings
+  "View Settings": "view_settings",
+  "Manage Settings": "manage_settings",
+
+  //Broker
+  "View Brokers": "view_brokers",
+  "Manage Brokers": "manage_brokers",
+
+  //Reports
+  "View Reports": "view_reports",
+  "Manage Reports": "manage_reports",
+
+  //superAdmin
+  "Super Admin":"super_admin",
+  
+}
 
 module.exports = Permission;

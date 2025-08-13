@@ -2,13 +2,8 @@ const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminManagementController');
 const AnalyticsController = require('../controllers/analyticsController');
-const {
-  authenticate,
-  authorize,
-  requireSuperAdmin,
-  requireSelfOrSuperAdmin,
-  loginRateLimit,
-} = require('../middlewares/adminAuth');
+const { authorize } = require('../middlewares/adminAuth');
+const { authenticateToken } = require('../middlewares/authMiddleware');
 
 /**
  * @swagger
@@ -42,7 +37,7 @@ const {
  *       500:
  *         description: Server error
  */
-router.post('/analytics/:date', authorize(['manage_analytics', 'super_admin']), AnalyticsController.createAnalytics);
+router.post('/analytics/:date', authenticateToken, authorize(['manage_analytics', 'super_admin']), AnalyticsController.createAnalytics);
 
 /**
  * @swagger
@@ -67,7 +62,7 @@ router.post('/analytics/:date', authorize(['manage_analytics', 'super_admin']), 
  *       500:
  *         description: Server error
  */
-router.get('/analytics/:date', authorize(['view_analytics', 'super_admin']), AnalyticsController.getAnalytics);
+router.get('/analytics/:date', authenticateToken, authorize(['view_analytics', 'super_admin']), AnalyticsController.getAnalytics);
 
 /**
  * @swagger
@@ -125,7 +120,7 @@ router.get('/analytics/:date', authorize(['view_analytics', 'super_admin']), Ana
  *       500:
  *         description: Server error
  */
-router.put('/analytics/:date', authorize(['manage_analytics', 'super_admin']), AnalyticsController.updateAnalytics);
+router.put('/analytics/:date', authenticateToken, authorize(['manage_analytics', 'super_admin']), AnalyticsController.updateAnalytics);
 
 /**
  * @swagger
@@ -156,6 +151,6 @@ router.put('/analytics/:date', authorize(['manage_analytics', 'super_admin']), A
  *       500:
  *         description: Server error
  */
-router.get('/analytics', authorize(['view_analytics', 'super_admin']), AnalyticsController.getAnalyticsRange);
+router.get('/analytics', authenticateToken, authorize(['view_analytics', 'super_admin']), AnalyticsController.getAnalyticsRange);
 
 module.exports = router;

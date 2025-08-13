@@ -201,7 +201,7 @@ router.delete('/deactivate/:clientId', authenticateToken, requireRole('broker'),
  *       500:
  *         description: Server error
  */
-router.delete('/clients/:clientId', authenticate, requireRole('admin'), authorize(['manage_brokers', 'super_admin']), BrokerController.deleteClient);
+router.delete('/clients/:clientId', authenticateToken, requireRole('admin'), authorize(['manage_brokers', 'super_admin']), BrokerController.deleteClient);
 
 /**
  * @swagger

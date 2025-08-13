@@ -222,7 +222,7 @@ exports.createSubscriber = async (req, res) => {
     console.log(subData);
     const subscriber = await Subscribers.create(subData);
     await logActivity(userId, 'create_subscriber', req);
-    // await logAdminActivity(req.admin.adminId, 'create_subscriber', req);
+    // await logAdminActivity(req.user.uid, 'create_subscriber', req);
     res.status(201).json({ success: true, message: 'Subscriber created', data: subscriber, user, plan });
   } catch (error) {
     console.error('Subscriber error:', error);
@@ -233,7 +233,7 @@ exports.createSubscriber = async (req, res) => {
 exports.getAllSubscribers = async (req, res) => {
   try {
     const subscribers = await Subscribers.getAll();
-    await logAdminActivity(req.admin.adminId, 'get_all_subscribers', req);
+    await logAdminActivity(req.user.uid, 'get_all_subscribers', req);
     res.status(200).json({ success: true, message: 'Subscribers retrieved', data: subscribers });
   } catch (error) {
     console.error('Subscribers error:', error);
@@ -248,7 +248,7 @@ exports.getSubscriber = async (req, res) => {
     const subscriberId = req.params.id || req.query.subcriberId;
     console.log(subscriberId);
     const subscriber = await Subscribers.get(subscriberId);
-    await logAdminActivity(req.admin.adminId, 'get_subscriber', req);
+    await logAdminActivity(req.user.uid, 'get_subscriber', req);
     res.status(200).json({ success: true, message: 'Subscriber retrieved', data: subscriber });
   } catch (error) {
     console.error('Subscriber error:', error);

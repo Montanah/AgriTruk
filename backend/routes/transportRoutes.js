@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole }= require("../middlewares/requireRole");
-const { authenticate, authorize } = require("../middlewares/adminAuth");
+const { authorize } = require("../middlewares/adminAuth");
 
 const {
   createTransporter,
@@ -23,14 +23,6 @@ const {
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); 
 
-// Middleware for multiple files
-// const uploadFields = upload.fields([
-//   { name: 'dlFile', maxCount: 1 },          
-//   { name: 'idFile', maxCount: 1 },           
-//   { name: 'insuranceFile', maxCount: 1 },    
-//   { name: 'profilePhoto', maxCount: 1 },    
-//   { name: 'vehiclePhoto', maxCount: 5 }      
-// ]);
 const uploadAny = upload.any();
 
 /**
@@ -133,7 +125,6 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, creat
  *         description: Internal server error
  */
 router.get('/available/list', authenticateToken, requireRole(['admin', 'shipper']), getAvailableTransporters);
-
 
 /**
  * @swagger
@@ -301,7 +292,7 @@ router.delete('/:transporterId', authenticateToken, requireRole('admin'), delete
  *       500:
  *         description: Internal server error
  */
-router.put('/:transporterId/approve', authenticate, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), approveTransporter);
+router.put('/:transporterId/approve', authenticateToken, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), approveTransporter);
 
 /**
  * @swagger
@@ -346,7 +337,7 @@ router.put('/:transporterId/approve', authenticate, requireRole('admin'), author
  *       500:
  *         description: Internal server error
  */
-router.put('/:transporterId/reject', authenticate, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), rejectTransporter);
+router.put('/:transporterId/reject', authenticateToken, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), rejectTransporter);
 
 /**
  * @swagger
@@ -416,5 +407,5 @@ router.patch('/:transporterId/availability', authenticateToken, requireRole('tra
  *       500:
  *         description: Internal server error
  */
-router.patch('/:transporterId/rating', authenticate, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), updateRating);
+router.patch('/:transporterId/rating', authenticateToken, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), updateRating);
 module.exports = router;

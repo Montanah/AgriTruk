@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminManagementController');
-const {getAllBookings, 
+const {getAllBookings, getPermissions,
   getAllUsers, 
   searchUsers 
 } = require('../controllers/adminController');
@@ -242,6 +242,7 @@ router.get('/reports/view', authorize(['view_reports', 'super_admin']), (req, re
  * 
  */
 router.get('/bookings', authenticateToken, authorize(['view_bookings', 'super_admin']), getAllBookings);
+
 /**
  * @swagger
  * /api/admin/users/search:
@@ -341,7 +342,6 @@ router.get('/users', authenticateToken, authorize(['manage_users', 'view_users',
  */
 router.get('/companies', authenticateToken, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllCompanies);
 
-
 /**
  * @swagger
  * /api/admin/transporters:
@@ -391,7 +391,6 @@ router.get('/companies', authenticateToken, requireRole('admin'), authorize(['vi
  */
 router.get('/transporters', authenticateToken, requireRole(['admin']), authorize(['view_transporters', 'manage_transporters', 'super_admin']),  transporterController.getAllTransporters);
 
-
 /**
  * @swagger
  * /api/admin/brokers:
@@ -407,6 +406,22 @@ router.get('/transporters', authenticateToken, requireRole(['admin']), authorize
  *         description: Server error
  */
 router.get('/brokers', authenticateToken, requireRole('admin'), authorize(['view_brokers', 'manage_brokers', 'super_admin']), brokerController.getAllBrokers);
+
+/**
+ * @swagger
+ * /api/admin/permissions:
+ *   get:
+ *     summary: Get all permissions
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Permissions retrieved successfully
+ *       500:
+ *         description: Server error
+ */
+router.get('/permissions', authenticateToken, requireRole('admin'), authorize(['super_admin']), getPermissions);
 /**
  * @swagger
  * /api/admin/disputes/status/{status}:

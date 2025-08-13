@@ -83,7 +83,7 @@ exports.getDispute = async (req, res) => {
     const dispute = await Dispute.get(disputeId);
     if (!dispute) return res.status(404).json({ message: 'Dispute not found' });
 
-    await logAdminActivity(req.admin.adminId, 'get_dispute', req);
+    await logAdminActivity(req.user.uid, 'get_dispute', req);
 
     res.status(200).json(dispute);
   } catch (err) {
@@ -101,7 +101,7 @@ exports.updateDispute = async (req, res) => {
     }
     const updatedDispute = await Dispute.update(disputeId, updates);
 
-    await logAdminActivity(req.admin.adminId, 'update_dispute', req);
+    await logAdminActivity(req.user.uid, 'update_dispute', req);
    
     res.status(200).json({ message: 'Dispute updated successfully', dispute: updatedDispute });
   } catch (err) {
@@ -124,7 +124,7 @@ exports.resolveDispute = async (req, res) => {
       resolvedBy: req.user.uid,
     };
     const resolvedDispute = await Dispute.resolve(disputeId, resolutionData);
-    await logAdminActivity(req.admin.adminId, 'resolve_dispute', req);
+    await logAdminActivity(req.user.uid, 'resolve_dispute', req);
 
     res.status(200).json({ message: 'Dispute resolved successfully', dispute: resolvedDispute });
   } catch (err) {
@@ -144,7 +144,7 @@ exports.getDisputesByBookingId = async (req, res) => {
     const { bookingId } = req.params;
     const disputes = await Dispute.getByBookingId(bookingId);
 
-    await logAdminActivity(req.admin.adminId, 'get_disputes_by_booking_id', req);
+    await logAdminActivity(req.user.uid, 'get_disputes_by_booking_id', req);
     res.status(200).json(disputes);
   } catch (err) {
     console.error('Get disputes by booking ID error:', err);
@@ -157,7 +157,7 @@ exports.getDisputesByStatus = async (req, res) => {
     const { status } = req.params;
     const disputes = await Dispute.getByStatus(status);
 
-    await logAdminActivity(req.admin.adminId, 'get_disputes_by_status', req);
+    await logAdminActivity(req.user.uid, 'get_disputes_by_status', req);
     res.status(200).json(disputes);
   } catch (err) {
     console.error('Get disputes by status error:', err);
@@ -170,7 +170,7 @@ exports.getDisputesByOpenedBy = async (req, res) => {
     const { openedBy } = req.params;
     const disputes = await Dispute.getByOpenedBy(openedBy);
 
-    await logAdminActivity(req.admin.adminId, 'get_disputes_by_opened_by', req);
+    await logAdminActivity(req.user.uid, 'get_disputes_by_opened_by', req);
     res.status(200).json(disputes);
   } catch (err) {
     console.error('Get disputes by openedBy error:', err);
@@ -182,7 +182,7 @@ exports.deleteDispute = async (req, res) => {
   try {
     const { disputeId } = req.params;
     await Dispute.delete(disputeId);
-    await logAdminActivity(req.admin.adminId, 'delete_dispute', req);
+    await logAdminActivity(req.user.uid, 'delete_dispute', req);
     res.status(200).json({ message: 'Dispute marked as deleted successfully' });
   } catch (err) {
     console.error('Delete dispute error:', err);
@@ -197,7 +197,7 @@ exports.deleteDispute = async (req, res) => {
 exports.getAllDisputes = async (req, res) => {
   try {
     const disputes = await Dispute.getAll();
-    await logAdminActivity(req.admin.adminId, 'get_all_disputes', req);
+    await logAdminActivity(req.user.uid, 'get_all_disputes', req);
     res.status(200).json(disputes);
   } catch (err) {
     console.error('Get all disputes error:', err);

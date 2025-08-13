@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/requireRole');
-const { authorize, authenticate } = require('../middlewares/adminAuth');
+const { authorize } = require('../middlewares/adminAuth');
 const {
   createAgriBooking,
   getAgriBookings,
@@ -250,7 +250,7 @@ router.patch('/:bookingId', authenticateToken, async (req, res) => {
 });
 
 // DELETE: /api/agri/:bookingId
-router.delete('/:bookingId', authenticate, requireRole('admin'), authorize(['manage_bookings', 'super_admin']), (req, res) => {
+router.delete('/:bookingId', authenticateToken, requireRole('admin'), authorize(['manage_bookings', 'super_admin']), (req, res) => {
   const { bookingId } = req.params;
   if (!bookingId) {
     return res.status(400).json({ success: false, message: 'Booking ID is required' });

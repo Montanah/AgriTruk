@@ -21,7 +21,7 @@ exports.approveTransporter = async (req, res) => {
     }
 
     const updated = await Transporter.approve(transporterId);
-    await logAdminActivity(req.admin.adminId, 'approve_transporter', req,  { type: 'transporter', id: transporterId });
+    await logAdminActivity(req.user.uid, 'approve_transporter', req,  { type: 'transporter', id: transporterId });
     res.status(200).json({ message: 'Transporter approved', updated });
   } catch (error) {
     console.error('Approve transporter error:', error);
@@ -41,7 +41,7 @@ exports.rejectTransporter = async (req, res) => {
 
     const result = await Transporter.reject(transporterId, reason); 
 
-    await logAdminActivity(req.admin.adminId, 'reject_transporter', req,  { type: 'transporter', id: transporterId });
+    await logAdminActivity(req.user.uid, 'reject_transporter', req,  { type: 'transporter', id: transporterId });
     
     res.status(200).json({ message: 'Transporter rejected', result });
   } catch (err) {
@@ -53,7 +53,7 @@ exports.rejectTransporter = async (req, res) => {
 exports.deleteTransporter = async (req, res) => {
   try {
     await Transporter.delete(req.params.transporterId);
-    await logAdminActivity(req.admin.adminId, 'delete_transporter', req, { type: 'transporter', id: transporterId });
+    await logAdminActivity(req.user.uid, 'delete_transporter', req, { type: 'transporter', id: transporterId });
     res.status(200).json({ message: 'Transporter deleted successfully' });
   } catch (error) {
     console.error('Delete transporter error:', error);
@@ -107,9 +107,9 @@ exports.getAllBookings = async (req, res) => {
       ...agriBookings.map(booking => ({ ...booking, type: 'agri' })),
       ...cargoBookings.map(booking => ({ ...booking, type: 'cargo' }))
     ];
-    console.log(req.admin.adminId);
+    console.log(req.user.uid);
     try {
-      await logAdminActivity(req.admin.adminId, 'get_all_bookings', req);
+      await logAdminActivity(req.user.uid, 'get_all_bookings', req);
     } catch (error) {
       console.error('Admin activity log error:', error);  
     }
@@ -141,7 +141,7 @@ exports.searchUsers = async (req, res) => {
 
     const results = await User.search(query, limit);
 
-    await logAdminActivity(req.admin.adminId, 'search_users', req, { query });
+    await logAdminActivity(req.user.uid, 'search_users', req, { query });
     
     res.status(200).json({
       success: true,
@@ -160,10 +160,22 @@ exports.searchUsers = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.getAllUsers();
-    await logAdminActivity(req.admin.adminId, 'get_all_users', req);
+    await logAdminActivity(req.user.uid, 'get_all_users', req);
     res.status(200).json({ message: 'All users retrieved successfully', users });
   } catch (error) {
     console.error('Get all users error:', error);
     res.status(500).json({ message: 'Failed to retrieve all users' });
+  }
+};
+
+exports.getPermissions = async (req, res) => {
+  try {
+    const permissions = Object.values(Permission);
+    // const permissions = await Permission.getAllPermissions();
+    await logAdminActivity(req.user.uid, 'get_all_permissions', req);
+    res.status(200).json({ message: 'All permissions retrieved successfully', permissions });
+  } catch (error) {
+    console.error('Get all permissions error:', error);
+    res.status(500).json({ message: 'Failed to retrieve all permissions' });
   }
 };

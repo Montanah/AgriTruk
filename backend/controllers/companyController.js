@@ -9,7 +9,7 @@ const fs = require('fs');
 const { uploadImage } = require('../utils/upload');
 const admin = require("../config/firebase");
 
-const generateRandomPassword = () => {
+exports.generateRandomPassword = () => {
   const length = 10;
   const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
   let password = "";
@@ -179,7 +179,7 @@ exports.approveCompany = async (req, res) => {
       html: `<p>Your Company has been approved</p>`
     });
 
-    await logAdminActivity(req.admin.adminId, 'approve_company', req);
+    await logAdminActivity(req.user.uid, 'approve_company', req);
 
     await Notification.create({
       type: "Approved Company",
@@ -219,7 +219,7 @@ exports.rejectCompany = async (req, res) => {
       html: `<p>Your company has been rejected because of: <strong>${reason}</strong></p>`
     });
 
-    await logAdminActivity(req.admin.adminId, 'reject_company', req);
+    await logAdminActivity(req.user.uid, 'reject_company', req);
 
     await Notification.create({
       type: "Rejected Company",
@@ -241,7 +241,8 @@ exports.rejectCompany = async (req, res) => {
 exports.getAllCompanies = async (req, res) => {
   try {
     const companies = await Company.getAll();
-    await logAdminActivity(req.admin.adminId, 'get_all_companies', req);
+
+    await logAdminActivity(req.user.uid, 'get_all_companies', req);
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get all companies error:', err);
@@ -253,7 +254,7 @@ exports.deleteCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
     await Company.delete(companyId);
-    await logAdminActivity(req.admin.adminId, 'delete_company', req);
+    await logAdminActivity(req.user.uid, 'delete_company', req);
     res.status(200).json({ message: 'Company deleted successfully' });
   } catch (err) {
     console.error('Delete company error:', err);
@@ -270,7 +271,7 @@ exports.getCompaniesByTransporter = async (req, res) => {
     const { transporterId } = req.params;
     const companies = await Company.getByTransporter(transporterId);
 
-    // await logAdminActivity(req.admin.adminId, 'get_companies_by_transporter', req);
+    // await logAdminActivity(req.user.uid, 'get_companies_by_transporter', req);
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get companies by transporter error:', err);
@@ -283,7 +284,7 @@ exports.getCompaniesByStatus = async (req, res) => {
     const { status } = req.params;
     const companies = await Company.getByStatus(status);
 
-    await logAdminActivity(req.admin.adminId, 'get_companies_by_status', req);
+    await logAdminActivity(req.user.uid, 'get_companies_by_status', req);
 
     res.status(200).json(companies);
   } catch (err) {
@@ -297,7 +298,7 @@ exports.getCompaniesByTransporterAndStatus = async (req, res) => {
     const { transporterId, status } = req.params;
     const companies = await Company.getByTransporterAndStatus(transporterId, status);
 
-    await logAdminActivity(req.admin.adminId, 'get_companies_by_transporter_and_status', req);
+    await logAdminActivity(req.user.uid, 'get_companies_by_transporter_and_status', req);
 
     res.status(200).json(companies);
   } catch (err) {
@@ -311,7 +312,7 @@ exports.getAllForTransporter = async (req, res) => {
     const { transporterId } = req.params;
     const companies = await Company.getByTransporter(transporterId);
 
-    await logAdminActivity(req.admin.adminId, 'get_all_companies_for_transporter', req);
+    await logAdminActivity(req.user.uid, 'get_all_companies_for_transporter', req);
     res.status(200).json(companies);
   } catch (err) {
     console.error('Get all companies for transporter error:', err);
@@ -324,7 +325,7 @@ exports.searchCompany = async (req, res) => {
     const { page = 1, limit = 10, status, search } = req.query;
     const result = await Company.search({ page, limit, status, search });
 
-    await logAdminActivity(req.admin.adminId, 'search_companies', req);
+    await logAdminActivity(req.user.uid, 'search_companies', req);
     res.status(200).json(result);
   } catch (err) {
     console.error('Search companies error:', err);
@@ -904,11 +905,11 @@ exports.approveCompanyDriver = async (req, res) => {
       await Notification.create({
         type: "Driver Approved",
         message: `A new driver has been approved. Driver ID: ${driverId}`,
-        userId: req.admin.adminId,
+        userId: req.user.uid,
         userType: "company",
       });
 
-      await logAdminActivity(req.admin.adminId, 'approve_driver', req, driverId); 
+      await logAdminActivity(req.user.uid, 'approve_driver', req, driverId); 
 
     } catch (error) {
       console.error('Error creating/updating user:', error);
