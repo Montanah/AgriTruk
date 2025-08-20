@@ -4,6 +4,14 @@ const CargoBooking  = require("../models/CargoBooking");
 const { logAdminActivity } = require("../utils/activityLogger");
 const User = require('../models/User');
 const Permission = require('../models/Permission');
+const admin = require('../config/firebase');
+const db = admin.firestore();
+const json2csv = require('json2csv').parse;
+const fastcsv = require('fast-csv');
+const { Parser } = require('json2csv');
+const pdf = require('html-pdf');
+const moment = require('moment');
+const exportData  = require("../utils/exportData");
 
 exports.approveTransporter = async (req, res) => {
   try {
@@ -177,5 +185,416 @@ exports.getPermissions = async (req, res) => {
   } catch (error) {
     console.error('Get all permissions error:', error);
     res.status(500).json({ message: 'Failed to retrieve all permissions' });
+  }
+};
+
+exports.exportToCSV = async (req, res) => {
+  try {
+    const { entity, startDate, endDate } = req.query;
+    let data = [];
+    let collectionRef = db.collection(entity);
+
+    // Add date filtering if provided
+    if (startDate || endDate) {
+      collectionRef = collectionRef
+        .where('createdAt', '>=', startDate ? new Date(startDate) : new Date(0))
+        .where('createdAt', '<=', endDate ? new Date(endDate) : new Date());
+    }
+
+    const snapshot = await collectionRef.get();
+    data = snapshot.docs.map(doc => {
+      const docData = doc.data();
+      // Format dates for better CSV readability
+      if (docData.createdAt) {
+        docData.createdAt = moment(docData.createdAt.toDate()).format('YYYY-MM-DD HH:mm:ss');
+      }
+      return { id: doc.id, ...docData };
+    });
+
+    if (data.length === 0) {
+      return res.status(404).json({ success: false, message: 'No data found' });
+    }
+
+    const fields = Object.keys(data[0]);
+    const json2csvParser = new Parser({ fields });
+    const csv = json2csvParser.parse(data);
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=${entity}_export_${moment().format('YYYYMMDD_HHmmss')}.csv`);
+    res.send(csv);
+
+  } catch (error) {
+    console.error('Export to CSV error:', error);
+    res.status(500).json({ success: false, message: 'Failed to export data' });
+  }
+};
+
+exports.generatePDFReport = async (req, res) => {
+  try {
+    const { entity, startDate, endDate } = req.query;
+    let data = [];
+
+    console.log(entity, startDate, endDate);
+
+    const query = db.collection(entity || 'agriBookings' || 'cargoBookings')
+      .where('createdAt', '>=', startDate ? new Date(startDate) : new Date(0))
+      .where('createdAt', '<=', endDate ? new Date(endDate) : new Date());
+
+    const snapshot = await query.get();
+    data = snapshot.docs.map(doc => {
+      const docData = doc.data();
+      // Format Firestore timestamps
+      if (docData.createdAt) {
+        docData.createdAt = moment(docData.createdAt.toDate()).format('LLL');
+      }
+      return { id: doc.id, ...docData };
+    });
+
+    if (data.length === 0) {
+      return res.status(404).json({ success: false, message: 'No data found' });
+    }
+
+    // Get company info (you might want to store this in a config or database)
+    const companyName = "TRUK AFRICA";
+    const companyAddress = "123 NAIROBI";
+    const companyPhone = "+254 758-594951";
+    const companyEmail = "info@trukafrica.com";
+    const companyWebsite = "www.trukafrica.com";
+    
+    // Generate HTML for PDF with professional styling
+    let html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>${entity.charAt(0).toUpperCase() + entity.slice(1)} Report</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 20px;
+          color: #333;
+        }
+        .header {
+          display: flex;
+          align-items: center;
+          margin-bottom: 20px;
+          border-bottom: 2px solid #4a86e8;
+          padding-bottom: 15px;
+        }
+        .company-info {
+          flex: 1;
+          text-align: center;
+        }
+        .company-name {
+          font-size: 24px;
+          font-weight: bold;
+          color: #4a86e8;
+          margin-bottom: 5px;
+        }
+        .report-info {
+          text-align: right;
+        }
+        .report-title {
+          font-size: 20px;
+          font-weight: bold;
+          margin-bottom: 5px;
+        }
+         .logo {
+            flex: 0 0 auto;
+            margin-right: 30px;
+        }
+        
+        .logo-placeholder {
+            width: 80px;
+            height: 80px;
+            background: #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: #4a6580;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+        }
+        .report-details {
+          margin: 20px 0;
+          padding: 15px;
+          background-color: #f9f9f9;
+          border-radius: 5px;
+        }
+        .date-range {
+          font-style: italic;
+          margin-bottom: 10px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+          font-size: 12px;
+        }
+        th {
+          background-color: #4a86e8;
+          color: white;
+          padding: 10px;
+          text-align: left;
+        }
+        td {
+          padding: 8px 10px;
+          border-bottom: 1px solid #ddd;
+        }
+        tr:nth-child(even) {
+          background-color: #f2f2f2;
+        }
+        .footer {
+          margin-top: 30px;
+          text-align: center;
+          font-size: 11px;
+          color: #777;
+          border-top: 1px solid #ddd;
+          padding-top: 10px;
+        }
+        .page-break {
+          page-break-after: always;
+        }
+        .summary {
+          margin: 15px 0;
+          padding: 10px;
+          background-color: #e7f3fe;
+          border-left: 4px solid #4a86e8;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="logo"> 
+          <img src="https://res.cloudinary.com/trukapp/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" class="logo-placeholder" alt="Company Logo">
+        </div>
+        <div class="company-info">
+        <div class="company-name">${companyName}</div>
+          <div>${companyAddress}</div>
+          <div>${companyPhone} | ${companyEmail}</div>
+          <div>${companyWebsite}</div>
+        </div>        
+      </div>
+
+      <div class="report-info">
+        <div class="report-title">${entity.charAt(0).toUpperCase() + entity.slice(1)} Report</div>
+        <div>Generated on: ${moment().format('LLLL')}</div>
+      </div>
+
+      <div class="report-details">
+        <div class="date-range">
+          Date Range: ${startDate ? moment(startDate).format('LL') : 'Beginning of records'} to ${endDate ? moment(endDate).format('LL') : 'Present'}
+        </div>
+        <div>Total Records: ${data.length}</div>
+      </div>
+
+      <div class="summary">
+        <strong>Report Summary:</strong> This report contains all ${entity} records for the specified date range.
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            ${Object.keys(data[0]).map(key => `<th>${key.charAt(0).toUpperCase() + key.slice(1)}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map(row => `
+            <tr>
+              ${Object.values(row).map(val => `<td>${val !== null && val !== undefined ? val : '-'}</td>`).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <div>${companyName} - Confidential Report</div>
+        <div>Generated on ${moment().format('LLLL')} | Page {{page}} of {{pages}}</div>
+      </div>
+    </body>
+    </html>
+    `;
+
+    const options = { 
+      format: 'A4', 
+      orientation: 'portrait',
+      footer: {
+        height: "15mm",
+        contents: {
+          default: '<span style="color: #444; font-size: 10px;">{{page}}/{{pages}}</span>', 
+        }
+      },
+      border: {
+        top: "0.5in",
+        right: "0.5in",
+        bottom: "0.7in",
+        left: "0.5in"
+      }
+    };
+
+    pdf.create(html, options).toStream((err, stream) => {
+      if (err) throw err;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=${entity}_report_${moment().format('YYYYMMDD_HHmmss')}.pdf`);
+      stream.pipe(res);
+    });
+
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    res.status(500).json({ success: false, message: 'Failed to generate PDF' });
+  }
+};
+exports.sendReminders = async (req, res) => {
+  try {
+    const { entity, reminderType } = req.body;
+    let usersToNotify = [];
+    let message = '';
+
+    // Get relevant entities based on type
+    switch (entity) {
+      case 'bookings':
+        const bookings = await db.collection('bookings')
+          .where('status', '==', 'pending')
+          .get();
+        
+        usersToNotify = bookings.docs.map(doc => {
+          const booking = doc.data();
+          return {
+            email: booking.farmerEmail,
+            name: booking.farmerName,
+            bookingId: doc.id,
+            type: 'booking_reminder'
+          };
+        });
+        message = 'Your booking is still pending confirmation';
+        break;
+
+      case 'transporters':
+        const transporters = await db.collection('transporters')
+          .where('status', '==', 'active')
+          .get();
+        
+        usersToNotify = transporters.docs.map(doc => {
+          const transporter = doc.data();
+          return {
+            email: transporter.email,
+            name: transporter.name,
+            transporterId: doc.id,
+            type: 'availability_reminder'
+          };
+        });
+        message = 'Please update your availability for upcoming jobs';
+        break;
+
+      default:
+        return res.status(400).json({ success: false, message: 'Invalid entity type' });
+    }
+
+    // Send notifications
+    const batch = db.batch();
+    const notificationsCollection = db.collection('notifications');
+
+    for (const user of usersToNotify) {
+      const notificationRef = notificationsCollection.doc();
+      batch.set(notificationRef, {
+        userId: user.transporterId || user.bookingId,
+        email: user.email,
+        message: `${message} - ${reminderType || 'standard reminder'}`,
+        type: user.type,
+        status: 'sent',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Here you would integrate with your email service (e.g., SendGrid, Mailgun)
+      // await sendEmail(user.email, 'Reminder Notification', message);
+    }
+
+    await batch.commit();
+
+    res.json({
+      success: true,
+      message: `Reminders sent to ${usersToNotify.length} ${entity}`,
+      count: usersToNotify.length
+    });
+
+  } catch (error) {
+    console.error('Send reminders error:', error);
+    res.status(500).json({ success: false, message: 'Failed to send reminders' });
+  }
+};
+
+// exports.generateReports = async (req, res) => {
+
+exports.generateReports = async (req, res) => {
+  try {
+    const { type, format, ids } = req.body;
+
+    console.log(type, format, ids);
+
+    if (!type || !['csv', 'pdf'].includes(format)) {
+      return res.status(400).json({ success: false, message: 'Invalid report type or format' });
+    }
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide at least one entity ID' });
+    }
+
+    let data = [];
+    let fieldsConfig = [];
+    let filename = '';
+    let reportOptions = {};
+
+    if (type === 'transporters') {
+      const snapshot = await db.collection('transporters').where('transporterId', 'in', ids).get();
+      data = snapshot.docs.map(doc => doc.data());
+      fieldsConfig = [
+        { key: 'transporterId', label: 'Transporter ID' },
+        { key: 'driverName', label: 'Driver Name' },
+        { key: 'email', label: 'Email' },
+        { key: 'phoneNumber', label: 'Phone Number' },
+        { key: 'status', label: 'Status' },
+        { key: 'acceptingBooking', label: 'Accepting Bookings' },
+        { key: 'vehicleType', label: 'Vehicle Type' },
+        { key: 'vehicleMake', label: 'Make' },
+        { key: 'vehicleModel', label: 'Model' },
+        { key: 'vehicleRegistration', label: 'Registration' },
+        { key: 'vehicleCapacity', label: 'Capacity' },
+        { key: 'humidityControl', label: 'Humidity Control' },
+        { key: 'refrigerated', label: 'Refrigeration' },
+        { key: 'specialCargo', label: 'Special Cargo' },
+      ];
+      filename = 'transporters';
+      reportOptions = {
+        companyName: 'Truk Company',
+        companyAddress: '123 Business Street\nNairobi, Kenya\n+254 700 000 000',
+        reportTitle: 'Transporters Report',
+        logoPath: '../assets/logo.png',
+        primaryColor: '#059669',
+        secondaryColor: '#64748b',
+      };
+    } else {
+      // Handle other types (bookings, brokers) as needed
+      return res.status(400).json({ success: false, message: 'Unsupported report type' });
+    }
+
+    console.log("Fetched data:", data);
+    console.log("Field config:", fieldsConfig);
+    console.log("Filename:", filename);
+    console.log("Format:", format);
+
+    if (!data.length) {
+      return res.status(404).json({ success: false, message: 'No records found for the provided IDs' });
+    }
+
+    exportData(data, fieldsConfig, format, res, filename, reportOptions);
+  } catch (error) {
+    console.error("Generate report error:", error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate report',
+      error: error.message || error,
+    });
   }
 };

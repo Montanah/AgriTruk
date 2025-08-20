@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminManagementController');
-const {getAllBookings, getPermissions,
-  getAllUsers, 
-  searchUsers 
-} = require('../controllers/adminController');
+const {getAllBookings, getPermissions, getAllUsers, searchUsers, exportToCSV, generatePDFReport, generateReports } = require('../controllers/adminController');
 const authController = require("../controllers/authController");
 const {
   authorize,
@@ -465,6 +462,61 @@ router.get('/disputes', authenticateToken, requireRole('admin'), authorize(['vie
 
 /**
  * @swagger
+ * /api/admin/export/csv:
+ *   get:
+ *     summary: Export disputes to CSV
+ *     description: Exports disputes to a CSV file.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Disputes exported to CSV successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/export/csv', authenticateToken, requireRole('admin'), authorize(['view_reports', 'manage_reports','super_admin']), exportToCSV);
+
+/**
+ * @swagger
+ * /api/admin/pdfreports:
+ *   get:
+ *     summary: Get all reports as PDF with a date range
+ *     description: Retrieves a list of all reports.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: Start date for report filtering
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: End date for report filtering 
+ *       - in: query
+ *         name: entity
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Entity for report filtering
+ *     responses:
+ *       200:
+ *         description: Reports retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/pdfreports', authenticateToken, requireRole('admin'), authorize(['view_reports', 'manage_reports', 'super_admin']), generatePDFReport);
+
+/**
+ * @swagger
  * /api/admin/brokers/{brokerId}:
  *   get:
  *     summary: Get broker details
@@ -900,5 +952,32 @@ router.delete("/deactivate-account/:uid", requireSuperAdmin, authController.deac
  */
 router.post('/analytics/:date', authorize(['manage_analytics', 'super_admin']), AnalyticsController.createAnalytics);
 
-
+/**
+ * @swagger
+ * /api/admin/reports:
+ *   post:
+ *     summary: Generate reports from selected fields
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               type:
+ *                 type: string
+ *               format:
+ *                 type: string
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Reports generated successfully
+ */
+router.post('/reports', authenticateToken, requireRole('admin'), authorize(['view_reports', 'manage_reports', 'super_admin']), generateReports);
 module.exports = router;
