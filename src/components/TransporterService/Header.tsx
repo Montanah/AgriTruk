@@ -54,13 +54,13 @@ export default function Header({
         <TouchableOpacity
           style={styles.tabButton}
           onPress={() =>
-            navigation.navigate('ManageRequests', {
+            navigation.navigate('TransporterBookingManagement', {
               transporterType,
             })
           }
         >
           <Ionicons name="clipboard-outline" size={18} color={colors.secondary} />
-          <Text style={styles.tabText}>Manage Requests</Text>
+          <Text style={styles.tabText}>Manage Bookings</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.tabButton} onPress={onShowSubscription}>

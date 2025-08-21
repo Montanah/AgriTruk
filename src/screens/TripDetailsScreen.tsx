@@ -159,157 +159,208 @@ const TripDetailsScreen = () => {
           <Text style={[styles.tripInfoText, { fontWeight: 'bold', marginRight: 4 }]}>ETA:</Text>
           <Text style={[styles.tripInfoText, { fontWeight: 'bold', color: colors.primary }]}>{params.eta || booking.eta || trip.eta} {(params.distance || booking.distance || trip.distance) ? `(${params.distance || booking.distance || trip.distance})` : ''}</Text>
         </View>
-        {/* Transporter & Vehicle Info - horizontal, compact, with graphics, two fields per row */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f8fafc', borderRadius: 12, padding: 10 }}>
-          <Image source={{ uri: (selectedTransporter && selectedTransporter.photo) || commTarget.photo }} style={styles.avatar} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.name}>{(selectedTransporter && selectedTransporter.name) || commTarget.name}</Text>
-            {booking.transporterType === 'company' && booking.assignedDriver && (
-              <Text style={styles.vehicleDetails}>Assigned Driver for this trip</Text>
+        {/* Transporter & Vehicle Info - Enhanced with comprehensive details */}
+        <View style={{ marginBottom: 8, backgroundColor: '#f8fafc', borderRadius: 12, padding: 12 }}>
+          {/* Transporter Profile Section */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <Image source={{ uri: (selectedTransporter && selectedTransporter.profilePhoto) || (selectedTransporter && selectedTransporter.photo) || commTarget.photo }} style={styles.avatar} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.name}>{(selectedTransporter && selectedTransporter.name) || commTarget.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 4 }} />
+                <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 13 }}>
+                  {selectedTransporter?.rating || 'N/A'}
+                </Text>
+                <Text style={{ color: colors.text.secondary, fontSize: 12, marginLeft: 8 }}>
+                  {selectedTransporter?.tripsCompleted || 0} trips
+                </Text>
+              </View>
+              <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 2 }}>
+                {selectedTransporter?.experience || 'N/A'} • {selectedTransporter?.availability || 'N/A'}
+              </Text>
+              {booking.transporterType === 'company' && booking.assignedDriver && (
+                <Text style={styles.vehicleDetails}>Assigned Driver: {booking.assignedDriver.name}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Vehicle Photo and Details */}
+          {selectedVehicle && (
+            <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+              <View
+                style={{
+                  width: 80,
+                  height: 60,
+                  borderRadius: 8,
+                  backgroundColor: '#eee',
+                  overflow: 'hidden',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 12,
+                }}
+              >
+                <Image
+                  source={{ uri: selectedVehicle.photo || 'https://via.placeholder.com/80x60?text=VEHICLE' }}
+                  style={{ width: 80, height: 60, borderRadius: 8 }}
+                  defaultSource={{ uri: 'https://via.placeholder.com/80x60?text=VEHICLE' }}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 14, marginBottom: 2 }}>
+                  {selectedVehicle.type}{selectedVehicle.bodyType ? ` (${selectedVehicle.bodyType})` : ''} • {selectedVehicle.make}
+                </Text>
+                <Text style={{ color: colors.text.secondary, fontSize: 12, marginBottom: 2 }}>
+                  {selectedVehicle.color} • {selectedVehicle.capacity} • {selectedVehicle.plate}
+                </Text>
+                <Text style={{ color: colors.text.secondary, fontSize: 12 }}>
+                  {selectedVehicle.driveType || 'N/A'} • {selectedVehicle.year || 'N/A'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Special Features */}
+          {selectedVehicle?.specialFeatures && selectedVehicle.specialFeatures.length > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+              {selectedVehicle.specialFeatures.map((feature, index) => (
+                <View key={index} style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginRight: 8,
+                  marginBottom: 4,
+                  backgroundColor: colors.primary + '15',
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 8,
+                }}>
+                  <MaterialCommunityIcons name="check-circle" size={12} color={colors.primary} style={{ marginRight: 2 }} />
+                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '500' }}>
+                    {feature.replace('-', ' ')}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* Insurance & GPS Status */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            {selectedVehicle?.insurance && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+                <MaterialCommunityIcons name="shield-check" size={14} color={colors.success} style={{ marginRight: 4 }} />
+                <Text style={{ color: colors.success, fontSize: 12, fontWeight: '500' }}>Insured</Text>
+              </View>
             )}
-            {/* Vehicle details - horizontal rows, two fields per row */}
-            {selectedVehicle && (
-              <View style={{ marginTop: 8 }}>
-                <View style={{ flexDirection: 'row', marginBottom: 4 }}>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                    <MaterialCommunityIcons name="truck" size={16} color={colors.primary} style={{ marginRight: 2 }} />
-                    <Text style={styles.vehicleDetails}>Type: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.type}{selectedVehicle.bodyType ? ` (${selectedVehicle.bodyType})` : ''}</Text></Text>
-                  </View>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                    <MaterialCommunityIcons name="palette" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
-                    <Text style={styles.vehicleDetails}>Color: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.color}</Text></Text>
-                  </View>
-                </View>
-                {/* Special Features Row */}
-                {(selectedVehicle.specialFeatures && selectedVehicle.specialFeatures.length > 0) && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                    {selectedVehicle.specialFeatures.includes('fragile') && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10, marginBottom: 2 }}>
-                        <MaterialCommunityIcons name="cube-outline" size={15} color={colors.secondary} style={{ marginRight: 2 }} />
-                        <Text style={{ color: colors.secondary, fontSize: 13, fontWeight: 'bold' }}>Fragile</Text>
-                      </View>
-                    )}
-                    {selectedVehicle.specialFeatures.includes('oversized') && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10, marginBottom: 2 }}>
-                        <MaterialCommunityIcons name="resize" size={15} color={colors.secondary} style={{ marginRight: 2 }} />
-                        <Text style={{ color: colors.secondary, fontSize: 13, fontWeight: 'bold' }}>Oversized</Text>
-                      </View>
-                    )}
-                    {selectedVehicle.specialFeatures.includes('hazardous') && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10, marginBottom: 2 }}>
-                        <MaterialCommunityIcons name="alert-decagram" size={15} color={colors.secondary} style={{ marginRight: 2 }} />
-                        <Text style={{ color: colors.secondary, fontSize: 13, fontWeight: 'bold' }}>Hazardous</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-                <View style={{ flexDirection: 'row', marginBottom: 4 }}>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                    <MaterialCommunityIcons name="car-cog" size={16} color={colors.tertiary} style={{ marginRight: 2 }} />
-                    <Text style={styles.vehicleDetails}>Make: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.make}</Text></Text>
-                  </View>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                    <MaterialCommunityIcons name="weight-kilogram" size={16} color={colors.primary} style={{ marginRight: 2 }} />
-                    <Text style={styles.vehicleDetails}>Capacity: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.capacity}</Text></Text>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', marginBottom: 2 }}>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                    <MaterialCommunityIcons name="card-account-details" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
-                    <Text style={styles.vehicleDetails}>Reg: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.plate}</Text></Text>
-                  </View>
-                  {selectedVehicle.driveType && (
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="car-shift-pattern" size={16} color={colors.primary} style={{ marginRight: 2 }} />
-                      <Text style={styles.vehicleDetails}>Drive: <Text style={{ fontWeight: 'bold' }}>{selectedVehicle.driveType}</Text></Text>
-                    </View>
-                  )}
-                </View>
+            {selectedVehicle?.gpsTracking && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+                <MaterialCommunityIcons name="crosshairs-gps" size={14} color={colors.secondary} style={{ marginRight: 4 }} />
+                <Text style={{ color: colors.secondary, fontSize: 12, fontWeight: '500' }}>GPS Tracking</Text>
               </View>
             )}
           </View>
-        </View>
-        {/* Action Row: Cancel + Contact Buttons */}
-        <View style={styles.actionRowSplit}>
-          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8 }]} onPress={() => notifyTripStatus('cancelled')}>
-            <Text style={styles.cancelText}>Cancel Trip</Text>
-          </TouchableOpacity>
-          <View style={styles.actionIconsRight}>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
-              <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
-              <Ionicons name="call" size={22} color={colors.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${(selectedTransporter && selectedTransporter.phone) || commTarget.phone}`)}>
-              <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
-            </TouchableOpacity>
-            {/* Add Map View button for instant requests */}
-            {isInstant && (
-              <TouchableOpacity
-                style={styles.iconBtn}
-                onPress={() => navigation.navigate('MapViewScreen', {
-                  booking: booking,
-                  isInstant: true
-                })}
-              >
-                <MaterialCommunityIcons name="map" size={22} color={colors.success} />
-              </TouchableOpacity>
-            )}
-          </View>
+
+          {/* Estimated Cost */}
+          {booking.estimatedCost && (
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: colors.background,
+              padding: 8,
+              borderRadius: 8,
+              marginBottom: 8,
+            }}>
+              <Text style={{ color: colors.text.primary, fontWeight: 'bold', fontSize: 14 }}>
+                Estimated Cost:
+              </Text>
+              <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 16 }}>
+                sh. {booking.estimatedCost.toLocaleString('en-KE')}
+              </Text>
+            </View>
+          )}
+
         </View>
       </View>
-      {/* Chat Modal */}
-      <Modal visible={chatVisible} animationType="slide" transparent>
-        <View style={styles.modalBg}>
-          <View style={styles.chatModal}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
-              <Text style={{ fontWeight: 'bold', fontSize: 16, marginLeft: 8 }}>In-app Chat</Text>
-              <TouchableOpacity style={{ marginLeft: 'auto' }} onPress={() => setChatVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.text.primary} />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={messages}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <View style={{ alignSelf: item.from === 'customer' ? 'flex-end' : 'flex-start', backgroundColor: item.from === 'customer' ? colors.primary : colors.surface, borderRadius: 12, padding: 8, marginVertical: 4, maxWidth: '75%' }}>
-                  <Text style={{ color: item.from === 'customer' ? '#fff' : colors.text.primary }}>{item.text}</Text>
-                </View>
-              )}
-              style={{ flex: 1, width: '100%' }}
-              contentContainerStyle={{ paddingVertical: 8 }}
-              inverted
-            />
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-              <TextInput
-                style={{ flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: 8, borderWidth: 1, borderColor: colors.text.light }}
-                value={input}
-                onChangeText={setInput}
-                placeholder={`Message ${commTarget.name}...`}
-              />
-              <TouchableOpacity onPress={sendMessage} style={{ marginLeft: 8 }}>
-                <Ionicons name="send" size={22} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      {/* Call Modal (in-app call placeholder) */}
-      <Modal visible={callVisible} animationType="fade" transparent>
-        <View style={styles.modalBg}>
-          <View style={styles.callModal}>
-            <Ionicons name="call" size={48} color={colors.secondary} style={{ marginBottom: 12 }} />
-            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Calling {commTarget.role}...</Text>
-            <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>{commTarget.name} ({commTarget.phone})</Text>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setCallVisible(false)}>
-              <Text style={styles.cancelText}>End Call</Text>
+      {/* Action Row: Cancel + Contact Buttons */}
+      <View style={styles.actionRowSplit}>
+        <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8 }]} onPress={() => notifyTripStatus('cancelled')}>
+          <Text style={styles.cancelText}>Cancel Trip</Text>
+        </TouchableOpacity>
+        <View style={styles.actionIconsRight}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
+            <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
+            <Ionicons name="call" size={22} color={colors.secondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${(selectedTransporter && selectedTransporter.phone) || commTarget.phone}`)}>
+            <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
+          </TouchableOpacity>
+          {/* Add Map View button for instant requests */}
+          {isInstant && (
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => navigation.navigate('MapViewScreen', {
+                booking: booking,
+                isInstant: true
+              })}
+            >
+              <MaterialCommunityIcons name="map" size={22} color={colors.success} />
             </TouchableOpacity>
-          </View>
+          )}
         </View>
-      </Modal>
+      </View>
     </View>
+      {/* Chat Modal */ }
+  <Modal visible={chatVisible} animationType="slide" transparent>
+    <View style={styles.modalBg}>
+      <View style={styles.chatModal}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
+          <Text style={{ fontWeight: 'bold', fontSize: 16, marginLeft: 8 }}>In-app Chat</Text>
+          <TouchableOpacity style={{ marginLeft: 'auto' }} onPress={() => setChatVisible(false)}>
+            <Ionicons name="close" size={22} color={colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+        <FlatList
+          data={messages}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <View style={{ alignSelf: item.from === 'customer' ? 'flex-end' : 'flex-start', backgroundColor: item.from === 'customer' ? colors.primary : colors.surface, borderRadius: 12, padding: 8, marginVertical: 4, maxWidth: '75%' }}>
+              <Text style={{ color: item.from === 'customer' ? '#fff' : colors.text.primary }}>{item.text}</Text>
+            </View>
+          )}
+          style={{ flex: 1, width: '100%' }}
+          contentContainerStyle={{ paddingVertical: 8 }}
+          inverted
+        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+          <TextInput
+            style={{ flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: 8, borderWidth: 1, borderColor: colors.text.light }}
+            value={input}
+            onChangeText={setInput}
+            placeholder={`Message ${commTarget.name}...`}
+          />
+          <TouchableOpacity onPress={sendMessage} style={{ marginLeft: 8 }}>
+            <Ionicons name="send" size={22} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </Modal>
+  {/* Call Modal (in-app call placeholder) */ }
+  <Modal visible={callVisible} animationType="fade" transparent>
+    <View style={styles.modalBg}>
+      <View style={styles.callModal}>
+        <Ionicons name="call" size={48} color={colors.secondary} style={{ marginBottom: 12 }} />
+        <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>Calling {commTarget.role}...</Text>
+        <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>{commTarget.name} ({commTarget.phone})</Text>
+        <TouchableOpacity style={styles.cancelBtn} onPress={() => setCallVisible(false)}>
+          <Text style={styles.cancelText}>End Call</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+    </View >
   );
 };
 

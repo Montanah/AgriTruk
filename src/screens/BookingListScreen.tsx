@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Button, RefreshControl, TouchableOpacity } from 'react-native';
+import { Button, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { notificationService } from '../../services/notificationService';
 
 // Dummy data for now; replace with API integration
@@ -160,7 +160,7 @@ const BookingListScreen = ({ navigation }) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={<Text>No bookings found.</Text>}
       />
-      <Button title="Create New Booking" onPress={() => navigation.navigate('BookingCreation')} />
+      <Button title="Create New Booking" onPress={() => navigation.navigate('ServiceRequest')} />
     </View>
   );
 };

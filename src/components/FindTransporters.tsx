@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Animated, StyleSheet, ScrollView } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import colors from '../constants/colors';
 import { useTransporters } from '../hooks/UseTransporters';
 import { mockTransporters as importedMockTransporters } from '../mocks/transporters';
-import colors from '../constants/colors';
 
 const mockTransporters = Array.isArray(importedMockTransporters) ? importedMockTransporters : [];
 
@@ -66,32 +66,47 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
     const payload = isConsolidated
       ? { requests: reqs, transporter: t, type: 'instant', status: 'in-progress', eta: t.est, distance }
       : {
+        id: t.id,
+        pickupLocation: base.fromLocation,
+        toLocation: base.toLocation,
+        cargoDetails: base.productType + (base.weight ? `, ${base.weight} kg` : ''),
+        pickupTime: '',
+        status: 'in-progress',
+        type: 'instant',
+        transporterType: 'individual',
+        transporter: {
           id: t.id,
-          pickupLocation: base.fromLocation,
-          toLocation: base.toLocation,
-          cargoDetails: base.productType + (base.weight ? `, ${base.weight} kg` : ''),
-          pickupTime: '',
-          status: 'in-progress',
-          type: 'instant',
-          transporterType: 'individual',
-          transporter: {
-            id: t.id,
-            name: t.name,
-            phone: t.phone,
-            photo: t.photo,
-          },
-          vehicle: {
-            type: t.vehicleType,
-            color: t.vehicleColor,
-            make: t.vehicleMake,
-            capacity: t.capacity + 'T',
-            plate: t.reg,
-            driveType: t.driveType || '',
-          },
-          reference: 'REF-' + t.id,
-          eta: t.est,
-          distance,
-        };
+          name: t.name,
+          phone: t.phone,
+          photo: t.photo,
+          profilePhoto: t.profilePhoto,
+          rating: t.rating,
+          experience: t.experience,
+          languages: t.languages,
+          availability: t.availability,
+          tripsCompleted: t.tripsCompleted,
+          status: t.status,
+        },
+        vehicle: {
+          type: t.vehicleType,
+          color: t.vehicleColor,
+          make: t.vehicleMake,
+          capacity: t.capacity + 'T',
+          plate: t.reg,
+          bodyType: t.bodyType,
+          driveType: t.driveType || '',
+          year: t.year,
+          photo: t.vehiclePhoto,
+          specialFeatures: t.specialFeatures,
+          insurance: t.insurance,
+          gpsTracking: t.gpsTracking,
+        },
+        reference: 'REF-' + t.id,
+        eta: t.est,
+        distance,
+        estimatedCost: t.estimatedCost,
+        specialFeatures: t.specialFeatures,
+      };
     if (onSelect) {
       onSelect(t, payload);
     } else {
@@ -155,7 +170,9 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
             }
             const estAmount = getEstAmount(t, distNum);
             const displayName = t.name && t.name.length > 18 ? t.name.slice(0, 16) + '…' : t.name;
-            const photoUri = (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || t.photo || 'https://via.placeholder.com/54x54?text=TRUK';
+            const profilePhotoUri = t.profilePhoto || t.photo || 'https://via.placeholder.com/54x54?text=TRUK';
+            const vehiclePhotoUri = t.vehiclePhoto || (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || 'https://via.placeholder.com/80x60?text=VEHICLE';
+
             return (
               <View
                 key={t.id}
@@ -170,7 +187,8 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
                   elevation: 2,
                 }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                {/* Transporter Profile Section */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                   <View
                     style={{
                       width: 54,
@@ -183,62 +201,168 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
                       marginRight: 16,
                     }}
                   >
-                    <Animated.Image
-                      source={{ uri: photoUri }}
+                    <Image
+                      source={{ uri: profilePhotoUri }}
                       style={{ width: 54, height: 54, borderRadius: 27 }}
                       defaultSource={{ uri: 'https://via.placeholder.com/54x54?text=TRUK' }}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: 'bold', fontSize: 16, color: colors.text.primary }} numberOfLines={1} ellipsizeMode="tail">{displayName}</Text>
-                    <Text style={{ color: accent, fontWeight: 'bold', fontSize: 13 }}>ETA: {t.est || 'N/A'}</Text>
+                    <Text style={{ fontWeight: 'bold', fontSize: 16, color: colors.text.primary }} numberOfLines={1} ellipsizeMode="tail">
+                      {displayName}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                      <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 13 }}>{t.rating || 'N/A'}</Text>
+                      <Text style={{ color: colors.text.secondary, fontSize: 12, marginLeft: 8 }}>
+                        {t.tripsCompleted || 0} trips
+                      </Text>
+                    </View>
+                    <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 2 }}>
+                      {t.experience || 'N/A'} • {t.availability || 'N/A'}
+                    </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="star" size={16} color={colors.secondary} style={{ marginRight: 2 }} />
-                      <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15 }}>{t.rating}</Text>
+                    <View style={{
+                      backgroundColor: t.status === 'Active' ? colors.success + '20' : colors.warning + '20',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                    }}>
+                      <Text style={{
+                        color: t.status === 'Active' ? colors.success : colors.warning,
+                        fontWeight: 'bold',
+                        fontSize: 11
+                      }}>
+                        {t.status || 'Unknown'}
+                      </Text>
                     </View>
-                    <Text style={{ color: t.status === 'Active' ? colors.success : colors.warning, fontWeight: 'bold', fontSize: 12 }}>{t.status}</Text>
                   </View>
                 </View>
-                <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
-                  {t.vehicleType}{t.bodyType ? ` (${t.bodyType})` : ''} • {t.vehicleMake} • {t.vehicleColor} • {t.capacity}T • {t.reg}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                  {t.refrigeration && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                      <MaterialCommunityIcons name="snowflake" size={15} color={accent} style={{ marginRight: 2 }} />
-                      <Text style={{ color: accent, fontSize: 13 }}>Refrigerated</Text>
+
+                {/* Vehicle Details Section */}
+                <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                  <View
+                    style={{
+                      width: 80,
+                      height: 60,
+                      borderRadius: 8,
+                      backgroundColor: '#eee',
+                      overflow: 'hidden',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      marginRight: 12,
+                    }}
+                  >
+                    <Image
+                      source={{ uri: vehiclePhotoUri }}
+                      style={{ width: 80, height: 60, borderRadius: 8 }}
+                      defaultSource={{ uri: 'https://via.placeholder.com/80x60?text=VEHICLE' }}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 14, marginBottom: 2 }}>
+                      {t.vehicleType}{t.bodyType ? ` (${t.bodyType})` : ''} • {t.vehicleMake}
+                    </Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 12, marginBottom: 2 }}>
+                      {t.vehicleColor} • {t.capacity}T • {t.reg}
+                    </Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 12 }}>
+                      {t.driveType || 'N/A'} • {t.year || 'N/A'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Special Features */}
+                {t.specialFeatures && t.specialFeatures.length > 0 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+                    {t.specialFeatures.map((feature, index) => (
+                      <View key={index} style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        marginRight: 8,
+                        marginBottom: 4,
+                        backgroundColor: accent + '15',
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 8,
+                      }}>
+                        <MaterialCommunityIcons name="check-circle" size={12} color={accent} style={{ marginRight: 2 }} />
+                        <Text style={{ color: accent, fontSize: 11, fontWeight: '500' }}>
+                          {feature.replace('-', ' ')}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Insurance & GPS Status */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  {t.insurance && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+                      <MaterialCommunityIcons name="shield-check" size={14} color={colors.success} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.success, fontSize: 12, fontWeight: '500' }}>Insured</Text>
                     </View>
                   )}
-                  {t.humidityControl && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                      <MaterialCommunityIcons name="water-percent" size={15} color={accent} style={{ marginRight: 2 }} />
-                      <Text style={{ color: accent, fontSize: 13 }}>Humidity Ctrl</Text>
-                    </View>
-                  )}
-                  {t.driveType && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                      <MaterialCommunityIcons name="car" size={15} color={accent} style={{ marginRight: 2 }} />
-                      <Text style={{ color: accent, fontSize: 13 }}>{t.driveType}</Text>
+                  {t.gpsTracking && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+                      <MaterialCommunityIcons name="crosshairs-gps" size={14} color={colors.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.secondary, fontSize: 12, fontWeight: '500' }}>GPS</Text>
                     </View>
                   )}
                 </View>
-                <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 15, marginBottom: 2 }}>
-                  Est: {estAmount || 'N/A'}
-                </Text>
+
+                {/* ETA & Cost Section */}
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: colors.background,
+                  padding: 12,
+                  borderRadius: 10,
+                  marginBottom: 12,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="time" size={16} color={accent} style={{ marginRight: 6 }} />
+                    <Text style={{ color: accent, fontWeight: 'bold', fontSize: 14 }}>
+                      ETA: {t.est || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <FontAwesome5 name="shipping-fast" size={14} color={colors.secondary} style={{ marginRight: 6 }} />
+                    <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 14 }}>
+                      {t.distance || 'N/A'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Estimated Cost */}
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 12,
+                }}>
+                  <Text style={{ color: colors.text.primary, fontWeight: 'bold', fontSize: 16 }}>
+                    Estimated Cost:
+                  </Text>
+                  <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 18 }}>
+                    {estAmount || 'N/A'}
+                  </Text>
+                </View>
+
+                {/* Select Button */}
                 <TouchableOpacity
                   style={{
                     backgroundColor: accent,
                     borderRadius: 10,
-                    paddingVertical: 8,
-                    paddingHorizontal: 18,
+                    paddingVertical: 12,
+                    paddingHorizontal: 24,
                     alignSelf: 'flex-end',
-                    marginTop: 8,
                   }}
                   onPress={() => handleSelect(t)}
                 >
-                  <Text style={{ color: colors.white, fontWeight: 'bold', fontSize: 16 }}>Select</Text>
+                  <Text style={{ color: colors.white, fontWeight: 'bold', fontSize: 16 }}>Select Transporter</Text>
                 </TouchableOpacity>
               </View>
             );

@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 
 // Accepts either a single booking or an array of bookings (for consolidated)
-const BookingConfirmationScreen = ({ route, navigation }) => {
+const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const params = route.params || {};
   const requests = params.requests || (params.booking ? [params.booking] : []);
   const isConsolidated = Array.isArray(requests) && requests.length > 1;
+  const mode = params.mode || 'shipper'; // shipper, broker, business
   const [pickupDate, setPickupDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -39,12 +40,15 @@ const BookingConfirmationScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{isConsolidated ? 'Confirm Consolidated Booking' : 'Confirm Booking'}</Text>
+      <Text style={styles.title}>
+        {isConsolidated ? 'Confirm Consolidated Booking' : 'Confirm Booking'}
+        {mode !== 'shipper' && ` (${mode})`}
+      </Text>
       <FlatList
         data={requests}
         keyExtractor={item => item.id}
         renderItem={({ item, index }) => (
-          <View style={[styles.bookingCard, index % 2 === 0 ? { backgroundColor: colors.surface } : { backgroundColor: colors.background }]}> 
+          <View style={[styles.bookingCard, index % 2 === 0 ? { backgroundColor: colors.surface } : { backgroundColor: colors.background }]}>
             <Text style={styles.bookingId}>Request ID: {item.id}</Text>
             <Text style={styles.bookingDetail}>From: <Text style={{ fontWeight: 'bold' }}>{item.fromLocation}</Text></Text>
             <Text style={styles.bookingDetail}>To: <Text style={{ fontWeight: 'bold' }}>{item.toLocation}</Text></Text>

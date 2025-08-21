@@ -1,7 +1,7 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Card from '../../components/common/Card';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -79,15 +79,26 @@ interface RequestItem {
   productType: string;
   weight: string;
   createdAt: string;
-  transporter: { name: string; phone: string } | null;
+  transporter: {
+    name: string;
+    phone: string;
+    profilePhoto?: string;
+    photo?: string;
+    rating?: number;
+    experience?: string;
+    languages?: string[];
+    availability?: string;
+    tripsCompleted?: number;
+    status?: string;
+  } | null;
   isConsolidated: boolean;
-  consolidatedRequests?: Array<{
+  consolidatedRequests?: {
     id: string;
     fromLocation: string;
     toLocation: string;
     productType: string;
     weight: string;
-  }>;
+  }[];
 }
 
 const BusinessManageScreen = ({ navigation }: any) => {
@@ -221,7 +232,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {item.isConsolidated && (
+        {item.isConsolidated && item.consolidatedRequests && (
           <View style={styles.consolidatedDetails}>
             <Text style={styles.consolidatedTitle}>Consolidated Requests:</Text>
             {item.consolidatedRequests.map((req, index) => (
@@ -236,10 +247,33 @@ const BusinessManageScreen = ({ navigation }: any) => {
 
         {item.transporter && (
           <View style={styles.transporterInfo}>
-            <MaterialCommunityIcons name="account-tie" size={20} color={colors.success} />
-            <View style={styles.transporterText}>
-              <Text style={styles.transporterLabel}>Transporter</Text>
-              <Text style={styles.transporterValue}>{item.transporter.name}</Text>
+            <View style={styles.transporterHeader}>
+              <MaterialCommunityIcons name="account-tie" size={20} color={colors.success} />
+              <Text style={styles.transporterLabel}>Transporter Details</Text>
+            </View>
+            <View style={styles.transporterDetails}>
+              <View style={styles.transporterProfile}>
+                <Image
+                  source={{ uri: item.transporter?.profilePhoto || item.transporter?.photo || 'https://via.placeholder.com/40x40?text=TRUK' }}
+                  style={styles.transporterPhoto}
+                />
+                <View style={styles.transporterBasic}>
+                  <Text style={styles.transporterName}>{item.transporter.name}</Text>
+                  <View style={styles.transporterRating}>
+                    <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 2 }} />
+                    <Text style={styles.ratingText}>{item.transporter?.rating || 'N/A'}</Text>
+                    <Text style={styles.tripsText}> • {item.transporter?.tripsCompleted || 0} trips</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.transporterMeta}>
+                <Text style={styles.transporterMetaText}>
+                  {item.transporter?.experience || 'N/A'} • {item.transporter?.availability || 'N/A'}
+                </Text>
+                <Text style={styles.transporterMetaText}>
+                  {item.transporter?.languages ? item.transporter.languages.join(', ') : 'N/A'}
+                </Text>
+              </View>
             </View>
           </View>
         )}
@@ -607,6 +641,55 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     fontWeight: '600',
     color: colors.text.primary,
+  },
+  transporterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  transporterDetails: {
+    flex: 1,
+  },
+  transporterProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  transporterPhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: spacing.sm,
+  },
+  transporterBasic: {
+    flex: 1,
+  },
+  transporterName: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 2,
+  },
+  transporterRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: fonts.size.sm,
+    fontWeight: 'bold',
+    color: colors.secondary,
+  },
+  tripsText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+  },
+  transporterMeta: {
+    marginTop: spacing.xs,
+  },
+  transporterMetaText: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    marginBottom: 2,
   },
   requestMeta: {
     flexDirection: 'row',

@@ -11,7 +11,6 @@ import ManageTransporterScreen from '../screens/ManageTransporterScreen';
 import RevenueScreen from '../screens/RevenueScreen';
 import TransporterBookingManagementScreen from '../screens/TransporterBookingManagementScreen';
 import TransporterServiceScreen from '../screens/TransporterServiceScreen';
-import ManageRequestsScreen from '../screens/ManageRequestsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -20,7 +19,6 @@ const HomeStack = ({ transporterType }) => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="TransporterService" component={TransporterServiceScreen} initialParams={{ transporterType }} />
     <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} />
-    <Stack.Screen name="ManageRequests" component={ManageRequestsScreen} />
   </Stack.Navigator>
 );
 

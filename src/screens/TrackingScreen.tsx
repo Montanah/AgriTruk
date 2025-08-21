@@ -131,7 +131,11 @@ const TrackingScreen = () => {
                 <View style={styles.headerSpacer} />
             </View>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                style={styles.content}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
                 {/* Booking Info Card */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
@@ -277,6 +281,9 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         padding: spacing.lg,
+    },
+    scrollContent: {
+        paddingBottom: spacing.xl * 2, // Add extra bottom padding to ensure content is fully visible
     },
     loadingContainer: {
         flex: 1,
