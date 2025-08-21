@@ -16,6 +16,9 @@ const disputeController = require('../controllers/disputeController');
 const brokerController = require('../controllers/brokerController');
 const AnalyticsController = require('../controllers/analyticsController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
+const multer = require("multer");
+
+const upload = multer({ dest: "uploads/" }); 
 
 /**
  * @swagger
@@ -782,6 +785,31 @@ router.get('/transporter/:transporterId/status/:status', authenticateToken, requ
  *         description: Internal server error
  */
 router.get('/transporter/:transporterId/all', authenticateToken, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllForTransporter);
+
+
+/**
+ * @swagger
+ * /api/admin/updateAvatar:
+ *   put:
+ *     tags: [Admin Management]
+ *     summary: Update an admin's avatar
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Admin avatar updated
+ */
+router.put('/updateAvatar', authenticateToken, upload.single('avatar'), requireRole('admin'), requireSelfOrSuperAdmin, AdminController.uploadImage);
 
 /**
  * @swagger

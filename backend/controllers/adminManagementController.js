@@ -5,6 +5,8 @@ const bcrypt = require('bcryptjs');
 const Permission = require('../models/Permission');
 const sendEmail = require('../utils/sendEmail');
 const { generateRandomPassword } = require('./companyController');
+const { uploadImage } = require('../utils/upload');
+const fs = require('fs');
 
 const AdminManagementController = {
   //generate password
@@ -398,7 +400,11 @@ const AdminManagementController = {
   // Update admin
   async updateAdmin(req, res) {
     try {
-      const { adminId } = req.params;
+      const userId = req.user.uid;
+
+      const adminData = await Admin.getByUserId(userId);
+
+      const adminId = adminData.adminId;
       const updates = req.body;
       
       // Remove sensitive fields that shouldn't be updated directly
@@ -459,7 +465,7 @@ const AdminManagementController = {
       
       // Soft delete by updating status
       await Admin.update(adminId, { 
-        status: 'inactive',
+        accountStatus: false,
         deactivatedAt: admin.firestore.Timestamp.now()
       });
       
@@ -555,6 +561,52 @@ const AdminManagementController = {
     } catch (error) {
       console.error('Logout error:', error);
       res.status(500).json({ success: false, message: 'Failed to logout' });
+    }
+  },
+
+  async uploadImage(req, res) {
+    try {
+      console.log('Uploading image...');
+      const userId = req.user.uid;
+
+      if (!userId) {
+        return res.status(400).json({ success: false, message: 'User ID is required' });
+      }
+
+      const adminData = await Admin.getByUserId(userId);
+
+      if (!adminData) {
+        return res.status(404).json({ success: false, message: 'Admin not found' });
+      }
+
+      const adminId = adminData.adminId;
+
+      console.log('Admin ID:', adminId);
+
+      let profilePhotoUrl = '';
+      
+          // Upload image if provided
+      if (req.file) {
+        const publicId = await uploadImage(req.file.path);
+        profilePhotoUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
+  
+        // Optional: remove local file
+        fs.unlinkSync(req.file.path);
+      }
+
+      console.log('Profile photo URL:', profilePhotoUrl);
+
+      const result = profilePhotoUrl;
+
+      //save the image url to the admin document
+      const updatedAdmin = await Admin.update(adminId, { avatar: result });
+
+      console.log('Updated admin:', updatedAdmin);
+
+      res.json({ success: true, message: 'Image uploaded successfully', data: result });
+    } catch (error) {
+      console.error('Image upload error:', error);
+      res.status(500).json({ success: false, message: 'Failed to upload image' });
     }
   }
 };

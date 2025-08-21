@@ -11,10 +11,13 @@ const Admin = {
       phone: adminData.phone || null,
       role: adminData.role || 'admin',
       permissions: adminData.permissions || [],
+      avatar: adminData.avatar || null,
       status: adminData.status || 'active',
+      accountStatus: adminData.accountStatus || true,
       lastLogin: adminData.lastLogin || admin.firestore.Timestamp.now(),
       createdAt: admin.firestore.Timestamp.now(),
-      updatedAt: admin.firestore.Timestamp.now()
+      updatedAt: admin.firestore.Timestamp.now(),
+      deactivatedAt: null
     };
     await db.collection('admins').doc(newadmin.adminId).set(newadmin);
     return newadmin;
