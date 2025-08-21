@@ -149,7 +149,7 @@ router.get('/profile', AdminController.getProfile);
  *       200:
  *         description: Profile updated
  */
-router.put('/profile', AdminController.updateProfile);
+router.put('/profile', authenticateToken, requireSelfOrSuperAdmin, AdminController.updateProfile);
 
 // Admin management routes - Super admin only
 /**

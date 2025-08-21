@@ -400,11 +400,9 @@ const AdminManagementController = {
   // Update admin
   async updateAdmin(req, res) {
     try {
-      const userId = req.user.uid;
+      const adminId = req.params.adminId;
+      console.log(adminId);
 
-      const adminData = await Admin.getByUserId(userId);
-
-      const adminId = adminData.adminId;
       const updates = req.body;
       
       // Remove sensitive fields that shouldn't be updated directly
@@ -519,6 +517,7 @@ const AdminManagementController = {
   async updateProfile(req, res) {
     try {
       const updates = req.body;
+
       
       // Only allow certain fields to be updated by the admin themselves
       const allowedUpdates = ['name', 'phone'];
@@ -536,8 +535,9 @@ const AdminManagementController = {
           message: 'No valid fields to update'
         });
       }
-
-      const updatedAdmin = await Admin.update(req.user.uid, filteredUpdates);
+      
+      const adminData = await Admin.getByUserId(req.user.uid);
+      const updatedAdmin = await Admin.update(adminData.adminId, filteredUpdates);
       
       res.json({
         success: true,
