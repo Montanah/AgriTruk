@@ -504,6 +504,7 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: spacing.lg,
     paddingTop: spacing.md,
+    paddingBottom: spacing.xl * 2,
   },
   requestCard: {
     marginBottom: spacing.md,

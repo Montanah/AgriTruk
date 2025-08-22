@@ -62,6 +62,12 @@ const AGRI_PERISHABLES = [
     { key: 'fast', label: 'Fast Delivery' },
 ];
 
+const URGENCY_LEVELS = [
+    { key: 'low', label: 'Low', color: colors.success, icon: 'clock-outline' },
+    { key: 'medium', label: 'Medium', color: colors.warning, icon: 'clock' },
+    { key: 'high', label: 'High', color: colors.error, icon: 'fire' },
+];
+
 interface RequestFormProps {
     mode: 'shipper' | 'broker' | 'business';
     clientId?: string;
@@ -80,6 +86,8 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
     const [toLocation, setToLocation] = useState('');
     const [productType, setProductType] = useState('');
     const [weight, setWeight] = useState('');
+    const [estimatedValue, setEstimatedValue] = useState('');
+    const [urgency, setUrgency] = useState<'low' | 'medium' | 'high'>('medium');
     const [pickupDate, setPickupDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showProductSuggestions, setShowProductSuggestions] = useState(false);
@@ -117,31 +125,59 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
         return true;
     };
 
-    const handleAddToConsolidate = () => {
-        if (!validateForm()) return;
+    const createRequestData = () => {
+        // Combine all special requirements
+        const allSpecialRequirements = [
+            ...(isPerishable ? perishableSpecs : []),
+            ...(isSpecialCargo ? specialCargoSpecs : []),
+            ...(isBulk ? ['bulk'] : []),
+            ...(isPriority ? ['priority'] : []),
+        ];
 
-        const requestData = {
+        return {
             id: Date.now().toString(),
+            type: requestType,
+            status: 'pending',
             fromLocation,
             toLocation,
             productType,
-            weight,
-            requestType,
-            date: pickupDate.toISOString(),
-            isBulk,
-            isPriority,
+            weight: `${weight}kg`,
+            estimatedValue: estimatedValue ? parseInt(estimatedValue) : 0,
+            urgency,
+            createdAt: new Date().toISOString(),
+            specialRequirements: allSpecialRequirements,
+            client: {
+                name: mode === 'broker' ? 'Client' : 'User',
+                rating: 4.5,
+                completedOrders: 10,
+            },
+            pricing: {
+                basePrice: 0, // Will be calculated by backend
+                urgencyBonus: urgency === 'high' ? 2000 : urgency === 'medium' ? 1000 : 0,
+                specialHandling: allSpecialRequirements.length > 0 ? 1000 : 0,
+                total: 0, // Will be calculated
+            },
+            route: {
+                distance: '0 km', // Will be calculated by backend
+                estimatedTime: '0 hours',
+                detour: '0 km',
+            },
+            // Additional fields for consistency
+            pickupDate: requestType === 'booking' ? pickupDate.toISOString() : undefined,
+            insureGoods,
+            insuranceValue: insuranceValue ? parseInt(insuranceValue) : 0,
             isRecurring,
             recurringFreq,
-            insureGoods,
-            insuranceValue,
-            isPerishable,
-            perishableSpecs,
-            isSpecialCargo,
-            specialCargoSpecs,
             additional,
-            type: activeTab,
+            serviceType: activeTab,
             clientId,
         };
+    };
+
+    const handleAddToConsolidate = () => {
+        if (!validateForm()) return;
+
+        const requestData = createRequestData();
 
         addConsolidation(requestData);
 
@@ -173,27 +209,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
         if (requestType === 'instant') {
             setShowTransporters(true);
         } else {
-            const requestData = {
-                fromLocation,
-                toLocation,
-                productType,
-                weight,
-                pickupDate,
-                isBulk,
-                isPriority,
-                isRecurring,
-                recurringFreq,
-                insureGoods,
-                insuranceValue,
-                isPerishable,
-                perishableSpecs,
-                isSpecialCargo,
-                specialCargoSpecs,
-                additional,
-                type: activeTab,
-                clientId,
-            };
-
+            const requestData = createRequestData();
             navigation.navigate('BookingConfirmation', {
                 requests: consolidations.length > 0 ? consolidations : [requestData],
                 mode
@@ -209,23 +225,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
         navigation.navigate('Consolidation', { mode });
     };
 
-    const getCurrentRequest = () => ({
-        fromLocation,
-        toLocation,
-        productType,
-        weight,
-        value: insureGoods ? insuranceValue : '',
-        insureGoods,
-        additional,
-        perishableSpecs,
-        specialCargoSpecs,
-        isBulk,
-        isPriority,
-        isRecurring,
-        recurringFreq,
-        type: activeTab,
-        clientId,
-    });
+    const getCurrentRequest = () => createRequestData();
 
     return (
         <SafeAreaView style={styles.container}>
@@ -385,6 +385,47 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                                 placeholderTextColor={colors.text.light}
                                 keyboardType="numeric"
                             />
+                        </View>
+
+                        <View style={styles.fieldGroup}>
+                            <Text style={styles.fieldLabel}>Estimated Value (KES)</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={estimatedValue}
+                                onChangeText={setEstimatedValue}
+                                placeholder="Enter estimated value of goods"
+                                placeholderTextColor={colors.text.light}
+                                keyboardType="numeric"
+                            />
+                        </View>
+
+                        {/* Urgency Level */}
+                        <View style={styles.fieldGroup}>
+                            <Text style={styles.fieldLabel}>Urgency Level</Text>
+                            <View style={styles.urgencyContainer}>
+                                {URGENCY_LEVELS.map((level) => (
+                                    <TouchableOpacity
+                                        key={level.key}
+                                        style={[
+                                            styles.urgencyButton,
+                                            urgency === level.key && { backgroundColor: level.color + '20', borderColor: level.color }
+                                        ]}
+                                        onPress={() => setUrgency(level.key as 'low' | 'medium' | 'high')}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={level.icon as any}
+                                            size={16}
+                                            color={urgency === level.key ? level.color : colors.text.secondary}
+                                        />
+                                        <Text style={[
+                                            styles.urgencyText,
+                                            urgency === level.key && { color: level.color, fontWeight: 'bold' }
+                                        ]}>
+                                            {level.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
                         </View>
 
                         {/* Pickup Date for Bookings */}
@@ -659,7 +700,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                                     {consolidations.slice(0, 3).map((item, index) => (
                                         <View key={item.id} style={styles.consolidationItem}>
                                             <Text style={styles.consolidationItemText}>
-                                                {item.fromLocation} → {item.toLocation} ({item.productType}, {item.weight}kg)
+                                                {item.fromLocation} → {item.toLocation} ({item.productType}, {item.weight})
                                             </Text>
                                             <TouchableOpacity onPress={() => removeConsolidation(item.id!)}>
                                                 <Ionicons name="close-circle" size={20} color={colors.error} />
@@ -1008,6 +1049,27 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         color: colors.text.secondary,
         marginTop: 2,
+    },
+    urgencyContainer: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    urgencyButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.text.light,
+        backgroundColor: colors.surface,
+    },
+    urgencyText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginLeft: spacing.xs,
     },
 });
 

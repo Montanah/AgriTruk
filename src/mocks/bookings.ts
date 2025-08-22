@@ -49,8 +49,20 @@ export interface Transporter {
 
 export interface Booking {
   id: string;
-  pickupLocation: string;
-  cargoDetails: string;
+  // Consistent with RequestForm structure
+  fromLocation: string; // Changed from pickupLocation
+  toLocation: string; // Changed from destination
+  productType: string; // Add product type field
+  weight: string; // Add weight field
+  estimatedValue: number; // Add estimated value field
+  urgency: 'low' | 'medium' | 'high'; // Add urgency field
+  createdAt: string; // Add creation timestamp
+  specialRequirements: string[]; // Add special requirements array
+
+  // Legacy fields for backward compatibility
+  pickupLocation?: string; // Keep for backward compatibility
+  cargoDetails?: string; // Keep for backward compatibility
+
   pickupTime: string; // ISO string or empty for instant
   status: BookingStatus;
   type: BookingType;
@@ -58,22 +70,81 @@ export interface Booking {
   assignedDriver?: AssignedDriver; // For company bookings
   transporter?: Transporter;
   vehicle?: Vehicle;
+  client: {
+    name: string;
+    rating: number;
+    completedOrders: number;
+  };
+  pricing: {
+    basePrice: number;
+    urgencyBonus: number;
+    specialHandling: number;
+    insuranceCost: number;
+    total: number;
+  };
+  route: {
+    distance: string;
+    estimatedTime: string;
+    detour: string;
+  };
   reference?: string;
   eta?: string;
   distance?: string;
-  estimatedCost?: number;
+  estimatedCost?: number; // Keep for backward compatibility
   specialFeatures?: string[];
+
+  // Additional RequestForm fields
+  insureGoods: boolean;
+  insuranceValue: number;
+  isRecurring?: boolean;
+  recurringFreq?: string;
+  additional?: string;
+  serviceType: 'agriTRUK' | 'cargoTRUK';
 }
 
 export const MOCK_BOOKINGS: Booking[] = [
   {
     id: '1',
+    // New RequestForm structure
+    fromLocation: 'Farm A, Nakuru',
+    toLocation: 'Warehouse X, Nairobi',
+    productType: 'Maize',
+    weight: '2000kg',
+    estimatedValue: 150000,
+    urgency: 'medium',
+    createdAt: '2024-06-10T08:00:00Z',
+    specialRequirements: ['bulk', 'fast-delivery'],
+
+    // Legacy fields for backward compatibility
     pickupLocation: 'Farm A',
     cargoDetails: 'Maize, 2 tons',
+
     pickupTime: '2024-06-10T10:00:00Z',
     status: 'pending',
     type: 'booking',
     transporterType: 'individual',
+    client: {
+      name: 'Farm A Ltd.',
+      rating: 4.5,
+      completedOrders: 100,
+    },
+    pricing: {
+      basePrice: 12000,
+      urgencyBonus: 1000,
+      specialHandling: 2000,
+      insuranceCost: 1500,
+      total: 16500,
+    },
+    route: {
+      distance: '120 km',
+      estimatedTime: '2.5 hours',
+      detour: '0 km',
+    },
+    insureGoods: true,
+    insuranceValue: 150000,
+    isRecurring: false,
+    additional: 'Please handle with care - premium quality maize',
+    serviceType: 'agriTRUK',
     transporter: {
       id: 't1',
       name: 'Jana',
@@ -110,12 +181,47 @@ export const MOCK_BOOKINGS: Booking[] = [
   },
   {
     id: '2',
+    // New RequestForm structure
+    fromLocation: 'Warehouse B, Eldoret',
+    toLocation: 'Market Y, Kisumu',
+    productType: 'Fertilizer',
+    weight: '1000kg',
+    estimatedValue: 80000,
+    urgency: 'low',
+    createdAt: '2024-06-12T12:00:00Z',
+    specialRequirements: ['hazardous', 'bulk'],
+
+    // Legacy fields for backward compatibility
     pickupLocation: 'Warehouse B',
     cargoDetails: 'Fertilizer, 1 ton',
+
     pickupTime: '2024-06-12T14:00:00Z',
     status: 'accepted',
     type: 'booking',
     transporterType: 'individual',
+    client: {
+      name: 'Warehouse B Co.',
+      rating: 4.2,
+      completedOrders: 50,
+    },
+    pricing: {
+      basePrice: 8000,
+      urgencyBonus: 0,
+      specialHandling: 1500,
+      insuranceCost: 0,
+      total: 9500,
+    },
+    route: {
+      distance: '95 km',
+      estimatedTime: '2 hours',
+      detour: '0 km',
+    },
+    insureGoods: false,
+    insuranceValue: 0,
+    isRecurring: true,
+    recurringFreq: 'Monthly',
+    additional: 'Certified for hazardous materials transport',
+    serviceType: 'cargoTRUK',
     transporter: {
       id: 't2',
       name: 'Moses',
@@ -152,12 +258,46 @@ export const MOCK_BOOKINGS: Booking[] = [
   },
   {
     id: '3',
+    // New RequestForm structure
+    fromLocation: 'Market C, Mombasa',
+    toLocation: 'Factory Z, Nakuru',
+    productType: 'Tomatoes',
+    weight: '500kg',
+    estimatedValue: 35000,
+    urgency: 'high',
+    createdAt: '2024-06-13T09:30:00Z',
+    specialRequirements: ['perishable', 'refrigerated', 'fast-delivery'],
+
+    // Legacy fields for backward compatibility
     pickupLocation: 'Market C',
     cargoDetails: 'Tomatoes, 500kg',
+
     pickupTime: '',
     status: 'pending',
     type: 'instant',
     transporterType: 'company',
+    client: {
+      name: 'Market C Suppliers',
+      rating: 4.3,
+      completedOrders: 85,
+    },
+    pricing: {
+      basePrice: 15000,
+      urgencyBonus: 2000,
+      specialHandling: 3000,
+      insuranceCost: 350,
+      total: 20350,
+    },
+    route: {
+      distance: '180 km',
+      estimatedTime: '3 hours',
+      detour: '0 km',
+    },
+    insureGoods: true,
+    insuranceValue: 35000,
+    isRecurring: false,
+    additional: 'Fresh tomatoes - requires temperature-controlled transport',
+    serviceType: 'agriTRUK',
     assignedDriver: {
       id: 'd1',
       name: 'John Doe',
@@ -203,12 +343,46 @@ export const MOCK_BOOKINGS: Booking[] = [
   },
   {
     id: '4',
+    // New RequestForm structure
+    fromLocation: 'Depot D, Nairobi',
+    toLocation: 'Warehouse W, Mombasa',
+    productType: 'Electronics',
+    weight: '200kg',
+    estimatedValue: 120000,
+    urgency: 'medium',
+    createdAt: '2024-06-14T11:15:00Z',
+    specialRequirements: ['fragile', 'highvalue', 'temperature'],
+
+    // Legacy fields for backward compatibility
     pickupLocation: 'Depot D',
     cargoDetails: 'Electronics, 200kg',
+
     pickupTime: '',
     status: 'in-progress',
     type: 'instant',
     transporterType: 'individual',
+    client: {
+      name: "Ali's Electronics",
+      rating: 4.4,
+      completedOrders: 70,
+    },
+    pricing: {
+      basePrice: 18000,
+      urgencyBonus: 1000,
+      specialHandling: 2500,
+      insuranceCost: 1200,
+      total: 22700,
+    },
+    route: {
+      distance: '200 km',
+      estimatedTime: '4 hours',
+      detour: '5 km',
+    },
+    insureGoods: true,
+    insuranceValue: 120000,
+    isRecurring: false,
+    additional: 'Fragile electronics - handle with extreme care',
+    serviceType: 'cargoTRUK',
     transporter: {
       id: 't4',
       name: 'Ali',
@@ -245,12 +419,47 @@ export const MOCK_BOOKINGS: Booking[] = [
   },
   {
     id: '5',
+    // New RequestForm structure
+    fromLocation: 'Factory E, Thika',
+    toLocation: 'Warehouse V, Eldoret',
+    productType: 'Machinery Parts',
+    weight: '3000kg',
+    estimatedValue: 500000,
+    urgency: 'low',
+    createdAt: '2024-06-15T07:00:00Z',
+    specialRequirements: ['oversized', 'bulk', 'priority'],
+
+    // Legacy fields for backward compatibility
     pickupLocation: 'Factory E',
     cargoDetails: 'Machinery Parts, 3 tons',
+
     pickupTime: '2024-06-15T09:00:00Z',
     status: 'scheduled',
     type: 'booking',
     transporterType: 'company',
+    client: {
+      name: 'Factory E Co.',
+      rating: 4.6,
+      completedOrders: 120,
+    },
+    pricing: {
+      basePrice: 25000,
+      urgencyBonus: 0,
+      specialHandling: 5000,
+      insuranceCost: 5000,
+      total: 35000,
+    },
+    route: {
+      distance: '250 km',
+      estimatedTime: '5 hours',
+      detour: '10 km',
+    },
+    insureGoods: true,
+    insuranceValue: 500000,
+    isRecurring: true,
+    recurringFreq: 'Weekly',
+    additional: 'Heavy machinery parts - requires special loading equipment',
+    serviceType: 'cargoTRUK',
     assignedDriver: {
       id: 'd2',
       name: 'Sarah Kamau',

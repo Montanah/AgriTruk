@@ -53,11 +53,13 @@ export default function Header({
       <View style={styles.actionsContainer}>
         <TouchableOpacity
           style={styles.tabButton}
-          onPress={() =>
-            navigation.navigate('TransporterBookingManagement', {
-              transporterType,
-            })
-          }
+          onPress={() => {
+            // Navigate to the Manage tab instead of the screen directly
+            const parent = navigation.getParent();
+            if (parent) {
+              parent.navigate('Manage');
+            }
+          }}
         >
           <Ionicons name="clipboard-outline" size={18} color={colors.secondary} />
           <Text style={styles.tabText}>Manage Bookings</Text>

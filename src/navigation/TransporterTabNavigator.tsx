@@ -1,4 +1,4 @@
-import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useRoute } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -7,10 +7,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 
 import { StyleSheet } from 'react-native';
-import ManageTransporterScreen from '../screens/ManageTransporterScreen';
-import RevenueScreen from '../screens/RevenueScreen';
+import MapViewScreen from '../screens/MapViewScreen';
+import TrackingScreen from '../screens/TrackingScreen';
 import TransporterBookingManagementScreen from '../screens/TransporterBookingManagementScreen';
+import TransporterProfileScreen from '../screens/TransporterProfileScreen';
 import TransporterServiceScreen from '../screens/TransporterServiceScreen';
+import TripDetailsScreen from '../screens/TripDetailsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -18,7 +20,18 @@ const Stack = createStackNavigator();
 const HomeStack = ({ transporterType }) => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="TransporterService" component={TransporterServiceScreen} initialParams={{ transporterType }} />
-    <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} />
+    <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+    <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+    <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+  </Stack.Navigator>
+);
+
+const ManageStack = ({ transporterType }) => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
+    <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+    <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+    <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
   </Stack.Navigator>
 );
 
@@ -61,20 +74,20 @@ const TransporterTabNavigator = () => {
                 style={{ marginBottom: -2 }}
               />
             );
-          } else if (route.name === 'Revenue') {
+          } else if (route.name === 'Manage') {
             return (
               <MaterialCommunityIcons
-                name="cash-multiple"
+                name="clipboard-list"
                 size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
               />
             );
-          } else if (route.name === 'Manage') {
+          } else if (route.name === 'Profile') {
             return (
-              <FontAwesome5
-                name={isCompany ? 'users-cog' : 'truck'}
-                size={26}
+              <MaterialCommunityIcons
+                name={focused ? 'account' : 'account-outline'}
+                size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
               />
@@ -87,11 +100,11 @@ const TransporterTabNavigator = () => {
       <Tab.Screen name="Home">
         {() => <HomeStack transporterType={transporterType} />}
       </Tab.Screen>
-      <Tab.Screen name="Revenue">
-        {props => <RevenueScreen {...props} route={{ ...props.route, params: { transporterType } }} />}
-      </Tab.Screen>
       <Tab.Screen name="Manage">
-        {props => <ManageTransporterScreen {...props} route={{ ...props.route, params: { transporterType } }} />}
+        {() => <ManageStack transporterType={transporterType} />}
+      </Tab.Screen>
+      <Tab.Screen name="Profile">
+        {props => <TransporterProfileScreen {...props} route={{ ...props.route, params: { transporterType } }} />}
       </Tab.Screen>
     </Tab.Navigator>
   );
