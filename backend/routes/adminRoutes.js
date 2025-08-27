@@ -422,6 +422,34 @@ router.get('/brokers', authenticateToken, requireRole('admin'), authorize(['view
  *         description: Server error
  */
 router.get('/permissions', authenticateToken, requireRole('admin'), authorize(['super_admin']), getPermissions);
+
+/**
+ * @swagger
+ * /api/admin/dashboard-metrics:
+ *   get:
+ *     summary: Get dashboard metrics
+ *     tags: [Analytics]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *         description: Start date for range (e.g., 2025-07-01)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *         description: End date for range (e.g., 2025-07-01)
+ *     responses:
+ *       200:
+ *         description: Dashboard metrics retrieved successfully
+ *       500:
+ *         description: Server error
+ */
+router.get('/dashboard-metrics', authenticateToken, requireRole('admin'), authorize(['view_analytics', 'super_admin']), AnalyticsController.getDashboardMetrics);
+
 /**
  * @swagger
  * /api/admin/disputes/status/{status}:
@@ -953,32 +981,6 @@ router.delete("/delete-account/:uid", requireSuperAdmin, authController.deleteAc
  *               $ref: '#/components/schemas/Error'
  */
 router.delete("/deactivate-account/:uid", requireSuperAdmin, authController.deactivateAccount);
-
-
-/**
- * @swagger
- * /api/admin/analytics/{date}:
- *   post:
- *     summary: Process and create analytics data for a specific date
- *     tags: [Analytics]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: date
- *         required: true
- *         schema:
- *           type: string
- *         description: Date for analytics data (e.g., 2025-07-22)
- *     responses:
- *       201:
- *         description: Analytics data processed and created successfully
- *       400:
- *         description: Invalid date format
- *       500:
- *         description: Server error
- */
-router.post('/analytics/:date', authorize(['manage_analytics', 'super_admin']), AnalyticsController.createAnalytics);
 
 /**
  * @swagger

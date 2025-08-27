@@ -2,7 +2,7 @@ const subscriptionController = require('../controllers/subscriptionController');
 const router = require('express').Router();
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/requireRole');
-const { authorize, authenticate } = require("../middlewares/adminAuth");
+const { authorize } = require("../middlewares/adminAuth");
 
 /**
  * @swagger
@@ -115,7 +115,7 @@ router.get('/', authenticateToken, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/admin/', authenticate, requireRole('admin'), 
+router.get('/admin/', authenticateToken, requireRole('admin'), 
 authorize(['view_subscriptions', 'manage_subscriptions', 'super_admin']), 
 async (req, res) => {
     const {planId} = req.query;
@@ -196,7 +196,7 @@ async (req, res) => {
  */
 router.post(
   '/admin/',
-  authenticate,
+  authenticateToken,
   requireRole('admin'),
   authorize(['manage_subscriptions', 'super_admin']),
   subscriptionController.createSubscriptionPlan
@@ -268,7 +268,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put('/admin/:id', authenticate, requireRole('admin'), authorize(['manage_subscriptions', 'super_admin']), subscriptionController.updateSubscriptionPlan);
+router.put('/admin/:id', authenticateToken, requireRole('admin'), authorize(['manage_subscriptions', 'super_admin']), subscriptionController.updateSubscriptionPlan);
 
 /**
  * @swagger
@@ -306,7 +306,7 @@ router.put('/admin/:id', authenticate, requireRole('admin'), authorize(['manage_
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete('/admin/:id', authenticate, requireRole('admin'), authorize(['manage_subscriptions', 'super_admin']), subscriptionController.deleteSubscriptionPlan);
+router.delete('/admin/:id', authenticateToken, requireRole('admin'), authorize(['manage_subscriptions', 'super_admin']), subscriptionController.deleteSubscriptionPlan);
 
 
 // Subscriber
@@ -433,7 +433,7 @@ router.get('/subscriber/:id', authenticateToken, requireRole(['transporter', 'br
  *       500:
  *         description: Internal server error
  */
-router.get('/admin/subscribers/', authenticate, requireRole('admin'), authorize(['manage_subscriptions', 'super_admin']), 
+router.get('/admin/subscribers/', authenticateToken, requireRole('admin'), authorize(['manage_subscriptions', 'super_admin']), 
     async (req, res) => {
         const { subcriberId} = req.query;
 

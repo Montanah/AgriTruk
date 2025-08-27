@@ -21,15 +21,11 @@ const {
   updateVehicleProfile,
   updateVehicleAssignment
 } = require('../controllers/companyController');
-const {
-  authenticate,
-  authorize
-} = require("../middlewares/adminAuth");
+const { authorize } = require("../middlewares/adminAuth");
 const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewares/validationMiddleware');
 const CompanyController = require("../controllers/companyController");
 
 const multer = require('multer');
-const { auth } = require('firebase-admin');
 const upload = multer({ dest: 'uploads/' }); 
 
 const uploadAny = upload.any();
@@ -445,7 +441,7 @@ router.put('/:companyId', authenticateToken, requireRole('transporter'), validat
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/approve', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), approveCompany);
+router.patch('/:companyId/approve', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), approveCompany);
 
 /**
  * @swagger
@@ -487,7 +483,7 @@ router.patch('/:companyId/approve', authenticate, requireRole('admin'), authoriz
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/reject', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectCompany);
+router.patch('/:companyId/reject', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectCompany);
 
 /**
  * @swagger
@@ -541,7 +537,7 @@ router.get('/transporter/:transporterId', authenticateToken, requireRole(['trans
  *       500:
  *         description: Internal server error
  */
-router.get('/transporter/:transporterId/status/:status', authenticate, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), getCompaniesByTransporterAndStatus);
+router.get('/transporter/:transporterId/status/:status', authenticateToken, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), getCompaniesByTransporterAndStatus);
 
 /**
  * @swagger
@@ -565,7 +561,7 @@ router.get('/transporter/:transporterId/status/:status', authenticate, requireRo
  *       500:
  *         description: Internal server error
  */
-router.get('/transporter/:transporterId/all', authenticate, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), getAllForTransporter);
+router.get('/transporter/:transporterId/all', authenticateToken, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), getAllForTransporter);
 
 /**
  * @swagger
@@ -591,7 +587,7 @@ router.get('/transporter/:transporterId/all', authenticate, requireRole(['admin'
  *       500:
  *         description: Internal server error
  */
-router.delete('/companies/:companyId', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), deleteCompany);
+router.delete('/companies/:companyId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), deleteCompany);
 
 /**
  * @swagger
@@ -623,7 +619,7 @@ router.delete('/companies/:companyId', authenticate, requireRole('admin'), autho
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/approveVehicle/:vehicleId', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), approveVehicle);
+router.patch('/:companyId/approveVehicle/:vehicleId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), approveVehicle);
 /**
  * @swagger
  * /api/companies/{companyId}/rejectVehicle/{vehicleId}:
@@ -654,7 +650,7 @@ router.patch('/:companyId/approveVehicle/:vehicleId', authenticate, requireRole(
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/rejectvehicle/:vehicleId', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectVehicle);
+router.patch('/:companyId/rejectvehicle/:vehicleId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectVehicle);
 
 /**
  * @swagger
@@ -686,7 +682,7 @@ router.patch('/:companyId/rejectvehicle/:vehicleId', authenticate, requireRole('
  *       500:
  *         description: Internal server error
 */
-router.patch('/:companyId/approveDriver/:driverId', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), approveCompanyDriver);
+router.patch('/:companyId/approveDriver/:driverId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), approveCompanyDriver);
 /**
  * @swagger
  * /api/companies/{companyId}/rejectDriver/{driverId}:
@@ -717,7 +713,7 @@ router.patch('/:companyId/approveDriver/:driverId', authenticate, requireRole('a
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/rejectDriver/:driverId', authenticate, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectCompanyDriver);
+router.patch('/:companyId/rejectDriver/:driverId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectCompanyDriver);
 /**
  * @swagger
  * /api/companies/{companyId}/updateDriver/{driverId}:

@@ -14,6 +14,7 @@ const Admin = {
       avatar: adminData.avatar || null,
       status: adminData.status || 'active',
       accountStatus: adminData.accountStatus || true,
+      notifications: adminData.notifications || true,
       lastLogin: adminData.lastLogin || admin.firestore.Timestamp.now(),
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
@@ -289,7 +290,11 @@ const Admin = {
     }
     
     return requiredPermissions.every(permission => permissions.includes(permission));
-  }
+  },
+  
+  getNotified(adminId, value) {
+    return db.collection('admins').doc(adminId).update({ notifications: value });
+  },
 };
 
 module.exports = Admin;

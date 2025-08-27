@@ -60,12 +60,23 @@ exports.rejectTransporter = async (req, res) => {
 
 exports.deleteTransporter = async (req, res) => {
   try {
-    await Transporter.delete(req.params.transporterId);
+    await Transporter.softDelete(req.params.transporterId);
     await logAdminActivity(req.user.uid, 'delete_transporter', req, { type: 'transporter', id: transporterId });
     res.status(200).json({ message: 'Transporter deleted successfully' });
   } catch (error) {
     console.error('Delete transporter error:', error);
     res.status(500).json({ message: 'Failed to delete transporter' });
+  }
+};
+
+exports.hardDeleteTransporter = async (req, res) => {
+  try {
+    await Transporter.delete(req.params.transporterId);
+    await logAdminActivity(req.user.uid, 'hard_delete_transporter', req, { type: 'transporter', id: transporterId });
+    res.status(200).json({ message: 'Transporter hard deleted successfully' });
+  } catch (error) {
+    console.error('Hard delete transporter error:', error);
+    res.status(500).json({ message: 'Failed to hard delete transporter' });
   }
 };
 

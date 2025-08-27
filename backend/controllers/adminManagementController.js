@@ -1,4 +1,4 @@
-const Admin = require('../models/Admin'); 
+const Admin = require('../models/Admin');
 const admin = require('../config/firebase');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -17,7 +17,7 @@ const AdminManagementController = {
     for (let i = 0; i < length; i++) {
       password += charset.charAt(Math.floor(Math.random() * charset.length));
     }
-    return password;  
+    return password;
   },
   // Admin Login
   // async login(req, res) {
@@ -33,7 +33,7 @@ const AdminManagementController = {
   //     }
 
   //     let decodedToken;
-      
+
   //     // Verify Firebase token if provided
   //     if (firebaseToken) {
   //       try {
@@ -111,81 +111,81 @@ const AdminManagementController = {
   //   }
   // },
   async login(req, res) {
-  try {
-    const { firebaseToken } = req.body;
+    try {
+      const { firebaseToken } = req.body;
 
-    if (!firebaseToken) {
-      return res.status(400).json({
-        success: false,
-        message: 'Firebase token required'
-      });
-    }
-
-    // Verify Firebase token
-    const decodedToken = await admin.auth().verifyIdToken(firebaseToken);
-    const userId = decodedToken.uid;
-    const email = decodedToken.email;
-
-    // Get admin by userId (Firebase UID)
-    const adminQuery = await admin.firestore()
-      .collection('admins')
-      .where('userId', '==', userId)
-      .where('status', '==', 'active')
-      .limit(1)
-      .get();
-
-    if (adminQuery.empty) {
-      return res.status(401).json({
-        success: false,
-        message: 'Admin account not found or inactive'
-      });
-    }
-
-    const adminDoc = adminQuery.docs[0];
-    const adminData = adminDoc.data();
-
-    // Update last login
-    await admin.firestore()
-      .collection('admins')
-      .doc(adminDoc.id)
-      .update({
-        lastLogin: admin.firestore.FieldValue.serverTimestamp()
-      });
-
-    res.json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        admin: {
-          adminId: adminDoc.id,
-          name: adminData.name,
-          email: adminData.email,
-          permissions: adminData.permissions
-        },
-        // You can return the Firebase token if needed
-        firebaseToken
+      if (!firebaseToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Firebase token required'
+        });
       }
-    });
 
-  } catch (error) {
-    console.error('Login error:', error);
-    
-    const errorMessage = error.code === 'auth/id-token-expired' 
-      ? 'Firebase token expired' 
-      : 'Authentication failed';
-    
-    res.status(401).json({
-      success: false,
-      message: errorMessage
-    });
-  }
-},
+      // Verify Firebase token
+      const decodedToken = await admin.auth().verifyIdToken(firebaseToken);
+      const userId = decodedToken.uid;
+      const email = decodedToken.email;
+
+      // Get admin by userId (Firebase UID)
+      const adminQuery = await admin.firestore()
+        .collection('admins')
+        .where('userId', '==', userId)
+        .where('status', '==', 'active')
+        .limit(1)
+        .get();
+
+      if (adminQuery.empty) {
+        return res.status(401).json({
+          success: false,
+          message: 'Admin account not found or inactive'
+        });
+      }
+
+      const adminDoc = adminQuery.docs[0];
+      const adminData = adminDoc.data();
+
+      // Update last login
+      await admin.firestore()
+        .collection('admins')
+        .doc(adminDoc.id)
+        .update({
+          lastLogin: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+      res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          admin: {
+            adminId: adminDoc.id,
+            name: adminData.name,
+            email: adminData.email,
+            permissions: adminData.permissions
+          },
+          // You can return the Firebase token if needed
+          firebaseToken
+        }
+      });
+
+    } catch (error) {
+      console.error('Login error:', error);
+
+      const errorMessage = error.code === 'auth/id-token-expired'
+        ? 'Firebase token expired'
+        : 'Authentication failed';
+
+      res.status(401).json({
+        success: false,
+        message: errorMessage
+      });
+    }
+  },
 
   // Create Admin (Super Admin only)
   async createAdmin(req, res) {
     try {
       const { name, email, phone, permissions } = req.body;
-      
+
       if (!name || !email || !permissions || !phone) {
         return res.status(400).json({
           success: false,
@@ -198,10 +198,10 @@ const AdminManagementController = {
       // console.log(allValidPermissions);
       // console.log(permissions);
       let finalPermissions = [];
-      
+
       // Process permissions array
       const inputPermissions = Array.isArray(permissions) ? permissions : [permissions];
-      
+
       for (const perm of inputPermissions) {
         if (allValidPermissions.includes(perm)) {
           finalPermissions.push(perm);
@@ -262,7 +262,7 @@ const AdminManagementController = {
       try {
         const link = await admin.auth().generatePasswordResetLink(email);
 
-        await sendEmail ({
+        await sendEmail({
           to: email,
           subject: 'Password Reset',
           text: `Click the following link to reset your password: ${link}`,
@@ -277,7 +277,7 @@ const AdminManagementController = {
         //     <p>Please change it after logging in.</p>
         //   `
         // });
-        
+
       } catch (emailError) {
         await admin.auth().deleteUser(firebaseUser.uid);
         await Admin.hardDelete(newAdmin.adminId);
@@ -311,9 +311,9 @@ const AdminManagementController = {
   async getAllAdmins(req, res) {
     try {
       const { page = 1, limit = 10, status, search } = req.query;
-      
+
       let query = admin.firestore().collection('admins');
-      
+
       // Filter by status if provided
       if (status && ['active', 'inactive', 'suspended'].includes(status)) {
         query = query.where('status', '==', status);
@@ -331,7 +331,7 @@ const AdminManagementController = {
       // Search filter
       if (search) {
         const searchLower = search.toLowerCase();
-        admins = admins.filter(admin => 
+        admins = admins.filter(admin =>
           admin.name?.toLowerCase().includes(searchLower) ||
           admin.email?.toLowerCase().includes(searchLower)
         );
@@ -368,9 +368,9 @@ const AdminManagementController = {
   async getAdmin(req, res) {
     try {
       const { adminId } = req.params;
-      
+
       const adminData = await Admin.get(adminId);
-      
+
       res.json({
         success: true,
         data: {
@@ -388,7 +388,7 @@ const AdminManagementController = {
           message: 'Admin not found'
         });
       }
-      
+
       console.error('Get admin error:', error);
       res.status(500).json({
         success: false,
@@ -404,7 +404,7 @@ const AdminManagementController = {
       console.log(adminId);
 
       const updates = req.body;
-      
+
       // Remove sensitive fields that shouldn't be updated directly
       delete updates.adminId;
       delete updates.userId;
@@ -430,7 +430,7 @@ const AdminManagementController = {
       }
 
       const updatedAdmin = await Admin.update(adminId, updates);
-      
+
       res.json({
         success: true,
         message: 'Admin updated successfully',
@@ -444,7 +444,7 @@ const AdminManagementController = {
           message: 'Admin not found'
         });
       }
-      
+
       console.error('Update admin error:', error);
       res.status(500).json({
         success: false,
@@ -457,16 +457,16 @@ const AdminManagementController = {
   async deleteAdmin(req, res) {
     try {
       const { adminId } = req.params;
-      
+
       // Get admin first to check if exists
       await Admin.get(adminId);
-      
+
       // Soft delete by updating status
-      await Admin.update(adminId, { 
+      await Admin.update(adminId, {
         accountStatus: false,
         deactivatedAt: admin.firestore.Timestamp.now()
       });
-      
+
       res.json({
         success: true,
         message: 'Admin deactivated successfully'
@@ -479,7 +479,7 @@ const AdminManagementController = {
           message: 'Admin not found'
         });
       }
-      
+
       console.error('Delete admin error:', error);
       res.status(500).json({
         success: false,
@@ -493,7 +493,7 @@ const AdminManagementController = {
     try {
       console.log(req.user.user_id);
       const adminData = await Admin.getByUserId(req.user.user_id);
-      
+
       res.json({
         success: true,
         data: {
@@ -518,11 +518,11 @@ const AdminManagementController = {
     try {
       const updates = req.body;
 
-      
+
       // Only allow certain fields to be updated by the admin themselves
       const allowedUpdates = ['name', 'phone'];
       const filteredUpdates = {};
-      
+
       allowedUpdates.forEach(field => {
         if (updates[field] !== undefined) {
           filteredUpdates[field] = updates[field];
@@ -535,10 +535,10 @@ const AdminManagementController = {
           message: 'No valid fields to update'
         });
       }
-      
+
       const adminData = await Admin.getByUserId(req.user.uid);
       const updatedAdmin = await Admin.update(adminData.adminId, filteredUpdates);
-      
+
       res.json({
         success: true,
         message: 'Profile updated successfully',
@@ -584,12 +584,12 @@ const AdminManagementController = {
       console.log('Admin ID:', adminId);
 
       let profilePhotoUrl = '';
-      
-          // Upload image if provided
+
+      // Upload image if provided
       if (req.file) {
         const publicId = await uploadImage(req.file.path);
         profilePhotoUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-  
+
         // Optional: remove local file
         fs.unlinkSync(req.file.path);
       }
@@ -607,6 +607,19 @@ const AdminManagementController = {
     } catch (error) {
       console.error('Image upload error:', error);
       res.status(500).json({ success: false, message: 'Failed to upload image' });
+    }
+  },
+
+  async getNotified(req, res) {
+    try {
+      const adminData = await Admin.getByUserId(req.user.uid);
+      const adminId = adminData.adminId;
+      const { value } = req.params;
+      const notified = await Admin.getNotified(adminId, value);
+      res.json({ success: true, data: notified });
+    } catch (error) {
+      console.error('Get notified error:', error);
+      res.status(500).json({ success: false, message: 'Failed to update notified' });
     }
   }
 };

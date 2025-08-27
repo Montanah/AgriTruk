@@ -37,6 +37,7 @@ const Transporter = {
       rejectionReason: transporterData.rejectionReason || null,
       totalTrips: transporterData.totalTrips || 0,
       rating: transporterData.rating || 0,
+      accountStatus: transporterData.accountStatus || true,
       // Geo details
       currentRoute: transporterData.currentRoute || [], // Array of { location, timestamp }
       lastKnownLocation: transporterData.lastKnownLocation || null,
@@ -76,12 +77,20 @@ const Transporter = {
     await db.collection('transporters').doc(transporterId).update(updates);
     return updates;
   },
+  async softDelete(transporterId) {
+    const updates = {
+      accountStatus: false,
+      updatedAt: admin.firestore.Timestamp.now()
+    };
+    await db.collection('transporters').doc(transporterId).update(updates);
+    return updates;
+  },
   async delete(transporterId) {
     await db.collection('transporters').doc(transporterId).delete();
     return { message: 'Transporter deleted successfully' };
   },
   async getAll() {
-    const snapshot = await db.collection('transporters').get();
+    const snapshot = await db.collection('transporters').get().where('accountStatus' == true);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
   async getByAvailability(status) {

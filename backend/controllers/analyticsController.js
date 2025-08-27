@@ -1,8 +1,9 @@
 const Analytics = require('../models/Analytics');
+const { computeMetrics } = require('../services/analyticsService');
 
 const createAnalytics = async (req, res) => {
   try {
-    const date = req.params.date; 
+    const date = req.params.date || new Date().toISOString().split('T')[0]; 
     if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return res.status(400).json({
         success: false,
@@ -26,24 +27,66 @@ const createAnalytics = async (req, res) => {
 
 const getAnalytics = async (req, res) => {
   try {
-    const date = req.params.date;
-    if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid date format. Use YYYY-MM-DD',
-      });
+    let { range, date } = req.query;  // use let, not const
+
+    // default date = today
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      date = new Date().toISOString().split('T')[0];
     }
 
-    const analytics = await Analytics.get(date);
-    res.status(200).json({
+    // default range = day
+    if (!range || !['day', 'week', 'month', 'year'].includes(range)) {
+      range = 'day';
+    }
+
+
+    let analytics;
+
+    switch (range) {
+      case 'day':
+        analytics = await Analytics.getDay(date);
+        if (!analytics) {
+          analytics = await Analytics.create(date);
+        }
+        break;
+
+      case 'week':
+        analytics = await Analytics.getWeek(date);
+        if (!analytics) {
+          analytics = await Analytics.createRange('week', date);
+        }
+        break;
+
+      case 'month':
+        analytics = await Analytics.getMonth(date);
+        if (!analytics) {
+          analytics = await Analytics.createRange('month', date);
+        }
+        break;
+
+      case 'year':
+        analytics = await Analytics.getYear(date);
+        if (!analytics) {
+          analytics = await Analytics.createRange('year', date);
+        }
+        break;
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid range. Use day, week, month, or year',
+        });
+    }
+
+    return res.status(200).json({
       success: true,
-      message: 'Analytics data retrieved successfully',
       data: analytics,
     });
   } catch (error) {
-    res.status(404).json({
+    console.error('Error fetching analytics:', error);
+    return res.status(500).json({
       success: false,
-      message: `Error retrieving analytics data: ${error.message}`,
+      message: `Error fetching analytics: ${error.message}`,
     });
   }
 };
@@ -123,7 +166,28 @@ const getAnalyticsRange = async (req, res) => {
   }
 };
 
+const getDashboardMetrics = async(req, res) => {
+    try {
+      let { startDate, endDate } = req.query;
+
+      // default date = today
+      if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        startDate = new Date().toISOString().split('T')[0];
+      }
+      if (!endDate || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        endDate = new Date().toISOString().split('T')[0];
+      }
+
+      const metrics = await computeMetrics(new Date(startDate), new Date(endDate));
+      res.json(metrics);
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+
 module.exports = {
+  getDashboardMetrics,
   createAnalytics,
   getAnalytics,
   updateAnalytics,
