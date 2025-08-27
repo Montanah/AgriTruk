@@ -246,3 +246,35 @@ exports.deleteBooking = async (req, res) => {
     res.status(500).json({ message: 'Failed to delete booking' });
   }
 };
+
+exports.getBookingsByUserId = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    const bookings = await Booking.getBookingForUser(userId);
+    res.status(200).json(bookings);
+  } catch (err) {
+    console.error('Get bookings by user ID error:', err);
+    res.status(500).json({ message: 'Failed to fetch bookings' });
+  }
+};
+
+exports.getBookingsByTransporterId = async (req, res) => {
+  try {
+    const { transporterId } = req.params;
+    
+    if (!transporterId) {
+      return res.status(400).json({ message: 'Transporter ID is required' });
+    }
+    const bookings = await Booking.getBookingsForTransporter(transporterId);
+    // await logAdminActivity(req.user.uid, 'get_bookings_by_transporter_id', req);
+    res.status(200).json(bookings);
+  } catch (err) {
+    console.error('Get bookings by transporter ID error:', err);
+    res.status(500).json({ message: 'Failed to fetch bookings' });
+  }
+};

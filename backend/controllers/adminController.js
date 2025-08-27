@@ -1,6 +1,5 @@
 const Transporter = require("../models/Transporter");
-const AgriBooking = require("../models/AgriBooking");
-const CargoBooking  = require("../models/CargoBooking");
+const Booking = require("../models/Booking");
 const { logAdminActivity } = require("../utils/activityLogger");
 const User = require('../models/User');
 const Permission = require('../models/Permission');
@@ -118,15 +117,7 @@ exports.updateAdminPermissions = async (req, res) => {
 
 exports.getAllBookings = async (req, res) => {
   try {
-    const agriBookings = await AgriBooking.getAllBookings();
-    const cargoBookings = await CargoBooking.getAllBookings();
-    
-    // Add type labels and merge
-    const allBookings = [
-      ...agriBookings.map(booking => ({ ...booking, type: 'agri' })),
-      ...cargoBookings.map(booking => ({ ...booking, type: 'cargo' }))
-    ];
-    console.log(req.user.uid);
+    const allBookings = await Booking.getAll();
     try {
       await logAdminActivity(req.user.uid, 'get_all_bookings', req);
     } catch (error) {

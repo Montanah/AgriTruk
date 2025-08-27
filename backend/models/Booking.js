@@ -71,6 +71,16 @@ const Booking = {
     const snapshot = await db.collection('bookings').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
+
+  async getBookingForUser(userId) {
+    const snapshot = await db.collection('bookings').where('userId', '==', userId).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getBookingsForTransporter(transporterId) {
+    const snapshot = await db.collection('bookings').where('transporterId', '==', transporterId).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = Booking;

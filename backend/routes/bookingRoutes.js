@@ -226,7 +226,7 @@ const bookingController = require('../controllers/bookingController');
 router
   .route('/')
   .get(authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getAllBookings)
-  .post(authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.createBooking);
+  .post(authenticateToken, requireRole(['shipper', 'business', 'broker']), bookingController.createBooking);
 
 /**
  * @swagger
@@ -308,7 +308,72 @@ router
 router
   .route('/:bookingId')
   .get(authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingById)
-  .patch(authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.updateBooking)
+  .patch(authenticateToken, requireRole(['shipper', 'business', 'broker']), bookingController.updateBooking)
   .delete(authenticateToken, requireRole('admin'), authorize(['manage_bookings', 'super_admin']), bookingController.deleteBooking);
+
+/**
+ * @swagger
+ * /api/bookings/shipper/{userId}:
+ *   get:
+ *     summary: Get bookings by shipper
+ *     description: 
+ *       If `userId` is provided, fetch bookings for that user.  
+ *       If omitted, fetch bookings for the currently signed-in user.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The ID of the shipper (optional). If not provided, defaults to the logged-in user.
+ *     responses:
+ *       200:
+ *         description: Bookings retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Bookings not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get(
+  '/shipper/:userId',
+  authenticateToken,
+  requireRole(['transporter', 'shipper', 'business', 'broker']),
+  bookingController.getBookingsByUserId
+);
+
+/**
+ * @swagger
+ * /api/bookings/transporter/{transporterId}:
+ *   get:
+ *     summary: Get bookings by transporter ID
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transporterId
+ *         schema:
+ *           type: string
+ *         description: The ID of the transporter
+ *     responses:
+ *       200:
+ *         description: Bookings retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Bookings not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/transporter/:transporterId', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingsByTransporterId);
 
 module.exports = router;

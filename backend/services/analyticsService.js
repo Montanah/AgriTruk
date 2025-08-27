@@ -15,6 +15,22 @@ async function computeMetrics(startDate, endDate) {
   const uniqueUserIds = new Set(userActivitySnapshot.docs.map(doc => doc.data().userId));
   const activeUsers = uniqueUserIds.size;
 
+  // ---- Bookings ----
+  const bookingsSnapshot = await db
+    .collection("bookings")
+    .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(startDate))
+    .where("createdAt", "<=", admin.firestore.Timestamp.fromDate(endDate))
+    .get();
+
+  const totalBookings = bookingsSnapshot.size;
+  const completedBookings = bookingsSnapshot.docs.filter(doc => doc.data().status === "completed").length;
+  const bookingCompletionRate = totalBookings > 0 ? (completedBookings / totalBookings) : 0;
+
+  const allTimeBookings = await db.collection("bookings").get();
+  const totalBookingsAllTime = allTimeBookings.size;
+  const completedBookingsAllTime = allTimeBookings.docs.filter(doc => doc.data().status === "completed").length;
+  const bookingCompletionRateAllTime = totalBookingsAllTime > 0 ? (completedBookingsAllTime / totalBookingsAllTime) : 0;
+
   // ---- Cargo Bookings ----
   const cargoBookingsSnapshot = await db
     .collection("cargoBookings")
@@ -134,11 +150,10 @@ async function computeMetrics(startDate, endDate) {
   return {
     activeUsers,
     activeBrokers,
-    totalCargoBookings,
-    totalAgriBookings,
-    cargoCompletionRate,
-    agriCompletionRate,
-    avgCompletionTime,
+    totalBookings,
+    bookingCompletionRate,
+    totalBookingsAllTime,
+    bookingCompletionRateAllTime,
     totalRevenue,
     failedPayments,
     totalUsers,
@@ -150,9 +165,7 @@ async function computeMetrics(startDate, endDate) {
     mpesaSuccessRate,
     airtelSuccessRate,
     paystackSuccessRate,
-    cardSuccessRate,
-    totalCargoBookingsAllTime,
-    totalAgriBookingsAllTime
+    cardSuccessRate
   };
 }
 

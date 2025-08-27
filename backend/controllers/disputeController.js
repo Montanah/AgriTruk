@@ -1,10 +1,9 @@
-const AgriBooking = require('../models/AgriBooking');
-const CargoBooking = require('../models/CargoBooking');
 const Dispute = require('../models/Dispute');
 const Transporter = require('../models/Transporter');
 const User = require('../models/User');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const Notification = require('../models/Notification');
+const Booking = require('../models/Booking');
 
 exports.createDispute = async (req, res) => {
   try {
@@ -28,13 +27,13 @@ exports.createDispute = async (req, res) => {
     // Try Agri or Cargo booking
     let booking = null;
     try {
-      booking = await AgriBooking.get(bookingId);
-    } catch (e1) {
-      try {
-        booking = await CargoBooking.get(bookingId);
-      } catch (e2) {
-        return res.status(404).json({ message: 'Booking not found' });
-      }
+      booking = await Booking.get(bookingId);
+    } catch (err) {
+      console.error('Error fetching booking:', err);
+    }
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
     }
 
     const transporterSnap = await Transporter.get(transporterId);

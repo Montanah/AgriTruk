@@ -7,23 +7,12 @@ const Request = require('../models/Request');
 const Notification = require('../models/Notification');
 const { sendEmail } = require('../utils/sendEmail');
 const { haversineDistance, calculateDistance } = require('../utils/geoUtils');
+const Booking = require("../models/Booking");
 
 class MatchingService {
   static async matchBooking(bookingId, bookingType) {
-    let booking;
-    switch (bookingType) {
-      case 'agri':
-        booking = await AgriBooking.get(bookingId);
-        break;
-      case 'cargo':
-        booking = await CargoBooking.get(bookingId);
-        break;
-      case 'broker':
-        booking = await Request.get(bookingId);
-        break;
-      default:
-        throw new Error('Unknown booking type');
-    }
+    const booking = await Booking.get(bookingId);
+
     if (booking.status !== 'pending') return null;
 
     const transporters = await db.collection('transporters')
@@ -59,17 +48,8 @@ class MatchingService {
         matchedTransporterId: matchedTransporter.transporterId,
         status: 'matched',
       };
-      switch (bookingType) {
-        case 'agri':
-          await AgriBooking.update(bookingId, updateData);
-          break;
-        case 'cargo':
-          await CargoBooking.update(bookingId, updateData);
-          break;
-        case 'broker':
-          await Request.update(bookingId, updateData);
-          break;
-      }
+      await Booking.update(bookingId, updateData);
+      
       await this.notifyMatch(booking, matchedTransporter, bookingType);
       return matchedTransporter;
     }
@@ -82,22 +62,13 @@ class MatchingService {
     }
 
     let bookings;
-    switch (bookingType) {
-      case 'agri':
-        bookings = await Promise.all(bookingIds.map(id => AgriBooking.get(id)));
-        break;
-      case 'cargo':
-        bookings = await Promise.all(bookingIds.map(id => CargoBooking.get(id)));
-        break;
-      case 'broker':
-        bookings = await Promise.all(bookingIds.map(id => Request.get(id)));
-        break;
-      default:
-        throw new Error('Unknown booking type');
-    }
+    
+    bookings = await Promise.all(bookingIds.map(id => Booking.get(id)));
+    
     const totalWeight = bookings.reduce((sum, b) => sum + (b.weightKg || 0), 0);
+
     const consolidatedBooking = {
-      bookingId: db.collection('requests').doc().id, // Use agriBookings for consistency
+      bookingId: db.collection('bookings').doc().id, 
       requestId: `${bookings.map(b => b.requestId).join('_')}`,
       bookingType: 'consolidated',
       userId: bookings[0].userId, // Assuming same user or broker
