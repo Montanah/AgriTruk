@@ -26,10 +26,10 @@ function formatPhoneNumber(phone) {
 }
 
 exports.registerUser = async (req, res) => {
-  const { name, phone, role, location, userType, languagePreference, profilePhotoUrl } = req.body;
+  const { name, phone,email, role, location, userType, languagePreference, profilePhotoUrl, preferredVerificationMethod } = req.body;
   console.log('Registering user:', req.user);
   const uid = req.user.uid;
-  const email = req.user.email;
+  // const email = req.user.email;
 
   if (!["shipper", "transporter", "admin", "user", "broker", "business"].includes(role)) {
     return res.status(400).json({ message: "Invalid role" });
@@ -58,6 +58,7 @@ exports.registerUser = async (req, res) => {
     // Save to Firestore
     const emailVerificationCode = generateOtp();
     const phoneVerificationCode = generateOtp();
+    const verificationExpiry = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000));
 
     // Create user in Firestore via model
     const user = await User.create({
@@ -75,39 +76,48 @@ exports.registerUser = async (req, res) => {
       emailVerified: false,
       phoneVerified: false,
       isVerified: false,
-      phoneVerificationExpires: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000)), // expires in 10 mins
-      verificationExpires: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000)) // expires in 10 mins
+      phoneVerificationExpires: verificationExpiry,
+      verificationExpires: verificationExpiry,
+      preferredVerificationMethod
     });
 
      // Send code to user 
-    await sendEmail({
-      to: email,
-      subject: 'Your AgriTruk Verification Code',
-      text: `Your verification code is: ${emailVerificationCode}`,
-      html: getMFATemplate(emailVerificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
-      // html: `<p>Your AgriTruk verification code is: <strong>${verificationCode}</strong></p>`
-    });
-
-    // Send SMS to user
-    const formattedPhone = formatPhoneNumber(phone);
-    try {
-      const smsMessage = `Your Truk verification code is: ${phoneVerificationCode}`;
-      await smsService.sendSMS(
-        'TRUK LTD', 
-        smsMessage,
-        formattedPhone
-      );
-      console.log('Verification SMS sent successfully');
-    } catch (smsError) {
-      console.error('Failed to send verification SMS:', smsError);
-      // Don't fail the registration if SMS fails, just log it
+    let sendMethod = null;
+    
+    if (preferredVerificationMethod === "email") {
+      await sendEmail({
+        to: email,
+        subject: 'Your Truk Verification Code',
+        text: `Your verification code is: ${emailVerificationCode}`,
+        html: getMFATemplate(emailVerificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
+        // html: `<p>Your AgriTruk verification code is: <strong>${verificationCode}</strong></p>`
+      });
+      sendMethod = "email";
+    } else if (preferredVerificationMethod === "phone") {
+      // Send SMS to user
+      const formattedPhone = formatPhoneNumber(phone);
+      try {
+        const smsMessage = `Your Truk verification code is: ${phoneVerificationCode}`;
+        await smsService.sendSMS(
+          'TRUK LTD', 
+          smsMessage,
+          formattedPhone
+        );
+        console.log('Verification SMS sent successfully');
+      } catch (smsError) {
+        console.error('Failed to send verification SMS:', smsError);
+        // Don't fail the registration if SMS fails, just log it
+      }
+      sendMethod = "phone";
+    } else {
+      return res.status(400).json({ message: "Invalid preferred verification method" });
     }
 
     await logActivity(uid, 'user_registration', req);
 
     await Notification.create({
       userId: uid,
-      type: 'Welcome to AgriTruk',
+      type: 'Welcome to Truk',
       message: 'Your account has been created successfully',
       UserType: 'user',
     });

@@ -88,6 +88,8 @@ const upload = multer({ dest: "uploads/" });
  *                 type: string
  *               phone:
  *                 type: string
+ *               email:
+ *                 type: string
  *               role:
  *                 type: string
  *                 enum: [user, farmer, transporter, admin]
@@ -98,6 +100,8 @@ const upload = multer({ dest: "uploads/" });
  *               languagePreference:
  *                 type: string
  *               profilePhotoUrl:
+ *                 type: string
+ *               preferredVerificationMethod:
  *                 type: string
  *     responses:
  *       201:

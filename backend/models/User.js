@@ -15,6 +15,7 @@ const User = {
       role: userData.role || 'shipper',
       profilePhotoUrl: userData.profilePhotoUrl || null,
       languagePreference: userData.languagePreference || 'en',
+      preferredVerificationMethod: userData.preferredVerificationMethod,
       location: userData.location || null,
       status: userData.status || 'active',
       emailVerificationCode: userData.emailVerificationCode || null,
