@@ -26,6 +26,11 @@ async function computeMetrics(startDate, endDate) {
   const completedCargo = cargoBookingsSnapshot.docs.filter(doc => doc.data().status === "completed").length;
   const cargoCompletionRate = totalCargoBookings > 0 ? (completedCargo / totalCargoBookings) : 0;
 
+  const allTimeCargoBookings = await db.collection("cargoBookings").get();
+  const totalCargoBookingsAllTime = allTimeCargoBookings.size;
+  const completedCargoAllTime = allTimeCargoBookings.docs.filter(doc => doc.data().status === "completed").length;
+  const cargoCompletionRateAllTime = totalCargoBookingsAllTime > 0 ? (completedCargoAllTime / totalCargoBookingsAllTime) : 0;
+
   // ---- Agri Bookings ----
   const agriBookingsSnapshot = await db
     .collection("agriBookings")
@@ -54,7 +59,10 @@ async function computeMetrics(startDate, endDate) {
     }, 0);
     avgCompletionTime = totalTime / allCompleted.length / (1000 * 60 * 60); // in hours
   }
-
+  
+  const allTimeAgriBookings = await db.collection("agriBookings").get();
+  const totalAgriBookingsAllTime = allTimeAgriBookings.size;
+  
   // ---- Transporters ----
   const transportersSnapshot = await db.collection("transporters").where("status", "==", "approved").get();
   const activeTransporters = transportersSnapshot.size;
@@ -143,6 +151,8 @@ async function computeMetrics(startDate, endDate) {
     airtelSuccessRate,
     paystackSuccessRate,
     cardSuccessRate,
+    totalCargoBookingsAllTime,
+    totalAgriBookingsAllTime
   };
 }
 
