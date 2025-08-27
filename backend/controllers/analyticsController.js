@@ -27,66 +27,22 @@ const createAnalytics = async (req, res) => {
 
 const getAnalytics = async (req, res) => {
   try {
-    let { range, date } = req.query;  // use let, not const
+    const today = new Date().toISOString().split("T")[0];
 
-    // default date = today
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      date = new Date().toISOString().split('T')[0];
-    }
+    // create analytics for today (runs compute + save)
+    const analytics = await Analytics.create(today);
 
-    // default range = day
-    if (!range || !['day', 'week', 'month', 'year'].includes(range)) {
-      range = 'day';
-    }
-
-
-    let analytics;
-
-    switch (range) {
-      case 'day':
-        analytics = await Analytics.getDay(date);
-        if (!analytics) {
-          analytics = await Analytics.create(date);
-        }
-        break;
-
-      case 'week':
-        analytics = await Analytics.getWeek(date);
-        if (!analytics) {
-          analytics = await Analytics.createRange('week', date);
-        }
-        break;
-
-      case 'month':
-        analytics = await Analytics.getMonth(date);
-        if (!analytics) {
-          analytics = await Analytics.createRange('month', date);
-        }
-        break;
-
-      case 'year':
-        analytics = await Analytics.getYear(date);
-        if (!analytics) {
-          analytics = await Analytics.createRange('year', date);
-        }
-        break;
-
-      default:
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid range. Use day, week, month, or year',
-        });
-    }
-
-    return res.status(200).json({
+    // return analytics
+    res.status(200).json({
       success: true,
-      data: analytics,
+      data: analytics
     });
   } catch (error) {
-    console.error('Error fetching analytics:', error);
-    return res.status(500).json({
+    console.error("Error fetching analytics:", error);
+    res.status(500).json({
       success: false,
-      message: `Error fetching analytics: ${error.message}`,
+      message: "Error fetching analytics",
+      error: error.message,
     });
   }
 };

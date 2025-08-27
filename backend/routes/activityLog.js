@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 
 const { authenticateToken } = require("../middlewares/authMiddleware");
+const { requireRole } = require("../middlewares/requireRole");
 const getUserLogs = require('../controllers/getUserLogs');
-
+const { requireSelfOrSuperAdmin } = require('../middlewares/adminAuth');
 
 /**
  * @swagger
@@ -162,5 +163,53 @@ router.get('/', authenticateToken, getUserLogs.getUserLogs);
  *         description: Internal server error, failed to log activity
  */
 router.post('/', authenticateToken, getUserLogs.createUserLog);
+
+
+/**
+ * @swagger
+ * /api/activity/adminlogs:
+ *   get:
+ *     summary: Get admin activity logs
+ *     description: Fetches the recent activity logs for the authenticated admin.
+ *     tags: [Activity Log]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         required: false
+ *         description: Number of logs to retrieve (default is 20)
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved admin logs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: integer
+ *                   description: Number of logs retrieved
+ *                 logs:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       action:
+ *                         type: string
+ *                         description: Description of the action performed
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         description: Timestamp of the action
+ *       401:
+ *         description: Unauthorized access, admin must be authenticated
+ *       500:
+ *         description: Internal server error, failed to fetch logs
+ */
+router.get('/adminlogs', authenticateToken, requireRole('admin'), requireSelfOrSuperAdmin, getUserLogs.getAdminLogs);
 
 module.exports = router;

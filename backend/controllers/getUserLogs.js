@@ -1,4 +1,5 @@
 const ActivityLog = require("../models/ActivityLog");
+const AdminActivityLog = require("../models/AdminActivityLog");
 // controller
 exports.getUserLogs = async (req, res) => {
   try {
@@ -22,3 +23,12 @@ exports.createUserLog = async (req, res) => {
     res.status(500).json({ message: "Failed to create log" });
   }
 }
+
+exports.getAdminLogs = async (req, res) => {
+  try {
+    const logs = await AdminActivityLog.getAdminLogs(req.user.uid, Number(req.query.limit) || 20);
+    res.status(200).json({ count: logs.length, logs });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch logs" });
+  }
+};

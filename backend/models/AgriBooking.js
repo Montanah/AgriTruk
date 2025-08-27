@@ -25,23 +25,30 @@ const AgriBooking = {
       // Agri-specific fields
       fromLocation: bookingData.fromLocation || null,
       toLocation: bookingData.toLocation || null,
-      weightKg: bookingData.weightKg || null,
       productType: bookingData.productType || null,
-      value: bookingData.value || null,
-      specialRequest: bookingData.specialRequest || null,
+      weightKg: bookingData.weightKg || null,
+      urgencyLevel: bookingData.urgencyLevel || 'Low',
       perishable: bookingData.perishable || false,
       needsRefrigeration: bookingData.needsRefrigeration || false,
-      urgentDelivery: bookingData.urgentDelivery || false,
+      humidyControl: bookingData.humidyControl || false,
+      insured: bookingData.insured || false,
+      value: bookingData.value || null,
+      priority: bookingData.priority || false,
+      recurrence: bookingData.recurrence || {
+        isRecurring: false,
+        frequency: null,  
+        timeFrame: null,         
+        duration: null,   
+        startDate: null,
+        endDate: null,
+        interval: null,
+        occurences: null,
+        baseBookingId: null                    
+      },
       pickUpDate: bookingData.pickUpDate || null,
       consolidated: bookingData.consolidated || false, // Flag for consolidated requests
       matchedTransporterId: bookingData.matchedTransporterId || null,
-      recurrence: bookingData.recurrence || {
-        isRecurring: false,
-        frequency: null,           
-        endDate: null,             
-        daysOfWeek: [],            
-        interval: 1               
-      },
+      additionalNotes: bookingData.additionalNotes || null,
     };
     await db.collection('agriBookings').doc(booking.bookingId).set(booking);
     return booking;

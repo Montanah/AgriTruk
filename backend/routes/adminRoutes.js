@@ -448,7 +448,7 @@ router.get('/permissions', authenticateToken, requireRole('admin'), authorize(['
  *       500:
  *         description: Server error
  */
-router.get('/dashboard-metrics', authenticateToken, requireRole('admin'), authorize(['view_analytics', 'super_admin']), AnalyticsController.getDashboardMetrics);
+router.get('/dashboard-metrics', authenticateToken, requireRole('admin'), authorize(['view_analytics', 'super_admin']), AnalyticsController.getAnalytics);
 
 /**
  * @swagger
