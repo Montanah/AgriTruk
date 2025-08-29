@@ -129,6 +129,10 @@ const User = {
     const snapshot = await db.collection(USERS_COLLECTION).where('phone', '==', phone).get();
     return snapshot.empty ? null : snapshot.docs[0].data();
   },
+  async getShippers() {
+    const snapshot = await db.collection(USERS_COLLECTION).where('role', '==', 'shipper').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = User;

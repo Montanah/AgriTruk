@@ -238,7 +238,7 @@ exports.generatePDFReport = async (req, res) => {
 
     console.log(entity, startDate, endDate);
 
-    const query = db.collection(entity || 'agriBookings' || 'cargoBookings')
+    const query = db.collection(entity || 'bookings')
       .where('createdAt', '>=', startDate ? new Date(startDate) : new Date(0))
       .where('createdAt', '<=', endDate ? new Date(endDate) : new Date());
 
@@ -448,6 +448,7 @@ exports.generatePDFReport = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to generate PDF' });
   }
 };
+
 exports.sendReminders = async (req, res) => {
   try {
     const { entity, reminderType } = req.body;
@@ -528,7 +529,6 @@ exports.sendReminders = async (req, res) => {
 };
 
 // exports.generateReports = async (req, res) => {
-
 exports.generateReports = async (req, res) => {
   try {
     const { type, format, ids } = req.body;
@@ -600,3 +600,14 @@ exports.generateReports = async (req, res) => {
     });
   }
 };
+
+exports.getAllShippers = async(req, res) => {
+  try {
+    const shippers = await User.getShippers();
+    await logAdminActivity(req.user.uid, 'get_all_shippers', req);
+    res.status(200).json({ message: 'All shippers retrieved successfully', shippers });
+  } catch (error) {
+    console.error('Get all shippers error:', error);
+    res.status(500).json({ message: 'Failed to retrieve all shippers' });
+  }
+}

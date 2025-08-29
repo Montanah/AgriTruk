@@ -90,7 +90,7 @@ const Transporter = {
     return { message: 'Transporter deleted successfully' };
   },
   async getAll() {
-    const snapshot = await db.collection('transporters').get().where('accountStatus' == true);
+    const snapshot = await db.collection('transporters').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
   async getByAvailability(status) {

@@ -17,6 +17,7 @@ const chatRoutes = require('./routes/chatRoutes');
 // const agriBookingRoutes = require('./routes/agriBookingRoutes');
 // const cargoBookingRoutes = require('./routes/cargoBookingRoutes');
 const subRoutes = require('./routes/subscriptionRoutes');
+const reportsRoutes = require('./routes/reportsRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
@@ -54,6 +55,7 @@ app.use('/api/chats', chatRoutes);
 // app.use('/api/agri', agriBookingRoutes);
 // app.use('/api/cargo', cargoBookingRoutes);
 app.use('/api/subscriptions', subRoutes);
+app.use('/api/reports', reportsRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).send('Welcome to root URL of Server');

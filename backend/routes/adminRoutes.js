@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminManagementController');
-const {getAllBookings, getPermissions, getAllUsers, searchUsers, exportToCSV, generatePDFReport, generateReports } = require('../controllers/adminController');
+const {getAllBookings, getPermissions, getAllUsers, searchUsers, exportToCSV, generatePDFReport, generateReports, getAllShippers} = require('../controllers/adminController');
 const authController = require("../controllers/authController");
 const {
   authorize,
@@ -342,6 +342,23 @@ router.get('/users', authenticateToken, authorize(['manage_users', 'view_users',
  */
 router.get('/companies', authenticateToken, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllCompanies);
 
+/** 
+ * @swagger
+ * /api/admin/shippers:
+ *   get:
+ *     summary: Get all shippers
+ *     description: Retrieves a list of all shippers.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Shippers retrieved successfully
+ *       500:
+ *         description: Internal server error
+*/
+router.get('/shippers', authenticateToken, requireRole('admin'), authorize(['view_shippers', 'manage_shippers', 'super_admin']), getAllShippers);
+
 /**
  * @swagger
  * /api/admin/transporters:
@@ -500,6 +517,27 @@ router.get('/disputes', authenticateToken, requireRole('admin'), authorize(['vie
  *     tags: [Admin Views]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: Start date for report filtering
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: End date for report filtering 
+ *       - in: query
+ *         name: entity
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Entity for report filtering
  *     responses:
  *       200:
  *         description: Disputes exported to CSV successfully
