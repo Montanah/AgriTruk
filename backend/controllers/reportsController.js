@@ -523,6 +523,7 @@ exports.generateBookingPdf = async (req, res) => {
     const companyPhone = "+254 758-594951";
     const companyEmail = "info@trukafrica.com";
     const companyWebsite = "www.trukafrica.com";
+    const generatedDate = moment().format('MMM D, YYYY h:mm A');
 
     // ---------- HTML GENERATION ----------
 
@@ -758,10 +759,7 @@ exports.generateBookingPdf = async (req, res) => {
           <tbody>${tableRows}</tbody>
         </table>
 
-        <div class="footer">
-          <div>${companyName} - Confidential Report</div>
-          <div>Generated on ${moment().format('MMM D, YYYY h:mm A')} | Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>
-        </div>
+       
       </body>
       </html>
     `;
@@ -771,10 +769,16 @@ exports.generateBookingPdf = async (req, res) => {
       format: 'A4', 
       orientation: 'landscape',
       footer: {
-        height: "10mm",
-        contents: {
-          default: '<span style="color: #777; font-size: 8px;">{{page}} of {{pages}}</span>'
+        height: "15mm",
+         contents: {
+          default: '<div style="text-align: center; color: #777; font-size: 8px;">' + companyName + ' - Confidential Report<br>Generated on ' + generatedDate + ' | Page {{page}} of {{pages}}</div>'
         }
+      },
+      border: {
+        top: "0.4in",
+        right: "0.4in",
+        bottom: "0.6in",
+        left: "0.4in"
       }
     };
 
