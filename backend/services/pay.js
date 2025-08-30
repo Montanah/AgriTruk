@@ -77,14 +77,14 @@ export async function mpesaCallback(req, res) {
       }, {});
 
       // Update payment record
-      await Payment.updateByRequestId(stk.CheckoutRequestID, {
+      await Payment.update(stk.CheckoutRequestID, {
         status: "success",
         mpesaReference: meta.MpesaReceiptNumber,
         paidAt: new Date(),
       });
 
       // Create subscriber record
-      const payment = await Payment.getByRequestId(stk.CheckoutRequestID);
+      const payment = await Payment.get(stk.CheckoutRequestID);
       console.log("callback", payment);
       await Subscribers.create({
         userId: payment.payerId,
@@ -96,7 +96,7 @@ export async function mpesaCallback(req, res) {
         transactionId: payment.mpesaReference,
       });
     } else {
-      await Payment.updateByRequestId(stk.CheckoutRequestID, {
+      await Payment.update(stk.CheckoutRequestID, {
         status: "failed",
         failureReason: stk.ResultDesc,
       });
@@ -139,13 +139,13 @@ export async function stripeCallback(req, res) {
   if (event.type === "payment_intent.succeeded") {
     const intent = event.data.object;
 
-    await Payment.updateByRequestId(intent.id, {
+    await Payment.update(intent.id, {
       status: "success",
       receiptUrl: intent.charges.data[0]?.receipt_url,
       paidAt: new Date(),
     });
 
-    const payment = await Payment.getByRequestId(intent.id);
+    const payment = await Payment.get(intent.id);
 
     await Subscribers.create({
       userId: payment.payerId,
