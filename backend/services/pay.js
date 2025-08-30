@@ -75,7 +75,9 @@ export async function mpesaCallback(req, res) {
     if (!payment) {
       throw new Error('Payment record not found');
     }
-    console.log("callback pending", payment.status);
+    console.log("callback pending", payment);
+
+    console.log("callback pending paymentId", payment.paymentId);
 
     if (stk.ResultCode === 0) {
       const meta = stk.CallbackMetadata.Item.reduce((acc, i) => {
