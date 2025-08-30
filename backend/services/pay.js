@@ -69,8 +69,8 @@ export async function mpesaCallback(req, res) {
   let responseSent = false;
 
   try {
-    // const stk = req.body.Body.stkCallback;
-    const stk = req.body;
+    const stk = req.body.Body.stkCallback;
+    // const stk = req.body;
  
    const paymentResponse = await Payment.getByRequestID(stk.CheckoutRequestID);
     if (!paymentResponse) {
