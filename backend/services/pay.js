@@ -75,7 +75,7 @@ export async function mpesaCallback(req, res) {
     if (!payment) {
       throw new Error('Payment record not found');
     }
-    console.log("callback pending", payment);
+    console.log("callback pending", payment.status);
 
     if (stk.ResultCode === 0) {
       const meta = stk.CallbackMetadata.Item.reduce((acc, i) => {
@@ -83,8 +83,9 @@ export async function mpesaCallback(req, res) {
         return acc;
       }, {});
 
+
       // Update payment record
-      await Payment.update(payment.planId, {
+      await Payment.update(payment.paymentId, {
         transDate: meta.TransactionDate,
         status: "success",
         mpesaReference: meta.MpesaReceiptNumber,
@@ -93,7 +94,6 @@ export async function mpesaCallback(req, res) {
 
       // Create subscriber record
       
-      console.log("callback", payment);
       await Subscribers.create({
         userId: payment.payerId,
         planId: payment.planId,
@@ -104,7 +104,7 @@ export async function mpesaCallback(req, res) {
         transactionId: payment.mpesaReference,
       });
     } else {
-      await Payment.update(payment.planId, {
+      await Payment.update(payment.paymentId, {
         status: "failed",
         failureReason: stk.ResultDesc,
       });

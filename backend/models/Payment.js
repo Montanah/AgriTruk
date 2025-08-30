@@ -39,13 +39,13 @@ const Payment = {
     return doc.data();
   },
   async update(paymentId, updates) {
+    console.log('Updating payment:', paymentId, updates);
     const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
     await db.collection('payments').doc(paymentId).update(updated);
     return updated;
   }, 
 
   async getByRequestID(requestId) {
-    console.log(`Getting payments for request ID: ${requestId}`);
     const querySnapshot = await db.collection('payments').where('requestId', '==', requestId).get();
     const payments = [];
     querySnapshot.forEach((doc) => {
