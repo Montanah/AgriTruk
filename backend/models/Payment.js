@@ -45,6 +45,7 @@ const Payment = {
   }, 
 
   async getByRequestID(requestId) {
+    console.log(`Getting payments for request ID: ${requestId}`);
     const querySnapshot = await db.collection('payments').where('requestId', '==', requestId).get();
     const payments = [];
     querySnapshot.forEach((doc) => {

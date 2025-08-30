@@ -71,14 +71,17 @@ export async function mpesaCallback(req, res) {
 
     console.log("callback", stk);
 
+    const payment = await Payment.getByRequestID(stk.CheckoutRequestID);
+    if (!payment) {
+      throw new Error('Payment record not found');
+    }
+    console.log("callback pending", payment);
+
     if (stk.ResultCode === 0) {
       const meta = stk.CallbackMetadata.Item.reduce((acc, i) => {
         acc[i.Name] = i.Value;
         return acc;
       }, {});
-
-      const payment = await Payment.getByRequestID(stk.CheckoutRequestID);
-      console.log("callback pending", payment);
 
       // Update payment record
       await Payment.update(payment.planId, {
