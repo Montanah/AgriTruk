@@ -69,6 +69,8 @@ export async function mpesaCallback(req, res) {
   try {
     const stk = req.body.Body.stkCallback;
 
+    console.log("callback", stk);
+
     if (stk.ResultCode === 0) {
       const meta = stk.CallbackMetadata.Item.reduce((acc, i) => {
         acc[i.Name] = i.Value;
