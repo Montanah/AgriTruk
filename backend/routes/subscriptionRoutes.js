@@ -356,7 +356,7 @@ router.delete('/admin/:id', authenticateToken, requireRole('admin'), authorize([
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/subscriber/', authenticateToken, requireRole(['transporter', 'broker']), subscriptionController.createSubscriber);
+router.post('/subscriber/', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.createSubscriberPayment);
 
 /**
  * @swagger
@@ -409,7 +409,7 @@ router.get('/subscriber/:id', authenticateToken, requireRole(['transporter', 'br
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - name: subcriberId
+ *       - name: subscriberId
  *         in: query
  *         required: false
  *         schema:
@@ -435,9 +435,9 @@ router.get('/subscriber/:id', authenticateToken, requireRole(['transporter', 'br
  */
 router.get('/admin/subscribers/', authenticateToken, requireRole('admin'), authorize(['manage_subscriptions', 'super_admin']), 
     async (req, res) => {
-        const { subcriberId} = req.query;
+        const { subscriberId} = req.query;
 
-        if (subcriberId) {
+        if (subscriberId) {
             return subscriptionController.getSubscriber(req, res);
         }
         return subscriptionController.getAllSubscribers(req, res);

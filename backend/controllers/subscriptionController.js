@@ -1,8 +1,10 @@
 const Subscribers = require('../models/Subscribers');
+const Payment = require('../models/Payment');
 const SubscriptionPlans = require('../models/SubscriptionsPlans');
 const PaymentService = require('../services/PaymentService');
 const { logAdminActivity, logActivity } = require('../utils/activityLogger');
 const Users = require('../models/User');
+const { processMpesaPayment, processCardPayment } = require('../services/pay');
 exports.manageSubscription = async (req, res) => {
   try {
     const { action, planId } = req.body;
@@ -243,9 +245,7 @@ exports.getAllSubscribers = async (req, res) => {
 
 exports.getSubscriber = async (req, res) => {
   try {
-    //console.log(req.params);
-    //console.log(req.query.subcriberId);
-    const subscriberId = req.params.id || req.query.subcriberId;
+    const subscriberId = req.params.id || req.query.subscriberId;
     console.log(subscriberId);
     const subscriber = await Subscribers.get(subscriberId);
     await logAdminActivity(req.user.uid, 'get_subscriber', req);
@@ -253,5 +253,75 @@ exports.getSubscriber = async (req, res) => {
   } catch (error) {
     console.error('Subscriber error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+exports.createSubscriberPayment = async (req, res) => {
+  try {
+    const userId = req.body.userId || req.user.uid;
+    const planId = req.body.planId;
+
+    const plan = await SubscriptionPlans.getSubscriptionPlan(planId);
+    
+    if (!plan) {
+      return res.status(400).json({ success: false, message: 'Invalid plan' });
+    }
+
+    let startDate = new Date();
+    let endDate = new Date(startDate);
+
+    if (plan.duration === 'monthly') {
+      endDate.setMonth(endDate.getMonth() + 1);
+    } else if (plan.duration === 'quarterly') {
+      endDate.setMonth(endDate.getMonth() + 3);
+    } else if (plan.duration === 'annual') {
+      endDate.setFullYear(endDate.getFullYear() + 1);
+    }
+
+    const paymentMethod = req.body.paymentMethod;
+    const reference = `SUB_${userId}_${planId}_${Date.now()}`;
+    
+    const pendingPayment = await Payment.create({
+      payerId: userId,
+      payeeId: "TRUK", 
+      amount: plan.price,
+      phone: req.body.phoneNumber || null,
+      email: req.body.email || null,
+      currency: plan.currency || 'KES',
+      method: paymentMethod,
+      requestId: reference,
+      planId,
+      status: "pending"
+    });
+
+    let paymentResult;
+    if (paymentMethod === "mpesa") {
+      paymentResult = await processMpesaPayment({
+        phone: req.body.phoneNumber,
+        amount: plan.price,
+        accountRef: reference
+      });
+    } else if (paymentMethod === "card") {
+      paymentResult = await processCardPayment({
+        amount: plan.price,
+        currency: plan.currency || "usd",
+        reference
+      });
+    } else {
+      throw new Error("Invalid payment method");
+    }
+
+    return res.json({
+      success: true,
+      message: "Payment initiated. Awaiting confirmation.",
+      payment: {
+        ...pendingPayment,
+        gatewayResponse: paymentResult.data
+      }
+    });
+
+  } catch (error) {
+    console.error("Subscription creation error:", error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

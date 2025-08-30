@@ -2,38 +2,57 @@ const admin = require('../config/firebase');
 const db = admin.firestore();
 
 const Subscribers = {
-    async create(subscriberData) {
-        const { userId, planId, startDate, endDate, isActive, autoRenew, paymentStatus, transactionId } = subscriberData;
-            if (!userId || !planId || !startDate || !endDate) {
-            throw new Error('userId, planId, startDate, and endDate are required');
-        }
-        const subscriberId = db.collection('subscribers').doc().id;
-        const subscriber = {
-            subscriberId,
-            userId,
-            planId,
-            status: subscriberData.status || 'active',
-            startDate: admin.firestore.Timestamp.fromDate(new Date(startDate)),
-            endDate: admin.firestore.Timestamp.fromDate(new Date(endDate)),
-            isActive: isActive !== undefined ? isActive : true,
-            autoRenew: autoRenew || false,
-            paymentStatus: paymentStatus || 'pending',
-            transactionId: transactionId || null,
-            currentUsage: 0,
-            createdAt: admin.firestore.Timestamp.now(),
-            updatedAt: admin.firestore.Timestamp.now()
-        },
-        subscriberRef = db.collection('subscribers').doc(subscriberId);
-        console.log(subscriberData);
-        await subscriberRef.set(subscriber);
-        return { id: subscriberId, 
-            ...subscriber,
-            startDate: subscriber.startDate.toDate(),
-            endDate: subscriber.endDate.toDate(),
-            createdAt: subscriber.createdAt.toDate(),
-            updatedAt: subscriber.updatedAt.toDate()
-         };
-    },
+  async create(subscriberData) {
+    try {
+      const { userId, planId, startDate, endDate, isActive, autoRenew, paymentStatus, transactionId } = subscriberData;
+      if (!userId || !planId || !startDate || !endDate) {
+        throw new Error('userId, planId, startDate, and endDate are required');
+      }
+      console.log('Subscriber Data:', subscriberData);
+
+      // Generate a new document ID
+      const subscriberId = db.collection('subscribers').doc().id;
+      if (!subscriberId) {
+        throw new Error('Failed to generate subscriber ID');
+      }
+
+      // Construct subscriber object
+      const subscriber = {
+        subscriberId,
+        userId,
+        planId,
+        status: subscriberData.status || 'active',
+        startDate: admin.firestore.Timestamp.fromDate(new Date(startDate)),
+        endDate: admin.firestore.Timestamp.fromDate(new Date(endDate)),
+        isActive: isActive !== undefined ? isActive : true,
+        autoRenew: autoRenew || false,
+        paymentStatus: paymentStatus || 'pending',
+        transactionId: transactionId || null,
+        currentUsage: 0,
+        createdAt: admin.firestore.Timestamp.now(),
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+
+      const subscriberRef = db.collection('subscribers').doc(subscriberId);
+
+      // Save to Firestore with cleaned data
+    //   await subscriberRef.set(cleanData(subscriber), { merge: true });
+
+      // Return response with date objects
+      const response = {
+        id: subscriberId,
+        ...subscriber,
+        startDate: subscriber.startDate.toDate(),
+        endDate: subscriber.endDate.toDate(),
+        createdAt: subscriber.createdAt.toDate(),
+        updatedAt: subscriber.updatedAt.toDate(),
+      };
+      return response;
+    } catch (error) {
+      console.error('Subscription creation error:', error);
+      throw error;
+    }
+  },
 
     async update(subscriberId, updates) {
         const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };

@@ -42,6 +42,13 @@ const Transporter = {
       currentRoute: transporterData.currentRoute || [], // Array of { location, timestamp }
       lastKnownLocation: transporterData.lastKnownLocation || null,
       notificationPreferences: transporterData.notificationPreferences || { method: 'both' },
+      // Payment details
+      paymentMethod: transporterData.paymentMethod || 'cash',
+      paymentAccount: transporterData.paymentAccount || null,
+      totalRevenue: transporterData.totalRevenue || 0,
+      // Admin details
+      insuranceExpiryDate: transporterData.insuranceExpiryDate || null,
+      driverLicenseExpiryDate: transporterData.driverLicenseExpiryDate || null,
       // Timestamps
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
