@@ -42,6 +42,15 @@ const Payment = {
     const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
     await db.collection('payments').doc(paymentId).update(updated);
     return updated;
+  }, 
+
+  async getByRequestID(requestId) {
+    const querySnapshot = await db.collection('payments').where('requestId', '==', requestId).get();
+    const payments = [];
+    querySnapshot.forEach((doc) => {
+      payments.push(doc.data());
+    });
+    return payments;
   }
 };
 

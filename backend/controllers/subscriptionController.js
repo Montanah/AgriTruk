@@ -281,19 +281,6 @@ exports.createSubscriberPayment = async (req, res) => {
     const paymentMethod = req.body.paymentMethod;
     const reference = `SUB_${userId}_${planId}_${Date.now()}`;
     
-    const pendingPayment = await Payment.create({
-      payerId: userId,
-      payeeId: "TRUK", 
-      amount: plan.price,
-      phone: req.body.phoneNumber || null,
-      email: req.body.email || null,
-      currency: plan.currency || 'KES',
-      method: paymentMethod,
-      requestId: reference,
-      planId,
-      status: "pending"
-    });
-
     let paymentResult;
     if (paymentMethod === "mpesa") {
       paymentResult = await processMpesaPayment({
@@ -310,6 +297,19 @@ exports.createSubscriberPayment = async (req, res) => {
     } else {
       throw new Error("Invalid payment method");
     }
+
+    const pendingPayment = await Payment.create({
+      payerId: userId,
+      payeeId: "TRUK", 
+      amount: plan.price,
+      phone: req.body.phoneNumber || null,
+      email: req.body.email || null,
+      currency: plan.currency || 'KES',
+      method: paymentMethod,
+      requestId: paymentResult.data.CheckoutRequestID,
+      planId,
+      status: "pending"
+    });
 
     return res.json({
       success: true,
