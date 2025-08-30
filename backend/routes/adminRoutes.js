@@ -852,7 +852,6 @@ router.get('/transporter/:transporterId/status/:status', authenticateToken, requ
  */
 router.get('/transporter/:transporterId/all', authenticateToken, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllForTransporter);
 
-
 /**
  * @swagger
  * /api/admin/updateAvatar:

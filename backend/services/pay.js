@@ -66,18 +66,27 @@ export async function processMpesaPayment({ phone, amount, accountRef }) {
 }
 
 export async function mpesaCallback(req, res) {
+  let responseSent = false;
+
   try {
-    const stk = req.body.Body.stkCallback;
-
-    console.log("callback", stk);
-
-    const payment = await Payment.getByRequestID(stk.CheckoutRequestID);
-    if (!payment) {
+    // const stk = req.body.Body.stkCallback;
+    const stk = req.body;
+ 
+   const paymentResponse = await Payment.getByRequestID(stk.CheckoutRequestID);
+    if (!paymentResponse) {
       throw new Error('Payment record not found');
     }
-    console.log("callback pending", payment);
+    console.log("callback pending paymentId", paymentResponse.paymentId);
 
-    console.log("callback pending paymentId", payment.paymentId);
+    if (!paymentResponse.payerId) {
+      throw new Error('Payer ID not found in payment response');
+    }
+    const subscriber = await Subscribers.getByUserId(paymentResponse.payerId);
+    if (!subscriber) {
+      throw new Error('Subscriber record not found');
+    }
+
+    console.log("callback pending subscriber", subscriber.id);
 
     if (stk.ResultCode === 0) {
       const meta = stk.CallbackMetadata.Item.reduce((acc, i) => {
@@ -85,37 +94,40 @@ export async function mpesaCallback(req, res) {
         return acc;
       }, {});
 
-
       // Update payment record
-      await Payment.update(payment.paymentId, {
+      await Payment.update(paymentResponse.paymentId, {
         transDate: meta.TransactionDate,
         status: "success",
         mpesaReference: meta.MpesaReceiptNumber,
         paidAt: new Date(),
       });
-
-      // Create subscriber record
       
-      await Subscribers.create({
-        userId: payment.payerId,
-        planId: payment.planId,
-        startDate: new Date().toISOString(),
-        endDate: payment.endDate, // recompute or store in payment
+      // Create subscriber record
+      await Subscribers.update(subscriber.id, {
         isActive: true,
         paymentStatus: "success",
-        transactionId: payment.mpesaReference,
+        endDate: paymentResponse.endDate,
+        transactionId: meta.MpesaReceiptNumber,
       });
+       
     } else {
-      await Payment.update(payment.paymentId, {
+      console.log("Updating payment:", paymentResponse.paymentId, {
+        status: "failed",
+        failureReason: stk.ResultDesc,
+      });
+      await Payment.update(paymentResponse.paymentId, {
         status: "failed",
         failureReason: stk.ResultDesc,
       });
     }
 
     res.json({ success: true });
+    responseSent = true;
   } catch (err) {
-    console.error("M-Pesa callback error:", err);
-    res.status(500).json({ success: false });
+    if (!responseSent) {
+      console.error("M-Pesa callback error:", err);
+      res.status(500).json({ success: false, message: err.message });
+    }
   }
 }
 

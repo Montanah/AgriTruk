@@ -130,19 +130,22 @@ exports.paymentCallback = async (req, res) => {
 
 exports.createSubscriptionPlan = async (req, res) => {
   try {
-    if (!req.body.name || !req.body.duration || !req.body.price) {
+    const { name, duration, price, currency, features, isActive, savingsAmount } = req.body;
+
+    // Validation (price=0 allowed, duration=0 not allowed unless intended)
+    if (!name || duration == null || price == null) {
       return res.status(400).json({ success: false, message: 'Name, duration, and price are required' });
     }
-
+    
     const savings = calculateSavingsPercentage(req.body.price, req.body.savingsAmount);
     const planData = {
-      name: req.body.name,
-      duration: req.body.duration,
-      price: req.body.price,
-      currency: req.body.currency || "KES",
-      features: req.body.features,
-      isActive: req.body.isActive || false,
-      savingsAmount: req.body.savingsAmount,
+      name: name,
+      duration: duration,
+      price: price,
+      currency: currency || "KES",
+      features: features,
+      isActive: isActive || false,
+      savingsAmount: savingsAmount,
       savingsPercentage: savings
     }
     const plan = await SubscriptionPlans.createSubscriptionPlan(planData);
@@ -207,12 +210,18 @@ exports.createSubscriber = async (req, res) => {
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid user' });
     }
+    // check subscriber exists
+    const sub = await Subscribers.getByUserId(userId);
+    if (sub) {
+      return res.status(400).json({ success: false, message: 'Subscriber already exists' });
+    }
     const planId = req.body.planId;
     // check plan exists
     const plan = await SubscriptionPlans.getSubscriptionPlan(planId);
     if (!plan) {
       return res.status(400).json({ success: false, message: 'Invalid plan' });
     }
+
     const startDate = new Date(Date.now());
     const endDate = new Date(startDate); // Create a new Date object
     endDate.setMonth(endDate.getMonth() + plan.duration);

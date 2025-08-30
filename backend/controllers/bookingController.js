@@ -3,6 +3,7 @@ const { scheduleRecurringBookings } = require('../services/bookingService');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const { logActivity } = require('../utils/activityLogger');
+const { formatTimestamps } = require('../utils/formatData');
 
 exports.createBooking = async (req, res) => {
   try {
@@ -156,7 +157,7 @@ exports.createBooking = async (req, res) => {
     res.status(201).json({
       success: true,
       message: `${bookingType}TRUK booking created successfully`,
-      booking,
+      booking: formatTimestamps(booking),
     });
   } catch (error) {
     console.error("Create booking error:", error);
@@ -188,7 +189,11 @@ exports.getAllBookings = async (req, res) => {
   try {
     const bookings = await Booking.getAll();
     // await logAdminActivity(req.user.uid, 'get_all_bookings', req);
-    res.status(200).json(bookings);
+    res.status(200).json({
+      success: true,
+      bookings: formatTimestamps(bookings),
+      count: bookings.length
+    });
   } catch (err) {
     console.error('Get all bookings error:', err);
     res.status(500).json({ message: 'Failed to fetch bookings' });
@@ -207,7 +212,7 @@ exports.updateBooking = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
     await logActivity(req.user.uid, 'update_booking', req);
-    res.status(200).json({ message: 'Booking updated successfully', booking: updatedBooking });
+    res.status(200).json({ message: 'Booking updated successfully', booking: formatTimestamps(updatedBooking) });
   } catch (err) {
     console.error('Update booking error:', err);
     res.status(500).json({ message: 'Failed to update booking' });
@@ -225,7 +230,10 @@ exports.getBookingById = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
     // await logAdminActivity(req.user.uid, 'get_booking', req);
-    res.status(200).json(booking);
+    res.status(200).json({ 
+      message: 'Booking retrieved successfully', 
+      booking: formatTimestamps(booking) 
+    });
   } catch (err) {
     console.error('Get booking error:', err);
     res.status(500).json({ message: 'Failed to fetch booking' });
@@ -256,7 +264,10 @@ exports.getBookingsByUserId = async (req, res) => {
     }
 
     const bookings = await Booking.getBookingForUser(userId);
-    res.status(200).json(bookings);
+    res.status(200).json({
+      message: 'Bookings retrieved successfully', 
+      bookings: formatTimestamps(bookings)
+    });
   } catch (err) {
     console.error('Get bookings by user ID error:', err);
     res.status(500).json({ message: 'Failed to fetch bookings' });
@@ -272,7 +283,10 @@ exports.getBookingsByTransporterId = async (req, res) => {
     }
     const bookings = await Booking.getBookingsForTransporter(transporterId);
     // await logAdminActivity(req.user.uid, 'get_bookings_by_transporter_id', req);
-    res.status(200).json(bookings);
+    res.status(200).json({
+      message: 'Bookings retrieved successfully', 
+      bookings: formatTimestamps(bookings), 
+      count: bookings});
   } catch (err) {
     console.error('Get bookings by transporter ID error:', err);
     res.status(500).json({ message: 'Failed to fetch bookings' });

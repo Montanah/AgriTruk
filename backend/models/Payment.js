@@ -47,11 +47,8 @@ const Payment = {
 
   async getByRequestID(requestId) {
     const querySnapshot = await db.collection('payments').where('requestId', '==', requestId).get();
-    const payments = [];
-    querySnapshot.forEach((doc) => {
-      payments.push(doc.data());
-    });
-    return payments;
+    if (querySnapshot.empty) return null;
+    return querySnapshot.docs[0].data();
   }
 };
 

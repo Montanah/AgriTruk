@@ -11,51 +11,14 @@ const { Parser } = require('json2csv');
 const pdf = require('html-pdf');
 const moment = require('moment');
 const exportData  = require("../utils/exportData");
+const sendEmail = require("../utils/sendEmail");
+const SMSService = require('../utils/sendSms');
+const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
+const formatPhoneNumber = require("../utils/formatPhone");
+const Subscribers = require("../models/Subscribers");
+const subscriptionController = require('./subscriptionController');
+const {formatTimestamps } = require('../utils/formatData');
 
-exports.approveTransporter = async (req, res) => {
-  try {
-    const transporterId = req.params.transporterId;
-
-    //check if transporter exists
-    if (!(await Transporter.get(transporterId))) {
-      return res.status(404).json({ message: 'Transporter not found' });
-    }
-
-    //check if transporter is already approved
-    const transporter = await Transporter.get(transporterId);
-    if (transporter.status === 'approved') {
-      return res.status(400).json({ message: 'Transporter is already approved' });
-    }
-
-    const updated = await Transporter.approve(transporterId);
-    await logAdminActivity(req.user.uid, 'approve_transporter', req,  { type: 'transporter', id: transporterId });
-    res.status(200).json({ message: 'Transporter approved', updated });
-  } catch (error) {
-    console.error('Approve transporter error:', error);
-    res.status(500).json({ message: 'Failed to approve transporter' });
-  }
-};
-
-exports.rejectTransporter = async (req, res) => {
-  try {
-    const reason = req.body.reason || 'Unqualified';
-
-    const transporterId = req.params.transporterId;
-    // check if transporter exists
-    if (!(await Transporter.get(transporterId))) {
-      return res.status(404).json({ message: 'Transporter not found' });
-    };
-
-    const result = await Transporter.reject(transporterId, reason); 
-
-    await logAdminActivity(req.user.uid, 'reject_transporter', req,  { type: 'transporter', id: transporterId });
-    
-    res.status(200).json({ message: 'Transporter rejected', result });
-  } catch (err) {
-    console.error('Reject transporter error:', err);
-    res.status(500).json({ message: 'Failed to reject transporter' });
-  }
-};
 
 exports.deleteTransporter = async (req, res) => {
   try {
@@ -104,7 +67,7 @@ exports.updateAdminPermissions = async (req, res) => {
     // Update permissions
     await User.update(adminId, { permissionIds });
     await logActivity(req.user.uid, 'update_admin_permissions', req);
-    res.status(200).json({ message: 'Admin permissions updated successfully', permissions });
+    res.status(200).json({ message: 'Admin permissions updated successfully', permissions: formatTimestamps(permissions) });
   } catch (err) {
     console.error('Update admin permissions error:', err);
     if (err.message.includes('Permission') || err.message.includes('not found')) {
@@ -124,9 +87,11 @@ exports.getAllBookings = async (req, res) => {
       console.error('Admin activity log error:', error);  
     }
     
+    const bookResponse = formatTimestamps(allBookings);
+    
     res.status(200).json({ 
       message: 'All bookings retrieved successfully', 
-      bookings: allBookings,
+      bookings: bookResponse,
       count: allBookings.length 
     });
   } catch (error) {
@@ -156,7 +121,7 @@ exports.searchUsers = async (req, res) => {
     res.status(200).json({
       success: true,
       count: results.length,
-      users: results
+      users: formatTimestamps(results), // Format the results
     });
   } catch (error) {
     console.error('Search error:', error);
@@ -171,7 +136,7 @@ exports.getAllUsers = async (req, res) => {
   try {
     const users = await User.getAllUsers();
     await logAdminActivity(req.user.uid, 'get_all_users', req);
-    res.status(200).json({ message: 'All users retrieved successfully', users });
+    res.status(200).json({ message: 'All users retrieved successfully', users: formatTimestamps(users) });
   } catch (error) {
     console.error('Get all users error:', error);
     res.status(500).json({ message: 'Failed to retrieve all users' });
@@ -183,7 +148,7 @@ exports.getPermissions = async (req, res) => {
     const permissions = Object.values(Permission);
     // const permissions = await Permission.getAllPermissions();
     await logAdminActivity(req.user.uid, 'get_all_permissions', req);
-    res.status(200).json({ message: 'All permissions retrieved successfully', permissions });
+    res.status(200).json({ message: 'All permissions retrieved successfully', permissions: formatTimestamps(permissions) });
   } catch (error) {
     console.error('Get all permissions error:', error);
     res.status(500).json({ message: 'Failed to retrieve all permissions' });
@@ -605,9 +570,190 @@ exports.getAllShippers = async(req, res) => {
   try {
     const shippers = await User.getShippers();
     await logAdminActivity(req.user.uid, 'get_all_shippers', req);
-    res.status(200).json({ message: 'All shippers retrieved successfully', shippers });
+    res.status(200).json({ message: 'All shippers retrieved successfully', shippers: formatTimestamps(shippers) });
   } catch (error) {
     console.error('Get all shippers error:', error);
     res.status(500).json({ message: 'Failed to retrieve all shippers' });
   }
 }
+
+exports.reviewTransporter = async (req, res) => {
+  try {
+    const transporterId = req.params.transporterId;
+    const { action, reason, insuranceExpiryDate, driverLicenseExpiryDate, idExpiryDate } = req.body;
+
+    // 1. Check if transporter exists
+    const transporter = await Transporter.get(transporterId);
+    if (!transporter) {
+      return res.status(404).json({ message: 'Transporter not found' });
+    }
+
+    // 2. Check if already approved/rejected
+    if (transporter.status === 'approved' && (action === 'approve-dl' || action === 'approve-insurance' || action === 'approve-id')) {
+      return res.status(400).json({ message: 'Transporter already approved' });
+    }
+    if (transporter.status === 'rejected' && action === 'reject') {
+      return res.status(400).json({ message: 'Transporter already rejected' });
+    }
+
+    let updates = {};
+
+    if (action === 'approve-dl') {
+      if (!driverLicenseExpiryDate) {
+        return res.status(400).json({ message: 'driverLicenseExpiryDate is required' });
+      }
+      updates = {
+        driverLicenseExpiryDate: admin.firestore.Timestamp.fromDate(new Date(driverLicenseExpiryDate)),
+        driverLicenseapproved: true,
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+      await Transporter.update(transporterId, updates);
+
+      // Check if all documents are approved
+      if (transporter.insuranceapproved && transporter.idapproved) {
+        updates = {
+          ...updates,
+          status: 'approved',
+          updatedAt: admin.firestore.Timestamp.now(),
+        };
+        await Transporter.update(transporterId, updates);
+
+        await sendEmail({
+          to: transporter.email,
+          subject: 'Transporter Approved',
+          text: 'Your transporter account has been approved. Welcome to Truk!'
+        });
+
+        const formattedPhone = formatPhoneNumber(transporter.phoneNumber);
+        const smsMessage = 'Your Truk documents have been approved. Welcome aboard!';
+        await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+        await logAdminActivity(
+          req.user.uid,
+          'approve_transporter',
+          req,
+          { type: 'transporter', id: transporterId }
+        );
+      }
+      return res.status(200).json({ message: 'Driver license approved', updates });
+    }
+
+    if (action === 'approve-insurance') {
+      if (!insuranceExpiryDate) {
+        return res.status(400).json({ message: 'insuranceExpiryDate is required' });
+      }
+      updates = {
+        insuranceExpiryDate: admin.firestore.Timestamp.fromDate(new Date(insuranceExpiryDate)),
+        insuranceapproved: true,
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+      await Transporter.update(transporterId, updates);
+
+      // Check if all documents are approved
+      if (transporter.driverLicenseapproved && transporter.idapproved) {
+        updates = {
+          ...updates,
+          status: 'approved',
+          updatedAt: admin.firestore.Timestamp.now(),
+        };
+        await Transporter.update(transporterId, updates);
+
+        await sendEmail({
+          to: transporter.email,
+          subject: 'Transporter Approved',
+          text: 'Your transporter account has been approved. Welcome to Truk!'
+        });
+
+        const formattedPhone = formatPhoneNumber(transporter.phoneNumber);
+        const smsMessage = 'Your Truk documents have been approved. Welcome aboard!';
+        //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+        await logAdminActivity(
+          req.user.uid,
+          'approve_transporter',
+          req,
+          { type: 'transporter', id: transporterId }
+        );
+      }
+      return res.status(200).json({ message: 'Insurance approved', updates });
+    }
+
+    if (action === 'approve-id') {
+      if (idExpiryDate) {
+        updates = {
+          idExpiryDate: admin.firestore.Timestamp.fromDate(new Date(idExpiryDate)),
+          idapproved: true,
+          updatedAt: admin.firestore.Timestamp.now(),
+        };
+        await Transporter.update(transporterId, updates);
+      }
+      updates = {
+        idapproved: true,
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+      await Transporter.update(transporterId, updates);
+
+      // Check if all documents are approved
+      if (transporter.driverLicenseapproved && transporter.insuranceapproved) {
+        updates = {
+          ...updates,
+          status: 'approved',
+          updatedAt: admin.firestore.Timestamp.now(),
+        };
+        await Transporter.update(transporterId, updates);
+
+        await sendEmail({
+          to: transporter.email,
+          subject: 'Transporter Approved',
+          text: 'Your transporter account has been approved. Welcome to Truk!'
+        });
+
+        const formattedPhone = formatPhoneNumber(transporter.phoneNumber);
+        const smsMessage = 'Your Truk documents have been approved. Welcome aboard!';
+        //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+        await logAdminActivity(
+          req.user.uid,
+          'approve_transporter',
+          req,
+          { type: 'transporter', id: transporterId }
+        );
+      }
+      return res.status(200).json({ message: 'ID approved', updates });
+    }
+
+    if (action === 'reject') {
+      updates = {
+        status: 'rejected',
+        rejectionReason: reason || 'Unqualified',
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+
+      await Transporter.update(transporterId, updates);
+
+      await sendEmail({
+        to: transporter.email,
+        subject: 'Transporter Rejected',
+        text: `Your transporter account has been rejected. Reason: ${reason || 'Unqualified'}`
+      });
+
+      const formattedPhone = formatPhoneNumber(transporter.phoneNumber);
+      const smsMessage = `Your Truk documents have been rejected. Reason: ${reason || 'Unqualified'}.`;
+      //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+      await logAdminActivity(
+        req.user.uid,
+        'reject_transporter',
+        req,
+        { type: 'transporter', id: transporterId }
+      );
+
+      return res.status(200).json({ message: 'Transporter rejected', updates });
+    }
+
+    return res.status(400).json({ message: 'Invalid action, must be approve-dl, approve-insurance, approve-id, or reject' });
+  } catch (error) {
+    console.error('Review transporter error:', error);
+    res.status(500).json({ message: 'Failed to review transporter' });
+  }
+};

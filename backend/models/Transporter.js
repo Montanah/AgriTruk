@@ -49,6 +49,10 @@ const Transporter = {
       // Admin details
       insuranceExpiryDate: transporterData.insuranceExpiryDate || null,
       driverLicenseExpiryDate: transporterData.driverLicenseExpiryDate || null,
+      insuranceaproved: transporterData.insuranceapproved || false,
+      driverLicenseapproved: transporterData.driverLicenseapproved || false,
+      idExpiryDate: transporterData.idExpiryDate || null,
+      idapproved: transporterData.idapproved || false,
       // Timestamps
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
@@ -70,6 +74,8 @@ const Transporter = {
   async approve(transporterId) {
     const updates = {
       status: 'approved',
+      rejectionReason: null,
+      accountStatus: true,
       updatedAt: admin.firestore.Timestamp.now()
     };
     await db.collection('transporters').doc(transporterId).update(updates);

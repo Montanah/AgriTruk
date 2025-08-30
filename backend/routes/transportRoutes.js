@@ -17,7 +17,8 @@ const {
 const {
   approveTransporter,
   rejectTransporter,
-  deleteTransporter
+  deleteTransporter,
+  reviewTransporter
 } = require('../controllers/adminController');
 
 const multer = require('multer');
@@ -273,10 +274,10 @@ router.delete('/:transporterId', authenticateToken, requireRole('admin'), delete
 
 /**
  * @swagger
- * /api/transporters/{transporterId}/approve:
- *   put:
- *     summary: Approve a transporter
- *     description: Allows an admin to approve a pending transporter.
+ * /api/transporters/{transporterId}/review:
+ *   patch:
+ *     summary: Approve a transporter or reject Transporter (super-admin, manage_transporters)
+ *     description: Allows an admin to review a pending transporter.
  *     tags: [Admin Actions]
  *     security:
  *       - bearerAuth: []
@@ -286,58 +287,39 @@ router.delete('/:transporterId', authenticateToken, requireRole('admin'), delete
  *         required: true
  *         schema:
  *           type: string
- *     responses:
- *       200:
- *         description: Transporter approved successfully
- *       500:
- *         description: Internal server error
- */
-router.put('/:transporterId/approve', authenticateToken, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), approveTransporter);
-
-/**
- * @swagger
- * /api/transporters/{transporterId}/reject:
- *   put:
- *     summary: Reject a transporter
- *     description: Allows an admin to reject a pending transporter with an optional reason.
- *     tags: [Admin Actions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: transporterId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the transporter to reject
  *     requestBody:
- *       required: false
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
  *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [approve-id, approve-dl, approve-insurance, reject]
+ *                 description: Action to take on the transporter (approve or reject)
  *               reason:
  *                 type: string
- *                 description: Reason for rejection (optional, defaults to 'Unqualified')
- *             example:
- *               reason: "Incomplete documentation"
+ *                 description: Reason for action (optional)
+ *               insuranceExpiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Insurance expiry date (optional)
+ *               driverLicenseExpiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Driver license expiry date (optional)
+ *               idExpiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: ID expiry date (optional)
  *     responses:
  *       200:
- *         description: Transporter rejected successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 result:
- *                   type: object
+ *         description: Transporter reviewed successfully
  *       500:
  *         description: Internal server error
  */
-router.put('/:transporterId/reject', authenticateToken, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), rejectTransporter);
+router.patch('/:transporterId/review', authenticateToken, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), reviewTransporter);
 
 /**
  * @swagger

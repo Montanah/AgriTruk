@@ -5,13 +5,10 @@ const User = require("../models/User");
 const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const Notification = require("../models/Notification");
 const MatchingService = require('../services/matchingService');
+const { formatTimestamps } = require('../utils/formatData');
 
 exports.createTransporter = async (req, res) => {
   try {
-    // console.log('Creating transporter...');
-    // console.log('Request body:', req.body); // Debug: Log the body
-    // console.log('Request files:', req.files); // Debug: Log all files
-
     const { 
       vehicleType,
       vehicleRegistration,
@@ -187,7 +184,7 @@ exports.getTransporter = async (req, res) => {
 
     res.status(200).json({
       message: "Transporter retrieved successfully",
-      transporter
+      transporter: formatTimestamps(transporter)
     });
   } catch (error) {
     console.error('Error retrieving transporter:', error);
@@ -209,7 +206,7 @@ exports.updateTransporter = async (req, res) => {
       userId: req.user.uid,
       userType: "user",
     });
-    res.status(200).json({ message: 'Transporter updated', updated });
+    res.status(200).json({ message: 'Transporter updated', updated: formatTimestamps(updated) });
   } catch (error) {
     console.error('Update transporter error:', error);
     res.status(500).json({ message: 'Failed to update transporter' });
@@ -224,7 +221,7 @@ exports.getAllTransporters = async (req, res) => {
 
     res.status(200).json({
       message: "Transporters retrieved successfully",
-      transporters
+      transporters: formatTimestamps(transporters)
     });
   } catch (error) {
     console.error('Error retrieving transporters:', error);
@@ -251,7 +248,7 @@ exports.toggleAvailability = async (req, res) => {
       userId: req.user.uid,
       userType: "user",
     });
-    res.status(200).json({ message: 'Availability updated successfully', transporter: updated });
+    res.status(200).json({ message: 'Availability updated successfully', transporter: formatTimestamps(updated) });
   } catch (error) {
     console.error('Toggle availability error:', error);
     res.status(500).json({ message: 'Failed to update availability' });
@@ -265,7 +262,7 @@ exports.getAvailableTransporters = async (req, res) => {
     // await logAdminActivity(req.user.uid, 'get_available_transporters', req);
     await logActivity(req.user.uid, 'get_available_transporters', req);
 
-    res.status(200).json({ transporters: available });
+    res.status(200).json({ transporters: formatTimestamps(available) });
   } catch (error) {
     console.error('Get available transporters error:', error);
     res.status(500).json({ message: 'Failed to fetch available transporters' });
@@ -284,7 +281,7 @@ exports.updateRating = async (req, res) => {
     const updated = await Transporter.update(transporterId, { rating });
 
     await logAdminActivity(req.user.uid, 'update_rating', req);
-    res.status(200).json({ message: 'Rating updated', transporter: updated });
+    res.status(200).json({ message: 'Rating updated', transporter: formatTimestamps(updated) });
   } catch (error) {
     console.error('Update rating error:', error);
     res.status(500).json({ message: 'Failed to update rating' });
@@ -307,7 +304,7 @@ exports.getAvailableBookings = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Available bookings retrieved successfully',
-      availableBookings,
+      availableBookings: formatTimestamps(availableBookings),
     });
   } catch (error) {
     res.status(500).json({
