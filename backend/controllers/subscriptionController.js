@@ -5,6 +5,8 @@ const PaymentService = require('../services/PaymentService');
 const { logAdminActivity, logActivity } = require('../utils/activityLogger');
 const Users = require('../models/User');
 const { processMpesaPayment, processCardPayment } = require('../services/pay');
+const { formatTimestamps } = require('../utils/formatData');
+
 exports.manageSubscription = async (req, res) => {
   try {
     const { action, planId } = req.body;
@@ -149,7 +151,7 @@ exports.createSubscriptionPlan = async (req, res) => {
       savingsPercentage: savings
     }
     const plan = await SubscriptionPlans.createSubscriptionPlan(planData);
-    res.status(201).json({ success: true, message: 'Subscription plan created', data: plan });
+    res.status(201).json({ success: true, message: 'Subscription plan created', data: formatTimestamps(plan) });
   } catch (error) {
     console.error('Subscription plan error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -164,7 +166,7 @@ function calculateSavingsPercentage(originalPrice, discountedPrice){
 exports.updateSubscriptionPlan = async (req, res) => {
   try {
     const plan = await SubscriptionPlans.updateSubscriptionPlan(req.params.id, req.body);
-    res.status(200).json({ success: true, message: 'Subscription plan updated', data: plan });
+    res.status(200).json({ success: true, message: 'Subscription plan updated', data: formatTimestamps(plan) });
   } catch (error) {
     console.error('Subscription plan error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -184,7 +186,7 @@ exports.deleteSubscriptionPlan = async (req, res) => {
 exports.getAllSubscriptionPlans = async (req, res) => {
   try {
     const plans = await SubscriptionPlans.getAllSubscriptionPlans();
-    res.status(200).json({ success: true, message: 'Subscription plans retrieved', data: plans });
+    res.status(200).json({ success: true, message: 'Subscription plans retrieved', data: formatTimestamps(plans) });
   } catch (error) {
     console.error('Subscription plan error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -195,7 +197,7 @@ exports.getSubscriptionPlan = async (req, res) => {
   try {
     const planId = req.query.planId;
     const plan = await SubscriptionPlans.getSubscriptionPlan(planId);
-    res.status(200).json({ success: true, message: 'Subscription plan retrieved', data: plan });
+    res.status(200).json({ success: true, message: 'Subscription plan retrieved', data: formatTimestamps(plan) });
   } catch (error) {
     console.error('Subscription plan error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -210,6 +212,7 @@ exports.createSubscriber = async (req, res) => {
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid user' });
     }
+    console.log(userId, user);
     // check subscriber exists
     const sub = await Subscribers.getByUserId(userId);
     if (sub) {
@@ -234,7 +237,7 @@ exports.createSubscriber = async (req, res) => {
     const subscriber = await Subscribers.create(subData);
     await logActivity(userId, 'create_subscriber', req);
     // await logAdminActivity(req.user.uid, 'create_subscriber', req);
-    res.status(201).json({ success: true, message: 'Subscriber created', data: subscriber, user, plan });
+    res.status(201).json({ success: true, message: 'Subscriber created', data: formatTimestamps(subscriber), user: formatTimestamps(user), plan: formatTimestamps(plan) });
   } catch (error) {
     console.error('Subscriber error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -245,7 +248,7 @@ exports.getAllSubscribers = async (req, res) => {
   try {
     const subscribers = await Subscribers.getAll();
     await logAdminActivity(req.user.uid, 'get_all_subscribers', req);
-    res.status(200).json({ success: true, message: 'Subscribers retrieved', data: subscribers });
+    res.status(200).json({ success: true, message: 'Subscribers retrieved', data: formatTimestamps(subscribers) });
   } catch (error) {
     console.error('Subscribers error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -258,7 +261,7 @@ exports.getSubscriber = async (req, res) => {
     console.log(subscriberId);
     const subscriber = await Subscribers.get(subscriberId);
     await logAdminActivity(req.user.uid, 'get_subscriber', req);
-    res.status(200).json({ success: true, message: 'Subscriber retrieved', data: subscriber });
+    res.status(200).json({ success: true, message: 'Subscriber retrieved', data: formatTimestamps(subscriber) });
   } catch (error) {
     console.error('Subscriber error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -324,7 +327,7 @@ exports.createSubscriberPayment = async (req, res) => {
       success: true,
       message: "Payment initiated. Awaiting confirmation.",
       payment: {
-        ...pendingPayment,
+        ...formatTimestamps(pendingPayment),
         gatewayResponse: paymentResult.data
       }
     });

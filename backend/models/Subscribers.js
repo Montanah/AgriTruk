@@ -2,13 +2,14 @@ const admin = require('../config/firebase');
 const db = admin.firestore();
 
 const Subscribers = {
+
   async create(subscriberData) {
     try {
-      const { userId, planId, startDate, endDate, isActive, autoRenew, paymentStatus, transactionId } = subscriberData;
-      if (!userId || !planId || !startDate || !endDate) {
-        throw new Error('userId, planId, startDate, and endDate are required');
+      const { userId, planId, startDate, isActive, autoRenew, paymentStatus, transactionId, endDate } = subscriberData;
+      if (!userId || !planId || !startDate) {
+        throw new Error('userId, planId, startDate are required');
       }
-      console.log('Subscriber Data:', subscriberData);
+    //   console.log('Subscriber Data:', subscriberData);
 
       // Generate a new document ID
       const subscriberId = db.collection('subscribers').doc().id;
@@ -27,13 +28,14 @@ const Subscribers = {
         isActive: isActive !== undefined ? isActive : true,
         autoRenew: autoRenew || false,
         paymentStatus: paymentStatus || 'pending',
+        paymentId: null,
         transactionId: transactionId || null,
         currentUsage: 0,
         createdAt: admin.firestore.Timestamp.now(),
         updatedAt: admin.firestore.Timestamp.now(),
       };
 
-      const subscriberRef = db.collection('subscribers').doc(subscriberId);
+      const subscriberRef = db.collection('subscribers').doc(subscriberId).set(subscriber);
 
       // Save to Firestore with cleaned data
     //   await subscriberRef.set(cleanData(subscriber), { merge: true });
@@ -47,6 +49,7 @@ const Subscribers = {
         createdAt: subscriber.createdAt.toDate(),
         updatedAt: subscriber.updatedAt.toDate(),
       };
+      console.log('Subscriber created successfully:', response);
       return response;
     } catch (error) {
       console.error('Subscription creation error:', error);
@@ -68,7 +71,6 @@ const Subscribers = {
         const subscriber = await db.collection('subscribers').doc(subscriberId).get();
         return subscriber.data();
     },
-
     async getAll() {
         const snapshot = await db.collection('subscribers').get();
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

@@ -63,3 +63,46 @@ exports.getResetPasswordTemplate = function (code, location, ip, device) {
     </div>
   `;
 };
+
+exports.generateEmailTemplate = function  (paymentData, userData) {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background-color: #f9f9f9; }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Thank You for Your Subscription!</h1>
+          </div>
+          <div class="content">
+            <p>Hello ${userData.name || 'Valued Customer'},</p>
+            <p>Your subscription payment has been processed successfully. Below are your payment details:</p>
+            
+            <h3>Payment Information</h3>
+            <p><strong>Transaction ID:</strong> ${paymentData.mpesaReference}</p>
+            <p><strong>Amount:</strong> KES ${paymentData.amount}</p>
+            <p><strong>Date:</strong> ${new Date(paymentData.paidAt).toLocaleString()}</p>
+            <p><strong>Payment Method:</strong> M-PESA</p>
+            
+            <p>Your receipt is attached to this email. Please keep it for your records.</p>
+            
+            <p>If you have any questions about your subscription, please contact our support team.</p>
+            
+            <p>Best regards,<br>The Truk Team</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Truk Limited. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+};

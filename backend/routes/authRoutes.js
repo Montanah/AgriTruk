@@ -37,9 +37,6 @@ const upload = multer({ dest: "uploads/" });
  *         location:
  *           type: string
  *           nullable: true
- *         userType:
- *           type: string
- *           nullable: true
  *         languagePreference:
  *           type: string
  *           nullable: true
@@ -48,9 +45,6 @@ const upload = multer({ dest: "uploads/" });
  *           nullable: true
  *         isVerified:
  *           type: boolean
- *         fcmToken:
- *           type: string
- *           nullable: true
  *     Error:
  *       type: object
  *       properties:

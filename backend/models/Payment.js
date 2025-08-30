@@ -9,7 +9,7 @@ const Payment = {
       requestId: paymentData.requestId,
       payerId: paymentData.payerId,
       subscriberId: paymentData.subscriberId || null,
-      payeeId: paymentData.payeeId,
+      planId: paymentData.planId || null,
       amount: paymentData.amount || 0,
       phone: paymentData.phone || null,
       email: paymentData.email || null,
@@ -19,13 +19,7 @@ const Payment = {
       mpesaReference: paymentData.mpesaReference || null,
       status: paymentData.status || 'pending',
       failureReason: paymentData.failureReason || null,
-      feeBreakdown: {
-        platformFee: paymentData.feeBreakdown?.platformFee || 0,
-        transporterFee: paymentData.feeBreakdown?.transporterFee || 0,
-        tax: paymentData.feeBreakdown?.tax || 0
-      },
       receiptUrl: paymentData.receiptUrl || null,
-      escrowReleased: paymentData.escrowReleased || false,
       disputeId: paymentData.disputeId || null,
       createdAt: admin.firestore.Timestamp.now(),
       paidAt: paymentData.paidAt || null

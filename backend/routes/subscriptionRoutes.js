@@ -7,8 +7,73 @@ const { authorize } = require("../middlewares/adminAuth");
 /**
  * @swagger
  * tags:
- *   name: Subscriptions
+ *   name: SubscriptionPlans
  *   description: Manage subscriptions
+ */
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Subscription:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         planId:
+ *           type: string
+ *         name:
+ *           type: string
+ *         duration:    
+ *           type: number
+ *         price:
+ *           type: number
+ *         features:
+ *           type: array
+ *           items:
+ *             type: string
+ *         isActive:
+ *           type: boolean
+ *         savingsAmount:
+ *           type: number
+ *         createdAt:
+ *           type: string
+ *         updatedAt:
+ *           type: string
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Subscriber:
+ *       type: object
+ *       properties:
+ *         userId:
+ *           type: string   
+ *         subscriberId:
+ *           type: string
+ *         planId:
+ *           type: string
+ *         status:
+ *           type: string
+ *         startDate:
+ *           type: string
+ *         endDate:
+ *           type: string
+ *         isActive:
+ *           type: boolean
+ *         autorenew:
+ *           type: boolean
+ *         paymentStatus:
+ *           type: string
+ *         transactionId:
+ *           type: string
+ *         currentUsage:
+ *           type: number
+ *         updatedAt:
+ *           type: string
+ *         createdAt:
+ *           type: string
  */
 
 /**
@@ -323,13 +388,7 @@ router.delete('/admin/:id', authenticateToken, requireRole('admin'), authorize([
  *       content:
  *         application/json:
  *           schema:
- *             properties:
- *               planId:
- *                 type: string
- *                 description: The ID of the plan to subscribe to
- *               userId:
- *                 type: string
- *                 description: The ID of the user to subscribe
+ *             $ref: '#/components/schemas/Subscriber'               
  *     responses:
  *       201:
  *         description: Subscriber created
@@ -337,6 +396,65 @@ router.delete('/admin/:id', authenticateToken, requireRole('admin'), authorize([
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Subscriber'
+ *       401:
+ *         description: User not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       403:
+ *         description: Access denied
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/subscriber/', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.createSubscriber);
+/**
+ * @swagger
+ * /api/subscriptions/subscriber/pay:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Pay for a subscription
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: The ID of the subscriber
+ *               planId:
+ *                 type: string
+ *                 description: The ID of the subscription plan
+ *               paymentMethod:
+ *                 type: string
+ *                 description: The type of the payment method
+ *               phoneNumber:
+ *                 type: string
+ *                 description: Phone number to be charged
+ *     responses:
+ *       201:
+ *         description: Subscriber Payment Request sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Payment'
  *       401:
  *         description: User not authenticated
  *         content:
@@ -356,7 +474,7 @@ router.delete('/admin/:id', authenticateToken, requireRole('admin'), authorize([
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/subscriber/', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.createSubscriberPayment);
+router.post('/subscriber/pay', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.createSubscriberPayment);
 
 /**
  * @swagger
@@ -443,4 +561,5 @@ router.get('/admin/subscribers/', authenticateToken, requireRole('admin'), autho
         return subscriptionController.getAllSubscribers(req, res);
     },
 );
+
 module.exports = router;
