@@ -1,19 +1,30 @@
-import { Booking } from '@/mocks/bookings';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    FlatList,
-    Modal,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
-type Transporter = Booking['assignedTransporter'] & {
+interface Booking {
+  id: string;
+  assignedTransporter?: {
+    id: string;
+    name: string;
+    phone: string;
+  };
+}
+
+interface Transporter {
+  id: string;
+  name: string;
+  phone?: string;
   rating?: number;
   capacity?: string;
-};
+}
 
 type Props = {
   visible: boolean;
@@ -24,18 +35,11 @@ type Props = {
   onAssign?: (jobId: string, transporter: Transporter) => void;
 };
 
-// fallback mock transporters
-const MOCK_TRANSPORTERS: Transporter[] = [
-  { id: 't1', name: 'John Truck Co.', rating: 4.5, capacity: '10 tons' },
-  { id: 't2', name: 'Swift Movers Ltd.', rating: 4.2, capacity: '8 tons' },
-  { id: 't3', name: 'Reliable Haulers', rating: 4.8, capacity: '12 tons' },
-];
-
 const AssignTransporterModal: React.FC<Props> = ({
   visible,
   job,
   transporter,
-  transporters = MOCK_TRANSPORTERS,
+  transporters = [],
   onClose,
   onAssign,
 }) => {

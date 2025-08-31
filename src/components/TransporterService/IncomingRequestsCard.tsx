@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
 import {
     Alert,
     StyleSheet,
@@ -10,7 +11,7 @@ import {
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
-import { MOCK_INCOMING_REQUESTS } from '../../mocks/transporters';
+import { apiRequest } from '../../utils/api';
 
 interface IncomingRequest {
     id: string;
@@ -52,9 +53,32 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
     onRequestRejected,
     onViewAll,
 }) => {
-    const [requests, setRequests] = useState<IncomingRequest[]>(MOCK_INCOMING_REQUESTS.slice(0, 3) as IncomingRequest[]);
+    const navigation = useNavigation<any>();
+    const [requests, setRequests] = useState<IncomingRequest[]>([]);
+    const [loading, setLoading] = useState(true);
     const [acceptingId, setAcceptingId] = useState<string | null>(null);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchIncomingRequests = async () => {
+            try {
+                setLoading(true);
+                const data = await apiRequest('/transporters/incoming-requests');
+                if (Array.isArray(data)) {
+                    setRequests(data.slice(0, 3)); // Show only first 3 requests
+                } else {
+                    setRequests([]);
+                }
+            } catch (error) {
+                console.error('Failed to fetch incoming requests:', error);
+                setRequests([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchIncomingRequests();
+    }, []);
 
     const getUrgencyColor = (urgency: string) => {
         switch (urgency) {
@@ -95,7 +119,16 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                 onRequestAccepted(request);
             }
 
-            Alert.alert('Success', `Request ${request.id} accepted successfully!`);
+            // Navigate to contact customer screen
+            navigation.navigate('ContactCustomer', {
+                requestId: request.id,
+                customerName: request.client.name,
+                customerPhone: '+254700000000', // Mock phone number
+                pickupLocation: request.fromLocation,
+                deliveryLocation: request.toLocation,
+                requestDetails: request
+            });
+
         } catch (error) {
             Alert.alert('Error', 'Failed to accept request. Please try again.');
         } finally {
@@ -276,6 +309,17 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
             </View>
         </View>
     );
+
+    if (loading) {
+        return (
+            <View style={styles.emptyContainer}>
+                <Text style={styles.emptyTitle}>Loading Requests...</Text>
+                <Text style={styles.emptySubtitle}>
+                    Please wait while we fetch the latest incoming requests.
+                </Text>
+            </View>
+        );
+    }
 
     if (requests.length === 0) {
         return (

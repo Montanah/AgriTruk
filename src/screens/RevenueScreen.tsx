@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import revenueCompanyMock from '../../mock/revenueCompanyMock';
 import colors from '../constants/colors';
+import { apiRequest } from '../utils/api';
 
 export default function RevenueScreen({ route }) {
   const transporterType = route?.params?.transporterType || 'company';
@@ -15,22 +15,30 @@ export default function RevenueScreen({ route }) {
     const [analytics, setAnalytics] = useState({ drivers: [], jobs: [] });
 
     useEffect(() => {
-      let mounted = true;
-      setLoading(true);
-      setError('');
-      // Use mock data for UI
-      setTimeout(() => {
-        if (!mounted) return;
-        setInventory(revenueCompanyMock.inventory || []);
-        setRevenue(revenueCompanyMock.totalRevenue || 0);
-        setOutstanding(revenueCompanyMock.outstandingPayments || 0);
-        setAnalytics({
-          drivers: revenueCompanyMock.topDrivers || [],
-          jobs: revenueCompanyMock.frequentJobs || [],
-        });
-        setLoading(false);
-      }, 800); // Simulate network delay
-      return () => { mounted = false; };
+      const fetchRevenueData = async () => {
+        try {
+          setLoading(true);
+          setError('');
+
+          const data = await apiRequest('/transporters/revenue');
+
+          setInventory(data.inventory || []);
+          setRevenue(data.totalRevenue || 0);
+          setOutstanding(data.outstandingPayments || 0);
+          setAnalytics({
+            drivers: data.topDrivers || [],
+            jobs: data.frequentJobs || [],
+          });
+
+        } catch (error) {
+          console.error('Failed to fetch revenue data:', error);
+          setError('Failed to load revenue data');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchRevenueData();
     }, []);
 
     if (loading) {

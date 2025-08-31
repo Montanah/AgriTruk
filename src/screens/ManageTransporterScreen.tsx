@@ -2,35 +2,70 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { mockDrivers } from '../../mock/mockDrivers';
-import { mockVehicles } from '../../mock/mockVehicles';
 import { notificationService } from '../../services/notificationService';
-import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
+import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import colors from '../constants/colors';
 import { auth } from '../firebaseConfig';
+import { apiRequest } from '../utils/api';
 
 export default function ManageTransporterScreen({ route }) {
   const transporterType = route?.params?.transporterType || 'company';
   const navigation = useNavigation();
+
   // Modal state and profile state for individual
   const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('monthly');
+  const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(true);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+
   const handlePayment = () => {
     Alert.alert('Payment', 'Proceed to payment flow here.');
   };
-  const handleSubscribe = () => {
-    setSubscriptionModalVisible(false);
-    Alert.alert('Plan Updated', `Your plan is now: ${selectedPlan}`);
+
+  const handleSubscribe = (planData: any) => {
+    // Navigate directly to PaymentScreen within the current stack
+    navigation.navigate('PaymentScreen', {
+      plan: planData,
+      userType: 'transporter',
+      billingPeriod: 'monthly',
+      isUpgrade: true
+    });
   };
+
   const [editModal, setEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editProfilePhoto, setEditProfilePhoto] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+
+  // Fetch drivers and vehicles data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch drivers
+        const driversData = await apiRequest('/transporters/drivers');
+        setDrivers(driversData || []);
+
+        // Fetch vehicles
+        const vehiclesData = await apiRequest('/transporters/vehicles');
+        setVehicles(vehiclesData || []);
+
+      } catch (error) {
+        console.error('Failed to fetch drivers/vehicles:', error);
+      } finally {
+        setLoadingDrivers(false);
+        setLoadingVehicles(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   React.useEffect(() => {
     const fetchProfile = async () => {
@@ -40,7 +75,7 @@ export default function ManageTransporterScreen({ route }) {
         const user = auth.currentUser;
         if (!user) return;
         const token = await user.getIdToken();
-        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/profile/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -53,8 +88,13 @@ export default function ManageTransporterScreen({ route }) {
           if (data.transporter?.driverProfileImage) {
             setEditProfilePhoto({ uri: data.transporter.driverProfileImage });
           }
+        } else if (res.status === 404) {
+          // Profile doesn't exist yet, this is expected for new transporters
+          console.log('Transporter profile not found - user needs to complete profile setup');
         }
-      } catch { }
+      } catch (error) {
+        console.error('Error fetching transporter profile:', error);
+      }
       setLoadingProfile(false);
     };
     fetchProfile();
@@ -99,8 +139,6 @@ export default function ManageTransporterScreen({ route }) {
   };
 
   // Vehicles and Drivers state
-  const [vehicles, setVehicles] = useState(mockVehicles); // {id, type, reg, features, insurance, photos, assignedDriverId}
-  const [drivers, setDrivers] = useState(mockDrivers); // {id, name, email, phone, photo, idDoc, license}
   const [vehicleSearch, setVehicleSearch] = useState('');
 
   // Assignment modal state
@@ -834,7 +872,7 @@ export default function ManageTransporterScreen({ route }) {
           const user = auth.currentUser;
           if (!user) return;
           const token = await user.getIdToken();
-          const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+          const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/profile/me`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
@@ -1103,10 +1141,10 @@ export default function ManageTransporterScreen({ route }) {
               let plan = selectedPlan === 'monthly'
                 ? 'Monthly'
                 : selectedPlan === 'quarterly'
-                ? 'Quarterly'
-                : selectedPlan === 'annual'
-                ? 'Annual'
-                : 'Monthly';
+                  ? 'Quarterly'
+                  : selectedPlan === 'annual'
+                    ? 'Annual'
+                    : 'Monthly';
               let daysRemaining = 0;
               let isTrial = false;
               let percent = 0;

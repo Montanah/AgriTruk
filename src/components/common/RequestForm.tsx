@@ -23,6 +23,7 @@ import spacing from '../../constants/spacing';
 import { useConsolidations } from '../../context/ConsolidationContext';
 import FindTransporters from '../FindTransporters';
 import LoadingSpinner from './LoadingSpinner';
+import LocationPicker from './LocationPicker';
 
 const SERVICES = [
     {
@@ -68,6 +69,26 @@ const URGENCY_LEVELS = [
     { key: 'high', label: 'High', color: colors.error, icon: 'fire' },
 ];
 
+// Enhanced recurrent options
+const RECURRENCE_FREQUENCIES = [
+    { key: 'daily', label: 'Daily', icon: 'calendar' },
+    { key: 'weekly', label: 'Weekly', icon: 'calendar-week' },
+    { key: 'biweekly', label: 'Bi-weekly', icon: 'calendar-week' },
+    { key: 'monthly', label: 'Monthly', icon: 'calendar-month' },
+    { key: 'quarterly', label: 'Quarterly', icon: 'calendar' },
+    { key: 'custom', label: 'Custom', icon: 'calendar' },
+];
+
+const RECURRENCE_DURATIONS = [
+    { key: '1week', label: '1 Week' },
+    { key: '2weeks', label: '2 Weeks' },
+    { key: '1month', label: '1 Month' },
+    { key: '3months', label: '3 Months' },
+    { key: '6months', label: '6 Months' },
+    { key: '1year', label: '1 Year' },
+    { key: 'custom', label: 'Custom' },
+];
+
 interface RequestFormProps {
     mode: 'shipper' | 'broker' | 'business';
     clientId?: string;
@@ -86,12 +107,13 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
     const [toLocation, setToLocation] = useState('');
     const [productType, setProductType] = useState('');
     const [weight, setWeight] = useState('');
-    const [estimatedValue, setEstimatedValue] = useState('');
     const [urgency, setUrgency] = useState<'low' | 'medium' | 'high'>('medium');
     const [pickupDate, setPickupDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showProductSuggestions, setShowProductSuggestions] = useState(false);
-    const [additional, setAdditional] = useState('');
+    const [showRecurringEndDatePicker, setShowRecurringEndDatePicker] = useState(false);
+    const [showTransporters, setShowTransporters] = useState(false);
+    const [justAdded, setJustAdded] = useState(false);
 
     // Special requirements
     const [isPerishable, setIsPerishable] = useState(false);
@@ -101,17 +123,23 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
     const [insureGoods, setInsureGoods] = useState(false);
     const [insuranceValue, setInsuranceValue] = useState('');
 
-    // Business/Broker specific
-    const [isBulk, setIsBulk] = useState(false);
-    const [isPriority, setIsPriority] = useState(false);
+    // Enhanced recurrent functionality for all user types
     const [isRecurring, setIsRecurring] = useState(false);
     const [recurringFreq, setRecurringFreq] = useState('');
+    const [recurringTimeframe, setRecurringTimeframe] = useState('');
+    const [recurringDuration, setRecurringDuration] = useState('');
+    const [recurringEndDate, setRecurringEndDate] = useState<Date | null>(null);
+    const [customRecurrence, setCustomRecurrence] = useState('');
+    const [additional, setAdditional] = useState('');
+
+    // Business/Broker specific
+    const [isPriority, setIsPriority] = useState(false);
+    const [isBulk, setIsBulk] = useState(false);
+    const [bulkQuantity, setBulkQuantity] = useState('');
 
     // UI state
-    const [showTransporters, setShowTransporters] = useState(false);
     const [loading, setLoading] = useState(false);
     const [formError, setFormError] = useState('');
-    const [justAdded, setJustAdded] = useState(false);
 
     const accent = activeTab === 'agriTRUK' ? colors.primary : colors.secondary;
     const canConsolidate = mode === 'business' || mode === 'broker';
@@ -121,56 +149,50 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
             setFormError('Please fill in all required fields.');
             return false;
         }
+
+        if (isRecurring) {
+            if (!recurringFreq || !recurringDuration) {
+                setFormError('Please fill in all recurrent fields.');
+                return false;
+            }
+        }
+
+        if (insureGoods && !insuranceValue) {
+            setFormError('Please enter goods value for insurance.');
+            return false;
+        }
+
         setFormError('');
         return true;
     };
 
     const createRequestData = () => {
-        // Combine all special requirements
-        const allSpecialRequirements = [
-            ...(isPerishable ? perishableSpecs : []),
-            ...(isSpecialCargo ? specialCargoSpecs : []),
-            ...(isBulk ? ['bulk'] : []),
-            ...(isPriority ? ['priority'] : []),
-        ];
-
         return {
             id: Date.now().toString(),
-            type: requestType,
-            status: 'pending',
             fromLocation,
             toLocation,
             productType,
-            weight: `${weight}kg`,
-            estimatedValue: estimatedValue ? parseInt(estimatedValue) : 0,
-            urgency,
-            createdAt: new Date().toISOString(),
-            specialRequirements: allSpecialRequirements,
-            client: {
-                name: mode === 'broker' ? 'Client' : 'User',
-                rating: 4.5,
-                completedOrders: 10,
-            },
-            pricing: {
-                basePrice: 0, // Will be calculated by backend
-                urgencyBonus: urgency === 'high' ? 2000 : urgency === 'medium' ? 1000 : 0,
-                specialHandling: allSpecialRequirements.length > 0 ? 1000 : 0,
-                total: 0, // Will be calculated
-            },
-            route: {
-                distance: '0 km', // Will be calculated by backend
-                estimatedTime: '0 hours',
-                detour: '0 km',
-            },
-            // Additional fields for consistency
-            pickupDate: requestType === 'booking' ? pickupDate.toISOString() : undefined,
-            insureGoods,
-            insuranceValue: insuranceValue ? parseInt(insuranceValue) : 0,
+            weight,
+            requestType,
+            date: requestType === 'booking' ? pickupDate.toISOString() : '',
+            isPriority,
             isRecurring,
             recurringFreq,
+            recurringTimeframe,
+            recurringDuration,
+            recurringEndDate: recurringEndDate?.toISOString() || null,
+            customRecurrence,
+            insureGoods,
+            insuranceValue,
+            isPerishable,
+            perishableSpecs,
+            isSpecialCargo,
+            specialCargoSpecs,
+            isBulk,
+            bulkQuantity,
+            type: activeTab,
+            urgency,
             additional,
-            serviceType: activeTab,
-            clientId,
         };
     };
 
@@ -178,7 +200,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
         if (!validateForm()) return;
 
         const requestData = createRequestData();
-
         addConsolidation(requestData);
 
         // Reset form
@@ -187,16 +208,21 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
         setProductType('');
         setWeight('');
         setPickupDate(new Date());
-        setIsBulk(false);
         setIsPriority(false);
         setIsRecurring(false);
         setRecurringFreq('');
+        setRecurringTimeframe('');
+        setRecurringDuration('');
+        setRecurringEndDate(null);
+        setCustomRecurrence('');
         setInsureGoods(false);
         setInsuranceValue('');
         setIsPerishable(false);
         setPerishableSpecs([]);
         setIsSpecialCargo(false);
         setSpecialCargoSpecs([]);
+        setIsBulk(false);
+        setBulkQuantity('');
         setAdditional('');
 
         setJustAdded(true);
@@ -226,6 +252,161 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
     };
 
     const getCurrentRequest = () => createRequestData();
+
+    const handleRecurrenceChange = (field: string, value: string) => {
+        switch (field) {
+            case 'frequency':
+                setRecurringFreq(value);
+                if (value === 'custom') {
+                    setCustomRecurrence('');
+                }
+                break;
+            case 'duration':
+                setRecurringDuration(value);
+                break;
+            case 'timeframe':
+                setRecurringTimeframe(value);
+                break;
+        }
+    };
+
+    const [showFrequencyDropdown, setShowFrequencyDropdown] = useState(false);
+    const [showDurationDropdown, setShowDurationDropdown] = useState(false);
+    const [showUrgencyDropdown, setShowUrgencyDropdown] = useState(false);
+
+    const renderRecurrenceSection = () => (
+        <View style={styles.fieldGroup}>
+            <View style={styles.switchRow}>
+                <View style={styles.switchLabelContainer}>
+                    <Text style={styles.switchLabel}>Recurring Request</Text>
+                    <Text style={styles.switchSubtitle}>Regular shipments</Text>
+                </View>
+                <Switch
+                    value={isRecurring}
+                    onValueChange={setIsRecurring}
+                    trackColor={{ false: colors.text.light + '40', true: accent + '40' }}
+                    thumbColor={isRecurring ? accent : colors.text.light}
+                />
+            </View>
+
+            {isRecurring && (
+                <View style={styles.recurrenceContainer}>
+                    {/* Frequency Selection */}
+                    <View style={styles.fieldGroup}>
+                        <Text style={styles.fieldLabel}>Frequency *</Text>
+                        <TouchableOpacity
+                            style={styles.dropdownInput}
+                            onPress={() => setShowFrequencyDropdown(!showFrequencyDropdown)}
+                        >
+                            <Text style={[styles.dropdownText, !recurringFreq && { color: colors.text.light }]}>
+                                {recurringFreq ? RECURRENCE_FREQUENCIES.find(f => f.key === recurringFreq)?.label : 'Select frequency'}
+                            </Text>
+                            <MaterialCommunityIcons
+                                name={showFrequencyDropdown ? "chevron-up" : "chevron-down"}
+                                size={20}
+                                color={colors.text.secondary}
+                            />
+                        </TouchableOpacity>
+                        {showFrequencyDropdown && (
+                            <View style={styles.dropdownOptions}>
+                                {RECURRENCE_FREQUENCIES.map((freq) => (
+                                    <TouchableOpacity
+                                        key={freq.key}
+                                        style={styles.dropdownOption}
+                                        onPress={() => {
+                                            handleRecurrenceChange('frequency', freq.key);
+                                            setShowFrequencyDropdown(false);
+                                        }}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={freq.icon as any}
+                                            size={16}
+                                            color={colors.text.secondary}
+                                        />
+                                        <Text style={styles.dropdownOptionText}>{freq.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Custom Frequency Input */}
+                    {recurringFreq === 'custom' && (
+                        <View style={styles.fieldGroup}>
+                            <Text style={styles.fieldLabel}>Custom Frequency</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={customRecurrence}
+                                onChangeText={setCustomRecurrence}
+                                placeholder="e.g., Every 3 days, Twice a week"
+                                placeholderTextColor={colors.text.light}
+                            />
+                        </View>
+                    )}
+
+                    {/* Time Frame */}
+                    <View style={styles.fieldGroup}>
+                        <Text style={styles.fieldLabel}>Time Frame</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={recurringTimeframe}
+                            onChangeText={(text) => handleRecurrenceChange('timeframe', text)}
+                            placeholder="e.g., Every Monday, 1st of month, 9:00 AM"
+                            placeholderTextColor={colors.text.light}
+                        />
+                    </View>
+
+                    {/* Duration */}
+                    <View style={styles.fieldGroup}>
+                        <Text style={styles.fieldLabel}>Duration *</Text>
+                        <TouchableOpacity
+                            style={styles.dropdownInput}
+                            onPress={() => setShowDurationDropdown(!showDurationDropdown)}
+                        >
+                            <Text style={[styles.dropdownText, !recurringDuration && { color: colors.text.light }]}>
+                                {recurringDuration ? RECURRENCE_DURATIONS.find(d => d.key === recurringDuration)?.label : 'Select duration'}
+                            </Text>
+                            <MaterialCommunityIcons
+                                name={showDurationDropdown ? "chevron-up" : "chevron-down"}
+                                size={20}
+                                color={colors.text.secondary}
+                            />
+                        </TouchableOpacity>
+                        {showDurationDropdown && (
+                            <View style={styles.dropdownOptions}>
+                                {RECURRENCE_DURATIONS.map((duration) => (
+                                    <TouchableOpacity
+                                        key={duration.key}
+                                        style={styles.dropdownOption}
+                                        onPress={() => {
+                                            handleRecurrenceChange('duration', duration.key);
+                                            setShowDurationDropdown(false);
+                                        }}
+                                    >
+                                        <Text style={styles.dropdownOptionText}>{duration.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+
+                    {/* End Date */}
+                    <View style={styles.fieldGroup}>
+                        <Text style={styles.fieldLabel}>End Date (Optional)</Text>
+                        <TouchableOpacity
+                            style={styles.input}
+                            onPress={() => setShowRecurringEndDatePicker(true)}
+                        >
+                            <Text style={styles.inputText}>
+                                {recurringEndDate ? recurringEndDate.toLocaleDateString() : 'Set end date'}
+                            </Text>
+                            <MaterialCommunityIcons name="calendar" size={20} color={colors.text.secondary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+        </View>
+    );
 
     return (
         <SafeAreaView style={styles.container}>
@@ -322,57 +503,43 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
 
                     {/* Form Fields */}
                     <View style={styles.formCard}>
-                        {/* Location Fields */}
+                        {/* Pickup Location */}
                         <View style={styles.fieldGroup}>
                             <Text style={styles.fieldLabel}>Pickup Location *</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={fromLocation}
-                                onChangeText={setFromLocation}
+                            <LocationPicker
                                 placeholder="Enter pickup location"
-                                placeholderTextColor={colors.text.light}
+                                value={fromLocation}
+                                onAddressChange={setFromLocation}
+                                onLocationSelected={(location) => {
+                                    console.log('Pickup location selected:', location);
+                                }}
+                                useCurrentLocation={true}
+                                isPickupLocation={true}
                             />
                         </View>
 
                         <View style={styles.fieldGroup}>
                             <Text style={styles.fieldLabel}>Delivery Location *</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={toLocation}
-                                onChangeText={setToLocation}
+                            <LocationPicker
                                 placeholder="Enter delivery location"
-                                placeholderTextColor={colors.text.light}
+                                value={toLocation}
+                                onAddressChange={setToLocation}
+                                onLocationSelected={(location) => {
+                                    console.log('Delivery location selected:', location);
+                                }}
                             />
                         </View>
 
                         {/* Product Details */}
                         <View style={styles.fieldGroup}>
                             <Text style={styles.fieldLabel}>Product Type *</Text>
-                            <TouchableOpacity
+                            <TextInput
                                 style={styles.input}
-                                onPress={() => setShowProductSuggestions(!showProductSuggestions)}
-                            >
-                                <Text style={[styles.inputText, !productType && { color: colors.text.light }]}>
-                                    {productType || 'Select product type'}
-                                </Text>
-                                <Ionicons name="chevron-down" size={20} color={colors.text.secondary} />
-                            </TouchableOpacity>
-                            {showProductSuggestions && (
-                                <View style={styles.suggestionsContainer}>
-                                    {PRODUCT_SUGGESTIONS.map((suggestion) => (
-                                        <TouchableOpacity
-                                            key={suggestion}
-                                            style={styles.suggestionItem}
-                                            onPress={() => {
-                                                setProductType(suggestion);
-                                                setShowProductSuggestions(false);
-                                            }}
-                                        >
-                                            <Text style={styles.suggestionText}>{suggestion}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            )}
+                                value={productType}
+                                onChangeText={setProductType}
+                                placeholder="Enter product type (e.g., Maize, Electronics, Furniture)"
+                                placeholderTextColor={colors.text.light}
+                            />
                         </View>
 
                         <View style={styles.fieldGroup}>
@@ -387,45 +554,74 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                             />
                         </View>
 
+                        {/* Bulk Option */}
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Estimated Value (KES)</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={estimatedValue}
-                                onChangeText={setEstimatedValue}
-                                placeholder="Enter estimated value of goods"
-                                placeholderTextColor={colors.text.light}
-                                keyboardType="numeric"
-                            />
+                            <View style={styles.switchRow}>
+                                <View style={styles.switchLabelContainer}>
+                                    <Text style={styles.switchLabel}>Bulk Shipment</Text>
+                                    <Text style={styles.switchSubtitle}>Multiple packages or large quantity</Text>
+                                </View>
+                                <Switch
+                                    value={isBulk}
+                                    onValueChange={setIsBulk}
+                                    trackColor={{ false: colors.text.light + '40', true: accent + '40' }}
+                                    thumbColor={isBulk ? accent : colors.text.light}
+                                />
+                            </View>
+
+                            {isBulk && (
+                                <View style={styles.fieldGroup}>
+                                    <Text style={styles.fieldLabel}>Quantity/Units</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={bulkQuantity}
+                                        onChangeText={setBulkQuantity}
+                                        placeholder="e.g., 50 bags, 100 boxes, 25 pallets"
+                                        placeholderTextColor={colors.text.light}
+                                    />
+                                </View>
+                            )}
                         </View>
 
                         {/* Urgency Level */}
                         <View style={styles.fieldGroup}>
                             <Text style={styles.fieldLabel}>Urgency Level</Text>
-                            <View style={styles.urgencyContainer}>
-                                {URGENCY_LEVELS.map((level) => (
-                                    <TouchableOpacity
-                                        key={level.key}
-                                        style={[
-                                            styles.urgencyButton,
-                                            urgency === level.key && { backgroundColor: level.color + '20', borderColor: level.color }
-                                        ]}
-                                        onPress={() => setUrgency(level.key as 'low' | 'medium' | 'high')}
-                                    >
-                                        <MaterialCommunityIcons
-                                            name={level.icon as any}
-                                            size={16}
-                                            color={urgency === level.key ? level.color : colors.text.secondary}
-                                        />
-                                        <Text style={[
-                                            styles.urgencyText,
-                                            urgency === level.key && { color: level.color, fontWeight: 'bold' }
-                                        ]}>
-                                            {level.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                            <TouchableOpacity
+                                style={styles.dropdownInput}
+                                onPress={() => setShowUrgencyDropdown(!showUrgencyDropdown)}
+                            >
+                                <Text style={[styles.dropdownText, !urgency && { color: colors.text.light }]}>
+                                    {urgency ? URGENCY_LEVELS.find(u => u.key === urgency)?.label : 'Select urgency level'}
+                                </Text>
+                                <MaterialCommunityIcons
+                                    name={showUrgencyDropdown ? "chevron-up" : "chevron-down"}
+                                    size={20}
+                                    color={colors.text.secondary}
+                                />
+                            </TouchableOpacity>
+                            {showUrgencyDropdown && (
+                                <View style={styles.dropdownOptions}>
+                                    {URGENCY_LEVELS.map((level) => (
+                                        <TouchableOpacity
+                                            key={level.key}
+                                            style={styles.dropdownOption}
+                                            onPress={() => {
+                                                setUrgency(level.key as 'low' | 'medium' | 'high');
+                                                setShowUrgencyDropdown(false);
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons
+                                                name={level.icon as any}
+                                                size={16}
+                                                color={level.color}
+                                            />
+                                            <Text style={[styles.dropdownOptionText, { color: level.color }]}>
+                                                {level.label}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
                         </View>
 
                         {/* Pickup Date for Bookings */}
@@ -443,6 +639,9 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                                 </TouchableOpacity>
                             </View>
                         )}
+
+                        {/* Recurring Request Section - Available for all user types */}
+                        {renderRecurrenceSection()}
 
                         {/* Special Requirements */}
                         <View style={styles.fieldGroup}>
@@ -572,21 +771,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                         {/* Business/Broker Specific Options */}
                         {(mode === 'business' || mode === 'broker') && (
                             <View style={styles.fieldGroup}>
-                                <Text style={styles.fieldLabel}>Business/Broker Specific Options</Text>
-
-                                <View style={styles.switchRow}>
-                                    <View style={styles.switchLabelContainer}>
-                                        <Text style={styles.switchLabel}>Bulk Shipment</Text>
-                                        <Text style={styles.switchSubtitle}>Large volume transport</Text>
-                                    </View>
-                                    <Switch
-                                        value={isBulk}
-                                        onValueChange={setIsBulk}
-                                        trackColor={{ false: colors.text.light + '40', true: accent + '40' }}
-                                        thumbColor={isBulk ? accent : colors.text.light}
-                                    />
-                                </View>
-
                                 <View style={styles.switchRow}>
                                     <View style={styles.switchLabelContainer}>
                                         <Text style={styles.switchLabel}>Priority Delivery</Text>
@@ -599,32 +783,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                                         thumbColor={isPriority ? accent : colors.text.light}
                                     />
                                 </View>
-
-                                <View style={styles.switchRow}>
-                                    <View style={styles.switchLabelContainer}>
-                                        <Text style={styles.switchLabel}>Recurring Request</Text>
-                                        <Text style={styles.switchSubtitle}>Regular shipments</Text>
-                                    </View>
-                                    <Switch
-                                        value={isRecurring}
-                                        onValueChange={setIsRecurring}
-                                        trackColor={{ false: colors.text.light + '40', true: accent + '40' }}
-                                        thumbColor={isRecurring ? accent : colors.text.light}
-                                    />
-                                </View>
-
-                                {isRecurring && (
-                                    <View style={styles.fieldGroup}>
-                                        <Text style={styles.fieldLabel}>Recurring Frequency</Text>
-                                        <TextInput
-                                            style={styles.input}
-                                            value={recurringFreq}
-                                            onChangeText={setRecurringFreq}
-                                            placeholder="e.g., Weekly, Monthly, Daily"
-                                            placeholderTextColor={colors.text.light}
-                                        />
-                                    </View>
-                                )}
                             </View>
                         )}
 
@@ -701,6 +859,9 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                                         <View key={item.id} style={styles.consolidationItem}>
                                             <Text style={styles.consolidationItemText}>
                                                 {item.fromLocation} → {item.toLocation} ({item.productType}, {item.weight})
+                                                {item.isRecurring && (
+                                                    <Text style={styles.recurringBadge}> 🔄 Recurring</Text>
+                                                )}
                                             </Text>
                                             <TouchableOpacity onPress={() => removeConsolidation(item.id!)}>
                                                 <Ionicons name="close-circle" size={20} color={colors.error} />
@@ -734,7 +895,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                 />
             )}
 
-            {/* Date Picker Modal */}
+            {/* Date Pickers */}
             <DateTimePickerModal
                 isVisible={showDatePicker}
                 mode="datetime"
@@ -744,6 +905,17 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                     setShowDatePicker(false);
                 }}
                 onCancel={() => setShowDatePicker(false)}
+            />
+
+            <DateTimePickerModal
+                isVisible={showRecurringEndDatePicker}
+                mode="date"
+                date={recurringEndDate || new Date()}
+                onConfirm={(date) => {
+                    setRecurringEndDate(date);
+                    setShowRecurringEndDatePicker(false);
+                }}
+                onCancel={() => setShowRecurringEndDatePicker(false)}
             />
 
             <LoadingSpinner
@@ -1070,6 +1242,81 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         color: colors.text.secondary,
         marginLeft: spacing.xs,
+    },
+    recurrenceContainer: {
+        marginTop: spacing.md,
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.text.light + '20',
+    },
+    recurrenceOptions: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.sm,
+        marginTop: spacing.sm,
+    },
+    recurrenceOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.text.light,
+    },
+    recurrenceOptionText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginLeft: spacing.xs,
+    },
+    recurringBadge: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        marginLeft: spacing.sm,
+    },
+    dropdownInput: {
+        borderWidth: 1,
+        borderColor: colors.text.light,
+        borderRadius: 8,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        fontSize: fonts.size.md,
+        color: colors.text.primary,
+        backgroundColor: colors.background,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    dropdownText: {
+        fontSize: fonts.size.md,
+        color: colors.text.primary,
+        flex: 1,
+    },
+    dropdownOptions: {
+        backgroundColor: colors.white,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.text.light,
+        marginTop: spacing.xs,
+        maxHeight: 200,
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    dropdownOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.text.light + '20',
+    },
+    dropdownOptionText: {
+        fontSize: fonts.size.md,
+        color: colors.text.primary,
+        marginLeft: spacing.sm,
     },
 });
 

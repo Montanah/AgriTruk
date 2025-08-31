@@ -1,6 +1,7 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,7 +38,7 @@ const TransporterServiceScreen = () => {
         const user = auth.currentUser;
         if (!user) return;
         const token = await user.getIdToken();
-        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/profile/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -46,6 +47,9 @@ const TransporterServiceScreen = () => {
         if (res.ok) {
           const data = await res.json();
           setProfile(data.transporter);
+        } else if (res.status === 404) {
+          // Profile doesn't exist yet, redirect to profile completion
+          navigation.navigate('TransporterCompletion');
         }
       } catch { }
       setLoadingProfile(false);
@@ -135,6 +139,71 @@ const TransporterServiceScreen = () => {
           }}
         />
 
+        {/* Temporary Google Maps Test Button */}
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#007AFF',
+            padding: 12,
+            margin: 16,
+            borderRadius: 8,
+            alignItems: 'center'
+          }}
+          onPress={() => navigation.navigate('GoogleMapsTest')}
+        >
+          <Text style={{ color: 'white', fontWeight: '600' }}>
+            🗺️ Test Google Maps Integration
+          </Text>
+        </TouchableOpacity>
+
+        {/* Test LocationPicker */}
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#28a745',
+            padding: 12,
+            margin: 16,
+            borderRadius: 8,
+            alignItems: 'center'
+          }}
+          onPress={() => {
+            console.log('🔑 Testing Google Maps API Key...');
+            const { getGoogleMapsApiKey } = require('../constants/googleMaps');
+            const apiKey = getGoogleMapsApiKey();
+            console.log('🔑 API Key test result:', apiKey ? 'Present' : 'Missing');
+            Alert.alert('Google Maps Test', `API Key: ${apiKey ? '✅ Present' : '❌ Missing'}`);
+          }}
+        >
+          <Text style={{ color: 'white', fontWeight: '600' }}>
+            🔑 Test Google Maps API Key
+          </Text>
+        </TouchableOpacity>
+
+        {/* Test Transporters API */}
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#ffc107',
+            padding: 12,
+            margin: 16,
+            borderRadius: 8,
+            alignItems: 'center'
+          }}
+          onPress={async () => {
+            try {
+              console.log('🚛 Testing Transporters API...');
+              const { apiRequest } = require('../utils/api');
+              const data = await apiRequest('/transporters/available/list');
+              console.log('🚛 Transporters API test result:', data);
+              Alert.alert('Transporters API Test', `Found ${Array.isArray(data) ? data.length : 0} transporters`);
+            } catch (error: any) {
+              console.error('🚛 Transporters API test error:', error);
+              Alert.alert('Transporters API Test', `Error: ${error.message || 'Unknown error'}`);
+            }
+          }}
+        >
+          <Text style={{ color: 'white', fontWeight: '600' }}>
+            🚛 Test Transporters API
+          </Text>
+        </TouchableOpacity>
+
         {notification && (
           <TouchableOpacity
             onPress={() => setNotification(null)}
@@ -181,14 +250,14 @@ const TransporterServiceScreen = () => {
           selectedPlan={selectedPlan}
           setSelectedPlan={setSelectedPlan}
           onClose={() => setShowSubscription(false)}
-          onSubscribe={() => {
-            setSubscriptionStatus({
-              plan: selectedPlan,
-              expires: '2024-12-31',
-              active: true,
+          onSubscribe={(planData: any) => {
+            // Navigate directly to PaymentScreen within the current stack
+            navigation.navigate('PaymentScreen', {
+              plan: planData,
+              userType: 'transporter',
+              billingPeriod: 'monthly',
+              isUpgrade: false
             });
-            setNotification(null);
-            setShowSubscription(false);
           }}
         />
       )}

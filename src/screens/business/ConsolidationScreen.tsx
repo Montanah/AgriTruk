@@ -1,23 +1,20 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { useConsolidations } from '../../context/ConsolidationContext';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Button from '../../components/common/Button';
 import Card from '../../components/common/Card';
 import Spacer from '../../components/common/Spacer';
-import Button from '../../components/common/Button';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import FindTransporters from '../../components/FindTransporters';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
-import { mockConsolidations } from '../../mocks/consolidations';
-import FindTransporters from '../../components/FindTransporters';
-
-// Remove mock data, use context instead
+import { useConsolidations } from '../../context/ConsolidationContext';
 
 const ConsolidationScreen = ({ navigation }: any) => {
   const { consolidations, removeConsolidation, clearConsolidations } = useConsolidations();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // Use the currently displayed list (context or mock)
-  const displayList = consolidations.length > 0 ? consolidations : mockConsolidations;
+  // Use only the context data
+  const displayList = consolidations;
 
   // Only allow selection of same requestType
   const [showTransporters, setShowTransporters] = useState(false);

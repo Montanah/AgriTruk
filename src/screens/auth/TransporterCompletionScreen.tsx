@@ -123,7 +123,7 @@ export default function TransporterCompletionScreen() {
         const token = await user.getIdToken();
         let res, data = null;
         try {
-          res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+          res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/profile/me`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
@@ -539,7 +539,7 @@ export default function TransporterCompletionScreen() {
           companyContact,
         };
         console.log('Updating transporter document with:', transporterPayload);
-        const transporterRes = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const transporterRes = await fetch(`https://agritruk-backend.onrender.com/api/transporters/profile/me`, {
           method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${token}`,

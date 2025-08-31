@@ -1,63 +1,115 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import {
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 
-const plans = [
-  { key: 'monthly', label: 'Monthly', price: 199, features: ['Billed every month', 'Cancel anytime', 'Full access to features'] },
-  { key: 'quarterly', label: 'Quarterly', price: 499, features: ['Save Ksh 98', 'Billed every 3 months', 'Priority support'] },
-  { key: 'annual', label: 'Annual', price: 1599, features: ['Save Ksh 789', 'Billed yearly', 'Best value', 'Premium support'] },
-];
+const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe, userType = 'transporter', isUpgrade = false }) => {
+  const navigation = useNavigation();
 
-const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe }) => {
+  // Original plans as they were
+  const originalPlans = [
+    { key: 'monthly', label: 'Monthly', price: 199, features: ['Billed every month', 'Cancel anytime', 'Full access to features'] },
+    { key: 'quarterly', label: 'Quarterly', price: 499, features: ['Save Ksh 98', 'Billed every 3 months', 'Priority support'] },
+    { key: 'annual', label: 'Annual', price: 1599, features: ['Save Ksh 789', 'Billed yearly', 'Best value', 'Premium support'] },
+  ];
+
+  const handleSubscribe = () => {
+    if (!selectedPlan) {
+      // Show error or alert
+      return;
+    }
+
+    // Create a plan object that matches the expected format
+    const planData = {
+      id: selectedPlan,
+      name: originalPlans.find(p => p.key === selectedPlan)?.label || 'Plan',
+      price: originalPlans.find(p => p.key === selectedPlan)?.price || 0,
+      period: 'monthly' as const,
+      features: originalPlans.find(p => p.key === selectedPlan)?.features || []
+    };
+
+    onClose();
+
+    // Use the onSubscribe callback if provided, otherwise navigate directly
+    if (onSubscribe) {
+      onSubscribe(planData);
+    } else {
+      navigation.navigate('PaymentScreen', {
+        plan: planData,
+        userType,
+        billingPeriod: 'monthly',
+        isUpgrade
+      });
+    }
+  };
+
   return (
     <Modal transparent animationType="slide" visible>
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <Text style={styles.title}>Choose Your Subscription</Text>
-          <Text style={styles.subtitle}>Flexible plans for every business. Select the best fit for you.</Text>
-          <View style={{ marginVertical: 10 }} />
-          {plans.map((plan) => {
-            const isSelected = selectedPlan === plan.key;
-            return (
-              <TouchableOpacity
-                key={plan.key}
-                style={[
-                  styles.planCard,
-                  isSelected && styles.planCardSelected,
-                  { borderColor: isSelected ? colors.secondary : colors.surface, shadowColor: isSelected ? colors.secondary : colors.black },
-                ]}
-                activeOpacity={0.92}
-                onPress={() => setSelectedPlan(plan.key)}
-              >
-                <View style={styles.planHeader}>
-                  <Text style={[styles.planLabel, { color: isSelected ? colors.secondary : colors.primary }]}>{plan.label}</Text>
-                  {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.secondary} style={{ marginLeft: 6 }} />}
-                </View>
-                <Text style={[styles.planPrice, { color: isSelected ? colors.secondary : colors.text.primary }]}>Ksh {plan.price} <Text style={{ color: colors.text.secondary, fontSize: 14 }}>/ {plan.key === 'monthly' ? 'month' : plan.key === 'quarterly' ? '3 months' : 'year'}</Text></Text>
-                <View style={styles.featureList}>
-                  {plan.features.map((feature, i) => (
-                    <View key={i} style={styles.featureRow}>
-                      <Ionicons name="checkmark" size={16} color={isSelected ? colors.secondary : colors.primary} style={{ marginRight: 6 }} />
-                      <Text style={[styles.featureText, { color: isSelected ? colors.secondary : colors.text.secondary }]}>{feature}</Text>
-                    </View>
-                  ))}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+          <Text style={styles.title}>
+            {isUpgrade ? 'Upgrade Your Subscription' : 'Choose Your Subscription'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {isUpgrade ? 'Select a plan to upgrade to' : 'Flexible plans for every business. Select the best fit for you.'}
+          </Text>
+
+          <View style={styles.plansContainer}>
+            {originalPlans.map((plan) => {
+              const isSelected = selectedPlan === plan.key;
+              return (
+                <TouchableOpacity
+                  key={plan.key}
+                  style={[
+                    styles.planCard,
+                    isSelected && styles.planCardSelected,
+                    { borderColor: isSelected ? colors.secondary : colors.surface, shadowColor: isSelected ? colors.secondary : colors.black },
+                  ]}
+                  activeOpacity={0.92}
+                  onPress={() => setSelectedPlan(plan.key)}
+                >
+                  <View style={styles.planHeader}>
+                    <Text style={[styles.planLabel, { color: isSelected ? colors.secondary : colors.primary }]}>{plan.label}</Text>
+                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.secondary} style={{ marginLeft: 6 }} />}
+                  </View>
+                  <Text style={[styles.planPrice, { color: isSelected ? colors.secondary : colors.text.primary }]}>
+                    Ksh {plan.price}
+                    <Text style={{ color: colors.text.secondary, fontSize: 14 }}>
+                      / {plan.key === 'monthly' ? 'month' : plan.key === 'quarterly' ? '3 months' : 'year'}
+                    </Text>
+                  </Text>
+                  <View style={styles.featureList}>
+                    {plan.features.map((feature, i) => (
+                      <View key={i} style={styles.featureRow}>
+                        <Ionicons name="checkmark" size={16} color={isSelected ? colors.secondary : colors.primary} style={{ marginRight: 6 }} />
+                        <Text style={[styles.featureText, { color: isSelected ? colors.secondary : colors.text.secondary }]}>{feature}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           <View style={styles.actions}>
             <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={onSubscribe} style={styles.subscribeBtn}>
-              <Text style={styles.subscribeText}>Subscribe</Text>
+            <TouchableOpacity
+              onPress={handleSubscribe}
+              style={[styles.subscribeBtn, !selectedPlan && styles.subscribeBtnDisabled]}
+              disabled={!selectedPlan}
+            >
+              <Text style={styles.subscribeText}>
+                {isUpgrade ? 'Upgrade' : 'Subscribe'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -85,6 +137,9 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
+  plansContainer: {
+    marginVertical: 10,
+  },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
@@ -98,6 +153,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
+
   planCard: {
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -144,6 +200,7 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: 14,
   },
+
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -167,6 +224,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     marginLeft: 8,
+  },
+  subscribeBtnDisabled: {
+    backgroundColor: colors.text.light,
+    opacity: 0.6,
   },
   cancelText: {
     color: colors.error,

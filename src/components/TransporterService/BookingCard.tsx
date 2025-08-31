@@ -1,14 +1,29 @@
 import { theme } from '@/constants';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  Button,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Booking } from '../../mocks/bookings';
+
+interface Booking {
+  id: string;
+  type: 'instant' | 'booking';
+  pickupLocation: string;
+  cargoDetails: string;
+  pickupTime: string;
+  status: 'pending' | 'accepted' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  assignedTransporter?: {
+    name: string;
+    phone: string;
+  };
+  vehicle?: {
+    type: string;
+    plate: string;
+  };
+}
 
 type BookingCardProps = {
   booking: Booking;
@@ -64,19 +79,19 @@ const BookingCard: React.FC<BookingCardProps> = ({
 
   const isInstant = type === 'instant';
   return (
-  <TouchableOpacity
-  style={[styles.card, isInstant && styles.instantCard]}
-  activeOpacity={onPressDetails ? 0.8 : 1}
-  onPress={onPressDetails ? () => onPressDetails(id) : undefined}
-  >
-  <View style={[styles.tag, isInstant ? styles.instantTag : { backgroundColor: '#e6e6e6' }]}> 
-  {isInstant && (
-  <MaterialCommunityIcons name="flash" size={14} color="#fff" style={{ marginRight: 4 }} />
-  )}
-  <Text style={[styles.tagText, isInstant && { color: '#fff' }]}> 
-  {type === 'booking' ? 'Booking' : 'Instant Request'}
-  </Text>
-  </View>
+    <TouchableOpacity
+      style={[styles.card, isInstant && styles.instantCard]}
+      activeOpacity={onPressDetails ? 0.8 : 1}
+      onPress={onPressDetails ? () => onPressDetails(id) : undefined}
+    >
+      <View style={[styles.tag, isInstant ? styles.instantTag : { backgroundColor: '#e6e6e6' }]}>
+        {isInstant && (
+          <MaterialCommunityIcons name="flash" size={14} color="#fff" style={{ marginRight: 4 }} />
+        )}
+        <Text style={[styles.tagText, isInstant && { color: '#fff' }]}>
+          {type === 'booking' ? 'Booking' : 'Instant Request'}
+        </Text>
+      </View>
 
       <Text style={styles.label}>Pickup Location:</Text>
       <Text style={styles.value}>{pickupLocation || 'N/A'}</Text>

@@ -117,20 +117,12 @@ const EmailVerificationScreen = ({ navigation, route }) => {
             // based on the updated user role and verification status
           } catch (error) {
             console.error('Re-authentication error:', error);
-            // Fallback navigation if re-authentication fails
-            if (role === 'transporter') {
-              navigation.replace('TransporterCompletionScreen');
-            } else {
-              navigation.replace('Welcome');
-            }
+            // Let the auth state listener handle navigation
+            // No manual navigation needed
           }
         } else {
-          // Fallback navigation if password not available
-          if (role === 'transporter') {
-            navigation.replace('TransporterCompletionScreen');
-          } else {
-            navigation.replace('Welcome');
-          }
+          // Let the auth state listener handle navigation
+          // No manual navigation needed
         }
       }, 2000);
 

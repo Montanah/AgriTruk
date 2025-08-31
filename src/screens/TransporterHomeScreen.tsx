@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import colors from '../constants/colors';
-import { spacing, fonts } from '../constants';
-import Divider from '../components/common/Divider';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Divider from '../components/common/Divider';
 import TransporterProfile from '../components/TransporterService/TransporterProfile';
+import { fonts, spacing } from '../constants';
+import colors from '../constants/colors';
 
 export default function TransporterHomeScreen() {
   const navigation = useNavigation();
@@ -21,15 +21,21 @@ export default function TransporterHomeScreen() {
         const user = auth.currentUser;
         if (!user) throw new Error('Not authenticated');
         const token = await user.getIdToken();
-        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/profile/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
-        if (!res.ok) throw new Error('Failed to fetch profile');
-        const data = await res.json();
-        setProfile(data.transporter);
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(data.transporter);
+        } else if (res.status === 404) {
+          // Profile doesn't exist yet, redirect to profile completion
+          navigation.navigate('TransporterCompletion');
+        } else {
+          throw new Error('Failed to fetch profile');
+        }
       } catch (err) {
         setError(err.message || 'Failed to load profile');
       }
@@ -52,7 +58,7 @@ export default function TransporterHomeScreen() {
   ];
   const MOCK_CURRENT_TRIP = {
     id: 'TRIP001', customer: 'Jane Doe', from: 'Nairobi', to: 'Mombasa', product: 'Fruits', weight: 1200, status: 'On Transit', eta: '4h 10m', price: 18000, contact: '+254712345678', special: ['Refrigerated'],
-    route: [ { latitude: -1.2921, longitude: 36.8219 }, { latitude: -1.3000, longitude: 36.8300 } ],
+    route: [{ latitude: -1.2921, longitude: 36.8219 }, { latitude: -1.3000, longitude: 36.8300 }],
   };
   const [requests, setRequests] = useState(MOCK_REQUESTS.map(r => ({ ...r, status: 'Pending' })));
   const [currentTrip, setCurrentTrip] = useState(MOCK_CURRENT_TRIP);

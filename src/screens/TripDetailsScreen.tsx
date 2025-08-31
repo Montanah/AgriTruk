@@ -1,19 +1,28 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FlatList, Image, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { notificationService } from '../../services/notificationService';
 import NotificationBell from '../components/Notification/NotificationBell';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import colors from '../constants/colors';
-import { MOCK_BOOKINGS } from '../mocks/bookings';
-import { mockMessages } from '../mocks/messages';
-import { mockTrip } from '../mocks/trip';
+import { apiRequest } from '../utils/api';
+
+interface TripDetailsParams {
+  requests?: any[];
+  isInstant?: boolean;
+  booking?: any;
+  trip?: any;
+  transporter?: any;
+  vehicle?: any;
+  bookingId?: string;
+  tripId?: string;
+}
 
 const TripDetailsScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
-  const params = route.params || {};
+  const params = route.params as TripDetailsParams || {};
 
   // Support consolidated instant requests: params.requests (array) or single booking/trip
   const requests = params.requests || null; // array of requests for consolidated
@@ -21,12 +30,53 @@ const TripDetailsScreen = () => {
   const isInstant = params.isInstant || false; // Flag for instant requests
 
   // booking param should be passed in navigation
-  // Prefer navigation params for booking and trip, fallback to mock
-  const booking = params.booking || (requests && requests[0]) || MOCK_BOOKINGS[0];
-  const trip = params.trip || mockTrip;
+  const booking = params.booking || (requests && requests[0]) || null;
+  const trip = params.trip || null;
   // If transporter/vehicle are passed directly, use them
-  const selectedTransporter = params.transporter || booking.transporter;
-  const selectedVehicle = params.vehicle || booking.vehicle;
+  const selectedTransporter = params.transporter || booking?.transporter;
+  const selectedVehicle = params.vehicle || booking?.vehicle;
+
+  // State for real data
+  const [bookingData, setBookingData] = useState(booking);
+  const [tripData, setTripData] = useState(trip);
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch booking and trip data if not provided
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        if (!bookingData && params.bookingId) {
+          const bookingResponse = await apiRequest(`/bookings/${params.bookingId}`);
+          setBookingData(bookingResponse);
+        }
+
+        if (!tripData && params.tripId) {
+          const tripResponse = await apiRequest(`/trips/${params.tripId}`);
+          setTripData(tripResponse);
+        }
+
+        // Fetch messages if we have a booking or trip
+        if (bookingData?.id || tripData?.id) {
+          const messagesResponse = await apiRequest(`/messages/${bookingData?.id || tripData?.id}`);
+          setMessages(messagesResponse || []);
+        }
+
+      } catch (error) {
+        console.error('Failed to fetch trip details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [params.bookingId, params.tripId]);
+
+  // Use the fetched data or fallback to params
+  const currentBooking = bookingData || booking;
+  const currentTrip = tripData || trip;
 
   // Determine communication target: assigned driver (for company) or selected transporter
   let commTarget = null;
@@ -57,7 +107,6 @@ const TripDetailsScreen = () => {
 
   const [chatVisible, setChatVisible] = useState(false);
   const [callVisible, setCallVisible] = useState(false);
-  const [messages, setMessages] = useState(mockMessages);
   const [input, setInput] = useState('');
 
   const sendMessage = () => {

@@ -6,7 +6,7 @@ import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 
-import { StyleSheet } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import MapViewScreen from '../screens/MapViewScreen';
 import TrackingScreen from '../screens/TrackingScreen';
 import TransporterBookingManagementScreen from '../screens/TransporterBookingManagementScreen';
@@ -23,6 +23,11 @@ const HomeStack = ({ transporterType }) => (
     <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
     <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
     <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+    <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
+    <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
+    <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+    <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+    <Stack.Screen name="GoogleMapsTest" component={require('../components/common/GoogleMapsTest').default} />
   </Stack.Navigator>
 );
 
@@ -32,14 +37,69 @@ const ManageStack = ({ transporterType }) => (
     <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
     <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
     <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+    <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
+    <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
+    <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+    <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+  </Stack.Navigator>
+);
+
+const ProfileStack = ({ transporterType }) => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="TransporterProfile" component={TransporterProfileScreen} initialParams={{ transporterType }} />
+    <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
+    <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
+    <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+    <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
   </Stack.Navigator>
 );
 
 const TransporterTabNavigator = () => {
   const insets = useSafeAreaInsets();
   const route = useRoute();
-  const transporterType = route?.params?.transporterType || 'company';
+  const [transporterType, setTransporterType] = React.useState(route?.params?.transporterType || 'individual');
+  const [loading, setLoading] = React.useState(true);
   const isCompany = transporterType === 'company';
+
+  // Fetch transporter profile to determine type
+  React.useEffect(() => {
+    const fetchTransporterProfile = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const token = await user.getIdToken();
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/profile/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const type = data.transporter?.transporterType || 'individual';
+          setTransporterType(type);
+        }
+      } catch (error) {
+        console.error('Error fetching transporter profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTransporterProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <Tab.Navigator
@@ -104,7 +164,7 @@ const TransporterTabNavigator = () => {
         {() => <ManageStack transporterType={transporterType} />}
       </Tab.Screen>
       <Tab.Screen name="Profile">
-        {props => <TransporterProfileScreen {...props} route={{ ...props.route, params: { transporterType } }} />}
+        {() => <ProfileStack transporterType={transporterType} />}
       </Tab.Screen>
     </Tab.Navigator>
   );

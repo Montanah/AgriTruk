@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Image } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
@@ -40,7 +40,7 @@ export default function TransporterProcessingScreen({ route }) {
         const user = auth.currentUser;
         if (!user) return;
         const token = await user.getIdToken();
-        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/profile/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -242,7 +242,7 @@ export default function TransporterProcessingScreen({ route }) {
               // Determine endpoint based on transporterType
               const endpoint = transporterType === 'company'
                 ? `https://agritruk-backend.onrender.com/api/companies/${user.uid}`
-                : `https://agritruk-backend.onrender.com/api/transporters/${user.uid}`;
+                : `https://agritruk-backend.onrender.com/api/transporters/profile/me`;
               // Get JWT token
               const token = await user.getIdToken();
               // Fetch status from backend with Authorization header

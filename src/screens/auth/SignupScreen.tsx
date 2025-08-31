@@ -196,6 +196,11 @@ const SignupScreen = () => {
           email: email.trim(),
           phone: selectedCountry.code + phone.trim(),
           role: backendRoleMap[role || 'shipper'],
+          preferredVerificationMethod: signupMethod,
+          userType: role || 'shipper', // Add userType field
+          languagePreference: 'en', // Default language
+          location: null, // Will be set later
+          profilePhotoUrl: null, // Will be set later
         }),
       });
 

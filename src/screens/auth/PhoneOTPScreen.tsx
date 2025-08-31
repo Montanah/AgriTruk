@@ -138,12 +138,8 @@ const PhoneOTPScreen = ({ navigation, route }) => {
         // Navigation will be handled automatically by App.tsx auth state listener
         // based on the updated user role and verification status
       } else {
-        // Fallback navigation if password not available
-        if (role === 'transporter') {
-          navigation.replace('TransporterCompletionScreen');
-        } else {
-          navigation.replace('Welcome');
-        }
+        // Let the auth state listener handle navigation
+        // No manual navigation needed
       }
     } catch (err) {
       console.error('Phone verification error:', err);

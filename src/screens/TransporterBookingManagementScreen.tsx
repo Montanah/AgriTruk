@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     FlatList,
     RefreshControl,
@@ -12,19 +13,16 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { MOCK_BOOKINGS } from '../mocks/bookings';
-import { MOCK_INCOMING_REQUESTS, MOCK_ROUTE_LOADS, MOCK_TRANSPORTERS } from '../mocks/transporters';
+import { apiRequest } from '../utils/api';
 
 interface RouteParams {
     transporterType?: 'company' | 'individual' | 'broker';
 }
-
-// Mock current transporter - in real app, this would come from auth context
-const CURRENT_TRANSPORTER = MOCK_TRANSPORTERS[0]; // Using first transporter as example
 
 const TransporterBookingManagementScreen = () => {
     const navigation = useNavigation();
@@ -39,33 +37,87 @@ const TransporterBookingManagementScreen = () => {
     const [showLoadDetails, setShowLoadDetails] = useState(false);
     const [selectedLoad, setSelectedLoad] = useState<any>(null);
 
-    // Mock data - in real app, this would come from API
-    const [allInstantRequests, setAllInstantRequests] = useState(MOCK_INCOMING_REQUESTS);
-    const [allRouteLoads, setAllRouteLoads] = useState(MOCK_ROUTE_LOADS);
-    const [allBookings, setAllBookings] = useState(MOCK_BOOKINGS.filter(b => b.status === 'pending' || b.status === 'accepted'));
+    // Real data from API
+    const [allInstantRequests, setAllInstantRequests] = useState([]);
+    const [allRouteLoads, setAllRouteLoads] = useState([]);
+    const [allBookings, setAllBookings] = useState([]);
+    const [currentTransporter, setCurrentTransporter] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch transporter profile and booking data
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+
+                // Fetch current transporter profile
+                const transporterData = await apiRequest('/transporters/profile/me');
+                setCurrentTransporter(transporterData);
+
+                // Fetch instant requests
+                const instantRequests = await apiRequest('/transporters/incoming-requests');
+                setAllInstantRequests(instantRequests || []);
+
+                // Fetch route loads
+                const routeLoads = await apiRequest('/transporters/route-loads');
+                setAllRouteLoads(routeLoads || []);
+
+                // Fetch bookings
+                const bookings = await apiRequest('/transporters/bookings');
+                setAllBookings(bookings || []);
+
+            } catch (error) {
+                console.error('Failed to fetch booking data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    // Show loading state
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <LinearGradient
+                    colors={[colors.primary, colors.primaryDark, colors.secondary, colors.background]}
+                    style={StyleSheet.absoluteFill}
+                    start={{ x: 0.2, y: 0 }}
+                    end={{ x: 0.8, y: 1 }}
+                />
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.white} />
+                    <Text style={styles.loadingText}>Loading booking data...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     // Function to check if transporter can handle a request
     const canTransporterHandleRequest = (transporter: any, request: any) => {
+        if (!transporter || !request) return false;
+
         // Check if transporter can handle the service type
-        if (request.serviceType === 'agriTRUK' && !transporter.canHandle.includes('agri')) {
+        if (request.serviceType === 'agriTRUK' && !transporter.canHandle?.includes('agri')) {
             return false;
         }
-        if (request.serviceType === 'cargoTRUK' && !transporter.canHandle.includes('cargo')) {
+        if (request.serviceType === 'cargoTRUK' && !transporter.canHandle?.includes('cargo')) {
             return false;
         }
 
         // Check perishable requirements (boolean structure)
-        if (request.isPerishable && request.perishableSpecs.includes('refrigerated') && !transporter.refrigeration) {
+        if (request.isPerishable && request.perishableSpecs?.includes('refrigerated') && !transporter.refrigeration) {
             return false;
         }
-        if (request.isPerishable && request.perishableSpecs.includes('humidity') && !transporter.humidityControl) {
+        if (request.isPerishable && request.perishableSpecs?.includes('humidity') && !transporter.humidityControl) {
             return false;
         }
 
         // Check special cargo requirements (boolean structure)
         if (request.isSpecialCargo) {
-            for (const requirement of request.specialCargoSpecs) {
-                if (!transporter.specialCargo.includes(requirement) && !transporter.specialFeatures.includes(requirement)) {
+            for (const requirement of request.specialCargoSpecs || []) {
+                if (!transporter.specialCargo?.includes(requirement) && !transporter.specialFeatures?.includes(requirement)) {
                     return false;
                 }
             }
@@ -73,8 +125,8 @@ const TransporterBookingManagementScreen = () => {
 
         // Check perishable specs
         if (request.isPerishable) {
-            for (const requirement of request.perishableSpecs) {
-                if (!transporter.perishableSpecs.includes(requirement)) {
+            for (const requirement of request.perishableSpecs || []) {
+                if (!transporter.perishableSpecs?.includes(requirement)) {
                     return false;
                 }
             }
@@ -85,38 +137,41 @@ const TransporterBookingManagementScreen = () => {
 
     // Filter requests based on transporter capabilities
     const filteredRequests = useMemo(() => {
+        if (!currentTransporter) return [];
         return allInstantRequests.filter(request => {
-            return canTransporterHandleRequest(CURRENT_TRANSPORTER, request);
+            return canTransporterHandleRequest(currentTransporter, request);
         });
-    }, [allInstantRequests]);
+    }, [allInstantRequests, currentTransporter]);
 
     const filteredBookings = useMemo(() => {
+        if (!currentTransporter) return [];
         return allBookings.filter(booking => {
-            return canTransporterHandleRequest(CURRENT_TRANSPORTER, booking);
+            return canTransporterHandleRequest(currentTransporter, booking);
         });
-    }, [allBookings]);
+    }, [allBookings, currentTransporter]);
 
     const filteredRouteLoads = useMemo(() => {
+        if (!currentTransporter) return [];
         return allRouteLoads.filter(load => {
-            return canTransporterHandleRequest(CURRENT_TRANSPORTER, load);
+            return canTransporterHandleRequest(currentTransporter, load);
         });
-    }, [allRouteLoads]);
+    }, [allRouteLoads, currentTransporter]);
 
     // Function to get capability mismatch reasons
     const getCapabilityMismatchReasons = (request: any) => {
         const reasons = [];
 
-        if (request.serviceType === 'agriTRUK' && !CURRENT_TRANSPORTER.canHandle.includes('agri')) {
+        if (request.serviceType === 'agriTRUK' && !currentTransporter?.canHandle.includes('agri')) {
             reasons.push('Agri transport not supported');
         }
-        if (request.serviceType === 'cargoTRUK' && !CURRENT_TRANSPORTER.canHandle.includes('cargo')) {
+        if (request.serviceType === 'cargoTRUK' && !currentTransporter?.canHandle.includes('cargo')) {
             reasons.push('Cargo transport not supported');
         }
 
-        if (request.specialRequirements.includes('refrigerated') && !CURRENT_TRANSPORTER.refrigeration) {
+        if (request.specialRequirements.includes('refrigerated') && !currentTransporter?.refrigeration) {
             reasons.push('Refrigeration not available');
         }
-        if (request.specialRequirements.includes('humidity') && !CURRENT_TRANSPORTER.humidityControl) {
+        if (request.specialRequirements.includes('humidity') && !currentTransporter?.humidityControl) {
             reasons.push('Humidity control not available');
         }
 
@@ -125,7 +180,7 @@ const TransporterBookingManagementScreen = () => {
         );
 
         for (const requirement of specialCargoRequirements) {
-            if (!CURRENT_TRANSPORTER.specialCargo.includes(requirement) && !CURRENT_TRANSPORTER.specialFeatures.includes(requirement)) {
+            if (!currentTransporter?.specialCargo.includes(requirement) && !currentTransporter?.specialFeatures.includes(requirement)) {
                 reasons.push(`${requirement.charAt(0).toUpperCase() + requirement.slice(1)} handling not supported`);
             }
         }
@@ -300,7 +355,7 @@ const TransporterBookingManagementScreen = () => {
                     <Text style={styles.specialLabel}>Special Requirements:</Text>
                     <View style={styles.specialTags}>
                         {item.specialRequirements.map((req: string, index: number) => {
-                            const isCapable = canTransporterHandleRequest(CURRENT_TRANSPORTER, item);
+                            const isCapable = canTransporterHandleRequest(currentTransporter, item);
                             const isPerishable = ['refrigerated', 'humidity', 'fast'].includes(req);
                             const isSpecialCargo = ['fragile', 'oversized', 'hazardous', 'temperature', 'highvalue', 'livestock', 'bulk'].includes(req);
 
@@ -550,7 +605,7 @@ const TransporterBookingManagementScreen = () => {
                     <View style={styles.specialTags}>
                         {/* Special Cargo Requirements */}
                         {item.isSpecialCargo && item.specialCargoSpecs.map((req: string, index: number) => {
-                            const isCapable = canTransporterHandleRequest(CURRENT_TRANSPORTER, item);
+                            const isCapable = canTransporterHandleRequest(currentTransporter, item);
                             return (
                                 <View key={`cargo-${index}`} style={[
                                     styles.specialTag,
@@ -573,7 +628,7 @@ const TransporterBookingManagementScreen = () => {
 
                         {/* Perishable Requirements */}
                         {item.isPerishable && item.perishableSpecs.map((req: string, index: number) => {
-                            const isCapable = canTransporterHandleRequest(CURRENT_TRANSPORTER, item);
+                            const isCapable = canTransporterHandleRequest(currentTransporter, item);
                             return (
                                 <View key={`perishable-${index}`} style={[
                                     styles.specialTag,
@@ -1082,7 +1137,7 @@ const TransporterBookingManagementScreen = () => {
                                     <View style={styles.specialTags}>
                                         {/* Special Cargo Requirements */}
                                         {selectedLoad.isSpecialCargo && selectedLoad.specialCargoSpecs.map((req: string, index: number) => {
-                                            const isCapable = canTransporterHandleRequest(CURRENT_TRANSPORTER, selectedLoad);
+                                            const isCapable = canTransporterHandleRequest(currentTransporter, selectedLoad);
                                             return (
                                                 <View key={`cargo-${index}`} style={[
                                                     styles.specialTag,
@@ -1105,7 +1160,7 @@ const TransporterBookingManagementScreen = () => {
 
                                         {/* Perishable Requirements */}
                                         {selectedLoad.isPerishable && selectedLoad.perishableSpecs.map((req: string, index: number) => {
-                                            const isCapable = canTransporterHandleRequest(CURRENT_TRANSPORTER, selectedLoad);
+                                            const isCapable = canTransporterHandleRequest(currentTransporter, selectedLoad);
                                             return (
                                                 <View key={`perishable-${index}`} style={[
                                                     styles.specialTag,

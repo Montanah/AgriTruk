@@ -1,10 +1,10 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
-import { MOCK_ROUTE_LOADS } from '../../mocks/transporters';
+import { apiRequest } from '../../utils/api';
 
 // Type for a load/job
 export interface Load {
@@ -32,10 +32,33 @@ interface Props {
 }
 
 const AvailableLoadsAlongRoute: React.FC<Props> = ({ tripId, onLoadAccepted, onViewAll }) => {
-  const [loads, setLoads] = useState<Load[]>(MOCK_ROUTE_LOADS.slice(0, 3));
-  const [loading, setLoading] = useState(false);
+  const [loads, setLoads] = useState<Load[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAvailableLoads = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await apiRequest(`/transporters/trips/${tripId}/available-loads`);
+        if (Array.isArray(data)) {
+          setLoads(data.slice(0, 3)); // Show only first 3 loads
+        } else {
+          setLoads([]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch available loads:', error);
+        setError('Failed to load available loads');
+        setLoads([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAvailableLoads();
+  }, [tripId]);
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
