@@ -13,7 +13,11 @@ const Driver = {
       phone: driverData.phone || null,
       photo: driverData.photo || null,
       idDoc: driverData.idDoc || null,
+      idExpiryDate: driverData.idExpiry || null,
+      idapproved: driverData.idapproved || false,
       license: driverData.license || null,
+      driverLicenseExpiryDate: driverData.licenseExpiry || null,
+      driverLicenseapproved: driverData.driverLicenseapproved || false,
       status: driverData.status || 'pending',
       availability: driverData.availability || false,
       rejectionReason: driverData.rejectionReason || null,
@@ -34,6 +38,7 @@ const Driver = {
   },
 
   async update(companyId, driverId, updates) {
+    console.log(updates);
     const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
     await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update(updated);
     return updated;

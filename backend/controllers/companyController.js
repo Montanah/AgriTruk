@@ -8,6 +8,8 @@ const Driver = require('../models/Driver');
 const fs = require('fs');
 const { uploadImage } = require('../utils/upload');
 const admin = require("../config/firebase");
+const User = require("../models/User");
+const { formatTimestamps } = require('../utils/formatData');
 
 exports.generateRandomPassword = () => {
   const length = 10;
@@ -23,8 +25,10 @@ const generateSignInLink = (email) => {
   const frontendUrl = process.env.FRONTEND_URL || 'https://trukap.com';
   return `${frontendUrl}/auth/signin?email=${encodeURIComponent(email)}`;
 };
+
 exports.createCompany = async (req, res) => {
   try {
+    const userId = req.user.uid;
     const { name, registration, contact } = req.body;
     console.log("details", name, registration, contact);
 
@@ -67,10 +71,13 @@ exports.createCompany = async (req, res) => {
       console.log('No logo file received');
     }
 
+    const userData = await User.get(userId); 
+
     const companyData = {
       name,
       registration,
       contact,
+      email: userData.email,
       transporterId: req.user.uid,
       status: 'pending',
       logo: logoUrl, 
@@ -98,6 +105,7 @@ exports.createCompany = async (req, res) => {
     res.status(500).json({ message: 'Failed to create company' });
   }
 };
+
 exports.getCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
@@ -110,14 +118,20 @@ exports.getCompany = async (req, res) => {
     const drivers = await Driver.getAll(companyId);
 
     await logActivity(req.user.uid, 'get_company', req);
-
+    
     const responseData = {
       company,
       vehicles,
       drivers,
     };
 
-    res.status(200).json(responseData);
+    res.status(200).json({
+      success: true,
+      message: 'Company retrieved successfully',
+      company: formatTimestamps(company),
+      vehicles: formatTimestamps(vehicles),
+      drivers: formatTimestamps(drivers),
+    });
   } catch (err) {
     console.error('Get company error:', err);
     res.status(500).json({ message: 'Failed to fetch company' });
@@ -170,7 +184,7 @@ exports.approveCompany = async (req, res) => {
     }
 
     const updatedCompany = await Company.approve(companyId);
-    const email = updatedCompany?.companyContact;
+    const email = updatedCompany?.companyEmail;
     await sendEmail({
       to: email,
       subject: 'Company Status',
@@ -209,7 +223,7 @@ exports.rejectCompany = async (req, res) => {
 
     const updatedCompany = await Company.reject(companyId, reason);
 
-    const email = updatedCompany?.companyContact;
+    const email = updatedCompany?.companyEmail;
 
     await sendEmail({
       to: email,
@@ -243,7 +257,9 @@ exports.getAllCompanies = async (req, res) => {
     const companies = await Company.getAll();
 
     await logAdminActivity(req.user.uid, 'get_all_companies', req);
-    res.status(200).json(companies);
+    res.status(200).json({
+      message: 'Companies fetched successfully',
+      companies: formatTimestamps(companies)});
   } catch (err) {
     console.error('Get all companies error:', err);
     res.status(500).json({ message: 'Failed to fetch companies' });
@@ -334,7 +350,6 @@ exports.searchCompany = async (req, res) => {
 };
 
 //Company Vehicles Controller
-
 exports.createVehicle = async (req, res) => {
   try {
     const companyId = req.params.companyId;
@@ -724,6 +739,7 @@ exports.createDriver = async (req, res) => {
     });
   }
 };
+
 exports.getDriver = async (req, res) => {
   try {
     const companyId = req.params.companyId;
@@ -775,7 +791,6 @@ exports.getAllDrivers = async (req, res) => {
     });
   }
 };
-
 
 exports.updateDriversAvailability = async (req, res) => {
   try {
@@ -954,6 +969,7 @@ exports.approveCompanyDriver = async (req, res) => {
     });
   }
 };
+
 exports.rejectCompanyDriver = async (req, res) => {
   try {
     const companyId = req.params.companyId;
@@ -1063,6 +1079,7 @@ exports.updateVehicleAssignment = async (req, res) => {
     });
   }
 };
+
 exports.updateVehicleProfile = async (req, res) => {
   try {
     const { companyId, vehicleId } = req.params;
@@ -1095,4 +1112,5 @@ exports.updateVehicleProfile = async (req, res) => {
   } catch (error) {
     
   }
-}
+};
+

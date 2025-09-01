@@ -21,6 +21,7 @@ const Vehicle = {
       specialCargo: vehicleData.specialCargo || false,
       features: vehicleData.features || [],
       insurance: vehicleData.insurance || null,
+      insuranceExpiry: vehicleData.insuranceExpiry || null,
       photos: vehicleData.photos || [],
       assignedDriverId: vehicleData.assignedDriverId || null,
       est: vehicleData.est || null,

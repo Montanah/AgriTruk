@@ -1,6 +1,4 @@
 const admin = require("../config/firebase");
-const { reject } = require("./Transporter");
-const { getByRegistration } = require("./Vehicle");
 const db = admin.firestore();
 
 const Company = {
@@ -11,13 +9,16 @@ const Company = {
       transporterId: data.transporterId,
       companyName: data.name,
       companyRegistration: data.registration,
+      companyEmail: data.email,
       companyContact: data.contact || '',
       companyAddress: data.address || '',
       companyLogo: data.logo || '',
+      rating: data.rating || 0,
       status: data.status || 'pending',
       rejectionReason: data.rejectionReason || null,
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
+
     };
     await db.collection('companies').doc(companyId).set(company);
     return company;

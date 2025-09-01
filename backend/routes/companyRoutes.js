@@ -24,6 +24,7 @@ const {
 const { authorize } = require("../middlewares/adminAuth");
 const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewares/validationMiddleware');
 const CompanyController = require("../controllers/companyController");
+const adminController = require("../controllers/adminController");
 
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); 
@@ -591,131 +592,6 @@ router.delete('/companies/:companyId', authenticateToken, requireRole('admin'), 
 
 /**
  * @swagger
- * /api/companies/{companyId}/approveVehicle/{vehicleId}:
- *   patch:
- *     summary: Approve a vehicle for a company
- *     description: Approves a vehicle for a company.
- *     tags: [Admin Actions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: companyId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the company
- *       - in: path
- *         name: vehicleId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the vehicle to approve
- *     responses:
- *       200:
- *         description: Vehicle approved successfully
- *       404:
- *         description: Company or vehicle not found
- *       500:
- *         description: Internal server error
- */
-router.patch('/:companyId/approveVehicle/:vehicleId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), approveVehicle);
-/**
- * @swagger
- * /api/companies/{companyId}/rejectVehicle/{vehicleId}:
- *   patch:
- *     summary: Reject a vehicle for a company
- *     description: Rejects a vehicle for a company.
- *     tags: [Admin Actions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: companyId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the company
- *       - in: path
- *         name: vehicleId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the vehicle to reject
- *     responses:
- *       200:
- *         description: Vehicle rejected successfully
- *       404:
- *         description: Company or vehicle not found
- *       500:
- *         description: Internal server error
- */
-router.patch('/:companyId/rejectvehicle/:vehicleId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectVehicle);
-
-/**
- * @swagger
- * /api/companies/{companyId}/approveDriver/{driverId}:
- *   patch:
- *     summary: Approve a driver for a company
- *     description: Approves a driver for a company.
- *     tags: [Admin Actions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: companyId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the company
- *       - in: path
- *         name: driverId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the driver to approve
- *     responses:
- *       200:
- *         description: Driver approved successfully
- *       404:
- *         description: Company or driver not found
- *       500:
- *         description: Internal server error
-*/
-router.patch('/:companyId/approveDriver/:driverId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), approveCompanyDriver);
-/**
- * @swagger
- * /api/companies/{companyId}/rejectDriver/{driverId}:
- *   patch:
- *     summary: Reject a driver for a company
- *     description: Rejects a driver for a company.
- *     tags: [Admin Actions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: companyId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the company
- *       - in: path
- *         name: driverId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the driver to reject
- *     responses:
- *       200:
- *         description: Driver rejected successfully
- *       404:
- *         description: Company or driver not found
- *       500:
- *         description: Internal server error
- */
-router.patch('/:companyId/rejectDriver/:driverId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), rejectCompanyDriver);
-/**
- * @swagger
  * /api/companies/{companyId}/updateDriver/{driverId}:
  *   put:
  *     summary: Update a driver for a company
@@ -824,5 +700,61 @@ router.put('/:companyId/updateVehicle/:vehicleId', authenticateToken, requireRol
  *         description: Internal server error
  */
 router.patch('/:companyId/vehicleStatus/:vehicleId', authenticateToken, requireRole('transporter'), updateVehicleAssignment);
+
+/**
+ * @swagger
+ * /api/companies/{companyId}/review:
+ *   patch:
+ *     summary: Review company documents (super-admin, manage_companies)
+ *     description: Allows an admin to review a pending company.
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [approve-id, approve-dl, approve-insurance, reject-vehicle, reject-driver]
+ *                 description: Action to take on the company (approve or reject)
+ *               vehicleId:
+ *                 type: string
+ *                 description: Vehicle ID (optional)
+ *               driverId:
+ *                 type: string
+ *                 description: Driver ID (optional)
+ *               reason:
+ *                 type: string
+ *                 description: Reason for action (optional)
+ *               insuranceExpiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Insurance expiry date (optional)
+ *               driverLicenseExpiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Driver license expiry date (optional)
+ *               idExpiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: ID expiry date (optional)
+ *     responses:
+ *       200:
+ *         description: Company reviewed successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/:companyId/review', authenticateToken, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), adminController.reviewCompany);
+
 
 module.exports = router;

@@ -18,6 +18,9 @@ const formatPhoneNumber = require("../utils/formatPhone");
 const Subscribers = require("../models/Subscribers");
 const subscriptionController = require('./subscriptionController');
 const {formatTimestamps } = require('../utils/formatData');
+const Company = require("../models/Company");
+const Driver = require("../models/Driver");
+const Vehicle = require("../models/Vehicle");
 
 
 exports.deleteTransporter = async (req, res) => {
@@ -749,6 +752,193 @@ exports.reviewTransporter = async (req, res) => {
       );
 
       return res.status(200).json({ message: 'Transporter rejected', updates });
+    }
+
+    return res.status(400).json({ message: 'Invalid action, must be approve-dl, approve-insurance, approve-id, or reject' });
+  } catch (error) {
+    console.error('Review transporter error:', error);
+    res.status(500).json({ message: 'Failed to review transporter' });
+  }
+};
+
+exports.reviewCompany = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    const { action, reason, insuranceExpiryDate, driverLicenseExpiryDate, idExpiryDate, driverId, vehicleId } = req.body;
+    console.log(`Reviewing company ${companyId} with action ${action} and vehicleId ${vehicleId} and driverId ${driverId}`);
+
+    // 1. Check if transporter exists
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // 2. Check if already approved/rejected
+    if (!company.status === 'approved' && (action === 'approve-dl' || action === 'approve-insurance' || action === 'approve-id')) {
+      return res.status(400).json({ message: 'Company already not approved' });
+    }
+    if (company.status === 'rejected' && action === 'reject') {
+      return res.status(400).json({ message: 'Transporter already rejected' });
+    }
+
+    let updates = {};
+
+    if (action === 'approve-dl') {
+      if (!driverId || !driverLicenseExpiryDate) {
+        return res.status(400).json({ message: 'driverId and driverLicenseExpiryDate is required' });
+      }
+      updates = {
+        driverLicenseExpiryDate: admin.firestore.Timestamp.fromDate(new Date(driverLicenseExpiryDate)),
+        driverLicenseapproved: true,
+        status: 'approved',
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+      await Driver.update(companyId, driverId, updates);
+
+      // await sendEmail({
+      //   to: company.companyEmail,
+      //   subject: 'Company Driver Approved',
+      //   text: 'Your Driver license has been approved. Welcome to Truk!'
+      // });
+
+      const formattedPhone = formatPhoneNumber(company.companyContact);
+      const smsMessage = 'Your Truk documents have been approved. Welcome aboard!';
+      //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+      await logAdminActivity(
+        req.user.uid,
+        'approve_insurance documents',
+        req,
+        { type: 'company', id: companyId }
+      );
+
+
+      return res.status(200).json({ message: 'Driver license approved', updates });
+    }
+
+    if (action === 'approve-insurance') {
+      if (!vehicleId || !insuranceExpiryDate) {
+        return res.status(400).json({ message: ' vehicleId and insuranceExpiryDate is required' });
+      }
+      updates = {
+        insuranceExpiryDate: admin.firestore.Timestamp.fromDate(new Date(insuranceExpiryDate)),
+        insuranceapproved: true,
+        status: 'approved',
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+      await Vehicle.update(companyId, vehicleId, updates);
+
+      // await sendEmail({
+      //   to: company.companyEmail,
+      //   subject: 'Company Vehicle Approved',
+      //   text: 'Your Vehicle documents have been approved. Welcome to Truk!'
+      // });
+
+      const formattedPhone = formatPhoneNumber(company.companyContact);
+      const smsMessage = 'Your Truk documents have been approved. Welcome aboard!';
+      //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+      await logAdminActivity(
+        req.user.uid,
+        'approve_insurance documents',
+        req,
+        { type: 'company', id: companyId }
+      );
+
+      return res.status(200).json({ message: 'Insurance approved', updates });
+    }
+
+    if (action === 'approve-id') {
+      if (idExpiryDate) {
+        updates = {
+          idExpiryDate: admin.firestore.Timestamp.fromDate(new Date(idExpiryDate)),
+          idapproved: true,
+          updatedAt: admin.firestore.Timestamp.now(),
+        };
+        await Driver.update(companyId, driverId, updates);
+      }
+      updates = {
+        idapproved: true,
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+      await Driver.update(companyId, driverId, updates);
+
+      // await sendEmail({
+      //   to: company.companyEmail,
+      //   subject: 'Driver Id Approved',
+      //   text: 'Your driver Id has been approved. Welcome to Truk!'
+      // });
+
+      const formattedPhone = formatPhoneNumber(company.companyContact);
+      const smsMessage = 'Your Truk documents have been approved. Welcome aboard!';
+      //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+      await logAdminActivity(
+        req.user.uid,
+        'approve_driver',
+        req,
+        { type: 'company', id: companyId }
+      );
+
+      return res.status(200).json({ message: 'ID approved', updates });
+    }
+
+    if (action === 'reject-driver') {
+      updates = {
+        status: 'rejected',
+        rejectionReason: reason || 'Unqualified',
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+
+      await Driver.update(companyId, driverId, updates);
+
+      // await sendEmail({
+      //   to: company.companyEmail,
+      //   subject: 'DriverRejected',
+      //   text: `Your Driver has been rejected. Reason: ${reason || 'Unqualified'}`
+      // });
+
+      const formattedPhone = formatPhoneNumber(company.companyContact);
+      const smsMessage = `Your Truk documents have been rejected. Reason: ${reason || 'Unqualified'}.`;
+      //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+      await logAdminActivity(
+        req.user.uid,
+        'reject_driver',
+        req,
+        { type: 'company', id: companyId }
+      );
+
+      return res.status(200).json({ message: 'Driver rejected', updates });
+    }
+
+    if (action === 'reject-vehicle') {
+      updates = {
+        status: 'rejected',
+        rejectionReason: reason || 'Unqualified',
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+
+      await Vehicle.update(companyId, vehicleId, updates);
+
+      // await sendEmail({
+      //   to: company.companyEmail,
+      //   subject: 'Vehicle Rejected',
+      //   text: `Your vehicle has been rejected. Reason: ${reason || 'Unqualified'}`
+      // });
+
+      const formattedPhone = formatPhoneNumber(company.companyContact);
+      const smsMessage = `Your Truk documents have been rejected. Reason: ${reason || 'Unqualified'}.`;
+      //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+      await logAdminActivity(
+        req.user.uid,
+        'reject_vehicle',
+        req,
+        { type: 'company', id: companyId }
+      );
+
+      return res.status(200).json({ message: 'Vehicle rejected', updates });
     }
 
     return res.status(400).json({ message: 'Invalid action, must be approve-dl, approve-insurance, approve-id, or reject' });
