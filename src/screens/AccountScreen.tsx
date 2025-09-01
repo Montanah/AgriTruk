@@ -1,13 +1,12 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
-import { sendEmailVerification, signOut, updatePassword } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Image,
   Modal,
   RefreshControl,
@@ -20,206 +19,124 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
+import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { auth, db } from '../firebaseConfig';
-
-const { width } = Dimensions.get('window');
 
 interface ShipperProfileData {
   name: string;
   email: string;
   phone: string;
-  companyName?: string;
-  businessType?: string;
   address: string;
-  city: string;
-  country: string;
-  profilePhotoUrl: string;
-  role: string;
-  preferredVerificationMethod: 'phone' | 'email';
-  phoneVerified: boolean;
+  profilePhotoUrl?: string;
   emailVerified: boolean;
-  memberSince: string;
-  totalShipments: number;
-  completedShipments: number;
-  activeShipments: number;
-  rating: number;
+  phoneVerified: boolean;
+  role: string;
+  createdAt: string;
   preferences: {
-    preferredTransporterTypes: string[];
-    preferredRoutes: string[];
     notificationSettings: {
       email: boolean;
       push: boolean;
       sms: boolean;
     };
-    receiveReceipts: boolean;
+    preferredVerificationMethod: 'email' | 'phone';
   };
 }
 
-const AccountScreen = ({ navigation }) => {
-  const user = auth.currentUser;
+type NavigationProp = {
+  navigate: (screen: string, params?: any) => void;
+};
+
+const AccountScreen = () => {
+  const navigation = useNavigation<NavigationProp>();
   const [profile, setProfile] = useState<ShipperProfileData | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [showStatsModal, setShowStatsModal] = useState(false);
-  const [changePwd, setChangePwd] = useState(false);
-  const [complaint, setComplaint] = useState('');
-  const [complaintSent, setComplaintSent] = useState(false);
-  const [verifyingEmail, setVerifyingEmail] = useState(false);
-
-  // Password change fields
-  const [oldPwd, setOldPwd] = useState('');
-  const [newPwd, setNewPwd] = useState('');
-  const [confirmPwd, setConfirmPwd] = useState('');
-  const [showOldPwd, setShowOldPwd] = useState(false);
-  const [showNewPwd, setShowNewPwd] = useState(false);
-  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
-
-  // Edit form data
+  const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<ShipperProfileData>>({});
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [changePwd, setChangePwd] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [complaintText, setComplaintText] = useState('');
+  const [verifyingPhone, setVerifyingPhone] = useState(false);
+
+  const user = auth.currentUser;
 
   useEffect(() => {
-    let didCancel = false;
-    let timeout: any;
-
-    if (user?.uid) {
-      // Fetch user profile
-      timeout = setTimeout(() => {
-        if (!didCancel) setProfile(null);
-      }, 8000);
-
-      getDoc(doc(db, 'users', user.uid)).then((snap) => {
-        if (didCancel) return;
-        clearTimeout(timeout);
-
-        if (snap.exists()) {
-          const data = snap.data();
-          const profileData: ShipperProfileData = {
-            name: data.name || user.displayName || '',
-            email: data.email || user.email || '',
-            phone: data.phone || '',
-            companyName: data.companyName || '',
-            businessType: data.businessType || '',
-            address: data.address || '',
-            city: data.city || '',
-            country: data.country || 'Kenya',
-            profilePhotoUrl: data.profilePhotoUrl || '',
-            role: data.role || 'shipper',
-            preferredVerificationMethod: data.preferredVerificationMethod || 'phone',
-            phoneVerified: data.phoneVerified || false,
-            emailVerified: data.emailVerified || false,
-            memberSince: data.memberSince || new Date().toISOString(),
-            totalShipments: data.totalShipments || 0,
-            completedShipments: data.completedShipments || 0,
-            activeShipments: data.activeShipments || 0,
-            rating: data.rating || 0,
-            preferences: data.preferences || {
-              preferredTransporterTypes: [],
-              preferredRoutes: [],
-              notificationSettings: {
-                email: true,
-                push: true,
-                sms: false,
-              },
-              receiveReceipts: true,
-            },
-          };
-          setProfile(profileData);
-          setEditData(profileData);
-        } else {
-          setProfile(null);
-        }
-      }).catch((e) => {
-        if (!didCancel) {
-          console.error('Error fetching profile:', e);
-          setProfile(null);
-        }
-      });
+    if (user) {
+      loadProfile();
     }
-
-    return () => {
-      didCancel = true;
-      clearTimeout(timeout);
-    };
   }, [user]);
+
+  const loadProfile = async () => {
+    if (!user?.uid) return;
+
+    try {
+      setLoading(true);
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+
+        // Get the actual user creation date from Firebase Auth metadata
+        const userCreationDate = user.metadata?.creationTime || userData.createdAt || new Date().toISOString();
+
+        const profileData: ShipperProfileData = {
+          name: userData.name || '',
+          email: userData.email || user.email || '',
+          phone: userData.phone || '',
+          address: userData.address || '',
+          profilePhotoUrl: userData.profilePhotoUrl,
+          emailVerified: userData.emailVerified || false,
+          phoneVerified: userData.phoneVerified || false,
+          role: userData.role || 'shipper',
+          createdAt: userCreationDate,
+          preferences: {
+            notificationSettings: {
+              email: userData.preferences?.notificationSettings?.email ?? true,
+              push: userData.preferences?.notificationSettings?.push ?? true,
+              sms: userData.preferences?.notificationSettings?.sms ?? false,
+            },
+            preferredVerificationMethod: userData.preferences?.preferredVerificationMethod || 'email',
+          },
+        };
+
+        setProfile(profileData);
+        setEditData(profileData);
+      }
+    } catch (e: any) {
+      console.error('Profile loading error:', e);
+      setError(e.message || 'Failed to load profile.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Re-fetch profile data
-    if (user?.uid) {
-      try {
-        const snap = await getDoc(doc(db, 'users', user.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          const profileData: ShipperProfileData = {
-            name: data.name || user.displayName || '',
-            email: data.email || user.email || '',
-            phone: data.phone || '',
-            companyName: data.companyName || '',
-            businessType: data.businessType || '',
-            address: data.address || '',
-            city: data.city || '',
-            country: data.country || 'Kenya',
-            profilePhotoUrl: data.profilePhotoUrl || '',
-            role: data.role || 'shipper',
-            preferredVerificationMethod: data.preferredVerificationMethod || 'phone',
-            phoneVerified: data.phoneVerified || false,
-            emailVerified: data.emailVerified || false,
-            memberSince: data.memberSince || new Date().toISOString(),
-            totalShipments: data.totalShipments || 0,
-            completedShipments: data.completedShipments || 0,
-            activeShipments: data.activeShipments || 0,
-            rating: data.rating || 0,
-            preferences: data.preferences || {
-              preferredTransporterTypes: [],
-              preferredRoutes: [],
-              notificationSettings: {
-                email: true,
-                push: true,
-                sms: false,
-              },
-              receiveReceipts: true,
-            },
-          };
-          setProfile(profileData);
-          setEditData(profileData);
-        }
-      } catch (error) {
-        console.error('Error refreshing profile:', error);
-      }
-    }
+    await loadProfile();
     setRefreshing(false);
   };
 
   const handleSave = async () => {
-    if (!editData.name?.trim() || !editData.email?.trim()) {
-      setError('Name and email are required');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
+    if (!user?.uid) return;
 
     try {
-      if (user?.uid) {
-        await updateDoc(doc(db, 'users', user.uid), {
-          name: editData.name,
-          email: editData.email,
-          phone: editData.phone,
-          companyName: editData.companyName,
-          businessType: editData.businessType,
-          address: editData.address,
-          city: editData.city,
-          country: editData.country,
-          updatedAt: new Date().toISOString(),
-        });
+      setLoading(true);
+      await updateDoc(doc(db, 'users', user.uid), {
+        name: editData.name,
+        email: editData.email,
+        phone: editData.phone,
+        address: editData.address,
+        updatedAt: new Date().toISOString(),
+      });
 
-        setProfile(prev => prev ? { ...prev, ...editData } : null);
-        setEditing(false);
-        Alert.alert('Success', 'Profile updated successfully');
-      }
+      setProfile(prev => prev ? { ...prev, ...editData } : null);
+      setEditing(false);
+      Alert.alert('Success', 'Profile updated successfully');
     } catch (e: any) {
       setError(e.message || 'Failed to update profile.');
     } finally {
@@ -263,28 +180,92 @@ const AccountScreen = ({ navigation }) => {
   };
 
   const handleVerifyEmail = async () => {
-    if (!user) return;
-
-    setVerifyingEmail(true);
+    if (!user?.email) {
+      Alert.alert('Error', 'No email address found.');
+      return;
+    }
+    if (profile?.emailVerified) {
+      Alert.alert('Already Verified', 'Your email is already verified. You can use it to log in.');
+      return;
+    }
     try {
-      await sendEmailVerification(user);
+      setVerifyingEmail(true);
+
+      // Try Firebase directly since backend is missing resendCode function
+      try {
+        const { sendEmailVerification } = await import('firebase/auth');
+        await sendEmailVerification(user);
+        Alert.alert(
+          'Verification Email Sent',
+          'Please check your email and click the verification link. You can then use your email to log in.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation.navigate('EmailVerification')
+            }
+          ]
+        );
+        return;
+      } catch (firebaseError: any) {
+        console.error('Firebase failed:', firebaseError);
+        Alert.alert(
+          'Verification Failed',
+          'Unable to send verification email. Please try again later or contact support.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (e: any) {
+      console.error('Email verification error:', e);
       Alert.alert(
-        'Verification Email Sent',
-        'Please check your email and click the verification link. You may need to refresh this page after verification.',
+        'Verification Failed',
+        'Unable to send verification email. Please check your internet connection and try again later.',
         [{ text: 'OK' }]
       );
-
-      // Navigate to email verification screen to enter the code
-      navigation.navigate('EmailVerification', {
-        email: user.email,
-        phone: profile?.phone,
-        role: profile?.role || 'shipper',
-        password: null // We don't have the password here
-      });
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send verification email');
     } finally {
       setVerifyingEmail(false);
+    }
+  };
+
+  const handleVerifyPhone = async () => {
+    if (!user?.phoneNumber) {
+      Alert.alert('Error', 'No phone number found.');
+      return;
+    }
+    if (profile?.phoneVerified) {
+      Alert.alert('Already Verified', 'Your phone is already verified. You can use it to log in.');
+      return;
+    }
+    try {
+      setVerifyingPhone(true);
+
+      // Try Firebase directly since backend is missing resendPhoneCode function
+      try {
+        // For phone verification, we need to use Firebase Phone Auth
+        // This requires additional setup, so for now we'll show a message
+        Alert.alert(
+          'Phone Verification',
+          'Phone verification requires additional setup. Please contact support or use email verification for now.',
+          [{ text: 'OK' }]
+        );
+        return;
+      } catch (firebaseError: any) {
+        console.error('Firebase failed:', firebaseError);
+        Alert.alert(
+          'Verification Failed',
+          'Unable to send phone verification. Please try again later or contact support.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (e: any) {
+      console.error('Phone verification error:', e);
+      Alert.alert(
+        'Verification Failed',
+        'Unable to send phone verification. Please check your internet connection and try again later.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setVerifyingPhone(false);
     }
   };
 
@@ -309,534 +290,369 @@ const AccountScreen = ({ navigation }) => {
     );
   };
 
-  const handleComplaint = () => {
-    setComplaintSent(true);
-    setComplaint('');
-  };
-
-  const handleChangePassword = async () => {
-    if (newPwd !== confirmPwd) {
-      setError('New passwords do not match');
+  const handleSubmitComplaint = async () => {
+    if (!user?.uid || !complaintText.trim()) {
+      Alert.alert('Error', 'Please enter a complaint message.');
       return;
     }
-
-    if (newPwd.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
-
-    setError('');
-    setLoading(true);
 
     try {
-      if (user && newPwd) {
-        await updatePassword(user, newPwd);
-        setChangePwd(false);
-        setNewPwd('');
-        setConfirmPwd('');
-        setOldPwd('');
-        Alert.alert('Success', 'Password changed successfully');
-      }
+      setLoading(true);
+      await updateDoc(doc(db, 'users', user.uid), {
+        complaint: complaintText,
+        complaintSubmittedAt: new Date().toISOString(),
+      });
+      Alert.alert('Complaint Submitted', 'Your complaint has been submitted for admin mediation.');
+      setShowConflictModal(false);
+      setComplaintText('');
     } catch (e: any) {
-      setError(e.message || 'Failed to change password.');
+      setError(e.message || 'Failed to submit complaint.');
     } finally {
       setLoading(false);
     }
   };
 
-  const getVerificationColor = (status: boolean) => {
-    return status ? colors.success : colors.warning;
-  };
-
-  const getVerificationIcon = (status: boolean) => {
-    return status ? 'check-circle' : 'clock';
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!profile) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>
-            {user?.uid ? 'Loading your profile...' : 'No user found. Please log in.'}
-          </Text>
-        </View>
+      <SafeAreaView style={styles.errorContainer}>
+        <MaterialCommunityIcons name="account-alert" size={64} color={colors.error} />
+        <Text style={styles.errorText}>Failed to load profile</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadProfile}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={[colors.primary, colors.primaryDark]}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Shipper Profile</Text>
-          <TouchableOpacity
-            onPress={() => setEditing(!editing)}
-            style={styles.editButton}
-          >
-            <MaterialCommunityIcons
-              name={editing ? "close" : "pencil"}
-              size={24}
-              color={colors.white}
-            />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Shipper Profile</Text>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => setEditing(!editing)}
+        >
+          <MaterialCommunityIcons
+            name={editing ? "close" : "pencil"}
+            size={24}
+            color={editing ? colors.error : colors.primary}
+          />
+        </TouchableOpacity>
+      </View>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Profile Header Card */}
-        <View style={styles.profileHeaderCard}>
-          <View style={styles.profilePhotoContainer}>
+        {/* Profile Summary */}
+        <View style={styles.profileSummary}>
+          <View style={styles.profilePhotoSection}>
             <TouchableOpacity
-              style={styles.profilePhoto}
+              style={styles.profilePhotoContainer}
               onPress={editing ? handlePhotoPick : undefined}
               disabled={!editing}
             >
-              {editData.profilePhotoUrl ? (
-                <Image
-                  source={{ uri: editData.profilePhotoUrl }}
-                  style={styles.profileImage}
-                />
+              {profile?.profilePhotoUrl ? (
+                <Image source={{ uri: profile.profilePhotoUrl }} style={styles.profilePhoto} />
               ) : (
-                <MaterialCommunityIcons
-                  name="account-circle"
-                  size={80}
-                  color={colors.primary}
-                />
-              )}
-              {editing && (
-                <View style={styles.editPhotoOverlay}>
-                  <MaterialCommunityIcons
-                    name="camera"
-                    size={24}
-                    color={colors.white}
-                  />
+                <View style={styles.photoPlaceholder}>
+                  <MaterialCommunityIcons name="camera" size={32} color={colors.text.light} />
+                  {editing && <Text style={styles.photoPlaceholderText}>Tap to add photo</Text>}
                 </View>
               )}
             </TouchableOpacity>
+          </View>
 
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>
-                {editing ? editData.name : profile.name}
-              </Text>
-              <Text style={styles.profileEmail}>
-                {editing ? editData.email : profile.email}
-              </Text>
-              <View style={styles.verificationBadge}>
-                <MaterialCommunityIcons
-                  name="shield-check"
-                  size={16}
-                  color={colors.primary}
-                />
-                <Text style={styles.verificationText}>
-                  {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{profile?.name || 'Your Name'}</Text>
+            <Text style={styles.profileRole}>{profile?.role || 'Shipper'}</Text>
+            <Text style={styles.clientSince}>
+              Client since {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              }) : 'Recently'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Verification Status */}
+        <View style={styles.verificationSection}>
+          <Text style={styles.sectionTitle}>Verification Status</Text>
+
+          {/* Show preferred verification method */}
+          <View style={styles.preferredMethod}>
+            <Text style={styles.preferredMethodText}>
+              Primary Contact: {profile.preferences?.preferredVerificationMethod === 'phone' ? 'Phone' : 'Email'}
+            </Text>
+          </View>
+
+          <View style={styles.verificationRow}>
+            <View style={styles.verificationItem}>
+              <MaterialCommunityIcons
+                name="email"
+                size={20}
+                color={profile.emailVerified ? colors.success : colors.warning}
+              />
+              <Text style={styles.verificationLabel}>Email</Text>
+              <View style={[
+                styles.verificationBadge,
+                profile.emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
+              ]}>
+                <Text style={styles.verificationBadgeText}>
+                  {profile.emailVerified ? 'Verified' : 'Unverified'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.verificationItem}>
+              <MaterialCommunityIcons
+                name="phone"
+                size={20}
+                color={profile.phoneVerified ? colors.success : colors.warning}
+              />
+              <Text style={styles.verificationLabel}>Phone</Text>
+              <View style={[
+                styles.verificationBadge,
+                profile.phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
+              ]}>
+                <Text style={styles.verificationBadgeText}>
+                  {profile.phoneVerified ? 'Verified' : 'Unverified'}
                 </Text>
               </View>
             </View>
           </View>
 
-          {editing && (
-            <View style={styles.editActions}>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.saveButton]}
-                onPress={handleSave}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <MaterialCommunityIcons name="check" size={20} color={colors.white} />
-                )}
-                <Text style={styles.actionButtonText}>Save</Text>
-              </TouchableOpacity>
+          {/* Show verification buttons only for unverified methods */}
+          {!profile.emailVerified && (
+            <TouchableOpacity
+              style={styles.verifyButton}
+              onPress={handleVerifyEmail}
+              disabled={verifyingEmail}
+            >
+              {verifyingEmail ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.verifyButtonText}>Verify Email</Text>
+              )}
+            </TouchableOpacity>
+          )}
 
-              <TouchableOpacity
-                style={[styles.actionButton, styles.cancelButton]}
-                onPress={() => {
-                  setEditData(profile);
-                  setEditing(false);
-                }}
-              >
-                <MaterialCommunityIcons name="close" size={20} color={colors.error} />
-                <Text style={[styles.actionButtonText, { color: colors.error }]}>Cancel</Text>
-              </TouchableOpacity>
+          {!profile.phoneVerified && (
+            <TouchableOpacity
+              style={styles.verifyButton}
+              onPress={handleVerifyPhone}
+              disabled={verifyingPhone}
+            >
+              {verifyingPhone ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.verifyButtonText}>Verify Phone</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Show message if both are verified */}
+          {profile.emailVerified && profile.phoneVerified && (
+            <View style={styles.allVerified}>
+              <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+              <Text style={styles.allVerifiedText}>All contact methods verified!</Text>
             </View>
           )}
         </View>
 
-        {/* Verification Status Card */}
-        <View style={styles.verificationCard}>
-          <Text style={styles.sectionTitle}>Verification Status</Text>
-          <Text style={styles.sectionDescription}>
-            Verify your contact methods to unlock additional features like email receipts and notifications.
-          </Text>
+        {/* Profile Details - Only show in edit mode */}
+        {editing && (
+          <View style={styles.detailsSection}>
+            <Text style={styles.sectionTitle}>Profile Details</Text>
 
-          <View style={styles.verificationMethods}>
-            <View style={styles.verificationMethod}>
-              <View style={styles.verificationHeader}>
-                <MaterialCommunityIcons
-                  name="phone"
-                  size={20}
-                  color={colors.primary}
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="account" size={20} color={colors.primary} />
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Full Name</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editData.name}
+                  onChangeText={(text) => setEditData(prev => ({ ...prev, name: text }))}
+                  placeholder="Enter your full name"
                 />
-                <Text style={styles.verificationMethodTitle}>Phone Number</Text>
-                <View style={[
-                  styles.verificationStatus,
-                  { backgroundColor: getVerificationColor(profile.phoneVerified) + '20' }
-                ]}>
-                  <MaterialCommunityIcons
-                    name={getVerificationIcon(profile.phoneVerified)}
-                    size={16}
-                    color={getVerificationColor(profile.phoneVerified)}
-                  />
-                  <Text style={[
-                    styles.verificationStatusText,
-                    { color: getVerificationColor(profile.phoneVerified) }
-                  ]}>
-                    {profile.phoneVerified ? 'Verified' : 'Pending'}
-                  </Text>
-                </View>
               </View>
-              <Text style={styles.verificationMethodText}>
-                {profile.phoneVerified ?
-                  '✓ SMS notifications enabled' :
-                  'Verify to receive SMS notifications'
-                }
-              </Text>
             </View>
 
-            <View style={styles.verificationMethod}>
-              <View style={styles.verificationHeader}>
-                <MaterialCommunityIcons
-                  name="email"
-                  size={20}
-                  color={colors.primary}
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="email" size={20} color={colors.primary} />
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Email Address</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editData.email}
+                  onChangeText={(text) => setEditData(prev => ({ ...prev, email: text }))}
+                  placeholder="Enter your email"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
-                <Text style={styles.verificationMethodTitle}>Email Address</Text>
-                <View style={[
-                  styles.verificationStatus,
-                  { backgroundColor: getVerificationColor(profile.emailVerified) + '20' }
-                ]}>
-                  <MaterialCommunityIcons
-                    name={getVerificationIcon(profile.emailVerified)}
-                    size={16}
-                    color={getVerificationColor(profile.emailVerified)}
-                  />
+                <View style={styles.verificationStatus}>
                   <Text style={[
-                    styles.verificationStatusText,
-                    { color: getVerificationColor(profile.emailVerified) }
+                    styles.verificationText,
+                    editData.emailVerified ? styles.verifiedText : styles.unverifiedText
                   ]}>
-                    {profile.emailVerified ? 'Verified' : 'Pending'}
+                    {editData.emailVerified ? '✓ Verified' : '✗ Unverified'}
                   </Text>
-                </View>
-              </View>
-              <Text style={styles.verificationMethodText}>
-                {profile.emailVerified ?
-                  '✓ Email receipts and notifications enabled' :
-                  'Verify to receive email receipts and notifications'
-                }
-              </Text>
-
-              {!profile.emailVerified && (
-                <TouchableOpacity
-                  style={styles.verifyButton}
-                  onPress={handleVerifyEmail}
-                  disabled={verifyingEmail}
-                >
-                  {verifyingEmail ? (
-                    <ActivityIndicator size="small" color={colors.white} />
-                  ) : (
-                    <MaterialCommunityIcons name="email-send" size={16} color={colors.white} />
+                  {!editData.emailVerified && (
+                    <TouchableOpacity
+                      style={styles.verifyButton}
+                      onPress={handleVerifyEmail}
+                      disabled={verifyingEmail}
+                    >
+                      {verifyingEmail ? (
+                        <ActivityIndicator size="small" color={colors.white} />
+                      ) : (
+                        <Text style={styles.verifyButtonText}>Verify Email</Text>
+                      )}
+                    </TouchableOpacity>
                   )}
-                  <Text style={styles.verifyButtonText}>
-                    {verifyingEmail ? 'Sending...' : 'Verify Email'}
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="phone" size={20} color={colors.primary} />
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Phone Number</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editData.phone}
+                  onChangeText={(text) => setEditData(prev => ({ ...prev, phone: text }))}
+                  placeholder="Enter your phone number"
+                  keyboardType="phone-pad"
+                />
+                <View style={styles.verificationStatus}>
+                  <Text style={[
+                    styles.verificationText,
+                    editData.phoneVerified ? styles.verifiedText : styles.unverifiedText
+                  ]}>
+                    {editData.phoneVerified ? '✓ Verified' : '✗ Unverified'}
                   </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* Statistics Cards */}
-        <View style={styles.statsContainer}>
-          <TouchableOpacity
-            style={styles.statsCard}
-            onPress={() => setShowStatsModal(true)}
-          >
-            <View style={styles.statsHeader}>
-              <MaterialCommunityIcons name="truck-delivery" size={24} color={colors.primary} />
-              <Text style={styles.statsTitle}>Shipment Overview</Text>
-            </View>
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{profile.totalShipments}</Text>
-                <Text style={styles.statLabel}>Total</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{profile.completedShipments}</Text>
-                <Text style={styles.statLabel}>Completed</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{profile.activeShipments}</Text>
-                <Text style={styles.statLabel}>Active</Text>
+                  {!editData.phoneVerified && (
+                    <TouchableOpacity
+                      style={styles.verifyButton}
+                      onPress={handleVerifyPhone}
+                      disabled={verifyingPhone}
+                    >
+                      {verifyingPhone ? (
+                        <ActivityIndicator size="small" color={colors.white} />
+                      ) : (
+                        <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             </View>
-            <View style={styles.ratingContainer}>
-              <MaterialCommunityIcons name="star" size={16} color={colors.warning} />
-              <Text style={styles.ratingText}>{profile.rating.toFixed(1)}</Text>
-              <Text style={styles.ratingLabel}>Rating</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
 
-        {/* Profile Details */}
-        <View style={styles.detailsCard}>
-          <Text style={styles.sectionTitle}>Profile Details</Text>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Full Name</Text>
-            {editing ? (
-              <TextInput
-                style={styles.input}
-                value={editData.name}
-                onChangeText={(text) => setEditData({ ...editData, name: text })}
-                placeholder="Enter your full name"
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile.name}</Text>
-            )}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Email</Text>
-            {editing ? (
-              <TextInput
-                style={styles.input}
-                value={editData.email}
-                onChangeText={(text) => setEditData({ ...editData, email: text })}
-                placeholder="Enter your email"
-                keyboardType="email-address"
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile.email}</Text>
-            )}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Phone Number</Text>
-            {editing ? (
-              <TextInput
-                style={styles.input}
-                value={editData.phone}
-                onChangeText={(text) => setEditData({ ...editData, phone: text })}
-                placeholder="Enter your phone number"
-                keyboardType="phone-pad"
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile.phone || 'Not provided'}</Text>
-            )}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Company Name (Optional)</Text>
-            {editing ? (
-              <TextInput
-                style={styles.input}
-                value={editData.companyName}
-                onChangeText={(text) => setEditData({ ...editData, companyName: text })}
-                placeholder="Enter company name"
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile.companyName || 'Not provided'}</Text>
-            )}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Business Type</Text>
-            {editing ? (
-              <TextInput
-                style={styles.input}
-                value={editData.businessType}
-                onChangeText={(text) => setEditData({ ...editData, businessType: text })}
-                placeholder="e.g., Agriculture, Manufacturing, Retail"
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile.businessType || 'Not specified'}</Text>
-            )}
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Address</Text>
-            {editing ? (
-              <TextInput
-                style={styles.input}
-                value={editData.address}
-                onChangeText={(text) => setEditData({ ...editData, address: text })}
-                placeholder="Enter your address"
-                multiline
-              />
-            ) : (
-              <Text style={styles.fieldValue}>{profile.address || 'Not provided'}</Text>
-            )}
-          </View>
-
-          <View style={styles.row}>
-            <View style={[styles.fieldGroup, { flex: 1, marginRight: spacing.sm }]}>
-              <Text style={styles.fieldLabel}>City</Text>
-              {editing ? (
+            <View style={styles.detailRow}>
+              <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Address</Text>
                 <TextInput
-                  style={styles.input}
-                  value={editData.city}
-                  onChangeText={(text) => setEditData({ ...editData, city: text })}
-                  placeholder="Enter city"
+                  style={styles.editInput}
+                  value={editData.address}
+                  onChangeText={(text) => setEditData(prev => ({ ...prev, address: text }))}
+                  placeholder="Enter your address"
                 />
-              ) : (
-                <Text style={styles.fieldValue}>{profile.city || 'Not provided'}</Text>
-              )}
-            </View>
-
-            <View style={[styles.fieldGroup, { flex: 1, marginLeft: spacing.sm }]}>
-              <Text style={styles.fieldLabel}>Country</Text>
-              {editing ? (
-                <TextInput
-                  style={styles.input}
-                  value={editData.country}
-                  onChangeText={(text) => setEditData({ ...editData, country: text })}
-                  placeholder="Enter country"
-                />
-              ) : (
-                <Text style={styles.fieldValue}>{profile.country}</Text>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Member Since</Text>
-            <Text style={styles.fieldValue}>
-              {formatDate(profile.memberSince)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Preferences */}
-        <View style={styles.preferencesCard}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
-
-          <View style={styles.preferenceSection}>
-            <Text style={styles.preferenceLabel}>Preferred Transporter Types</Text>
-            <View style={styles.preferenceChips}>
-              {profile.preferences.preferredTransporterTypes.length > 0 ? (
-                profile.preferences.preferredTransporterTypes.map((type, index) => (
-                  <View key={index} style={styles.preferenceChip}>
-                    <Text style={styles.preferenceChipText}>{type}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.noPreferencesText}>No preferences set</Text>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.preferenceSection}>
-            <Text style={styles.preferenceLabel}>Preferred Routes</Text>
-            <View style={styles.preferenceChips}>
-              {profile.preferences.preferredRoutes.length > 0 ? (
-                profile.preferences.preferredRoutes.map((route, index) => (
-                  <View key={index} style={styles.preferenceChip}>
-                    <Text style={styles.preferenceChipText}>{route}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.noPreferencesText}>No routes specified</Text>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.preferenceSection}>
-            <Text style={styles.preferenceLabel}>Notification Settings</Text>
-            <View style={styles.notificationSettings}>
-              <View style={styles.notificationRow}>
-                <Text style={styles.notificationLabel}>Email Notifications</Text>
-                <View style={[
-                  styles.notificationToggle,
-                  profile.preferences.notificationSettings.email && styles.notificationActive
-                ]}>
-                  <MaterialCommunityIcons
-                    name={profile.preferences.notificationSettings.email ? "check" : "close"}
-                    size={16}
-                    color={profile.preferences.notificationSettings.email ? colors.success : colors.error}
-                  />
-                </View>
               </View>
-              <View style={styles.notificationRow}>
-                <Text style={styles.notificationLabel}>Push Notifications</Text>
-                <View style={[
-                  styles.notificationToggle,
-                  profile.preferences.notificationSettings.push && styles.notificationActive
-                ]}>
-                  <MaterialCommunityIcons
-                    name={profile.preferences.notificationSettings.push ? "check" : "close"}
-                    size={16}
-                    color={profile.preferences.notificationSettings.push ? colors.success : colors.error}
-                  />
-                </View>
-              </View>
-              <View style={styles.notificationRow}>
-                <Text style={styles.notificationLabel}>SMS Notifications</Text>
-                <View style={[
-                  styles.notificationToggle,
-                  profile.preferences.notificationSettings.sms && styles.notificationActive
-                ]}>
-                  <MaterialCommunityIcons
-                    name={profile.preferences.notificationSettings.sms ? "check" : "close"}
-                    size={16}
-                    color={profile.preferences.notificationSettings.sms ? colors.success : colors.error}
-                  />
-                </View>
-              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Notification Preferences */}
+        <View style={styles.preferencesSection}>
+          <Text style={styles.sectionTitle}>Notification Preferences</Text>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceInfo}>
+              <MaterialCommunityIcons name="email-outline" size={20} color={colors.primary} />
+              <Text style={styles.preferenceLabel}>Email Notifications</Text>
+            </View>
+            <View style={[
+              styles.preferenceToggle,
+              profile.preferences.notificationSettings.email && styles.preferenceActive
+            ]}>
+              <MaterialCommunityIcons
+                name={profile.preferences.notificationSettings.email ? "check" : "close"}
+                size={16}
+                color={profile.preferences.notificationSettings.email ? colors.success : colors.error}
+              />
+            </View>
+          </View>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceInfo}>
+              <MaterialCommunityIcons name="bell-outline" size={20} color={colors.primary} />
+              <Text style={styles.preferenceLabel}>Push Notifications</Text>
+            </View>
+            <View style={[
+              styles.preferenceToggle,
+              profile.preferences.notificationSettings.push && styles.preferenceActive
+            ]}>
+              <MaterialCommunityIcons
+                name={profile.preferences.notificationSettings.push ? "check" : "close"}
+                size={16}
+                color={profile.preferences.notificationSettings.push ? colors.success : colors.error}
+              />
+            </View>
+          </View>
+
+          <View style={styles.preferenceRow}>
+            <View style={styles.preferenceInfo}>
+              <MaterialCommunityIcons name="message-text-outline" size={20} color={colors.primary} />
+              <Text style={styles.preferenceLabel}>SMS Notifications</Text>
+            </View>
+            <View style={[
+              styles.preferenceToggle,
+              profile.preferences.notificationSettings.sms && styles.preferenceActive
+            ]}>
+              <MaterialCommunityIcons
+                name={profile.preferences.notificationSettings.sms ? "check" : "close"}
+                size={16}
+                color={profile.preferences.notificationSettings.sms ? colors.success : colors.error}
+              />
             </View>
           </View>
         </View>
 
-        {/* Action Buttons - Simplified and Proper */}
+        {/* Action Buttons */}
         <View style={styles.actionButtonsContainer}>
           <TouchableOpacity
             style={styles.primaryActionButton}
-            onPress={() => {
-              // Navigate to service request
-              console.log('Navigate to service request');
-            }}
+            onPress={() => navigation.navigate('ServiceRequest')}
           >
-            <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+            <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
             <Text style={styles.primaryActionButtonText}>New Transport Request</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryActionButton}
             onPress={() => {
-              // Navigate to booking list
-              console.log('Navigate to booking list');
+              // Navigate to Activity tab (index 1) instead of separate screen
+              navigation.navigate('MainTabs', { screen: 'Activity' });
             }}
           >
-            <MaterialCommunityIcons name="format-list-bulleted" size={20} color={colors.secondary} />
+            <MaterialCommunityIcons name="format-list-bulleted" size={24} color={colors.primary} />
             <Text style={styles.secondaryActionButtonText}>View My Bookings</Text>
           </TouchableOpacity>
 
@@ -844,7 +660,7 @@ const AccountScreen = ({ navigation }) => {
             style={styles.utilityButton}
             onPress={() => setChangePwd(true)}
           >
-            <MaterialCommunityIcons name="lock-reset" size={20} color={colors.primary} />
+            <MaterialCommunityIcons name="lock" size={24} color={colors.primary} />
             <Text style={styles.utilityButtonText}>Change Password</Text>
           </TouchableOpacity>
 
@@ -852,43 +668,53 @@ const AccountScreen = ({ navigation }) => {
             style={styles.logoutButton}
             onPress={handleLogout}
           >
-            <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
+            <MaterialCommunityIcons name="logout" size={24} color={colors.white} />
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Conflict Resolution Card */}
-        <View style={styles.conflictCard}>
-          <View style={styles.conflictHeader}>
-            <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.secondary} />
-            <Text style={styles.sectionTitle}>Conflict Resolution</Text>
+        {/* Edit Mode Actions */}
+        {editing && (
+          <View style={styles.editActions}>
+            <TouchableOpacity
+              style={styles.saveButton}
+              onPress={handleSave}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <MaterialCommunityIcons name="content-save" size={20} color={colors.white} />
+              )}
+              <Text style={styles.saveButtonText}>
+                {loading ? 'Saving...' : 'Save Changes'}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.sectionDesc}>
-            Submit a complaint for admin mediation. You will be contacted via email and in-app.
-          </Text>
-          <TextInput
-            style={styles.complaintInput}
-            value={complaint}
-            onChangeText={setComplaint}
-            placeholder="Describe your issue..."
-            multiline
-            numberOfLines={3}
-          />
-          <TouchableOpacity
-            style={styles.complainBtn}
-            onPress={handleComplaint}
-            disabled={!complaint.trim()}
-          >
-            <Text style={styles.complainText}>Send Complaint</Text>
-          </TouchableOpacity>
-          {complaintSent && (
-            <Text style={styles.complaintSent}>Complaint sent! Admin will contact you soon.</Text>
-          )}
-        </View>
+        )}
 
         {error ? (
-          <Text style={styles.errorText}>{error}</Text>
+          <View style={styles.errorContainer}>
+            <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
         ) : null}
+
+        {/* Conflict Resolution Section */}
+        <View style={styles.conflictSection}>
+          <Text style={styles.sectionTitle}>Conflict Resolution</Text>
+          <Text style={styles.sectionDescription}>
+            Submit a complaint for admin mediation. You will be contacted via email and in-app.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.complaintButton}
+            onPress={() => setShowConflictModal(true)}
+          >
+            <MaterialCommunityIcons name="alert-circle-outline" size={20} color={colors.white} />
+            <Text style={styles.complaintButtonText}>Submit Complaint</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Password Change Modal */}
@@ -900,162 +726,94 @@ const AccountScreen = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.pwdModal}>
-            <Text style={styles.sectionTitle}>Change Password</Text>
+            <Text style={styles.modalTitle}>Change Password</Text>
 
-            <View style={styles.editFieldWrapRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.editLabel}>Current Password</Text>
-                <TextInput
-                  style={styles.inputPwd}
-                  value={oldPwd}
-                  onChangeText={setOldPwd}
-                  placeholder="Current Password"
-                  secureTextEntry={!showOldPwd}
-                  autoCapitalize="none"
-                />
-              </View>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="New Password"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+            />
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Confirm New Password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+
+            <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.pwdEyeIconCenter}
-                onPress={() => setShowOldPwd((v) => !v)}
-              >
-                <Ionicons
-                  name={showOldPwd ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={colors.text.secondary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.editDivider} />
-
-            <View style={styles.editFieldWrapRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.editLabel}>New Password</Text>
-                <TextInput
-                  style={styles.inputPwd}
-                  value={newPwd}
-                  onChangeText={setNewPwd}
-                  placeholder="New Password"
-                  secureTextEntry={!showNewPwd}
-                  autoCapitalize="none"
-                />
-              </View>
-              <TouchableOpacity
-                style={styles.pwdEyeIconCenter}
-                onPress={() => setShowNewPwd((v) => !v)}
-              >
-                <Ionicons
-                  name={showNewPwd ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={colors.text.secondary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.editDivider} />
-
-            <View style={styles.editFieldWrapRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.editLabel}>Confirm New Password</Text>
-                <TextInput
-                  style={styles.inputPwd}
-                  value={confirmPwd}
-                  onChangeText={setConfirmPwd}
-                  placeholder="Confirm New Password"
-                  secureTextEntry={!showConfirmPwd}
-                  autoCapitalize="none"
-                />
-              </View>
-              <TouchableOpacity
-                style={styles.pwdEyeIconCenter}
-                onPress={() => setShowConfirmPwd((v) => !v)}
-              >
-                <Ionicons
-                  name={showConfirmPwd ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={colors.text.secondary}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.editActionsRow}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
+                style={styles.modalCancelButton}
                 onPress={() => setChangePwd(false)}
               >
-                <Text style={styles.cancelText}>Cancel</Text>
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={handleChangePassword}
-                disabled={loading}
+                style={styles.modalConfirmButton}
+                onPress={() => {
+                  // TODO: Implement password change
+                  Alert.alert('Info', 'Password change functionality will be implemented soon');
+                  setChangePwd(false);
+                }}
               >
-                <Text style={styles.saveText}>
-                  {loading ? 'Changing...' : 'Change Password'}
-                </Text>
+                <Text style={styles.modalConfirmButtonText}>Change Password</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Stats Modal */}
+      {/* Conflict Resolution Modal */}
       <Modal
-        visible={showStatsModal}
-        transparent={true}
+        visible={showConflictModal}
         animationType="slide"
-        onRequestClose={() => setShowStatsModal(false)}
+        transparent
+        onRequestClose={() => setShowConflictModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Detailed Statistics</Text>
-              <TouchableOpacity
-                onPress={() => setShowStatsModal(false)}
-                style={styles.modalCloseButton}
-              >
+              <Text style={styles.modalTitle}>Submit Complaint</Text>
+              <TouchableOpacity onPress={() => setShowConflictModal(false)}>
                 <MaterialCommunityIcons name="close" size={24} color={colors.text.secondary} />
               </TouchableOpacity>
             </View>
-
             <View style={styles.modalBody}>
-              <View style={styles.detailedStats}>
-                <View style={styles.detailedStatItem}>
-                  <Text style={styles.detailedStatNumber}>{profile.totalShipments}</Text>
-                  <Text style={styles.detailedStatLabel}>Total Shipments</Text>
-                  <Text style={styles.detailedStatDescription}>
-                    All time shipments created
-                  </Text>
-                </View>
-
-                <View style={styles.detailedStatItem}>
-                  <Text style={styles.detailedStatNumber}>{profile.completedShipments}</Text>
-                  <Text style={styles.detailedStatLabel}>Completed</Text>
-                  <Text style={styles.detailedStatDescription}>
-                    Successfully delivered shipments
-                  </Text>
-                </View>
-
-                <View style={styles.detailedStatItem}>
-                  <Text style={styles.detailedStatNumber}>{profile.activeShipments}</Text>
-                  <Text style={styles.detailedStatLabel}>Active</Text>
-                  <Text style={styles.detailedStatDescription}>
-                    Currently in progress
-                  </Text>
-                </View>
-
-                <View style={styles.detailedStatItem}>
-                  <Text style={styles.detailedStatNumber}>
-                    {profile.totalShipments > 0
-                      ? ((profile.completedShipments / profile.totalShipments) * 100).toFixed(1)
-                      : '0'}%
-                  </Text>
-                  <Text style={styles.detailedStatLabel}>Success Rate</Text>
-                  <Text style={styles.detailedStatDescription}>
-                    Completion percentage
-                  </Text>
-                </View>
-              </View>
+              <Text style={styles.modalInput}>
+                Please describe the issue or conflict you are experiencing.
+                This will help us better understand and resolve the situation.
+              </Text>
+              <TextInput
+                style={styles.complaintInput}
+                value={complaintText}
+                onChangeText={setComplaintText}
+                multiline
+                numberOfLines={5}
+                placeholder="Enter your complaint here..."
+              />
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowConflictModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmButton}
+                onPress={handleSubmitComplaint}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.modalConfirmButtonText}>Submit Complaint</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1065,19 +823,27 @@ const AccountScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   header: {
-    paddingTop: 60,
+    paddingTop: 0, // Remove all top padding to extend to top
     paddingBottom: 20,
     paddingHorizontal: spacing.md,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     marginBottom: spacing.md,
+    marginTop: 0, // Ensure no top margin
+    // Extend to top of screen
+    position: 'relative',
+    top: 0,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 20, // Add padding to header content instead
   },
   headerTitle: {
     color: colors.white,
@@ -1091,11 +857,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg,
   },
   scrollContent: {
-    paddingBottom: spacing.lg, // Add padding to the bottom of the scroll view content
+    paddingBottom: spacing.xl * 3, // Add extra padding at bottom for navigation
+    paddingHorizontal: spacing.lg,
   },
   profileHeaderCard: {
     backgroundColor: colors.white,
@@ -1160,13 +925,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   verificationText: {
-    fontSize: 13,
-    marginLeft: spacing.xs,
+    fontSize: fonts.size.sm,
+    fontWeight: '500',
   },
   editActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
+    justifyContent: 'center',
     marginTop: spacing.md,
   },
   actionButton: {
@@ -1183,6 +947,23 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  saveButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: spacing.sm,
   },
   cancelButton: {
     backgroundColor: colors.background,
@@ -1262,11 +1043,16 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.primaryDark,
-    marginBottom: spacing.sm,
+    marginLeft: spacing.sm,
   },
   fieldGroup: {
     marginBottom: spacing.md,
@@ -1479,16 +1265,6 @@ const styles = StyleSheet.create({
     color: colors.text.light,
     marginBottom: spacing.sm,
   },
-  complaintInput: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: spacing.md,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: colors.background,
-    marginBottom: spacing.sm,
-    minHeight: 100,
-  },
   complainBtn: {
     backgroundColor: colors.secondary,
     borderRadius: 10,
@@ -1549,9 +1325,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: colors.primaryDark,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
   },
   modalCloseButton: {
     padding: spacing.sm,
@@ -1618,29 +1396,23 @@ const styles = StyleSheet.create({
   verificationStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    justifyContent: 'space-between',
     marginTop: spacing.xs,
   },
-  verificationStatusText: {
-    fontSize: 13,
-    marginLeft: spacing.xs,
+  verificationText: {
+    fontSize: fonts.size.sm,
+    fontWeight: '500',
   },
   verifyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   verifyButtonText: {
     color: colors.white,
-    fontWeight: 'bold',
-    fontSize: 15,
-    marginLeft: spacing.xs,
+    fontSize: fonts.size.xs,
+    fontWeight: '600',
   },
   editFieldWrapRow: {
     flexDirection: 'row',
@@ -1727,6 +1499,595 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 8,
+  },
+  photoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: colors.black,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  photoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    marginRight: spacing.md,
+    position: 'relative',
+  },
+  photoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoPlaceholderText: {
+    fontSize: 12,
+    color: colors.text.light,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  photoEditOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  profilePhoto: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  profileRole: {
+    fontSize: fonts.size.md,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  memberSince: {
+    fontSize: 14,
+    color: colors.text.light,
+  },
+  verificationSection: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  verificationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  verificationItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  verificationLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  verificationBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
+  },
+  verifiedBadge: {
+    backgroundColor: colors.success,
+  },
+  unverifiedBadge: {
+    backgroundColor: colors.warning,
+  },
+  verificationBadgeText: {
+    fontSize: fonts.size.xs,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  verifyButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  verifyButtonText: {
+    color: colors.white,
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+  },
+  editFieldWrapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    width: '100%',
+  },
+  editLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  inputPwd: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    padding: spacing.md,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    width: '100%',
+    color: colors.text.primary,
+    paddingRight: 40,
+  },
+  pwdEyeIcon: {
+    position: 'absolute',
+    right: spacing.md,
+    top: spacing.md,
+    zIndex: 10,
+  },
+  pwdEyeIconCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    paddingHorizontal: spacing.sm,
+  },
+  editActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  cancelBtn: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+  },
+  cancelText: {
+    color: colors.error,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  saveBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  saveText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  editDivider: {
+    height: 1,
+    backgroundColor: colors.text.light,
+    marginVertical: spacing.md,
+    opacity: 0.3,
+  },
+  verificationMethodText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+  },
+  pwdModal: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: spacing.lg,
+    width: '90%',
+    shadowColor: colors.black,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  photoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: colors.black,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  photoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    marginRight: spacing.md,
+    position: 'relative',
+  },
+  photoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoPlaceholderText: {
+    fontSize: 12,
+    color: colors.text.light,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  photoEditOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  profilePhoto: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  profileRole: {
+    fontSize: fonts.size.md,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  memberSince: {
+    fontSize: 14,
+    color: colors.text.light,
+  },
+  verificationSection: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  verificationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  verificationItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  verificationLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  verificationBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
+  },
+  verifiedBadge: {
+    backgroundColor: colors.success,
+  },
+  unverifiedBadge: {
+    backgroundColor: colors.warning,
+  },
+  verificationBadgeText: {
+    fontSize: fonts.size.xs,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  verifyButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  verifyButtonText: {
+    color: colors.white,
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+  },
+  detailsSection: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  detailContent: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  detailLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  detailValue: {
+    fontSize: 18,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  editInput: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: spacing.md,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: colors.background,
+    marginBottom: spacing.xs,
+  },
+  preferencesSection: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  preferenceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  preferenceInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  preferenceLabel: {
+    fontSize: 16,
+    color: colors.text.secondary,
+    marginLeft: spacing.sm,
+  },
+  preferenceToggle: {
+    width: 40,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  preferenceActive: {
+    backgroundColor: colors.success,
+    borderColor: colors.success,
+  },
+  modalInput: {
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    padding: spacing.md,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    marginBottom: spacing.md,
+    color: colors.text.primary,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  modalCancelButton: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+  },
+  modalCancelButtonText: {
+    color: colors.error,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalConfirmButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  modalConfirmButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  retryButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  conflictSection: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  conflictHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  conflictHeaderText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primaryDark,
+    marginLeft: spacing.sm,
+  },
+  complaintButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    shadowColor: colors.black,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  complaintButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: spacing.sm,
+  },
+  complaintInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: spacing.md,
+    fontSize: fonts.size.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginTop: spacing.sm,
+  },
+  verifiedText: {
+    color: colors.success,
+    fontWeight: '600',
+  },
+  unverifiedText: {
+    color: colors.warning,
+    fontWeight: '600',
+  },
+  profileSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: colors.black,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  profilePhotoSection: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    marginRight: spacing.md,
+    position: 'relative',
+  },
+  profilePhotoContainer: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clientSince: {
+    fontSize: 14,
+    color: colors.text.light,
+  },
+  preferredMethod: {
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.md,
+    alignItems: 'center',
+  },
+  preferredMethodText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    fontWeight: '600',
+  },
+  allVerified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    backgroundColor: colors.success + '10',
+    borderRadius: 10,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  allVerifiedText: {
+    fontSize: 14,
+    color: colors.success,
+    fontWeight: '600',
+    marginLeft: spacing.xs,
   },
 });
 

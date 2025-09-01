@@ -451,6 +451,7 @@ export default function App() {
     screens = (
       <>
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
         <Stack.Screen name="EmailVerification" component={require('./src/screens/auth/EmailVerificationScreen').default} />
         <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
         <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />

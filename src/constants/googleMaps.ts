@@ -1,7 +1,9 @@
+import { EXPO_PUBLIC_GOOGLE_MAPS_API_KEY } from '@env';
+
 // Google Maps API Configuration
 export const GOOGLE_MAPS_CONFIG = {
   // Replace with your actual API key from Google Cloud Console
-  API_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY_HERE',
+  API_KEY: EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY_HERE',
 
   // Default map settings
   DEFAULT_REGION: {
@@ -54,18 +56,18 @@ export const GOOGLE_MAPS_ENDPOINTS = {
 export const getGoogleMapsApiKey = () => {
   // In production, you should store this securely
   // For now, we'll use an environment variable or the config
-  const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_CONFIG.API_KEY;
-  
+  const apiKey = EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_CONFIG.API_KEY;
+
   // Better debugging
   if (apiKey && apiKey !== 'YOUR_GOOGLE_MAPS_API_KEY_HERE') {
     console.log('🔑 Google Maps API Key loaded: ✅ Present');
     console.log('🔑 API Key preview:', apiKey.substring(0, 10) + '...');
   } else {
     console.log('🔑 Google Maps API Key loaded: ❌ Missing or Invalid');
-    console.log('🔑 Environment variable:', process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
+    console.log('🔑 Environment variable:', EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
     console.log('🔑 Config fallback:', GOOGLE_MAPS_CONFIG.API_KEY);
   }
-  
+
   return apiKey;
 };
 

@@ -19,6 +19,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
+import { PRODUCT_SUGGESTIONS } from '../../constants/productSuggestions';
 import spacing from '../../constants/spacing';
 import { useConsolidations } from '../../context/ConsolidationContext';
 import FindTransporters from '../FindTransporters';
@@ -40,10 +41,7 @@ const SERVICES = [
     },
 ];
 
-const PRODUCT_SUGGESTIONS = [
-    'Maize', 'Fruits', 'Beans', 'Wheat', 'Rice', 'Vegetables', 'Coffee', 'Tea', 'Livestock',
-    'Machinery', 'Electronics', 'Furniture', 'Clothing', 'Chemicals', 'Other',
-];
+// Product suggestions source moved to constants/productSuggestions.ts
 
 const CARGO_SPECIALS = [
     { key: 'fragile', label: 'Fragile' },
@@ -97,7 +95,7 @@ interface RequestFormProps {
 }
 
 const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isModal = false }) => {
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const { consolidations, addConsolidation, removeConsolidation, clearConsolidations } = useConsolidations();
 
     // Form state
@@ -106,6 +104,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
     const [fromLocation, setFromLocation] = useState('');
     const [toLocation, setToLocation] = useState('');
     const [productType, setProductType] = useState('');
+    const [filteredProducts, setFilteredProducts] = useState<string[]>(PRODUCT_SUGGESTIONS);
     const [weight, setWeight] = useState('');
     const [urgency, setUrgency] = useState<'low' | 'medium' | 'high'>('medium');
     const [pickupDate, setPickupDate] = useState(new Date());
@@ -536,10 +535,50 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                             <TextInput
                                 style={styles.input}
                                 value={productType}
-                                onChangeText={setProductType}
+                                onChangeText={(text) => {
+                                    setProductType(text);
+                                    if (text.trim().length === 0) {
+                                        setShowProductSuggestions(false);
+                                        setFilteredProducts(PRODUCT_SUGGESTIONS);
+                                    } else {
+                                        const lower = text.toLowerCase();
+                                        const startsWith = PRODUCT_SUGGESTIONS.filter(p => p.toLowerCase().startsWith(lower));
+                                        const contains = PRODUCT_SUGGESTIONS.filter(p => !p.toLowerCase().startsWith(lower) && p.toLowerCase().includes(lower));
+                                        const results = [...startsWith, ...contains].slice(0, 8);
+                                        setFilteredProducts(results);
+                                        setShowProductSuggestions(true);
+                                    }
+                                }}
+                                onFocus={() => {
+                                    if (productType.trim().length === 0) {
+                                        setFilteredProducts(PRODUCT_SUGGESTIONS.slice(0, 8));
+                                    }
+                                    setShowProductSuggestions(true);
+                                }}
+                                onBlur={() => {
+                                    // Delay hiding to allow onPress to fire
+                                    setTimeout(() => setShowProductSuggestions(false), 150);
+                                }}
                                 placeholder="Enter product type (e.g., Maize, Electronics, Furniture)"
                                 placeholderTextColor={colors.text.light}
                             />
+
+                            {showProductSuggestions && filteredProducts.length > 0 && (
+                                <View style={styles.suggestionsContainer}>
+                                    {filteredProducts.map((item) => (
+                                        <TouchableOpacity
+                                            key={item}
+                                            style={styles.suggestionItem}
+                                            onPress={() => {
+                                                setProductType(item);
+                                                setShowProductSuggestions(false);
+                                            }}
+                                        >
+                                            <Text style={styles.suggestionText}>{item}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
                         </View>
 
                         <View style={styles.fieldGroup}>

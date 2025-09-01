@@ -1,169 +1,300 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { apiRequest } from '../utils/api';
 
-interface ActivityItem {
+interface RequestItem {
   id: string;
-  type: 'booking' | 'payment' | 'tracking' | 'support' | 'subscription';
-  title: string;
-  description: string;
-  timestamp: string;
-  status: 'pending' | 'completed' | 'failed' | 'in_progress';
-  amount?: number;
-  reference?: string;
+  type: 'instant' | 'booking';
+  status: string;
+  fromLocation: string;
+  toLocation: string;
+  productType: string;
+  weight: string;
+  createdAt: string;
+  transporter: {
+    name: string;
+    phone: string;
+    profilePhoto?: string;
+    photo?: string;
+    rating?: number;
+    experience?: string;
+    availability?: string;
+    tripsCompleted?: number;
+    status?: string;
+  } | null;
 }
 
+type NavigationProp = {
+  navigate: (screen: string, params?: any) => void;
+};
+
+// Mock data for shipper requests - no consolidation
+const mockRequests: RequestItem[] = [
+  {
+    id: 'REQ001',
+    type: 'instant',
+    status: 'in_transit',
+    fromLocation: 'Nairobi',
+    toLocation: 'Mombasa',
+    productType: 'Electronics',
+    weight: '500kg',
+    createdAt: '2024-01-15T10:30:00Z',
+    transporter: {
+      name: 'John Doe',
+      phone: '+254712345678',
+      rating: 4.8,
+      tripsCompleted: 45,
+      availability: 'Available'
+    },
+  },
+  {
+    id: 'REQ002',
+    type: 'booking',
+    status: 'pending',
+    fromLocation: 'Nakuru',
+    toLocation: 'Kisumu',
+    productType: 'Agricultural',
+    weight: '1000kg',
+    createdAt: '2024-01-14T14:20:00Z',
+    transporter: null,
+  },
+  {
+    id: 'REQ003',
+    type: 'instant',
+    status: 'delivered',
+    fromLocation: 'Thika',
+    toLocation: 'Nairobi CBD',
+    productType: 'Textiles',
+    weight: '800kg',
+    createdAt: '2024-01-13T09:15:00Z',
+    transporter: {
+      name: 'FastTrack Logistics',
+      phone: '+254700111222',
+      rating: 4.6,
+      tripsCompleted: 120,
+      availability: 'Available'
+    },
+  },
+];
+
 const ActivityScreen = () => {
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const navigation = useNavigation<NavigationProp>();
+  const [requests, setRequests] = useState<RequestItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('all');
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('all'); // all, instant, booking
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadActivities();
+    loadRequests();
   }, []);
 
-  const loadActivities = async () => {
+  const loadRequests = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch activities from backend API
-      const data = await apiRequest('/activity/list');
+      // TODO: Replace with actual API call
+      // const response = await apiRequest('/shipper/requests');
+      // setRequests(response.data);
 
-      if (Array.isArray(data)) {
-        setActivities(data);
-      } else {
-        setActivities([]);
-      }
+      // For now, use mock data
+      setTimeout(() => {
+        setRequests(mockRequests);
+        setLoading(false);
+      }, 1000);
     } catch (err: any) {
-      console.error('Error loading activities:', err);
-      setError(err.message || 'Failed to load activities');
-      setActivities([]);
+      console.error('Error loading requests:', err);
+      setError(err.message || 'Failed to load requests');
+      setRequests([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'booking':
-        return 'truck-delivery';
-      case 'payment':
-        return 'credit-card';
-      case 'tracking':
-        return 'map-marker-path';
-      case 'support':
-        return 'headset';
-      case 'subscription':
-        return 'star';
-      default:
-        return 'information';
-    }
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadRequests();
+    setRefreshing(false);
+  };
+
+  const getFilteredRequests = () => {
+    if (activeTab === 'all') return requests;
+    return requests.filter(req => req.type === activeTab);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
-        return colors.success;
-      case 'pending':
-        return colors.warning;
-      case 'failed':
-        return colors.error;
-      case 'in_progress':
-        return colors.primary;
-      default:
-        return colors.text.secondary;
+      case 'pending': return colors.warning;
+      case 'confirmed': return colors.primary;
+      case 'in_transit': return colors.secondary;
+      case 'delivered': return colors.success;
+      case 'cancelled': return colors.error;
+      default: return colors.text.secondary;
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'Completed';
-      case 'pending':
-        return 'Pending';
-      case 'failed':
-        return 'Failed';
-      case 'in_progress':
-        return 'In Progress';
-      default:
-        return 'Unknown';
+      case 'pending': return 'clock-outline';
+      case 'confirmed': return 'check-circle-outline';
+      case 'in_transit': return 'truck-delivery';
+      case 'delivered': return 'check-circle';
+      case 'cancelled': return 'close-circle';
+      default: return 'help-circle-outline';
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    try {
-      const date = new Date(timestamp);
-      const now = new Date();
-      const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-      if (diffInHours < 1) {
-        return 'Just now';
-      } else if (diffInHours < 24) {
-        return `${Math.floor(diffInHours)}h ago`;
-      } else if (diffInHours < 168) {
-        return `${Math.floor(diffInHours / 24)}d ago`;
-      } else {
-        return date.toLocaleDateString();
-      }
-    } catch {
-      return 'Unknown time';
+  const handleTrackRequest = (request: RequestItem) => {
+    if (request.type === 'instant') {
+      navigation.navigate('TripDetailsScreen', {
+        booking: request,
+        isInstant: true
+      });
+    } else {
+      navigation.navigate('TrackingScreen', {
+        booking: request,
+        isConsolidated: false
+      });
     }
   };
 
-  const filtered = activities.filter((a) => {
-    if (filter === 'all') return true;
-    return a.type === filter;
-  });
+  const handleViewMap = (request: RequestItem) => {
+    navigation.navigate('MapViewScreen', {
+      booking: request,
+      isConsolidated: false
+    });
+  };
 
-  const renderActivityItem = ({ item }: { item: ActivityItem }) => (
-    <TouchableOpacity style={styles.activityItem}>
-      <View style={styles.activityIcon}>
-        <MaterialCommunityIcons
-          name={getActivityIcon(item.type) as any}
-          size={24}
-          color={colors.primary}
-        />
+  const renderRequestItem = ({ item }: { item: RequestItem }) => (
+    <View style={styles.requestCard}>
+      <View style={styles.requestHeader}>
+        <View style={styles.requestId}>
+          <Text style={styles.requestIdText}>#{item.id}</Text>
+        </View>
+        <View style={styles.statusBadge}>
+          <MaterialCommunityIcons
+            name={getStatusIcon(item.status)}
+            size={16}
+            color={getStatusColor(item.status)}
+          />
+          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+            {item.status.replace('_', ' ').toUpperCase()}
+          </Text>
+        </View>
       </View>
 
-      <View style={styles.activityContent}>
-        <View style={styles.activityHeader}>
-          <Text style={styles.activityTitle}>{item.title}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-              {getStatusText(item.status)}
+      <View style={styles.requestDetails}>
+        <View style={styles.routeInfo}>
+          <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
+          <View style={styles.routeText}>
+            <Text style={styles.routeLabel}>Route</Text>
+            <Text style={styles.routeValue}>
+              {item.fromLocation} → {item.toLocation}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.activityDescription}>{item.description}</Text>
+        <View style={styles.productInfo}>
+          <MaterialCommunityIcons name="package-variant" size={20} color={colors.secondary} />
+          <View style={styles.productText}>
+            <Text style={styles.productLabel}>Product</Text>
+            <Text style={styles.productValue}>
+              {item.productType}
+            </Text>
+          </View>
+        </View>
 
-        <View style={styles.activityFooter}>
-          <Text style={styles.timestamp}>{formatTimestamp(item.timestamp)}</Text>
-          {item.amount && (
-            <Text style={styles.amount}>KES {item.amount.toLocaleString()}</Text>
-          )}
-          {item.reference && (
-            <Text style={styles.reference}>Ref: {item.reference}</Text>
-          )}
+        <View style={styles.weightInfo}>
+          <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.tertiary} />
+          <View style={styles.weightText}>
+            <Text style={styles.weightLabel}>Weight</Text>
+            <Text style={styles.weightValue}>{item.weight}</Text>
+          </View>
+        </View>
+
+        {item.transporter && (
+          <View style={styles.transporterInfo}>
+            <View style={styles.transporterHeader}>
+              <MaterialCommunityIcons name="account-tie" size={20} color={colors.success} />
+              <Text style={styles.transporterLabel}>Transporter Details</Text>
+            </View>
+            <View style={styles.transporterDetails}>
+              <View style={styles.transporterProfile}>
+                <Image
+                  source={{ uri: item.transporter?.profilePhoto || item.transporter?.photo || 'https://via.placeholder.com/40x40?text=TRUK' }}
+                  style={styles.transporterPhoto}
+                />
+                <View style={styles.transporterBasic}>
+                  <Text style={styles.transporterName}>{item.transporter.name}</Text>
+                  <View style={styles.transporterRating}>
+                    <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 2 }} />
+                    <Text style={styles.ratingText}>{item.transporter?.rating || 'N/A'}</Text>
+                    <Text style={styles.tripsText}> • {item.transporter?.tripsCompleted || 0} trips</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={styles.transporterMeta}>
+                <Text style={styles.transporterMetaText}>
+                  {item.transporter?.experience || 'N/A'} • {item.transporter?.availability || 'N/A'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.requestMeta}>
+          <Text style={styles.requestDate}>
+            Created: {new Date(item.createdAt).toLocaleDateString()}
+          </Text>
+          <Text style={styles.requestType}>
+            {item.type.charAt(0).toUpperCase() + item.type.slice(1)} Request
+          </Text>
         </View>
       </View>
-    </TouchableOpacity>
-  );
 
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <MaterialCommunityIcons name="clipboard-text" size={64} color={colors.text.light} />
-      <Text style={styles.emptyStateTitle}>No Activities Yet</Text>
-      <Text style={styles.emptyStateSubtitle}>
-        Your activity history will appear here once you start using TRUKAPP services.
-      </Text>
+      <View style={styles.requestActions}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.trackButton]}
+          onPress={() => handleTrackRequest(item)}
+        >
+          <MaterialCommunityIcons name="map-marker-radius" size={18} color={colors.white} />
+          <Text style={styles.trackButtonText}>Track</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.mapButton]}
+          onPress={() => handleViewMap(item)}
+        >
+          <MaterialCommunityIcons name="map" size={18} color={colors.primary} />
+          <Text style={styles.mapButtonText}>Map</Text>
+        </TouchableOpacity>
+
+        {item.transporter && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.contactButton]}
+            onPress={() => Alert.alert('Contact', `Call ${item.transporter?.name} at ${item.transporter?.phone}`)}
+          >
+            <MaterialCommunityIcons name="phone" size={18} color={colors.secondary} />
+            <Text style={styles.contactButtonText}>Contact</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 
@@ -174,8 +305,8 @@ const ActivityScreen = () => {
           <Text style={styles.headerTitle}>Activity</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <MaterialCommunityIcons name="loading" size={48} color={colors.primary} />
-          <Text style={styles.loadingText}>Loading activities...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading your transport requests...</Text>
         </View>
       </SafeAreaView>
     );
@@ -189,9 +320,9 @@ const ActivityScreen = () => {
         </View>
         <View style={styles.errorContainer}>
           <MaterialCommunityIcons name="alert-circle" size={64} color={colors.error} />
-          <Text style={styles.errorTitle}>Failed to Load Activities</Text>
+          <Text style={styles.errorTitle}>Failed to Load Requests</Text>
           <Text style={styles.errorSubtitle}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadActivities}>
+          <TouchableOpacity style={styles.retryButton} onPress={loadRequests}>
             <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
@@ -202,42 +333,73 @@ const ActivityScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Activity</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={loadActivities}>
+        <Text style={styles.headerTitle}>My Requests</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={loadRequests}>
           <MaterialCommunityIcons name="refresh" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        {['all', 'booking', 'payment', 'tracking', 'support', 'subscription'].map((filterType) => (
-          <TouchableOpacity
-            key={filterType}
-            style={[
-              styles.filterTab,
-              filter === filterType && styles.filterTabActive
-            ]}
-            onPress={() => setFilter(filterType)}
-          >
-            <Text style={[
-              styles.filterTabText,
-              filter === filterType && styles.filterTabTextActive
-            ]}>
-              {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'all' && styles.activeTab]}
+          onPress={() => setActiveTab('all')}
+        >
+          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>All</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'instant' && styles.activeTab]}
+          onPress={() => setActiveTab('instant')}
+        >
+          <Text style={[styles.tabText, activeTab === 'instant' && styles.activeTabText]}>Instant</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'booking' && styles.activeTab]}
+          onPress={() => setActiveTab('booking')}
+        >
+          <Text style={[styles.tabText, activeTab === 'booking' && styles.activeTabText]}>Bookings</Text>
+        </TouchableOpacity>
       </View>
 
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity
+          style={styles.quickActionButton}
+          onPress={() => navigation.navigate('ServiceRequest')}
+        >
+          <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
+          <Text style={styles.quickActionText}>New Transport Request</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Requests List */}
       <FlatList
-        data={filtered}
-        renderItem={renderActivityItem}
+        data={getFilteredRequests()}
+        renderItem={renderRequestItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={renderEmptyState}
-        refreshing={loading}
-        onRefresh={loadActivities}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="package-variant" size={64} color={colors.text.light} />
+            <Text style={styles.emptyTitle}>No transport requests found</Text>
+            <Text style={styles.emptySubtitle}>
+              {activeTab === 'all'
+                ? 'Create your first transport request to get started'
+                : `No ${activeTab} requests available`
+              }
+            </Text>
+            <TouchableOpacity
+              style={styles.createButton}
+              onPress={() => navigation.navigate('ServiceRequest')}
+            >
+              <Text style={styles.createButtonText}>Create Transport Request</Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -334,13 +496,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 12,
   },
   statusText: {
     fontSize: fonts.size.xs,
     fontWeight: '600',
+    marginLeft: spacing.xs,
   },
   activityDescription: {
     fontSize: fonts.size.sm,
@@ -423,6 +589,321 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryButtonText: {
+    color: colors.white,
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+  },
+  requestCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  requestHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  requestId: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  requestIdText: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  statusText: {
+    fontSize: fonts.size.xs,
+    fontWeight: '600',
+    marginLeft: spacing.xs,
+  },
+
+
+  requestDetails: {
+    marginBottom: spacing.md,
+  },
+  routeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  routeText: {
+    marginLeft: spacing.sm,
+  },
+  routeLabel: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  routeValue: {
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  productInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  productText: {
+    marginLeft: spacing.sm,
+  },
+  productLabel: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  productValue: {
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  weightInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  weightText: {
+    marginLeft: spacing.sm,
+  },
+  weightLabel: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  weightValue: {
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  consolidatedDetails: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  consolidatedTitle: {
+    fontSize: fonts.size.sm,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  consolidatedItem: {
+    marginBottom: spacing.xs,
+  },
+  consolidatedItemText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    lineHeight: 20,
+  },
+  transporterInfo: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  transporterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  transporterLabel: {
+    fontSize: fonts.size.sm,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+  },
+  transporterDetails: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+  transporterProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  transporterPhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: spacing.sm,
+  },
+  transporterBasic: {
+    flex: 1,
+  },
+  transporterName: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  transporterRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  ratingText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  tripsText: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    marginLeft: spacing.xs,
+  },
+  transporterMeta: {
+    marginTop: spacing.xs,
+  },
+  transporterMetaText: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+  },
+  requestMeta: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  requestDate: {
+    fontSize: fonts.size.xs,
+    color: colors.text.light,
+    marginBottom: spacing.xs,
+  },
+  requestType: {
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  requestActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: spacing.sm,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    flex: 1,
+  },
+  trackButton: {
+    backgroundColor: colors.primary,
+    marginRight: spacing.sm,
+  },
+  trackButtonText: {
+    color: colors.white,
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+  },
+  mapButton: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  mapButtonText: {
+    color: colors.primary,
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+  },
+  contactButton: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.secondary,
+  },
+  contactButtonText: {
+    color: colors.secondary,
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.text.light + '20',
+  },
+  tab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+  },
+  activeTab: {
+    backgroundColor: colors.primary,
+  },
+  tabText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: colors.white,
+    fontWeight: 'bold',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.text.light + '20',
+  },
+  quickActionButton: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  quickActionText: {
+    color: colors.white,
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    marginTop: spacing.xs,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xl * 2,
+  },
+  emptyTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  emptySubtitle: {
+    fontSize: fonts.size.md,
+    color: colors.text.light,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  createButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+  },
+  createButtonText: {
     color: colors.white,
     fontSize: fonts.size.md,
     fontWeight: '600',

@@ -1,3 +1,4 @@
+import { EXPO_PUBLIC_GOOGLE_MAPS_API_KEY } from '@env';
 import { GOOGLE_MAPS_ENDPOINTS, buildGoogleMapsUrl } from '../constants/googleMaps';
 
 export interface Location {
@@ -272,7 +273,7 @@ class GoogleMapsService {
   }
 
   /**
-   * Search for places using text search
+   * Search for places using Google Places API
    */
   async searchPlaces(
     query: string,
@@ -305,43 +306,28 @@ class GoogleMapsService {
       console.log('🔍 Places API response status:', data.status);
       console.log('🔍 Places API response data:', data);
 
-      if (data.status !== 'OK') {
-        // Log detailed error information
-        console.error('🔍 Places API error details:', {
-          status: data.status,
-          error_message: data.error_message,
-          status_code: data.status_code,
-          url: url,
-        });
-
-        // Don't treat ZERO_RESULTS as an error - it's a normal response
-        if (data.status === 'ZERO_RESULTS') {
-          console.log('🔍 No places found for query:', query);
-          return [];
-        }
-
-        throw new Error(
-          `Places API error: ${data.status}${data.error_message ? ` - ${data.error_message}` : ''}`,
-        );
+      if (data.status === 'OK' && data.results) {
+        return data.results.map((place: any) => ({
+          placeId: place.place_id,
+          name: place.name,
+          address: place.formatted_address,
+          location: {
+            latitude: place.geometry.location.lat,
+            longitude: place.geometry.location.lng,
+          },
+          types: place.types || [],
+          rating: place.rating,
+          photos: place.photos?.map((photo: any) => photo.photo_reference) || [],
+        }));
+      } else if (data.status === 'ZERO_RESULTS') {
+        console.log('🔍 No places found for query:', query);
+        return [];
+      } else {
+        console.error('🔍 Places API error:', data.status, data.error_message);
+        throw new Error(`Places API error: ${data.status} - ${data.error_message}`);
       }
-
-      return data.results.map((place: any) => ({
-        placeId: place.place_id,
-        name: place.name,
-        address: place.formatted_address,
-        location: {
-          latitude: place.geometry.location.lat,
-          longitude: place.geometry.location.lng,
-        },
-        types: place.types,
-        rating: place.rating,
-        photos: place.photos?.map(
-          (photo: any) =>
-            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`,
-        ),
-      }));
-    } catch (error) {
-      console.error('Error searching places:', error);
+    } catch (error: any) {
+      console.error('🔍 Error searching places:', error);
       throw error;
     }
   }
@@ -382,7 +368,7 @@ class GoogleMapsService {
         rating: place.rating,
         photos: place.photos?.map(
           (photo: any) =>
-            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`,
+            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`,
         ),
       };
     } catch (error) {
