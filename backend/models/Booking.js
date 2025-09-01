@@ -81,6 +81,15 @@ const Booking = {
     const snapshot = await db.collection('bookings').where('transporterId', '==', transporterId).get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
+  async getAllAvailable() {
+    const snapshot = await db.collection('bookings').where('status', '==', 'pending').where('transporterId', '==', null).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getOnmyway() {
+    const snapshot = await db.collection('bookings').where('toLocation', '==', 'onmyway').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = Booking;

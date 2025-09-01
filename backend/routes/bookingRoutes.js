@@ -191,6 +191,40 @@ const bookingController = require('../controllers/bookingController');
 
 /**
  * @swagger
+ * /api/bookings/requests:
+ *   get:
+ *     summary: Get available bookings for transporters, businesses
+ *     description: Returns a list of available bookings for transporters, businesses.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of available bookings for transporters
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/requests', authenticateToken, requireRole(['transporter', 'business']), bookingController.getAllAvailableBookings);
+
+/**
+ * @swagger
+ * /api/bookings/transporters/route-loads:
+ *   get:
+ *     summary: Get available bookings for transporters
+ *     description: Returns a list of available bookings for transporters.
+ *     tags: [Transporters]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of available bookings for transporters
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/transporters/route-loads', authenticateToken, requireRole('transporter'), bookingController.getTransporterRouteLoads);
+
+/**
+ * @swagger
  * /api/bookings:
  *   get:
  *     summary: Get all bookings

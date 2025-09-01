@@ -6,6 +6,7 @@ const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const Notification = require("../models/Notification");
 const MatchingService = require('../services/matchingService');
 const { formatTimestamps } = require('../utils/formatData');
+const admin = require("../config/firebase");
 
 exports.createTransporter = async (req, res) => {
   try {
@@ -310,6 +311,75 @@ exports.getAvailableBookings = async (req, res) => {
     res.status(500).json({
       success: false,
       message: `Error retrieving available bookings: ${error.message}`,
+    });
+  }
+};
+
+exports.updateLocation = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { latitude, longitude } = req.body;
+
+    // Validate input
+    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or missing latitude/longitude',
+      });
+    }
+
+    // Get transporter profile
+    const transporterSnapshot = await Transporter.get(userId);
+
+    if (transporterSnapshot.empty) {
+      return res.status(404).json({
+        success: false,
+        message: 'Transporter profile not found',
+      });
+    }
+
+    const transporterData = transporterSnapshot;
+
+    // Create new location entry
+    const newLocation = {
+      location: {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+      },
+      timestamp: admin.firestore.Timestamp.now(),
+    };
+
+    // Update currentRoute with time-based pruning (keep last 48 hours)
+    const currentRoute = transporterData.currentRoute || [];
+    const maxAgeHours = 48;
+    const cutoffTime = admin.firestore.Timestamp.fromMillis(
+      Date.now() - maxAgeHours * 60 * 60 * 1000
+    );
+    const filteredRoute = currentRoute.filter(
+      (entry) => entry.timestamp.toMillis() >= cutoffTime.toMillis()
+    );
+    filteredRoute.push(newLocation);
+
+    // Prepare updates
+    const updates = {
+      currentRoute: filteredRoute,
+      lastKnownLocation: newLocation.location
+    };
+
+    // Update transporter document
+    await Transporter.update(userId, updates);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Location updated successfully',
+      location: newLocation,
+    });
+
+  } catch (error) {
+    console.error('Error updating location:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
     });
   }
 };

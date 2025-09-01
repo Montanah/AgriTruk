@@ -11,15 +11,11 @@ const {
   getAvailableBookings,
   getAvailableTransporters,
   toggleAvailability,
-  updateRating
+  updateRating,
+  updateLocation
 } = require('../controllers/transporterController');
 
-const {
-  approveTransporter,
-  rejectTransporter,
-  deleteTransporter,
-  reviewTransporter
-} = require('../controllers/adminController');
+const { deleteTransporter, reviewTransporter } = require('../controllers/adminController');
 
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); 
@@ -390,4 +386,33 @@ router.patch('/:transporterId/availability', authenticateToken, requireRole('tra
  *         description: Internal server error
  */
 router.patch('/:transporterId/rating', authenticateToken, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), updateRating);
+
+/**
+ * @swagger
+ * /api/transporters/update-location:
+ *   post:
+ *     summary: Update transporter location
+ *     description: Allows a transporter to update their location.
+ *     tags: [Transporters]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               latitude:
+ *                 type: number
+ *               longitude:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Location updated
+ *       400:
+ *         description: Invalid input
+ */
+router.post('/update-location', authenticateToken, requireRole('transporter'), updateLocation);
+
 module.exports = router;

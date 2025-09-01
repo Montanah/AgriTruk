@@ -4,6 +4,8 @@ const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const { logActivity } = require('../utils/activityLogger');
 const { formatTimestamps } = require('../utils/formatData');
+const geolib = require('geolib');
+const Transporter = require('../models/Transporter');
 
 exports.createBooking = async (req, res) => {
   try {
@@ -290,5 +292,120 @@ exports.getBookingsByTransporterId = async (req, res) => {
   } catch (err) {
     console.error('Get bookings by transporter ID error:', err);
     res.status(500).json({ message: 'Failed to fetch bookings' });
+  }
+};
+
+exports.getAllAvailableBookings = async (req, res) => {
+  try {
+    const availableBookings = await Booking.getAllAvailable();
+    await logActivity(req.user.uid, 'get_all_available_bookings', req);
+    res.status(200).json({
+      message: 'Available bookings retrieved successfully', 
+      availableBookings: formatTimestamps(availableBookings)
+    });
+  } catch (err) {
+    console.error('Get all available bookings error:', err);
+    res.status(500).json({ message: 'Failed to fetch available bookings' });
+  }
+};
+
+exports.getTransporterRouteLoads = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user.uid;
+
+    const transporter = await Transporter.get(userId); 
+    if (!transporter) {
+      return res.status(404).json({ message: 'Transporter not found' });
+    }
+    
+    if (!transporter.currentRoute || !transporter.currentRoute.length === 0) {
+      return res.status(404).json({ message: 'Transporter has no route' });
+    }
+
+    if (!transporter.vehicleCapacity) {
+      return res.status(404).json({ message: 'Transporter has no vehicle capacity' });
+    }
+
+    const bookingsSnapshot = await Booking.getAllAvailable();
+
+    const routeLoads = [];
+
+    // Filter bookings based on route compatibility
+    for (const doc of bookingsSnapshot) {
+      const booking = doc;
+
+      // Route compatibility check
+      let isRouteCompatible = false;
+      
+      // Check if transporter has current route
+      if (transporter.currentRoute && transporter.currentRoute.length > 0) {
+        const lastKnownLocation = transporter.lastKnownLocation || 
+          transporter.currentRoute[transporter.currentRoute.length - 1].location;
+        
+        // Calculate distance between transporter's last known location and booking pickup
+        if (lastKnownLocation && booking.fromLocation) {
+          const distance = geolib.getDistance(
+            {
+              latitude: lastKnownLocation.latitude,
+              longitude: lastKnownLocation.longitude
+            },
+            {
+              latitude: booking.fromLocation.latitude,
+              longitude: booking.fromLocation.longitude
+            }
+          );
+          
+          // Consider routes within 50km as compatible
+          isRouteCompatible = distance <= 50000;
+        }
+      } else {
+        // If no current route, consider all bookings as potentially compatible
+        isRouteCompatible = true;
+      }
+
+      // Capacity compatibility check
+      const isCapacityCompatible = 
+        (!booking.weightKg || !transporter.vehicleCapacity || 
+         booking.weightKg <= transporter.vehicleCapacity) &&
+        (!booking.needsRefrigeration || transporter.refrigerated) &&
+        (!booking.humidyControl || transporter.humidityControl);
+
+      // Schedule compatibility check
+      let isScheduleCompatible = true;
+      if (booking.pickUpDate) {
+        const now = new Date();
+        const pickupDate = booking.pickUpDate.toDate();
+        // Check if pickup is within next 24 hours
+        const timeDiff = pickupDate.getTime() - now.getTime();
+        isScheduleCompatible = timeDiff >= 0 && timeDiff <= 24 * 60 * 60 * 1000;
+      }
+
+      // Add to routeLoads if all conditions met
+      if (isRouteCompatible && isCapacityCompatible && isScheduleCompatible) {
+        routeLoads.push({
+          bookingId: booking.bookingId,
+          fromLocation: booking.fromLocation,
+          toLocation: booking.toLocation,
+          weightKg: booking.weightKg,
+          needsRefrigeration: booking.needsRefrigeration,
+          humidyControl: booking.humidyControl,
+          pickUpDate: booking.pickUpDate,
+          productType: booking.productType,
+          cost: booking.cost
+        });
+      }
+    }
+    await logActivity(req.user.uid, 'get_route_loads', req);
+    return res.status(200).json({
+      success: true,
+      routeLoads: formatTimestamps(routeLoads)
+    });
+
+  } catch (error) {
+    console.error('Error fetching route loads:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
   }
 };
