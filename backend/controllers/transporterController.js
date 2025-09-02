@@ -7,6 +7,7 @@ const Notification = require("../models/Notification");
 const MatchingService = require('../services/matchingService');
 const { formatTimestamps } = require('../utils/formatData');
 const admin = require("../config/firebase");
+const Action = require('../models/Action');
 
 exports.createTransporter = async (req, res) => {
   try {
@@ -158,6 +159,18 @@ exports.createTransporter = async (req, res) => {
       message: `You created a transporter. Transporter ID: ${transporter.transporterId}`,
       userId: req.user.uid,
       userType: "user",
+    });
+
+    await Action.create({
+      type: "transporter_review",
+      entityId: uid,
+      priority: "high",
+      metadata: {
+        transporterType: transporterType,
+        Name: driverName,
+      },
+      status: "Needs Approval",
+      message: 'New transporter needs approval',
     });
 
     res.status(201).json({
@@ -383,3 +396,136 @@ exports.updateLocation = async (req, res) => {
     });
   }
 };
+
+exports.uploadDocuments = async (req, res) => {
+  try {
+    const transporterId = req.user.uid;
+
+    if (!req.files || Object.keys(req.files).length === 0) {
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+
+    // Fetch transporter
+    const transporter = await Transporter.get(transporterId);
+    let updateData = {};
+
+    // Keep existing vehicle images
+    let existingVehicleImages = transporter.vehicleImagesUrl || [];
+
+    // Track if sensitive docs changed
+    let sensitiveDocsChanged = false;
+
+    let changedFields = []
+
+    const uploadTasks = Object.values(req.files).map(async file => {
+      const fieldName = file.fieldname;
+      const publicId = await uploadImage(file.path);
+
+      if (publicId) {
+        switch (fieldName) {
+          case 'dlFile':
+            updateData.driverLicense = publicId;       // replace license
+            updateData.driverLicenseapproved = false;  // needs re-approval
+            sensitiveDocsChanged = true;
+            changedFields.push('Driver License');
+            break;
+          case 'insuranceFile':
+            updateData.insuranceUrl = publicId;        // replace insurance
+            updateData.insuranceapproved = false;      // needs re-approval
+            sensitiveDocsChanged = true;
+            changedFields.push('Insurance');
+            break;
+          case 'profilePhoto':
+            updateData.driverProfileImage = publicId;  // replace profile
+            break;
+          case 'vehiclePhoto':
+            existingVehicleImages.push(publicId);      // append vehicle image
+            updateData.vehicleImagesUrl = existingVehicleImages;
+            break;
+          case 'idFile':
+            updateData.driverIdUrl = publicId;         // replace ID
+            updateData.idapproved = false;             // needs re-approval
+            sensitiveDocsChanged = true;
+            changedFields.push('ID');
+            break;
+          default:
+            console.log(`Ignoring unexpected field: ${fieldName}`);
+        }
+      }
+
+      fs.unlinkSync(file.path);
+    });
+
+    await Promise.all(uploadTasks);
+
+    // If any sensitive doc changed, set transporter status to renewal
+    if (sensitiveDocsChanged) {
+      updateData.status = 'renewal';
+
+      await Action.create({
+        type: 'transporter_review',
+        entityId: { id: transporterId, email: transporter.email },
+        priority: 'high',
+        metadata : {
+          changedFields,
+        },
+        message: `Transporter ${transporter.displayName} updated sensitive documents: ${changedFields.join(', ')}`
+      });
+    }
+
+    // Update transporter root fields
+    await Transporter.update(transporterId, updateData);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Documents updated successfully',
+      updateData,
+    });
+  } catch (error) {
+    console.error('Error uploading documents:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
+
+exports.deleteVehicleImage = async (req, res) => {
+  try {
+    const transporterId = req.user.uid;
+    const { imageUrl } = req.body; // client sends the image URL to delete
+
+    if (!imageUrl) {
+      return res.status(400).json({ success: false, message: 'Image URL is required' });
+    }
+
+    // Fetch transporter
+    const transporter = await Transporter.get(transporterId);
+    let vehicleImages = transporter.vehicleImagesUrl || [];
+
+    // Check if image exists
+    if (!vehicleImages.includes(imageUrl)) {
+      return res.status(404).json({ success: false, message: 'Image not found in vehicleImagesUrl' });
+    }
+
+    // Remove image
+    vehicleImages = vehicleImages.filter(url => url !== imageUrl);
+
+    // Update Firestore
+    await Transporter.update(transporterId, { vehicleImagesUrl: vehicleImages });
+
+    // Optional: also remove from Cloudinary if you want
+    // const publicId = extractPublicId(imageUrl);
+    // await cloudinary.uploader.destroy(publicId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Vehicle image deleted successfully',
+      vehicleImagesUrl: vehicleImages,
+    });
+  } catch (error) {
+    console.error('Error deleting vehicle image:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+

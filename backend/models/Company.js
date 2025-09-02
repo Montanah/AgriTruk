@@ -26,7 +26,7 @@ const Company = {
 
   async get(companyId) {
     const doc = await db.collection('companies').doc(companyId).get();
-    if (!doc.exists) throw new Error('Company not found');
+    if (!doc.exists) return console.log('Company not found');
     return { id: doc.id, ...doc.data() };
   },
 

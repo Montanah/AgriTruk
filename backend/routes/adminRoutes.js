@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminManagementController');
-const {getAllBookings, getPermissions, getAllUsers, searchUsers, exportToCSV, generatePDFReport, generateReports, getAllShippers} = require('../controllers/adminController');
+const {getAllBookings, getPermissions, getAllUsers, searchUsers, exportToCSV, generatePDFReport, generateReports, getAllShippers, getAllActions, markAsResolved, getPendingActions } = require('../controllers/adminController');
 const authController = require("../controllers/authController");
 const {
   authorize,
@@ -17,6 +17,7 @@ const brokerController = require('../controllers/brokerController');
 const AnalyticsController = require('../controllers/analyticsController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const multer = require("multer");
+const { get } = require('../models/Transporter');
 
 const upload = multer({ dest: "uploads/" }); 
 
@@ -77,6 +78,34 @@ const upload = multer({ dest: "uploads/" });
  *           format: date-time
  */
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Action:
+ *       type: object
+ *       properties:
+ *         actionId:
+ *           type: string
+ *         entityId:
+ *           type: string
+ *         priority:         
+ *           type: string
+ *         metadata:
+ *           type: string
+ *         status:
+ *           type: string
+ *         message:
+ *           type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         resolvedAt:
+ *           type: string
+ *           format: date-time
+ *         resolvedBy:
+ *           type: string
+ */
 // Public routes
 /**
  * @swagger
@@ -242,6 +271,70 @@ router.get('/reports/view', authorize(['view_reports', 'super_admin']), (req, re
  * 
  */
 router.get('/bookings', authenticateToken, authorize(['view_bookings', 'super_admin']), getAllBookings);
+
+/** 
+ * @swagger
+ * /api/admin/actions:
+ *   get:
+ *     tags: [Admin Views]
+ *     summary: Get a list of all actions (Admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of actions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Action'
+ *       403:
+ *         description: Access denied
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+*/
+router.get('/actions', authenticateToken, getAllActions);
+
+/**
+ * @swagger
+ * /api/admin/pendingActions:
+ *   get:
+ *     tags: [Admin Views]
+ *     summary: Get a list of all pending actions (admin only)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of pending actions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Action'
+ *       403:
+ *         description: Access denied
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/pendingActions', authenticateToken,  getPendingActions);
 
 /**
  * @swagger
@@ -1047,4 +1140,25 @@ router.delete("/deactivate-account/:uid", requireSuperAdmin, authController.deac
  *         description: Reports generated successfully
  */
 router.post('/reports', authenticateToken, requireRole('admin'), authorize(['view_reports', 'manage_reports', 'super_admin']), generateReports);
+
+/**
+ * @swagger
+ * /api/admin/actions/{actionId}/resolve:
+ *   patch:
+ *     summary: Mark an action as resolved
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: actionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Action marked as resolved
+ */
+router.patch('/actions/:actionId/resolve', authenticateToken, requireRole('admin'), markAsResolved);
+
 module.exports = router;

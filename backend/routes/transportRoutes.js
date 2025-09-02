@@ -12,7 +12,8 @@ const {
   getAvailableTransporters,
   toggleAvailability,
   updateRating,
-  updateLocation
+  updateLocation,
+  uploadDocuments
 } = require('../controllers/transporterController');
 
 const { deleteTransporter, reviewTransporter } = require('../controllers/adminController');
@@ -414,5 +415,51 @@ router.patch('/:transporterId/rating', authenticateToken, requireRole('admin'), 
  *         description: Invalid input
  */
 router.post('/update-location', authenticateToken, requireRole('transporter'), updateLocation);
+
+/**
+ * @swagger
+ * /api/transporters/{transporterId}/documents:
+ *   patch:
+ *     summary: Update transporter documents
+ *     description: Allows a transporter to update their documents.
+ *     tags: [Transporters]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: transporterId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               dlFile:
+ *                 type: string
+ *                 format: binary
+ *               insuranceFile:
+ *                   type: string
+ *                   format: binary
+ *               profilePhoto:
+ *                 type: string
+ *                 format: binary 
+ *               vehiclePhoto:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Documents updated
+ *       400:
+ *         description: Invalid input
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/:transporterId/documents', authenticateToken, requireRole('transporter'), uploadAny, uploadDocuments);
 
 module.exports = router;

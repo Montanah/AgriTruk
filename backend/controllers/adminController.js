@@ -21,6 +21,7 @@ const {formatTimestamps } = require('../utils/formatData');
 const Company = require("../models/Company");
 const Driver = require("../models/Driver");
 const Vehicle = require("../models/Vehicle");
+const Action = require("../models/Action");
 
 
 exports.deleteTransporter = async (req, res) => {
@@ -947,3 +948,44 @@ exports.reviewCompany = async (req, res) => {
     res.status(500).json({ message: 'Failed to review transporter' });
   }
 };
+
+exports.getAllActions = async (req, res) => {
+  try {
+    const actions = await Action.getAll();
+    res.status(200).json({ 
+      message: 'Actions retrieved successfully',
+      actions: formatTimestamps(actions) 
+    });
+  } catch (error) {
+    console.error('Error retrieving actions:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.getPendingActions = async (req, res) => {
+  try {
+    const actions = await Action.getPending();
+
+    res.status(200).json({ 
+      success: true, 
+      actions: formatTimestamps(actions),
+      count: actions.length
+    });
+  } catch (error) {
+    console.error('Get pending actions error:', error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve actions' });
+  }
+};
+
+exports.markAsResolved = async (req, res) => {
+  try {
+    const actionId = req.params.actionId;
+    const adminId = req.user.uid;
+    await Action.markResolved(actionId, adminId);
+    res.status(200).json({ message: 'Action marked as resolved' });
+  } catch (error) {
+    console.error('Error marking action as resolved:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+

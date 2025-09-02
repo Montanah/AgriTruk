@@ -10,6 +10,8 @@ const { uploadImage } = require('../utils/upload');
 const admin = require("../config/firebase");
 const User = require("../models/User");
 const { formatTimestamps } = require('../utils/formatData');
+const Action = require('../models/Action');
+const { uploadDocuments } = require('./transporterController');
 
 exports.generateRandomPassword = () => {
   const length = 10;
@@ -93,7 +95,22 @@ exports.createCompany = async (req, res) => {
       userId: req.user.uid,
       userType: "business",
     });
-    res.status(201).json({ message: 'Company created successfully', company });
+
+    await Action.create({
+      type: 'company_review',
+      entityId: company.id,
+      priority: 'high',
+      metadata: {
+        name: company.companyName,
+        registration: company.registration
+      },
+      message: `A new company has been created. Company ID: ${company.id}`,
+    });
+
+    res.status(201).json({ 
+      message: 'Company created successfully', 
+      data: formatTimestamps(company) 
+    });
   } catch (err) {
     console.error('Create company error:', err);
 
@@ -461,10 +478,21 @@ exports.createVehicle = async (req, res) => {
       userType: "company",
     });
 
+    await Action.create({
+      type: 'company_review',
+      entityId: companyId,
+      priority: 'high',
+      metadata: {
+        name: vehicle.id,
+        type: 'vehicle',
+      },
+      message: `A new Vehicle has been created. Company ID: ${companyId}`,
+    })
+
     res.status(201).json({
       success: true,
       message: 'Vehicle created successfully',
-      data: vehicle,
+      data: formatTimestamps(vehicle),
     });
   } catch (error) {
     res.status(500).json({
@@ -716,10 +744,29 @@ exports.createDriver = async (req, res) => {
       status,
     };
     const driver = await Driver.create(companyId, driverData);
+
+    await Notification.create({
+      type: "Driver Created",
+      message: `A new driver has been created. Driver ID: ${driver.driverId}`,
+      userId: req.user.uid,
+      userType: "company",
+    });
+
+    await Action.create({
+      type: 'company_review',
+      entityId: companyId,
+      priority: 'high',
+      metadata: {
+        name: driver.name,
+        driver: 'driver',
+      },
+      message: `A new driver ${driver.driverId} has been created for Company ID: ${company.id}`,
+    })
+
     res.status(201).json({
       success: true,
       message: 'Driver created successfully',
-      data: driver,
+      data: formatTimestamps(driver),
     });
   } catch (error) {
     console.error('Error creating driver:', error);
@@ -1114,3 +1161,226 @@ exports.updateVehicleProfile = async (req, res) => {
   }
 };
 
+exports.uploadLogo = async (req, res) => {
+  try {
+    const companyId = req.params.companyId;
+    // check if company exists
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found',
+      });
+    }
+   let updateData = {}; 
+   
+   // Track if sensitive docs changed 
+   let sensitiveDocsChanged = false; 
+   let changedFields = [] 
+
+   const uploadTasks = Object.values(req.files).map(async file => { 
+    const fieldName = file.fieldname; 
+    const publicId = await uploadImage(file.path); 
+    if (publicId) { 
+      switch (fieldName) { 
+        case 'logo': 
+          updateData.logo = publicId; 
+          changedFields.push('logo'); 
+        break; 
+        default: console.log(`Unknown field name: ${fieldName}`); 
+        break;
+       } 
+      } 
+      
+      fs.unlinkSync(file.path); }); 
+      
+      await Promise.all(uploadTasks); 
+      
+      await Action.create({ 
+        type: 'company_review', 
+        entityId: companyId, 
+        priority: 'high', 
+        metadata: { ...updateData }, 
+        message: `${company.companyName} has ${sensitiveDocsChanged ? 'sensitive' : 'non-sensitive'} documents that need to be approved.`, 
+      });
+
+      await Company.update(companyId, updateData);
+
+      res.status(200).json({
+        success: true,
+        message: 'Logo uploaded successfully',
+        data: updateData
+      })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error uploading logo: ${error.message}`,
+    });
+  }
+};
+
+exports.uploadDriverDocuments = async (req, res) => {
+  try {
+    const {companyId, driverId }= req.params;
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "No files uploaded" });
+    }
+
+    const company = await Company.get(companyId);
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    };
+
+    const driver = await Driver.get(companyId, driverId);
+
+    if (!driver) {
+      return res.status(404).json({ message: "Driver not found" });
+    };
+
+    let updateData = {};
+
+    // Track if sensitive docs changed
+    let sensitiveDocsChanged = false;
+
+    let changedFields = []
+
+    const uploadTasks = Object.values(req.files).map(async file => {
+      const fieldName = file.fieldname;
+      const publicId = await uploadImage(file.path);
+
+      if (publicId) {
+        switch (fieldName) {
+          case 'license':
+            updateData.license = publicId;
+            updateData.driverLicenseapproved = false;
+            updateData.status = 'renewal';
+            sensitiveDocsChanged = true;
+            changedFields.push('license');
+            break;
+          case 'idDoc':
+            updateData.idDoc = publicId;
+            updateData.idapproved = false;
+            sensitiveDocsChanged = true;
+            changedFields.push('idDoc');
+            break;
+          case 'photo':
+            updateData.photo = publicId;
+            changedFields.push('photo');
+            break;
+          default:
+            console.log(`Unknown field name: ${fieldName}`);
+            break;
+        }
+      }
+      fs.unlinkSync(file.path);
+    });
+    
+    await Promise.all(uploadTasks);
+    
+    await Action.create({
+      type: 'company_review',
+      entityId: companyId,
+      priority: 'high',
+      metadata: {
+        ...updateData
+      },
+      message: `${company.companyName} has ${sensitiveDocsChanged ? 'sensitive' : 'non-sensitive'} documents that need to be approved.`,
+    });
+    
+    await Driver.update(companyId, driverId, updateData);
+
+    res.status(200).json({
+      success: true,
+      message: "Driver documents uploaded successfully",
+      data: updateData,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error uploading driver documents: ${error.message}`,
+    });
+  }
+};
+
+exports.uploadVehicleDocuments = async (req, res) => {
+  try {
+    const { companyId, vehicleId } = req.params;
+    console.log(req.files);
+    console.log(req.params);
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: "No files uploaded" });
+    }
+
+    const company = await Company.get(companyId);
+
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    };
+
+    const vehicle = await Vehicle.get(companyId, vehicleId);
+  
+
+    if (!vehicle) {
+      return res.status(404).json({ message: "Vehicle not found" });
+    };
+
+    let updateData = {};
+
+    // Track if sensitive docs changed
+    let sensitiveDocsChanged = false;
+
+    let changedFields = []
+
+    const uploadTasks = Object.values(req.files).map(async file => {
+      const fieldName = file.fieldname;
+      const publicId = await uploadImage(file.path);
+
+      if (publicId) {
+        switch (fieldName) {
+          case 'photos':
+            existingVehicleImages.push(publicId);
+            updateData.photos = existingVehicleImages;
+            changedFields.push('photos');
+            break;
+          case 'insurance': 
+            updateData.insurance = publicId; 
+            updateData.insuranceapproved = false; 
+            updateData.status = 'renewal'; 
+            sensitiveDocsChanged = true; 
+            changedFields.push('insurance'); break;
+          default:
+            console.log(`Unknown field name: ${fieldName}`);
+            break;
+        }
+      }
+      fs.unlinkSync(file.path);
+    });
+    
+    await Promise.all(uploadTasks);
+    
+    await Action.create({
+      type: 'company_review',
+      entityId: companyId,
+      priority: 'high',
+      metadata: {
+        ...updateData
+      },
+      message: `${company.companyName} has ${sensitiveDocsChanged ? 'sensitive' : 'non-sensitive'} documents that need to be approved.`,
+    });
+    
+    await Vehicle.update(companyId, vehicleId, updateData);
+
+    res.status(200).json({
+      success: true,
+      message: "Vehicle documents uploaded successfully",
+      data: updateData,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error uploading vehicle documents: ${error.message}`,
+    });
+  }
+};

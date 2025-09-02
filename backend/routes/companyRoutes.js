@@ -19,7 +19,7 @@ const {
   rejectVehicle,
   updateDriverProfile,
   updateVehicleProfile,
-  updateVehicleAssignment
+  updateVehicleAssignment, uploadDriverDocuments, uploadLogo, uploadVehicleDocuments
 } = require('../controllers/companyController');
 const { authorize } = require("../middlewares/adminAuth");
 const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewares/validationMiddleware');
@@ -756,5 +756,142 @@ router.patch('/:companyId/vehicleStatus/:vehicleId', authenticateToken, requireR
  */
 router.patch('/:companyId/review', authenticateToken, requireRole('admin'), authorize(['manage_transporters', 'super_admin']), adminController.reviewCompany);
 
+/**
+ * @swagger
+ * /api/companies/{companyId}/upload:
+ *   patch:
+ *     summary: Upload documents for a company
+ *     description: Uploads documents for a company.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               logo:
+ *                 type: string
+ *                 format: binary
+ *                 description: The logo of the company
+ *     responses:
+ *       200:
+ *         description: Documents uploaded successfully
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/:companyId/upload', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadLogo);
 
+/**
+ * @swagger
+ * /api/companies/{companyId}/vehicle/{vehicleId}/upload:
+ *   patch:
+ *     summary: Upload documents for a company
+ *     description: Uploads documents for a company.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: vehicleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the vehicle to upload documents for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               insurance:
+ *                 type: string
+ *                 format: binary
+ *                 description: The insurance details of the vehicle
+ *               photos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 description: The photos of the vehicle
+ *     responses:
+ *       200:
+ *         description: Documents uploaded successfully
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/:companyId/vehicle/:vehicleId/upload', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadVehicleDocuments);
+
+/**
+ * @swagger
+ * /api/companies/{companyId}/driver/upload/{driverId}:
+ *   patch:
+ *     summary: Upload driver documents
+ *     description: Uploads documents for a driver under a company.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: driverId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the driver to upload documents for
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *                 description: The photo of the driver
+ *               idDoc:
+ *                 type: string
+ *                 format: binary
+ *                 description: The ID document of the driver
+ *               license:
+ *                 type: string
+ *                 format: binary
+ *                 description: The license of the driver
+ *     responses:
+ *       200:
+ *         description: Documents uploaded successfully
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Internal server error
+ */
+
+router.patch('/:companyId/driver/upload/:driverId', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadDriverDocuments);
+  
 module.exports = router;
