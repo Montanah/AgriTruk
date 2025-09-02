@@ -242,13 +242,10 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         setHasError(false);
 
         try {
-            console.log('🔍 Searching for places:', query);
             let places = await googleMapsService.searchPlaces(query);
-            console.log('🔍 Found places (text search):', places?.length || 0);
 
             // Fallback to autocomplete if text search returns no results
             if (!places || places.length === 0) {
-                console.log('🔍 Falling back to Places Autocomplete...');
                 const suggestions = await googleMapsService.getPlaceAutocomplete(query);
                 places = suggestions;
             }
@@ -265,14 +262,6 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
             console.error('Error searching places:', error);
             setHasError(true);
             clearSearchResults();
-
-            // Log the full error for debugging
-            console.log('🔍 Full error details:', {
-                message: error.message,
-                status: error.status,
-                code: error.code,
-                stack: error.stack
-            });
 
             // Show user-friendly error message with more details
             if (error.message?.includes('REQUEST_DENIED')) {
@@ -320,14 +309,11 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     }, []);
 
     const handlePlaceSelect = async (place: any) => {
-        console.log('🔍 Selected place:', place);
-
         clearSearchResults();
         setIsSearching(true);
 
         try {
             const placeDetails = await googleMapsService.getPlaceDetails(place.placeId);
-            console.log('🔍 Place details:', placeDetails);
 
             const location: LocationType = {
                 latitude: placeDetails.location.latitude,

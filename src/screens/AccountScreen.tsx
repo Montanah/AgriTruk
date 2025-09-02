@@ -62,8 +62,62 @@ const AccountScreen = () => {
   const [showConflictModal, setShowConflictModal] = useState(false);
   const [complaintText, setComplaintText] = useState('');
   const [verifyingPhone, setVerifyingPhone] = useState(false);
+  const [showPrimaryContactModal, setShowPrimaryContactModal] = useState(false);
 
   const user = auth.currentUser;
+
+  // Determine primary contact method based on verification status
+  const getPrimaryContactMethod = () => {
+    if (!profile) return 'phone';
+
+    // If phone is verified but email isn't, phone should be primary
+    if (profile.phoneVerified && !profile.emailVerified) {
+      return 'phone';
+    }
+
+    // If email is verified but phone isn't, email should be primary
+    if (profile.emailVerified && !profile.phoneVerified) {
+      return 'email';
+    }
+
+    // If both are verified, use user preference
+    if (profile.phoneVerified && profile.emailVerified) {
+      return profile.preferences?.preferredVerificationMethod || 'phone';
+    }
+
+    // If neither is verified, default to phone (what was used during signup)
+    return 'phone';
+  };
+
+  const primaryContactMethod = getPrimaryContactMethod();
+
+  const handleChangePrimaryContact = async (newMethod: 'email' | 'phone') => {
+    if (!user?.uid || !profile) return;
+
+    try {
+      setLoading(true);
+      await updateDoc(doc(db, 'users', user.uid), {
+        'preferences.preferredVerificationMethod': newMethod,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update local state
+      setProfile(prev => prev ? {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          preferredVerificationMethod: newMethod
+        }
+      } : null);
+
+      setShowPrimaryContactModal(false);
+      Alert.alert('Success', `Primary contact method changed to ${newMethod === 'email' ? 'Email' : 'Phone'}`);
+    } catch (e: any) {
+      setError(e.message || 'Failed to update primary contact method.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -397,7 +451,7 @@ const AccountScreen = () => {
           {/* Show preferred verification method */}
           <View style={styles.preferredMethod}>
             <Text style={styles.preferredMethodText}>
-              Primary Contact: {profile.preferences?.preferredVerificationMethod === 'phone' ? 'Phone' : 'Email'}
+              Primary Contact: {primaryContactMethod === 'phone' ? 'Phone' : 'Email'}
             </Text>
           </View>
 
@@ -472,6 +526,17 @@ const AccountScreen = () => {
               <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
               <Text style={styles.allVerifiedText}>All contact methods verified!</Text>
             </View>
+          )}
+
+          {/* Change Primary Contact Button - Only show if both are verified */}
+          {profile.emailVerified && profile.phoneVerified && (
+            <TouchableOpacity
+              style={styles.changePrimaryButton}
+              onPress={() => setShowPrimaryContactModal(true)}
+            >
+              <MaterialCommunityIcons name="swap-horizontal" size={20} color={colors.primary} />
+              <Text style={styles.changePrimaryButtonText}>Change Primary Contact</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -812,6 +877,92 @@ const AccountScreen = () => {
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   <Text style={styles.modalConfirmButtonText}>Submit Complaint</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Primary Contact Method Change Modal */}
+      <Modal
+        visible={showPrimaryContactModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowPrimaryContactModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Primary Contact Method</Text>
+              <TouchableOpacity onPress={() => setShowPrimaryContactModal(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.modalDescription}>
+                Select your preferred contact method for verification and notifications.
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.contactMethodOption,
+                  primaryContactMethod === 'email' && styles.contactMethodSelected
+                ]}
+                onPress={() => handleChangePrimaryContact('email')}
+              >
+                <MaterialCommunityIcons
+                  name="email"
+                  size={24}
+                  color={primaryContactMethod === 'email' ? colors.white : colors.primary}
+                />
+                <View style={styles.contactMethodInfo}>
+                  <Text style={[
+                    styles.contactMethodLabel,
+                    primaryContactMethod === 'email' && styles.contactMethodLabelSelected
+                  ]}>
+                    Email
+                  </Text>
+                  <Text style={[
+                    styles.contactMethodSubtext,
+                    primaryContactMethod === 'email' && styles.contactMethodSubtextSelected
+                  ]}>
+                    {profile?.email}
+                  </Text>
+                </View>
+                {primaryContactMethod === 'email' && (
+                  <MaterialCommunityIcons name="check-circle" size={24} color={colors.white} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.contactMethodOption,
+                  primaryContactMethod === 'phone' && styles.contactMethodSelected
+                ]}
+                onPress={() => handleChangePrimaryContact('phone')}
+              >
+                <MaterialCommunityIcons
+                  name="phone"
+                  size={24}
+                  color={primaryContactMethod === 'phone' ? colors.white : colors.primary}
+                />
+                <View style={styles.contactMethodInfo}>
+                  <Text style={[
+                    styles.contactMethodLabel,
+                    primaryContactMethod === 'phone' && styles.contactMethodLabelSelected
+                  ]}>
+                    Phone
+                  </Text>
+                  <Text style={[
+                    styles.contactMethodSubtext,
+                    primaryContactMethod === 'phone' && styles.contactMethodSubtextSelected
+                  ]}>
+                    {profile?.phone}
+                  </Text>
+                </View>
+                {primaryContactMethod === 'phone' && (
+                  <MaterialCommunityIcons name="check-circle" size={24} color={colors.white} />
                 )}
               </TouchableOpacity>
             </View>
@@ -1331,6 +1482,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     textAlign: 'center',
   },
+  modalDescription: {
+    fontSize: 16,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 22,
+  },
   modalCloseButton: {
     padding: spacing.sm,
   },
@@ -1412,215 +1570,6 @@ const styles = StyleSheet.create({
   verifyButtonText: {
     color: colors.white,
     fontSize: fonts.size.xs,
-    fontWeight: '600',
-  },
-  editFieldWrapRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-    width: '100%',
-  },
-  editLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-  },
-  inputPwd: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    padding: spacing.md,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: colors.text.light,
-    width: '100%',
-    color: colors.text.primary,
-    paddingRight: 40,
-  },
-  pwdEyeIcon: {
-    position: 'absolute',
-    right: spacing.md,
-    top: spacing.md,
-    zIndex: 10,
-  },
-  pwdEyeIconCenter: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    paddingHorizontal: spacing.sm,
-  },
-  editActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  cancelBtn: {
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.text.light,
-  },
-  cancelText: {
-    color: colors.error,
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  saveBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  saveText: {
-    color: colors.white,
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  editDivider: {
-    height: 1,
-    backgroundColor: colors.text.light,
-    marginVertical: spacing.md,
-    opacity: 0.3,
-  },
-  verificationMethodText: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginTop: spacing.xs,
-  },
-  pwdModal: {
-    backgroundColor: colors.white,
-    borderRadius: 24,
-    padding: spacing.lg,
-    width: '90%',
-    shadowColor: colors.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  photoSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    backgroundColor: colors.white,
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: colors.black,
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  photoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: colors.background,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    marginRight: spacing.md,
-    position: 'relative',
-  },
-  photoPlaceholder: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 50,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  photoPlaceholderText: {
-    fontSize: 12,
-    color: colors.text.light,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  photoEditOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    padding: 6,
-    borderWidth: 2,
-    borderColor: colors.white,
-  },
-  profilePhoto: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 50,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: fonts.size.lg,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  profileRole: {
-    fontSize: fonts.size.md,
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-  },
-  memberSince: {
-    fontSize: 14,
-    color: colors.text.light,
-  },
-  verificationSection: {
-    backgroundColor: colors.white,
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: spacing.md,
-    shadowColor: colors.black,
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  verificationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  verificationItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  verificationLabel: {
-    fontSize: fonts.size.sm,
-    color: colors.text.secondary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  verificationBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-  },
-  verifiedBadge: {
-    backgroundColor: colors.success,
-  },
-  unverifiedBadge: {
-    backgroundColor: colors.warning,
-  },
-  verificationBadgeText: {
-    fontSize: fonts.size.xs,
-    color: colors.white,
-    fontWeight: '600',
-  },
-  verifyButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  verifyButtonText: {
-    color: colors.white,
-    fontSize: fonts.size.md,
     fontWeight: '600',
   },
   editFieldWrapRow: {
@@ -2088,6 +2037,62 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontWeight: '600',
     marginLeft: spacing.xs,
+  },
+  changePrimaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    shadowColor: colors.black,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  changePrimaryButtonText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: spacing.sm,
+  },
+  contactMethodOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 16,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+  },
+  contactMethodSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  contactMethodInfo: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  contactMethodLabel: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  contactMethodLabelSelected: {
+    color: colors.white,
+  },
+  contactMethodSubtext: {
+    fontSize: 14,
+    color: colors.text.secondary,
+  },
+  contactMethodSubtextSelected: {
+    color: colors.white,
   },
 });
 

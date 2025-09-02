@@ -32,7 +32,7 @@ export default function TransporterHomeScreen() {
           setProfile(data.transporter);
         } else if (res.status === 404) {
           // Profile doesn't exist yet, redirect to profile completion
-          navigation.navigate('TransporterCompletion');
+          navigation.navigate('TransporterCompletionScreen');
         } else {
           throw new Error('Failed to fetch profile');
         }

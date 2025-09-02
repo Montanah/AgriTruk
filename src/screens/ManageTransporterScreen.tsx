@@ -18,6 +18,8 @@ export default function ManageTransporterScreen({ route }) {
   // Modal state and profile state for individual
   const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('monthly');
+  const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(false);
   const [drivers, setDrivers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
@@ -65,6 +67,40 @@ export default function ManageTransporterScreen({ route }) {
     };
 
     fetchData();
+  }, []);
+
+  // Fetch subscription status
+  useEffect(() => {
+    const fetchSubscriptionStatus = async () => {
+      try {
+        setLoadingSubscription(true);
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const token = await user.getIdToken();
+        const response = await fetch(`https://agritruk-backend.onrender.com/api/subscriptions/status/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            setSubscriptionStatus(result.data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching subscription status:', error);
+      } finally {
+        setLoadingSubscription(false);
+      }
+    };
+
+    fetchSubscriptionStatus();
   }, []);
 
   React.useEffect(() => {
@@ -1138,17 +1174,32 @@ export default function ManageTransporterScreen({ route }) {
               <Text style={{ fontWeight: 'bold', fontSize: 17, color: colors.primaryDark }}>Subscription</Text>
             </View>
             {(() => {
-              let plan = selectedPlan === 'monthly'
-                ? 'Monthly'
-                : selectedPlan === 'quarterly'
-                  ? 'Quarterly'
-                  : selectedPlan === 'annual'
-                    ? 'Annual'
-                    : 'Monthly';
+              let plan = 'Free Trial';
               let daysRemaining = 0;
               let isTrial = false;
               let percent = 0;
-              if (individualProfile && individualProfile.createdAt) {
+
+              if (subscriptionStatus) {
+                if (subscriptionStatus.isTrialActive) {
+                  plan = 'Free Trial';
+                  daysRemaining = subscriptionStatus.daysRemaining || 0;
+                  isTrial = true;
+                  percent = daysRemaining > 0 ? (30 - daysRemaining) / 30 : 1;
+                } else if (subscriptionStatus.hasActiveSubscription && subscriptionStatus.currentPlan) {
+                  plan = subscriptionStatus.currentPlan.name;
+                  daysRemaining = subscriptionStatus.daysRemaining || 0;
+                  isTrial = false;
+                  // Calculate percentage based on subscription period (assuming monthly for now)
+                  const totalDays = 30; // Monthly subscription
+                  percent = daysRemaining > 0 ? (totalDays - daysRemaining) / totalDays : 1;
+                } else {
+                  plan = 'No Active Plan';
+                  daysRemaining = 0;
+                  isTrial = false;
+                  percent = 1;
+                }
+              } else if (individualProfile && individualProfile.createdAt) {
+                // Fallback to old calculation if subscription status not available
                 const created = individualProfile.createdAt.seconds ? new Date(individualProfile.createdAt.seconds * 1000) : new Date(individualProfile.createdAt);
                 const now = new Date();
                 const diff = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
@@ -1162,6 +1213,7 @@ export default function ManageTransporterScreen({ route }) {
                   percent = (30 - daysRemaining) / 30;
                 }
               }
+
               return (
                 <>
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>

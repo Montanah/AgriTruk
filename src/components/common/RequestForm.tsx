@@ -90,11 +90,12 @@ const RECURRENCE_DURATIONS = [
 interface RequestFormProps {
     mode: 'shipper' | 'broker' | 'business';
     clientId?: string;
+    selectedClient?: any;
     onClose?: () => void;
     isModal?: boolean;
 }
 
-const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isModal = false }) => {
+const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClient, onClose, isModal = false }) => {
     const navigation = useNavigation<any>();
     const { consolidations, addConsolidation, removeConsolidation, clearConsolidations } = useConsolidations();
 
@@ -433,6 +434,20 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, onClose, isMo
                     <View style={styles.headerSpacer} />
                 </View>
             </LinearGradient>
+
+            {/* Client Info for Broker */}
+            {mode === 'broker' && selectedClient && (
+                <View style={styles.clientInfoCard}>
+                    <View style={styles.clientInfoHeader}>
+                        <MaterialCommunityIcons name="account-tie" size={20} color={colors.primary} />
+                        <Text style={styles.clientInfoTitle}>Requesting for Client</Text>
+                    </View>
+                    <View style={styles.clientInfoContent}>
+                        <Text style={styles.clientName}>{selectedClient.name}</Text>
+                        <Text style={styles.clientCompany}>{selectedClient.company}</Text>
+                    </View>
+                </View>
+            )}
 
             <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
                 <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -995,6 +1010,41 @@ const styles = StyleSheet.create({
     },
     headerSpacer: {
         width: 44,
+    },
+    clientInfoCard: {
+        backgroundColor: colors.white,
+        marginHorizontal: spacing.lg,
+        marginTop: -10,
+        marginBottom: spacing.md,
+        borderRadius: 16,
+        padding: spacing.lg,
+        shadowColor: colors.black,
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    clientInfoHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+        gap: spacing.sm,
+    },
+    clientInfoTitle: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.text.secondary,
+    },
+    clientInfoContent: {
+        gap: spacing.xs,
+    },
+    clientName: {
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+    },
+    clientCompany: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
     },
     keyboardView: {
         flex: 1,

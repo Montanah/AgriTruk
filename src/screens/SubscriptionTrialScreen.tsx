@@ -5,9 +5,11 @@ import React, { useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -20,18 +22,36 @@ import spacing from '../constants/spacing';
 interface SubscriptionTrialScreenProps {
     route: {
         params: {
-            userType: 'transporter' | 'broker';
-            userId: string;
+            userType: 'transporter' | 'broker' | 'business';
+            subscriptionStatus?: {
+                daysRemaining: number;
+                currentPlan?: any;
+                isTrialActive: boolean;
+            };
         };
     };
 }
 
-const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route }) => {
-    const navigation = useNavigation();
-    const { userType, userId } = route.params;
+type NavigationProp = {
+    navigate: (screen: string, params?: any) => void;
+    goBack: () => void;
+};
 
-    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route }) => {
+    const navigation = useNavigation<NavigationProp>();
+    const { userType, subscriptionStatus } = route.params;
+
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'mpesa' | 'stripe' | null>(null);
     const [loading, setLoading] = useState(false);
+    const [mpesaPhone, setMpesaPhone] = useState('');
+    const [cardNumber, setCardNumber] = useState('');
+    const [expiryDate, setExpiryDate] = useState('');
+    const [cvv, setCvv] = useState('');
+    const [cardholderName, setCardholderName] = useState('');
+
+    // Get trial duration from subscription status or default to 30 days
+    const trialDuration = subscriptionStatus?.daysRemaining || 30;
+    const isTrialActive = subscriptionStatus?.isTrialActive || false;
 
     const handleActivateTrial = async () => {
         if (!selectedPaymentMethod) {
@@ -39,35 +59,121 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
             return;
         }
 
+        if (selectedPaymentMethod === 'mpesa' && !mpesaPhone.trim()) {
+            Alert.alert('Phone Number Required', 'Please enter your M-PESA phone number.');
+            return;
+        }
+
+        if (selectedPaymentMethod === 'stripe' && (!cardNumber.trim() || !expiryDate.trim() || !cvv.trim() || !cardholderName.trim())) {
+            Alert.alert('Card Details Required', 'Please fill in all card details.');
+            return;
+        }
+
         setLoading(true);
         try {
-            // TODO: Integrate with backend to activate trial subscription
-            // This should create a trial subscription record and set expiry date
-
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            Alert.alert(
-                'Trial Activated! 🎉',
-                `Your 30-day trial has been activated successfully! You now have access to all ${userType} features.`,
-                [
-                    {
-                        text: 'Continue',
-                        onPress: () => {
-                            // Navigate to appropriate dashboard
-                            if (userType === 'transporter') {
-                                navigation.navigate('TransporterTabs');
-                            } else {
-                                navigation.navigate('BrokerTabs');
-                            }
-                        }
-                    }
-                ]
-            );
+            if (selectedPaymentMethod === 'mpesa') {
+                await processMpesaPayment();
+            } else if (selectedPaymentMethod === 'stripe') {
+                await processStripePayment();
+            }
         } catch (error) {
+            console.error('Trial activation error:', error);
             Alert.alert('Error', 'Failed to activate trial. Please try again.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const processMpesaPayment = async () => {
+        try {
+            // Get current user ID from Firebase Auth
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) {
+                Alert.alert('Error', 'User not authenticated. Please log in again.');
+                return;
+            }
+
+            const response = await fetch('https://agritruk-backend.onrender.com/api/payments/mpesa', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${await user.getIdToken()}`,
+                },
+                body: JSON.stringify({
+                    phone: mpesaPhone,
+                    amount: 0, // Trial is free
+                    accountRef: `TRIAL_${userType}_${user.uid}`,
+                }),
+            });
+
+            if (response.ok) {
+                Alert.alert(
+                    'Trial Activated! 🎉',
+                    `Your ${trialDuration}-day trial has been activated successfully! You now have access to all ${userType} features.`,
+                );
+                // Navigate to main app
+                if (userType === 'transporter') {
+                    navigation.navigate('TransporterTabs');
+                } else if (userType === 'broker') {
+                    navigation.navigate('BrokerTabs');
+                } else if (userType === 'business') {
+                    navigation.navigate('BusinessStack');
+                }
+            } else {
+                throw new Error('Payment failed');
+            }
+        } catch (error) {
+            console.error('MPESA payment error:', error);
+            Alert.alert('Error', 'Failed to process MPESA payment. Please try again.');
+        }
+    };
+
+    const processStripePayment = async () => {
+        try {
+            // Get current user ID from Firebase Auth
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) {
+                Alert.alert('Error', 'User not authenticated. Please log in again.');
+                return;
+            }
+
+            const response = await fetch('https://agritruk-backend.onrender.com/api/payments/stripe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${await user.getIdToken()}`,
+                },
+                body: JSON.stringify({
+                    amount: 0, // Trial is free
+                    currency: 'usd',
+                    paymentMethod: 'card',
+                    accountRef: `TRIAL_${userType}_${user.uid}`,
+                }),
+            });
+
+            if (response.ok) {
+                Alert.alert(
+                    'Trial Activated! 🎉',
+                    'Your card payment has been processed successfully. Your trial is now active!',
+                );
+                // Navigate to main app
+                if (userType === 'transporter') {
+                    navigation.navigate('TransporterTabs');
+                } else if (userType === 'broker') {
+                    navigation.navigate('BrokerTabs');
+                } else if (userType === 'business') {
+                    navigation.navigate('BusinessStack');
+                }
+            } else {
+                throw new Error('Payment failed');
+            }
+        } catch (error) {
+            console.error('Stripe payment error:', error);
+            Alert.alert('Error', 'Failed to process card payment. Please try again.');
         }
     };
 
@@ -82,7 +188,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 'Insurance coverage',
                 'Fleet management tools',
             ];
-        } else {
+        } else if (userType === 'broker') {
             return [
                 'Unlimited client requests',
                 'Advanced consolidation tools',
@@ -92,7 +198,93 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 'Commission tracking',
                 'Client management tools',
             ];
+        } else if (userType === 'business') {
+            return [
+                'Unlimited transport requests',
+                'Advanced consolidation tools',
+                'Real-time shipment tracking',
+                'Priority customer support',
+                'Business analytics & insights',
+                'Fleet management access',
+                'Bulk booking discounts',
+            ];
+        } else {
+            return [];
         }
+    };
+
+    const renderPaymentForm = () => {
+        if (selectedPaymentMethod === 'mpesa') {
+            return (
+                <View style={styles.paymentForm}>
+                    <Text style={styles.formLabel}>M-PESA Phone Number *</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={mpesaPhone}
+                        onChangeText={setMpesaPhone}
+                        placeholder="e.g., 254700000000"
+                        keyboardType="phone-pad"
+                        maxLength={12}
+                    />
+                    <Text style={styles.formHelpText}>
+                        Enter the phone number registered with M-PESA
+                    </Text>
+                </View>
+            );
+        }
+
+        if (selectedPaymentMethod === 'stripe') {
+            return (
+                <View style={styles.paymentForm}>
+                    <Text style={styles.formLabel}>Cardholder Name *</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={cardholderName}
+                        onChangeText={setCardholderName}
+                        placeholder="Name on card"
+                        autoCapitalize="words"
+                    />
+
+                    <Text style={styles.formLabel}>Card Number *</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={cardNumber}
+                        onChangeText={setCardNumber}
+                        placeholder="1234 5678 9012 3456"
+                        keyboardType="numeric"
+                        maxLength={19}
+                    />
+
+                    <View style={styles.cardRow}>
+                        <View style={styles.cardColumn}>
+                            <Text style={styles.formLabel}>Expiry Date *</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={expiryDate}
+                                onChangeText={setExpiryDate}
+                                placeholder="MM/YY"
+                                keyboardType="numeric"
+                                maxLength={5}
+                            />
+                        </View>
+                        <View style={styles.cardColumn}>
+                            <Text style={styles.formLabel}>CVV *</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={cvv}
+                                onChangeText={setCvv}
+                                placeholder="123"
+                                keyboardType="numeric"
+                                maxLength={4}
+                                secureTextEntry
+                            />
+                        </View>
+                    </View>
+                </View>
+            );
+        }
+
+        return null;
     };
 
     return (
@@ -119,25 +311,25 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 {/* Welcome Section */}
                 <View style={styles.welcomeCard}>
                     <View style={styles.welcomeIcon}>
-                        <MaterialCommunityIcons
-                            name="star-circle"
-                            size={60}
-                            color={colors.primary}
+                        <Image
+                            source={require('../../assets/images/TRUK Logo.png')}
+                            style={styles.logoImage}
+                            resizeMode="contain"
                         />
                     </View>
                     <Text style={styles.welcomeTitle}>
-                        Congratulations! 🎉
+                        Welcome to TRUK! 🎉
                     </Text>
                     <Text style={styles.welcomeSubtitle}>
-                        Your {userType} profile has been approved! Activate your 30-day free trial to access all premium features.
+                        Your {userType} profile has been approved! Activate your {trialDuration}-day free trial to access all premium features.
                     </Text>
                 </View>
 
                 {/* Trial Benefits */}
                 <View style={styles.benefitsCard}>
-                    <Text style={styles.sectionTitle}>What You'll Get</Text>
+                    <Text style={styles.sectionTitle}>What You&apos;ll Get</Text>
                     <Text style={styles.trialDuration}>
-                        30 Days Free Trial
+                        {trialDuration} Days Free Trial
                     </Text>
                     <Text style={styles.trialDescription}>
                         Experience all premium features without any commitment. Your trial includes:
@@ -155,32 +347,45 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                             </View>
                         ))}
                     </View>
+
+                    <TouchableOpacity
+                        style={styles.viewPlansButton}
+                        onPress={() => {
+                            navigation.navigate('SubscriptionScreen', {
+                                userType: userType
+                            });
+                        }}
+                    >
+                        <MaterialCommunityIcons
+                            name="eye"
+                            size={16}
+                            color={colors.primary}
+                        />
+                        <Text style={styles.viewPlansButtonText}>View All Subscription Plans</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Payment Method Selection */}
                 <View style={styles.paymentCard}>
                     <Text style={styles.sectionTitle}>Payment Method</Text>
                     <Text style={styles.paymentDescription}>
-                        Add a payment method to activate your trial. You won't be charged until your trial ends.
+                        Select a payment method to activate your trial. You won&apos;t be charged until your trial ends.
                     </Text>
 
                     <PaymentMethodCard
-                        selected={selectedPaymentMethod === 'card'}
-                        onSelect={() => setSelectedPaymentMethod('card')}
-                        type="card"
-                        title="Credit/Debit Card"
-                        subtitle="Visa, Mastercard, American Express"
-                        icon="credit-card"
+                        method="mpesa"
+                        selected={selectedPaymentMethod === 'mpesa'}
+                        onSelect={() => setSelectedPaymentMethod('mpesa')}
                     />
 
                     <PaymentMethodCard
-                        selected={selectedPaymentMethod === 'mpesa'}
-                        onSelect={() => setSelectedPaymentMethod('mpesa')}
-                        type="mpesa"
-                        title="M-Pesa"
-                        subtitle="Mobile money payment"
-                        icon="cellphone"
+                        method="stripe"
+                        selected={selectedPaymentMethod === 'stripe'}
+                        onSelect={() => setSelectedPaymentMethod('stripe')}
                     />
+
+                    {/* Payment Form */}
+                    {renderPaymentForm()}
                 </View>
 
                 {/* Important Notes */}
@@ -193,14 +398,14 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                             color={colors.warning}
                         />
                         <Text style={styles.noteText}>
-                            Your trial will automatically convert to a paid subscription after 30 days
+                            Your trial will automatically convert to a paid subscription after {trialDuration} days
                         </Text>
                     </View>
                     <View style={styles.noteItem}>
                         <MaterialCommunityIcons
                             name="calendar-clock"
                             size={20}
-                            color={colors.info}
+                            color={colors.primary}
                         />
                         <Text style={styles.noteText}>
                             You can cancel anytime before the trial ends
@@ -232,37 +437,40 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                     {loading ? (
                         <ActivityIndicator size="small" color={colors.white} />
                     ) : (
-                        <MaterialCommunityIcons name="rocket-launch" size={20} color={colors.white} />
+                        <Text style={styles.activateButtonText}>
+                            {loading ? 'Activating...' : `Activate ${trialDuration}-Day Trial`}
+                        </Text>
                     )}
-                    <Text style={styles.activateButtonText}>
-                        {loading ? 'Activating...' : 'Activate 30-Day Trial'}
-                    </Text>
                 </TouchableOpacity>
 
+                {/* Skip Trial Option */}
                 <TouchableOpacity
                     style={styles.skipButton}
                     onPress={() => {
                         Alert.alert(
-                            'Skip Trial?',
-                            'You can always activate your trial later from your profile settings.',
+                            'View Subscription Plans?',
+                            'You\'ll see all available plans with pricing, features, and can choose what works best for you. You can always activate your trial later from your profile settings.',
                             [
                                 { text: 'Cancel', style: 'cancel' },
                                 {
-                                    text: 'Skip for Now',
+                                    text: 'View Plans',
                                     onPress: () => {
-                                        if (userType === 'transporter') {
-                                            navigation.navigate('TransporterTabs');
-                                        } else {
-                                            navigation.navigate('BrokerTabs');
-                                        }
+                                        // Navigate to subscription plans screen
+                                        navigation.navigate('SubscriptionScreen', {
+                                            userType: userType
+                                        });
                                     }
                                 }
                             ]
                         );
                     }}
                 >
-                    <Text style={styles.skipButtonText}>Skip for Now</Text>
+                    <Text style={styles.skipButtonText}>View Subscription Plans</Text>
                 </TouchableOpacity>
+
+                <Text style={styles.skipNote}>
+                    Prefer to choose a plan directly? View our subscription options and select what works best for you.
+                </Text>
             </View>
         </SafeAreaView>
     );
@@ -314,6 +522,13 @@ const styles = StyleSheet.create({
     },
     welcomeIcon: {
         marginBottom: spacing.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    logoImage: {
+        width: 100,
+        height: 60,
+        borderRadius: 8,
     },
     welcomeTitle: {
         fontSize: fonts.size.xl,
@@ -445,6 +660,68 @@ const styles = StyleSheet.create({
         color: colors.text.secondary,
         fontSize: fonts.size.md,
         textDecorationLine: 'underline',
+    },
+    skipNote: {
+        color: colors.text.secondary,
+        fontSize: fonts.size.sm,
+        textAlign: 'center',
+        marginTop: spacing.sm,
+        paddingHorizontal: spacing.md,
+        lineHeight: 18,
+    },
+    viewPlansButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.primary + '15',
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: 8,
+        marginTop: spacing.md,
+        borderWidth: 1,
+        borderColor: colors.primary + '30',
+    },
+    viewPlansButtonText: {
+        color: colors.primary,
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        marginLeft: spacing.sm,
+    },
+    paymentForm: {
+        marginTop: spacing.md,
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.text.light + '20',
+    },
+    formLabel: {
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginBottom: spacing.sm,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: colors.text.light,
+        borderRadius: 8,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        fontSize: fonts.size.md,
+        color: colors.text.primary,
+        marginBottom: spacing.sm,
+    },
+    formHelpText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginTop: -spacing.sm,
+    },
+    cardRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: spacing.sm,
+    },
+    cardColumn: {
+        flex: 1,
+        marginHorizontal: spacing.sm,
     },
 });
 

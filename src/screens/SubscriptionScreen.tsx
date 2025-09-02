@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
@@ -12,11 +12,9 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import SubscriptionPlanCard, { SubscriptionPlan } from '../components/common/SubscriptionPlanCard';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { brokerPlans, brokerPlansYearly, transporterPlans, transporterPlansYearly } from '../constants/subscriptionPlans';
 
 interface SubscriptionScreenProps {
     route: {
@@ -30,16 +28,18 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
     const navigation = useNavigation();
     const { userType } = route.params;
 
-    const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
-    const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+    // Your original subscription plans
+    const originalPlans = [
+        { key: 'monthly', label: 'Monthly', price: 199, features: ['Billed every month', 'Cancel anytime', 'Full access to features'] },
+        { key: 'quarterly', label: 'Quarterly', price: 499, features: ['Save Ksh 98', 'Billed every 3 months', 'Priority support'] },
+        { key: 'annual', label: 'Annual', price: 1599, features: ['Save Ksh 789', 'Billed yearly', 'Best value', 'Premium support'] },
+    ];
+
+    const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const plans = userType === 'transporter'
-        ? (billingPeriod === 'monthly' ? transporterPlans : transporterPlansYearly)
-        : (billingPeriod === 'monthly' ? brokerPlans : brokerPlansYearly);
-
-    const handlePlanSelect = (plan: SubscriptionPlan) => {
-        setSelectedPlan(plan);
+    const handlePlanSelect = (planKey: string) => {
+        setSelectedPlan(planKey);
     };
 
     const handleSubscribe = () => {
@@ -48,21 +48,23 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
             return;
         }
 
-        navigation.navigate('PaymentScreen', {
-            plan: selectedPlan,
-            userType,
-            billingPeriod
-        });
-    };
+        const selectedPlanData = originalPlans.find(p => p.key === selectedPlan);
+        if (!selectedPlanData) return;
 
-    const getTotalSavings = () => {
-        if (billingPeriod === 'yearly' && selectedPlan?.discount) {
-            const originalPrice = selectedPlan.price / (1 - selectedPlan.discount / 100);
-            const yearlyOriginal = originalPrice * 12;
-            const yearlyDiscounted = selectedPlan.price;
-            return yearlyOriginal - yearlyDiscounted;
-        }
-        return 0;
+        // Create a plan object that matches the expected format
+        const planData = {
+            id: selectedPlan,
+            name: selectedPlanData.label,
+            price: selectedPlanData.price,
+            period: selectedPlan as 'monthly' | 'quarterly' | 'annual',
+            features: selectedPlanData.features
+        };
+
+        navigation.navigate('PaymentScreen', {
+            plan: planData,
+            userType,
+            billingPeriod: selectedPlan
+        });
     };
 
     return (
@@ -86,57 +88,48 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
             </LinearGradient>
 
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                {/* Billing Period Toggle */}
-                <View style={styles.billingToggleContainer}>
-                    <Text style={styles.sectionTitle}>Choose Billing Period</Text>
-                    <View style={styles.billingToggle}>
-                        <TouchableOpacity
-                            style={[
-                                styles.billingOption,
-                                billingPeriod === 'monthly' && { backgroundColor: colors.primary, borderColor: colors.primary }
-                            ]}
-                            onPress={() => setBillingPeriod('monthly')}
-                        >
-                            <Text style={[
-                                styles.billingOptionText,
-                                billingPeriod === 'monthly' && { color: colors.white, fontWeight: 'bold' }
-                            ]}>
-                                Monthly
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[
-                                styles.billingOption,
-                                billingPeriod === 'yearly' && { backgroundColor: colors.primary, borderColor: colors.primary }
-                            ]}
-                            onPress={() => setBillingPeriod('yearly')}
-                        >
-                            <Text style={[
-                                styles.billingOptionText,
-                                billingPeriod === 'yearly' && { color: colors.white, fontWeight: 'bold' }
-                            ]}>
-                                Yearly
-                            </Text>
-                            {billingPeriod === 'yearly' && (
-                                <View style={styles.savingsBadge}>
-                                    <Text style={styles.savingsText}>Save 17%</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                </View>
 
                 {/* Plans */}
                 <View style={styles.plansContainer}>
-                    <Text style={styles.sectionTitle}>Select Your Plan</Text>
-                    {plans.map((plan) => (
-                        <SubscriptionPlanCard
-                            key={plan.id}
-                            plan={plan}
-                            selected={selectedPlan?.id === plan.id}
-                            onSelect={() => handlePlanSelect(plan)}
-                        />
-                    ))}
+                    <Text style={styles.sectionTitle}>Choose Your Subscription Plan</Text>
+                    <Text style={styles.sectionSubtitle}>
+                        Flexible plans for every business. Select the best fit for you.
+                    </Text>
+
+                    {originalPlans.map((plan) => {
+                        const isSelected = selectedPlan === plan.key;
+                        return (
+                            <TouchableOpacity
+                                key={plan.key}
+                                style={[
+                                    styles.planCard,
+                                    isSelected && styles.planCardSelected,
+                                    { borderColor: isSelected ? colors.secondary : colors.surface, shadowColor: isSelected ? colors.secondary : colors.black },
+                                ]}
+                                activeOpacity={0.92}
+                                onPress={() => handlePlanSelect(plan.key)}
+                            >
+                                <View style={styles.planHeader}>
+                                    <Text style={[styles.planLabel, { color: isSelected ? colors.secondary : colors.primary }]}>{plan.label}</Text>
+                                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.secondary} style={{ marginLeft: 6 }} />}
+                                </View>
+                                <Text style={[styles.planPrice, { color: isSelected ? colors.secondary : colors.text.primary }]}>
+                                    Ksh {plan.price}
+                                    <Text style={{ color: colors.text.secondary, fontSize: 14 }}>
+                                        / {plan.key === 'monthly' ? 'month' : plan.key === 'quarterly' ? '3 months' : 'year'}
+                                    </Text>
+                                </Text>
+                                <View style={styles.featureList}>
+                                    {plan.features.map((feature, i) => (
+                                        <View key={i} style={styles.featureRow}>
+                                            <Ionicons name="checkmark" size={16} color={isSelected ? colors.secondary : colors.primary} style={{ marginRight: 1 }} />
+                                            <Text style={[styles.featureText, { color: isSelected ? colors.secondary : colors.text.secondary }]}>{feature}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
 
                 {/* Selected Plan Summary */}
@@ -144,31 +137,40 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
                     <View style={styles.summaryContainer}>
                         <Text style={styles.sectionTitle}>Plan Summary</Text>
                         <View style={styles.summaryCard}>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Selected Plan:</Text>
-                                <Text style={styles.summaryValue}>{selectedPlan.name}</Text>
-                            </View>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Billing Period:</Text>
-                                <Text style={styles.summaryValue}>
-                                    {billingPeriod === 'monthly' ? 'Monthly' : 'Yearly'}
-                                </Text>
-                            </View>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Price:</Text>
-                                <Text style={styles.summaryValue}>
-                                    KES {selectedPlan.price.toLocaleString()}
-                                    {billingPeriod === 'monthly' ? '/month' : '/year'}
-                                </Text>
-                            </View>
-                            {getTotalSavings() > 0 && (
-                                <View style={styles.summaryRow}>
-                                    <Text style={styles.summaryLabel}>Total Savings:</Text>
-                                    <Text style={[styles.summaryValue, { color: colors.success }]}>
-                                        KES {getTotalSavings().toLocaleString()}
-                                    </Text>
-                                </View>
-                            )}
+                            {(() => {
+                                const selectedPlanData = originalPlans.find(p => p.key === selectedPlan);
+                                if (!selectedPlanData) return null;
+
+                                return (
+                                    <>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>Selected Plan:</Text>
+                                            <Text style={styles.summaryValue}>{selectedPlanData.label}</Text>
+                                        </View>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>Billing Period:</Text>
+                                            <Text style={styles.summaryValue}>
+                                                {selectedPlan === 'monthly' ? 'Monthly' : selectedPlan === 'quarterly' ? 'Quarterly' : 'Annual'}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.summaryRow}>
+                                            <Text style={styles.summaryLabel}>Price:</Text>
+                                            <Text style={styles.summaryValue}>
+                                                Ksh {selectedPlanData.price.toLocaleString()}
+                                                / {selectedPlan === 'monthly' ? 'month' : selectedPlan === 'quarterly' ? '3 months' : 'year'}
+                                            </Text>
+                                        </View>
+                                        {(selectedPlan === 'quarterly' || selectedPlan === 'annual') && (
+                                            <View style={styles.summaryRow}>
+                                                <Text style={styles.summaryLabel}>Savings:</Text>
+                                                <Text style={[styles.summaryValue, { color: colors.success }]}>
+                                                    {selectedPlan === 'quarterly' ? 'Ksh 98' : 'Ksh 789'}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </View>
                     </View>
                 )}
@@ -370,6 +372,57 @@ const styles = StyleSheet.create({
         color: colors.text.primary,
         marginLeft: spacing.sm,
         flex: 1,
+    },
+    // New styles for plan cards
+    planCard: {
+        backgroundColor: colors.white,
+        borderRadius: 16,
+        padding: spacing.lg,
+        marginBottom: spacing.md,
+        borderWidth: 2,
+        borderColor: colors.surface,
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    planCardSelected: {
+        borderColor: colors.secondary,
+        shadowColor: colors.secondary,
+        shadowOpacity: 0.2,
+    },
+    planHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: spacing.sm,
+    },
+    planLabel: {
+        fontSize: fonts.size.lg,
+        fontWeight: 'bold',
+        color: colors.primary,
+    },
+    planPrice: {
+        fontSize: fonts.size.xl,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginBottom: spacing.md,
+    },
+    featureList: {
+        marginTop: spacing.sm,
+    },
+    featureRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    sectionSubtitle: {
+        fontSize: fonts.size.md,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        marginBottom: spacing.lg,
+        lineHeight: 22,
     },
 });
 

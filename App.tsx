@@ -3,6 +3,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { LogBox } from 'react-native';
+import BusinessStackNavigator from './src/navigation/BusinessStackNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
 import EmailVerificationScreen from './src/screens/auth/EmailVerificationScreen';
@@ -94,10 +95,9 @@ const checkTransporterProfileComplete = (transporterData: any) => {
 };
 
 // Helper function to check subscription status
-const checkSubscriptionStatus = async (userId: string, userType: 'transporter' | 'broker') => {
+const checkSubscriptionStatus = async (userId: string, userType: 'transporter' | 'broker' | 'business') => {
   try {
     // Check subscription status from backend
-    // For now, we'll simulate this - in production, this should call your backend API
     const response = await fetch(`https://agritruk-backend.onrender.com/api/subscriptions/status/${userId}`, {
       method: 'GET',
       headers: {
@@ -107,14 +107,18 @@ const checkSubscriptionStatus = async (userId: string, userType: 'transporter' |
     });
 
     if (response.ok) {
-      const data = await response.json();
-      return {
-        hasActiveSubscription: data.hasActiveSubscription,
-        isTrialActive: data.isTrialActive,
-        trialExpiryDate: data.trialExpiryDate,
-        subscriptionExpiryDate: data.subscriptionExpiryDate,
-        needsTrialActivation: data.needsTrialActivation
-      };
+      const result = await response.json();
+      if (result.success && result.data) {
+        return {
+          hasActiveSubscription: result.data.hasActiveSubscription,
+          isTrialActive: result.data.isTrialActive,
+          trialExpiryDate: result.data.trialExpiryDate,
+          subscriptionExpiryDate: result.data.subscriptionExpiryDate,
+          needsTrialActivation: result.data.needsTrialActivation,
+          currentPlan: result.data.currentPlan,
+          daysRemaining: result.data.daysRemaining
+        };
+      }
     }
   } catch (error) {
     console.error('Error checking subscription status:', error);
@@ -126,7 +130,9 @@ const checkSubscriptionStatus = async (userId: string, userType: 'transporter' |
     isTrialActive: false,
     trialExpiryDate: null,
     subscriptionExpiryDate: null,
-    needsTrialActivation: true
+    needsTrialActivation: true,
+    currentPlan: null,
+    daysRemaining: 0
   };
 };
 
@@ -184,8 +190,12 @@ export default function App() {
                 const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'broker');
                 setSubscriptionStatus(subStatus);
               }
+            } else if (data.role === 'business') {
+              // For business users, no subscription needed - just check verification
+              console.log('📋 BUSINESS USER FOUND - checking verification status');
+              setProfileCompleted(!!data.profileCompleted);
             } else {
-              // For non-transporters, use the profileCompleted field
+              // For other users (shippers), use the profileCompleted field
               setProfileCompleted(!!data.profileCompleted);
             }
           } else {
@@ -219,11 +229,19 @@ export default function App() {
   console.log('🔍 Navigation state:', {
     user: !!user,
     role,
+    roleType: typeof role,
     isVerified,
     profileCompleted,
     subscriptionStatus,
     userId: user?.uid
   });
+
+  // Debug business role specifically
+  if (role === 'business') {
+    console.log('✅ BUSINESS USER DETECTED - routing to BusinessStack');
+  } else if (role) {
+    console.log('❌ NON-BUSINESS ROLE:', role, 'Type:', typeof role);
+  }
 
   if (!user) {
     initialRouteName = 'Welcome';
@@ -267,6 +285,11 @@ export default function App() {
             initialParams={{ broker: { name: user?.displayName || '', email: user?.email, phone: user?.phoneNumber || '' } }}
           />
           <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+          <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
+          <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
+          <Stack.Screen name="BrokerRequestScreen" component={require('./src/screens/BrokerRequestScreen').default} />
+          <Stack.Screen name="BrokerNetworkScreen" component={require('./src/screens/BrokerNetworkScreen').default} />
+          <Stack.Screen name="BrokerRequestsScreen" component={require('./src/screens/BrokerRequestsScreen').default} />
           <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
           <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
           <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
@@ -284,9 +307,21 @@ export default function App() {
             <Stack.Screen
               name="SubscriptionTrial"
               component={SubscriptionTrialScreen}
-              initialParams={{ userType: 'broker', userId: user.uid }}
+              initialParams={{
+                userType: 'broker',
+                subscriptionStatus: subscriptionStatus
+              }}
             />
             <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
+            <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
+            <Stack.Screen name="BrokerRequestScreen" component={require('./src/screens/BrokerRequestScreen').default} />
+            <Stack.Screen name="BrokerNetworkScreen" component={require('./src/screens/BrokerNetworkScreen').default} />
+            <Stack.Screen name="BrokerRequestsScreen" component={require('./src/screens/BrokerRequestsScreen').default} />
+            <Stack.Screen name="RequestForm" component={require('./src/components/common/RequestForm').default} />
+            <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+            <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+            <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
@@ -315,6 +350,12 @@ export default function App() {
         screens = (
           <>
             <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
+            <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
+            <Stack.Screen name="BrokerRequestScreen" component={require('./src/screens/BrokerRequestScreen').default} />
+            <Stack.Screen name="BrokerNetworkScreen" component={require('./src/screens/BrokerNetworkScreen').default} />
+            <Stack.Screen name="BrokerRequestsScreen" component={require('./src/screens/BrokerRequestsScreen').default} />
+            <Stack.Screen name="RequestForm" component={require('./src/components/common/RequestForm').default} />
             <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
             <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
             <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
@@ -386,7 +427,10 @@ export default function App() {
             <Stack.Screen
               name="SubscriptionTrial"
               component={SubscriptionTrialScreen}
-              initialParams={{ userType: 'transporter', userId: user.uid }}
+              initialParams={{
+                userType: 'transporter',
+                subscriptionStatus: subscriptionStatus
+              }}
             />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
@@ -436,16 +480,31 @@ export default function App() {
       }
     }
   } else if (role === 'business') {
-    initialRouteName = 'BusinessStack';
-    screens = (
-      <>
-        <Stack.Screen name="BusinessStack" component={require('./src/navigation/BusinessStackNavigator').default} />
-        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
-        <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
-        <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
-        <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
-      </>
-    );
+    console.log('📋 BUSINESS USER NAVIGATION - isVerified:', isVerified);
+
+    if (!isVerified) {
+      // Unverified business users - send to verification
+      initialRouteName = 'EmailVerification';
+      screens = (
+        <>
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
+        </>
+      );
+    } else {
+      // Verified business users - go directly to business dashboard (no subscription needed)
+      initialRouteName = 'BusinessStack';
+      screens = (
+        <>
+          <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
+          <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+          <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+          <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
+          <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
+        </>
+      );
+    }
   } else if (role === 'shipper') {
     initialRouteName = 'MainTabs';
     screens = (

@@ -13,6 +13,7 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import CardPaymentForm from '../components/common/CardPaymentForm';
 import PaymentMethodCard from '../components/common/PaymentMethodCard';
 import { SubscriptionPlan } from '../components/common/SubscriptionPlanCard';
 import colors from '../constants/colors';
@@ -31,7 +32,7 @@ interface PaymentScreenProps {
 }
 
 const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const { plan, userType, billingPeriod, isUpgrade = false } = route.params;
 
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'mpesa' | 'stripe' | null>(null);
@@ -44,6 +45,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
     const [expiryDate, setExpiryDate] = useState('');
     const [cvv, setCvv] = useState('');
     const [cardholderName, setCardholderName] = useState('');
+    const [isCardValid, setIsCardValid] = useState(false);
+    const [cardData, setCardData] = useState<any>(null);
 
     const handlePaymentMethodSelect = (method: 'mpesa' | 'stripe') => {
         setSelectedPaymentMethod(method);
@@ -91,14 +94,24 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
         setPaymentStep('stripe-form');
     };
 
+    const handleCardValid = (data: any) => {
+        setIsCardValid(true);
+        setCardData(data);
+    };
+
+    const handleCardInvalid = () => {
+        setIsCardValid(false);
+        setCardData(null);
+    };
+
     const handleStripeFormSubmit = async () => {
-        if (!cardNumber || !expiryDate || !cvv || !cardholderName) {
-            Alert.alert('Missing Information', 'Please fill in all card details.');
+        if (!isCardValid) {
+            Alert.alert('Invalid Card', 'Please ensure your card details are correct.');
             return;
         }
 
-        if (!isCardValid()) {
-            Alert.alert('Invalid Card', 'Please check your card details and try again.');
+        if (!cardData) {
+            Alert.alert('Missing Information', 'Please complete the card form.');
             return;
         }
 
@@ -118,12 +131,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
             //         userType,
             //         isUpgrade,
             //         billingPeriod,
-            //         cardDetails: {
-            //             number: cardNumber,
-            //             expiry: expiryDate,
-            //             cvv,
-            //             name: cardholderName
-            //         }
+            //         cardDetails: cardData
             //     })
             // });
 
@@ -147,29 +155,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
         }
     };
 
-    const isCardValid = () => {
-        // Basic card validation
-        const cardNumberValid = cardNumber.replace(/\s/g, '').length >= 13;
-        const expiryValid = /^\d{2}\/\d{2}$/.test(expiryDate);
-        const cvvValid = cvv.length >= 3;
-        const nameValid = cardholderName.trim().length > 0;
 
-        return cardNumberValid && expiryValid && cvvValid && nameValid;
-    };
-
-    const formatCardNumber = (text: string) => {
-        const cleaned = text.replace(/\s/g, '');
-        const groups = cleaned.match(/.{1,4}/g);
-        return groups ? groups.join(' ') : cleaned;
-    };
-
-    const formatExpiryDate = (text: string) => {
-        const cleaned = text.replace(/\D/g, '');
-        if (cleaned.length >= 2) {
-            return cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4);
-        }
-        return cleaned;
-    };
 
     const getTotalAmount = () => {
         return plan.price;
@@ -265,71 +251,10 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
                 {isUpgrade ? 'Card Payment Upgrade' : 'Card Payment Details'}
             </Text>
 
-            <View style={styles.cardFormContainer}>
-                {/* Card Number */}
-                <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Card Number</Text>
-                    <TextInput
-                        style={styles.cardInput}
-                        value={cardNumber}
-                        onChangeText={(text) => setCardNumber(formatCardNumber(text))}
-                        placeholder="1234 5678 9012 3456"
-                        placeholderTextColor={colors.text.light}
-                        keyboardType="numeric"
-                        maxLength={19}
-                    />
-                </View>
-
-                {/* Cardholder Name */}
-                <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Cardholder Name</Text>
-                    <TextInput
-                        style={styles.cardInput}
-                        value={cardholderName}
-                        onChangeText={setCardholderName}
-                        placeholder="John Doe"
-                        placeholderTextColor={colors.text.light}
-                        autoCapitalize="words"
-                    />
-                </View>
-
-                {/* Expiry Date and CVV */}
-                <View style={styles.row}>
-                    <View style={[styles.inputGroup, { flex: 1, marginRight: spacing.sm }]}>
-                        <Text style={styles.inputLabel}>Expiry Date</Text>
-                        <TextInput
-                            style={styles.cardInput}
-                            value={expiryDate}
-                            onChangeText={(text) => setExpiryDate(formatExpiryDate(text))}
-                            placeholder="MM/YY"
-                            placeholderTextColor={colors.text.light}
-                            keyboardType="numeric"
-                            maxLength={5}
-                        />
-                    </View>
-                    <View style={[styles.inputGroup, { flex: 1, marginLeft: spacing.sm }]}>
-                        <Text style={styles.inputLabel}>CVV</Text>
-                        <TextInput
-                            style={styles.cardInput}
-                            value={cvv}
-                            onChangeText={setCvv}
-                            placeholder="123"
-                            placeholderTextColor={colors.text.light}
-                            keyboardType="numeric"
-                            maxLength={4}
-                            secureTextEntry
-                        />
-                    </View>
-                </View>
-
-                {/* Security Notice */}
-                <View style={styles.securityNotice}>
-                    <MaterialCommunityIcons name="shield-check" size={16} color={colors.success} />
-                    <Text style={styles.securityText}>
-                        Your payment information is secure and encrypted
-                    </Text>
-                </View>
-            </View>
+            <CardPaymentForm
+                onCardValid={handleCardValid}
+                onCardInvalid={handleCardInvalid}
+            />
 
             <View style={styles.paymentSummary}>
                 <Text style={styles.summaryTitle}>Payment Summary</Text>
@@ -362,9 +287,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
             </View>
 
             <TouchableOpacity
-                style={[styles.payButton, !isCardValid() && styles.payButtonDisabled]}
+                style={[styles.payButton, !isCardValid && styles.payButtonDisabled]}
                 onPress={handleStripeFormSubmit}
-                disabled={loading || !isCardValid()}
+                disabled={loading || !isCardValid}
             >
                 <MaterialCommunityIcons name="credit-card" size={20} color={colors.white} />
                 <Text style={styles.payButtonText}>
@@ -568,6 +493,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.lg,
         borderRadius: 12,
         marginBottom: spacing.lg,
+    },
+    payButtonDisabled: {
+        backgroundColor: colors.text.light,
+        opacity: 0.6,
     },
     payButtonText: {
         color: colors.white,

@@ -11,7 +11,6 @@ import {
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
-import { apiRequest } from '../../utils/api';
 
 interface IncomingRequest {
     id: string;
@@ -63,12 +62,76 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
         const fetchIncomingRequests = async () => {
             try {
                 setLoading(true);
-                const data = await apiRequest('/transporters/incoming-requests');
-                if (Array.isArray(data)) {
-                    setRequests(data.slice(0, 3)); // Show only first 3 requests
-                } else {
-                    setRequests([]);
-                }
+
+                // Mock data for now - replace with actual API call when backend is ready
+                const mockRequests = [
+                    {
+                        id: 'REQ001',
+                        type: 'instant',
+                        fromLocation: 'Nairobi Industrial Area',
+                        toLocation: 'Mombasa Port',
+                        productType: 'Machinery',
+                        weight: '2.5 tons',
+                        createdAt: new Date().toISOString(),
+                        urgency: 'high' as const,
+                        estimatedValue: 150000,
+                        specialRequirements: ['Fragile handling', 'Oversized load'],
+                        client: {
+                            name: 'ABC Industries',
+                            rating: 4.8,
+                            completedOrders: 45
+                        },
+                        pricing: {
+                            basePrice: 25000,
+                            urgencyBonus: 5000,
+                            specialHandling: 3000,
+                            total: 33000
+                        },
+                        route: {
+                            distance: '450 km',
+                            estimatedTime: '6-8 hours',
+                            detour: '0 km'
+                        }
+                    },
+                    {
+                        id: 'REQ002',
+                        type: 'instant',
+                        fromLocation: 'Eldoret',
+                        toLocation: 'Nakuru',
+                        productType: 'Agricultural Products',
+                        weight: '1.8 tons',
+                        createdAt: new Date().toISOString(),
+                        urgency: 'medium' as const,
+                        estimatedValue: 85000,
+                        specialRequirements: ['Refrigerated transport'],
+                        client: {
+                            name: 'Green Farms Ltd',
+                            rating: 4.6,
+                            completedOrders: 23
+                        },
+                        pricing: {
+                            basePrice: 18000,
+                            urgencyBonus: 2000,
+                            specialHandling: 1500,
+                            total: 21500
+                        },
+                        route: {
+                            distance: '120 km',
+                            estimatedTime: '2-3 hours',
+                            detour: '0 km'
+                        }
+                    }
+                ];
+
+                setRequests(mockRequests);
+
+                // TODO: Uncomment when backend endpoint is ready
+                // const data = await apiRequest('/transporters/incoming-requests');
+                // if (Array.isArray(data)) {
+                //     setRequests(data.slice(0, 3)); // Show only first 3 requests
+                // } else {
+                //     setRequests([]);
+                // }
             } catch (error) {
                 console.error('Failed to fetch incoming requests:', error);
                 setRequests([]);

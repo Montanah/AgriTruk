@@ -76,6 +76,16 @@ interface RequestItem {
   status: string;
   fromLocation: string;
   toLocation: string;
+  pickupLocation?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  };
+  toLocation?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  };
   productType: string;
   weight: string;
   createdAt: string;
@@ -160,8 +170,13 @@ const BusinessManageScreen = ({ navigation }: any) => {
     } else {
       if (request.type === 'instant') {
         navigation.navigate('TripDetailsScreen', {
-          booking: request,
-          isInstant: true
+          booking: {
+            ...request,
+            pickupLocation: request.pickupLocation,
+            toLocation: request.toLocation
+          },
+          isInstant: true,
+          userType: 'business'
         });
       } else {
         navigation.navigate('TrackingScreen', {

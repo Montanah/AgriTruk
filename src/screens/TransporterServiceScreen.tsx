@@ -1,7 +1,6 @@
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -49,7 +48,7 @@ const TransporterServiceScreen = () => {
           setProfile(data.transporter);
         } else if (res.status === 404) {
           // Profile doesn't exist yet, redirect to profile completion
-          navigation.navigate('TransporterCompletion');
+          navigation.navigate('TransporterCompletionScreen');
         }
       } catch { }
       setLoadingProfile(false);
@@ -139,74 +138,10 @@ const TransporterServiceScreen = () => {
           }}
         />
 
-        {/* Temporary Google Maps Test Button */}
-        <TouchableOpacity
-          style={{
-            backgroundColor: '#007AFF',
-            padding: 12,
-            margin: 16,
-            borderRadius: 8,
-            alignItems: 'center'
-          }}
-          onPress={() => navigation.navigate('GoogleMapsTest')}
-        >
-          <Text style={{ color: 'white', fontWeight: '600' }}>
-            🗺️ Test Google Maps Integration
-          </Text>
-        </TouchableOpacity>
-
-        {/* Test LocationPicker */}
-        <TouchableOpacity
-          style={{
-            backgroundColor: '#28a745',
-            padding: 12,
-            margin: 16,
-            borderRadius: 8,
-            alignItems: 'center'
-          }}
-          onPress={() => {
-            console.log('🔑 Testing Google Maps API Key...');
-            const { getGoogleMapsApiKey } = require('../constants/googleMaps');
-            const apiKey = getGoogleMapsApiKey();
-            console.log('🔑 API Key test result:', apiKey ? 'Present' : 'Missing');
-            Alert.alert('Google Maps Test', `API Key: ${apiKey ? '✅ Present' : '❌ Missing'}`);
-          }}
-        >
-          <Text style={{ color: 'white', fontWeight: '600' }}>
-            🔑 Test Google Maps API Key
-          </Text>
-        </TouchableOpacity>
-
-        {/* Test Transporters API */}
-        <TouchableOpacity
-          style={{
-            backgroundColor: '#ffc107',
-            padding: 12,
-            margin: 16,
-            borderRadius: 8,
-            alignItems: 'center'
-          }}
-          onPress={async () => {
-            try {
-              console.log('🚛 Testing Transporters API...');
-              const { apiRequest } = require('../utils/api');
-              const data = await apiRequest('/transporters/available/list');
-              console.log('🚛 Transporters API test result:', data);
-              Alert.alert('Transporters API Test', `Found ${Array.isArray(data) ? data.length : 0} transporters`);
-            } catch (error: any) {
-              console.error('🚛 Transporters API test error:', error);
-              Alert.alert('Transporters API Test', `Error: ${error.message || 'Unknown error'}`);
-            }
-          }}
-        >
-          <Text style={{ color: 'white', fontWeight: '600' }}>
-            🚛 Test Transporters API
-          </Text>
-        </TouchableOpacity>
-
+        {/* Notification */}
         {notification && (
           <TouchableOpacity
-            onPress={() => setNotification(null)}
+            onPress={() => navigation.navigate('TransporterCompletionScreen')}
             style={styles.notification}
             activeOpacity={0.8}
           >

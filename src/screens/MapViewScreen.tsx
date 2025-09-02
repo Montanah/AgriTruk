@@ -10,12 +10,10 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-
-// TODO: Import actual map components when implemented
-// import MapView, { Marker, Polyline } from 'react-native-maps';
 
 const { width, height } = Dimensions.get('window');
 
@@ -97,14 +95,51 @@ const MapViewScreen = () => {
 
             {/* Map Container */}
             <View style={styles.mapContainer}>
-                {/* TODO: Replace with actual MapView component */}
-                <View style={styles.mapPlaceholder}>
-                    <MaterialCommunityIcons name="map" size={64} color={colors.text.light} />
-                    <Text style={styles.mapPlaceholderText}>Map View</Text>
-                    <Text style={styles.mapPlaceholderSubtext}>
-                        Real-time location tracking will be implemented here
-                    </Text>
-                </View>
+                <ExpoCompatibleMap
+                    style={styles.map}
+                    showUserLocation={true}
+                    markers={[
+                        // Pickup location marker
+                        ...(booking && booking.pickupLocation ? [{
+                            id: 'pickup',
+                            coordinate: {
+                                latitude: booking.pickupLocation.latitude || -1.2921,
+                                longitude: booking.pickupLocation.longitude || 36.8219,
+                            },
+                            title: 'Pickup Location',
+                            description: booking.pickupLocation.address || 'Pickup point',
+                            pinColor: colors.primary,
+                        }] : []),
+                        // Delivery location marker
+                        ...(booking && booking.toLocation ? [{
+                            id: 'delivery',
+                            coordinate: {
+                                latitude: booking.toLocation.latitude || -1.2921,
+                                longitude: booking.toLocation.longitude || 36.8219,
+                            },
+                            title: 'Delivery Location',
+                            description: booking.toLocation.address || 'Delivery point',
+                            pinColor: colors.secondary,
+                        }] : []),
+                        // Transporter location marker (if available)
+                        ...(trackingData && trackingData.currentLocation ? [{
+                            id: 'transporter',
+                            coordinate: {
+                                latitude: trackingData.currentLocation.latitude || -1.2921,
+                                longitude: trackingData.currentLocation.longitude || 36.8219,
+                            },
+                            title: 'Transporter Location',
+                            description: 'Current position',
+                            pinColor: colors.success,
+                        }] : []),
+                    ]}
+                    initialRegion={{
+                        latitude: -1.2921, // Nairobi
+                        longitude: 36.8219,
+                        latitudeDelta: 0.0922,
+                        longitudeDelta: 0.0421,
+                    }}
+                />
 
                 {/* Map Controls */}
                 <View style={styles.mapControls}>
@@ -226,24 +261,9 @@ const styles = StyleSheet.create({
         flex: 1,
         position: 'relative',
     },
-    mapPlaceholder: {
+    map: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: colors.surface,
-    },
-    mapPlaceholderText: {
-        fontSize: fonts.size.lg,
-        fontWeight: 'bold',
-        color: colors.text.secondary,
-        marginTop: spacing.md,
-    },
-    mapPlaceholderSubtext: {
-        fontSize: fonts.size.sm,
-        color: colors.text.light,
-        textAlign: 'center',
-        marginTop: spacing.sm,
-        paddingHorizontal: spacing.lg,
+        width: '100%',
     },
     mapControls: {
         position: 'absolute',

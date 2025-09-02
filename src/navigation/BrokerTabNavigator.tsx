@@ -1,16 +1,18 @@
-import React from 'react';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
-import BrokerNetworkScreen from '../screens/BrokerNetworkScreen';
-import BrokerRequestsScreen from '../screens/BrokerRequestsScreen';
-import BrokerProfileScreen from '../screens/BrokerProfileScreen';
-import colors from '../constants/colors';
+import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import colors from '../constants/colors';
+import BrokerHomeScreen from '../screens/BrokerHomeScreen';
+import BrokerManagementScreen from '../screens/BrokerManagementScreen';
+import BrokerProfileScreen from '../screens/BrokerProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
-export default function BrokerTabNavigator() {
+export default function BrokerTabNavigator({ route }: any) {
   const insets = useSafeAreaInsets();
+  const subscriptionStatus = route.params?.subscriptionStatus;
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -41,10 +43,10 @@ export default function BrokerTabNavigator() {
           marginTop: 0,
         },
         tabBarIcon: ({ focused, color, size }) => {
-          if (route.name === 'Network') {
-            return <FontAwesome5 name="users" size={22} color={color} style={{ marginBottom: -2 }} />;
-          } else if (route.name === 'Requests') {
-            return <MaterialCommunityIcons name="clipboard-list-outline" size={24} color={color} style={{ marginBottom: -2 }} />;
+          if (route.name === 'Home') {
+            return <Ionicons name="home" size={24} color={color} style={{ marginBottom: -2 }} />;
+          } else if (route.name === 'Management') {
+            return <MaterialCommunityIcons name="truck-delivery" size={24} color={color} style={{ marginBottom: -2 }} />;
           } else if (route.name === 'Profile') {
             return <Ionicons name="person-circle-outline" size={26} color={color} style={{ marginBottom: -2 }} />;
           }
@@ -52,8 +54,12 @@ export default function BrokerTabNavigator() {
         safeAreaInsets: { bottom: 0 },
       })}
     >
-      <Tab.Screen name="Network" component={BrokerNetworkScreen} />
-      <Tab.Screen name="Requests" component={BrokerRequestsScreen} />
+      <Tab.Screen
+        name="Home"
+        component={BrokerHomeScreen}
+        initialParams={{ subscriptionStatus }}
+      />
+      <Tab.Screen name="Management" component={BrokerManagementScreen} />
       <Tab.Screen name="Profile" component={BrokerProfileScreen} />
     </Tab.Navigator>
   );

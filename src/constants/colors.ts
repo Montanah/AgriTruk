@@ -16,6 +16,10 @@ const colors = {
   error: '#EB5757',
   warning: '#F2994A',
   success: '#219653',
+  border: '#E0E0E0',
+  successLight: '#E8F5E8',
+  primaryLight: '#E8F0E8',
+  warning: '#FFA726',
 };
 
 export default colors;

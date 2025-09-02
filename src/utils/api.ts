@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuth } from 'firebase/auth';
 
 // Use production backend - no local development needed
 const API_BASE = 'https://agritruk-backend.onrender.com/api';
@@ -8,7 +8,20 @@ const CLOUDINARY_UPLOAD_PRESET = 'YOUR_UPLOAD_PRESET';
 
 export async function apiRequest(endpoint: string, options: any = {}) {
   try {
-    const token = await AsyncStorage.getItem('jwt');
+    // Get Firebase Auth token instead of AsyncStorage JWT
+    const auth = getAuth();
+    const user = auth.currentUser;
+    let token = null;
+
+    if (user) {
+      try {
+        token = await user.getIdToken(true); // Force refresh token
+      } catch (tokenError) {
+        console.warn('Failed to get Firebase token:', tokenError);
+        // Continue without token - some endpoints might not require auth
+      }
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -31,7 +44,16 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     console.log('API Response Data:', data);
 
     if (!res.ok) {
-      throw new Error(data.message || `API error: ${res.status}`);
+      // Handle specific authentication errors
+      if (res.status === 401) {
+        throw new Error('Authentication failed. Please log in again.');
+      } else if (res.status === 403) {
+        throw new Error("Access denied. You don't have permission for this action.");
+      } else if (res.status === 404) {
+        throw new Error('Resource not found. Please check your request.');
+      } else {
+        throw new Error(data.message || `API error: ${res.status}`);
+      }
     }
     return data;
   } catch (error: any) {
@@ -46,6 +68,8 @@ export async function apiRequest(endpoint: string, options: any = {}) {
       throw new Error(
         'Connection error: Unable to reach the backend server. Please try again later.',
       );
+    } else if (error.message?.includes('Authentication failed')) {
+      throw new Error('Authentication failed. Please log in again to continue.');
     } else {
       throw error;
     }
@@ -65,6 +89,6 @@ export async function uploadToCloudinary(uri: string) {
     body: formData,
   });
   const data = await res.json();
-  if (!res.secure_url) throw new Error('Cloudinary upload failed');
+  if (!data.secure_url) throw new Error('Cloudinary upload failed');
   return data.secure_url;
 }

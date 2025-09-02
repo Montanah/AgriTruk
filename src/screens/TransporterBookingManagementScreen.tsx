@@ -18,7 +18,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { apiRequest } from '../utils/api';
 
 interface RouteParams {
     transporterType?: 'company' | 'individual' | 'broker';
@@ -38,10 +37,10 @@ const TransporterBookingManagementScreen = () => {
     const [selectedLoad, setSelectedLoad] = useState<any>(null);
 
     // Real data from API
-    const [allInstantRequests, setAllInstantRequests] = useState([]);
-    const [allRouteLoads, setAllRouteLoads] = useState([]);
-    const [allBookings, setAllBookings] = useState([]);
-    const [currentTransporter, setCurrentTransporter] = useState(null);
+    const [allInstantRequests, setAllInstantRequests] = useState<any[]>([]);
+    const [allRouteLoads, setAllRouteLoads] = useState<any[]>([]);
+    const [allBookings, setAllBookings] = useState<any[]>([]);
+    const [currentTransporter, setCurrentTransporter] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     // Fetch transporter profile and booking data
@@ -50,21 +49,142 @@ const TransporterBookingManagementScreen = () => {
             try {
                 setLoading(true);
 
-                // Fetch current transporter profile
-                const transporterData = await apiRequest('/transporters/profile/me');
-                setCurrentTransporter(transporterData);
+                // Mock data for now - replace with actual API calls when backend is ready
+                const mockTransporter = {
+                    id: 'TRANS001',
+                    displayName: 'John Doe Transport',
+                    phoneNumber: '+254700000000',
+                    canHandle: ['agri', 'cargo'],
+                    refrigeration: true,
+                    humidityControl: false,
+                    specialCargo: ['fragile', 'oversized'],
+                    specialFeatures: ['temperature-control'],
+                    perishableSpecs: ['refrigerated', 'humidity']
+                };
+                setCurrentTransporter(mockTransporter);
 
-                // Fetch instant requests
-                const instantRequests = await apiRequest('/transporters/incoming-requests');
-                setAllInstantRequests(instantRequests || []);
+                const mockInstantRequests = [
+                    {
+                        id: 'REQ001',
+                        type: 'instant',
+                        serviceType: 'agriTRUK',
+                        fromLocation: 'Nairobi Industrial Area',
+                        toLocation: 'Mombasa Port',
+                        productType: 'Machinery',
+                        weight: '2.5 tons',
+                        isPerishable: false,
+                        isSpecialCargo: true,
+                        specialCargoSpecs: ['fragile', 'oversized'],
+                        perishableSpecs: [],
+                        specialRequirements: ['Fragile handling', 'Oversized load'],
+                        urgency: 'high',
+                        estimatedValue: 500000,
+                        client: { name: 'ABC Industries', rating: 4.5, completedOrders: 15 },
+                        pricing: {
+                            basePrice: 30000,
+                            urgencyBonus: 2000,
+                            specialHandling: 1000,
+                            total: 33000
+                        },
+                        route: {
+                            distance: '480 km',
+                            estimatedTime: '6-8 hours',
+                            detour: '0 km'
+                        },
+                        createdAt: new Date().toISOString(),
+                        expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // 2 hours from now
+                    }
+                ];
+                setAllInstantRequests(mockInstantRequests);
 
-                // Fetch route loads
-                const routeLoads = await apiRequest('/transporters/route-loads');
-                setAllRouteLoads(routeLoads || []);
+                const mockRouteLoads = [
+                    {
+                        id: 'LOAD001',
+                        type: 'route',
+                        serviceType: 'cargoTRUK',
+                        fromLocation: 'Eldoret',
+                        toLocation: 'Nakuru',
+                        productType: 'Agricultural Products',
+                        weight: '1.8 tons',
+                        isPerishable: true,
+                        isSpecialCargo: false,
+                        specialCargoSpecs: [],
+                        perishableSpecs: ['refrigerated'],
+                        specialRequirements: ['Refrigerated transport'],
+                        urgency: 'medium',
+                        estimatedValue: 150000,
+                        description: 'Transport fresh agricultural products from Eldoret to Nakuru with refrigeration requirements.',
+                        clientRating: 4.2,
+                        schedule: {
+                            pickupDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
+                            deliveryDate: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), // Day after tomorrow
+                            flexibility: 'flexible'
+                        },
+                        client: { name: 'Green Farms Ltd', rating: 4.2 },
+                        pricing: {
+                            basePrice: 20000,
+                            total: 21500
+                        },
+                        price: 21500, // For compatibility with render function
+                        route: {
+                            distance: '180 km',
+                            estimatedTime: '3-4 hours'
+                        }
+                    }
+                ];
+                setAllRouteLoads(mockRouteLoads);
 
-                // Fetch bookings
-                const bookings = await apiRequest('/transporters/bookings');
-                setAllBookings(bookings || []);
+                const mockBookings = [
+                    {
+                        id: 'BOOK001',
+                        type: 'booking',
+                        status: 'active',
+                        serviceType: 'agriTRUK',
+                        fromLocation: 'Kisumu',
+                        toLocation: 'Nairobi',
+                        productType: 'Livestock',
+                        weight: '3.2 tons',
+                        isPerishable: false,
+                        isSpecialCargo: true,
+                        specialCargoSpecs: ['livestock'],
+                        perishableSpecs: [],
+                        specialRequirements: ['Livestock handling'],
+                        client: {
+                            name: 'Livestock Co',
+                            phone: '+254700000001',
+                            email: 'contact@livestockco.com'
+                        },
+                        pricing: {
+                            total: 28000,
+                            paid: 14000,
+                            pending: 14000
+                        },
+                        schedule: {
+                            pickupDate: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
+                            deliveryDate: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString() // 8 hours from now
+                        },
+                        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
+                        updatedAt: new Date().toISOString()
+                    }
+                ];
+                setAllBookings(mockBookings);
+
+                // TODO: Uncomment when backend endpoints are ready
+                // // Fetch current transporter profile
+                // const transporterData = await apiRequest('/transporters/profile/me');
+                // setCurrentTransporter(transporterData);
+
+                // // Fetch instant requests
+                // const instantRequests = await apiRequest('/transporters/incoming-requests');
+                // setAllInstantRequests(instantRequests || []);
+
+                // // Fetch route loads
+                // const routeLoads = await apiRequest('/transporters/route-loads');
+                // setAllRouteLoads(routeLoads || []);
+
+                // // Fetch bookings
+                // const bookings = await apiRequest('/transporters/bookings');
+                // setAllBookings(bookings || []);
 
             } catch (error) {
                 console.error('Failed to fetch booking data:', error);
@@ -75,24 +195,6 @@ const TransporterBookingManagementScreen = () => {
 
         fetchData();
     }, []);
-
-    // Show loading state
-    if (loading) {
-        return (
-            <SafeAreaView style={styles.container}>
-                <LinearGradient
-                    colors={[colors.primary, colors.primaryDark, colors.secondary, colors.background]}
-                    style={StyleSheet.absoluteFill}
-                    start={{ x: 0.2, y: 0 }}
-                    end={{ x: 0.8, y: 1 }}
-                />
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.white} />
-                    <Text style={styles.loadingText}>Loading booking data...</Text>
-                </View>
-            </SafeAreaView>
-        );
-    }
 
     // Function to check if transporter can handle a request
     const canTransporterHandleRequest = (transporter: any, request: any) => {
@@ -156,6 +258,24 @@ const TransporterBookingManagementScreen = () => {
             return canTransporterHandleRequest(currentTransporter, load);
         });
     }, [allRouteLoads, currentTransporter]);
+
+    // Show loading state AFTER all hooks
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <LinearGradient
+                    colors={[colors.primary, colors.primaryDark, colors.secondary, colors.background]}
+                    style={StyleSheet.absoluteFill}
+                    start={{ x: 0.2, y: 0 }}
+                    end={{ x: 0.8, y: 1 }}
+                />
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.white} />
+                    <Text style={styles.loadingText}>Loading booking data...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     // Function to get capability mismatch reasons
     const getCapabilityMismatchReasons = (request: any) => {
@@ -254,7 +374,8 @@ const TransporterBookingManagementScreen = () => {
         }
     };
 
-    const getUrgencyIcon = (urgency: string) => {
+    const getUrgencyIcon = (urgency?: string) => {
+        if (!urgency) return 'clock';
         switch (urgency.toLowerCase()) {
             case 'high':
                 return 'fire';
@@ -267,7 +388,8 @@ const TransporterBookingManagementScreen = () => {
         }
     };
 
-    const getUrgencyColor = (urgency: string) => {
+    const getUrgencyColor = (urgency?: string) => {
+        if (!urgency) return colors.warning;
         switch (urgency.toLowerCase()) {
             case 'high':
                 return colors.error;
@@ -311,7 +433,7 @@ const TransporterBookingManagementScreen = () => {
                             color={getUrgencyColor(item.urgency)}
                         />
                         <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency) }]}>
-                            {item.urgency.toUpperCase()} PRIORITY
+                            {item.urgency ? item.urgency.toUpperCase() : 'MEDIUM'} PRIORITY
                         </Text>
                     </View>
                 </View>
@@ -536,7 +658,7 @@ const TransporterBookingManagementScreen = () => {
                             color={getUrgencyColor(item.urgency)}
                         />
                         <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency) }]}>
-                            {item.urgency.toUpperCase()} PRIORITY
+                            {item.urgency ? item.urgency.toUpperCase() : 'MEDIUM'} PRIORITY
                         </Text>
                     </View>
                 </View>
@@ -1889,11 +2011,6 @@ const styles = StyleSheet.create({
         color: colors.text.primary,
         marginBottom: 8,
     },
-    clientName: {
-        fontSize: fonts.size.md,
-        fontWeight: '600',
-        color: colors.text.primary,
-    },
     modalActions: {
         flexDirection: 'row',
         gap: 12,
@@ -1914,6 +2031,22 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         fontWeight: '600',
         marginLeft: 6,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        color: colors.white,
+        fontSize: fonts.size.md,
+        marginTop: spacing.md,
+        fontWeight: '600',
+    },
+    estimatedValue: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.secondary,
     },
 
 });

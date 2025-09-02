@@ -11,17 +11,34 @@
     "ios": {
       "bundleIdentifier": "com.truk.trukapp",
       "supportsTablet": true,
+      "icon": "./assets/images/ios-icon-180.png",
       "config": {
         "googleMapsApiKey": "${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}"
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to location to show your position on the map and calculate routes."
+      },
+      "icons": {
+        "20": "./assets/images/ios-icon-20.png",
+        "29": "./assets/images/ios-icon-29.png",
+        "40": "./assets/images/ios-icon-40.png",
+        "58": "./assets/images/ios-icon-58.png",
+        "60": "./assets/images/ios-icon-60.png",
+        "76": "./assets/images/ios-icon-76.png",
+        "80": "./assets/images/ios-icon-80.png",
+        "87": "./assets/images/ios-icon-87.png",
+        "120": "./assets/images/ios-icon-120.png",
+        "152": "./assets/images/ios-icon-152.png",
+        "167": "./assets/images/ios-icon-167.png",
+        "180": "./assets/images/ios-icon-180.png",
+        "1024": "./assets/images/ios-icon-1024.png"
       }
     },
     "android": {
       "package": "com.truk.trukapp",
+      "icon": "./assets/images/android-icon-512.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -30,7 +47,24 @@
           "apiKey": "${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}"
         }
       },
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "*.trukapp.com"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -46,7 +80,13 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-document-picker"
+      "expo-document-picker",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow TRUKapp to use your location to show your position on the map and calculate routes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

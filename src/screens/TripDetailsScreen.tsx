@@ -5,6 +5,7 @@ import { FlatList, Image, Linking, Modal, StyleSheet, Text, TextInput, Touchable
 import { notificationService } from '../../services/notificationService';
 import NotificationBell from '../components/Notification/NotificationBell';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
+import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
 import colors from '../constants/colors';
 import { apiRequest } from '../utils/api';
 
@@ -17,17 +18,41 @@ interface TripDetailsParams {
   vehicle?: any;
   bookingId?: string;
   tripId?: string;
+  userType?: 'shipper' | 'broker' | 'business' | 'transporter';
+  eta?: string;
+  distance?: string;
 }
 
 const TripDetailsScreen = () => {
   const route = useRoute();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const params = route.params as TripDetailsParams || {};
 
   // Support consolidated instant requests: params.requests (array) or single booking/trip
   const requests = params.requests || null; // array of requests for consolidated
   const isConsolidated = Array.isArray(requests) && requests.length > 1;
   const isInstant = params.isInstant || false; // Flag for instant requests
+
+  // Get user type from params or determine from navigation context
+  const userType = params.userType || 'shipper';
+
+  // Determine if trip can be cancelled based on status and user type
+  const canCancelTrip = () => {
+    if (!currentBooking && !currentTrip) return false;
+
+    const status = currentBooking?.status || currentTrip?.status || '';
+    const inTransitStatuses = ['in_transit', 'in_progress', 'on_the_way', 'picked_up'];
+
+    // Can't cancel if already in transit
+    if (inTransitStatuses.includes(status.toLowerCase())) return false;
+
+    // Only shippers and business users can cancel (not brokers on behalf of clients)
+    if (userType === 'broker') return false;
+
+    // Can cancel if pending, confirmed, or assigned
+    const cancellableStatuses = ['pending', 'confirmed', 'assigned', 'accepted'];
+    return cancellableStatuses.includes(status.toLowerCase());
+  };
 
   // booking param should be passed in navigation
   const booking = params.booking || (requests && requests[0]) || null;
@@ -39,7 +64,7 @@ const TripDetailsScreen = () => {
   // State for real data
   const [bookingData, setBookingData] = useState(booking);
   const [tripData, setTripData] = useState(trip);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch booking and trip data if not provided
@@ -48,20 +73,36 @@ const TripDetailsScreen = () => {
       try {
         setLoading(true);
 
+        // Only try to fetch if we have IDs and the endpoints exist
         if (!bookingData && params.bookingId) {
-          const bookingResponse = await apiRequest(`/bookings/${params.bookingId}`);
-          setBookingData(bookingResponse);
+          try {
+            const bookingResponse = await apiRequest(`/bookings/${params.bookingId}`);
+            setBookingData(bookingResponse);
+          } catch (error) {
+            console.log('Booking endpoint not available, using passed data');
+            // Endpoint not available, use passed data
+          }
         }
 
         if (!tripData && params.tripId) {
-          const tripResponse = await apiRequest(`/trips/${params.tripId}`);
-          setTripData(tripResponse);
+          try {
+            const tripResponse = await apiRequest(`/trips/${params.tripId}`);
+            setTripData(tripResponse);
+          } catch (error) {
+            console.log('Trip endpoint not available, using passed data');
+            // Endpoint not available, use passed data
+          }
         }
 
-        // Fetch messages if we have a booking or trip
-        if (bookingData?.id || tripData?.id) {
-          const messagesResponse = await apiRequest(`/messages/${bookingData?.id || tripData?.id}`);
-          setMessages(messagesResponse || []);
+        // Fetch messages if we have a booking or trip and endpoint exists
+        if ((bookingData?.id || tripData?.id) && params.bookingId) {
+          try {
+            const messagesResponse = await apiRequest(`/messages/${bookingData?.id || tripData?.id}`);
+            setMessages(messagesResponse || []);
+          } catch (error) {
+            console.log('Messages endpoint not available, using empty array');
+            setMessages([]);
+          }
         }
 
       } catch (error) {
@@ -80,8 +121,9 @@ const TripDetailsScreen = () => {
 
   // Determine communication target: assigned driver (for company) or selected transporter
   let commTarget = null;
-  let transporter = booking.transporter || {};
-  if (booking.transporterType === 'company' && booking.assignedDriver) {
+  let transporter = (booking && booking.transporter) || {};
+
+  if (booking && booking.transporterType === 'company' && booking.assignedDriver) {
     commTarget = {
       name: booking.assignedDriver.name,
       phone: booking.assignedDriver.phone,
@@ -124,7 +166,7 @@ const TripDetailsScreen = () => {
   const admin = { id: 'ADMIN', name: 'Admin', email: 'admin@trukapp.com', phone: '+254700000000' };
 
   // Notification triggers for trip status changes
-  const notifyTripStatus = (status) => {
+  const notifyTripStatus = (status: string) => {
     const tripSummary = `${trip.from} to ${trip.to}`;
     // In-app
     notificationService.sendInApp(customer.id, `Trip status: ${status} for ${tripSummary}`, 'customer', 'request_status', { trip, status });
@@ -147,7 +189,7 @@ const TripDetailsScreen = () => {
   };
 
   // Use trip.id or booking.id as tripId for AvailableLoadsAlongRoute
-  const tripId = trip.id || booking.id || 'TRIP123';
+  const tripId = (trip && trip.id) || (booking && booking.id) || 'TRIP123';
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -156,9 +198,51 @@ const TripDetailsScreen = () => {
       </View>
 
       <View style={styles.mapCard}>
-        <Ionicons name="map" size={64} color="#bbb" />
-        <Text style={{ color: '#888', fontSize: 18, marginTop: 12, fontWeight: '600' }}>Map will appear here</Text>
-        <Text style={{ color: '#aaa', fontSize: 13, marginTop: 4 }}>Enable Google Maps API for live tracking</Text>
+        <ExpoCompatibleMap
+          style={styles.map}
+          showUserLocation={true}
+          markers={[
+            // Pickup location marker
+            ...(currentBooking && currentBooking.pickupLocation ? [{
+              id: 'pickup',
+              coordinate: {
+                latitude: currentBooking.pickupLocation.latitude || -1.2921,
+                longitude: currentBooking.pickupLocation.longitude || 36.8219,
+              },
+              title: 'Pickup Location',
+              description: currentBooking.pickupLocation.address || 'Pickup point',
+              pinColor: colors.primary,
+            }] : []),
+            // Delivery location marker
+            ...(currentBooking && currentBooking.toLocation ? [{
+              id: 'delivery',
+              coordinate: {
+                latitude: currentBooking.toLocation.latitude || -1.2921,
+                longitude: currentBooking.toLocation.longitude || 36.8219,
+              },
+              title: 'Delivery Location',
+              description: currentBooking.toLocation.address || 'Delivery point',
+              pinColor: colors.secondary,
+            }] : []),
+            // Transporter location marker (if available)
+            ...(currentTrip && currentTrip.currentLocation ? [{
+              id: 'transporter',
+              coordinate: {
+                latitude: currentTrip.currentLocation.latitude || -1.2921,
+                longitude: currentTrip.currentLocation.longitude || 36.8219,
+              },
+              title: 'Transporter Location',
+              description: 'Current position',
+              pinColor: colors.success,
+            }] : []),
+          ]}
+          initialRegion={{
+            latitude: -1.2921, // Nairobi
+            longitude: 36.8219,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        />
       </View>
 
       {/* Available Loads Along Route - Only show for transporters */}
@@ -170,7 +254,7 @@ const TripDetailsScreen = () => {
       <View style={[styles.bottomCard, { marginBottom: 24 }]}>
         {/* Trip Reference and Status */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          {booking.reference && (
+          {booking && booking.reference && (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <MaterialCommunityIcons name="identifier" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
               <Text style={{ color: colors.text.secondary, fontWeight: 'bold', fontSize: 13 }}>Ref: {booking.reference}</Text>
@@ -178,23 +262,40 @@ const TripDetailsScreen = () => {
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <MaterialCommunityIcons name="progress-clock" size={16} color={colors.primary} style={{ marginRight: 4 }} />
-            <Text style={[styles.statusText, { fontSize: 15 }]}>Status: <Text style={{ color: colors.primary }}>{trip.status}</Text></Text>
+            <Text style={[styles.statusText, { fontSize: 15 }]}>
+              Status: <Text style={{ color: colors.primary }}>
+                {trip && trip.status ? trip.status : 'Pending'}
+              </Text>
+            </Text>
           </View>
         </View>
+
+        {/* User Type Specific Info */}
+        {userType === 'broker' && (
+          <View style={{ marginBottom: 8, backgroundColor: '#f0f8ff', borderRadius: 8, padding: 8 }}>
+            <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
+              📋 Managing on behalf of client
+            </Text>
+          </View>
+        )}
 
         {/* Route Information */}
         <View style={[styles.tripInfoRow, { marginBottom: 4 }]}>
           <FontAwesome5 name="map-marker-alt" size={16} color={colors.primary} />
-          <Text style={styles.tripInfoText}>From: <Text style={{ fontWeight: 'bold' }}>{booking.pickupLocation || trip.from}</Text></Text>
+          <Text style={styles.tripInfoText}>From: <Text style={{ fontWeight: 'bold' }}>{booking && booking.pickupLocation ? booking.pickupLocation : (trip && trip.from ? trip.from : '--')}</Text></Text>
           <FontAwesome5 name="flag-checkered" size={16} color={colors.secondary} style={{ marginLeft: 12 }} />
-          <Text style={styles.tripInfoText}>To: <Text style={{ fontWeight: 'bold' }}>{booking.toLocation || '--'}</Text></Text>
+          <Text style={styles.tripInfoText}>To: <Text style={{ fontWeight: 'bold' }}>{booking && booking.toLocation ? booking.toLocation : '--'}</Text></Text>
         </View>
 
         {/* ETA and Distance */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, backgroundColor: '#f5f5f5', borderRadius: 8, padding: 6, alignSelf: 'flex-start' }}>
           <Ionicons name="time" size={18} color={colors.secondary} style={{ marginRight: 4 }} />
           <Text style={[styles.tripInfoText, { fontWeight: 'bold', marginRight: 4 }]}>ETA:</Text>
-          <Text style={[styles.tripInfoText, { fontWeight: 'bold', color: colors.primary }]}>{params.eta || booking.eta || trip.eta} {(params.distance || booking.distance || trip.distance) ? `(${params.distance || booking.distance || trip.distance})` : ''}</Text>
+          <Text style={[styles.tripInfoText, { fontWeight: 'bold', color: colors.primary }]}>
+            {params.eta || (booking && booking.eta) || (trip && trip.eta) || '--'}
+            {(params.distance || (booking && booking.distance) || (trip && trip.distance)) ?
+              ` (${params.distance || (booking && booking.distance) || (trip && trip.distance)})` : ''}
+          </Text>
         </View>
 
         {/* Transporter Info */}
@@ -218,9 +319,11 @@ const TripDetailsScreen = () => {
 
         {/* Action Buttons */}
         <View style={styles.actionRowSplit}>
-          <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8 }]} onPress={() => notifyTripStatus('cancelled')}>
-            <Text style={styles.cancelText}>Cancel Trip</Text>
-          </TouchableOpacity>
+          {canCancelTrip() && (
+            <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8 }]} onPress={() => notifyTripStatus('cancelled')}>
+              <Text style={styles.cancelText}>Cancel Trip</Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.actionIconsRight}>
             <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
               <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
@@ -235,7 +338,7 @@ const TripDetailsScreen = () => {
               <TouchableOpacity
                 style={styles.iconBtn}
                 onPress={() => navigation.navigate('MapViewScreen', {
-                  booking: booking,
+                  booking: booking || {},
                   isInstant: true
                 })}
               >
@@ -304,15 +407,18 @@ const TripDetailsScreen = () => {
 const styles = StyleSheet.create({
   mapCard: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.white,
     borderRadius: 22,
     margin: 16,
     shadowColor: colors.black,
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 4,
+    overflow: 'hidden',
+  },
+  map: {
+    height: 300,
+    width: '100%',
   },
   divider: {
     height: 8,
@@ -380,3 +486,4 @@ const styles = StyleSheet.create({
 });
 
 export default TripDetailsScreen;
+

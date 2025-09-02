@@ -20,6 +20,7 @@ const Stack = createStackNavigator();
 const HomeStack = ({ transporterType }) => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="TransporterService" component={TransporterServiceScreen} initialParams={{ transporterType }} />
+    <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
     <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
     <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
     <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
@@ -27,13 +28,13 @@ const HomeStack = ({ transporterType }) => (
     <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
     <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
-    <Stack.Screen name="GoogleMapsTest" component={require('../components/common/GoogleMapsTest').default} />
   </Stack.Navigator>
 );
 
 const ManageStack = ({ transporterType }) => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
+    <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
     <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
     <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
     <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
@@ -47,6 +48,7 @@ const ManageStack = ({ transporterType }) => (
 const ProfileStack = ({ transporterType }) => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="TransporterProfile" component={TransporterProfileScreen} initialParams={{ transporterType }} />
+    <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
     <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
     <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
     <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
