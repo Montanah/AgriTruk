@@ -1,0 +1,20 @@
+{
+  "name": "agritruk-fullstack",
+  "version": "1.0.0",
+  "description": "AgriTruk Full Stack Application - Backend API + Frontend Web App",
+  "main": "backend/server.js",
+  "scripts": {
+    "install-all": "cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm install && npx expo export --platform web",
+    "start": "cd backend && npm install && npm start",
+    "dev": "cd backend && npm run dev",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["agritruk", "transport", "logistics", "fullstack"],
+  "author": "AgriTruk Team",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
