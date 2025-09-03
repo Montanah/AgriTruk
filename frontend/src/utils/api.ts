@@ -1,7 +1,7 @@
 import { getAuth } from 'firebase/auth';
 
 // Use production backend - no local development needed
-const API_BASE = 'https://agritruk-backend.onrender.com/api';
+const API_BASE = 'https://agritruk.onrender.com/api';
 
 // Test logging function - call this to verify terminal logging works
 export function testTerminalLogging() {
