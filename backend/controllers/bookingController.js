@@ -6,6 +6,8 @@ const { logActivity } = require('../utils/activityLogger');
 const { formatTimestamps } = require('../utils/formatData');
 const geolib = require('geolib');
 const Transporter = require('../models/Transporter');
+const MatchingService = require('../services/matchingService');
+const { calculateDistance } = require('../utils/geoUtils');
 
 exports.createBooking = async (req, res) => {
   try {
@@ -107,7 +109,8 @@ exports.createBooking = async (req, res) => {
     // Generate requestId
     const requestId = req.body.requestId || 
       `${bookingType[0].toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)}`;
-
+    
+    const actualDistance = calculateDistance(fromLocation, toLocation);
     // Prepare booking data
     const bookingData = {
       requestId,
@@ -132,6 +135,7 @@ exports.createBooking = async (req, res) => {
       specialCargo: bookingType === 'Cargo' ? specialCargo : [],
       additionalNotes: additionalNotes || null,
       consolidated,
+      actualDistance
     };
 
     const booking = await Booking.create(bookingData); 
@@ -155,12 +159,24 @@ exports.createBooking = async (req, res) => {
       userId: user,
       userType: "user",
     });
+    console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
 
-    res.status(201).json({
-      success: true,
-      message: `${bookingType}TRUK booking created successfully`,
-      booking: formatTimestamps(booking),
-    });
+    if (bookingMode === 'instant') {
+      const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
+      return res.status(201).json({
+        success: true,
+        message: `${bookingType}TRUK booking created successfully`,
+        booking: formatTimestamps(booking),
+        matchedTransporter
+      });
+    } else {
+
+      res.status(201).json({
+        success: true,
+        message: `${bookingType}TRUK booking created successfully`,
+        booking: formatTimestamps(booking),
+      });
+    }
   } catch (error) {
     console.error("Create booking error:", error);
     res.status(500).json({

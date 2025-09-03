@@ -11,6 +11,7 @@ const {
   deleteDispute,
 } = require('../controllers/disputeController');
 const { authorize } = require("../middlewares/adminAuth");
+const { getActiveSubscribedTransporters } = require('../services/testService');
 
 /**
  * @swagger
@@ -79,6 +80,8 @@ const { authorize } = require("../middlewares/adminAuth");
  *         description: Internal server error
  */
 router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin']), createDispute);
+
+router.get('/test', getActiveSubscribedTransporters)
 
 /**
  * @swagger

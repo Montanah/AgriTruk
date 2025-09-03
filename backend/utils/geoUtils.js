@@ -33,10 +33,20 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
  * @throws {Error} If latitude or longitude is missing or invalid.
  */
 function calculateDistance(loc1, loc2) {
+  console.log(loc1, loc2);
   if (!loc1?.latitude || !loc1?.longitude || !loc2?.latitude || !loc2?.longitude) {
     throw new Error('Invalid location data: latitude and longitude are required');
   }
   return haversineDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
 }
+function calculatePickupDistance(transporter, pickupLocation) {
+  return calculateDistance(transporter.currentLocation, pickupLocation);
+}
 
-module.exports = { haversineDistance, calculateDistance };
+function calculateDistanceScore(distanceKm, maxDistance = 100) {
+  if (distanceKm <= 0) return 100;
+  if (distanceKm >= maxDistance) return 0;
+  return Math.max(0, 100 - (distanceKm / maxDistance) * 100);
+}
+
+module.exports = { haversineDistance, calculateDistance, calculateDistanceScore, calculatePickupDistance };

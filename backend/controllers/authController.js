@@ -532,7 +532,7 @@ exports.resendCode = async (req, res) => {
 
   try {
     const userData = await User.get(uid);
-    if (userData.isVerified) {
+    if (userData.emailVerified) {
       return res.status(400).json({ message: "User is already verified" });
     }
 

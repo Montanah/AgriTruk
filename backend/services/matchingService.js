@@ -5,35 +5,82 @@ const AgriBooking = require('../models/AgriBooking');
 const CargoBooking = require('../models/CargoBooking');
 const Request = require('../models/Request');
 const Notification = require('../models/Notification');
-const { sendEmail } = require('../utils/sendEmail');
+const sendEmail = require('../utils/sendEmail');
 const { haversineDistance, calculateDistance } = require('../utils/geoUtils');
 const Booking = require("../models/Booking");
 
 class MatchingService {
-  static async matchBooking(bookingId, bookingType) {
+
+  static async getActiveSubscribedTransporters() {
+    try {
+      // Get all active subscribers
+      const activeSubscribersSnapshot = await db.collection('subscribers')
+        .where('status', '==', 'active')
+        .where('isActive', '==', true)
+        .where('endDate', '>=', admin.firestore.Timestamp.now())
+        .get();
+  
+      if (activeSubscribersSnapshot.empty) {
+        console.log('No active subscribers found');
+        return [];
+      }
+  
+      // Extract userIds
+      const activeUserIds = activeSubscribersSnapshot.docs.map(doc => doc.data().userId);
+      console.log('Active subscriber userIds:', activeUserIds);
+  
+      // Handle Firestore "in" limitation (max 10 items per query)
+      let activeTransporters = [];
+      const chunkSize = 10;
+      for (let i = 0; i < activeUserIds.length; i += chunkSize) {
+        const chunk = activeUserIds.slice(i, i + chunkSize);
+        const activeTransportersSnapshot = await db.collection('transporters')
+          .where('userId', 'in', chunk)
+          .where('status', '==', 'approved')
+          .where('acceptingBooking', '==', true)
+          .get();
+  
+        activeTransporters = activeTransporters.concat(
+          activeTransportersSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+        );
+      }
+  
+      console.log('Active subscribed transporters:', activeTransporters);
+      return activeTransporters;
+  
+    } catch (error) {
+      console.error('Error fetching active subscribed transporters:', error);
+      throw error;
+    }
+  }
+
+  static async matchBooking(bookingId) {
     const booking = await Booking.get(bookingId);
+    console.log('Matching booking:', booking);
 
     if (booking.status !== 'pending') return null;
 
-    const transporters = await db.collection('transporters')
-      .where('acceptingBooking', '==', true)
-      .where('status', '==', 'approved')
-      .get();
-    const suitableTransporters = [];
+    const activeTransporters = await MatchingService.getActiveSubscribedTransporters();
+    let suitableTransporters = [];
 
-    for (const doc of transporters.docs) {
-      const transporter = { id: doc.id, ...doc.data() };
-      const weightKg = booking.weightKg || 0; // Default to 0 if undefined
+    // activeTransporters is already an array of transporter objects
+    for (const transporter of activeTransporters) {
+      const weightKg = booking.weightKg || 0; 
       if (!transporter.vehicleCapacity || transporter.vehicleCapacity < weightKg * 2) continue;
 
       const lastLocation = transporter.lastKnownLocation;
-      const fromLocation = booking.fromLocation || booking.pickUpLocation; // Handle variation
+      const fromLocation = booking.fromLocation || booking.pickUpLocation;
+      console.log('lastLocation', lastLocation, 'fromLocation', fromLocation);
+
       if (lastLocation && fromLocation) {
         const distance = calculateDistance(lastLocation, fromLocation);
-        if (distance > 50) continue; // Within 50 km, adjust as needed
+        if (distance > 50) continue;
       }
 
-      const needsRefrigeration = booking.needsRefrigeration || booking.requiresRefrigeration || false; // Handle variation
+      const needsRefrigeration = booking.needsRefrigeration || booking.requiresRefrigeration || false;
       if (needsRefrigeration && !transporter.refrigerated) continue;
       if (booking.urgentDelivery && !transporter.vehicleType?.includes('urgent')) continue;
 
@@ -50,7 +97,7 @@ class MatchingService {
       };
       await Booking.update(bookingId, updateData);
       
-      await this.notifyMatch(booking, matchedTransporter, bookingType);
+      // await this.notifyMatch(booking, matchedTransporter, booking.bookingType);
       return matchedTransporter;
     }
     return null;
@@ -79,7 +126,7 @@ class MatchingService {
       consolidated: true,
       pickUpDate: bookings[0].pickUpDate,
     };
-    const newBooking = await Request.create(consolidatedBooking); // Store as AgriBooking for now
+    const newBooking = await Booking.create(consolidatedBooking); 
     const matchedTransporter = await this.matchBooking(newBooking.bookingId, 'agri');
     return { newBooking, matchedTransporter };
   }
