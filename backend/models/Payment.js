@@ -1,0 +1,49 @@
+const admin = require("../config/firebase");
+const db = admin.firestore(); 
+
+// PAYMENTS Model
+const Payment = {
+  async create(paymentData) {
+    const payment = {
+      paymentId: paymentData.paymentId || db.collection('payments').doc().id,
+      requestId: paymentData.requestId,
+      payerId: paymentData.payerId,
+      subscriberId: paymentData.subscriberId || null,
+      planId: paymentData.planId || null,
+      amount: paymentData.amount || 0,
+      phone: paymentData.phone || null,
+      email: paymentData.email || null,
+      currency: paymentData.currency || 'KES',
+      method: paymentData.method || 'mpesa',
+      transDate: paymentData.transDate || null,
+      mpesaReference: paymentData.mpesaReference || null,
+      status: paymentData.status || 'pending',
+      failureReason: paymentData.failureReason || null,
+      receiptUrl: paymentData.receiptUrl || null,
+      disputeId: paymentData.disputeId || null,
+      createdAt: admin.firestore.Timestamp.now(),
+      paidAt: paymentData.paidAt || null
+    };
+    await db.collection('payments').doc(payment.paymentId).set(payment);
+    return payment;
+  },
+  async get(paymentId) {
+    const doc = await db.collection('payments').doc(paymentId).get();
+    if (!doc.exists) throw new Error('Payment not found');
+    return doc.data();
+  },
+  async update(paymentId, updates) {
+    console.log('Updating payment:', paymentId, updates);
+    const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
+    await db.collection('payments').doc(paymentId).update(updated);
+    return updated;
+  }, 
+
+  async getByRequestID(requestId) {
+    const querySnapshot = await db.collection('payments').where('requestId', '==', requestId).get();
+    if (querySnapshot.empty) return null;
+    return querySnapshot.docs[0].data();
+  }
+};
+
+module.exports = Payment;
