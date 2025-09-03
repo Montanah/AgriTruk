@@ -11,7 +11,7 @@ const {
   deleteDispute,
 } = require('../controllers/disputeController');
 const { authorize } = require("../middlewares/adminAuth");
-const { getActiveSubscribedTransporters } = require('../services/testService');
+//const { getActiveSubscribedTransporters } = require('../services/testService');
 
 /**
  * @swagger
@@ -81,7 +81,7 @@ const { getActiveSubscribedTransporters } = require('../services/testService');
  */
 router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin']), createDispute);
 
-router.get('/test', getActiveSubscribedTransporters)
+//router.get('/test', getActiveSubscribedTransporters)
 
 /**
  * @swagger
