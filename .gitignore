@@ -121,7 +121,8 @@ temp/
 # App example (if exists)
 app-example
 
-# Documentation files (ignore all .md files except README.md and workflow guide)
+# Documentation files (ignore all .md files except README.md, workflow guide, and build commands)
 *.md
 !README.md
 !WORKFLOW_GUIDE.md
+!BUILD_AND_DEPLOYMENT_COMMANDS.md
