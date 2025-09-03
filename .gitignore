@@ -5,8 +5,6 @@ node_modules/
 frontend/node_modules/
 backend/node_modules/
 
-/backend
-
 # Expo
 .expo/
 dist/
@@ -122,3 +120,7 @@ temp/
 
 # App example (if exists)
 app-example
+
+# Documentation files (ignore all .md files except README.md)
+*.md
+!README.md
