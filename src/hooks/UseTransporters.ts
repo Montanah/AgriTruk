@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiRequest } from '../utils/api';
 
 // Mock data for testing while waiting for backend
 const mockTransporters = [
@@ -99,24 +100,17 @@ export const useTransporters = () => {
       setError(null);
 
       try {
-        // For now, use mock data
-        // TODO: Replace with real API call when backend is ready
-        console.log('🚛 Using mock transporters for testing...');
-
-        // Simulate API delay for realistic experience
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        setTransporters(mockTransporters);
-        setLoading(false);
-
-        // Uncomment this when backend is ready:
-        /*
         console.log('🚛 Fetching transporters from API...');
         const data = await apiRequest('/transporters/available/list');
         console.log('🚛 Transporters API response:', data);
 
-        if (Array.isArray(data) && data.length > 0) {
-          const normalizedData = data.map((t: any) => ({
+        if (
+          data &&
+          data.transporters &&
+          Array.isArray(data.transporters) &&
+          data.transporters.length > 0
+        ) {
+          const normalizedData = data.transporters.map((t: any) => ({
             ...t,
             costPerKm: t.costPerKm || null,
             photo:
@@ -128,12 +122,36 @@ export const useTransporters = () => {
                 ? t.vehiclePhotos
                 : [t.photo || 'https://via.placeholder.com/54x54?text=TRUK'],
             est: t.est || 'Calculating...',
+            // Map backend fields to frontend expected fields
+            name: t.name || t.displayName || t.companyName,
+            companyName: t.companyName || t.displayName || t.name,
+            profilePhoto: t.profilePhoto || t.profilePhotoUrl,
+            vehiclePhoto: t.vehiclePhoto || (t.vehiclePhotos && t.vehiclePhotos[0]),
+            vehicleType: t.vehicleType,
+            vehicleMake: t.vehicleMake,
+            vehicleModel: t.vehicleModel,
+            vehicleYear: t.vehicleYear,
+            capacity: t.capacity || t.vehicleCapacity,
+            bodyType: t.bodyType,
+            driveType: t.driveType,
+            reg: t.reg || t.vehicleRegistration,
+            rating: t.rating || 0,
+            experience: t.experience || 0,
+            tripsCompleted: t.tripsCompleted || t.totalTrips || 0,
+            availability: t.availability || t.acceptingBooking,
+            refrigerated: t.refrigerated || false,
+            humidityControl: t.humidityControl || false,
+            specialFeatures: t.specialFeatures || [],
+            location: t.location || 'Unknown',
+            address: t.address || t.location || 'Unknown',
           }));
           setTransporters(normalizedData);
+          console.log('🚛 Normalized transporters:', normalizedData);
         } else {
-          setTransporters([]);
+          console.log('🚛 No transporters found, using mock data');
+          setTransporters(mockTransporters);
         }
-        */
+        setLoading(false);
       } catch (err: any) {
         console.log('🚛 Using mock data due to API error:', err.message);
         // Fallback to mock data

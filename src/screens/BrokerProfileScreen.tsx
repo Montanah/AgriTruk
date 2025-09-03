@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
@@ -52,22 +52,7 @@ const subscriptionPlans: SubscriptionPlan[] = [
   }
 ];
 
-const mockPaymentMethods: PaymentMethod[] = [
-  {
-    id: 'mpesa-1',
-    type: 'mpesa',
-    name: 'MPESA',
-    details: '+254 712 345 678',
-    isDefault: true
-  },
-  {
-    id: 'card-1',
-    type: 'card',
-    name: 'Visa Card',
-    details: '**** **** **** 1234',
-    isDefault: false
-  }
-];
+// Removed mockPaymentMethods - now using dynamic data from user profile
 
 export default function BrokerProfileScreen() {
   const navigation = useNavigation<any>();
@@ -77,18 +62,20 @@ export default function BrokerProfileScreen() {
   const [company, setCompany] = useState('');
   const [location, setLocation] = useState('');
   const [bio, setBio] = useState('');
-  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<SubscriptionPlan | null>(null);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(mockPaymentMethods);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [profilePhoto, setProfilePhoto] = useState<any>(null);
   const [clientSince, setClientSince] = useState('');
-  const [subscriptionStatus, setSubscriptionStatus] = useState('active');
-  const [daysRemaining, setDaysRemaining] = useState(25);
+
+  // Verification states
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [verifyingPhone, setVerifyingPhone] = useState(false);
 
   const pickProfilePhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -117,6 +104,27 @@ export default function BrokerProfileScreen() {
             setLocation(data.location || '');
             setBio(data.bio || '');
 
+            // Set verification status
+            setEmailVerified(data.emailVerified || false);
+            setPhoneVerified(data.phoneVerified || false);
+
+            // Load payment methods from user data or use mock data
+            if (data.paymentMethods && Array.isArray(data.paymentMethods)) {
+              setPaymentMethods(data.paymentMethods);
+            } else {
+              // Use mock data with actual phone number from profile
+              const defaultMpesaNumber = data.phone || user.phoneNumber || '+254 712 345 678';
+              setPaymentMethods([
+                {
+                  id: 'mpesa-1',
+                  type: 'mpesa',
+                  name: 'MPESA',
+                  details: defaultMpesaNumber,
+                  isDefault: true
+                }
+              ]);
+            }
+
             if (data.createdAt) {
               setClientSince(new Date(data.createdAt.toDate()).toLocaleDateString());
             } else {
@@ -130,6 +138,18 @@ export default function BrokerProfileScreen() {
             setLocation('');
             setBio('');
             setClientSince(new Date().toLocaleDateString());
+
+            // Set default payment method with user's phone if available
+            const defaultMpesaNumber = user.phoneNumber || '+254 712 345 678';
+            setPaymentMethods([
+              {
+                id: 'mpesa-1',
+                type: 'mpesa',
+                name: 'MPESA',
+                details: defaultMpesaNumber,
+                isDefault: true
+              }
+            ]);
           }
         }
       } catch (e) {
@@ -147,12 +167,12 @@ export default function BrokerProfileScreen() {
         navigation.navigate('Welcome');
       }, 100);
     } catch (error) {
+      console.error('Logout error:', error);
       Alert.alert('Logout Error', 'Failed to logout. Please try again.');
     }
   };
 
   const handleSaveProfile = async () => {
-    setEditing(false);
     try {
       const user = auth.currentUser;
       if (user) {
@@ -168,6 +188,7 @@ export default function BrokerProfileScreen() {
         Alert.alert('Profile Updated', 'Your profile details have been updated successfully.');
       }
     } catch (error) {
+      console.error('Profile update error:', error);
       Alert.alert('Update Error', 'Failed to update profile. Please try again.');
     }
   };
@@ -179,6 +200,59 @@ export default function BrokerProfileScreen() {
   const handleSubscribe = (plan: SubscriptionPlan) => {
     setCurrentPlan(plan);
     setShowSubscriptionModal(true);
+  };
+
+  // Verification functions
+  const handleVerifyEmail = async () => {
+    setVerifyingEmail(true);
+    try {
+      // Call backend verification endpoint
+      const response = await fetch('https://agritruk-backend.onrender.com/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+        },
+        body: JSON.stringify({ action: 'resend-email-code' })
+      });
+
+      if (response.ok) {
+        Alert.alert('Verification Code Sent', 'Please check your email for the verification code.');
+      } else {
+        Alert.alert('Error', 'Failed to send verification code. Please try again.');
+      }
+    } catch (error) {
+      console.error('Email verification error:', error);
+      Alert.alert('Error', 'Failed to send verification code. Please try again.');
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  const handleVerifyPhone = async () => {
+    setVerifyingPhone(true);
+    try {
+      // Call backend verification endpoint
+      const response = await fetch('https://agritruk-backend.onrender.com/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+        },
+        body: JSON.stringify({ action: 'resend-phone-code' })
+      });
+
+      if (response.ok) {
+        Alert.alert('Verification Code Sent', 'Please check your phone for the verification code.');
+      } else {
+        Alert.alert('Error', 'Failed to send verification code. Please try again.');
+      }
+    } catch (error) {
+      console.error('Phone verification error:', error);
+      Alert.alert('Error', 'Failed to send verification code. Please try again.');
+    } finally {
+      setVerifyingPhone(false);
+    }
   };
 
   const renderProfileHeader = () => (
@@ -200,9 +274,9 @@ export default function BrokerProfileScreen() {
         <Text style={styles.profileName}>{name || 'Broker Name'}</Text>
         <Text style={styles.profileCompany}>{company || 'Company Name'}</Text>
         <Text style={styles.profileLocation}>{location || 'Location'}</Text>
-        <View style={styles.verificationBadge}>
+        <View style={styles.verifiedBrokerBadge}>
           <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-          <Text style={styles.verificationText}>Verified Broker</Text>
+          <Text style={styles.verifiedBrokerText}>Verified Broker</Text>
         </View>
       </View>
 
@@ -241,7 +315,7 @@ export default function BrokerProfileScreen() {
 
         <TouchableOpacity
           style={styles.quickActionCard}
-          onPress={() => setShowSecurityModal(true)}
+          onPress={() => Alert.alert('Security', 'Security settings coming soon!')}
         >
           <MaterialCommunityIcons name="shield-check" size={32} color={colors.tertiary} />
           <Text style={styles.quickActionTitle}>Security</Text>
@@ -274,13 +348,49 @@ export default function BrokerProfileScreen() {
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="email" size={20} color={colors.secondary} />
           <Text style={styles.detailLabel}>Email</Text>
-          <Text style={styles.detailValue}>{email || 'Not set'}</Text>
+          <View style={styles.detailValueContainer}>
+            <Text style={styles.detailValue}>{email || 'Not set'}</Text>
+            <View style={[
+              styles.verificationBadge,
+              emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
+            ]}>
+              <Ionicons
+                name={emailVerified ? "checkmark-circle" : "close-circle"}
+                size={12}
+                color={emailVerified ? colors.success : colors.warning}
+              />
+              <Text style={[
+                styles.verificationBadgeText,
+                emailVerified ? styles.verifiedText : styles.unverifiedText
+              ]}>
+                {emailVerified ? 'Verified' : 'Unverified'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="phone" size={20} color={colors.tertiary} />
           <Text style={styles.detailLabel}>Phone</Text>
-          <Text style={styles.detailValue}>{phone || 'Not set'}</Text>
+          <View style={styles.detailValueContainer}>
+            <Text style={styles.detailValue}>{phone || 'Not set'}</Text>
+            <View style={[
+              styles.verificationBadge,
+              phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
+            ]}>
+              <Ionicons
+                name={phoneVerified ? "checkmark-circle" : "close-circle"}
+                size={12}
+                color={phoneVerified ? colors.success : colors.warning}
+              />
+              <Text style={[
+                styles.verificationBadgeText,
+                phoneVerified ? styles.verifiedText : styles.unverifiedText
+              ]}>
+                {phoneVerified ? 'Verified' : 'Unverified'}
+              </Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.detailRow}>
@@ -300,6 +410,44 @@ export default function BrokerProfileScreen() {
           <Text style={styles.detailLabel}>Client Since</Text>
           <Text style={styles.detailValue}>{clientSince}</Text>
         </View>
+      </View>
+
+      {/* Verification Actions */}
+      <View style={styles.verificationActions}>
+        {!emailVerified && (
+          <TouchableOpacity
+            style={styles.verifyButton}
+            onPress={handleVerifyEmail}
+            disabled={verifyingEmail}
+          >
+            {verifyingEmail ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Text style={styles.verifyButtonText}>Verify Email</Text>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {!phoneVerified && (
+          <TouchableOpacity
+            style={styles.verifyButton}
+            onPress={handleVerifyPhone}
+            disabled={verifyingPhone}
+          >
+            {verifyingPhone ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Text style={styles.verifyButtonText}>Verify Phone</Text>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {emailVerified && phoneVerified && (
+          <View style={styles.allVerified}>
+            <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+            <Text style={styles.allVerifiedText}>All contact methods verified!</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -364,7 +512,11 @@ export default function BrokerProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {renderProfileHeader()}
         {renderQuickActions()}
         {renderProfileDetails()}
@@ -588,7 +740,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     padding: spacing.lg,
+    paddingBottom: spacing.xl * 2, // Extra padding to prevent content from being hidden by navigation tabs
   },
   profileHeader: {
     flexDirection: 'row',
@@ -648,7 +803,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
-  verificationBadge: {
+  verifiedBrokerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.successLight,
@@ -656,6 +811,20 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     alignSelf: 'flex-start',
+  },
+  verifiedBrokerText: {
+    color: colors.success,
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginLeft: spacing.xs,
+  },
+  verificationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginLeft: spacing.sm,
   },
   verificationText: {
     color: colors.success,
@@ -802,6 +971,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.primaryDark,
     flex: 1,
+  },
+  detailValueContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   paymentMethodsSection: {
     marginTop: spacing.md,
@@ -1065,5 +1240,55 @@ const styles = StyleSheet.create({
   },
   primaryLight: {
     backgroundColor: colors.primary + '20',
+  },
+  verificationActions: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  verifyButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  verifyButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  verifiedBadge: {
+    backgroundColor: colors.success + '20',
+  },
+  unverifiedBadge: {
+    backgroundColor: colors.warning + '20',
+  },
+  verificationBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  verifiedText: {
+    color: colors.success,
+  },
+  unverifiedText: {
+    color: colors.warning,
+  },
+  allVerified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.success + '10',
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  allVerifiedText: {
+    color: colors.success,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: spacing.xs,
   },
 });

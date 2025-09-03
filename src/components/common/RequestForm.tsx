@@ -169,9 +169,46 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     const createRequestData = () => {
         return {
             id: Date.now().toString(),
+            // Map frontend fields to backend booking format
+            bookingType: activeTab === 'agriTRUK' ? 'Agri' : 'Cargo',
+            bookingMode: requestType, // 'instant' or 'booking'
             fromLocation,
             toLocation,
             productType,
+            weightKg: parseFloat(weight) || 0,
+            pickUpDate: requestType === 'booking' ? pickupDate.toISOString() : null,
+            urgencyLevel: urgency ? urgency.charAt(0).toUpperCase() + urgency.slice(1) : 'Low',
+            priority: isPriority,
+            perishable: isPerishable,
+            needsRefrigeration: isPerishable,
+            humidyControl: isPerishable,
+            specialCargo: isSpecialCargo ? specialCargoSpecs : [],
+            insured: insureGoods,
+            value: insuranceValue ? parseFloat(insuranceValue) : 0,
+            additionalNotes: additional,
+            // Recurring booking data
+            recurrence: isRecurring ? {
+                isRecurring: true,
+                frequency: recurringFreq,
+                timeFrame: recurringTimeframe,
+                duration: recurringDuration,
+                startDate: requestType === 'booking' ? pickupDate.toISOString() : new Date().toISOString(),
+                endDate: recurringEndDate?.toISOString() || null,
+                interval: 1,
+                occurences: [],
+                baseBookingId: null
+            } : {
+                isRecurring: false,
+                frequency: null,
+                timeFrame: null,
+                duration: null,
+                startDate: null,
+                endDate: null,
+                interval: 1,
+                occurences: [],
+                baseBookingId: null
+            },
+            // Keep original fields for frontend compatibility
             weight,
             requestType,
             date: requestType === 'booking' ? pickupDate.toISOString() : '',

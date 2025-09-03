@@ -4,6 +4,7 @@ import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import { apiRequest } from '../utils/api';
 
 // Accepts either a single booking or an array of bookings (for consolidated)
 const BookingConfirmationScreen = ({ route, navigation }: any) => {
@@ -19,20 +20,56 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const handlePostBooking = async () => {
     setPosting(true);
     try {
-      // Prepare payload
-      const payload = requests.map(req => ({
-        ...req,
-        date: pickupDate.toISOString(), // override with consolidated date
-        status: 'pending',
-      }));
-      // Simulate API call
-      await new Promise(res => setTimeout(res, 1200));
-      // TODO: Replace with real API call
-      // await apiRequest('/bookings', { method: 'POST', body: JSON.stringify(payload) });
+      // Prepare payload for backend booking format
+      const payload = requests.map(req => {
+        // Use backend booking format if available, otherwise convert from frontend format
+        const bookingData = {
+          bookingType: req.bookingType || (req.type === 'agriTRUK' ? 'Agri' : 'Cargo'),
+          bookingMode: req.bookingMode || req.requestType || 'booking',
+          fromLocation: req.fromLocation,
+          toLocation: req.toLocation,
+          productType: req.productType,
+          weightKg: req.weightKg || parseFloat(req.weight) || 0,
+          pickUpDate: pickupDate.toISOString(), // override with consolidated date
+          urgencyLevel: req.urgencyLevel || (req.urgency ? req.urgency.charAt(0).toUpperCase() + req.urgency.slice(1) : 'Low'),
+          priority: req.priority || req.isPriority || false,
+          perishable: req.perishable || req.isPerishable || false,
+          needsRefrigeration: req.needsRefrigeration || req.isPerishable || false,
+          humidyControl: req.humidyControl || req.isPerishable || false,
+          specialCargo: req.specialCargo || (req.isSpecialCargo ? req.specialCargoSpecs : []),
+          insured: req.insured || req.insureGoods || false,
+          value: req.value || (req.insuranceValue ? parseFloat(req.insuranceValue) : 0),
+          additionalNotes: req.additionalNotes || req.additional || '',
+          recurrence: req.recurrence || {
+            isRecurring: req.isRecurring || false,
+            frequency: req.recurringFreq || null,
+            timeFrame: req.recurringTimeframe || null,
+            duration: req.recurringDuration || null,
+            startDate: pickupDate.toISOString(),
+            endDate: req.recurringEndDate || null,
+            interval: 1,
+            occurences: [],
+            baseBookingId: null
+          },
+          status: 'pending',
+        };
+        return bookingData;
+      });
+
+      console.log('Posting booking to backend:', payload);
+
+      // Post to backend bookings endpoint
+      const response = await apiRequest('/bookings', {
+        method: 'POST',
+        body: JSON.stringify(payload[0]) // Backend expects single booking, not array
+      });
+
+      console.log('Booking posted successfully:', response);
       Alert.alert('Booking posted!', isConsolidated ? 'Your consolidated booking has been posted.' : 'Your booking has been posted.');
       navigation.goBack();
-    } catch (e) {
-      Alert.alert('Error', 'Failed to post booking.');
+    } catch (error: any) {
+      console.error('Failed to post booking:', error);
+      Alert.alert('Error', `Failed to post booking: ${error.message}`);
     } finally {
       setPosting(false);
     }
