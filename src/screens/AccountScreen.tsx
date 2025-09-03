@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { API_ENDPOINTS } from '../constants/api';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
@@ -245,13 +246,25 @@ const AccountScreen = () => {
     try {
       setVerifyingEmail(true);
 
-      // Try Firebase directly since backend is missing resendCode function
-      try {
-        const { sendEmailVerification } = await import('firebase/auth');
-        await sendEmailVerification(user);
+      // Use backend API for email verification
+      const token = await user.getIdToken();
+      const response = await fetch(API_ENDPOINTS.AUTH, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'resend-email-code'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
         Alert.alert(
           'Verification Email Sent',
-          'Please check your email and click the verification link. You can then use your email to log in.',
+          'Please check your email for the verification code. You can then use your email to log in.',
           [
             { text: 'OK' },
             {
@@ -260,20 +273,14 @@ const AccountScreen = () => {
             }
           ]
         );
-        return;
-      } catch (firebaseError: any) {
-        console.error('Firebase failed:', firebaseError);
-        Alert.alert(
-          'Verification Failed',
-          'Unable to send verification email. Please try again later or contact support.',
-          [{ text: 'OK' }]
-        );
+      } else {
+        throw new Error(result.message || 'Failed to send verification email');
       }
     } catch (e: any) {
       console.error('Email verification error:', e);
       Alert.alert(
         'Verification Failed',
-        'Unable to send verification email. Please check your internet connection and try again later.',
+        e.message || 'Unable to send verification email. Please check your internet connection and try again later.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -282,7 +289,7 @@ const AccountScreen = () => {
   };
 
   const handleVerifyPhone = async () => {
-    if (!user?.phoneNumber) {
+    if (!profile?.phone) {
       Alert.alert('Error', 'No phone number found.');
       return;
     }
@@ -293,29 +300,41 @@ const AccountScreen = () => {
     try {
       setVerifyingPhone(true);
 
-      // Try Firebase directly since backend is missing resendPhoneCode function
-      try {
-        // For phone verification, we need to use Firebase Phone Auth
-        // This requires additional setup, so for now we'll show a message
+      // Use backend API for phone verification
+      const token = await user.getIdToken();
+      const response = await fetch(API_ENDPOINTS.AUTH, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'resend-phone-code'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
         Alert.alert(
-          'Phone Verification',
-          'Phone verification requires additional setup. Please contact support or use email verification for now.',
-          [{ text: 'OK' }]
+          'Verification SMS Sent',
+          'Please check your phone for the verification code. You can then use your phone to log in.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation.navigate('PhoneOTP')
+            }
+          ]
         );
-        return;
-      } catch (firebaseError: any) {
-        console.error('Firebase failed:', firebaseError);
-        Alert.alert(
-          'Verification Failed',
-          'Unable to send phone verification. Please try again later or contact support.',
-          [{ text: 'OK' }]
-        );
+      } else {
+        throw new Error(result.message || 'Failed to send verification SMS');
       }
     } catch (e: any) {
       console.error('Phone verification error:', e);
       Alert.alert(
         'Verification Failed',
-        'Unable to send phone verification. Please check your internet connection and try again later.',
+        e.message || 'Unable to send verification SMS. Please check your internet connection and try again later.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -1066,15 +1085,7 @@ const styles = StyleSheet.create({
     color: colors.text.light,
     marginBottom: spacing.xs,
   },
-  verificationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    marginTop: spacing.xs,
-  },
+
   verificationText: {
     fontSize: fonts.size.sm,
     fontWeight: '500',
@@ -1557,19 +1568,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: spacing.xs,
   },
-  verificationText: {
-    fontSize: fonts.size.sm,
-    fontWeight: '500',
+  verificationBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
+  },
+  verifiedBadge: {
+    backgroundColor: colors.success,
+  },
+  unverifiedBadge: {
+    backgroundColor: colors.warning,
+  },
+  verificationBadgeText: {
+    fontSize: fonts.size.xs,
+    color: colors.white,
+    fontWeight: '600',
   },
   verifyButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    marginTop: spacing.sm,
   },
   verifyButtonText: {
     color: colors.white,
-    fontSize: fonts.size.xs,
+    fontSize: fonts.size.md,
     fontWeight: '600',
   },
   editFieldWrapRow: {
@@ -1704,20 +1729,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.white,
   },
-  profilePhoto: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 50,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: fonts.size.lg,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
+
   profileRole: {
     fontSize: fonts.size.md,
     color: colors.text.secondary,
@@ -1752,35 +1764,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     marginBottom: spacing.xs,
   },
-  verificationBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-  },
-  verifiedBadge: {
-    backgroundColor: colors.success,
-  },
-  unverifiedBadge: {
-    backgroundColor: colors.warning,
-  },
-  verificationBadgeText: {
-    fontSize: fonts.size.xs,
-    color: colors.white,
-    fontWeight: '600',
-  },
-  verifyButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  verifyButtonText: {
-    color: colors.white,
-    fontSize: fonts.size.md,
-    fontWeight: '600',
-  },
+
   detailsSection: {
     backgroundColor: colors.white,
     borderRadius: 24,
@@ -1840,11 +1824,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  preferenceLabel: {
-    fontSize: 16,
-    color: colors.text.secondary,
-    marginLeft: spacing.sm,
-  },
+
   preferenceToggle: {
     width: 40,
     height: 24,
@@ -1927,11 +1907,6 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 4,
   },
-  conflictHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
   conflictHeaderText: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -1998,14 +1973,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
     position: 'relative',
   },
-  profilePhotoContainer: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 50,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   clientSince: {
     fontSize: 14,
     color: colors.text.light,

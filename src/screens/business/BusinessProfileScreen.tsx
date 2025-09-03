@@ -4,20 +4,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getAuth, signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
 
-interface PaymentMethod {
-  id: string;
-  type: 'mpesa' | 'card';
-  name: string;
-  details: string;
-  isDefault: boolean;
-}
+
 
 interface BusinessProfileData {
   businessName: string;
@@ -69,10 +63,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [verifyingPhone, setVerifyingPhone] = useState(false);
 
-  // Payment methods states
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [newPaymentMethod, setNewPaymentMethod] = useState<Partial<PaymentMethod>>({});
+
 
   useEffect(() => {
     fetchProfileData();
@@ -112,22 +103,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
           setProfileData(businessData);
           setEditData(businessData);
 
-          // Load payment methods from user data or use default
-          if (userData.paymentMethods && Array.isArray(userData.paymentMethods)) {
-            setPaymentMethods(userData.paymentMethods);
-          } else {
-            // Use default MPESA with actual phone number from profile
-            const defaultMpesaNumber = userData.phone || user.phoneNumber || '+254 712 345 678';
-            setPaymentMethods([
-              {
-                id: 'mpesa-1',
-                type: 'mpesa',
-                name: 'MPESA',
-                details: defaultMpesaNumber,
-                isDefault: true
-              }
-            ]);
-          }
+
         }
       }
     } catch (error) {
@@ -266,55 +242,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
     }
   };
 
-  // Payment methods functions
-  const handleAddPaymentMethod = () => {
-    setNewPaymentMethod({});
-    setShowPaymentModal(true);
-  };
 
-  const handleSavePaymentMethod = () => {
-    if (!newPaymentMethod.type || !newPaymentMethod.name || !newPaymentMethod.details) {
-      Alert.alert('Error', 'Please fill all required fields');
-      return;
-    }
-
-    const paymentMethod: PaymentMethod = {
-      id: Date.now().toString(),
-      type: newPaymentMethod.type as 'mpesa' | 'card',
-      name: newPaymentMethod.name,
-      details: newPaymentMethod.details,
-      isDefault: paymentMethods.length === 0
-    };
-
-    setPaymentMethods([...paymentMethods, paymentMethod]);
-    setShowPaymentModal(false);
-    setNewPaymentMethod({});
-    Alert.alert('Success', 'Payment method added successfully');
-  };
-
-  const handleRemovePaymentMethod = (id: string) => {
-    Alert.alert(
-      'Remove Payment Method',
-      'Are you sure you want to remove this payment method?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            setPaymentMethods(paymentMethods.filter(method => method.id !== id));
-          }
-        }
-      ]
-    );
-  };
-
-  const handleSetDefaultPaymentMethod = (id: string) => {
-    setPaymentMethods(paymentMethods.map(method => ({
-      ...method,
-      isDefault: method.id === id
-    })));
-  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -665,65 +593,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* Payment Methods */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment Methods</Text>
-          <View style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionSubtitle}>Manage your payment methods for subscriptions and transactions</Text>
-              <TouchableOpacity style={styles.addButton} onPress={handleAddPaymentMethod}>
-                <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
-                <Text style={styles.addButtonText}>Add Method</Text>
-              </TouchableOpacity>
-            </View>
 
-            {paymentMethods.length > 0 ? (
-              paymentMethods.map((method) => (
-                <View key={method.id} style={styles.paymentMethodCard}>
-                  <View style={styles.paymentMethodInfo}>
-                    <MaterialCommunityIcons
-                      name={method.type === 'mpesa' ? 'cellphone' : 'credit-card'}
-                      size={24}
-                      color={colors.primary}
-                    />
-                    <View style={styles.paymentMethodDetails}>
-                      <Text style={styles.paymentMethodName}>{method.name}</Text>
-                      <Text style={styles.paymentMethodDetails}>{method.details}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.paymentMethodActions}>
-                    {method.isDefault && (
-                      <View style={styles.defaultBadge}>
-                        <Text style={styles.defaultBadgeText}>Default</Text>
-                      </View>
-                    )}
-                    {!method.isDefault && (
-                      <TouchableOpacity
-                        style={styles.setDefaultButton}
-                        onPress={() => handleSetDefaultPaymentMethod(method.id)}
-                      >
-                        <Text style={styles.setDefaultButtonText}>Set Default</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={styles.removePaymentButton}
-                      onPress={() => handleRemovePaymentMethod(method.id)}
-                    >
-                      <MaterialCommunityIcons name="trash" size={16} color={colors.error} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            ) : (
-              <View style={styles.emptyPaymentMethods}>
-                <MaterialCommunityIcons name="credit-card-outline" size={48} color={colors.text.light} />
-                <Text style={styles.emptyText}>No payment methods added</Text>
-                <Text style={styles.emptySubtext}>Add a payment method to manage subscriptions</Text>
-              </View>
-            )}
-          </View>
-        </View>
 
         {/* Documents Section */}
         <View style={styles.section}>
@@ -828,92 +698,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Payment Method Modal */}
-      <Modal
-        visible={showPaymentModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowPaymentModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Payment Method</Text>
-              <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-                <MaterialCommunityIcons name="close" size={24} color={colors.text.secondary} />
-              </TouchableOpacity>
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Payment Type *</Text>
-              <View style={styles.paymentTypeSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.paymentTypeOption,
-                    newPaymentMethod.type === 'mpesa' && styles.paymentTypeOptionActive
-                  ]}
-                  onPress={() => setNewPaymentMethod({ ...newPaymentMethod, type: 'mpesa' })}
-                >
-                  <MaterialCommunityIcons name="cellphone" size={20} color={newPaymentMethod.type === 'mpesa' ? colors.white : colors.primary} />
-                  <Text style={[
-                    styles.paymentTypeOptionText,
-                    newPaymentMethod.type === 'mpesa' && styles.paymentTypeOptionTextActive
-                  ]}>MPESA</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.paymentTypeOption,
-                    newPaymentMethod.type === 'card' && styles.paymentTypeOptionActive
-                  ]}
-                  onPress={() => setNewPaymentMethod({ ...newPaymentMethod, type: 'card' })}
-                >
-                  <MaterialCommunityIcons name="credit-card" size={20} color={newPaymentMethod.type === 'card' ? colors.white : colors.primary} />
-                  <Text style={[
-                    styles.paymentTypeOptionText,
-                    newPaymentMethod.type === 'card' && styles.paymentTypeOptionTextActive
-                  ]}>Card</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Name *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={newPaymentMethod.name || ''}
-                onChangeText={(text) => setNewPaymentMethod({ ...newPaymentMethod, name: text })}
-                placeholder={newPaymentMethod.type === 'mpesa' ? 'MPESA' : 'Card Name'}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Details *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={newPaymentMethod.details || ''}
-                onChangeText={(text) => setNewPaymentMethod({ ...newPaymentMethod, details: text })}
-                placeholder={newPaymentMethod.type === 'mpesa' ? 'Phone Number' : 'Card Number'}
-                keyboardType={newPaymentMethod.type === 'mpesa' ? 'phone-pad' : 'numeric'}
-              />
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setShowPaymentModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSavePaymentMethod}
-              >
-                <Text style={styles.saveButtonText}>Add Method</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <LoadingSpinner
         visible={uploading}
@@ -1287,189 +1072,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: spacing.xs,
   },
-  // Payment Methods Styles
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  addButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: colors.white,
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginLeft: spacing.xs,
-  },
-  paymentMethodCard: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  paymentMethodInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  paymentMethodDetails: {
-    marginLeft: spacing.sm,
-    flex: 1,
-  },
-  paymentMethodName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: 2,
-  },
-  paymentMethodActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  defaultBadge: {
-    backgroundColor: colors.success + '20',
-    borderRadius: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  defaultBadgeText: {
-    color: colors.success,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  setDefaultButton: {
-    backgroundColor: colors.primary + '20',
-    borderRadius: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  setDefaultButtonText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  removePaymentButton: {
-    padding: 4,
-  },
-  emptyPaymentMethods: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: spacing.lg,
-    width: '90%',
-    maxWidth: 400,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-  },
-  inputGroup: {
-    marginBottom: spacing.md,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text.secondary,
-    marginBottom: spacing.xs,
-  },
-  textInput: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: spacing.sm,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: colors.text.light,
-  },
-  paymentTypeSelector: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  paymentTypeOption: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: spacing.sm,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.text.light,
-  },
-  paymentTypeOptionActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  paymentTypeOptionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    marginTop: spacing.xs,
-  },
-  paymentTypeOptionTextActive: {
-    color: colors.white,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  cancelButton: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.text.light,
-  },
-  cancelButtonText: {
-    color: colors.text.secondary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  saveButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
+
 });
 
 export default BusinessProfileScreen;

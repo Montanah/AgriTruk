@@ -5,10 +5,13 @@ import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { notificationService } from '../../services/notificationService';
+import SubscriptionStatusCard from '../components/common/SubscriptionStatusCard';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import colors from '../constants/colors';
 import { auth } from '../firebaseConfig';
+import locationService from '../services/locationService';
+import subscriptionService from '../services/subscriptionService';
 import { apiRequest } from '../utils/api';
 
 export default function ManageTransporterScreen({ route }) {
@@ -25,8 +28,31 @@ export default function ManageTransporterScreen({ route }) {
   const [loadingDrivers, setLoadingDrivers] = useState(true);
   const [loadingVehicles, setLoadingVehicles] = useState(true);
 
-  const handlePayment = () => {
-    Alert.alert('Payment', 'Proceed to payment flow here.');
+  const handlePayment = async () => {
+    try {
+      // Get available plans
+      const plans = await subscriptionService.getSubscriptionPlans();
+      if (plans.length === 0) {
+        Alert.alert('No Plans Available', 'No subscription plans are currently available.');
+        return;
+      }
+
+      // For now, use the first available plan
+      const selectedPlan = plans[0];
+      const result = await subscriptionService.upgradePlan(selectedPlan.id, 'mpesa');
+
+      if (result.success) {
+        Alert.alert('Success', 'Payment processed successfully!');
+        // Refresh subscription status
+        const status = await subscriptionService.getSubscriptionStatus();
+        setSubscriptionStatus(status);
+      } else {
+        Alert.alert('Payment Failed', result.message || 'Failed to process payment.');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      Alert.alert('Error', 'Failed to process payment. Please try again.');
+    }
   };
 
   const handleSubscribe = (planData: any) => {
@@ -37,6 +63,23 @@ export default function ManageTransporterScreen({ route }) {
       billingPeriod: 'monthly',
       isUpgrade: true
     });
+  };
+
+  const handleActivateTrial = async () => {
+    try {
+      const result = await subscriptionService.activateTrial('transporter');
+      if (result.success) {
+        Alert.alert('Trial Activated!', 'Your free trial has been activated successfully.');
+        // Refresh subscription status
+        const status = await subscriptionService.getSubscriptionStatus();
+        setSubscriptionStatus(status);
+      } else {
+        Alert.alert('Activation Failed', result.message || 'Failed to activate trial.');
+      }
+    } catch (error) {
+      console.error('Trial activation error:', error);
+      Alert.alert('Error', 'Failed to activate trial. Please try again.');
+    }
   };
 
   const [editModal, setEditModal] = useState(false);
@@ -74,25 +117,8 @@ export default function ManageTransporterScreen({ route }) {
     const fetchSubscriptionStatus = async () => {
       try {
         setLoadingSubscription(true);
-        const { getAuth } = require('firebase/auth');
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const token = await user.getIdToken();
-        const response = await fetch(`https://agritruk-backend.onrender.com/api/subscriptions/status/${user.uid}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.data) {
-            setSubscriptionStatus(result.data);
-          }
-        }
+        const status = await subscriptionService.getSubscriptionStatus();
+        setSubscriptionStatus(status);
       } catch (error) {
         console.error('Error fetching subscription status:', error);
       } finally {
@@ -888,6 +914,11 @@ export default function ManageTransporterScreen({ route }) {
     const [individualProfile, setIndividualProfile] = useState(null);
     const [loadingIndividualProfile, setLoadingIndividualProfile] = useState(true);
     const [individualProfilePhoto, setIndividualProfilePhoto] = useState(null);
+
+    // Location tracking state
+    const [isLocationTracking, setIsLocationTracking] = useState(false);
+    const [currentLocation, setCurrentLocation] = useState(null);
+    const [locationPermission, setLocationPermission] = useState(false);
     // Add: image picker for individual profile
     const pickIndividualProfilePhoto = async () => {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -926,6 +957,38 @@ export default function ManageTransporterScreen({ route }) {
       };
       fetchProfile();
     }, []);
+
+    // Location tracking setup
+    useEffect(() => {
+      const setupLocationTracking = async () => {
+        try {
+          // Set up location update callback
+          locationService.setLocationUpdateCallback((location) => {
+            setCurrentLocation(location);
+            console.log('Location updated:', location);
+          });
+
+          // Check if location tracking should be active
+          // This would typically be based on transporter's online status
+          // For now, we'll start tracking when the component mounts
+          const shouldTrack = true; // This should be based on transporter's acceptingBooking status
+
+          if (shouldTrack) {
+            const started = await locationService.startLocationTracking();
+            setIsLocationTracking(started);
+          }
+        } catch (error) {
+          console.error('Error setting up location tracking:', error);
+        }
+      };
+
+      setupLocationTracking();
+
+      // Cleanup on unmount
+      return () => {
+        locationService.stopLocationTracking();
+      };
+    }, []);
     // Modal state for insurance and photo gallery
     const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
     const [licenseModalVisible, setLicenseModalVisible] = useState(false);
@@ -956,6 +1019,60 @@ export default function ManageTransporterScreen({ route }) {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Location Tracking Section */}
+          <View style={[styles.card, { marginTop: 8 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={styles.sectionTitle}>Location Tracking</Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isLocationTracking ? colors.success : colors.error,
+                  borderRadius: 20,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+                onPress={async () => {
+                  if (isLocationTracking) {
+                    await locationService.stopLocationTracking();
+                    setIsLocationTracking(false);
+                  } else {
+                    const started = await locationService.startLocationTracking();
+                    setIsLocationTracking(started);
+                  }
+                }}
+              >
+                <MaterialCommunityIcons
+                  name={isLocationTracking ? "map-marker" : "map-marker-off"}
+                  size={16}
+                  color="#fff"
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>
+                  {isLocationTracking ? 'Tracking' : 'Start Tracking'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+              {isLocationTracking
+                ? 'Your location is being tracked and shared with clients during trips.'
+                : 'Enable location tracking to receive nearby job requests and share your location with clients.'
+              }
+            </Text>
+            {currentLocation && (
+              <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12, marginTop: 8 }}>
+                <Text style={{ color: colors.text.secondary, fontSize: 12, marginBottom: 4 }}>Last Updated Location:</Text>
+                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}>
+                  {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
+                </Text>
+                <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 4 }}>
+                  Updated: {new Date(currentLocation.timestamp).toLocaleTimeString()}
+                </Text>
+              </View>
+            )}
+          </View>
+
           <View style={[styles.card, { marginTop: 8 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
               <Text style={styles.sectionTitle}>Vehicle</Text>
@@ -1167,79 +1284,15 @@ export default function ManageTransporterScreen({ route }) {
             </View>
           </Modal>
           {/* Subscription Section */}
-          {/* Subscription Card */}
-          <View style={{ width: '100%', backgroundColor: colors.background, borderRadius: 12, padding: 16, marginBottom: 24, marginTop: 2, elevation: 1, alignSelf: 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <MaterialCommunityIcons name="credit-card-check-outline" size={26} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={{ fontWeight: 'bold', fontSize: 17, color: colors.primaryDark }}>Subscription</Text>
-            </View>
-            {(() => {
-              let plan = 'Free Trial';
-              let daysRemaining = 0;
-              let isTrial = false;
-              let percent = 0;
-
-              if (subscriptionStatus) {
-                if (subscriptionStatus.isTrialActive) {
-                  plan = 'Free Trial';
-                  daysRemaining = subscriptionStatus.daysRemaining || 0;
-                  isTrial = true;
-                  percent = daysRemaining > 0 ? (30 - daysRemaining) / 30 : 1;
-                } else if (subscriptionStatus.hasActiveSubscription && subscriptionStatus.currentPlan) {
-                  plan = subscriptionStatus.currentPlan.name;
-                  daysRemaining = subscriptionStatus.daysRemaining || 0;
-                  isTrial = false;
-                  // Calculate percentage based on subscription period (assuming monthly for now)
-                  const totalDays = 30; // Monthly subscription
-                  percent = daysRemaining > 0 ? (totalDays - daysRemaining) / totalDays : 1;
-                } else {
-                  plan = 'No Active Plan';
-                  daysRemaining = 0;
-                  isTrial = false;
-                  percent = 1;
-                }
-              } else if (individualProfile && individualProfile.createdAt) {
-                // Fallback to old calculation if subscription status not available
-                const created = individualProfile.createdAt.seconds ? new Date(individualProfile.createdAt.seconds * 1000) : new Date(individualProfile.createdAt);
-                const now = new Date();
-                const diff = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-                if (diff < 30) {
-                  plan = 'Free Trial';
-                  daysRemaining = 30 - diff;
-                  isTrial = true;
-                  percent = (30 - daysRemaining) / 30;
-                } else {
-                  daysRemaining = 30 - ((diff - 30) % 30);
-                  percent = (30 - daysRemaining) / 30;
-                }
-              }
-
-              return (
-                <>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                    <Text style={{ color: isTrial ? colors.success : colors.primary, fontSize: 15, fontWeight: 'bold', marginRight: 8 }}>{plan}</Text>
-                    <Text style={{ color: colors.text.secondary, fontSize: 14 }}>
-                      {isTrial ? 'Trial ends' : 'Plan ends'} in <Text style={{ color: colors.primary, fontWeight: 'bold' }}>{daysRemaining}</Text> days
-                    </Text>
-                  </View>
-                  <View style={{ width: '100%', height: 8, backgroundColor: colors.text.light + '33', borderRadius: 6, marginVertical: 8, overflow: 'hidden', alignSelf: 'center' }}>
-                    <View style={{ width: `${Math.round(percent * 100)}%`, height: 8, backgroundColor: isTrial ? colors.success : colors.primary, borderRadius: 6 }} />
-                  </View>
-                </>
-              );
-            })()}
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 10, justifyContent: 'flex-end' }}>
-              <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center' }} onPress={() => setSubscriptionModalVisible(true)}>
-                <MaterialCommunityIcons name="cog-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Manage</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ backgroundColor: colors.secondary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center' }} onPress={handlePayment}>
-                <MaterialCommunityIcons name="refresh" size={18} color="#fff" style={{ marginRight: 6 }} />
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Renew</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          {/* End Subscription Card */}
+          {subscriptionStatus && (
+            <SubscriptionStatusCard
+              subscriptionStatus={subscriptionStatus}
+              onManagePress={() => setSubscriptionModalVisible(true)}
+              onRenewPress={handlePayment}
+              onActivateTrial={handleActivateTrial}
+              loading={loadingSubscription}
+            />
+          )}
           {/* Subscription Plans Modal */}
           {subscriptionModalVisible && (
             <SubscriptionModal

@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import colors from '../constants/colors';
+import spacing from '../constants/spacing';
 import { useTransporters } from '../hooks/UseTransporters';
 import { googleMapsService } from '../services/googleMapsService';
 
@@ -28,17 +29,7 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
   // Get transporters from hook
   const { transporters, loading: transportersLoading } = useTransporters();
 
-  useEffect(() => {
-    setLoading(true);
-    setFilteredTransporters([]);
-
-    if (transporters && transporters.length > 0) {
-      filterTransporters();
-    }
-    setLoading(false);
-  }, [transporters, JSON.stringify(requests)]);
-
-  const filterTransporters = async () => {
+  const filterTransporters = useCallback(async () => {
     try {
       let filtered = [...transporters];
 
@@ -139,7 +130,21 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
       console.error('Error filtering transporters:', error);
       setFilteredTransporters(transporters || []);
     }
-  };
+  }, [transporters, reqs]);
+
+  useEffect(() => {
+    const loadTransporters = async () => {
+      setLoading(true);
+      setFilteredTransporters([]);
+
+      if (transporters && transporters.length > 0) {
+        await filterTransporters();
+      }
+      setLoading(false);
+    };
+
+    loadTransporters();
+  }, [transporters, requests, filterTransporters]);
 
   // Helper to calculate estimated amount
   function getEstAmount(t: any, distance: string | number) {
@@ -215,7 +220,7 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
     if (onSelect) {
       onSelect(t, payload);
     } else {
-      navigation.navigate('TripDetails', isConsolidated ? { requests: reqs, transporter: t, eta: t.est, distance: calculatedDistance || distance } : { booking: payload });
+      (navigation as any).navigate('TripDetails', isConsolidated ? { requests: reqs, transporter: t, eta: t.est, distance: calculatedDistance || distance } : { booking: payload });
     }
   }
 
@@ -226,243 +231,693 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
     const vehiclePhotoUri = t.vehiclePhoto || (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || 'https://via.placeholder.com/80x60?text=VEHICLE';
 
     return (
-      <View
-        key={t.id}
-        style={{
-          backgroundColor: colors.surface,
-          borderRadius: 16,
-          padding: 16,
-          marginBottom: 16,
-          shadowColor: colors.black,
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          elevation: 2,
-        }}
-      >
-        {/* Transporter Profile Section */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-          <View
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: 30,
-              backgroundColor: '#eee',
-              overflow: 'hidden',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginRight: 16,
-              borderWidth: 2,
-              borderColor: colors.primary + '20',
-            }}
-          >
+      <View key={t.id} style={styles.transporterCard}>
+        {/* Transporter Profile Header */}
+        <View style={styles.profileHeader}>
+          <View style={styles.profileImageContainer}>
             <Image
               source={{ uri: profilePhotoUri }}
-              style={{ width: 60, height: 60, borderRadius: 30 }}
+              style={styles.profileImage}
               resizeMode="cover"
             />
+            <View style={styles.onlineIndicator} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: colors.text.primary, marginBottom: 6 }}>
-              {displayName}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-              <MaterialCommunityIcons name="star" size={18} color={colors.warning} />
-              <Text style={{ fontSize: 15, color: colors.text.secondary, marginLeft: 6, fontWeight: '600' }}>
+
+          <View style={styles.profileInfo}>
+            <Text style={styles.transporterName}>{displayName}</Text>
+            <View style={styles.ratingContainer}>
+              <MaterialCommunityIcons name="star" size={16} color={colors.warning} />
+              <Text style={styles.ratingText}>
                 {t.rating ? `${t.rating}/5` : 'New'}
               </Text>
               {t.experience && (
                 <>
-                  <Text style={{ fontSize: 14, color: colors.text.light, marginHorizontal: 8 }}>•</Text>
-                  <Text style={{ fontSize: 14, color: colors.text.secondary, fontWeight: '500' }}>
+                  <Text style={styles.separator}>•</Text>
+                  <Text style={styles.experienceText}>
                     {t.experience} years exp.
                   </Text>
                 </>
               )}
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
-              <Text style={{ fontSize: 13, color: colors.success, marginLeft: 6, fontWeight: '500' }}>
+            <View style={styles.tripsContainer}>
+              <MaterialCommunityIcons name="check-circle" size={14} color={colors.success} />
+              <Text style={styles.tripsText}>
                 {t.tripsCompleted || 0} trips completed
               </Text>
             </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: accent, marginBottom: 4 }}>
-              {estAmount}
-            </Text>
-            <Text style={{ fontSize: 12, color: colors.text.light, textAlign: 'right' }}>
-              {calculatedDistance || 'Distance calculating...'}
-            </Text>
+
+          <View style={styles.priceContainer}>
+            <Text style={styles.priceAmount}>{estAmount}</Text>
+            <Text style={styles.priceLabel}>Estimated Cost</Text>
           </View>
         </View>
 
-        {/* Vehicle Information - Enhanced */}
-        <View style={{
-          backgroundColor: colors.background,
-          borderRadius: 12,
-          padding: 12,
-          marginBottom: 16,
-          borderWidth: 1,
-          borderColor: colors.text.light + '20'
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+        {/* Vehicle Information Card */}
+        <View style={styles.vehicleCard}>
+          <View style={styles.vehicleHeader}>
             <Image
               source={{ uri: vehiclePhotoUri }}
-              style={{ width: 100, height: 75, borderRadius: 8, marginRight: 12 }}
+              style={styles.vehicleImage}
               resizeMode="cover"
             />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text.primary, marginBottom: 4 }}>
-                {t.vehicleMake} {t.vehicleModel} ({t.vehicleYear})
+            <View style={styles.vehicleInfo}>
+              <Text style={styles.vehicleTitle}>
+                {t.vehicleMake} {t.vehicleModel}
               </Text>
-              <Text style={{ fontSize: 14, color: colors.text.secondary, marginBottom: 3, fontWeight: '600' }}>
-                {t.vehicleType} • {t.capacity}T • {t.bodyType}
+              <Text style={styles.vehicleSubtitle}>
+                {t.vehicleYear} • {t.vehicleType}
               </Text>
-              <Text style={{ fontSize: 13, color: colors.text.secondary, marginBottom: 2 }}>
-                Plate: {t.reg || 'N/A'}
-              </Text>
-              <Text style={{ fontSize: 13, color: colors.text.secondary }}>
-                Drive: {t.driveType || 'N/A'}
-              </Text>
+              <View style={styles.vehicleSpecs}>
+                <View style={styles.specItem}>
+                  <MaterialCommunityIcons name="weight" size={14} color={colors.text.secondary} />
+                  <Text style={styles.specText}>{t.capacity}T</Text>
+                </View>
+                <View style={styles.specItem}>
+                  <MaterialCommunityIcons name="car" size={14} color={colors.text.secondary} />
+                  <Text style={styles.specText}>{t.bodyType}</Text>
+                </View>
+                <View style={styles.specItem}>
+                  <MaterialCommunityIcons name="license" size={14} color={colors.text.secondary} />
+                  <Text style={styles.specText}>{t.reg || 'N/A'}</Text>
+                </View>
+              </View>
             </View>
           </View>
 
-          {/* ETA and Cost Row */}
-          <View style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            backgroundColor: colors.primary + '10',
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: 8
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* ETA and Distance Info */}
+          <View style={styles.timingInfo}>
+            <View style={styles.timingItem}>
               <MaterialCommunityIcons name="clock-outline" size={16} color={colors.primary} />
-              <Text style={{ fontSize: 14, color: colors.primary, marginLeft: 6, fontWeight: '600' }}>
-                ETA: {t.est || 'Calculating...'}
-              </Text>
+              <Text style={styles.timingLabel}>ETA</Text>
+              <Text style={styles.timingValue}>{t.est || 'Calculating...'}</Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
-              <Text style={{ fontSize: 14, color: colors.success, marginLeft: 6, fontWeight: '600' }}>
-                {t.estimatedCost || 'Cost calculating...'}
-              </Text>
+            <View style={styles.timingDivider} />
+            <View style={styles.timingItem}>
+              <MaterialCommunityIcons name="map-marker-distance" size={16} color={colors.secondary} />
+              <Text style={styles.timingLabel}>Distance</Text>
+              <Text style={styles.timingValue}>{calculatedDistance || 'Calculating...'}</Text>
             </View>
           </View>
         </View>
 
-        {/* Special Features - Enhanced */}
+        {/* Special Features */}
         {t.specialFeatures && t.specialFeatures.length > 0 && (
-          <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, color: colors.text.primary, marginBottom: 8, fontWeight: '600' }}>
-              Special Features:
-            </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {t.specialFeatures.slice(0, 4).map((feature: string, index: number) => (
-                <View
-                  key={index}
-                  style={{
-                    backgroundColor: colors.primary + '15',
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor: colors.primary + '30',
-                  }}
-                >
-                  <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '600' }}>
-                    {feature}
-                  </Text>
+          <View style={styles.featuresContainer}>
+            <Text style={styles.featuresTitle}>Special Features</Text>
+            <View style={styles.featuresList}>
+              {t.specialFeatures.slice(0, 3).map((feature: string, index: number) => (
+                <View key={index} style={styles.featureTag}>
+                  <MaterialCommunityIcons name="check" size={12} color={colors.primary} />
+                  <Text style={styles.featureText}>{feature}</Text>
                 </View>
               ))}
-              {t.specialFeatures.length > 4 && (
-                <Text style={{ fontSize: 11, color: colors.text.light, fontStyle: 'italic', alignSelf: 'center' }}>
-                  +{t.specialFeatures.length - 4} more
-                </Text>
+              {t.specialFeatures.length > 3 && (
+                <View style={styles.moreFeatures}>
+                  <Text style={styles.moreFeaturesText}>
+                    +{t.specialFeatures.length - 3} more
+                  </Text>
+                </View>
               )}
             </View>
           </View>
         )}
 
-        {/* Action Button - Enhanced */}
+        {/* Action Button */}
         <TouchableOpacity
-          style={{
-            backgroundColor: accent,
-            paddingVertical: 14,
-            paddingHorizontal: 24,
-            borderRadius: 10,
-            alignItems: 'center',
-            shadowColor: accent,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-            elevation: 3,
-          }}
+          style={[styles.selectButton, { backgroundColor: accent }]}
           onPress={() => handleSelect(t)}
         >
-          <Text style={{ color: colors.white, fontSize: 16, fontWeight: 'bold' }}>
-            Select Transporter
-          </Text>
+          <MaterialCommunityIcons name="check" size={20} color={colors.white} />
+          <Text style={styles.selectButtonText}>Select This Transporter</Text>
         </TouchableOpacity>
       </View>
     );
   };
 
   return (
-    <View style={{ width: '100%', marginTop: 16 }}>
-      <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8, color: accent }}>
-        Available Transporters ({filteredTransporters.length})
-      </Text>
+    <View style={styles.container}>
+      {/* Enhanced Header Section */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <View style={styles.headerIconContainer}>
+              <MaterialCommunityIcons name="truck-delivery" size={28} color={colors.white} />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Available Transporters</Text>
+              <Text style={styles.headerSubtitle}>
+                {filteredTransporters.length} {filteredTransporters.length === 1 ? 'transporter' : 'transporters'} found
+              </Text>
+            </View>
+          </View>
+          <View style={styles.headerRight}>
+            <View style={styles.countBadge}>
+              <Text style={styles.transporterCount}>{filteredTransporters.length}</Text>
+              <Text style={styles.countLabel}>available</Text>
+            </View>
+            {calculatedDistance && (
+              <View style={styles.distanceBadge}>
+                <MaterialCommunityIcons name="map-marker-distance" size={16} color={colors.white} />
+                <Text style={styles.distanceText}>{calculatedDistance}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
 
+      {/* Content Section */}
       {loading || transportersLoading ? (
-        <>
-          <Text style={{ textAlign: 'center', color: accent, fontWeight: 'bold', marginBottom: 12, fontSize: 16 }}>
-            Finding available transporters...
-          </Text>
+        <View style={styles.loadingContainer}>
+          <View style={styles.loadingHeader}>
+            <ActivityIndicator size="large" color={accent} />
+            <Text style={styles.loadingTitle}>Finding Available Transporters</Text>
+            <Text style={styles.loadingSubtitle}>Matching your requirements with nearby transporters...</Text>
+          </View>
+
+          {/* Enhanced Loading Skeletons */}
           {[1, 2, 3].map((i) => (
-            <View
-              key={i}
-              style={{
-                backgroundColor: colors.surface,
-                borderRadius: 14,
-                padding: 16,
-                marginBottom: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                opacity: 0.6,
-              }}
-            >
-              <View style={{ marginRight: 16 }}>
-                <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#e0e0e0' }} />
+            <View key={i} style={styles.skeletonCard}>
+              <View style={styles.skeletonHeader}>
+                <View style={styles.skeletonAvatar} />
+                <View style={styles.skeletonInfo}>
+                  <View style={[styles.skeletonLine, { width: '70%' }]} />
+                  <View style={[styles.skeletonLine, { width: '50%' }]} />
+                  <View style={[styles.skeletonLine, { width: '40%' }]} />
+                </View>
+                <View style={styles.skeletonPrice} />
               </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ height: 16, width: '60%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 8 }} />
-                <View style={{ height: 12, width: '40%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 6 }} />
-                <View style={{ height: 10, width: '30%', backgroundColor: '#e0e0e0', borderRadius: 8, marginBottom: 6 }} />
-                <View style={{ height: 14, width: '50%', backgroundColor: '#e0e0e0', borderRadius: 8 }} />
+              <View style={styles.skeletonVehicle}>
+                <View style={styles.skeletonVehicleImage} />
+                <View style={styles.skeletonVehicleInfo}>
+                  <View style={[styles.skeletonLine, { width: '80%' }]} />
+                  <View style={[styles.skeletonLine, { width: '60%' }]} />
+                </View>
               </View>
-              <View style={{ width: 70, height: 32, backgroundColor: '#e0e0e0', borderRadius: 8 }} />
+              <View style={styles.skeletonButton} />
             </View>
           ))}
-        </>
+        </View>
       ) : filteredTransporters.length === 0 ? (
-        <View style={{ alignItems: 'center', padding: 20 }}>
-          <MaterialCommunityIcons name="truck" size={48} color={colors.text.light} />
-          <Text style={{ fontSize: 16, color: colors.text.secondary, marginTop: 12, textAlign: 'center' }}>
-            No suitable transporters found for your request.
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconContainer}>
+            <MaterialCommunityIcons name="truck" size={64} color={colors.text.light} />
+          </View>
+          <Text style={styles.emptyTitle}>No Transporters Available</Text>
+          <Text style={styles.emptySubtitle}>
+            We couldn&apos;t find any transporters matching your requirements at the moment.
           </Text>
-          <Text style={{ fontSize: 14, color: colors.text.light, marginTop: 8, textAlign: 'center' }}>
-            Try adjusting your requirements or expanding your search area.
-          </Text>
+          <View style={styles.emptySuggestions}>
+            <Text style={styles.suggestionTitle}>Try:</Text>
+            <Text style={styles.suggestionItem}>• Adjusting your pickup time</Text>
+            <Text style={styles.suggestionItem}>• Expanding your search radius</Text>
+            <Text style={styles.suggestionItem}>• Relaxing special requirements</Text>
+          </View>
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.transportersList}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.transportersListContent}
+        >
           {filteredTransporters.map(renderTransporterCard)}
         </ScrollView>
       )}
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    marginTop: spacing.lg,
+  },
+
+  // Enhanced Header Styles
+  header: {
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.white + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.white,
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: colors.white + 'CC',
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+  },
+  countBadge: {
+    backgroundColor: colors.white + '20',
+    borderRadius: 16,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  transporterCount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.white,
+  },
+  countLabel: {
+    fontSize: 10,
+    color: colors.white + 'CC',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white + '20',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+  },
+  distanceText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+
+  // Loading Styles
+  loadingContainer: {
+    paddingVertical: spacing.lg,
+  },
+  loadingHeader: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  loadingTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  loadingSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+
+  // Skeleton Styles
+  skeletonCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  skeletonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  skeletonAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.text.light + '30',
+    marginRight: spacing.md,
+  },
+  skeletonInfo: {
+    flex: 1,
+  },
+  skeletonLine: {
+    height: 12,
+    backgroundColor: colors.text.light + '30',
+    borderRadius: 6,
+    marginBottom: spacing.xs,
+  },
+  skeletonPrice: {
+    width: 80,
+    height: 24,
+    backgroundColor: colors.text.light + '30',
+    borderRadius: 12,
+  },
+  skeletonVehicle: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+  },
+  skeletonVehicleImage: {
+    width: 100,
+    height: 75,
+    backgroundColor: colors.text.light + '30',
+    borderRadius: 8,
+    marginRight: spacing.sm,
+  },
+  skeletonVehicleInfo: {
+    flex: 1,
+  },
+  skeletonButton: {
+    height: 48,
+    backgroundColor: colors.text.light + '30',
+    borderRadius: 12,
+  },
+
+  // Empty State Styles
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl * 2,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.text.light + '10',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: spacing.lg,
+  },
+  emptySuggestions: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: spacing.lg,
+    width: '100%',
+  },
+  suggestionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  suggestionItem: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    lineHeight: 20,
+  },
+
+  // Transporters List Styles
+  transportersList: {
+    maxHeight: 600,
+  },
+  transportersListContent: {
+    paddingBottom: spacing.lg,
+  },
+
+  // Transporter Card Styles
+  transporterCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: colors.text.light + '20',
+  },
+
+  // Profile Header Styles
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  profileImageContainer: {
+    position: 'relative',
+    marginRight: spacing.md,
+  },
+  profileImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 3,
+    borderColor: colors.primary + '20',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.success,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  transporterName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  ratingText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  separator: {
+    fontSize: 12,
+    color: colors.text.light,
+    marginHorizontal: spacing.xs,
+  },
+  experienceText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  tripsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tripsText: {
+    fontSize: 12,
+    color: colors.success,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  priceContainer: {
+    alignItems: 'flex-end',
+  },
+  priceAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  priceLabel: {
+    fontSize: 11,
+    color: colors.text.light,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Vehicle Card Styles
+  vehicleCard: {
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.text.light + '20',
+  },
+  vehicleHeader: {
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+  },
+  vehicleImage: {
+    width: 100,
+    height: 75,
+    borderRadius: 12,
+    marginRight: spacing.sm,
+  },
+  vehicleInfo: {
+    flex: 1,
+  },
+  vehicleTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  vehicleSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+  },
+  vehicleSpecs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.text.light + '30',
+  },
+  specText: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  timingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '08',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+  },
+  timingItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timingLabel: {
+    fontSize: 11,
+    color: colors.text.light,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  timingValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  timingDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.text.light + '30',
+    marginHorizontal: spacing.sm,
+  },
+
+  // Features Styles
+  featuresContainer: {
+    marginBottom: spacing.md,
+  },
+  featuresTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  featuresList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  featureTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  featureText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  moreFeatures: {
+    backgroundColor: colors.text.light + '20',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+  },
+  moreFeaturesText: {
+    fontSize: 12,
+    color: colors.text.light,
+    fontStyle: 'italic',
+  },
+
+  // Button Styles
+  selectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  selectButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: spacing.xs,
+  },
+});
 
 export default FindTransporters;
