@@ -1,4 +1,12 @@
-import { EXPO_PUBLIC_GOOGLE_MAPS_API_KEY } from '@env';
+// Import environment configuration
+import { ENV_CONFIG } from '../config/env';
+
+// Get the API key from environment configuration
+const EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = ENV_CONFIG.GOOGLE_MAPS_API_KEY;
+
+// Debug logging to see what's being imported
+console.log('🔍 DEBUG: EXPO_PUBLIC_GOOGLE_MAPS_API_KEY from ENV_CONFIG:', EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
+console.log('🔍 DEBUG: typeof EXPO_PUBLIC_GOOGLE_MAPS_API_KEY:', typeof EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
 
 // Google Maps API Configuration
 export const GOOGLE_MAPS_CONFIG = {

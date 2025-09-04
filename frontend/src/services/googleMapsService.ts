@@ -1,5 +1,4 @@
-import { EXPO_PUBLIC_GOOGLE_MAPS_API_KEY } from '@env';
-import { GOOGLE_MAPS_ENDPOINTS, buildGoogleMapsUrl } from '../constants/googleMaps';
+import { GOOGLE_MAPS_ENDPOINTS, buildGoogleMapsUrl, getGoogleMapsApiKey } from '../constants/googleMaps';
 
 export interface Location {
   latitude: number;
@@ -397,7 +396,7 @@ class GoogleMapsService {
         rating: place.rating,
         photos: place.photos?.map(
           (photo: any) =>
-            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`,
+            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${getGoogleMapsApiKey()}`,
         ),
       };
     } catch (error) {
