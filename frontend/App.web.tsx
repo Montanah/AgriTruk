@@ -2,7 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { LogBox, Platform } from 'react-native';
+import { LogBox, Platform, View, Text, StyleSheet } from 'react-native';
 import BusinessStackNavigator from './src/navigation/BusinessStackNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
