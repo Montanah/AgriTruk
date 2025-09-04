@@ -1,6 +1,7 @@
 {
   "name": "trukapp",
   "main": "node_modules/expo/AppEntry.js",
+  "web": "web-entry.js",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
