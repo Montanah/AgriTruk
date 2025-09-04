@@ -1,7 +1,7 @@
 // API Configuration
 // To be updated to the real backend URL
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'https://agritruk-backend.onrender.com';
+  process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com';
 
 // API Endpoints
 export const API_ENDPOINTS = {
