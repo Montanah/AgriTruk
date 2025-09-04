@@ -50,7 +50,7 @@ const reportsController = require('../controllers/reportsController');
  *         description: Internal server error
  */
 
-router.get('/pdf/bookings', authenticateToken, requireRole('admin'), authorize(['view_bookings', 'super_admin']), reportsController.generateBookingPdf);
+router.get('/pdf/bookings', authenticateToken, requireRole('admin'), authorize(['view_bookings', 'manage_bookings', 'super_admin']), reportsController.generateBookingPdf);
 
 /**
  * @swagger
@@ -83,7 +83,71 @@ router.get('/pdf/bookings', authenticateToken, requireRole('admin'), authorize([
  *       500:
  *         description: Internal server error
  */
+router.get('/csv/bookings', authenticateToken, requireRole('admin'), authorize(['view_bookings', 'manage_bookings',  'super_admin']), reportsController.generateBookingCsv);
 
-router.get('/csv/bookings', authenticateToken, requireRole('admin'), authorize(['view_bookings', 'super_admin']), reportsController.generateBookingCsv);
+/** 
+ * @swagger
+ * /api/reports/pdf/payments:
+ *   get:
+ *     summary: Get a list of all payments as a PDF
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: Start date for report filtering
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: End date for report filtering
+ *     responses:
+ *       200:
+ *         description: List of payments
+ *       403:
+ *         description: Access denied
+ *       500:
+ *         description: Internal server error
+*/
+router.get('/pdf/payments', authenticateToken, requireRole('admin'), authorize(['view_payments', 'manage_payments', 'super_admin']), reportsController.generateTransactionPdf);
 
+/**
+ * @swagger
+ * /api/reports/csv/payments:
+ *   get:
+ *     summary: Get a list of all payments as a CSV
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: Start date for report filtering
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         required: false
+ *         description: End date for report filtering
+ *     responses:
+ *       200:
+ *         description: List of payments
+ *       403:
+ *         description: Access denied
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/csv/payments', authenticateToken, requireRole('admin'), authorize(['view_payments', 'manage_payments', 'super_admin']), reportsController.generateTransactionCsv);
 module.exports = router;

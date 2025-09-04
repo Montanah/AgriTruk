@@ -1,4 +1,5 @@
 const admin = require("../config/firebase");
+const { getAll } = require("./Subscribers");
 const db = admin.firestore(); 
 
 // PAYMENTS Model
@@ -43,6 +44,11 @@ const Payment = {
     const querySnapshot = await db.collection('payments').where('requestId', '==', requestId).get();
     if (querySnapshot.empty) return null;
     return querySnapshot.docs[0].data();
+  },
+
+  async getAll() {
+    const snapshot = await db.collection('payments').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   }
 };
 

@@ -7,8 +7,7 @@ const { processMpesaPayment, processCardPayment, mpesaCallback, stripeCallback }
  * tags:
  *   name: Payments
  *   description: Payment management endpoints
- */
-/**
+ *//**
  * @swagger
  * components:
  *   schemas:
@@ -23,39 +22,45 @@ const { processMpesaPayment, processCardPayment, mpesaCallback, stripeCallback }
  *           type: string
  *         amount:
  *           type: number
+ *           format: float
  *         currency:
  *           type: string
  *         payerId:
  *           type: string
  *         phone:
- *           type:string
+ *           type: string
  *         method:
- *           type:string
+ *           type: string
  *         accountRef:
- *           type:string
+ *           type: string
  *         transDate:
- *           type:string
+ *           type: string
+ *           format: date-time
  *         mpesaReference:
- *           type:string
+ *           type: string
  *         status:
- *           type:string 
+ *           type: string 
  *         disputeId:
  *           type: string
  *         createdAt:
  *           type: string
+ *           format: date-time
  *         updatedAt:
  *           type: string
+ *           format: date-time
  *         email:
  *           type: string
- *         faiureReason:
- *           type: string
- *         disputeid:
+ *           format: email
+ *         failureReason:
  *           type: string
  *         paidAt:
  *           type: string
+ *           format: date-time
  *         receiptUrl:
  *           type: string
+ *           format: uri
  */
+
 /**
  * @swagger
  * /api/payments/mpesa:

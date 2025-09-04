@@ -7,7 +7,7 @@ const { authorize } = require("../middlewares/adminAuth");
 /**
  * @swagger
  * tags:
- *   name: SubscriptionPlans
+ *   name: Subscriptions
  *   description: Manage subscriptions
  */
 /**
