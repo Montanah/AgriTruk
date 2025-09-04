@@ -26,6 +26,9 @@ const EmailVerificationScreen = ({ navigation, route }) => {
   const inputAnim = useRef(new Animated.Value(0)).current;
   const buttonAnim = useRef(new Animated.Value(1)).current;
   const successAnim = useRef(new Animated.Value(0)).current;
+  
+  // Input refs for proper focus handling
+  const inputRefs = useRef([]);
 
   // Start countdown for resend
   useEffect(() => {
@@ -255,6 +258,9 @@ const EmailVerificationScreen = ({ navigation, route }) => {
               {Array.from({ length: 6 }).map((_, i) => (
                 <TextInput
                   key={i}
+                  ref={(ref) => {
+                    inputRefs.current[i] = ref;
+                  }}
                   style={[
                     styles.codeInput,
                     code[i] && styles.codeInputFilled,
@@ -268,21 +274,22 @@ const EmailVerificationScreen = ({ navigation, route }) => {
                     setCode(newCode.join(''));
                     // Auto-focus next input
                     if (val && i < 5) {
-                      // Find next input and focus it
-                      const nextInput = document.querySelector(`input[data-index="${i + 1}"]`);
-                      if (nextInput) nextInput.focus();
+                      // Focus next input using ref
+                      if (inputRefs.current[i + 1]) {
+                        inputRefs.current[i + 1].focus();
+                      }
                     }
                   }}
                   onKeyPress={({ nativeEvent }) => {
                     if (nativeEvent.key === 'Backspace' && !code[i] && i > 0) {
-                      // Find previous input and focus it
-                      const prevInput = document.querySelector(`input[data-index="${i - 1}"]`);
-                      if (prevInput) prevInput.focus();
+                      // Focus previous input using ref
+                      if (inputRefs.current[i - 1]) {
+                        inputRefs.current[i - 1].focus();
+                      }
                     }
                   }}
                   autoFocus={i === 0}
                   returnKeyType="next"
-                  data-index={i}
                 />
               ))}
             </View>
