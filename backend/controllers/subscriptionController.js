@@ -247,8 +247,18 @@ exports.createSubscriber = async (req, res) => {
 exports.getAllSubscribers = async (req, res) => {
   try {
     const subscribers = await Subscribers.getAll();
+
+    for (const subscriber of subscribers) {
+      const user = await Users.get(subscriber.userId);
+      subscriber.user = formatTimestamps(user);
+      const plan = await SubscriptionPlans.getSubscriptionPlan(subscriber.planId);
+      subscriber.plan = formatTimestamps(plan);
+    }
     await logAdminActivity(req.user.uid, 'get_all_subscribers', req);
-    res.status(200).json({ success: true, message: 'Subscribers retrieved', data: formatTimestamps(subscribers) });
+    res.status(200).json({ 
+      success: true, 
+      message: 'Subscribers retrieved', 
+      data: formatTimestamps(subscribers) });
   } catch (error) {
     console.error('Subscribers error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });

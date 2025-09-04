@@ -540,7 +540,7 @@ router.get('/subscriber/:id', authenticateToken, requireRole(['transporter', 'br
  * @swagger
  * /api/subscriptions/admin/subscribers/:
  *   get:
- *     tags: [Admin]
+ *     tags: [Admin Views]
  *     summary: Get all subscribers
  *     security:
  *       - bearerAuth: []
