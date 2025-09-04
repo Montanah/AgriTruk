@@ -122,25 +122,8 @@ const PhoneOTPScreen = ({ navigation, route }) => {
       // Wait a moment for backend to update isVerified field
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Sign out and sign back in to refresh auth state with correct role
-      const auth = getAuth();
-
-      // Get the password from route params for re-authentication
-      const { password } = route.params || {};
-
-      if (password) {
-        // Sign out current user
-        await signOut(auth);
-
-        // Sign back in with email and password to refresh auth state
-        await signInWithEmailAndPassword(auth, email, password);
-
-        // Navigation will be handled automatically by App.tsx auth state listener
-        // based on the updated user role and verification status
-      } else {
-        // Let the auth state listener handle navigation
-        // No manual navigation needed
-      }
+      // Navigate back to the profile screen
+      navigation.goBack();
     } catch (err) {
       console.error('Phone verification error:', err);
       let errorMessage = 'Verification failed. Please try again.';

@@ -377,6 +377,68 @@ const AccountScreen = () => {
     }
   };
 
+  const handleNotificationToggle = async (type: 'email' | 'push' | 'sms') => {
+    if (!user?.uid || !profile) return;
+
+    try {
+      const newSettings = {
+        ...profile.preferences.notificationSettings,
+        [type]: !profile.preferences.notificationSettings[type]
+      };
+
+      // Update local state immediately for better UX
+      setProfile(prev => prev ? {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          notificationSettings: newSettings
+        }
+      } : null);
+
+      // Update in Firestore
+      await updateDoc(doc(db, 'users', user.uid), {
+        'preferences.notificationSettings': newSettings
+      });
+
+      // Show success feedback
+      const status = newSettings[type] ? 'enabled' : 'disabled';
+      Alert.alert(
+        'Notification Updated',
+        `${type.charAt(0).toUpperCase() + type.slice(1)} notifications have been ${status}.`,
+        [{ text: 'OK' }]
+      );
+
+    } catch (error) {
+      console.error('Notification toggle error:', error);
+      
+      // Revert local state on error
+      setProfile(prev => prev ? {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          notificationSettings: profile.preferences.notificationSettings
+        }
+      } : null);
+
+      Alert.alert('Error', 'Failed to update notification settings. Please try again.');
+    }
+  };
+
+  const getNotificationSummary = () => {
+    if (!profile) return 'Loading notification preferences...';
+    
+    const enabledCount = Object.values(profile.preferences.notificationSettings).filter(Boolean).length;
+    const totalCount = Object.keys(profile.preferences.notificationSettings).length;
+    
+    if (enabledCount === 0) {
+      return 'All notifications are disabled. You may miss important updates.';
+    } else if (enabledCount === totalCount) {
+      return 'All notification types are enabled. You\'ll receive updates via all channels.';
+    } else {
+      return `${enabledCount} of ${totalCount} notification types are enabled.`;
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -658,56 +720,105 @@ const AccountScreen = () => {
         {/* Notification Preferences */}
         <View style={styles.preferencesSection}>
           <Text style={styles.sectionTitle}>Notification Preferences</Text>
+          <Text style={styles.sectionSubtitle}>Choose how you'd like to receive updates about your shipments</Text>
 
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceInfo}>
-              <MaterialCommunityIcons name="email-outline" size={20} color={colors.primary} />
-              <Text style={styles.preferenceLabel}>Email Notifications</Text>
+              <View style={styles.preferenceIconContainer}>
+                <MaterialCommunityIcons name="email" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.preferenceTextContainer}>
+                <Text style={styles.preferenceLabel}>Email Notifications</Text>
+                <Text style={styles.preferenceDescription}>Booking confirmations, updates, and receipts</Text>
+              </View>
             </View>
-            <View style={[
-              styles.preferenceToggle,
-              profile.preferences.notificationSettings.email && styles.preferenceActive
-            ]}>
-              <MaterialCommunityIcons
-                name={profile.preferences.notificationSettings.email ? "check" : "close"}
-                size={16}
-                color={profile.preferences.notificationSettings.email ? colors.success : colors.error}
-              />
-            </View>
+            <TouchableOpacity
+              style={[
+                styles.preferenceToggle,
+                profile.preferences.notificationSettings.email && styles.preferenceActive
+              ]}
+              onPress={() => handleNotificationToggle('email')}
+            >
+              <View style={[
+                styles.toggleSwitch,
+                profile.preferences.notificationSettings.email && styles.toggleSwitchActive
+              ]}>
+                <View style={[
+                  styles.toggleThumb,
+                  profile.preferences.notificationSettings.email && styles.toggleThumbActive
+                ]} />
+              </View>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceInfo}>
-              <MaterialCommunityIcons name="bell-outline" size={20} color={colors.primary} />
-              <Text style={styles.preferenceLabel}>Push Notifications</Text>
+              <View style={styles.preferenceIconContainer}>
+                <MaterialCommunityIcons name="bell" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.preferenceTextContainer}>
+                <Text style={styles.preferenceLabel}>Push Notifications</Text>
+                <Text style={styles.preferenceDescription}>Real-time alerts and status updates</Text>
+              </View>
             </View>
-            <View style={[
-              styles.preferenceToggle,
-              profile.preferences.notificationSettings.push && styles.preferenceActive
-            ]}>
-              <MaterialCommunityIcons
-                name={profile.preferences.notificationSettings.push ? "check" : "close"}
-                size={16}
-                color={profile.preferences.notificationSettings.push ? colors.success : colors.error}
-              />
-            </View>
+            <TouchableOpacity
+              style={[
+                styles.preferenceToggle,
+                profile.preferences.notificationSettings.push && styles.preferenceActive
+              ]}
+              onPress={() => handleNotificationToggle('push')}
+            >
+              <View style={[
+                styles.toggleSwitch,
+                profile.preferences.notificationSettings.push && styles.toggleSwitchActive
+              ]}>
+                <View style={[
+                  styles.toggleThumb,
+                  profile.preferences.notificationSettings.push && styles.toggleThumbActive
+                ]} />
+              </View>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.preferenceRow}>
             <View style={styles.preferenceInfo}>
-              <MaterialCommunityIcons name="message-text-outline" size={20} color={colors.primary} />
-              <Text style={styles.preferenceLabel}>SMS Notifications</Text>
+              <View style={styles.preferenceIconContainer}>
+                <MaterialCommunityIcons name="message-text" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.preferenceTextContainer}>
+                <Text style={styles.preferenceLabel}>SMS Notifications</Text>
+                <Text style={styles.preferenceDescription}>Text messages for urgent updates</Text>
+              </View>
             </View>
-            <View style={[
-              styles.preferenceToggle,
-              profile.preferences.notificationSettings.sms && styles.preferenceActive
-            ]}>
-              <MaterialCommunityIcons
-                name={profile.preferences.notificationSettings.sms ? "check" : "close"}
-                size={16}
-                color={profile.preferences.notificationSettings.sms ? colors.success : colors.error}
-              />
-            </View>
+            <TouchableOpacity
+              style={[
+                styles.preferenceToggle,
+                profile.preferences.notificationSettings.sms && styles.preferenceActive
+              ]}
+              onPress={() => handleNotificationToggle('sms')}
+            >
+              <View style={[
+                styles.toggleSwitch,
+                profile.preferences.notificationSettings.sms && styles.toggleSwitchActive
+              ]}>
+                <View style={[
+                  styles.toggleThumb,
+                  profile.preferences.notificationSettings.sms && styles.toggleThumbActive
+                ]} />
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Notification Summary */}
+          <View style={styles.notificationSummary}>
+            <MaterialCommunityIcons 
+              name="information-outline" 
+              size={16} 
+              color={colors.text.secondary} 
+            />
+            <Text style={styles.notificationSummaryText}>
+              {getNotificationSummary()}
+            </Text>
           </View>
         </View>
 
@@ -1838,18 +1949,76 @@ const styles = StyleSheet.create({
   },
 
   preferenceToggle: {
-    width: 40,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.text.light,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 4,
   },
   preferenceActive: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
+    // No additional styles needed for active state
+  },
+  preferenceIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  preferenceTextContainer: {
+    flex: 1,
+  },
+  preferenceDescription: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  toggleSwitch: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.text.light,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleSwitchActive: {
+    backgroundColor: colors.primary,
+  },
+  toggleThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.white,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  toggleThumbActive: {
+    transform: [{ translateX: 20 }],
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  notificationSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background + '80',
+    padding: spacing.md,
+    borderRadius: 12,
+    marginTop: spacing.md,
+  },
+  notificationSummaryText: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginLeft: spacing.sm,
+    flex: 1,
+    lineHeight: 16,
   },
   modalInput: {
     backgroundColor: '#f3f4f6',

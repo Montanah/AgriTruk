@@ -105,43 +105,9 @@ const EmailVerificationScreen = ({ navigation, route }) => {
       setVerified(true);
 
       // Navigate after a short delay to show success animation
-      setTimeout(async () => {
-        // Wait a moment for backend to update isVerified field
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Sign out and sign back in to refresh auth state with correct role
-        const auth = getAuth();
-
-        // Get the password from route params for re-authentication
-        const { password } = route.params || {};
-
-        if (password) {
-          try {
-            // Sign out current user
-            await signOut(auth);
-
-            // Sign back in with email and password to refresh auth state
-            await signInWithEmailAndPassword(auth, email, password);
-
-            // Navigation will be handled automatically by App.tsx auth state listener
-            // based on the updated user role and verification status
-          } catch (error) {
-            console.error('Re-authentication error:', error);
-            // Fallback navigation if re-authentication fails
-            if (role === 'transporter') {
-              navigation.replace('TransporterCompletionScreen');
-            } else {
-              navigation.replace('Welcome');
-            }
-          }
-        } else {
-          // Fallback navigation if password not available
-          if (role === 'transporter') {
-            navigation.replace('TransporterCompletionScreen');
-          } else {
-            navigation.replace('Welcome');
-          }
-        }
+      setTimeout(() => {
+        // Navigate back to the profile screen
+        navigation.goBack();
       }, 2000);
 
     } catch (err) {
