@@ -121,7 +121,6 @@ temp/
 # App example (if exists)
 app-example
 
-# Documentation files (ignore all .md files except README.md and deployment guide)
+# Documentation files (ignore all .md files except README.md)
 *.md
 !README.md
-!DEPLOYMENT_GUIDE.md
