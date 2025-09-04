@@ -1,0 +1,25 @@
+// jobs/subscriptionNotificationsJob.js
+const cron = require('node-cron');
+const notificationCronService = require('../services/subscriberService');
+
+// Run daily at 9:00 AM
+const subscriptionNotificationsJob = cron.schedule('0 9 * * *', async () => {
+  try {
+    console.log('⏰ Running daily subscription notifications...');
+    const results = await notificationCronService.runSubscriptionNotifications();
+    console.log('📊 Notification results:', results);
+  } catch (error) {
+    console.error('❌ Cron job failed:', error);
+  }
+});
+
+// Optional: Run more frequently for testing (every 10 minutes)
+const testJob = cron.schedule('*/10 * * * *', async () => {
+  console.log('🧪 Test run...');
+  await notificationCronService.runSubscriptionNotifications();
+});
+
+module.exports = {
+  subscriptionNotificationsJob,
+  // testJob
+};

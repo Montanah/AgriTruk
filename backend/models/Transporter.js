@@ -1,5 +1,5 @@
 const admin = require("../config/firebase");
-const db = admin.firestore(); 
+const db = admin.firestore();
 
 // TRANSPORTERS Model
 const Transporter = {
@@ -8,7 +8,7 @@ const Transporter = {
       transporterId: transporterData.userId || db.collection('transporters').doc().id,
       userId: transporterData.transporterId,
       transporterType: transporterData.transporterType || 'individual',
-      displayName: transporterData.displayName || 'Unnamed Transporter', 
+      displayName: transporterData.displayName || 'Unnamed Transporter',
       phoneNumber: transporterData.phoneNumber || null,
       driverProfileImage: transporterData.driverProfileImage || null,
       email: transporterData.email || null,
@@ -55,9 +55,27 @@ const Transporter = {
       idapproved: transporterData.idapproved || false,
       // Timestamps
       createdAt: admin.firestore.Timestamp.now(),
-      updatedAt: admin.firestore.Timestamp.now()
+      updatedAt: admin.firestore.Timestamp.now(),
+      //expiry
+      documentNotifications: {
+        insurance: {
+          expiring: [], // [30, 15, 7, 3, 1]
+          expired: false,
+          grace_period: [] // [1, 7, 14]
+        },
+        driverLicense: {
+          expiring: [],
+          expired: false,
+          grace_period: []
+        },
+        id: {
+          expiring: [],
+          expired: false,
+          grace_period: []
+        }
+      },
     };
-   
+
     await db.collection('transporters').doc(transporterData.transporterId).set(transporter);
     return transporter;
   },
@@ -122,6 +140,94 @@ const Transporter = {
     };
     await db.collection('transporters').doc(transporterId).update(updates);
     return updates;
+  },
+  // In Transporter model
+  async getExpiringDocuments(docType, targetDate) {
+    const expiryField = this.getExpiryFieldName(docType);
+    const targetTimestamp = admin.firestore.Timestamp.fromDate(targetDate);
+
+    const snapshot = await db.collection('transporters')
+      .where('accountStatus', '==', true)
+      .where(expiryField, '>=', admin.firestore.Timestamp.fromDate(new Date(targetDate.getTime() - 86400000)))
+      .where(expiryField, '<=', admin.firestore.Timestamp.fromDate(new Date(targetDate.getTime() + 86400000)))
+      .get();
+
+    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
+  },
+
+  async getExpiredDocuments(docType, expiryDate) {
+    const expiryField = this.getExpiryFieldName(docType);
+    const expiryTimestamp = admin.firestore.Timestamp.fromDate(expiryDate);
+
+    const snapshot = await db.collection('transporters')
+      .where('accountStatus', '==', true)
+      .where(expiryField, '<', expiryTimestamp)
+      .get();
+
+    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
+  },
+
+  async getGracePeriodDocuments(docType, cutoffDate) {
+    const expiryField = this.getExpiryFieldName(docType);
+    const cutoffTimestamp = admin.firestore.Timestamp.fromDate(cutoffDate);
+
+    const snapshot = await db.collection('transporters')
+      .where('accountStatus', '==', true)
+      .where(expiryField, '<', cutoffTimestamp)
+      .get();
+
+    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
+  },
+
+  async getNonCompliantTransporters(docType, cutoffDate) {
+    const expiryField = this.getExpiryFieldName(docType);
+    const cutoffTimestamp = admin.firestore.Timestamp.fromDate(cutoffDate);
+
+    const snapshot = await db.collection('transporters')
+      .where(expiryField, '<', cutoffTimestamp)
+      .get();
+
+    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
+  },
+
+  async updateDocumentNotification(transporterId, docType, notificationType, value) {
+    const transporterRef = db.collection('transporters').doc(transporterId);
+    const transporterDoc = await transporterRef.get();
+
+    if (!transporterDoc.exists) return;
+
+    const currentNotifications = transporterDoc.data().documentNotifications || {};
+    const docNotifications = currentNotifications[docType] || {};
+
+    let updatedDocNotifications = { ...docNotifications };
+
+    if (notificationType === 'expiring' || notificationType === 'grace_period') {
+      if (!updatedDocNotifications[notificationType]) {
+        updatedDocNotifications[notificationType] = [];
+      }
+      updatedDocNotifications[notificationType] = [
+        ...new Set([...updatedDocNotifications[notificationType], value])
+      ];
+    } else {
+      updatedDocNotifications[notificationType] = value;
+    }
+
+    await transporterRef.update({
+      documentNotifications: {
+        ...currentNotifications,
+        [docType]: updatedDocNotifications
+      },
+      updatedAt: admin.firestore.Timestamp.now()
+    });
+  },
+
+  getExpiryFieldName(docType) {
+    const fields = {
+      'insurance': 'insuranceExpiryDate',
+      'driverLicense': 'driverLicenseExpiryDate',
+      'id': 'idExpiryDate'
+    };
+    return fields[docType];
   },
 };
 

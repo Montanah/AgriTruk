@@ -337,3 +337,507 @@ exports.createSubscriberPayment = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+exports.getSubcriberStatus = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+
+    let subscriptionStatus = {
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      needsTrialActivation: false,
+      currentPlan: null,
+      daysRemaining: 0,
+      subscriptionStatus: 'none',
+      isTrial: false,
+      trialDaysRemaining: 0
+    };
+
+    const user = await Users.get(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const subscriber = await Subscribers.getByUserId(userId);
+
+    // If no subscriber exists, check if user is eligible for trial
+    if (!subscriber) {
+      // Check if user meets criteria for trial (e.g., new user, hasn't used trial before)
+      const isEligibleForTrial = await checkTrialEligibility(userId);
+      
+      subscriptionStatus.needsTrialActivation = isEligibleForTrial;
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Subscriber status retrieved', 
+        data: formatTimestamps(subscriptionStatus),
+        user: formatTimestamps(user)
+      });
+    }
+
+    const plan = await SubscriptionPlans.getSubscriptionPlan(subscriber.planId);
+
+    // Check if this is a trial subscription (price is 0)
+    const isTrial = plan && plan.price === 0;
+    
+    // Calculate days remaining
+    const endDateMillis = subscriber.endDate.toMillis ? subscriber.endDate.toMillis() : 
+                         (subscriber.endDate._seconds * 1000) + (subscriber.endDate._nanoseconds / 1000000);
+    
+    const currentTime = Date.now();
+    
+    console.log('End date (ms):', endDateMillis, 'Current time (ms):', currentTime);
+    
+    // Check if subscription is active (both flag and date validation)
+    const isActive = subscriber.isActive && endDateMillis > currentTime;
+    const daysRemaining = isActive ? Math.ceil((endDateMillis - currentTime) / (1000 * 60 * 60 * 24)) : 0;
+    // Check if trial is still active
+    const isTrialActive = isTrial && isActive;
+
+    subscriptionStatus = {
+      hasActiveSubscription: isActive,
+      isTrialActive: isTrialActive,
+      needsTrialActivation: false, // Already has a subscription
+      currentPlan: plan ? plan.name : null,
+      daysRemaining: daysRemaining,
+      subscriptionStatus: isActive ? 'active' : 'inactive',
+      isTrial: isTrial,
+      trialDaysRemaining: isTrialActive ? daysRemaining : 0,
+      trialUsed: isTrial && !isActive // Trial was used but expired
+    }
+
+    await logActivity(req.user.uid, 'get_subscriber_status', req);
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Subscriber status retrieved', 
+      data: formatTimestamps(subscriptionStatus),
+      user: formatTimestamps(user),
+      subscriber: formatTimestamps(subscriber),
+      plan: formatTimestamps(plan)
+    });
+    
+  } catch (error) {
+    console.error('Error getting subscriber status:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error',
+      error: error.message 
+    });
+  }
+};
+
+// Helper function to check trial eligibility
+async function checkTrialEligibility(userId) {
+  try {
+    // Check if user has ever had any subscription
+    const hasPreviousSubscriptions = await Subscribers.hasAnySubscription(userId);
+    
+    // Check if user has already used a trial
+    const hasUsedTrial = await hasUsedTrial(userId);
+    
+    // User is eligible for trial if they have no previous subscriptions 
+    // and haven't used a trial before
+    return !hasPreviousSubscriptions && !hasUsedTrial;
+  } catch (error) {
+    console.error('Error checking trial eligibility:', error);
+    return false;
+  }
+}
+
+async function hasUsedTrial(userId) {
+  try {
+    const subscriber = await Subscribers.getByUserId(userId);
+    if (!subscriber) {
+      return false;
+    }
+    return subscriber.some(async (sub) => {
+      const plan = await SubscriptionPlans.getSubscriptionPlan(sub.planId);
+      return plan && plan.price === 0;
+    });
+  } catch (error) {
+    console.error('Error checking trial usage:', error);
+    return false;
+  }
+};
+
+
+exports.changePlan = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { newPlanId, action, paymentMethod, phoneNumber, currency } = req.body;
+
+    // Validate input
+    if (!newPlanId || !action) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: newPlanId and action'
+      });
+    }
+
+    if (!['upgrade', 'downgrade'].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Action must be either "upgrade" or "downgrade"'
+      });
+    }
+
+    // Get user and current subscription
+    const user = await Users.get(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const currentSubscriber = await Subscribers.getByUserId(userId);
+    if (!currentSubscriber) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No active subscription found' 
+      });
+    }
+
+    // Get current and new plan details
+    const currentPlan = await SubscriptionPlans.getSubscriptionPlan(currentSubscriber.planId);
+    const newPlan = await SubscriptionPlans.getSubscriptionPlan(newPlanId);
+
+    if (!newPlan) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Requested plan not found' 
+      });
+    }
+
+    // Validate plan change
+    const validationError = validatePlanChange(currentPlan, newPlan, action);
+    if (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError
+      });
+    }
+
+    // Calculate prorated amount if needed
+    const proratedAmount = calculateProratedAmount(currentSubscriber, currentPlan, newPlan);
+
+    // Process payment if upgrade requires additional payment
+    let paymentResult;
+    if (proratedAmount > 0) {
+      paymentResult = await processPayment(
+        userId, 
+        proratedAmount, 
+        `Plan ${action} from ${currentPlan.name} to ${newPlan.name}`,
+        {
+          paymentMethod,
+          phoneNumber,
+          currency: currency || newPlan.currency,
+          planId: newPlan.id
+        }
+      );
+
+      if (!paymentResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: `Payment failed: ${paymentResult.message}`,
+          paymentDetails: paymentResult
+        });
+      }
+    }
+
+    // Update subscription (only if payment was successful or not required)
+    const updatedSubscription = await updateSubscription(
+      currentSubscriber, 
+      newPlan, 
+      action,
+      proratedAmount
+    );
+
+    await logActivity(userId, `plan_${action}`, req, {
+      fromPlan: currentPlan.name,
+      toPlan: newPlan.name,
+      proratedAmount,
+      paymentId: paymentResult?.paymentId
+    });
+
+    const response = {
+      success: true,
+      message: `Plan ${action} successful`,
+      data: {
+        previousPlan: formatTimestamps(currentPlan),
+        newPlan: formatTimestamps(newPlan),
+        updatedSubscription: formatTimestamps(updatedSubscription),
+        proratedAmount,
+        action
+      }
+    };
+
+    // Add payment details to response if payment was processed
+    if (paymentResult) {
+      response.payment = {
+        initiated: proratedAmount > 0,
+        amount: proratedAmount,
+        paymentId: paymentResult.paymentId,
+        status: 'pending'
+      };
+    }
+
+    res.status(200).json(response);
+
+  } catch (error) {
+    console.error(`Error in plan change:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Helper functions
+function validatePlanChange(currentPlan, newPlan, action) {
+  if (currentPlan.id === newPlan.id) {
+    return 'Cannot change to the same plan';
+  }
+
+  if (action === 'upgrade' && currentPlan.price >= newPlan.price) {
+    return 'Upgrade requires a higher-priced plan';
+  }
+
+  if (action === 'downgrade' && currentPlan.price <= newPlan.price) {
+    return 'Downgrade requires a lower-priced plan';
+  }
+
+  return null;
+}
+
+function calculateProratedAmount(currentSubscriber, currentPlan, newPlan) {
+  // Convert Firestore timestamp to milliseconds
+  const endDateMillis = currentSubscriber.endDate.toMillis ? 
+    currentSubscriber.endDate.toMillis() : 
+    (currentSubscriber.endDate._seconds * 1000) + (currentSubscriber.endDate._nanoseconds / 1000000);
+  
+  const currentTime = Date.now();
+  const timeRemaining = endDateMillis - currentTime;
+  const totalDuration = currentSubscriber.endDate - currentSubscriber.startDate;
+  
+  // Calculate unused portion of current plan
+  const unusedPercentage = timeRemaining / totalDuration;
+  const unusedAmount = currentPlan.price * unusedPercentage;
+  
+  // Calculate cost of new plan for remaining period
+  const newPlanCostForRemaining = newPlan.price * unusedPercentage;
+  
+  // Return the difference (positive if upgrade, negative if downgrade)
+  return Math.max(0, newPlanCostForRemaining - unusedAmount);
+}
+
+async function processPayment(userId, amount, description, paymentDetails = {}) {
+  if (amount <= 0) {
+    return { success: true, message: 'No payment required' };
+  }
+
+  try {
+    const paymentMethod = paymentDetails.paymentMethod || 'card'; // Default to card
+    const reference = `PLAN_CHANGE_${userId}_${Date.now()}`;
+    
+    let paymentResult;
+
+    if (paymentMethod === "mpesa") {
+      paymentResult = await processMpesaPayment({
+        phone: paymentDetails.phoneNumber,
+        amount: amount,
+        accountRef: reference,
+        description: description
+      });
+    } else if (paymentMethod === "card") {
+      paymentResult = await processCardPayment({
+        amount: amount,
+        currency: paymentDetails.currency || "usd",
+        reference: reference,
+        description: description
+      });
+    } else {
+      throw new Error("Invalid payment method");
+    }
+
+    // Create payment record
+    const paymentRecord = await Payment.create({
+      payerId: userId,
+      payeeId: "TRUK SUBSCRIPTIONS", 
+      amount: amount,
+      phone: paymentDetails.phoneNumber || null,
+      email: paymentDetails.email || null,
+      currency: paymentDetails.currency || 'KES',
+      method: paymentMethod,
+      requestId: paymentResult.data.CheckoutRequestID || reference,
+      planId: paymentDetails.planId || null,
+      status: "pending",
+      type: "plan_change",
+      description: description
+    });
+
+    return {
+      success: true,
+      message: "Payment initiated successfully",
+      paymentId: paymentRecord.id,
+      gatewayResponse: paymentResult.data
+    };
+
+  } catch (error) {
+    console.error('Payment processing error:', error);
+    return {
+      success: false,
+      message: error.message,
+      error: error
+    };
+  }
+};
+
+async function updateSubscription(subscriber, newPlan, action, proratedAmount) {
+  const updateData = {
+    planId: newPlan.id,
+    previousPlanId: subscriber.planId,
+    lastChange: new Date(),
+    changeType: action,
+    proratedAmount: proratedAmount
+  };
+
+  // If downgrading to a free plan, adjust status
+  if (newPlan.price === 0) {
+    updateData.isActive = true;
+  }
+
+  return await Subscribers.update(subscriber.id, updateData);
+};
+
+exports.cancelPlan = async (req, res) => {
+  try {
+    const userId = req.user.uid || req.body.userId;
+    const { cancellationReason } = req.body;
+
+    const user = await Users.get(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const subscriber = await Subscribers.getByUserId(userId);
+    if (!subscriber) {
+      return res.status(404).json({ success: false, message: 'Subscriber not found' });
+    }
+
+    const result = await cancelSubscription(subscriber, cancellationReason);
+
+    await logActivity(userId, 'plan_cancel', req, {
+      planId: subscriber.planId,
+      cancellationReason,
+      refundAmount: result.refundAmount
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Subscription cancelled successfully',
+      data: {
+        cancellationDate: new Date(),
+        refundAmount: result.refundAmount,
+        cancellationReason,
+        endDate: result.endDate
+      }
+    });
+
+  } catch (error) {
+    console.error('Error cancelling subscription:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+async function cancelSubscription(subscriber, cancellationReason = 'User requested') {
+  const currentPlan = await SubscriptionPlans.getSubscriptionPlan(subscriber.planId);
+  
+  // Calculate refund amount (prorated for unused time)
+  const refundAmount = calculateRefundAmount(subscriber, currentPlan);
+  
+  // Update subscription status
+  const updateData = {
+    isActive: false,
+    status: 'cancelled',
+    cancellationDate: new Date(),
+    cancellationReason: cancellationReason,
+    refundAmount: refundAmount,
+    endDate: new Date() // Set end date to now for immediate cancellation
+  };
+
+  const updatedSubscription = await Subscribers.update(subscriber.id, updateData);
+
+  // Process refund if applicable
+  if (refundAmount > 0) {
+    await processRefund(subscriber.payerId, refundAmount, `Refund for cancelled subscription: ${currentPlan.name}`);
+  }
+
+  return {
+    success: true,
+    refundAmount: refundAmount,
+    endDate: updateData.endDate,
+    subscription: updatedSubscription
+  };
+};
+
+// Calculate refund amount
+function calculateRefundAmount(subscriber, plan) {
+  if (plan.price === 0) {
+    return 0; // No refund for free trials
+  }
+
+  const startDateMillis = convertFirestoreTimestampToMillis(subscriber.startDate);
+  const endDateMillis = convertFirestoreTimestampToMillis(subscriber.endDate);
+  const currentTime = Date.now();
+
+  // If subscription has already ended or is invalid
+  if (endDateMillis <= currentTime || startDateMillis >= currentTime) {
+    return 0;
+  }
+
+  const totalDuration = endDateMillis - startDateMillis;
+  const timeUsed = currentTime - startDateMillis;
+  const timeRemaining = endDateMillis - currentTime;
+
+  // Calculate unused percentage
+  const unusedPercentage = timeRemaining / totalDuration;
+  const refundAmount = plan.price * unusedPercentage;
+
+  // Only refund if amount is significant (e.g., more than $1)
+  return refundAmount > 1 ? Math.round(refundAmount * 100) / 100 : 0;
+};
+
+// Process refund
+async function processRefund(userId, amount, description) {
+  if (amount <= 0) {
+    return { success: true, message: 'No refund required' };
+  }
+
+  try {
+    // Implement your refund logic here
+    
+    // const refundResult = await PaymentProcessor.refund(userId, amount, description);
+    
+    // Record the refund in your database
+    await Payment.create({
+      payerId: "TRUK REFUNDS", 
+      payeeId: userId,
+      amount: amount,
+      currency: 'KES',
+      method: 'refund',
+      status: "completed",
+      type: "refund",
+      description: description
+    });
+
+    return refundResult;
+  } catch (error) {
+    console.error('Refund processing error:', error);
+    // Don't fail the cancellation if refund fails, just log it
+    return { success: false, message: error.message };
+  }
+};

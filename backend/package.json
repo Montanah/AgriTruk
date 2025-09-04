@@ -4,7 +4,11 @@
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon server.js"
+    "start": "nodemon server.js",
+    "test:cron": "node mine/testCronServices.js",
+    "test:cron:individual": "node mine/testCronServices.js --individual",
+    "test:create-data": "node mine/createTestData.js",
+    "test:subscriptions": "node -e \"require('./mine/testCronServices.js').testIndividualServices()\""
   },
   "keywords": [],
   "author": "",

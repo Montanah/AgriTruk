@@ -127,9 +127,9 @@ router.get('/', authenticateToken, async (req, res) => {
     const { planId} = req.query;
 
     if (planId) {
-        return subscriptionController.getSubscription(req, res);
+        return subscriptionController.getSubscriptionPlan(req, res);
     }
-    return subscriptionController.getAllSubscriptions(req, res);    
+    return subscriptionController.getAllSubscriptionPlans(req, res);    
 });
 
 
@@ -478,6 +478,24 @@ router.post('/subscriber/pay', authenticateToken, requireRole(['transporter', 'b
 
 /**
  * @swagger
+ * /api/subscriptions/subscriber/status:
+ *   get:
+ *     tags: [Subscriptions]
+ *     summary: Get subscriber status
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Subscriber status retrieved
+ *       401:
+ *         description: User not authenticated
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/subscriber/status', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.getSubcriberStatus);
+
+/**
+ * @swagger
  * /api/subscriptions/subscriber/{id}:
  *   get:
  *     tags: [Subscriptions]
@@ -516,7 +534,7 @@ router.post('/subscriber/pay', authenticateToken, requireRole(['transporter', 'b
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/subscriber/:id', authenticateToken, requireRole(['transporter', 'broker']), subscriptionController.getSubscriber);
+router.get('/subscriber/:id', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.getSubscriber);
 
 /**
  * @swagger
@@ -561,5 +579,73 @@ router.get('/admin/subscribers/', authenticateToken, requireRole('admin'), autho
         return subscriptionController.getAllSubscribers(req, res);
     },
 );
+
+/**
+ * @swagger
+ * /api/subscriptions/change-plan:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Change subscription plan
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - newPlanId
+ *             properties:
+ *               newPlanId:
+ *                 type: string
+ *                 description: ID of the plan to change to
+ *               action:
+ *                 type: string
+ *                 enum: [upgrade, downgrade]
+ *                 description: Action to perform
+ *     responses:
+ *       200:
+ *         description: Subscription plan changed
+ *       401:
+ *         description: User not authenticated
+ *       403:
+ *         description: Access denied
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/change-plan', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.changePlan);
+
+/**
+ * @swagger
+ * /api/subscriptions/cancel:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Cancel subscription
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - cancellationReason
+ *             properties:
+ *               cancellationReason:
+ *                 type: string
+ *                 description: Reason for cancellation
+ *     responses:
+ *       200:
+ *         description: Subscription canceled
+ *       401:
+ *         description: User not authenticated
+ *       403:
+ *         description: Access denied
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/cancel', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.cancelPlan);
 
 module.exports = router;
