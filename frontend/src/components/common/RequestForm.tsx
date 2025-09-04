@@ -999,6 +999,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                     requests={consolidations.length > 0 ? consolidations : [getCurrentRequest()]}
                     distance=""
                     accent={accent}
+                    onBack={() => setShowTransporters(false)}
                 />
             )}
 
