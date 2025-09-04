@@ -108,3 +108,4 @@ The frontend is configured to work with the backend API at:
 
 This frontend folder contains all the React Native application code and can be merged as a complete frontend module. The backend folder remains separate and contains the Express.js API server.
 # Test deployment trigger
+// Test deployment trigger - Thu Sep  4 12:57:06 PM EAT 2025
