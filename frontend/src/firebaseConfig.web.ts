@@ -13,14 +13,24 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '1:123456789:web:abcdef',
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+// Initialize Firebase with error handling
+let app, db, auth;
 
-// Set persistence for web
-setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.warn('Firebase auth persistence error:', error);
-});
+try {
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
+
+  // Set persistence for web
+  setPersistence(auth, browserLocalPersistence).catch((error) => {
+    console.warn('Firebase auth persistence error:', error);
+  });
+} catch (error) {
+  console.error('Firebase web initialization error:', error);
+  // Fallback values
+  app = null;
+  db = null;
+  auth = null;
+}
 
 export { app, auth, db };
