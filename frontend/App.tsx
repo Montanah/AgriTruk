@@ -2,7 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { LogBox } from 'react-native';
+import { LogBox, Platform } from 'react-native';
 import BusinessStackNavigator from './src/navigation/BusinessStackNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
@@ -147,6 +147,12 @@ const checkSubscriptionStatus = async (userId: string, userType: 'transporter' |
 };
 
 export default function App() {
+  // Web platform check - use minimal web app to avoid native component issues
+  if (Platform.OS === 'web') {
+    const WebApp = require('./App.web.minimal').default;
+    return <WebApp />;
+  }
+
   const [user, setUser] = React.useState<User | null>(null);
   const [isVerified, setIsVerified] = React.useState(false);
   const [role, setRole] = React.useState<string | null>(null);
