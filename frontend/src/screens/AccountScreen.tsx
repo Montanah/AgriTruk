@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
+import ProfessionalAlert from '../components/common/ProfessionalAlert';
 import {
   ActivityIndicator,
   Alert,
@@ -64,6 +65,7 @@ const AccountScreen = () => {
   const [complaintText, setComplaintText] = useState('');
   const [verifyingPhone, setVerifyingPhone] = useState(false);
   const [showPrimaryContactModal, setShowPrimaryContactModal] = useState(false);
+  const [showEmailAlert, setShowEmailAlert] = useState(false);
 
   const user = auth.currentUser;
 
@@ -262,17 +264,7 @@ const AccountScreen = () => {
       const result = await response.json();
 
       if (response.ok) {
-        Alert.alert(
-          'Verification Email Sent',
-          'Please check your email for the verification code. You can then use your email to log in.',
-          [
-            { text: 'OK' },
-            {
-              text: 'Go to Verification',
-              onPress: () => navigation.navigate('EmailVerification')
-            }
-          ]
-        );
+        setShowEmailAlert(true);
       } else {
         throw new Error(result.message || 'Failed to send verification email');
       }
@@ -988,6 +980,26 @@ const AccountScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Professional Email Verification Alert */}
+      <ProfessionalAlert
+        visible={showEmailAlert}
+        title="Verification Email Sent"
+        message="A verification code has been sent to your email address. Please check your inbox and enter the 6-digit code to complete the verification process."
+        type="success"
+        primaryButton={{
+          text: "Go to Verification",
+          onPress: () => {
+            setShowEmailAlert(false);
+            navigation.navigate('EmailVerification');
+          }
+        }}
+        secondaryButton={{
+          text: "OK",
+          onPress: () => setShowEmailAlert(false)
+        }}
+        onClose={() => setShowEmailAlert(false)}
+      />
     </SafeAreaView>
   );
 };

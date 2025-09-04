@@ -75,7 +75,14 @@ const EmailVerificationScreen = ({ navigation, route }) => {
     setLoading(true);
 
     try {
-      const token = await AsyncStorage.getItem('jwt');
+      // Get Firebase ID token for authentication
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      const token = await user.getIdToken();
       if (!token) {
         throw new Error('Authentication token not found');
       }
