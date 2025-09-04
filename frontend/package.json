@@ -13,6 +13,7 @@
     "build": "expo export --platform web",
     "build:web": "expo export --platform web --clear",
     "build:web:production": "expo export --platform web --clear --no-minify",
+    "build:web:safe": "rm -rf node_modules/.cache && expo export --platform web --clear --no-minify",
     "serve": "npx serve dist"
   },
   "dependencies": {
@@ -46,7 +47,7 @@
     "expo-symbols": "~0.4.5",
     "expo-system-ui": "~5.0.9",
     "expo-web-browser": "~14.2.0",
-    "firebase": "^11.9.1",
+    "firebase": "^10.13.2",
     "node-fetch": "^3.3.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
