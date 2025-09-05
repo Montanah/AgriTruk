@@ -1,9 +1,10 @@
 const Dispute = require('../models/Dispute');
-const Transporter = require('../models/Transporter');
 const User = require('../models/User');
+const Transporter = require('../models/Transporter');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const Notification = require('../models/Notification');
 const Booking = require('../models/Booking');
+const { formatTimestamps } = require('../utils/formatData');
 
 exports.createDispute = async (req, res) => {
   try {
@@ -75,12 +76,31 @@ exports.createDispute = async (req, res) => {
   }
 };
 
-
 exports.getDispute = async (req, res) => {
   try {
     const { disputeId } = req.params;
     const dispute = await Dispute.get(disputeId);
-    if (!dispute) return res.status(404).json({ message: 'Dispute not found' });
+    if (!dispute) {
+      return res.status(404).json({ message: 'Dispute not found' });
+    }
+
+    // Fetch the user who opened the dispute
+    try {
+      const user = await User.get(dispute.openedBy);
+      dispute.openedBy = user;
+    } catch (err) {
+      dispute.openedBy = { error: 'User not found', id: dispute.openedBy };
+    }
+
+    // Fetch the transporter (if any)
+    if (dispute.transporterId) {
+      try {
+        const transporter = await Transporter.get(dispute.transporterId);
+        dispute.transporter = transporter;
+      } catch (err) {
+        dispute.transporter = { error: 'Transporter not found', id: dispute.transporterId };
+      }
+    }
 
     await logAdminActivity(req.user.uid, 'get_dispute', req);
 
@@ -90,6 +110,7 @@ exports.getDispute = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch dispute' });
   }
 };
+
 
 exports.updateDispute = async (req, res) => {
   try {
@@ -193,11 +214,38 @@ exports.deleteDispute = async (req, res) => {
   }
 };
 
+
 exports.getAllDisputes = async (req, res) => {
   try {
     const disputes = await Dispute.getAll();
+
+    for (const dispute of disputes) {
+      // Fetch the user who opened the dispute
+      try {
+        const user = await User.get(dispute.openedBy);
+        dispute.openedBy = user;
+      } catch (err) {
+        dispute.openedBy = { error: 'User not found', id: dispute.openedBy };
+      }
+
+      // Fetch the transporter (if any)
+      if (dispute.transporterId) {
+        try {
+          const transporter = await Transporter.get(dispute.transporterId); // ✅ correct model
+          dispute.transporter = transporter;
+        } catch (err) {
+          dispute.transporter = { error: 'Transporter not found', id: dispute.transporterId };
+        }
+      }
+    }
+
     await logAdminActivity(req.user.uid, 'get_all_disputes', req);
-    res.status(200).json(disputes);
+
+    res.status(200).json({
+      message: 'All disputes fetched successfully',
+      data: formatTimestamps(disputes),
+      count: disputes.length
+    });
   } catch (err) {
     console.error('Get all disputes error:', err);
     res.status(500).json({ message: 'Failed to fetch disputes' });
