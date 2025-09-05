@@ -148,12 +148,17 @@ class NotificationService {
   }
 
   // Convenience methods
-  sendEmail: async (to: string, subject: string, message: string, audience: NotificationAudience, type: NotificationType, data?: any) =>
-    this.send({ to, channel: 'email', audience, type, subject, message, data }),
-  sendSMS: async (to: string, message: string, audience: NotificationAudience, type: NotificationType, data?: any) =>
-    this.send({ to, channel: 'sms', audience, type, message, data }),
-  sendInApp: async (to: string, message: string, audience: NotificationAudience, type: NotificationType, data?: any) =>
-    this.send({ to, channel: 'in-app', audience, type, message, data }),
+  async sendEmail(to: string, subject: string, message: string, audience: NotificationAudience, type: NotificationType, data?: any) {
+    return this.send({ to, channel: 'email', audience, type, subject, message, data });
+  }
+
+  async sendSMS(to: string, message: string, audience: NotificationAudience, type: NotificationType, data?: any) {
+    return this.send({ to, channel: 'sms', audience, type, message, data });
+  }
+
+  async sendInApp(to: string, message: string, audience: NotificationAudience, type: NotificationType, data?: any) {
+    return this.send({ to, channel: 'in-app', audience, type, message, data });
+  }
 }
 
 export const notificationService = new NotificationService();
