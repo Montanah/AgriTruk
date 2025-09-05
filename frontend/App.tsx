@@ -373,7 +373,7 @@ export default function App() {
               initialParams={{
                 userType: 'broker',
                 userId: user.uid,
-                expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
+                expiredDate: subscriptionStatus?.subscriptionExpiryDate?.toISOString() || new Date().toISOString()
               }}
             />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
@@ -484,7 +484,7 @@ export default function App() {
               initialParams={{
                 userType: 'transporter',
                 userId: user.uid,
-                expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
+                expiredDate: subscriptionStatus?.subscriptionExpiryDate?.toISOString() || new Date().toISOString()
               }}
             />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />

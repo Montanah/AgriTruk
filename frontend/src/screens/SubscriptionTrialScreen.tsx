@@ -18,6 +18,7 @@ import PaymentMethodCard from '../components/common/PaymentMethodCard';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { validateMpesaPhone, getPhonePlaceholder } from '../utils/phoneValidation';
 
 interface SubscriptionTrialScreenProps {
     route: {
@@ -59,9 +60,12 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
             return;
         }
 
-        if (selectedPaymentMethod === 'mpesa' && !mpesaPhone.trim()) {
-            Alert.alert('Phone Number Required', 'Please enter your M-PESA phone number.');
-            return;
+        if (selectedPaymentMethod === 'mpesa') {
+            const phoneValidation = validateMpesaPhone(mpesaPhone);
+            if (!phoneValidation.isValid) {
+                Alert.alert('Invalid Phone Number', phoneValidation.error || 'Please enter a valid M-PESA phone number.');
+                return;
+            }
         }
 
         if (selectedPaymentMethod === 'stripe' && (!cardNumber.trim() || !expiryDate.trim() || !cvv.trim() || !cardholderName.trim())) {
@@ -222,12 +226,12 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         style={styles.input}
                         value={mpesaPhone}
                         onChangeText={setMpesaPhone}
-                        placeholder="e.g., 254700000000"
+                        placeholder={getPhonePlaceholder()}
                         keyboardType="phone-pad"
-                        maxLength={12}
+                        maxLength={15}
                     />
                     <Text style={styles.formHelpText}>
-                        Enter the phone number registered with M-PESA
+                        Enter Safaricom number (07..., 01..., 2547..., 2541...)
                     </Text>
                 </View>
             );

@@ -19,6 +19,7 @@ import { SubscriptionPlan } from '../components/common/SubscriptionPlanCard';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { validateMpesaPhone, formatPhoneForDisplay, getPhonePlaceholder } from '../utils/phoneValidation';
 
 interface PaymentScreenProps {
     route: {
@@ -59,8 +60,10 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
     };
 
     const handleMpesaPayment = async () => {
-        if (!phoneNumber || phoneNumber.length < 10) {
-            Alert.alert('Invalid Phone Number', 'Please enter a valid M-PESA phone number.');
+        // Validate M-Pesa phone number
+        const phoneValidation = validateMpesaPhone(phoneNumber);
+        if (!phoneValidation.isValid) {
+            Alert.alert('Invalid Phone Number', phoneValidation.error || 'Please enter a valid M-PESA phone number.');
             return;
         }
 
@@ -185,20 +188,17 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
 
             <View style={styles.phoneInputContainer}>
                 <Text style={styles.inputLabel}>Phone Number</Text>
-                <View style={styles.phoneInputWrapper}>
-                    <Text style={styles.countryCode}>+254</Text>
-                    <TextInput
-                        style={styles.phoneInput}
-                        value={phoneNumber}
-                        onChangeText={setPhoneNumber}
-                        placeholder="7XX XXX XXX"
-                        placeholderTextColor={colors.text.light}
-                        keyboardType="phone-pad"
-                        maxLength={9}
-                    />
-                </View>
+                <TextInput
+                    style={styles.phoneInputFull}
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    placeholder={getPhonePlaceholder()}
+                    placeholderTextColor={colors.text.light}
+                    keyboardType="phone-pad"
+                    maxLength={15}
+                />
                 <Text style={styles.inputHint}>
-                    Enter the phone number registered with M-PESA
+                    Enter Safaricom number (07..., 01..., 2547..., 2541...)
                 </Text>
             </View>
 
@@ -427,6 +427,16 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.md,
         color: colors.text.primary,
         paddingVertical: spacing.sm,
+    },
+    phoneInputFull: {
+        borderWidth: 1,
+        borderColor: colors.text.light,
+        borderRadius: 8,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        fontSize: fonts.size.md,
+        color: colors.text.primary,
+        marginBottom: spacing.sm,
     },
     inputHint: {
         fontSize: fonts.size.sm,
