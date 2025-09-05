@@ -369,25 +369,6 @@ export default function App() {
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
           </>
         );
-      } else if (subscriptionStatus?.needsTrialActivation) {
-        // User needs to activate their free trial
-        initialRouteName = 'SubscriptionTrial';
-        screens = (
-          <>
-            <Stack.Screen
-              name="SubscriptionTrial"
-              component={require('./src/screens/SubscriptionTrialScreen').default}
-              initialParams={{
-                userType: 'broker',
-                subscriptionStatus: subscriptionStatus
-              }}
-            />
-            <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
-            <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
-            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
-            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
-          </>
-        );
       } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive) {
         // User has expired subscription (trial was used but expired)
         initialRouteName = 'SubscriptionExpired';
@@ -443,6 +424,14 @@ export default function App() {
     // Enhanced transporter navigation logic
     console.log('🚨 TRANSPORTER CONDITION HIT - checking profile completion');
     console.log('Transporter navigation logic:', { profileCompleted, isVerified, subscriptionStatus });
+    console.log('🚨 TRIAL CHECK:', {
+      needsTrialActivation: subscriptionStatus?.needsTrialActivation,
+      hasActiveSubscription: subscriptionStatus?.hasActiveSubscription,
+      isTrialActive: subscriptionStatus?.isTrialActive,
+      subscriptionExpiryDate: subscriptionStatus?.subscriptionExpiryDate,
+      shouldGoToTrial: subscriptionStatus?.needsTrialActivation,
+      shouldGoToExpired: !subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive
+    });
 
     if (!profileCompleted) {
       // Profile not completed - go to completion screen

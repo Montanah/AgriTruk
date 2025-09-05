@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { apiRequest } from '../utils/api';
 
 interface RouteParams {
     transporterType?: 'company' | 'individual' | 'broker';
