@@ -242,7 +242,7 @@ export default function TransporterProcessingScreen({ route }) {
               // Determine endpoint based on transporterType
               const endpoint = transporterType === 'company'
                 ? `https://agritruk-backend.onrender.com/api/companies/${user.uid}`
-                : `https://agritruk-backend.onrender.com/api/transporters/profile/me`;
+                : `https://agritruk-backend.onrender.com/api/transporters/${user.uid}`;
               // Get JWT token
               const token = await user.getIdToken();
               // Fetch status from backend with Authorization header

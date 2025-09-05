@@ -66,6 +66,8 @@ const AccountScreen = () => {
   const [verifyingPhone, setVerifyingPhone] = useState(false);
   const [showPrimaryContactModal, setShowPrimaryContactModal] = useState(false);
   const [showEmailAlert, setShowEmailAlert] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
 
   const user = auth.currentUser;
 
@@ -733,10 +735,7 @@ const AccountScreen = () => {
               </View>
             </View>
             <TouchableOpacity
-              style={[
-                styles.preferenceToggle,
-                profile.preferences.notificationSettings.email && styles.preferenceActive
-              ]}
+              style={styles.preferenceToggle}
               onPress={() => handleNotificationToggle('email')}
             >
               <View style={[
@@ -843,21 +842,65 @@ const AccountScreen = () => {
             <Text style={styles.secondaryActionButtonText}>View My Bookings</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.utilityButton}
-            onPress={() => setChangePwd(true)}
-          >
-            <MaterialCommunityIcons name="lock" size={24} color={colors.primary} />
-            <Text style={styles.utilityButtonText}>Change Password</Text>
-          </TouchableOpacity>
+          {/* Account Management Section */}
+          <View style={styles.accountManagementSection}>
+            <Text style={styles.accountSectionTitle}>Account Management</Text>
+            
+            <TouchableOpacity
+              style={styles.utilityButton}
+              onPress={() => setChangePwd(true)}
+            >
+              <View style={styles.utilityIconContainer}>
+                <MaterialCommunityIcons name="lock" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.utilityTextContainer}>
+                <Text style={styles.utilityButtonText}>Change Password</Text>
+                <Text style={styles.utilityButtonSubtext}>Update your account security</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.text.light} />
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <MaterialCommunityIcons name="logout" size={24} color={colors.white} />
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.utilityButton}
+              onPress={() => setShowHelpModal(true)}
+            >
+              <View style={styles.utilityIconContainer}>
+                <MaterialCommunityIcons name="help-circle" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.utilityTextContainer}>
+                <Text style={styles.utilityButtonText}>Help & Support</Text>
+                <Text style={styles.utilityButtonSubtext}>Get assistance or report issues</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.text.light} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.utilityButton}
+              onPress={() => setShowAboutModal(true)}
+            >
+              <View style={styles.utilityIconContainer}>
+                <MaterialCommunityIcons name="information" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.utilityTextContainer}>
+                <Text style={styles.utilityButtonText}>About</Text>
+                <Text style={styles.utilityButtonSubtext}>App version and information</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.text.light} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Logout Section */}
+          <View style={styles.logoutSection}>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
+              <View style={styles.logoutIconContainer}>
+                <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
+              </View>
+              <Text style={styles.logoutButtonText}>Sign Out</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Edit Mode Actions */}
@@ -1111,6 +1154,178 @@ const AccountScreen = () => {
         }}
         onClose={() => setShowEmailAlert(false)}
       />
+
+      {/* Help & Support Modal */}
+      <Modal
+        visible={showHelpModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowHelpModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Help & Support</Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowHelpModal(false)}
+            >
+              <MaterialCommunityIcons name="close" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.helpSection}>
+              <View style={styles.helpItem}>
+                <MaterialCommunityIcons name="truck" size={24} color={colors.primary} />
+                <View style={styles.helpItemContent}>
+                  <Text style={styles.helpItemTitle}>How to Request Transport</Text>
+                  <Text style={styles.helpItemDescription}>
+                    1. Tap "New Transport Request" on the home screen{'\n'}
+                    2. Fill in your pickup and delivery details{'\n'}
+                    3. Select your preferred transporter{'\n'}
+                    4. Confirm your booking
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.helpItem}>
+                <MaterialCommunityIcons name="map-marker" size={24} color={colors.primary} />
+                <View style={styles.helpItemContent}>
+                  <Text style={styles.helpItemTitle}>Location Services</Text>
+                  <Text style={styles.helpItemDescription}>
+                    Make sure location services are enabled for accurate pickup and delivery locations. You can also manually enter addresses if needed.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.helpItem}>
+                <MaterialCommunityIcons name="credit-card" size={24} color={colors.primary} />
+                <View style={styles.helpItemContent}>
+                  <Text style={styles.helpItemTitle}>Payment & Billing</Text>
+                  <Text style={styles.helpItemDescription}>
+                    Payments are processed securely through our platform. You'll receive receipts via email and can view your transaction history in the app.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.helpItem}>
+                <MaterialCommunityIcons name="phone" size={24} color={colors.primary} />
+                <View style={styles.helpItemContent}>
+                  <Text style={styles.helpItemTitle}>Contact Support</Text>
+                  <Text style={styles.helpItemDescription}>
+                    Need immediate assistance? Contact our support team:{'\n'}
+                    • Email: support@trukapp.com{'\n'}
+                    • Phone: +1 (555) 123-4567{'\n'}
+                    • Available 24/7
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.helpActions}>
+              <TouchableOpacity
+                style={styles.helpActionButton}
+                onPress={() => {
+                  setShowHelpModal(false);
+                  setShowConflictModal(true);
+                }}
+              >
+                <MaterialCommunityIcons name="message-text" size={20} color={colors.primary} />
+                <Text style={styles.helpActionButtonText}>Report an Issue</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.helpActionButton}
+                onPress={() => {
+                  // You can add email functionality here
+                  Alert.alert('Contact Support', 'Email support@trukapp.com for assistance');
+                }}
+              >
+                <MaterialCommunityIcons name="email" size={20} color={colors.primary} />
+                <Text style={styles.helpActionButtonText}>Email Support</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* About Modal */}
+      <Modal
+        visible={showAboutModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAboutModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>About TRUKAPP</Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowAboutModal(false)}
+            >
+              <MaterialCommunityIcons name="close" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.aboutSection}>
+              <View style={styles.appLogoContainer}>
+                <View style={styles.appLogo}>
+                  <MaterialCommunityIcons name="truck" size={48} color={colors.primary} />
+                </View>
+                <Text style={styles.appName}>TRUKAPP</Text>
+                <Text style={styles.appVersion}>Version 1.0.0</Text>
+              </View>
+
+              <View style={styles.aboutContent}>
+                <Text style={styles.aboutDescription}>
+                  TRUKAPP is your trusted logistics partner, connecting shippers with reliable transporters for efficient and secure transportation solutions.
+                </Text>
+
+                <View style={styles.aboutFeatures}>
+                  <Text style={styles.aboutFeaturesTitle}>Key Features:</Text>
+                  <View style={styles.featureItem}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+                    <Text style={styles.featureText}>Real-time tracking</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+                    <Text style={styles.featureText}>Secure payments</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+                    <Text style={styles.featureText}>Verified transporters</Text>
+                  </View>
+                  <View style={styles.featureItem}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+                    <Text style={styles.featureText}>24/7 support</Text>
+                  </View>
+                </View>
+
+                <View style={styles.aboutInfo}>
+                  <Text style={styles.aboutInfoTitle}>Company Information</Text>
+                  <Text style={styles.aboutInfoText}>
+                    TRUKAPP Technologies Inc.{'\n'}
+                    Building the future of logistics{'\n'}
+                    © {new Date().getFullYear()} All rights reserved
+                  </Text>
+                </View>
+
+                <View style={styles.aboutLinks}>
+                  <TouchableOpacity style={styles.aboutLink}>
+                    <MaterialCommunityIcons name="file-document" size={20} color={colors.primary} />
+                    <Text style={styles.aboutLinkText}>Terms of Service</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.aboutLink}>
+                    <MaterialCommunityIcons name="shield-check" size={20} color={colors.primary} />
+                    <Text style={styles.aboutLinkText}>Privacy Policy</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1514,10 +1729,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.sm,
-    borderWidth: 2,
-    borderColor: colors.error,
-    shadowColor: colors.black,
-    shadowOpacity: 0.05,
+    borderWidth: 1,
+    borderColor: colors.error + '30',
+    shadowColor: colors.error,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
     flexDirection: 'row',
@@ -1528,7 +1747,49 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  accountManagementSection: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  accountSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
     marginLeft: spacing.sm,
+  },
+  utilityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  utilityTextContainer: {
+    flex: 1,
+  },
+  utilityButtonSubtext: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  logoutSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.text.light + '30',
+  },
+  logoutIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.error + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
   },
   conflictCard: {
     backgroundColor: colors.white,
@@ -1975,17 +2236,17 @@ const styles = StyleSheet.create({
     width: 50,
     height: 30,
     borderRadius: 15,
-    backgroundColor: colors.text.light,
+    backgroundColor: '#E5E7EB',
     justifyContent: 'center',
-    paddingHorizontal: 2,
+    position: 'relative',
   },
   toggleSwitchActive: {
     backgroundColor: colors.primary,
   },
   toggleThumb: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: colors.white,
     shadowColor: '#000',
     shadowOffset: {
@@ -1995,9 +2256,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    position: 'absolute',
+    left: 4,
+    top: 4,
   },
   toggleThumbActive: {
-    transform: [{ translateX: 20 }],
+    left: 24,
   },
   sectionSubtitle: {
     fontSize: 14,
@@ -2242,6 +2506,182 @@ const styles = StyleSheet.create({
   },
   contactMethodSubtextSelected: {
     color: colors.white,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.text.light + '20',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  modalCloseButton: {
+    padding: spacing.sm,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+  },
+  // Help Modal Styles
+  helpSection: {
+    paddingVertical: spacing.lg,
+  },
+  helpItem: {
+    flexDirection: 'row',
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    shadowColor: colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  helpItemContent: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  helpItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  helpItemDescription: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    lineHeight: 20,
+  },
+  helpActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.lg,
+  },
+  helpActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    marginHorizontal: spacing.xs,
+  },
+  helpActionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: spacing.sm,
+  },
+  // About Modal Styles
+  aboutSection: {
+    paddingVertical: spacing.lg,
+  },
+  appLogoContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  appLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  appName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  appVersion: {
+    fontSize: 16,
+    color: colors.text.secondary,
+  },
+  aboutContent: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: spacing.lg,
+    shadowColor: colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  aboutDescription: {
+    fontSize: 16,
+    color: colors.text.primary,
+    lineHeight: 24,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  aboutFeatures: {
+    marginBottom: spacing.lg,
+  },
+  aboutFeaturesTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  featureText: {
+    fontSize: 14,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+  },
+  aboutInfo: {
+    marginBottom: spacing.lg,
+  },
+  aboutInfoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  aboutInfoText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    lineHeight: 20,
+  },
+  aboutLinks: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  aboutLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  aboutLinkText: {
+    fontSize: 14,
+    color: colors.primary,
+    marginLeft: spacing.sm,
   },
 });
 

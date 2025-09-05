@@ -9,6 +9,7 @@ import SubscriptionStatusCard from '../components/common/SubscriptionStatusCard'
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import colors from '../constants/colors';
+import spacing from '../constants/spacing';
 import { auth } from '../firebaseConfig';
 import locationService from '../services/locationService';
 import subscriptionService from '../services/subscriptionService';
@@ -27,6 +28,10 @@ export default function ManageTransporterScreen({ route }) {
   const [vehicles, setVehicles] = useState([]);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
   const [loadingVehicles, setLoadingVehicles] = useState(true);
+
+  // Modal states
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
 
   const handlePayment = async () => {
     try {
@@ -93,13 +98,56 @@ export default function ManageTransporterScreen({ route }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch drivers
-        const driversData = await apiRequest('/transporters/drivers');
-        setDrivers(driversData || []);
+        // TODO: Backend endpoints /transporters/drivers and /transporters/vehicles are not implemented yet
+        // Using mock data for now until backend engineer implements these endpoints
+        
+        // Mock drivers data
+        const mockDrivers = [
+          {
+            id: '1',
+            name: 'John Doe',
+            license: 'DL123456',
+            phone: '+254712345678',
+            status: 'active',
+            assignedVehicle: 'KAB 123A'
+          },
+          {
+            id: '2', 
+            name: 'Jane Smith',
+            license: 'DL789012',
+            phone: '+254723456789',
+            status: 'active',
+            assignedVehicle: 'KCD 456B'
+          }
+        ];
+        setDrivers(mockDrivers);
 
-        // Fetch vehicles
-        const vehiclesData = await apiRequest('/transporters/vehicles');
-        setVehicles(vehiclesData || []);
+        // Mock vehicles data
+        const mockVehicles = [
+          {
+            id: '1',
+            registration: 'KAB 123A',
+            type: 'Truck',
+            capacity: '10 tons',
+            status: 'active',
+            assignedDriver: 'John Doe'
+          },
+          {
+            id: '2',
+            registration: 'KCD 456B', 
+            type: 'Van',
+            capacity: '5 tons',
+            status: 'active',
+            assignedDriver: 'Jane Smith'
+          }
+        ];
+        setVehicles(mockVehicles);
+
+        // Uncomment when backend endpoints are ready:
+        // const driversData = await apiRequest('/transporters/drivers');
+        // setDrivers(driversData || []);
+        // const vehiclesData = await apiRequest('/transporters/vehicles');
+        // setVehicles(vehiclesData || []);
 
       } catch (error) {
         console.error('Failed to fetch drivers/vehicles:', error);
@@ -1293,6 +1341,38 @@ export default function ManageTransporterScreen({ route }) {
               loading={loadingSubscription}
             />
           )}
+
+          {/* Account Management Section */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Account Management</Text>
+            <TouchableOpacity
+              style={styles.utilityButton}
+              onPress={() => setShowHelpModal(true)}
+            >
+              <View style={styles.utilityIconContainer}>
+                <MaterialCommunityIcons name="help-circle" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.utilityTextContainer}>
+                <Text style={styles.utilityButtonText}>Help & Support</Text>
+                <Text style={styles.utilityButtonSubtext}>Get assistance or report issues</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.text.light} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.utilityButton}
+              onPress={() => setShowAboutModal(true)}
+            >
+              <View style={styles.utilityIconContainer}>
+                <MaterialCommunityIcons name="information" size={20} color={colors.primary} />
+              </View>
+              <View style={styles.utilityTextContainer}>
+                <Text style={styles.utilityButtonText}>About</Text>
+                <Text style={styles.utilityButtonSubtext}>App version and information</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={colors.text.light} />
+            </TouchableOpacity>
+          </View>
           {/* Subscription Plans Modal */}
           {subscriptionModalVisible && (
             <SubscriptionModal
@@ -1352,6 +1432,166 @@ export default function ManageTransporterScreen({ route }) {
                 </TouchableOpacity>
               </View>
             </View>
+          </View>
+        </Modal>
+
+        {/* Help & Support Modal */}
+        <Modal
+          visible={showHelpModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowHelpModal(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Help & Support</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowHelpModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.helpSection}>
+                <View style={styles.helpItem}>
+                  <MaterialCommunityIcons name="truck" size={24} color={colors.primary} />
+                  <View style={styles.helpItemContent}>
+                    <Text style={styles.helpItemTitle}>Vehicle Management</Text>
+                    <Text style={styles.helpItemDescription}>
+                      1. Add your vehicle details and photos{'\n'}
+                      2. Upload required documents (license, insurance){'\n'}
+                      3. Keep your profile updated{'\n'}
+                      4. Monitor your subscription status
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.helpItem}>
+                  <MaterialCommunityIcons name="account-group" size={24} color={colors.primary} />
+                  <View style={styles.helpItemContent}>
+                    <Text style={styles.helpItemTitle}>Driver Management</Text>
+                    <Text style={styles.helpItemDescription}>
+                      For company transporters: Manage your drivers, assign them to vehicles, and track their performance. Keep driver documents updated.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.helpItem}>
+                  <MaterialCommunityIcons name="phone" size={24} color={colors.primary} />
+                  <View style={styles.helpItemContent}>
+                    <Text style={styles.helpItemTitle}>Contact Support</Text>
+                    <Text style={styles.helpItemDescription}>
+                      Need immediate assistance? Contact our support team:{'\n'}
+                      • Email: support@trukapp.com{'\n'}
+                      • Phone: +1 (555) 123-4567{'\n'}
+                      • Available 24/7
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.helpActions}>
+                <TouchableOpacity
+                  style={styles.helpActionButton}
+                  onPress={() => {
+                    Alert.alert('Report Issue', 'Please describe the issue you\'re experiencing');
+                  }}
+                >
+                  <MaterialCommunityIcons name="message-text" size={20} color={colors.primary} />
+                  <Text style={styles.helpActionButtonText}>Report an Issue</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.helpActionButton}
+                  onPress={() => {
+                    Alert.alert('Contact Support', 'Email support@trukapp.com for assistance');
+                  }}
+                >
+                  <MaterialCommunityIcons name="email" size={20} color={colors.primary} />
+                  <Text style={styles.helpActionButtonText}>Email Support</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </Modal>
+
+        {/* About Modal */}
+        <Modal
+          visible={showAboutModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowAboutModal(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>About TRUKAPP</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowAboutModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.aboutSection}>
+                <View style={styles.appLogoContainer}>
+                  <View style={styles.appLogo}>
+                    <MaterialCommunityIcons name="truck" size={48} color={colors.primary} />
+                  </View>
+                  <Text style={styles.appName}>TRUKAPP</Text>
+                  <Text style={styles.appVersion}>Version 1.0.0</Text>
+                </View>
+
+                <View style={styles.aboutContent}>
+                  <Text style={styles.aboutDescription}>
+                    TRUKAPP is your trusted logistics partner, connecting shippers with reliable transporters for efficient and secure transportation solutions.
+                  </Text>
+
+                  <View style={styles.aboutFeatures}>
+                    <Text style={styles.aboutFeaturesTitle}>Key Features:</Text>
+                    <View style={styles.featureItem}>
+                      <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+                      <Text style={styles.featureText}>Real-time tracking</Text>
+                    </View>
+                    <View style={styles.featureItem}>
+                      <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+                      <Text style={styles.featureText}>Secure payments</Text>
+                    </View>
+                    <View style={styles.featureItem}>
+                      <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+                      <Text style={styles.featureText}>Verified transporters</Text>
+                    </View>
+                    <View style={styles.featureItem}>
+                      <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+                      <Text style={styles.featureText}>24/7 support</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.aboutInfo}>
+                    <Text style={styles.aboutInfoTitle}>Company Information</Text>
+                    <Text style={styles.aboutInfoText}>
+                      TRUKAPP Technologies Inc.{'\n'}
+                      Building the future of logistics{'\n'}
+                      © {new Date().getFullYear()} All rights reserved
+                    </Text>
+                  </View>
+
+                  <View style={styles.aboutLinks}>
+                    <TouchableOpacity style={styles.aboutLink}>
+                      <MaterialCommunityIcons name="file-document" size={20} color={colors.primary} />
+                      <Text style={styles.aboutLinkText}>Terms of Service</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.aboutLink}>
+                      <MaterialCommunityIcons name="shield-check" size={20} color={colors.primary} />
+                      <Text style={styles.aboutLinkText}>Privacy Policy</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
           </View>
         </Modal>
       </>
@@ -1429,4 +1669,212 @@ const styles = StyleSheet.create({
   dropdownList: { backgroundColor: colors.white, borderRadius: 8, marginTop: 2, borderWidth: 1, borderColor: colors.text.light, width: '100%' },
   dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: colors.background },
   input: { backgroundColor: colors.background, borderRadius: 8, padding: 10, marginVertical: 6, fontSize: 15, borderWidth: 1, borderColor: colors.text.light },
+  // Account Management Styles
+  utilityButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+  },
+  utilityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  utilityTextContainer: {
+    flex: 1,
+  },
+  utilityButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  utilityButtonSubtext: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.text.light + '20',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  modalCloseButton: {
+    padding: spacing.sm,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+  },
+  // Help Modal Styles
+  helpSection: {
+    paddingVertical: spacing.lg,
+  },
+  helpItem: {
+    flexDirection: 'row',
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    shadowColor: colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  helpItemContent: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  helpItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  helpItemDescription: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    lineHeight: 20,
+  },
+  helpActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.lg,
+  },
+  helpActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    marginHorizontal: spacing.xs,
+  },
+  helpActionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: spacing.sm,
+  },
+  // About Modal Styles
+  aboutSection: {
+    paddingVertical: spacing.lg,
+  },
+  appLogoContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  appLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  appName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  appVersion: {
+    fontSize: 16,
+    color: colors.text.secondary,
+  },
+  aboutContent: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: spacing.lg,
+    shadowColor: colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  aboutDescription: {
+    fontSize: 16,
+    color: colors.text.primary,
+    lineHeight: 24,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  aboutFeatures: {
+    marginBottom: spacing.lg,
+  },
+  aboutFeaturesTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  featureText: {
+    fontSize: 14,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+  },
+  aboutInfo: {
+    marginBottom: spacing.lg,
+  },
+  aboutInfoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  aboutInfoText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    lineHeight: 20,
+  },
+  aboutLinks: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  aboutLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  aboutLinkText: {
+    fontSize: 14,
+    color: colors.primary,
+    marginLeft: spacing.sm,
+  },
 });

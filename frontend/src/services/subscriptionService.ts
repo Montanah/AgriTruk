@@ -84,19 +84,19 @@ class SubscriptionService {
       const token = await this.getAuthToken();
 
       console.log('='.repeat(80));
-      console.log('🚀 SUBSCRIPTION STATUS REQUEST FOR BACKEND ENGINEER');
+      console.log('🚀 SUBSCRIPTION STATUS REQUEST');
       console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/status');
+      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status');
       console.log('📋 Method: GET');
       console.log('⏰ Request Timestamp:', new Date().toISOString());
       console.log('🔑 Auth Token Present:', token ? 'YES' : 'NO');
       if (token) {
         console.log('🔑 Token Preview:', `${token.substring(0, 30)}...`);
       }
-      console.log('👤 User UID:', user?.uid || 'No user');
       console.log('='.repeat(80));
 
-      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/status', {
+      // ✅ Backend endpoint /api/subscriptions/subscriber/status is now implemented
+      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -105,15 +105,11 @@ class SubscriptionService {
       });
 
       console.log('='.repeat(80));
-      console.log('📊 SUBSCRIPTION STATUS RESPONSE FOR BACKEND ENGINEER');
+      console.log('📊 SUBSCRIPTION STATUS RESPONSE');
       console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/status');
+      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status');
       console.log(`📋 Response Status: ${response.status} ${response.statusText}`);
       console.log('⏰ Response Timestamp:', new Date().toISOString());
-      console.log(
-        '📋 Response Headers:',
-        JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2),
-      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -127,7 +123,9 @@ class SubscriptionService {
       console.log('✅ Subscription status retrieved successfully');
       console.log('📦 Response Data:', JSON.stringify(data, null, 2));
       console.log('='.repeat(80));
-      return data;
+      
+      // ✅ Backend now returns the correct format - no transformation needed
+      return data.data;
     } catch (error) {
       console.error('Error fetching subscription status:', error);
 
@@ -142,6 +140,8 @@ class SubscriptionService {
       };
     }
   }
+
+  // ✅ Transformation method removed - backend now returns correct format
 
   /**
    * Get all available subscription plans
@@ -215,15 +215,16 @@ class SubscriptionService {
     try {
       const token = await this.getAuthToken();
 
-      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/upgrade', {
+      // ✅ Backend endpoint /api/subscriptions/change-plan is now implemented
+      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/change-plan', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          planId,
-          paymentMethod,
+          newPlanId: planId,
+          action: 'upgrade',
         }),
       });
 
@@ -342,16 +343,20 @@ class SubscriptionService {
   /**
    * Cancel subscription
    */
-  async cancelSubscription(): Promise<{ success: boolean; message?: string }> {
+  async cancelSubscription(cancellationReason?: string): Promise<{ success: boolean; message?: string }> {
     try {
       const token = await this.getAuthToken();
 
+      // ✅ Backend endpoint /api/subscriptions/cancel is now implemented
       const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/cancel', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          cancellationReason: cancellationReason || 'User requested cancellation',
+        }),
       });
 
       const data = await response.json();
@@ -376,14 +381,18 @@ class SubscriptionService {
     try {
       const token = await this.getAuthToken();
 
-      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/activate-trial', {
+      // ✅ Backend endpoint /api/subscriptions/subscriber/ is implemented
+      const trialPlanId = userType === 'transporter' ? 'trial-transporter' : 'trial-broker';
+      
+      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userType,
+          planId: trialPlanId,
+          autoRenew: false,
         }),
       });
 

@@ -24,6 +24,7 @@ import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
 import { NotificationProvider } from './src/components/Notification/NotificationContext';
 import { ConsolidationProvider } from './src/context/ConsolidationContext';
 import { auth, db } from './src/firebaseConfig';
+import { testFirebaseConnection, checkFirebaseProjectStatus } from './src/utils/firebaseTest';
 
 const Stack = createStackNavigator();
 
@@ -38,6 +39,16 @@ console.log('📱 This is a React Native app - logs appear in the Metro terminal
 console.log('🔍 Look for API request logs with "================================================================================" separators');
 console.log('⏰ App start timestamp:', new Date().toISOString());
 console.log('='.repeat(100) + '\n');
+
+// Test Firebase connection on app start
+setTimeout(async () => {
+  console.log('\n' + '='.repeat(80));
+  console.log('🔥 FIREBASE CONNECTION TEST');
+  console.log('='.repeat(80));
+  checkFirebaseProjectStatus();
+  await testFirebaseConnection();
+  console.log('='.repeat(80) + '\n');
+}, 2000);
 
 // Helper function to check if transporter profile is complete
 const checkTransporterProfileComplete = (transporterData: any) => {
@@ -107,23 +118,32 @@ const checkTransporterProfileComplete = (transporterData: any) => {
 // Helper function to check subscription status
 const checkSubscriptionStatus = async (userId: string, userType: 'transporter' | 'broker' | 'business') => {
   try {
-    // Check subscription status from backend
-    const response = await fetch(`https://agritruk-backend.onrender.com/api/subscriptions/status/${userId}`, {
+    // Get auth token for authenticated request
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    const token = await user.getIdToken();
+    
+    // ✅ Backend endpoint /api/subscriptions/subscriber/status is now implemented
+    const response = await fetch(`https://agritruk-backend.onrender.com/api/subscriptions/subscriber/status`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        // Add authentication headers as needed
+        'Authorization': `Bearer ${token}`,
       }
     });
 
     if (response.ok) {
       const result = await response.json();
       if (result.success && result.data) {
+        // ✅ Backend now returns the correct format - no transformation needed
         return {
           hasActiveSubscription: result.data.hasActiveSubscription,
           isTrialActive: result.data.isTrialActive,
-          trialExpiryDate: result.data.trialExpiryDate,
-          subscriptionExpiryDate: result.data.subscriptionExpiryDate,
+          trialExpiryDate: result.data.isTrial ? new Date(Date.now() + result.data.trialDaysRemaining * 24 * 60 * 60 * 1000) : null,
+          subscriptionExpiryDate: !result.data.isTrial ? new Date(Date.now() + result.data.daysRemaining * 24 * 60 * 60 * 1000) : null,
           needsTrialActivation: result.data.needsTrialActivation,
           currentPlan: result.data.currentPlan,
           daysRemaining: result.data.daysRemaining
@@ -147,18 +167,18 @@ const checkSubscriptionStatus = async (userId: string, userType: 'transporter' |
 };
 
 export default function App() {
-  // Web platform check - use minimal web app to avoid native component issues
-  if (Platform.OS === 'web') {
-    const WebApp = require('./App.web.minimal').default;
-    return <WebApp />;
-  }
-
   const [user, setUser] = React.useState<User | null>(null);
   const [isVerified, setIsVerified] = React.useState(false);
   const [role, setRole] = React.useState<string | null>(null);
   const [profileCompleted, setProfileCompleted] = React.useState<boolean>(false);
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+
+  // Web platform check - use minimal web app to avoid native component issues
+  if (Platform.OS === 'web') {
+    const WebApp = require('./App.web.minimal').default;
+    return <WebApp />;
+  }
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {

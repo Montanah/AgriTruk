@@ -169,22 +169,21 @@ const TransporterBookingManagementScreen = () => {
                 ];
                 setAllBookings(mockBookings);
 
-                // TODO: Uncomment when backend endpoints are ready
-                // // Fetch current transporter profile
-                // const transporterData = await apiRequest('/transporters/profile/me');
-                // setCurrentTransporter(transporterData);
+                // Fetch current transporter profile
+                const transporterData = await apiRequest(`/transporters/${user.uid}`);
+                setCurrentTransporter(transporterData);
 
-                // // Fetch instant requests
-                // const instantRequests = await apiRequest('/bookings/requests');
-                // setAllInstantRequests(instantRequests || []);
+                // Fetch instant requests
+                const instantRequests = await apiRequest('/bookings/requests');
+                setAllInstantRequests(instantRequests || []);
 
-                // // Fetch route loads
-                // const routeLoads = await apiRequest('/bookings/transporters/route-loads');
-                // setAllRouteLoads(routeLoads || []);
+                // Fetch route loads
+                const routeLoads = await apiRequest('/bookings/transporters/route-loads');
+                setAllRouteLoads(routeLoads || []);
 
-                // // Fetch bookings
-                // const bookings = await apiRequest(`/bookings/transporter/${user.uid}`);
-                // setAllBookings(bookings || []);
+                // Fetch bookings
+                const bookings = await apiRequest(`/bookings/transporter/${user.uid}`);
+                setAllBookings(bookings || []);
 
             } catch (error) {
                 console.error('Failed to fetch booking data:', error);
