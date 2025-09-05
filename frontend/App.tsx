@@ -361,9 +361,31 @@ export default function App() {
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+          </>
+        );
+      } else if (subscriptionStatus?.needsTrialActivation) {
+        // User needs to activate their free trial
+        initialRouteName = 'SubscriptionTrial';
+        screens = (
+          <>
+            <Stack.Screen
+              name="SubscriptionTrial"
+              component={require('./src/screens/SubscriptionTrialScreen').default}
+              initialParams={{
+                userType: 'broker',
+                subscriptionStatus: subscriptionStatus
+              }}
+            />
+            <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+            <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
           </>
         );
       } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive) {
+        // User has expired subscription (trial was used but expired)
         initialRouteName = 'SubscriptionExpired';
         screens = (
           <>
@@ -379,6 +401,8 @@ export default function App() {
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
           </>
         );
       } else {
@@ -399,6 +423,8 @@ export default function App() {
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="SubscriptionManagement" component={require('./src/screens/SubscriptionManagementScreen').default} />
             <Stack.Screen name="ContactCustomer" component={require('./src/screens/ContactCustomerScreen').default} />
           </>
@@ -469,6 +495,7 @@ export default function App() {
               }}
             />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
@@ -490,6 +517,7 @@ export default function App() {
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
           </>
         );
       } else {
@@ -509,6 +537,8 @@ export default function App() {
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="SubscriptionManagement" component={require('./src/screens/SubscriptionManagementScreen').default} />
             <Stack.Screen name="ContactCustomer" component={require('./src/screens/ContactCustomerScreen').default} />
           </>

@@ -31,10 +31,17 @@ const PaymentSuccessScreen: React.FC<PaymentSuccessScreenProps> = ({ route }) =>
 
     const handleContinue = () => {
         // Navigate to the appropriate home screen based on user type
+        // Use reset to ensure we're in the correct navigation context
         if (userType === 'transporter') {
-            navigation.navigate('TransporterTabs');
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'TransporterTabs' }],
+            });
         } else {
-            navigation.navigate('BrokerTabs');
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'BrokerTabs' }],
+            });
         }
     };
 
