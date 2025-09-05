@@ -18,6 +18,10 @@ import SubscriptionTrialScreen from './src/screens/SubscriptionTrialScreen';
 import TransporterProcessingScreen from './src/screens/TransporterProcessingScreen';
 import TripDetailsScreen from './src/screens/TripDetailsScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
+import RatingScreen from './src/screens/RatingScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import ChatScreen from './src/screens/ChatScreen';
+import ChatListScreen from './src/screens/ChatListScreen';
 
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
@@ -427,6 +431,10 @@ export default function App() {
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="SubscriptionManagement" component={require('./src/screens/SubscriptionManagementScreen').default} />
             <Stack.Screen name="ContactCustomer" component={require('./src/screens/ContactCustomerScreen').default} />
+            <Stack.Screen name="RatingScreen" component={RatingScreen} />
+            <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
+            <Stack.Screen name="ChatScreen" component={ChatScreen} />
+            <Stack.Screen name="ChatListScreen" component={ChatListScreen} />
           </>
         );
       }
@@ -541,6 +549,10 @@ export default function App() {
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="SubscriptionManagement" component={require('./src/screens/SubscriptionManagementScreen').default} />
             <Stack.Screen name="ContactCustomer" component={require('./src/screens/ContactCustomerScreen').default} />
+            <Stack.Screen name="RatingScreen" component={RatingScreen} />
+            <Stack.Screen name="NotificationsScreen" component={NotificationsScreen} />
+            <Stack.Screen name="ChatScreen" component={ChatScreen} />
+            <Stack.Screen name="ChatListScreen" component={ChatListScreen} />
           </>
         );
       }

@@ -98,55 +98,51 @@ export default function ManageTransporterScreen({ route }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // TODO: Backend endpoints /transporters/drivers and /transporters/vehicles are not implemented yet
-        // Using mock data for now until backend engineer implements these endpoints
+        // Get transporter profile first to get company information
+        const transporterData = await apiRequest(`/transporters/${user.uid}`);
         
-        // Mock drivers data
-        const mockDrivers = [
-          {
-            id: '1',
-            name: 'John Doe',
-            license: 'DL123456',
-            phone: '+254712345678',
-            status: 'active',
-            assignedVehicle: 'KAB 123A'
-          },
-          {
-            id: '2', 
-            name: 'Jane Smith',
-            license: 'DL789012',
-            phone: '+254723456789',
-            status: 'active',
-            assignedVehicle: 'KCD 456B'
-          }
-        ];
-        setDrivers(mockDrivers);
+        if (transporterData && transporterData.transporter) {
+          const transporter = transporterData.transporter;
+          
+          // Get companies for this transporter
+          const companiesResponse = await apiRequest(`/companies/transporter/${user.uid}`);
+          
+          if (companiesResponse && companiesResponse.length > 0) {
+            const company = companiesResponse[0]; // Use first company
+            
+            // Get drivers for the company
+            const driversResponse = await apiRequest(`/companies/${company.id}/drivers`);
+            if (driversResponse) {
+              const formattedDrivers = driversResponse.map((driver: any) => ({
+                id: driver.id,
+                name: driver.name,
+                license: driver.licenseNumber,
+                phone: driver.phone,
+                status: driver.status,
+                assignedVehicle: driver.assignedVehicleId ? 'Assigned' : 'Unassigned'
+              }));
+              setDrivers(formattedDrivers);
+            }
 
-        // Mock vehicles data
-        const mockVehicles = [
-          {
-            id: '1',
-            registration: 'KAB 123A',
-            type: 'Truck',
-            capacity: '10 tons',
-            status: 'active',
-            assignedDriver: 'John Doe'
-          },
-          {
-            id: '2',
-            registration: 'KCD 456B', 
-            type: 'Van',
-            capacity: '5 tons',
-            status: 'active',
-            assignedDriver: 'Jane Smith'
+            // Get vehicles for the company
+            const vehiclesResponse = await apiRequest(`/companies/${company.id}/vehicles`);
+            if (vehiclesResponse) {
+              const formattedVehicles = vehiclesResponse.map((vehicle: any) => ({
+                id: vehicle.id,
+                registration: vehicle.registration,
+                type: vehicle.type,
+                capacity: `${vehicle.capacity} tons`,
+                status: vehicle.status,
+                assignedDriver: vehicle.assignedDriverId ? 'Assigned' : 'Unassigned'
+              }));
+              setVehicles(formattedVehicles);
+            }
+          } else {
+            // No companies found, show empty state
+            setDrivers([]);
+            setVehicles([]);
           }
-        ];
-        setVehicles(mockVehicles);
-
-        // Uncomment when backend endpoints are ready:
-        // const driversData = await apiRequest('/transporters/drivers');
-        // setDrivers(driversData || []);
-        // const vehiclesData = await apiRequest('/transporters/vehicles');
+        }
         // setVehicles(vehiclesData || []);
 
       } catch (error) {
