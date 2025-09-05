@@ -3,7 +3,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const { subscriptionNotificationsJob } = require('./jobs/subscriptionNotificationsJob');
 const cronService = require('./services/cronService');
+const { documentExpiryJob } = require('./jobs/documentExpiryJob');
 
 const transporterRoutes = require('./routes/transportRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -20,6 +22,7 @@ const chatRoutes = require('./routes/chatRoutes');
 const subRoutes = require('./routes/subscriptionRoutes');
 const reportsRoutes = require('./routes/reportsRoutes');
 const paymentRoutes = require('./routes/paymentsRoute');
+const transRoutes = require('./routes/transRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
@@ -59,6 +62,7 @@ app.use('/api/chats', chatRoutes);
 app.use('/api/subscriptions', subRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/transactions', transRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).send('Welcome to root URL of Server');
@@ -81,6 +85,27 @@ app.use((req, res) => {
 // Initialize cron jobs when server starts
 cronService.init();
 
+subscriptionNotificationsJob.start();
+console.log('✅ Subscription notification cron job started');
+
+documentExpiryJob.start();
+console.log('✅ Document expiry cron job started');
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  subscriptionNotificationsJob.stop();
+  documentExpiryJob.stop();
+  console.log('❌ Subscription notification and document expiry cron job stopped');
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  subscriptionNotificationsJob.stop();
+  documentExpiryJob.stop();
+  console.log('❌ Subscription notification and document expiry cron job stopped');
+  process.exit(0);
+});
+
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('Shutting down gracefully...');
@@ -93,6 +118,7 @@ process.on('SIGTERM', () => {
   cronService.stopAllJobs();
   process.exit(0);
 });
+
 
 
 module.exports = app;
