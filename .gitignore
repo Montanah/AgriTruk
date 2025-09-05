@@ -124,3 +124,6 @@ app-example
 # Documentation files (ignore all .md files except README.md)
 *.md
 !README.md
+
+# Mobile branch specific: Exclude backend folder
+backend/
