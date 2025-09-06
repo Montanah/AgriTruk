@@ -43,9 +43,14 @@ const User = {
    * Fetch a user document by UID
    */
   async get(uid) {
-    const doc = await db.collection(USERS_COLLECTION).doc(uid).get();
-    if (!doc.exists) throw new Error('User not found');
-    return doc.data();
+    try {
+      const doc = await db.collection(USERS_COLLECTION).doc(uid).get();
+    // if (!doc.exists) throw new Error('User not found');
+      return doc.data();
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      return null;
+    }
   },
   /**
    * Update a user document by UID

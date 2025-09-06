@@ -112,6 +112,7 @@ class NotificationCronService {
   async checkExpiredSubscriptions() {
     const notificationsSent = [];
     const expiredSubscriptions = await Subscribers.getExpiredSubscriptions();
+    console.log(" expiredSubscriptions", expiredSubscriptions);
     
     for (const subscriber of expiredSubscriptions) {
       if (!subscriber.notifications?.subscriptionExpired) {
