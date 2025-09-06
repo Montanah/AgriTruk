@@ -1,5 +1,21 @@
 const admin = require("../config/firebase");
 const db = admin.firestore();
+const { queryTransporters } = require("../jobs/transporterQuery"); 
+function toFirestoreTimestamp(dateValue) {
+  if (!dateValue) return null;
+  const jsDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (isNaN(jsDate.getTime())) return null;
+  return admin.firestore.Timestamp.fromDate(jsDate);
+}
+
+function getExpiryField(docType) {
+  const fields = {
+    insurance: "insuranceExpiryDate",
+    driverLicense: "driverLicenseExpiryDate",
+    id: "idExpiryDate",
+  };
+  return fields[docType];
+}
 
 // TRANSPORTERS Model
 const Transporter = {
@@ -47,11 +63,11 @@ const Transporter = {
       paymentAccount: transporterData.paymentAccount || null,
       totalRevenue: transporterData.totalRevenue || 0,
       // Admin details
-      insuranceExpiryDate: transporterData.insuranceExpiryDate || null,
-      driverLicenseExpiryDate: transporterData.driverLicenseExpiryDate || null,
-      insuranceaproved: transporterData.insuranceapproved || false,
+      insuranceExpiryDate: toFirestoreTimestamp(transporterData.insuranceExpiryDate),
+      driverLicenseExpiryDate: toFirestoreTimestamp(transporterData.driverLicenseExpiryDate),
+      insuranceapproved: transporterData.insuranceapproved || false,
       driverLicenseapproved: transporterData.driverLicenseapproved || false,
-      idExpiryDate: transporterData.idExpiryDate || null,
+      idExpiryDate: toFirestoreTimestamp(transporterData.idExpiryDate),
       idapproved: transporterData.idapproved || false,
       // Timestamps
       createdAt: admin.firestore.Timestamp.now(),
@@ -59,19 +75,19 @@ const Transporter = {
       //expiry
       documentNotifications: {
         insurance: {
-          expiring: [], // [30, 15, 7, 3, 1]
+          expiring: [30, 15, 7, 3, 1], // [30, 15, 7, 3, 1]
           expired: false,
-          grace_period: [] // [1, 7, 14]
+          grace_period: [1, 7, 14] // [1, 7, 14]
         },
         driverLicense: {
-          expiring: [],
+          expiring: [30, 15, 7, 3, 1],
           expired: false,
-          grace_period: []
+          grace_period: [1, 7, 14]
         },
         id: {
-          expiring: [],
+          expiring: [30, 15, 7, 3, 1],
           expired: false,
-          grace_period: []
+          grace_period: [1, 7, 14]
         }
       },
     };
@@ -84,11 +100,29 @@ const Transporter = {
     if (!doc.exists) throw new Error('Transporter not found');
     return doc.data();
   },
-  async update(transporterId, updates) {
-    const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
-    await db.collection('transporters').doc(transporterId).update(updated);
-    return updated;
+  // async update(transporterId, updates) {
+  //   const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
+  //   await db.collection('transporters').doc(transporterId).update(updated);
+  //   return updated;
+  // },
+   async update(transporterId, updates) {
+    const normalized = {
+      ...updates,
+      updatedAt: admin.firestore.Timestamp.now(),
+    };
+
+    // Normalize expiry fields if present in update
+    if (updates.insuranceExpiryDate)
+      normalized.insuranceExpiryDate = toFirestoreTimestamp(updates.insuranceExpiryDate);
+    if (updates.driverLicenseExpiryDate)
+      normalized.driverLicenseExpiryDate = toFirestoreTimestamp(updates.driverLicenseExpiryDate);
+    if (updates.idExpiryDate)
+      normalized.idExpiryDate = toFirestoreTimestamp(updates.idExpiryDate);
+
+    await db.collection('transporters').doc(transporterId).update(normalized);
+    return normalized;
   },
+
   async approve(transporterId) {
     const updates = {
       status: 'approved',
@@ -141,54 +175,23 @@ const Transporter = {
     await db.collection('transporters').doc(transporterId).update(updates);
     return updates;
   },
-  // In Transporter model
-  async getExpiringDocuments(docType, targetDate) {
-    const expiryField = this.getExpiryFieldName(docType);
-    const targetTimestamp = admin.firestore.Timestamp.fromDate(targetDate);
+async getExpiredDocuments(docType, today) {
+  const expiryField = getExpiryField(docType);
+  const snap = await queryTransporters(expiryField, "expired");
+  return snap.docs.map(d => ({ transporterId: d.id, ...d.data() }));
+},
 
-    const snapshot = await db.collection('transporters')
-      .where('accountStatus', '==', true)
-      .where(expiryField, '>=', admin.firestore.Timestamp.fromDate(new Date(targetDate.getTime() - 86400000)))
-      .where(expiryField, '<=', admin.firestore.Timestamp.fromDate(new Date(targetDate.getTime() + 86400000)))
-      .get();
+async getGracePeriodDocuments(docType, days) {
+  const expiryField = getExpiryField(docType);
+  const snap = await queryTransporters(expiryField, "grace", days);
+  return snap.docs.map(d => ({ transporterId: d.id, ...d.data() }));
+},
 
-    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
-  },
-
-  async getExpiredDocuments(docType, expiryDate) {
-    const expiryField = this.getExpiryFieldName(docType);
-    const expiryTimestamp = admin.firestore.Timestamp.fromDate(expiryDate);
-
-    const snapshot = await db.collection('transporters')
-      .where('accountStatus', '==', true)
-      .where(expiryField, '<', expiryTimestamp)
-      .get();
-
-    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
-  },
-
-  async getGracePeriodDocuments(docType, cutoffDate) {
-    const expiryField = this.getExpiryFieldName(docType);
-    const cutoffTimestamp = admin.firestore.Timestamp.fromDate(cutoffDate);
-
-    const snapshot = await db.collection('transporters')
-      .where('accountStatus', '==', true)
-      .where(expiryField, '<', cutoffTimestamp)
-      .get();
-
-    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
-  },
-
-  async getNonCompliantTransporters(docType, cutoffDate) {
-    const expiryField = this.getExpiryFieldName(docType);
-    const cutoffTimestamp = admin.firestore.Timestamp.fromDate(cutoffDate);
-
-    const snapshot = await db.collection('transporters')
-      .where(expiryField, '<', cutoffTimestamp)
-      .get();
-
-    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
-  },
+async getExpiringDocuments(docType, days) {
+  const expiryField = getExpiryField(docType);
+  const snap = await queryTransporters(expiryField, "expiring", days);
+  return snap.docs.map(d => ({ transporterId: d.id, ...d.data() }));
+},
 
   async updateDocumentNotification(transporterId, docType, notificationType, value) {
     const transporterRef = db.collection('transporters').doc(transporterId);
@@ -219,6 +222,17 @@ const Transporter = {
       },
       updatedAt: admin.firestore.Timestamp.now()
     });
+  },
+
+  async getNonCompliantTransporters(docType, cutoffDate) {
+    const expiryField = this.getExpiryFieldName(docType);
+    const cutoffTimestamp = admin.firestore.Timestamp.fromDate(cutoffDate);
+
+    const snapshot = await db.collection('transporters')
+      .where(expiryField, '<', cutoffTimestamp)
+      .get();
+
+    return snapshot.docs.map(doc => ({ transporterId: doc.id, ...doc.data() }));
   },
 
   getExpiryFieldName(docType) {

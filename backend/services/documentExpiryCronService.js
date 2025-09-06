@@ -4,7 +4,7 @@ const sendEmail  = require('../utils/sendEmail');
 const User = require('../models/User');
 const SMSService = require('../utils/sendSms');
 const formatPhoneNumber = require("../utils/formatPhone");
-
+const admin = require("../config/firebase");
 const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
 
 class DocumentExpiryCronService {
@@ -26,7 +26,13 @@ class DocumentExpiryCronService {
   async runDocumentExpiryNotifications() {
     try {
       console.log('🚀 Starting document expiry notification cron job...');
-      
+
+      const allTransporters = await Transporter.getAll();
+      allTransporters.forEach(t => 
+        console.log("checking transporter", t.transporterId, 
+          "with expiry dates", t.insuranceExpiryDate?.toDate(),
+         t.driverLicenseExpiryDate?.toDate(), t.idExpiryDate?.toDate()));
+
       const tasks = [
         this.checkExpiringDocuments(),
         this.checkExpiredDocuments(),
@@ -35,6 +41,7 @@ class DocumentExpiryCronService {
       ];
 
       const results = await Promise.allSettled(tasks);
+      console.log('📊 Document expiry results:', results);
       
       console.log('✅ Document expiry cron job completed');
       return this.formatResults(results);
@@ -83,6 +90,7 @@ class DocumentExpiryCronService {
   async checkExpiredDocuments() {
     const notificationsSent = [];
     const today = new Date();
+    // console.log(`Checking expired documents for today: ${today.toDateString()}`);
     
     for (const docType of Object.values(this.documentTypes)) {
       const expiredDocs = await Transporter.getExpiredDocuments(docType, today);
@@ -90,6 +98,10 @@ class DocumentExpiryCronService {
       for (const transporter of expiredDocs) {
         if (!this.hasNotificationBeenSent(transporter, docType, 'expired')) {
           const user = await User.get(transporter.userId);
+          if (!userId) {
+            console.warn(`⚠️ Skipping user lookup: transporter ${doc.id} has no userId`);
+            continue;
+          }
           
           if (user) {
             await this.sendExpiredNotification(user, transporter, docType);
@@ -108,38 +120,44 @@ class DocumentExpiryCronService {
   }
 
   // Check for documents in grace period
-  async checkGracePeriodDocuments() {
-    const notificationsSent = [];
+async checkGracePeriodDocuments() {
+  const notificationsSent = [];
+  for (const daysAfter of this.notificationIntervals.GRACE_PERIOD) {
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() - daysAfter);
     
-    for (const daysAfter of this.notificationIntervals.GRACE_PERIOD) {
-      const targetDate = new Date();
-      targetDate.setDate(targetDate.getDate() - daysAfter);
+    if (isNaN(targetDate.getTime())) throw new Error(`Invalid date for ${daysAfter} days ago`);
+    
+    const targetTimestamp = admin.firestore.Timestamp.fromDate(targetDate);
+    console.log(`Checking grace period for ${daysAfter} days ago: ${targetDate.toDateString()}`);
+    
+    for (const docType of Object.values(this.documentTypes)) {
+      console.log(`Processing ${docType} for grace period`);
       
-      for (const docType of Object.values(this.documentTypes)) {
-        const gracePeriodDocs = await Transporter.getGracePeriodDocuments(docType, targetDate);
-        
-        for (const transporter of gracePeriodDocs) {
-          if (!this.hasNotificationBeenSent(transporter, docType, 'grace_period', daysAfter)) {
-            const user = await User.get(transporter.userId);
-            
-            if (user) {
-              await this.sendGracePeriodNotification(user, transporter, docType, daysAfter);
-              notificationsSent.push({
-                userId: transporter.userId,
-                docType,
-                type: 'grace_period',
-                daysAfter,
-                sentAt: new Date()
-              });
-            }
+      // Pass daysAfter (the number) instead of targetTimestamp
+      const gracePeriodDocs = await Transporter.getGracePeriodDocuments(docType, daysAfter);
+      
+      console.log(`Found ${gracePeriodDocs.length} transporters with ${docType} in grace period`);
+      
+      for (const transporter of gracePeriodDocs) {
+        if (!this.hasNotificationBeenSent(transporter, docType, 'grace_period', daysAfter)) {
+          const user = await User.get(transporter.userId);
+          if (user) {
+            await this.sendGracePeriodNotification(user, transporter, docType, daysAfter);
+            notificationsSent.push({
+              userId: transporter.userId,
+              docType,
+              type: 'grace_period',
+              daysAfter,
+              sentAt: new Date()
+            });
           }
         }
       }
     }
-    
-    return { type: 'grace_period_documents', count: notificationsSent.length, notifications: notificationsSent };
   }
-
+  return { type: 'grace_period_documents', count: notificationsSent.length, notifications: notificationsSent };
+}
   // Deactivate transporters with long-expired documents
   async deactivateNonCompliantTransporters() {
     const deactivated = [];
@@ -305,7 +323,7 @@ class DocumentExpiryCronService {
             <p>If you have already renewed your documents, please ensure they are uploaded in your account.</p>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} Your Company Name. All rights reserved.</p>
+            <p>&copy; ${new Date().getFullYear()} TRUK LTD. All rights reserved.</p>
           </div>
         </div>
       </body>
