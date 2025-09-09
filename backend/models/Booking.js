@@ -90,6 +90,35 @@ const Booking = {
     const snapshot = await db.collection('bookings').where('toLocation', '==', 'onmyway').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
+
+  async getActiveBookings() {
+    try {
+      const snapshot = await db.collection('bookings')
+        .where('status', 'in', ['pending', 'accepted', 'in-progress', 'picked-up'])
+        .get();
+      
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error('Error getting active bookings:', error);
+      return [];
+    }
+  },
+
+  async getByTransporterId (transporterId) {
+    try {
+      const snapshot = await db.collection('bookings')
+        .where('transporterId', '==', transporterId)
+        .where('status', 'in', ['pending', 'accepted', 'in-progress', 'picked-up'])
+        .limit(1)
+        .get();
+      
+      if (snapshot.empty) return null;
+      return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+    } catch (error) {
+      console.error('Error getting booking by transporter:', error);
+      return null;
+    }
+  }
 };
 
 module.exports = Booking;

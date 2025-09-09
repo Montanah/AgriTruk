@@ -8,6 +8,7 @@ const geolib = require('geolib');
 const Transporter = require('../models/Transporter');
 const MatchingService = require('../services/matchingService');
 const { calculateDistance } = require('../utils/geoUtils');
+const User = require('../models/User');
 
 exports.createBooking = async (req, res) => {
   try {
@@ -424,4 +425,187 @@ exports.getTransporterRouteLoads = async (req, res) => {
       message: 'Internal server error'
     });
   }
+};
+
+exports.getFleetStatus = async (req, res) => {
+  try {
+    const { status } = req.query; // Optional status filter
+    
+    // Get all transporters with their vehicles
+    const transporters = await Transporter.getAll();
+    
+    // Get all active bookings
+    const activeBookings = await Booking.getActiveBookings();
+    
+    // Get all users (for driver information)
+    const users = await User.getAllUsers();
+    
+    // Create a map for quick user lookup
+    const userMap = users.reduce((map, user) => {
+      map[user.uid] = user;
+      return map;
+    }, {});
+    
+    // Create a map for booking lookup by transporterId
+    const bookingMap = activeBookings.reduce((map, booking) => {
+      if (booking.transporterId) {
+        map[booking.transporterId] = booking;
+      }
+      return map;
+    }, {});
+    
+    // Process each transporter to determine status
+    const fleetStatus = transporters.map(transporter => {
+      const booking = bookingMap[transporter.transporterId];
+      const user = userMap[transporter.userId];
+      
+      return {
+        transporterId: transporter.transporterId,
+        vehicleId: transporter.vehicleId,
+        registration: transporter.vehicleRegistration,
+        vehicleType: transporter.vehicleType,
+        capacity: transporter.vehicleCapacity,
+        driver: {
+          userId: transporter.userId,
+          name: user ? transporter.displayName || `${user.name}` : 'Unknown Driver',
+          phone: transporter.phoneNumber || (user ? user.phoneNumber : null),
+          rating: transporter.rating
+        },
+        status: this.determineVehicleStatus(transporter, booking),
+        booking: booking ? this.formatBookingInfo(booking) : null,
+        location: transporter.lastKnownLocation,
+        lastUpdated: transporter.updatedAt,
+        features: {
+          refrigerated: transporter.refrigerated,
+          humidityControl: transporter.humidityControl,
+          perishable: transporter.perishable
+        }
+      };
+    });
+    
+    // Filter by status if provided
+    let filteredFleet = fleetStatus;
+    if (status) {
+      filteredFleet = fleetStatus.filter(vehicle => 
+        vehicle.status.toLowerCase() === status.toLowerCase()
+      );
+    }
+    
+    // Get counts for dashboard
+    const statusCounts = this.calculateStatusCounts(fleetStatus);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        fleet: filteredFleet,
+        summary: {
+          total: fleetStatus.length,
+          ...statusCounts
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error getting fleet status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Helper method to determine vehicle status
+exports.determineVehicleStatus = (transporter, booking) => {
+  // Check if transporter account is active
+  if (!transporter.accountStatus) {
+    return 'inactive';
+  }
+  
+  // Check if documents are expired (insurance, license, ID)
+  if (this.hasExpiredDocuments(transporter)) {
+    return 'non-compliant';
+  }
+  
+  // Check if vehicle has an active booking
+  if (booking) {
+    if (booking.status === 'in-progress' || booking.status === 'picked-up') {
+      return 'active';
+    } else if (booking.status === 'accepted') {
+      return 'assigned';
+    }
+  }
+  
+  // Check if transporter is accepting bookings
+  if (transporter.acceptingBooking) {
+    return 'available';
+  }
+  
+  return 'idle';
+};
+
+// Helper method to check for expired documents
+exports.hasExpiredDocuments = (transporter) => {
+  const now = new Date();
+  
+  // Check insurance expiry
+  if (transporter.insuranceExpiryDate && 
+      transporter.insuranceExpiryDate.toDate() < now) {
+    return true;
+  }
+  
+  // Check driver license expiry
+  if (transporter.driverLicenseExpiryDate && 
+      transporter.driverLicenseExpiryDate.toDate() < now) {
+    return true;
+  }
+  
+  // Check ID expiry
+  if (transporter.idExpiryDate && 
+      transporter.idExpiryDate.toDate() < now) {
+    return true;
+  }
+  
+  return false;
+};
+
+// Helper method to format booking information
+exports.formatBookingInfo = (booking) => {
+  return {
+    bookingId: booking.bookingId,
+    requestId: booking.requestId,
+    status: booking.status,
+    fromLocation: booking.fromLocation,
+    toLocation: booking.toLocation,
+    productType: booking.productType,
+    weightKg: booking.weightKg,
+    estimatedDuration: booking.estimatedDuration,
+    cost: booking.cost,
+    pickUpDate: booking.pickUpDate,
+    urgencyLevel: booking.urgencyLevel,
+    specialRequirements: {
+      perishable: booking.perishable,
+      refrigeration: booking.needsRefrigeration,
+      humidityControl: booking.humidyControl,
+      insured: booking.insured
+    }
+  };
+};
+
+// Helper method to calculate status counts
+exports.calculateStatusCounts = (fleet) => {
+  const counts = {
+    active: 0,
+    assigned: 0,
+    available: 0,
+    idle: 0,
+    inactive: 0,
+    'non-compliant': 0
+  };
+  
+  fleet.forEach(vehicle => {
+    counts[vehicle.status] = (counts[vehicle.status] || 0) + 1;
+  });
+  
+  return counts;
 };

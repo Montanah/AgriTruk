@@ -225,6 +225,26 @@ router.get('/transporters/route-loads', authenticateToken, requireRole('transpor
 
 /**
  * @swagger
+ * /api/bookings/fleet:
+ *   get:
+ *     summary: Get fleet status
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Fleet status retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/fleet', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker', 'admin']), bookingController.getFleetStatus);
+
+/**
+ * @swagger
  * /api/bookings:
  *   get:
  *     summary: Get all bookings
