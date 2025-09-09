@@ -243,6 +243,21 @@ async getExpiringDocuments(docType, days) {
     };
     return fields[docType];
   },
+
+  async getAllActive(){
+    try {
+      const snapshot = await db.collection('transporters')
+        .where('accountStatus', '==', true)
+        .where('status', 'in', ['approved', 'active'])
+        .select('transporterId', 'vehicleRegistration', 'lastKnownLocation', 'userId')
+        .get();
+      
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error('Error getting active transporters:', error);
+      return [];
+    }
+  },
 };
 
 module.exports = Transporter;

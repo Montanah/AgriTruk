@@ -6,6 +6,7 @@ const path = require('path');
 const { subscriptionNotificationsJob } = require('./jobs/subscriptionNotificationsJob');
 const cronService = require('./services/cronService');
 const { documentExpiryJob } = require('./jobs/documentExpiryJob');
+const { systemAlertsJob, documentExpiryJobAlert } = require('./jobs/systemAlertsJob');
 
 const transporterRoutes = require('./routes/transportRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -23,10 +24,12 @@ const subRoutes = require('./routes/subscriptionRoutes');
 const reportsRoutes = require('./routes/reportsRoutes');
 const paymentRoutes = require('./routes/paymentsRoute');
 const transRoutes = require('./routes/transRoutes');
+const alertRoutes = require('./routes/alertRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
 const requestMetadata = require('./middlewares/requestMetadata');
+const healthMonitor = require('./utils/healthMonitor');
 
 //app.use(helmet());
 app.set('trust proxy', 1);
@@ -63,10 +66,19 @@ app.use('/api/subscriptions', subRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/transactions', transRoutes);
+app.use('/api/alerts', alertRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).send('Welcome to root URL of Server');
 });
+
+app.get('/health/cron', (req, res) => {
+  res.json({
+    status: 'healthy',
+    ...healthMonitor.getStats(),
+    currentTime: Date.now()
+  })
+})
 
 app.get('/api/health', (req, res) => {
     res.status(200).json({
@@ -87,6 +99,10 @@ cronService.init();
 
 subscriptionNotificationsJob.start();
 console.log('✅ Subscription notification cron job started');
+
+systemAlertsJob.start();
+documentExpiryJobAlert.start();
+console.log('✅ System alert cron job started');
 
 documentExpiryJob.start();
 console.log('✅ Document expiry cron job started');
