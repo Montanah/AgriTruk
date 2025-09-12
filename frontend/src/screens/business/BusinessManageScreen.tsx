@@ -8,67 +8,9 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
+import { apiRequest } from '../../utils/api';
 
-// Mock data for demonstration
-const mockRequests = [
-  {
-    id: 'REQ001',
-    type: 'instant',
-    status: 'in_transit',
-    fromLocation: 'Nairobi',
-    toLocation: 'Mombasa',
-    productType: 'Electronics',
-    weight: '500kg',
-    createdAt: '2024-01-15T10:30:00Z',
-    transporter: { name: 'John Doe', phone: '+254712345678' },
-    isConsolidated: false,
-  },
-  {
-    id: 'REQ002',
-    type: 'booking',
-    status: 'pending',
-    fromLocation: 'Nakuru',
-    toLocation: 'Kisumu',
-    productType: 'Agricultural',
-    weight: '1000kg',
-    createdAt: '2024-01-14T14:20:00Z',
-    transporter: null,
-    isConsolidated: false,
-  },
-  {
-    id: 'CONS001',
-    type: 'instant',
-    status: 'delivered',
-    fromLocation: 'Multiple',
-    toLocation: 'Multiple',
-    productType: 'Mixed',
-    weight: '2500kg',
-    createdAt: '2024-01-13T09:15:00Z',
-    transporter: { name: 'TransCo Ltd', phone: '+254700111222' },
-    isConsolidated: true,
-    consolidatedRequests: [
-      { id: 'REQ003', fromLocation: 'Nairobi', toLocation: 'Mombasa', productType: 'Electronics', weight: '800kg' },
-      { id: 'REQ004', fromLocation: 'Nairobi', toLocation: 'Mombasa', productType: 'Furniture', weight: '1200kg' },
-      { id: 'REQ005', fromLocation: 'Nairobi', toLocation: 'Mombasa', productType: 'Clothing', weight: '500kg' },
-    ],
-  },
-  {
-    id: 'CONS002',
-    type: 'booking',
-    status: 'confirmed',
-    fromLocation: 'Multiple',
-    toLocation: 'Multiple',
-    productType: 'Mixed',
-    weight: '3000kg',
-    createdAt: '2024-01-12T16:45:00Z',
-    transporter: { name: 'LogiCorp', phone: '+254700333444' },
-    isConsolidated: true,
-    consolidatedRequests: [
-      { id: 'REQ006', fromLocation: 'Nakuru', toLocation: 'Kisumu', productType: 'Agricultural', weight: '1500kg' },
-      { id: 'REQ007', fromLocation: 'Nakuru', toLocation: 'Kisumu', productType: 'Machinery', weight: '1500kg' },
-    ],
-  },
-];
+// Real API integration - no mock data
 
 interface RequestItem {
   id: string;
@@ -113,7 +55,7 @@ interface RequestItem {
 
 const BusinessManageScreen = ({ navigation }: any) => {
   const [activeTab, setActiveTab] = useState('all'); // all, instant, booking
-  const [requests, setRequests] = useState<RequestItem[]>(mockRequests);
+  const [requests, setRequests] = useState<RequestItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -123,12 +65,12 @@ const BusinessManageScreen = ({ navigation }: any) => {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      // TODO: Fetch from backend
-      // const response = await apiRequest('/business/requests');
-      // setRequests(response.data);
-      setTimeout(() => setLoading(false), 1000);
+      const data = await apiRequest('/brokers/requests');
+      setRequests(data.requests || []);
     } catch (error) {
       console.error('Error fetching requests:', error);
+      setRequests([]);
+    } finally {
       setLoading(false);
     }
   };

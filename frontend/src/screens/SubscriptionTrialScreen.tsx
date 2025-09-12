@@ -18,6 +18,7 @@ import PaymentMethodCard from '../components/common/PaymentMethodCard';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import subscriptionService from '../services/subscriptionService';
 
 interface SubscriptionTrialScreenProps {
     route: {
@@ -48,6 +49,8 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     const [expiryDate, setExpiryDate] = useState('');
     const [cvv, setCvv] = useState('');
     const [cardholderName, setCardholderName] = useState('');
+    const [activatingTrial, setActivatingTrial] = useState(false);
+    const [trialActivated, setTrialActivated] = useState(false);
 
     // Get trial duration from subscription status or default to 30 days
     const trialDuration = subscriptionStatus?.daysRemaining || 30;
@@ -69,18 +72,30 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
             return;
         }
 
-        setLoading(true);
+        setActivatingTrial(true);
         try {
-            if (selectedPaymentMethod === 'mpesa') {
-                await processMpesaPayment();
-            } else if (selectedPaymentMethod === 'stripe') {
-                await processStripePayment();
+            const result = await subscriptionService.activateTrial(userType);
+            
+            if (result.success) {
+                setTrialActivated(true);
+                Alert.alert(
+                    'Trial Activated!',
+                    `Your ${trialDuration}-day free trial has been activated. You can now access all premium features.`,
+                    [
+                        {
+                            text: 'Continue',
+                            onPress: () => navigation.navigate(userType === 'transporter' ? 'TransporterTabs' : 'BrokerTabs')
+                        }
+                    ]
+                );
+            } else {
+                Alert.alert('Error', result.message || 'Failed to activate trial. Please try again.');
             }
         } catch (error) {
             console.error('Trial activation error:', error);
             Alert.alert('Error', 'Failed to activate trial. Please try again.');
         } finally {
-            setLoading(false);
+            setActivatingTrial(false);
         }
     };
 
@@ -432,13 +447,13 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         !selectedPaymentMethod && styles.activateButtonDisabled
                     ]}
                     onPress={handleActivateTrial}
-                    disabled={!selectedPaymentMethod || loading}
+                    disabled={!selectedPaymentMethod || activatingTrial}
                 >
-                    {loading ? (
+                    {activatingTrial ? (
                         <ActivityIndicator size="small" color={colors.white} />
                     ) : (
                         <Text style={styles.activateButtonText}>
-                            {loading ? 'Activating...' : `Activate ${trialDuration}-Day Trial`}
+                            {activatingTrial ? 'Activating...' : `Activate ${trialDuration}-Day Trial`}
                         </Text>
                     )}
                 </TouchableOpacity>

@@ -95,24 +95,57 @@ export default function TransporterHomeScreen() {
     fetchProfile();
   }, []);
 
-  // Fallback to mock data for trips/requests if no real data yet
-  const MOCK_REQUESTS = [
-    {
-      id: 'REQ001', customer: 'Jane Doe', from: 'Nairobi', to: 'Mombasa', product: 'Fruits', weight: 1200, status: 'Pending', eta: '5h 30m', price: 18000, contact: '+254712345678', special: ['Refrigerated'],
-    },
-    {
-      id: 'REQ002', customer: 'John Smith', from: 'Eldoret', to: 'Kisumu', product: 'Machinery', weight: 3000, status: 'Pending', eta: '2h 10m', price: 9500, contact: '+254798765432', special: ['Oversized'],
-    },
-    {
-      id: 'REQ003', customer: 'Mary Wanjiku', from: 'Nakuru', to: 'Kericho', product: 'Tea', weight: 800, status: 'Pending', eta: '1h 45m', price: 6000, contact: '+254701234567', special: [],
-    },
-  ];
-  const MOCK_CURRENT_TRIP = {
-    id: 'TRIP001', customer: 'Jane Doe', from: 'Nairobi', to: 'Mombasa', product: 'Fruits', weight: 1200, status: 'On Transit', eta: '4h 10m', price: 18000, contact: '+254712345678', special: ['Refrigerated'],
-    route: [{ latitude: -1.2921, longitude: 36.8219 }, { latitude: -1.3000, longitude: 36.8300 }],
-  };
-  const [requests, setRequests] = useState(MOCK_REQUESTS.map(r => ({ ...r, status: 'Pending' })));
-  const [currentTrip, setCurrentTrip] = useState(MOCK_CURRENT_TRIP);
+  // Fetch requests and current trip data
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          const token = await user.getIdToken();
+          const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/requests`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          const data = await res.json();
+          setRequests(data.requests || []);
+        }
+      } catch (error) {
+        console.error('Error fetching requests:', error);
+      }
+    };
+    
+    const fetchCurrentTrip = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          const token = await user.getIdToken();
+          const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/current-trip`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          const data = await res.json();
+          setCurrentTrip(data.trip || null);
+        }
+      } catch (error) {
+        console.error('Error fetching current trip:', error);
+      }
+    };
+    
+    fetchRequests();
+    fetchCurrentTrip();
+  }, []);
+
+  // Real API integration - no mock data
+  const [requests, setRequests] = useState([]);
+  const [currentTrip, setCurrentTrip] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showModal, setShowModal] = useState(false);
 

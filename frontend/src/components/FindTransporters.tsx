@@ -13,9 +13,10 @@ export type FindTransportersProps = {
   distance: string | number;
   accent?: string;
   onSelect?: (transporter: any, payload: any) => void;
+  onBackToForm?: () => void; // Optional callback for back to form
 };
 
-const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance, accent = colors.primary, onSelect }) => {
+const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance, accent = colors.primary, onSelect, onBackToForm }) => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [filteredTransporters, setFilteredTransporters] = useState<any[]>([]);
@@ -361,6 +362,14 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
+            {onBackToForm && (
+              <TouchableOpacity 
+                onPress={onBackToForm}
+                style={styles.backButton}
+              >
+                <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
+              </TouchableOpacity>
+            )}
             <View style={styles.headerIconContainer}>
               <MaterialCommunityIcons name="truck-delivery" size={28} color={colors.white} />
             </View>
@@ -465,6 +474,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginRight: spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerContent: {
     flexDirection: 'row',

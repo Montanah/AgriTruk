@@ -24,7 +24,7 @@ import spacing from '../../constants/spacing';
 import { useConsolidations } from '../../context/ConsolidationContext';
 import FindTransporters from '../FindTransporters';
 import LoadingSpinner from './LoadingSpinner';
-import LocationPicker from './LocationPicker';
+import CompactLocationSection from './CompactLocationSection';
 
 const SERVICES = [
     {
@@ -470,7 +470,10 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                 <View style={styles.headerContent}>
                     <TouchableOpacity
                         onPress={() => {
-                            if (isModal && onClose) {
+                            if (showTransporters) {
+                                // If transporters are shown, hide them and return to form
+                                setShowTransporters(false);
+                            } else if (isModal && onClose) {
                                 onClose();
                             } else {
                                 navigation.goBack();
@@ -481,7 +484,8 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                         <Ionicons name={isModal ? "close" : "arrow-back"} size={24} color={colors.white} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>
-                        {mode === 'broker' ? 'Place Request for Client' :
+                        {showTransporters ? 'Find Transporters' :
+                            mode === 'broker' ? 'Place Request for Client' :
                             mode === 'business' ? 'Business Request' : 'Request Transport'}
                     </Text>
                     <View style={styles.headerSpacer} />
@@ -572,28 +576,25 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                     <View style={styles.formCard}>
                         {/* Pickup Location */}
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Pickup Location *</Text>
-                            <LocationPicker
-                                placeholder="Enter pickup location"
-                                value={fromLocation}
-                                onAddressChange={setFromLocation}
-                                onLocationSelected={(location) => {
+                            <Text style={styles.fieldLabel}>Location Details *</Text>
+                            <CompactLocationSection
+                                pickupLocation={fromLocation}
+                                deliveryLocation={toLocation}
+                                onPickupLocationChange={setFromLocation}
+                                onDeliveryLocationChange={setToLocation}
+                                onPickupLocationSelected={(location) => {
                                     console.log('Pickup location selected:', location);
                                 }}
-                                useCurrentLocation={true}
-                                isPickupLocation={true}
-                            />
-                        </View>
-
-                        <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Delivery Location *</Text>
-                            <LocationPicker
-                                placeholder="Enter delivery location"
-                                value={toLocation}
-                                onAddressChange={setToLocation}
-                                onLocationSelected={(location) => {
+                                onDeliveryLocationSelected={(location) => {
                                     console.log('Delivery location selected:', location);
                                 }}
+                                useCurrentLocation={true}
+                                showMap={true}
+                                onMapPress={() => {
+                                    // Handle map press if needed
+                                    console.log('Map pressed');
+                                }}
+                                showTitle={false}
                             />
                         </View>
 
@@ -999,6 +1000,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                     requests={consolidations.length > 0 ? consolidations : [getCurrentRequest()]}
                     distance=""
                     accent={accent}
+                    onBackToForm={() => setShowTransporters(false)}
                 />
             )}
 
