@@ -1,29 +1,48 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { FlatList, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import RequestForm from '../components/common/RequestForm';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import spacing from '../constants/spacing';
 
-const MOCK_CLIENTS = [
-  { id: 'C001', name: 'Green Agri Co.', type: 'business' },
-  { id: 'C002', name: 'Mary Grower', type: 'individual' },
-  { id: 'C003', name: 'Farmers United', type: 'business' },
-  { id: 'C004', name: 'John Farmer', type: 'individual' },
-];
-
-const mockRequests = [
-  { id: 'R001', clientId: 'C001', for: 'Green Agri Co.', type: 'Booking', status: 'Pending', amount: 12000, category: 'cargo', summary: 'Maize, 10 tons, to Mombasa' },
-  { id: 'R002', clientId: 'C002', for: 'Mary Grower', type: 'Instant', status: 'Completed', amount: 8000, category: 'agri', summary: 'Vegetables, 2 tons, to Nairobi' },
-  { id: 'R003', clientId: 'C003', for: 'Farmers United', type: 'Booking', status: 'Completed', amount: 15000, category: 'cargo', summary: 'Tea, 8 tons, to Mombasa' },
-  { id: 'R004', clientId: 'C004', for: 'John Farmer', type: 'Instant', status: 'Pending', amount: 6000, category: 'agri', summary: 'Potatoes, 3 tons, to Nakuru' },
-];
+// No mock data - will fetch from API
 
 export default function BrokerRequestsScreen() {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
-  const [requests, setRequests] = useState(mockRequests);
-  const [clients, setClients] = useState(MOCK_CLIENTS);
+  const [requests, setRequests] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // TODO: Replace with actual API calls when backend is ready
+      // const [requestsResponse, clientsResponse] = await Promise.all([
+      //   apiRequest('/broker/requests'),
+      //   apiRequest('/broker/clients')
+      // ]);
+      // setRequests(requestsResponse.data || []);
+      // setClients(clientsResponse.data || []);
+
+      // For now, return empty arrays - no mock data
+      setRequests([]);
+      setClients([]);
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError(err.message || 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderRequest = ({ item }) => (
     <TouchableOpacity style={styles.requestCard} activeOpacity={0.8}>
@@ -62,14 +81,48 @@ export default function BrokerRequestsScreen() {
     setShowRequestModal(true);
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Client Requests</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading client requests...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Client Requests</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <MaterialCommunityIcons name="alert-circle" size={64} color={colors.error} />
+          <Text style={styles.errorTitle}>Failed to Load Data</Text>
+          <Text style={styles.errorSubtitle}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Client Requests</Text>
-        <TouchableOpacity style={styles.newRequestBtn} onPress={() => setShowRequestModal(true)}>
+        <TouchableOpacity 
+          style={styles.addButton} 
+          onPress={() => setShowRequestModal(true)}
+        >
           <Ionicons name="add" size={24} color={colors.white} />
-          <Text style={styles.newRequestText}>New Request</Text>
         </TouchableOpacity>
       </View>
 
@@ -96,6 +149,13 @@ export default function BrokerRequestsScreen() {
           )}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.clientsList}
+          ListEmptyComponent={
+            <View style={styles.emptyClientsContainer}>
+              <MaterialCommunityIcons name="account-group" size={48} color={colors.text.light} />
+              <Text style={styles.emptyClientsText}>No clients available</Text>
+              <Text style={styles.emptyClientsSubtext}>Add clients to create requests for them</Text>
+            </View>
+          }
         />
       </View>
 
@@ -108,6 +168,21 @@ export default function BrokerRequestsScreen() {
           keyExtractor={item => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.requestsList}
+          ListEmptyComponent={
+            <View style={styles.emptyRequestsContainer}>
+              <MaterialCommunityIcons name="file-document-outline" size={64} color={colors.text.light} />
+              <Text style={styles.emptyRequestsTitle}>No requests found</Text>
+              <Text style={styles.emptyRequestsSubtitle}>
+                Create your first request for a client to get started
+              </Text>
+              <TouchableOpacity
+                style={styles.createRequestButton}
+                onPress={() => setShowRequestModal(true)}
+              >
+                <Text style={styles.createRequestButtonText}>Create Request</Text>
+              </TouchableOpacity>
+            </View>
+          }
         />
       </View>
 
@@ -151,18 +226,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.primary,
   },
-  newRequestBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  addButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    padding: spacing.sm,
     borderRadius: 20,
-  },
-  newRequestText: {
-    color: colors.white,
-    fontWeight: '600',
-    marginLeft: 4,
   },
   clientsSection: {
     paddingVertical: 16,
@@ -265,5 +332,94 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     fontWeight: 'bold',
     color: colors.secondary,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  loadingText: {
+    fontSize: fonts.size.md,
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  errorTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.error,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  errorSubtitle: {
+    fontSize: fonts.size.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing.lg,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: colors.white,
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+  },
+  emptyClientsContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyClientsText: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.text.secondary,
+    marginTop: spacing.sm,
+  },
+  emptyClientsSubtext: {
+    fontSize: fonts.size.sm,
+    color: colors.text.light,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  emptyRequestsContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl * 2,
+    paddingHorizontal: spacing.lg,
+  },
+  emptyRequestsTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  emptyRequestsSubtitle: {
+    fontSize: fonts.size.md,
+    color: colors.text.light,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing.lg,
+  },
+  createRequestButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+  },
+  createRequestButtonText: {
+    color: colors.white,
+    fontSize: fonts.size.md,
+    fontWeight: '600',
   },
 });

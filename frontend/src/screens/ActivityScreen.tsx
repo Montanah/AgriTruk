@@ -43,54 +43,7 @@ type NavigationProp = {
   navigate: (screen: string, params?: any) => void;
 };
 
-// Mock data for shipper requests - no consolidation
-const mockRequests: RequestItem[] = [
-  {
-    id: 'REQ001',
-    type: 'instant',
-    status: 'in_transit',
-    fromLocation: 'Nairobi',
-    toLocation: 'Mombasa',
-    productType: 'Electronics',
-    weight: '500kg',
-    createdAt: '2024-01-15T10:30:00Z',
-    transporter: {
-      name: 'John Doe',
-      phone: '+254712345678',
-      rating: 4.8,
-      tripsCompleted: 45,
-      availability: 'Available'
-    },
-  },
-  {
-    id: 'REQ002',
-    type: 'booking',
-    status: 'pending',
-    fromLocation: 'Nakuru',
-    toLocation: 'Kisumu',
-    productType: 'Agricultural',
-    weight: '1000kg',
-    createdAt: '2024-01-14T14:20:00Z',
-    transporter: null,
-  },
-  {
-    id: 'REQ003',
-    type: 'instant',
-    status: 'delivered',
-    fromLocation: 'Thika',
-    toLocation: 'Nairobi CBD',
-    productType: 'Textiles',
-    weight: '800kg',
-    createdAt: '2024-01-13T09:15:00Z',
-    transporter: {
-      name: 'FastTrack Logistics',
-      phone: '+254700111222',
-      rating: 4.6,
-      tripsCompleted: 120,
-      availability: 'Available'
-    },
-  },
-];
+// No mock data - will fetch from API
 
 const ActivityScreen = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -109,15 +62,12 @@ const ActivityScreen = () => {
       setLoading(true);
       setError(null);
 
-      // TODO: Replace with actual API call
+      // TODO: Replace with actual API call when backend is ready
       // const response = await apiRequest('/shipper/requests');
       // setRequests(response.data);
 
-      // For now, use mock data
-      setTimeout(() => {
-        setRequests(mockRequests);
-        setLoading(false);
-      }, 1000);
+      // For now, return empty array - no mock data
+      setRequests([]);
     } catch (err: any) {
       console.error('Error loading requests:', err);
       setError(err.message || 'Failed to load requests');
@@ -302,11 +252,11 @@ const ActivityScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Activity</Text>
+          <Text style={styles.headerTitle}>My Shipments</Text>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading your transport requests...</Text>
+          <Text style={styles.loadingText}>Loading your shipments...</Text>
         </View>
       </SafeAreaView>
     );
@@ -316,11 +266,11 @@ const ActivityScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Activity</Text>
+          <Text style={styles.headerTitle}>My Shipments</Text>
         </View>
         <View style={styles.errorContainer}>
           <MaterialCommunityIcons name="alert-circle" size={64} color={colors.error} />
-          <Text style={styles.errorTitle}>Failed to Load Requests</Text>
+          <Text style={styles.errorTitle}>Failed to Load Shipments</Text>
           <Text style={styles.errorSubtitle}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadRequests}>
             <Text style={styles.retryButtonText}>Try Again</Text>
@@ -333,10 +283,18 @@ const ActivityScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Requests</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={loadRequests}>
-          <MaterialCommunityIcons name="refresh" size={24} color={colors.primary} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Shipments</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.refreshButton} onPress={loadRequests}>
+            <MaterialCommunityIcons name="refresh" size={24} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.addButton} 
+            onPress={() => navigation.navigate('ServiceRequest')}
+          >
+            <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Tab Navigation */}
@@ -361,16 +319,6 @@ const ActivityScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.quickActionButton}
-          onPress={() => navigation.navigate('ServiceRequest')}
-        >
-          <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
-          <Text style={styles.quickActionText}>New Transport Request</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Requests List */}
       <FlatList
@@ -384,19 +332,19 @@ const ActivityScreen = () => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="package-variant" size={64} color={colors.text.light} />
-            <Text style={styles.emptyTitle}>No transport requests found</Text>
+            <MaterialCommunityIcons name="truck-delivery" size={64} color={colors.text.light} />
+            <Text style={styles.emptyTitle}>No shipments found</Text>
             <Text style={styles.emptySubtitle}>
               {activeTab === 'all'
-                ? 'Create your first transport request to get started'
-                : `No ${activeTab} requests available`
+                ? 'Create your first shipment request to get started'
+                : `No ${activeTab} shipments available`
               }
             </Text>
             <TouchableOpacity
               style={styles.createButton}
               onPress={() => navigation.navigate('ServiceRequest')}
             >
-              <Text style={styles.createButtonText}>Create Transport Request</Text>
+              <Text style={styles.createButtonText}>Create Shipment Request</Text>
             </TouchableOpacity>
           </View>
         }
@@ -425,8 +373,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text.primary,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   refreshButton: {
     padding: spacing.sm,
+  },
+  addButton: {
+    backgroundColor: colors.primary,
+    padding: spacing.sm,
+    borderRadius: 20,
   },
   filterContainer: {
     flexDirection: 'row',
@@ -852,29 +810,6 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: colors.white,
     fontWeight: 'bold',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.text.light + '20',
-  },
-  quickActionButton: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-  },
-  quickActionText: {
-    color: colors.white,
-    fontSize: fonts.size.sm,
-    fontWeight: '600',
-    marginTop: spacing.xs,
   },
   emptyContainer: {
     flex: 1,

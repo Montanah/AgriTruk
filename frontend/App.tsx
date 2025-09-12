@@ -2,7 +2,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { LogBox } from 'react-native';
+import { ActivityIndicator, LogBox, Text, View } from 'react-native';
 import BusinessStackNavigator from './src/navigation/BusinessStackNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
@@ -23,6 +23,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
 import { NotificationProvider } from './src/components/Notification/NotificationContext';
 import { ConsolidationProvider } from './src/context/ConsolidationContext';
+import colors from './src/constants/colors';
 import { auth, db } from './src/firebaseConfig';
 
 const Stack = createStackNavigator();
@@ -230,7 +231,21 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  if (loading) return null; // Or a splash screen
+  if (loading) {
+    // Show a proper loading screen instead of null to prevent navigation issues
+    return (
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Loading" component={() => (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ marginTop: 16, fontSize: 16, color: colors.text.primary }}>Loading...</Text>
+            </View>
+          )} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
 
   // Determine initial route and screens based on auth state
   let initialRouteName = 'Welcome';

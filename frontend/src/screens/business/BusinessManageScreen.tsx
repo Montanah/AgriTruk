@@ -65,8 +65,12 @@ const BusinessManageScreen = ({ navigation }: any) => {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const data = await apiRequest('/brokers/requests');
-      setRequests(data.requests || []);
+      // TODO: Replace with correct business API endpoint when backend is ready
+      // const data = await apiRequest('/business/requests');
+      // setRequests(data.requests || []);
+      
+      // For now, return empty array - no mock data
+      setRequests([]);
     } catch (error) {
       console.error('Error fetching requests:', error);
       setRequests([]);
@@ -286,9 +290,23 @@ const BusinessManageScreen = ({ navigation }: any) => {
             <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manage Requests</Text>
-          <TouchableOpacity onPress={fetchRequests} style={styles.refreshButton}>
-            <Ionicons name="refresh" size={24} color={colors.white} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={fetchRequests} style={styles.refreshButton}>
+              <Ionicons name="refresh" size={24} color={colors.white} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.addButton} 
+              onPress={() => navigation.navigate('BusinessRequest')}
+            >
+              <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.consolidateHeaderButton} 
+              onPress={() => navigation.navigate('Consolidation')}
+            >
+              <FontAwesome5 name="layer-group" size={20} color={colors.white} />
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
@@ -314,24 +332,6 @@ const BusinessManageScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={styles.quickActionButton}
-          onPress={() => navigation.navigate('BusinessRequest')}
-        >
-          <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
-          <Text style={styles.quickActionText}>New Request</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.quickActionButton}
-          onPress={() => navigation.navigate('Consolidation')}
-        >
-          <FontAwesome5 name="layer-group" size={24} color={colors.white} />
-          <Text style={styles.quickActionText}>Consolidate</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Requests List */}
       <FlatList
@@ -342,20 +342,28 @@ const BusinessManageScreen = ({ navigation }: any) => {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="package-variant" size={64} color={colors.text.light} />
-            <Text style={styles.emptyTitle}>No requests found</Text>
+            <MaterialCommunityIcons name="office-building" size={64} color={colors.text.light} />
+            <Text style={styles.emptyTitle}>No business requests found</Text>
             <Text style={styles.emptySubtitle}>
               {activeTab === 'all'
-                ? 'Create your first request to get started'
-                : `No ${activeTab} requests available`
+                ? 'Create your first business request or consolidate multiple requests to get started'
+                : `No ${activeTab} business requests available`
               }
             </Text>
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={() => navigation.navigate('BusinessRequest')}
-            >
-              <Text style={styles.createButtonText}>Create Request</Text>
-            </TouchableOpacity>
+            <View style={styles.emptyActions}>
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={() => navigation.navigate('BusinessRequest')}
+              >
+                <Text style={styles.createButtonText}>Create Request</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.consolidateButton}
+                onPress={() => navigation.navigate('Consolidation')}
+              >
+                <Text style={styles.consolidateButtonText}>Consolidate Requests</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         }
       />
@@ -396,7 +404,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.white,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  addButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  consolidateHeaderButton: {
     padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -431,32 +454,6 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: colors.white,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    gap: spacing.md,
-  },
-  quickActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.secondary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  quickActionText: {
-    color: colors.white,
-    fontWeight: 'bold',
-    marginLeft: spacing.sm,
   },
   listContainer: {
     padding: spacing.lg,
@@ -732,6 +729,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   createButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: fonts.size.md,
+  },
+  emptyActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  consolidateButton: {
+    backgroundColor: colors.secondary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+  },
+  consolidateButtonText: {
     color: colors.white,
     fontWeight: 'bold',
     fontSize: fonts.size.md,

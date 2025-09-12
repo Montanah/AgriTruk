@@ -47,24 +47,7 @@ const getStatsData = (stats: BusinessStats) => [
     value: stats.completed,
   },
 ];
-const recentBookings = [
-  {
-    id: 'BKG-001',
-    from: 'Nairobi',
-    to: 'Mombasa',
-    status: 'In Transit',
-    date: '2024-06-10',
-    type: 'Cargo',
-  },
-  {
-    id: 'BKG-002',
-    from: 'Eldoret',
-    to: 'Kisumu',
-    status: 'Completed',
-    date: '2024-06-08',
-    type: 'Agri',
-  },
-];
+// No mock data - will fetch from API when ready
 
 
 const BusinessHomeScreen = ({ navigation }: any) => {
@@ -83,6 +66,7 @@ const BusinessHomeScreen = ({ navigation }: any) => {
     totalSpent: 'KES 0',
     mostUsedRoute: 'N/A',
   });
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
   useEffect(() => {
     fetchBusinessData();
@@ -110,16 +94,20 @@ const BusinessHomeScreen = ({ navigation }: any) => {
           });
         }
 
-        // Get business statistics (mock for now, replace with real queries)
-        // TODO: Implement real statistics queries
+        // Get business statistics - no mock data
+        // TODO: Implement real statistics queries when backend is ready
         setStats({
-          activeBookings: 12,
-          consolidations: 3,
-          inTransit: 5,
-          completed: 27,
-          totalSpent: 'KES 1.2M',
-          mostUsedRoute: 'Nairobi → Mombasa',
+          activeBookings: 0,
+          consolidations: 0,
+          inTransit: 0,
+          completed: 0,
+          totalSpent: 'KES 0',
+          mostUsedRoute: 'N/A',
         });
+
+        // Get recent bookings - no mock data
+        // TODO: Implement real recent bookings query when backend is ready
+        setRecentBookings([]);
       }
     } catch (error) {
       console.error('Error fetching business data:', error);
@@ -191,24 +179,39 @@ const BusinessHomeScreen = ({ navigation }: any) => {
           {/* Recent Activity */}
           <Card style={styles.activityCard}>
             <Text style={styles.sectionTitle}>Recent Bookings</Text>
-            {recentBookings.map((b) => (
-              <TouchableOpacity key={b.id} style={styles.bookingRow} activeOpacity={0.8}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.bookingId}>{b.id}</Text>
-                  <Text style={styles.bookingRoute}>{b.from} → {b.to}</Text>
-                  <Text style={styles.bookingType}>{b.type}</Text>
-                </View>
-                <View style={styles.bookingStatusWrap}>
-                  <Text style={[styles.bookingStatus, b.status === 'Completed' ? styles.statusCompleted : styles.statusInTransit]}>{b.status}</Text>
-                  <Text style={styles.bookingDate}>{b.date}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-            <Button
-              title="View All Bookings"
-              onPress={() => navigation.navigate('BusinessManage')}
-              style={styles.viewAllBtn}
-            />
+            {recentBookings.length > 0 ? (
+              <>
+                {recentBookings.map((b) => (
+                  <TouchableOpacity key={b.id} style={styles.bookingRow} activeOpacity={0.8}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.bookingId}>{b.id}</Text>
+                      <Text style={styles.bookingRoute}>{b.from} → {b.to}</Text>
+                      <Text style={styles.bookingType}>{b.type}</Text>
+                    </View>
+                    <View style={styles.bookingStatusWrap}>
+                      <Text style={[styles.bookingStatus, b.status === 'Completed' ? styles.statusCompleted : styles.statusInTransit]}>{b.status}</Text>
+                      <Text style={styles.bookingDate}>{b.date}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                <Button
+                  title="View All Bookings"
+                  onPress={() => navigation.navigate('BusinessManage')}
+                  style={styles.viewAllBtn}
+                />
+              </>
+            ) : (
+              <View style={styles.emptyBookingsContainer}>
+                <MaterialCommunityIcons name="file-document-outline" size={48} color={colors.text.light} />
+                <Text style={styles.emptyBookingsTitle}>No recent bookings</Text>
+                <Text style={styles.emptyBookingsSubtitle}>Create your first booking to get started</Text>
+                <Button
+                  title="Create Booking"
+                  onPress={() => navigation.navigate('BusinessRequest')}
+                  style={styles.createBookingBtn}
+                />
+              </View>
+            )}
           </Card>
           <Spacer size={18} />
           {/* Insights Widgets */}
@@ -456,6 +459,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
     borderRadius: 10,
     paddingVertical: 16,
+  },
+  emptyBookingsContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  emptyBookingsTitle: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.secondary,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  emptyBookingsSubtitle: {
+    fontSize: fonts.size.sm,
+    color: colors.text.light,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  createBookingBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
   },
 });
 
