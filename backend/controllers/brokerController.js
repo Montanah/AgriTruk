@@ -8,6 +8,11 @@ const fs = require('fs');
 const sendEmail = require("../utils/sendEmail");
 const Notification = require('../models/Notification');
 const MatchingService = require('../services/matchingService');
+const { formatTimestamps } = require('../utils/formatData');
+const Action = require('../models/Action');
+const { generateEmailTemplate } = require('../services/documentExpiryCronService');
+const { getBrokerTemplate, getRejectTemplate } = require('../utils/sendMailTemplate');
+const { get } = require('../models/Alert');
 
 exports.createBroker = async (req, res) => {
   try {
@@ -17,23 +22,33 @@ exports.createBroker = async (req, res) => {
     }
 
     //check if broker exists
-    const existingBroker = await Broker.get(uid);
+    const existingBroker = await Broker.getByUserId(uid);
     if (existingBroker) {
       return res.status(409).json({ success: false, message: 'Broker already exists' });
     }
-    let idUrl = null;
-
-    if (req.files) {
-      if (req.files.idImage?.[0]) {
-        const publicId = await uploadImage(req.files.idImage[0].path);
-        idUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
-        fs.unlinkSync(req.files.idImage[0].path);
-      }
-    }
-
+    // console.log("idImage", req.file);
+    let idImage = null; 
+        if (req.file) {
+          console.log('Processing  file:', req.file.originalname, req.file.mimetype, req.file.path); // Debug file
+          try {
+            idImage = await uploadImage(req.file.path);
+            if (idImage) {
+              console.log('idImage uploaded successfully:', idImage);
+              fs.unlinkSync(req.file.path); 
+            } else {
+              console.error('Failed to upload logo, continuing without idImage');
+            }
+          } catch (uploadError) {
+            console.error('Upload error:', uploadError.message);
+            return res.status(500).json({ message: 'Failed to upload idImage' });
+          }
+        } else {
+          console.log('No idImage file received');
+        }
+    
     const brokerData = {
       userId: uid,
-      brokerIdUrl: idUrl,
+      brokerIdUrl: idImage,
       status: 'pending',
     };
 
@@ -51,21 +66,25 @@ exports.createBroker = async (req, res) => {
     // if (broker.notificationPreferences.method === 'email' || broker.notificationPreferences.method === 'both') {
     //   await sendEmail(email, 'Broker Account Created', notificationData.message);
     // } 
+    await Action.create({
+      type: "broker_created",
+      entityId: uid,
+      priority: "high",
+      metadata: {
+        brokerId: broker.brokerId,
+      },
+      status: "Needs Approval",
+      message: 'New broker needs approval',
+    });
 
     res.status(201).json({
       success: true,
       message: 'Broker created successfully',
-      data: broker,
+      data: formatTimestamps(broker),
     });
   } catch (error) {
     console.error('Error creating broker:', error);
-    if (req.files) {
-      for (let key in req.files) {
-        req.files[key].forEach(file => {
-          if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-        });
-      }
-    }
+    
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
@@ -73,6 +92,8 @@ exports.createBroker = async (req, res) => {
 exports.getBroker = async (req, res) => {
   try {
     const broker = await Broker.get(req.params.brokerId);
+    const user = await User.get(broker.userId);
+    broker.user = formatTimestamps(user);
     await logAdminActivity(req.user.uid, 'get_broker', req);
 
     const notificationData = {
@@ -89,7 +110,7 @@ exports.getBroker = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Broker retrieved successfully',
-      data: broker,
+      data: formatTimestamps(broker),
     });
   } catch (error) {
     res.status(404).json({
@@ -331,6 +352,11 @@ exports.getRequestsByClient = async (req, res) => {
 exports.getAllBrokers = async (req, res) => {
   try {
     const brokers = await Broker.getAll();
+
+   for (const broker of brokers) {
+      const user = await User.get(broker.userId);
+      broker.user = formatTimestamps(user); 
+    }
     
     await logAdminActivity(req.user.uid, 'get_all_brokers', req);
 
@@ -345,7 +371,7 @@ exports.getAllBrokers = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Brokers retrieved successfully',
-      data: brokers,
+      data: formatTimestamps(brokers), 
     });
   } catch (error) {
     res.status(500).json({
@@ -522,3 +548,147 @@ exports.consolidateAndMatch = async (req, res) => {
     });
   }
 };
+
+exports.deleteBroker = async (req, res) => {
+  try {
+    const { brokerId } = req.params;
+    const adminId = req.user.uid;
+    const deletedBroker = await Broker.deleteBroker(brokerId, adminId);
+    await logAdminActivity(req.user.uid, 'delete_broker', req);
+    res.status(200).json({
+      success: true,
+      message: 'Broker deleted successfully',
+      data: deletedBroker,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error deleting broker: ${error.message}`,
+    });
+  }
+};
+
+exports.reviewBroker = async (req, res) => {
+  try {
+    const { brokerId } = req.params;
+    const adminId = req.user.uid;
+    const {action, reason, idExpiryDate} = req.body;
+
+    const broker = await Broker.get(brokerId);
+    if (!broker) {
+      return res.status(404).json({ success: false, message: 'Broker not found' });
+    }
+
+    if (action !== 'approve' && action !== 'reject') {
+      return res.status(400).json({ success: false, message: 'Invalid action, use approve or reject' });
+    }
+
+    const user = await User.get(broker.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (action === 'reject') {
+      const updateData ={
+        status: 'rejected',
+        rejectionReason: reason || 'Not specified',
+        approvedBy: adminId
+      }
+      
+      await Broker.update(brokerId, updateData);
+
+      await sendEmail({
+        to: user.email,
+        subject: 'Broker Account Rejected',
+        html: getRejectTemplate('Broker Account Rejected', `Your broker account has been rejected. Reason: ${reason}`, user),
+        text: `Your broker account has been rejected. Reason: ${reason}`
+      })
+      await logAdminActivity(req.user.uid, 'reject_broker', req);
+      res.status(200).json({
+        success: true,
+        message: 'Broker rejected successfully',
+      });
+      return;
+    }
+
+    if (action === 'approve') {
+      const updateData ={
+        status: 'approved',
+        approvedBy: adminId,
+        idExpiryDate: idExpiryDate || null
+      }
+      console.log("up", updateData)
+      await Broker.update(brokerId, updateData);
+      await logAdminActivity(req.user.uid, 'approve_broker', req);
+
+      await sendEmail({
+          to: user.email,
+          subject: 'Broker Account Approved',
+          html: getBrokerTemplate(user),
+          text: 'Your broker account has been approved. Welcome to Truk!'
+        });
+      res.status(200).json({
+        success: true,
+        message: 'Broker approved successfully',
+      });
+      return;
+    }
+
+    res.status(400).json({
+      
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error reviewing broker: ${error.message}`,
+    });
+  }
+};
+
+exports.uploadDocuments = async (req, res) => {
+  try {
+    const { brokerId }= req.params;
+   
+    const broker = await Broker.getByUserId(brokerId);
+    if (!broker) {
+      return res.status(404).json({ success: false, message: 'Broker not found' });
+    }
+
+    // console.log("idImage", req.file);
+    let idImage = null; 
+        if (req.file) {
+          console.log('Processing  file:', req.file.originalname, req.file.mimetype, req.file.path); // Debug file
+          try {
+            idImage = await uploadImage(req.file.path);
+            if (idImage) {
+              console.log('idImage uploaded successfully:', idImage);
+              fs.unlinkSync(req.file.path); 
+            } else {
+              console.error('Failed to upload logo, continuing without idImage');
+            }
+          } catch (uploadError) {
+            console.error('Upload error:', uploadError.message);
+            return res.status(500).json({ message: 'Failed to upload idImage' });
+          }
+        } else {
+          console.log('No idImage file received');
+        }
+    const documents = {
+      brokerIdUrl: idImage
+    };
+
+    const updated = await Broker.update(broker.brokerId, documents);
+    console.log("updated", updated);
+
+    await logActivity(req.user.uid, 'update_broker_documents', req);
+    res.status(200).json({
+      success: true,
+      message: 'Documents uploaded successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error uploading documents: ${error.message}`,
+    });
+  }
+}

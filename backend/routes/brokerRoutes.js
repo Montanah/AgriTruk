@@ -3,7 +3,11 @@ const router = express.Router();
 const BrokerController = require('../controllers/brokerController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/requireRole');
-const { authenticate, authorize } = require('../middlewares/adminAuth');
+const { authorize } = require("../middlewares/adminAuth");
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' }); 
+
+const uploadAny = upload.any();
 
 /**
  * @swagger
@@ -11,7 +15,24 @@ const { authenticate, authorize } = require('../middlewares/adminAuth');
  *   - name: Broker
  *     description: Broker management endpoints
  */
-
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Broker:
+ *       type: object
+ *       properties:
+ *         brokerId:
+ *           type: string
+ *         userId: 
+ *           type: string
+ *         brokerIdUrl:
+ *           type: string
+ *         rejectionReason:
+ *           type: string
+ *         status:
+ *           type: string
+ */
 /**
  * @swagger
  * /api/brokers:
@@ -40,7 +61,7 @@ const { authenticate, authorize } = require('../middlewares/adminAuth');
  *       500:
  *         description: Server error
  */
-router.post('/', authenticateToken, requireRole('broker'), BrokerController.createBroker);
+router.post('/', authenticateToken, requireRole(['broker', 'admin']), upload.single('idImage'), BrokerController.createBroker);
 
 /**
  * @swagger
@@ -184,7 +205,7 @@ router.delete('/deactivate/:clientId', authenticateToken, requireRole('broker'),
  * /api/brokers/clients/{clientId}:
  *   delete:
  *     summary: Delete a client (admin only)
- *     tags: [Admin Actions]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -322,5 +343,106 @@ router.post('/requests/consolidate', authenticateToken, requireRole(['broker', '
  *         description: Server error
  */
 router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broker', 'admin']), BrokerController.getRequestsByClient);
+
+/**
+ * @swagger
+ * /api/brokers/{brokerId}:
+ *   delete:
+ *     summary: Delete a broker (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brokerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Broker deleted successfully
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:brokerId', authenticateToken, requireRole('admin'), authorize(['manage_brokers', 'super_admin']), BrokerController.deleteBroker);
+
+/**
+ * @swagger
+ * /api/brokers/{brokerId}/review:
+ *   patch:
+ *     summary: Review a broker (admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brokerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [approve, reject]
+ *                 description: Action to take on the broker (approve or reject)
+ *               reason:
+ *                 type: string
+ *                 description: Reason for action (optional)
+ *               idExpiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: ID expiry date (optional)
+ *     responses:
+ *       200:
+ *         description: Broker reviewed successfully
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:brokerId/review', authenticateToken, requireRole('admin'), authorize(['manage_brokers', 'super_admin']), BrokerController.reviewBroker);
+
+/**
+ * @swagger
+ * /api/brokers/{brokerId}/upload:
+ *   patch:
+ *     summary: Upload documents for a broker
+ *     tags: [Broker]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brokerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               idImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: The ID image of the broker
+ *     responses:
+ *       200:
+ *         description: Documents uploaded successfully
+ *       400:
+ *         description: Invalid input
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:brokerId/upload', authenticateToken, requireRole(['broker', 'admin']), upload.single('idImage'), BrokerController.uploadDocuments);
 
 module.exports = router;

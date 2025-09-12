@@ -106,3 +106,60 @@ exports.generateEmailTemplate = function  (paymentData, userData) {
       </html>
     `;
 };
+
+exports.getBrokerTemplate = function (userData, location, ip, device) {
+  return `
+    <div style="max-width: 500px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border-radius: 10px; border: 1px solid #ddd;">
+      <div style="text-align: center;">
+        <img src="https://res.cloudinary.com/trukapp/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="Truk Logo" style="width: 60px; margin-bottom: 20px;" />
+        <h2 style="color: #28a745;"> ${userData.name || User} Approved Successfully</h2>
+        <p style="font-size: 16px;">Your account has been successfully approved. You can now log in and continue using Truk services.</p>
+
+        <a href="" style="display: inline-block; margin: 20px auto; padding: 12px 25px; background-color: #28a745; color: white; text-decoration: none; font-size: 16px; border-radius: 5px;">
+          Go to Truk
+        </a>
+
+        <hr style="margin: 30px 0;" />
+
+        <p style="margin-top: 30px; font-size: 13px; color: #999;">All rights reserved &copy; ${new Date().getFullYear()} Truk</p>
+      </div>
+    </div>
+  `;
+};
+
+exports.getRejectTemplate = function (subject,  message, userData) {
+  return `
+  <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${subject}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
+          .content { background: #f9f9f9; padding: 20px; }
+          .footer { background: #eee; padding: 10px; text-align: center; font-size: 12px; }
+          .urgent { color: #dc3545; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+    <div style="max-width: 500px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border-radius: 10px; border: 1px solid #ddd;">
+      <div style="text-align: center;">
+        <img src="https://res.cloudinary.com/trukapp/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="Truk Logo" style="width: 60px; margin-bottom: 20px;" />
+        <h2 style="color: #28a745;"> Hello ${userData.name || User} </h2>
+        <p style="font-size: 16px;">${message}</p>
+
+        <a href="" style="display: inline-block; margin: 20px auto; padding: 12px 25px; background-color: #28a745; color: white; text-decoration: none; font-size: 16px; border-radius: 5px;">
+          Go to Truk
+        </a>
+
+        <hr style="margin: 30px 0;" />
+
+        <p style="margin-top: 30px; font-size: 13px; color: #999;">All rights reserved &copy; ${new Date().getFullYear()} Truk</p>
+      </div>
+    </div>
+  `;
+};
+
