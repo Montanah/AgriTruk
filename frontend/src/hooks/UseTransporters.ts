@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 
 // Mock data for testing while waiting for backend
@@ -7,9 +8,9 @@ const mockTransporters = [
     id: 'mock-1',
     name: 'John Transport Ltd',
     companyName: 'John Transport Ltd',
-    profilePhoto: 'https://via.placeholder.com/150x150?text=JT',
-    vehiclePhoto: 'https://via.placeholder.com/300x200?text=TRUCK',
-    vehiclePhotos: ['https://via.placeholder.com/300x200?text=TRUCK'],
+    profilePhoto: PLACEHOLDER_IMAGES.PROFILE_PHOTO,
+    vehiclePhoto: PLACEHOLDER_IMAGES.VEHICLE_PHOTO,
+    vehiclePhotos: [PLACEHOLDER_IMAGES.VEHICLE_PHOTO],
     vehicleType: 'truck',
     vehicleMake: 'Mercedes',
     vehicleModel: 'Actros',
@@ -35,9 +36,9 @@ const mockTransporters = [
     id: 'mock-2',
     name: 'Fast Cargo Solutions',
     companyName: 'Fast Cargo Solutions',
-    profilePhoto: 'https://via.placeholder.com/150x150?text=FC',
-    vehiclePhoto: 'https://via.placeholder.com/300x200?text=VAN',
-    vehiclePhotos: ['https://via.placeholder.com/300x200?text=VAN'],
+    profilePhoto: PLACEHOLDER_IMAGES.PROFILE_PHOTO,
+    vehiclePhoto: PLACEHOLDER_IMAGES.VEHICLE_PHOTO,
+    vehiclePhotos: [PLACEHOLDER_IMAGES.VEHICLE_PHOTO],
     vehicleType: 'van',
     vehicleMake: 'Toyota',
     vehicleModel: 'Hiace',
@@ -63,9 +64,9 @@ const mockTransporters = [
     id: 'mock-3',
     name: 'Agri Haulers Kenya',
     companyName: 'Agri Haulers Kenya',
-    profilePhoto: 'https://via.placeholder.com/150x150?text=AH',
-    vehiclePhoto: 'https://via.placeholder.com/300x200?text=PICKUP',
-    vehiclePhotos: ['https://via.placeholder.com/300x200?text=PICKUP'],
+    profilePhoto: PLACEHOLDER_IMAGES.PROFILE_PHOTO,
+    vehiclePhoto: PLACEHOLDER_IMAGES.VEHICLE_PHOTO,
+    vehiclePhotos: [PLACEHOLDER_IMAGES.VEHICLE_PHOTO],
     vehicleType: 'pickup',
     vehicleMake: 'Ford',
     vehicleModel: 'Ranger',
@@ -116,11 +117,11 @@ export const useTransporters = () => {
             photo:
               t.photo ||
               (t.vehiclePhotos && t.vehiclePhotos[0]) ||
-              'https://via.placeholder.com/54x54?text=TRUK',
+              PLACEHOLDER_IMAGES.PROFILE_PHOTO_MEDIUM,
             vehiclePhotos:
               Array.isArray(t.vehiclePhotos) && t.vehiclePhotos.length > 0
                 ? t.vehiclePhotos
-                : [t.photo || 'https://via.placeholder.com/54x54?text=TRUK'],
+                : [t.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_MEDIUM],
             est: t.est || 'Calculating...',
             // Map backend fields to frontend expected fields
             name: t.name || t.displayName || t.companyName,

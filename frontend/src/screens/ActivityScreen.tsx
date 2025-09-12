@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { PLACEHOLDER_IMAGES } from '../constants/images';
 
 interface RequestItem {
   id: string;
@@ -187,7 +188,7 @@ const ActivityScreen = () => {
             <View style={styles.transporterDetails}>
               <View style={styles.transporterProfile}>
                 <Image
-                  source={{ uri: item.transporter?.profilePhoto || item.transporter?.photo || 'https://via.placeholder.com/40x40?text=TRUK' }}
+                  source={{ uri: item.transporter?.profilePhoto || item.transporter?.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_SMALL }}
                   style={styles.transporterPhoto}
                 />
                 <View style={styles.transporterBasic}>

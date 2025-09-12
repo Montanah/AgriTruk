@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const API_BASE_URL = 'https://agritruk-backend.onrender.com/api';
+const API_BASE_URL = 'https://agritruk.onrender.com/api';
 
 // Mock transporter data for testing
 const mockTransporters = [

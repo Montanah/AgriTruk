@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { API_ENDPOINTS } from '../constants/api';
+import { EXTERNAL_URLS } from '../constants/images';
 
 export default function NetworkTest() {
     const [testResults, setTestResults] = useState<string[]>([]);
@@ -17,7 +19,7 @@ export default function NetworkTest() {
         console.log('='.repeat(100) + '\n');
 
         try {
-            const response = await fetch('https://www.google.com');
+            const response = await fetch(EXTERNAL_URLS.GOOGLE);
             addResult(`✅ Google fetch successful: ${response.status}`);
             console.log('✅ Google fetch successful:', response.status);
         } catch (error) {
@@ -29,7 +31,7 @@ export default function NetworkTest() {
     const testBackendHealth = async () => {
         addResult('🔍 Testing backend health endpoint...');
         try {
-            const response = await fetch('https://agritruk-backend.onrender.com/api/health');
+            const response = await fetch(API_ENDPOINTS.HEALTH);
             const data = await response.json();
             addResult(`✅ Backend health successful: ${response.status}`);
             addResult(`📦 Response: ${JSON.stringify(data)}`);
@@ -53,7 +55,7 @@ export default function NetworkTest() {
             const token = await user.getIdToken();
             addResult(`🔑 Got Firebase token: ${token ? 'Success' : 'Failed'}`);
 
-            const response = await fetch('https://agritruk-backend.onrender.com/api/transporters/test', {
+            const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/test`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',

@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
+import { API_ENDPOINTS } from '../constants/api';
 
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import MapViewScreen from '../screens/MapViewScreen';
@@ -73,7 +74,7 @@ const TransporterTabNavigator = () => {
         if (!user) return;
 
         const token = await user.getIdToken();
-        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

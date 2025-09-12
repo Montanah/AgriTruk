@@ -10,6 +10,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
+import { API_ENDPOINTS } from '../../constants/api';
 
 
 
@@ -190,7 +191,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch('https://agritruk-backend.onrender.com/api/auth', {
+      const response = await fetch(API_ENDPOINTS.AUTH, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -220,7 +221,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch('https://agritruk-backend.onrender.com/api/auth', {
+      const response = await fetch(API_ENDPOINTS.AUTH, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

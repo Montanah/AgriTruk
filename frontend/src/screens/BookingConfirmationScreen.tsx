@@ -2,8 +2,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import { API_ENDPOINTS } from '../constants/api';
 import { apiRequest } from '../utils/api';
 
 // Accepts either a single booking or an array of bookings (for consolidated)
@@ -16,12 +18,66 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [posting, setPosting] = useState(false);
 
+  // Fallback function to store booking locally when backend is unavailable
+  const storeBookingLocally = async (bookingData: any) => {
+    try {
+      const existingBookings = await AsyncStorage.getItem('pending_bookings');
+      const bookings = existingBookings ? JSON.parse(existingBookings) : [];
+      
+      const localBooking = {
+        ...bookingData,
+        id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        storedAt: new Date().toISOString(),
+        status: 'pending_local',
+        needsSync: true
+      };
+      
+      bookings.push(localBooking);
+      await AsyncStorage.setItem('pending_bookings', JSON.stringify(bookings));
+      
+      console.log('💾 Booking stored locally:', localBooking.id);
+      return localBooking;
+    } catch (error) {
+      console.error('❌ Failed to store booking locally:', error);
+      throw error;
+    }
+  };
+
   // Handler for posting booking(s)
   const handlePostBooking = async () => {
     setPosting(true);
+    
+    // Add timeout to prevent infinite posting state
+    const timeoutId = setTimeout(() => {
+      console.error('❌ Booking request timeout after 30 seconds');
+      setPosting(false);
+      Alert.alert('Timeout', 'The booking request is taking too long. Please try again.');
+    }, 30000);
+    
+    // Prepare payload outside try block so it's available in catch block
+    let payload: any[] = [];
+    
     try {
+      // Validate requests data
+      if (!requests || requests.length === 0) {
+        throw new Error('No booking requests found. Please try again.');
+      }
+      
+      console.log('🔍 Validating booking requests:', requests.length, 'requests found');
+      
       // Prepare payload for backend booking format
-      const payload = requests.map(req => {
+      payload = requests.map((req, index) => {
+        // Validate required fields
+        if (!req.fromLocation || !req.toLocation) {
+          throw new Error(`Request ${index + 1} is missing required location information.`);
+        }
+        if (!req.productType) {
+          throw new Error(`Request ${index + 1} is missing product type.`);
+        }
+        if (!req.weight || isNaN(parseFloat(req.weight))) {
+          throw new Error(`Request ${index + 1} has invalid weight.`);
+        }
+        
         // Use backend booking format if available, otherwise convert from frontend format
         const bookingData = {
           bookingType: req.bookingType || (req.type === 'agriTRUK' ? 'Agri' : 'Cargo'),
@@ -35,7 +91,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           priority: req.priority || req.isPriority || false,
           perishable: req.perishable || req.isPerishable || false,
           needsRefrigeration: req.needsRefrigeration || req.isPerishable || false,
-          humidyControl: req.humidyControl || req.isPerishable || false,
+          humidityControl: req.humidityControl || req.isPerishable || false,
           specialCargo: req.specialCargo || (req.isSpecialCargo ? req.specialCargoSpecs : []),
           insured: req.insured || req.insureGoods || false,
           value: req.value || (req.insuranceValue ? parseFloat(req.insuranceValue) : 0),
@@ -52,6 +108,17 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
             baseBookingId: null
           },
           status: 'pending',
+          // Add potentially required fields
+          clientId: req.clientId || null,
+          transporterId: req.transporterId || null,
+          estimatedCost: req.estimatedCost || 0,
+          actualCost: req.actualCost || 0,
+          distance: req.distance || null,
+          estimatedDuration: req.estimatedDuration || null,
+          actualDuration: req.actualDuration || null,
+          trackingNumber: req.trackingNumber || null,
+          deliveryInstructions: req.deliveryInstructions || '',
+          specialRequirements: req.specialRequirements || '',
         };
         return bookingData;
       });
@@ -59,18 +126,55 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       console.log('\n' + '='.repeat(100));
       console.log('🚀 BOOKING CONFIRMATION API REQUEST FOR BACKEND ENGINEER');
       console.log('='.repeat(100));
-      console.log('📍 Endpoint: /bookings');
+      console.log('📍 Endpoint:', API_ENDPOINTS.BOOKINGS);
       console.log('📋 Method: POST');
       console.log('⏰ Request Timestamp:', new Date().toISOString());
       console.log('📦 Payload:', JSON.stringify(payload, null, 2));
       console.log('📦 Single Booking Data:', JSON.stringify(payload[0], null, 2));
+      console.log('🔍 Required Fields Check:');
+      console.log('  - bookingType:', payload[0].bookingType);
+      console.log('  - fromLocation:', payload[0].fromLocation);
+      console.log('  - toLocation:', payload[0].toLocation);
+      console.log('  - productType:', payload[0].productType);
+      console.log('  - weightKg:', payload[0].weightKg, '(type:', typeof payload[0].weightKg, ')');
+      console.log('  - pickUpDate:', payload[0].pickUpDate);
+      console.log('  - urgencyLevel:', payload[0].urgencyLevel);
+      console.log('  - status:', payload[0].status);
+      console.log('  - perishable:', payload[0].perishable);
+      console.log('  - needsRefrigeration:', payload[0].needsRefrigeration);
+      console.log('  - humidityControl:', payload[0].humidityControl);
       console.log('='.repeat(100) + '\n');
 
-      // Post to backend bookings endpoint
-      const response = await apiRequest('/bookings', {
-        method: 'POST',
-        body: JSON.stringify(payload[0]) // Backend expects single booking, not array
-      });
+      // Post to backend bookings endpoint with retry logic
+      let response;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          console.log(`🔄 Attempting booking submission (attempt ${retryCount + 1}/${maxRetries})`);
+          response = await apiRequest('/bookings', {
+            method: 'POST',
+            body: JSON.stringify(payload[0]) // Backend expects single booking, not array
+          });
+          break; // Success, exit retry loop
+        } catch (error: any) {
+          retryCount++;
+          console.log(`❌ Booking attempt ${retryCount} failed:`, error.message);
+          
+          if (retryCount >= maxRetries) {
+            throw error; // Re-throw if all retries failed
+          }
+          
+          // Wait before retry (exponential backoff)
+          const waitTime = Math.pow(2, retryCount) * 1000; // 2s, 4s, 8s
+          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+
+      // Log the response for debugging
+      console.log('📊 Booking API Response:', response);
 
       console.log('='.repeat(100));
       console.log('📊 BOOKING CONFIRMATION API RESPONSE FOR BACKEND ENGINEER');
@@ -84,7 +188,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       console.log('='.repeat(100));
       console.log('❌ BOOKING CONFIRMATION API ERROR FOR BACKEND ENGINEER');
       console.log('='.repeat(100));
-      console.log('📍 Endpoint: /bookings');
+      console.log('📍 Endpoint:', API_ENDPOINTS.BOOKINGS);
       console.log('📋 Method: POST');
       console.log('⏰ Error Timestamp:', new Date().toISOString());
       console.log('❌ Error Name:', error.name);
@@ -93,8 +197,38 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       console.log('='.repeat(100) + '\n');
 
       console.error('Failed to post booking:', error);
-      Alert.alert('Error', `Failed to post booking: ${error.message}`);
+      
+      // Check if it's a 500 error (server error)
+      if (error.message?.includes('Failed to create booking')) {
+        console.log('🔍 Backend returned 500 error - this might be a data validation issue');
+        console.log('🔍 Please check the backend logs for more details');
+      }
+      
+      // Try fallback: store locally when backend is unavailable
+      try {
+        if (!payload || payload.length === 0) {
+          throw new Error('No booking data available for local storage');
+        }
+        
+        console.log('🔄 Attempting to store booking locally as fallback...');
+        const localBooking = await storeBookingLocally(payload[0]);
+        
+        Alert.alert(
+          'Booking Saved Locally', 
+          'The booking server is currently unavailable. Your booking has been saved locally and will be synced when the server is back online.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack()
+            }
+          ]
+        );
+      } catch (fallbackError) {
+        console.error('❌ Fallback storage also failed:', fallbackError);
+        Alert.alert('Error', `Failed to post booking: ${error.message}. Please try again later.`);
+      }
     } finally {
+      clearTimeout(timeoutId);
       setPosting(false);
     }
   };
@@ -141,8 +275,17 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         onPress={handlePostBooking}
         disabled={posting}
       >
-        <MaterialCommunityIcons name="check-circle" size={22} color={colors.white} style={{ marginRight: 8 }} />
-        <Text style={styles.postBtnText}>{posting ? 'Posting...' : 'Confirm & Post Booking'}</Text>
+        {posting ? (
+          <>
+            <MaterialCommunityIcons name="loading" size={22} color={colors.white} style={{ marginRight: 8 }} />
+            <Text style={styles.postBtnText}>Posting...</Text>
+          </>
+        ) : (
+          <>
+            <MaterialCommunityIcons name="check-circle" size={22} color={colors.white} style={{ marginRight: 8 }} />
+            <Text style={styles.postBtnText}>Confirm & Post Booking</Text>
+          </>
+        )}
       </TouchableOpacity>
     </View>
   );

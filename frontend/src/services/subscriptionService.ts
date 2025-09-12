@@ -86,17 +86,20 @@ class SubscriptionService {
       console.log('='.repeat(80));
       console.log('🚀 SUBSCRIPTION STATUS REQUEST FOR BACKEND ENGINEER');
       console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/status');
+      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status');
       console.log('📋 Method: GET');
       console.log('⏰ Request Timestamp:', new Date().toISOString());
       console.log('🔑 Auth Token Present:', token ? 'YES' : 'NO');
       if (token) {
         console.log('🔑 Token Preview:', `${token.substring(0, 30)}...`);
       }
-      console.log('👤 User UID:', user?.uid || 'No user');
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      console.log('👤 User UID:', currentUser?.uid || 'No user');
       console.log('='.repeat(80));
 
-      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/status', {
+      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -107,7 +110,7 @@ class SubscriptionService {
       console.log('='.repeat(80));
       console.log('📊 SUBSCRIPTION STATUS RESPONSE FOR BACKEND ENGINEER');
       console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/status');
+      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status');
       console.log(`📋 Response Status: ${response.status} ${response.statusText}`);
       console.log('⏰ Response Timestamp:', new Date().toISOString());
       console.log(
@@ -126,6 +129,19 @@ class SubscriptionService {
       const data = await response.json();
       console.log('✅ Subscription status retrieved successfully');
       console.log('📦 Response Data:', JSON.stringify(data, null, 2));
+      
+      // Add debugging for trial eligibility
+      const subscriptionData = data.data;
+      if (subscriptionData) {
+        console.log('🔍 Trial Eligibility Check:', {
+          hasActiveSubscription: subscriptionData.hasActiveSubscription,
+          isTrialActive: subscriptionData.isTrialActive,
+          needsTrialActivation: subscriptionData.needsTrialActivation,
+          subscriptionStatus: subscriptionData.subscriptionStatus,
+          shouldShowTrial: subscriptionData.needsTrialActivation || (!subscriptionData.hasActiveSubscription && !subscriptionData.isTrialActive && subscriptionData.subscriptionStatus === 'none')
+        });
+      }
+      
       console.log('='.repeat(80));
       return data;
     } catch (error) {
@@ -201,7 +217,7 @@ class SubscriptionService {
       return { success: true, data };
     } catch (error) {
       console.error('Error creating subscription:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: (error as Error).message };
     }
   }
 
@@ -215,7 +231,7 @@ class SubscriptionService {
     try {
       const token = await this.getAuthToken();
 
-      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/upgrade', {
+      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/change-plan', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -236,7 +252,7 @@ class SubscriptionService {
       return { success: true, data };
     } catch (error) {
       console.error('Error upgrading plan:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: (error as Error).message };
     }
   }
 
@@ -269,7 +285,10 @@ class SubscriptionService {
       if (token) {
         console.log('🔑 Token Preview:', `${token.substring(0, 30)}...`);
       }
-      console.log('👤 User UID:', user?.uid || 'No user');
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      console.log('👤 User UID:', currentUser?.uid || 'No user');
       console.log('📦 Request Body:', JSON.stringify(requestData, null, 2));
       console.log('='.repeat(80));
 
@@ -308,7 +327,7 @@ class SubscriptionService {
       return { success: true, data };
     } catch (error) {
       console.error('Error processing payment:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: (error as Error).message };
     }
   }
 
@@ -363,7 +382,7 @@ class SubscriptionService {
       return { success: true };
     } catch (error) {
       console.error('Error canceling subscription:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: (error as Error).message };
     }
   }
 
@@ -376,14 +395,18 @@ class SubscriptionService {
     try {
       const token = await this.getAuthToken();
 
-      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/activate-trial', {
+      // Use the correct endpoint from Swagger docs: POST /api/subscriptions/subscriber/
+      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          planId: 'trial', // Trial plan ID
           userType,
+          isTrial: true,
+          duration: 30, // 30-day trial
         }),
       });
 
@@ -396,7 +419,7 @@ class SubscriptionService {
       return { success: true, data };
     } catch (error) {
       console.error('Error activating trial:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: (error as Error).message };
     }
   }
 

@@ -108,34 +108,16 @@ const checkTransporterProfileComplete = (transporterData: any) => {
 // Helper function to check subscription status
 const checkSubscriptionStatus = async (userId: string, userType: 'transporter' | 'broker' | 'business') => {
   try {
-    // Check subscription status from backend
-    const response = await fetch(`https://agritruk-backend.onrender.com/api/subscriptions/status/${userId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        // Add authentication headers as needed
-      }
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      if (result.success && result.data) {
-        return {
-          hasActiveSubscription: result.data.hasActiveSubscription,
-          isTrialActive: result.data.isTrialActive,
-          trialExpiryDate: result.data.trialExpiryDate,
-          subscriptionExpiryDate: result.data.subscriptionExpiryDate,
-          needsTrialActivation: result.data.needsTrialActivation,
-          currentPlan: result.data.currentPlan,
-          daysRemaining: result.data.daysRemaining
-        };
-      }
-    }
+    // Use the subscription service which handles auth tokens properly
+    const subscriptionService = require('./src/services/subscriptionService').default;
+    const status = await subscriptionService.getSubscriptionStatus();
+    return status;
   } catch (error) {
     console.error('Error checking subscription status:', error);
   }
 
   // Fallback: return default values for development
+  console.log('🚨 SUBSCRIPTION STATUS FALLBACK - treating as new user needing trial');
   return {
     hasActiveSubscription: false,
     isTrialActive: false,
@@ -143,7 +125,8 @@ const checkSubscriptionStatus = async (userId: string, userType: 'transporter' |
     subscriptionExpiryDate: null,
     needsTrialActivation: true,
     currentPlan: null,
-    daysRemaining: 0
+    daysRemaining: 0,
+    subscriptionStatus: 'none'
   };
 };
 
@@ -181,7 +164,9 @@ export default function App() {
 
                   // Check subscription status for approved transporters
                   if (transporterData.status === 'approved') {
+                    console.log('🚨 CHECKING TRANSPORTER SUBSCRIPTION STATUS');
                     const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
+                    console.log('🚨 TRANSPORTER SUBSCRIPTION STATUS RESULT:', subStatus);
                     setSubscriptionStatus(subStatus);
                   }
                 } else {
@@ -236,12 +221,14 @@ export default function App() {
     return (
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Loading" component={() => (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={{ marginTop: 16, fontSize: 16, color: colors.text.primary }}>Loading...</Text>
-            </View>
-          )} />
+          <Stack.Screen name="Loading">
+            {() => (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={{ marginTop: 16, fontSize: 16, color: colors.text.primary }}>Loading...</Text>
+              </View>
+            )}
+          </Stack.Screen>
         </Stack.Navigator>
       </NavigationContainer>
     );
@@ -325,7 +312,8 @@ export default function App() {
       );
     } else {
       // Check subscription status for verified brokers
-      if (subscriptionStatus?.needsTrialActivation) {
+      // If user has no active subscription and no trial, they need trial activation
+      if (subscriptionStatus?.needsTrialActivation || (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
         initialRouteName = 'SubscriptionTrial';
         screens = (
           <>
@@ -445,7 +433,20 @@ export default function App() {
       );
     } else {
       // Profile completed and verified - check subscription status
-      if (subscriptionStatus?.needsTrialActivation) {
+      console.log('🚨 TRANSPORTER SUBSCRIPTION CHECK:', {
+        subscriptionStatus,
+        needsTrialActivation: subscriptionStatus?.needsTrialActivation,
+        hasActiveSubscription: subscriptionStatus?.hasActiveSubscription,
+        isTrialActive: subscriptionStatus?.isTrialActive,
+        subscriptionStatusValue: subscriptionStatus?.subscriptionStatus
+      });
+      
+      // If user has no active subscription and no trial, they need trial activation
+      // Also handle case where subscriptionStatus is null/undefined (new users)
+      if (subscriptionStatus?.needsTrialActivation || 
+          !subscriptionStatus || 
+          (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
+        console.log('🚨 ROUTING TRANSPORTER TO TRIAL ACTIVATION');
         initialRouteName = 'SubscriptionTrial';
         screens = (
           <>
@@ -463,7 +464,8 @@ export default function App() {
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
           </>
         );
-      } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive) {
+      } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'expired') {
+        console.log('🚨 ROUTING TRANSPORTER TO EXPIRED SUBSCRIPTION');
         initialRouteName = 'SubscriptionExpired';
         screens = (
           <>
@@ -476,6 +478,26 @@ export default function App() {
                 expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
               }}
             />
+            <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+            <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+            <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+          </>
+        );
+      } else if (!subscriptionStatus) {
+        // Fallback: if no subscription status, treat as new user needing trial
+        console.log('🚨 ROUTING TRANSPORTER TO TRIAL ACTIVATION (NO SUBSCRIPTION STATUS)');
+        initialRouteName = 'SubscriptionTrial';
+        screens = (
+          <>
+            <Stack.Screen
+              name="SubscriptionTrial"
+              component={SubscriptionTrialScreen}
+              initialParams={{
+                userType: 'transporter',
+                subscriptionStatus: null
+              }}
+            />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />

@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Avatar from '../../components/common/Avatar';
@@ -9,6 +10,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Spacer from '../../components/common/Spacer';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
+import { db } from '../../firebaseConfig';
 
 interface BusinessData {
   name: string;
@@ -72,25 +74,45 @@ const BusinessHomeScreen = ({ navigation }: any) => {
     fetchBusinessData();
   }, []);
 
-  const fetchBusinessData = async () => {
+  const fetchBusinessData = async (retryCount = 0) => {
+    const maxRetries = 3;
+    
     try {
       const auth = getAuth();
       const user = auth.currentUser;
 
       if (user) {
-        const { doc, getDoc, collection, query, where, getDocs } = await import('firebase/firestore');
-        const { db } = await import('../../firebaseConfig');
+        console.log(`🔍 Fetching business data for user: ${user.uid} (attempt ${retryCount + 1})`);
 
-        // Get business profile data
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        // Add timeout to prevent connection abort
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 10000)
+        );
+
+        // Get business profile data with timeout
+        const userDoc = await Promise.race([
+          getDoc(doc(db, 'users', user.uid)),
+          timeoutPromise
+        ]) as any;
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
+          console.log('✅ Business user data found:', userData);
+          
           setBusiness({
             name: userData.businessName || userData.name || 'Business',
             logo: userData.logo || userData.profilePhotoUrl,
             contact: userData.phone || user.phoneNumber || '',
             email: userData.email || user.email || '',
+          });
+        } else {
+          console.warn('⚠️ Business user document not found');
+          // Set default business data
+          setBusiness({
+            name: 'Business',
+            logo: null,
+            contact: user.phoneNumber || '',
+            email: user.email || '',
           });
         }
 
@@ -108,11 +130,54 @@ const BusinessHomeScreen = ({ navigation }: any) => {
         // Get recent bookings - no mock data
         // TODO: Implement real recent bookings query when backend is ready
         setRecentBookings([]);
+        
+        console.log('✅ Business data fetch completed successfully');
+      } else {
+        console.warn('⚠️ No authenticated user found');
+        setLoading(false);
       }
     } catch (error) {
-      console.error('Error fetching business data:', error);
+      console.error('❌ Error fetching business data:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      
+      // Retry logic for network errors
+      if (retryCount < maxRetries && (
+        error.message.includes('connection') || 
+        error.message.includes('timeout') ||
+        error.message.includes('abort') ||
+        error.code === 'unavailable'
+      )) {
+        console.log(`🔄 Retrying business data fetch (attempt ${retryCount + 1}/${maxRetries})`);
+        setTimeout(() => {
+          fetchBusinessData(retryCount + 1);
+        }, 2000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
+      
+      // Set default data on error after all retries
+      setBusiness({
+        name: 'Business',
+        logo: null,
+        contact: '',
+        email: '',
+      });
+      setStats({
+        activeBookings: 0,
+        consolidations: 0,
+        inTransit: 0,
+        completed: 0,
+        totalSpent: 'KES 0',
+        mostUsedRoute: 'N/A',
+      });
+      setRecentBookings([]);
     } finally {
-      setLoading(false);
+      if (retryCount === 0) {
+        setLoading(false);
+      }
     }
   };
 

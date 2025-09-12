@@ -1,4 +1,5 @@
 import { getAuth } from 'firebase/auth';
+import { API_ENDPOINTS } from '../constants/api';
 import { apiRequest } from './api';
 
 export async function testAuthentication() {
@@ -47,7 +48,7 @@ export async function testBackendWithoutAuth() {
     console.log('🔍 TESTING BACKEND WITHOUT AUTH');
     console.log('='.repeat(50));
     
-    const response = await fetch('https://agritruk-backend.onrender.com/api/health', {
+    const response = await fetch(API_ENDPOINTS.HEALTH, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

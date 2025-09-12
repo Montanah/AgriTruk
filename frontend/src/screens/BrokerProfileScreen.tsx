@@ -8,6 +8,7 @@ import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, T
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
+import { API_ENDPOINTS } from '../constants/api';
 import { auth, db } from '../firebaseConfig';
 
 interface SubscriptionPlan {
@@ -207,7 +208,7 @@ export default function BrokerProfileScreen() {
     setVerifyingEmail(true);
     try {
       // Call backend verification endpoint
-      const response = await fetch('https://agritruk-backend.onrender.com/api/auth', {
+      const response = await fetch(API_ENDPOINTS.AUTH, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -233,7 +234,7 @@ export default function BrokerProfileScreen() {
     setVerifyingPhone(true);
     try {
       // Call backend verification endpoint
-      const response = await fetch('https://agritruk-backend.onrender.com/api/auth', {
+      const response = await fetch(API_ENDPOINTS.AUTH, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

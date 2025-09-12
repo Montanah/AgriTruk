@@ -181,7 +181,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             priority: isPriority,
             perishable: isPerishable,
             needsRefrigeration: isPerishable,
-            humidyControl: isPerishable,
+            humidityControl: isPerishable,
             specialCargo: isSpecialCargo ? specialCargoSpecs : [],
             insured: insureGoods,
             value: insuranceValue ? parseFloat(insuranceValue) : 0,

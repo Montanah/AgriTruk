@@ -58,9 +58,26 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
         }
     };
 
+    const validateMpesaNumber = (number: string): boolean => {
+        // Remove any non-digit characters
+        const cleaned = number.replace(/\D/g, '');
+        
+        // Check if it's 9 digits and starts with 7 or 1
+        if (cleaned.length === 9) {
+            return cleaned.startsWith('7') || cleaned.startsWith('1');
+        }
+        
+        return false;
+    };
+
     const handleMpesaPayment = async () => {
-        if (!phoneNumber || phoneNumber.length < 10) {
-            Alert.alert('Invalid Phone Number', 'Please enter a valid M-PESA phone number.');
+        if (!phoneNumber.trim()) {
+            Alert.alert('Error', 'Please enter your M-PESA phone number');
+            return;
+        }
+
+        if (!validateMpesaNumber(phoneNumber)) {
+            Alert.alert('Invalid Phone Number', 'Please enter a valid Kenyan mobile number starting with 7 or 1 (e.g., 712345678 or 101234567)');
             return;
         }
 
@@ -191,7 +208,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
                         style={styles.phoneInput}
                         value={phoneNumber}
                         onChangeText={setPhoneNumber}
-                        placeholder="7XX XXX XXX"
+                        placeholder="7XX XXX XXX or 1XX XXX XXX"
                         placeholderTextColor={colors.text.light}
                         keyboardType="phone-pad"
                         maxLength={9}

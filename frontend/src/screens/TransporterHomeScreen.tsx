@@ -8,6 +8,7 @@ import NetworkTest from '../components/NetworkTest';
 import TransporterProfile from '../components/TransporterService/TransporterProfile';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
+import { API_ENDPOINTS } from '../constants/api';
 import { testBackendConnectivity, testTerminalLogging } from '../utils/api';
 
 export default function TransporterHomeScreen() {
@@ -46,7 +47,7 @@ export default function TransporterHomeScreen() {
         console.log('='.repeat(80));
         console.log('🚀 TRANSPORTER PROFILE REQUEST FOR BACKEND ENGINEER');
         console.log('='.repeat(80));
-        console.log('📍 Endpoint:', `https://agritruk-backend.onrender.com/api/transporters/${user.uid}`);
+        console.log('📍 Endpoint:', `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`);
         console.log('📋 Method: GET');
         console.log('⏰ Request Timestamp:', new Date().toISOString());
         console.log('🔑 Auth Token Present:', token ? 'YES' : 'NO');
@@ -56,7 +57,7 @@ export default function TransporterHomeScreen() {
         console.log('👤 User UID:', user.uid);
         console.log('='.repeat(80));
 
-        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -65,7 +66,7 @@ export default function TransporterHomeScreen() {
         console.log('='.repeat(80));
         console.log('📊 TRANSPORTER PROFILE RESPONSE FOR BACKEND ENGINEER');
         console.log('='.repeat(80));
-        console.log('📍 Endpoint:', `https://agritruk-backend.onrender.com/api/transporters/${user.uid}`);
+        console.log('📍 Endpoint:', `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`);
         console.log(`📋 Response Status: ${res.status} ${res.statusText}`);
         console.log('⏰ Response Timestamp:', new Date().toISOString());
         console.log('📋 Response Headers:', JSON.stringify(Object.fromEntries(res.headers.entries()), null, 2));
@@ -104,7 +105,7 @@ export default function TransporterHomeScreen() {
         const user = auth.currentUser;
         if (user) {
           const token = await user.getIdToken();
-          const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/requests`, {
+          const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/requests`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
@@ -125,7 +126,7 @@ export default function TransporterHomeScreen() {
         const user = auth.currentUser;
         if (user) {
           const token = await user.getIdToken();
-          const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/current-trip`, {
+          const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/current-trip`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',

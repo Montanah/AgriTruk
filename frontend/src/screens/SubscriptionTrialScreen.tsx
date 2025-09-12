@@ -18,6 +18,7 @@ import PaymentMethodCard from '../components/common/PaymentMethodCard';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { API_ENDPOINTS } from '../constants/api';
 import subscriptionService from '../services/subscriptionService';
 
 interface SubscriptionTrialScreenProps {
@@ -110,7 +111,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 return;
             }
 
-            const response = await fetch('https://agritruk-backend.onrender.com/api/payments/mpesa', {
+            const response = await fetch(API_ENDPOINTS.PAYMENTS + '/mpesa', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -156,7 +157,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 return;
             }
 
-            const response = await fetch('https://agritruk-backend.onrender.com/api/payments/stripe', {
+            const response = await fetch(API_ENDPOINTS.PAYMENTS + '/stripe', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -237,7 +238,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         style={styles.input}
                         value={mpesaPhone}
                         onChangeText={setMpesaPhone}
-                        placeholder="e.g., 254700000000"
+                        placeholder="e.g., 254712345678 or 254101234567"
                         keyboardType="phone-pad"
                         maxLength={12}
                     />

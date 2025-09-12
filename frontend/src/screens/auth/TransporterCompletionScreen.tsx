@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ImagePickerModal from '../../components/common/ImagePickerModal';
+import { API_ENDPOINTS } from '../../constants/api';
 import VehicleDetailsForm from '../../components/VehicleDetailsForm';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
@@ -123,7 +124,7 @@ export default function TransporterCompletionScreen() {
         const token = await user.getIdToken();
         let res, data = null;
         try {
-          res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+          res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
@@ -254,7 +255,7 @@ export default function TransporterCompletionScreen() {
           const user = auth.currentUser;
           if (user) {
             const token = await user.getIdToken();
-            const res = await fetch(`https://agritruk-backend.onrender.com/api/users/${user.uid}`, {
+            const res = await fetch(`${API_ENDPOINTS.AUTH}/users/${user.uid}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -478,7 +479,7 @@ export default function TransporterCompletionScreen() {
         }
 
         const token = await user.getIdToken();
-        const res = await fetch('https://agritruk-backend.onrender.com/api/transporters/', {
+        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -517,7 +518,7 @@ export default function TransporterCompletionScreen() {
         };
         const token = await user.getIdToken();
         console.log('Submitting to /api/companies with:', companyPayload);
-        const res = await fetch('https://agritruk-backend.onrender.com/api/companies', {
+        const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -539,7 +540,7 @@ export default function TransporterCompletionScreen() {
           companyContact,
         };
         console.log('Updating transporter document with:', transporterPayload);
-        const transporterRes = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -554,7 +555,7 @@ export default function TransporterCompletionScreen() {
           return false;
         }
         // After submission, fetch company profile and check completeness
-        const companyRes = await fetch(`https://agritruk-backend.onrender.com/api/companies/${user.uid}`, {
+        const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/${user.uid}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

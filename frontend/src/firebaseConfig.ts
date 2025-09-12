@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { Platform } from 'react-native';
 
@@ -11,7 +11,8 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID!,
 };
 
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase app only if it doesn't exist
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
 
 let auth;
@@ -23,11 +24,18 @@ if (Platform.OS === 'web') {
   setPersistence(auth, browserLocalPersistence);
 } else {
   // Native: use initializeAuth with AsyncStorage
-  const { initializeAuth, getReactNativePersistence } = require('firebase/auth');
+  const { initializeAuth, getReactNativePersistence, getAuth } = require('firebase/auth');
   const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
+  
+  try {
+    // Try to get existing auth instance first
+    auth = getAuth(app);
+  } catch (error) {
+    // If no auth instance exists, create one
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  }
 }
 
 export { app, auth, db };

@@ -100,7 +100,7 @@ Check the terminal for detailed logs with clear separators for easy identificati
 
 The frontend is configured to work with the backend API at:
 
-- Base URL: `https://agritruk-backend.onrender.com`
+- Base URL: `https://agritruk.onrender.com`
 - All API requests include proper authentication headers
 - Comprehensive error handling and logging
 

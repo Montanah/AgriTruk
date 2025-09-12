@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
+import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { useTransporters } from '../hooks/UseTransporters';
 import { googleMapsService } from '../services/googleMapsService';
 
@@ -228,8 +229,8 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
   const renderTransporterCard = (t: any) => {
     const estAmount = getEstAmount(t, calculatedDistance || distance);
     const displayName = t.name && t.name.length > 18 ? t.name.slice(0, 16) + '…' : t.name;
-    const profilePhotoUri = t.profilePhoto || t.photo || 'https://via.placeholder.com/54x54?text=TRUK';
-    const vehiclePhotoUri = t.vehiclePhoto || (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || 'https://via.placeholder.com/80x60?text=VEHICLE';
+    const profilePhotoUri = t.profilePhoto || t.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_MEDIUM;
+    const vehiclePhotoUri = t.vehiclePhoto || (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || PLACEHOLDER_IMAGES.VEHICLE_PHOTO_SMALL;
 
     return (
       <View key={t.id} style={styles.transporterCard}>

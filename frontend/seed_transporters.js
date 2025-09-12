@@ -1,6 +1,6 @@
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
-const API_BASE = 'https://agritruk-backend.onrender.com/api';
+const API_BASE = 'https://agritruk.onrender.com/api';
 
 // Use placeholder images for demo
 const placeholderImage = 'https://via.placeholder.com/150';

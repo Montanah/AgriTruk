@@ -6,7 +6,9 @@ import { notificationService } from '../../services/notificationService';
 import NotificationBell from '../components/Notification/NotificationBell';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
+import ChatModal from '../components/Chat/ChatModal';
 import colors from '../constants/colors';
+import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 
 interface TripDetailsParams {
@@ -64,7 +66,6 @@ const TripDetailsScreen = () => {
   // State for real data
   const [bookingData, setBookingData] = useState(booking);
   const [tripData, setTripData] = useState(trip);
-  const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch booking and trip data if not provided
@@ -94,16 +95,7 @@ const TripDetailsScreen = () => {
           }
         }
 
-        // Fetch messages if we have a booking or trip and endpoint exists
-        if ((bookingData?.id || tripData?.id) && params.bookingId) {
-          try {
-            const messagesResponse = await apiRequest(`/messages/${bookingData?.id || tripData?.id}`);
-            setMessages(messagesResponse || []);
-          } catch (error) {
-            console.log('Messages endpoint not available, using empty array');
-            setMessages([]);
-          }
-        }
+        // Messages are now handled by the ChatModal component
 
       } catch (error) {
         console.error('Failed to fetch trip details:', error);
@@ -134,7 +126,7 @@ const TripDetailsScreen = () => {
     commTarget = {
       name: transporter.name,
       phone: transporter.phone,
-      photo: transporter.photo || 'https://randomuser.me/api/portraits/men/32.jpg',
+      photo: transporter.photo || PLACEHOLDER_IMAGES.DEFAULT_USER_MALE,
       role: 'Transporter',
     };
   } else {
@@ -142,21 +134,13 @@ const TripDetailsScreen = () => {
     commTarget = {
       name: 'Transporter',
       phone: '+254700000000',
-      photo: 'https://randomuser.me/api/portraits/men/32.jpg',
+      photo: PLACEHOLDER_IMAGES.DEFAULT_USER_MALE,
       role: 'Transporter',
     };
   }
 
   const [chatVisible, setChatVisible] = useState(false);
   const [callVisible, setCallVisible] = useState(false);
-  const [input, setInput] = useState('');
-
-  const sendMessage = () => {
-    if (input.trim()) {
-      setMessages([...messages, { id: Date.now().toString(), from: 'customer', text: input }]);
-      setInput('');
-    }
-  };
 
   // Mock users for notification demo
   const customer = { id: 'C001', name: 'Green Agri Co.', email: 'info@greenagri.com', phone: '+254712345678' };
@@ -350,42 +334,14 @@ const TripDetailsScreen = () => {
       </View>
 
       {/* Chat Modal */}
-      <Modal visible={chatVisible} animationType="slide" transparent>
-        <View style={styles.modalBg}>
-          <View style={styles.chatModal}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
-              <Text style={{ fontWeight: 'bold', fontSize: 16, marginLeft: 8 }}>In-app Chat</Text>
-              <TouchableOpacity style={{ marginLeft: 'auto' }} onPress={() => setChatVisible(false)}>
-                <Ionicons name="close" size={22} color={colors.text.primary} />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={messages}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <View style={{ alignSelf: item.from === 'customer' ? 'flex-end' : 'flex-start', backgroundColor: item.from === 'customer' ? colors.primary : colors.surface, borderRadius: 12, padding: 8, marginVertical: 4, maxWidth: '75%' }}>
-                  <Text style={{ color: item.from === 'customer' ? '#fff' : colors.text.primary }}>{item.text}</Text>
-                </View>
-              )}
-              style={{ flex: 1, width: '100%' }}
-              contentContainerStyle={{ paddingVertical: 8 }}
-              inverted
-            />
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-              <TextInput
-                style={{ flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: 8, borderWidth: 1, borderColor: colors.text.light }}
-                value={input}
-                onChangeText={setInput}
-                placeholder={`Message ${commTarget.name}...`}
-              />
-              <TouchableOpacity onPress={sendMessage} style={{ marginLeft: 8 }}>
-                <Ionicons name="send" size={22} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ChatModal
+        visible={chatVisible}
+        onClose={() => setChatVisible(false)}
+        participantIds={[commTarget.id]}
+        onChatCreated={(chatRoom) => {
+          console.log('Chat created:', chatRoom);
+        }}
+      />
 
       {/* Call Modal */}
       <Modal visible={callVisible} animationType="fade" transparent>

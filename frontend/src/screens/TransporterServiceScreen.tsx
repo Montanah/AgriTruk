@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import { useAssignedJobs } from '../hooks/UseAssignedJobs';
+import { API_ENDPOINTS } from '../constants/api';
 
 import AssignTransporterModal from '../components/TransporterService/AssignTransporterModal';
 import Header from '../components/TransporterService/Header';
@@ -37,7 +38,7 @@ const TransporterServiceScreen = () => {
         const user = auth.currentUser;
         if (!user) return;
         const token = await user.getIdToken();
-        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

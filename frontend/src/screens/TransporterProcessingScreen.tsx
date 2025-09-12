@@ -5,6 +5,7 @@ import { ActivityIndicator, Animated, Easing, Image, Pressable, StyleSheet, Text
 import LinearGradient from 'react-native-linear-gradient';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
+import { API_ENDPOINTS } from '../constants/api';
 
 export default function TransporterProcessingScreen({ route }) {
   // route.params?.transporterType can be 'individual' or 'company'
@@ -40,7 +41,7 @@ export default function TransporterProcessingScreen({ route }) {
         const user = auth.currentUser;
         if (!user) return;
         const token = await user.getIdToken();
-        const res = await fetch(`https://agritruk-backend.onrender.com/api/transporters/${user.uid}`, {
+        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -241,8 +242,8 @@ export default function TransporterProcessingScreen({ route }) {
               }
               // Determine endpoint based on transporterType
               const endpoint = transporterType === 'company'
-                ? `https://agritruk-backend.onrender.com/api/companies/${user.uid}`
-                : `https://agritruk-backend.onrender.com/api/transporters/profile/me`;
+                ? `${API_ENDPOINTS.COMPANIES}/${user.uid}`
+                : `${API_ENDPOINTS.TRANSPORTERS}/profile/me`;
               // Get JWT token
               const token = await user.getIdToken();
               // Fetch status from backend with Authorization header

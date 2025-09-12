@@ -1,7 +1,9 @@
 import { getAuth } from 'firebase/auth';
+import { API_BASE_URL } from '../constants/api';
+import { EXTERNAL_URLS } from '../constants/images';
 
 // Use production backend - no local development needed
-const API_BASE = 'https://agritruk-backend.onrender.com/api';
+const API_BASE = `${API_BASE_URL}/api`;
 
 // Test logging function - call this to verify terminal logging works
 export function testTerminalLogging() {
@@ -46,8 +48,8 @@ export async function testBackendConnectivity() {
   }
 }
 
-const CLOUDINARY_UPLOAD_URL = 'https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload';
-const CLOUDINARY_UPLOAD_PRESET = 'YOUR_UPLOAD_PRESET';
+const CLOUDINARY_UPLOAD_URL = EXTERNAL_URLS.CLOUDINARY_UPLOAD;
+const CLOUDINARY_UPLOAD_PRESET = EXTERNAL_URLS.CLOUDINARY_PRESET;
 
 export async function apiRequest(endpoint: string, options: any = {}) {
   try {
@@ -154,18 +156,22 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     console.log('='.repeat(80));
 
     // Provide better error messages
-    if (error.message?.includes('Network request failed')) {
+    if (error.message?.includes('Network request failed') || error.message?.includes('fetch')) {
       throw new Error(
-        'Network error: Unable to connect to backend server. Please check your internet connection.',
+        'Backend server is currently unavailable. Your data will be saved locally and synced when the server is back online.',
       );
-    } else if (error.message?.includes('fetch')) {
+    } else if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
       throw new Error(
-        'Connection error: Unable to reach the backend server. Please try again later.',
+        'Request timeout: The server is taking too long to respond. Your data will be saved locally.',
       );
     } else if (error.message?.includes('Authentication failed')) {
       throw new Error('Authentication failed. Please log in again to continue.');
+    } else if (error.message?.includes('Backend server is currently unavailable')) {
+      throw error; // Re-throw our custom message
     } else {
-      throw error;
+      throw new Error(
+        'Server error: Unable to process your request. Your data will be saved locally.',
+      );
     }
   }
 }

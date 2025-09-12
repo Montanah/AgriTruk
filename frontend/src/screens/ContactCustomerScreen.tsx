@@ -14,6 +14,7 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ChatModal from '../components/Chat/ChatModal';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
@@ -44,57 +45,10 @@ const ContactCustomerScreen: React.FC<ContactCustomerScreenProps> = ({ route }) 
     const navigation = useNavigation();
     const { requestId, customerName, customerPhone, customerEmail, pickupLocation, deliveryLocation, requestDetails } = route.params;
 
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: '1',
-            text: `Hi ${customerName}, I've accepted your request. I'll be at ${pickupLocation} at the scheduled time.`,
-            sender: 'transporter',
-            timestamp: new Date(),
-            type: 'text'
-        },
-        {
-            id: '2',
-            text: 'Great! I\'ll be waiting. Please call me when you arrive.',
-            sender: 'customer',
-            timestamp: new Date(Date.now() - 300000), // 5 minutes ago
-            type: 'text'
-        }
-    ]);
+    const [chatVisible, setChatVisible] = useState(false);
 
-    const [newMessage, setNewMessage] = useState('');
-    const [isTyping, setIsTyping] = useState(false);
-
-    const handleSendMessage = () => {
-        if (newMessage.trim()) {
-            const message: Message = {
-                id: Date.now().toString(),
-                text: newMessage.trim(),
-                sender: 'transporter',
-                timestamp: new Date(),
-                type: 'text'
-            };
-            setMessages(prev => [message, ...prev]);
-            setNewMessage('');
-
-            // Simulate customer response after 2 seconds
-            setTimeout(() => {
-                const responses = [
-                    'Got it, thanks!',
-                    'Perfect, see you soon!',
-                    'I\'ll be ready when you arrive.',
-                    'Thanks for the update!'
-                ];
-                const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-                const customerMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    text: randomResponse,
-                    sender: 'customer',
-                    timestamp: new Date(),
-                    type: 'text'
-                };
-                setMessages(prev => [customerMessage, ...prev]);
-            }, 2000);
-        }
+    const handleStartChat = () => {
+        setChatVisible(true);
     };
 
     const handleCall = () => {
@@ -244,33 +198,25 @@ const ContactCustomerScreen: React.FC<ContactCustomerScreenProps> = ({ route }) 
             </View>
 
             {/* Message Input */}
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.inputContainer}
-            >
-                <View style={styles.inputWrapper}>
-                    <TextInput
-                        style={styles.messageInput}
-                        value={newMessage}
-                        onChangeText={setNewMessage}
-                        placeholder="Type a message..."
-                        placeholderTextColor={colors.text.light}
-                        multiline
-                        maxLength={500}
-                    />
-                    <TouchableOpacity
-                        style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]}
-                        onPress={handleSendMessage}
-                        disabled={!newMessage.trim()}
-                    >
-                        <Ionicons
-                            name="send"
-                            size={20}
-                            color={newMessage.trim() ? colors.white : colors.text.light}
-                        />
-                    </TouchableOpacity>
-                </View>
-            </KeyboardAvoidingView>
+            <View style={styles.chatButtonContainer}>
+                <TouchableOpacity
+                    style={styles.chatButton}
+                    onPress={handleStartChat}
+                >
+                    <Ionicons name="chatbubble" size={20} color={colors.white} />
+                    <Text style={styles.chatButtonText}>Start Chat with {customerName}</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Chat Modal */}
+            <ChatModal
+                visible={chatVisible}
+                onClose={() => setChatVisible(false)}
+                participantIds={[customerEmail]} // Use customer email as participant ID
+                onChatCreated={(chatRoom) => {
+                    console.log('Chat created with customer:', chatRoom);
+                }}
+            />
         </SafeAreaView>
     );
 };
@@ -441,6 +387,25 @@ const styles = StyleSheet.create({
     },
     sendButtonDisabled: {
         backgroundColor: colors.text.light,
+    },
+    chatButtonContainer: {
+        padding: 16,
+        backgroundColor: colors.white,
+    },
+    chatButton: {
+        backgroundColor: colors.primary,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+    },
+    chatButtonText: {
+        color: colors.white,
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        marginLeft: 8,
     },
 });
 

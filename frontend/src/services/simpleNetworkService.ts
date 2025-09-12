@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+import { EXTERNAL_URLS } from '../constants/images';
 
 class SimpleNetworkService {
   private isConnected = false;
@@ -54,7 +55,7 @@ class SimpleNetworkService {
   async testConnectivity(): Promise<boolean> {
     try {
       // Test basic connectivity with a simple request
-      const response = await fetch('https://www.google.com', {
+      const response = await fetch(EXTERNAL_URLS.GOOGLE, {
         method: 'HEAD',
         timeout: 5000,
       });
@@ -70,7 +71,7 @@ class SimpleNetworkService {
    */
   async testFirebaseConnectivity(): Promise<boolean> {
     try {
-      const response = await fetch('https://firestore.googleapis.com', {
+      const response = await fetch(EXTERNAL_URLS.FIREBASE_FIRESTORE, {
         method: 'HEAD',
         timeout: 10000,
       });
