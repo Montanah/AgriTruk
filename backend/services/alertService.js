@@ -82,9 +82,9 @@ class AlertService {
         await this.sendEmailAlert(alert, config.users);
       }
       
-      if (config.sms) {
-        await this.sendSMSAlert(alert, config.users);
-      }
+      // if (config.sms) {
+      //   await this.sendSMSAlert(alert, config.users);
+      // }
       
       // Here you would add push notification logic
       if (config.push) {
@@ -122,24 +122,24 @@ class AlertService {
     }
   }
 
-  async sendSMSAlert(alert, recipients) {
-    const message = `ALERT ${alert.severity}: ${alert.title}. ${alert.description.substring(0, 100)}...`;
+  // async sendSMSAlert(alert, recipients) {
+  //   const message = `ALERT ${alert.severity}: ${alert.title}. ${alert.description.substring(0, 100)}...`;
     
-    // This would be replaced with actual user phone number lookup
-    const adminNumbers = ['+254700000001', '+254700000002'];
+  //   // This would be replaced with actual user phone number lookup
+  //   const adminNumbers = ['+254700000001', '+254700000002'];
     
-    for (const number of adminNumbers) {
-      try {
-        await smsService.sendSMS(
-            'TRUK LTD', 
-            message,
-            number
-        );
-      } catch (error) {
-        console.error(`Failed to send SMS to ${number}:`, error);
-      }
-    }
-  }
+  //   for (const number of adminNumbers) {
+  //     try {
+  //       await smsService.sendSMS(
+  //           'TRUK LTD', 
+  //           message,
+  //           number
+  //       );
+  //     } catch (error) {
+  //       console.error(`Failed to send SMS to ${number}:`, error);
+  //     }
+  //   }
+  // }
 
   async sendPushAlert(alert, recipients) {
     // Implementation for push notifications would go here
@@ -193,6 +193,7 @@ class AlertService {
   }
 
   async triggerDocumentExpiryAlert(transporterId, documentType, expiryDate) {
+    
     const transporter = await Transporter.get(transporterId);
     if (!transporter) return null;
 
@@ -221,6 +222,7 @@ class AlertService {
         vehicleRegistration: transporter.vehicleRegistration
       }
     });
+    console.log(alert);
 
     return alert;
   }
@@ -339,6 +341,7 @@ class AlertService {
   }
 
   async checkDocumentExpiry() {
+    
     const transporters = await Transporter.getAll();
     const now = new Date();
     

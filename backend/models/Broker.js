@@ -3,21 +3,36 @@ const db = admin.firestore();
 
 const Broker = {
   async create(brokerData) {
+    const brokerId = db.collection('brokers').doc().id;
     const newBroker = {
+      brokerId,
       userId: brokerData.userId,
-      brokerIdUrl: brokerData.brokerIdUrl || null,
+      brokerIdUrl: brokerData.brokerIdUrl,
       rejectionReason: brokerData.rejectionReason || null,
       status: brokerData.status || 'pending',
+      idExpiryDate: brokerData.idExpiryDate,
+      approvedBy: brokerData.approvedBy,
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
+      deletedAt: null,
+      accountStatus: true,
+      deletedBy: null
     };
-    await db.collection('brokers').doc().set(newBroker);
+  
+    await db.collection('brokers').doc(brokerId).set(newBroker);
     return newBroker;
   },
 
   async get(brokerId) {
     const doc = await db.collection('brokers').doc(brokerId).get();
     if (!doc.exists) throw new Error('Broker not found');
+    return { id: doc.id, ...doc.data() };
+  },
+
+  async getByUserId(userId) {
+    const snapshot = await db.collection('brokers').where('userId', '==', userId.trim()).limit(1).get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
     return { id: doc.id, ...doc.data() };
   },
 
@@ -52,7 +67,7 @@ const Broker = {
   },
 
   async getAll() {
-    const snapshot = await db.collection('brokers').get();
+    const snapshot = await db.collection('brokers').where('accountStatus', '==', true).get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
 
@@ -65,11 +80,22 @@ const Broker = {
   },
   async getByUserId(userId) {
     const snapshot = await db.collection('brokers').where('userId', '==', userId.trim()).limit(1).get();
-    
+
     if (snapshot.empty) return null;
     const doc = snapshot.docs[0];
     return { id: doc.id, ...doc.data() };
- },
+  },
+
+  async deleteBroker(brokerId, adminId) {
+    const updates = {
+      accountStatus: false,
+      deletedAt: admin.firestore.Timestamp.now(),
+      deletedBy: adminId
+    }
+
+    await db.collection('brokers').doc(brokerId).update(updates);
+    return { message: 'Broker deleted successfully' };
+  }
 
 };
 
