@@ -9,6 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 import { apiRequest } from '../../utils/api';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -19,13 +21,23 @@ const EmailVerificationScreen = ({ navigation, route }) => {
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [verified, setVerified] = useState(false);
-  const { email, phone, role, password } = route.params || {};
+  const [userData, setUserData] = useState(null);
+  const { email: routeEmail, phone: routePhone, role: routeRole, password: routePassword } = route.params || {};
+  
+  // Get user data from route params or fetch from Firestore
+  const email = routeEmail || userData?.email;
+  const phone = routePhone || userData?.phone;
+  const role = routeRole || userData?.role;
+  const password = routePassword;
 
   // Animation refs
   const logoAnim = useRef(new Animated.Value(0)).current;
   const inputAnim = useRef(new Animated.Value(0)).current;
   const buttonAnim = useRef(new Animated.Value(1)).current;
   const successAnim = useRef(new Animated.Value(0)).current;
+  
+  // Input refs for auto-focus
+  const inputRefs = useRef(Array(6).fill(null));
 
   // Start countdown for resend
   useEffect(() => {
@@ -34,6 +46,36 @@ const EmailVerificationScreen = ({ navigation, route }) => {
       return () => clearTimeout(timer);
     }
   }, [countdown]);
+
+  // Fetch user data if not provided via route params
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!routeEmail && !routePhone) {
+        try {
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (user) {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              setUserData(userData);
+              
+              // Check if user is already verified
+              if (userData.isVerified) {
+                console.log('User is already verified, redirecting...');
+                // User is already verified, let App.tsx handle navigation
+                return;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, [routeEmail, routePhone]);
 
   // Animation on mount
   useEffect(() => {
@@ -94,43 +136,41 @@ const EmailVerificationScreen = ({ navigation, route }) => {
       console.log('Email verification successful');
       setVerified(true);
 
-      // Navigate after a short delay to show success animation
-      setTimeout(async () => {
-        // Wait a moment for backend to update isVerified field
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Sign out and sign back in to refresh auth state with correct role
-        const auth = getAuth();
-
-        // Get the password from route params for re-authentication
-        const { password } = route.params || {};
-
-        if (password) {
-          try {
-            // Sign out current user
-            await signOut(auth);
-
-            // Sign back in with email and password to refresh auth state
-            await signInWithEmailAndPassword(auth, email, password);
-
-            // Navigation will be handled automatically by App.tsx auth state listener
-            // based on the updated user role and verification status
-          } catch (error) {
-            console.error('Re-authentication error:', error);
-            // Fallback navigation if re-authentication fails
-            if (role === 'transporter') {
-              navigation.replace('TransporterCompletionScreen');
-            } else {
-              navigation.replace('Welcome');
-            }
-          }
+      // Show success animation briefly, then navigate directly
+      setTimeout(() => {
+        console.log('✅ Email verification complete - navigating to appropriate screen for role:', role);
+        
+        // Navigate directly based on role
+        if (role === 'shipper') {
+          console.log('🚀 Navigating shipper to MainTabs (Home tab = ServiceRequest)');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }]
+          });
+        } else if (role === 'business') {
+          console.log('🚀 Navigating business to BusinessStack');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'BusinessStack' }]
+          });
+        } else if (role === 'broker') {
+          console.log('🚀 Navigating broker to VerifyIdentificationDocument');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'VerifyIdentificationDocument' }]
+          });
+        } else if (role === 'transporter') {
+          console.log('🚀 Navigating transporter to TransporterCompletionScreen');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'TransporterCompletionScreen' }]
+          });
         } else {
-          // Fallback navigation if password not available
-          if (role === 'transporter') {
-            navigation.replace('TransporterCompletionScreen');
-          } else {
-            navigation.replace('Welcome');
-          }
+          console.log('🚀 Navigating unknown role to MainTabs');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }]
+          });
         }
       }, 2000);
 
@@ -262,21 +302,24 @@ const EmailVerificationScreen = ({ navigation, route }) => {
                   maxLength={1}
                   keyboardType="number-pad"
                   value={code[i] || ''}
+                  ref={(ref) => {
+                    inputRefs.current[i] = ref;
+                  }}
                   onChangeText={(val) => {
                     const newCode = code.split('');
                     newCode[i] = val.replace(/[^0-9]/g, '');
                     setCode(newCode.join(''));
                     // Auto-focus next input
                     if (val && i < 5) {
-                      // Find next input and focus it
-                      const nextInput = document.querySelector(`input[data-index="${i + 1}"]`);
+                      // Focus next input using ref
+                      const nextInput = inputRefs.current[i + 1];
                       if (nextInput) nextInput.focus();
                     }
                   }}
                   onKeyPress={({ nativeEvent }) => {
                     if (nativeEvent.key === 'Backspace' && !code[i] && i > 0) {
-                      // Find previous input and focus it
-                      const prevInput = document.querySelector(`input[data-index="${i - 1}"]`);
+                      // Focus previous input using ref
+                      const prevInput = inputRefs.current[i - 1];
                       if (prevInput) prevInput.focus();
                     }
                   }}

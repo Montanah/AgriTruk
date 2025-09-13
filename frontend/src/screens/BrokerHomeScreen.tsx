@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { API_ENDPOINTS } from '../constants/api';
 
 interface BrokerStats {
     totalClients: number;
@@ -31,60 +32,18 @@ interface Client {
     isVerified: boolean;
 }
 
-const mockStats: BrokerStats = {
-    totalClients: 24,
-    activeRequests: 8,
-    completedTrips: 156,
-    monthlyEarnings: 125000,
-    pendingRequests: 12,
-    consolidationOpportunities: 5,
-};
-
-const mockClients: Client[] = [
-    {
-        id: 'C001',
-        name: 'John Kamau',
-        company: 'Green Agri Co.',
-        phone: '+254712345678',
-        email: 'john@greenagri.co.ke',
-        clientType: 'business',
-        location: 'Nairobi, Kenya',
-        totalRequests: 45,
-        activeRequests: 3,
-        lastRequest: '2 hours ago',
-        isVerified: true,
-    },
-    {
-        id: 'C002',
-        name: 'Mary Wanjiku',
-        company: 'Farmers United',
-        phone: '+254723456789',
-        email: 'mary@farmersunited.ke',
-        clientType: 'business',
-        location: 'Eldoret, Kenya',
-        totalRequests: 32,
-        activeRequests: 2,
-        lastRequest: '1 day ago',
-        isVerified: true,
-    },
-    {
-        id: 'C003',
-        name: 'David Ochieng',
-        company: 'Eldoret Maize Co.',
-        phone: '+254734567890',
-        email: 'david@eldoretmaize.ke',
-        clientType: 'individual',
-        location: 'Kisumu, Kenya',
-        totalRequests: 28,
-        activeRequests: 1,
-        lastRequest: '3 days ago',
-        isVerified: false,
-    },
-];
+// Mock data removed - now using real API calls
 
 const BrokerHomeScreen = ({ navigation, route }: any) => {
-    const [stats, setStats] = useState<BrokerStats>(mockStats);
-    const [clients, setClients] = useState<Client[]>(mockClients);
+    const [stats, setStats] = useState<BrokerStats>({
+        totalClients: 0,
+        activeRequests: 0,
+        completedTrips: 0,
+        monthlyEarnings: 0,
+        pendingRequests: 0,
+        consolidationOpportunities: 0,
+    });
+    const [clients, setClients] = useState<Client[]>([]);
     const [showAddClientModal, setShowAddClientModal] = useState(false);
     const [showClientDetailsModal, setShowClientDetailsModal] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -107,8 +66,23 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
     const fetchBrokerStats = async () => {
         try {
-            // TODO: Replace with actual API call
-            console.log('Fetching broker stats...');
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const token = await user.getIdToken();
+            const res = await fetch(`${API_ENDPOINTS.BROKERS}/stats`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setStats(data.stats || stats);
+            }
         } catch (error) {
             console.error('Error fetching broker stats:', error);
         }
@@ -116,8 +90,23 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
     const fetchClients = async () => {
         try {
-            // TODO: Replace with actual API call
-            console.log('Fetching clients...');
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const token = await user.getIdToken();
+            const res = await fetch(`${API_ENDPOINTS.BROKERS}/clients`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setClients(data.clients || []);
+            }
         } catch (error) {
             console.error('Error fetching clients:', error);
         }

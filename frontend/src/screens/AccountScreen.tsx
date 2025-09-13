@@ -302,14 +302,14 @@ const AccountScreen = () => {
 
       // Use backend API for phone verification
       const token = await user.getIdToken();
-      const response = await fetch(API_ENDPOINTS.AUTH, {
+      const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          action: 'resend-phone-code'
+          phone: profile.phone
         }),
       });
 
@@ -323,7 +323,7 @@ const AccountScreen = () => {
             { text: 'OK' },
             {
               text: 'Go to Verification',
-              onPress: () => navigation.navigate('PhoneOTP')
+              onPress: () => navigation.navigate('PhoneOTPScreen')
             }
           ]
         );
@@ -354,6 +354,11 @@ const AccountScreen = () => {
           onPress: async () => {
             try {
               await signOut(auth);
+              // Reset the navigation stack to prevent back navigation
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Welcome' }],
+              });
             } catch (e: any) {
               setError(e.message || 'Logout failed.');
             }

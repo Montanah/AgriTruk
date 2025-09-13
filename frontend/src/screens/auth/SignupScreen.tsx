@@ -23,7 +23,7 @@ import colors from '../../constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential, getAuth } from 'firebase/auth';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { auth } from '../../firebaseConfig';
 import { apiRequest } from '../../utils/api';
@@ -77,27 +77,33 @@ const SignupScreen = () => {
   const formOpacity = useRef(new Animated.Value(1)).current;
   const inputAnim = useRef(new Animated.Value(0)).current;
 
-  // Google Auth
+  // Google Auth - Using proper client IDs
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
   });
 
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      setLoading(true);
-      signInWithCredential(auth, credential)
-        .then(() => {
-          // User is signed in, navigation will update via App.tsx
-        })
-        .catch((error) => {
-          setError('Google sign-in failed');
-        })
-        .finally(() => setLoading(false));
+      if (id_token) {
+        const credential = GoogleAuthProvider.credential(id_token);
+        setLoading(true);
+        signInWithCredential(auth, credential)
+          .then(() => {
+            // User is signed in, navigation will update via App.tsx
+          })
+          .catch((error) => {
+            console.error('Google sign-in error:', error);
+            setError('Google sign-in failed. Please try again.');
+          })
+          .finally(() => setLoading(false));
+      }
+    } else if (response?.type === 'error') {
+      console.error('Google auth error:', response.error);
+      setError('Google authentication is not properly configured. Please use email/password signup.');
     }
   }, [response]);
 
@@ -204,23 +210,59 @@ const SignupScreen = () => {
         }),
       });
 
-      console.log('Backend registration complete, navigating to verification screen');
+      console.log('Backend registration complete, user will be routed to verification screen automatically');
 
-      // Navigate to appropriate verification screen
-      if (signupMethod === 'phone') {
-        navigation.navigate('PhoneOTPScreen' as never, {
-          email: email.trim(),
-          phone: selectedCountry.code + phone.trim(),
-          role: role || 'shipper',
-          password
-        } as never);
-      } else {
-        navigation.navigate('EmailVerification' as never, {
-          email: email.trim(),
-          phone: selectedCountry.code + phone.trim(),
-          role: role || 'shipper',
-          password
-        } as never);
+      // Force refresh the authentication state to trigger App.tsx navigation
+      try {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          // Force a token refresh to trigger the auth state listener
+          await currentUser.getIdToken(true);
+          console.log('Authentication state refreshed, App.tsx should now route to verification');
+          
+          // Add a small delay to allow App.tsx to process the auth state change
+          setTimeout(() => {
+            console.log('Checking if navigation happened...');
+            // If we're still on the signup screen after 2 seconds, navigate manually
+            if (navigation.getState().routes[navigation.getState().index].name === 'Signup') {
+              console.log('Manual navigation fallback triggered');
+              if (signupMethod === 'phone') {
+                navigation.navigate('PhoneOTPScreen', {
+                  email: email.trim(),
+                  phone: selectedCountry.code + phone.trim(),
+                  role: role || 'shipper',
+                  password
+                });
+              } else {
+                navigation.navigate('EmailVerification', {
+                  email: email.trim(),
+                  phone: selectedCountry.code + phone.trim(),
+                  role: role || 'shipper',
+                  password
+                });
+              }
+            }
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('Error refreshing auth state:', error);
+        // Fallback: navigate manually if auth refresh fails
+        if (signupMethod === 'phone') {
+          navigation.navigate('PhoneOTPScreen', {
+            email: email.trim(),
+            phone: selectedCountry.code + phone.trim(),
+            role: role || 'shipper',
+            password
+          });
+        } else {
+          navigation.navigate('EmailVerification', {
+            email: email.trim(),
+            phone: selectedCountry.code + phone.trim(),
+            role: role || 'shipper',
+            password
+          });
+        }
       }
     } catch (err: any) {
       console.error('Signup error:', err);
@@ -449,31 +491,6 @@ const SignupScreen = () => {
                 )}
               </View>
 
-              {showCountryDropdown && (
-                <>
-                  <TouchableWithoutFeedback onPress={() => setShowCountryDropdown(false)}>
-                    <View style={styles.dropdownOverlay} />
-                  </TouchableWithoutFeedback>
-                  <View style={styles.dropdownContainer}>
-                    {countryOptions.map((country) => (
-                      <TouchableOpacity
-                        key={country.code}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setSelectedCountry(country);
-                          setShowCountryDropdown(false);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.dropdownFlag}>{country.flag}</Text>
-                        <Text style={styles.dropdownText}>
-                          {country.name} ({country.code})
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </>
-              )}
 
               {/* Password Input */}
               <View style={styles.passwordContainer}>
@@ -554,6 +571,33 @@ const SignupScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Country Dropdown - Outside ScrollView to prevent clipping */}
+      {showCountryDropdown && (
+        <>
+          <TouchableWithoutFeedback onPress={() => setShowCountryDropdown(false)}>
+            <View style={styles.dropdownOverlay} />
+          </TouchableWithoutFeedback>
+          <View style={styles.dropdownContainer}>
+            {countryOptions.map((country) => (
+              <TouchableOpacity
+                key={country.code}
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setSelectedCountry(country);
+                  setShowCountryDropdown(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.dropdownFlag}>{country.flag}</Text>
+                <Text style={styles.dropdownText}>
+                  {country.name} ({country.code})
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
     </SafeAreaView>
   );
 };
@@ -689,6 +733,8 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md + 2,
     fontWeight: '700',
     letterSpacing: 0.3,
+    color: '#222',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   orSeparatorWrap: {
     flexDirection: 'row',
@@ -817,13 +863,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'transparent',
-    zIndex: 99,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    zIndex: 999,
   },
   dropdownContainer: {
     position: 'absolute',
-    top: 70,
-    left: 0,
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -100 }, { translateY: -100 }],
     width: 200,
     backgroundColor: colors.surface,
     borderRadius: 16,
@@ -834,7 +881,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 16,
-    zIndex: 100,
+    zIndex: 1000,
     overflow: 'hidden',
   },
   dropdownItem: {

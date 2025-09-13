@@ -138,17 +138,97 @@ export default function App() {
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
 
+  // Debug: Log app state changes
   React.useEffect(() => {
+    console.log('🔍 APP STATE CHANGED:', {
+      user: !!user,
+      isVerified,
+      role,
+      profileCompleted,
+      loading,
+      timestamp: new Date().toISOString()
+    });
+  }, [user, isVerified, role, profileCompleted, loading]);
+
+  // Debug: Log app lifecycle
+  React.useEffect(() => {
+    console.log('🚀 APP MOUNTED - Authentication should persist');
+    
+    // Check current auth state immediately
+    if (auth && auth.currentUser) {
+      console.log('✅ CURRENT USER FOUND ON APP START:', {
+        uid: auth.currentUser.uid,
+        email: auth.currentUser.email,
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      console.log('❌ NO CURRENT USER ON APP START - This is normal for first launch');
+    }
+    
+    return () => {
+      console.log('🛑 APP UNMOUNTING - This should not happen during normal operation');
+    };
+  }, []);
+
+  React.useEffect(() => {
+    console.log('🔧 Setting up auth state listener...');
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('🔄 AUTH STATE CHANGED:', {
+        hasUser: !!firebaseUser,
+        uid: firebaseUser?.uid,
+        email: firebaseUser?.email,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Debug: Check if user is being lost
+      if (!firebaseUser && user) {
+        console.log('🚨 USER LOST - Previous user was:', {
+          uid: user.uid,
+          email: user.email,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Debug: Check if this is the initial auth state
+      if (firebaseUser && !user) {
+        console.log('✅ USER FOUND - Initial authentication state:', {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
+          console.log('🔍 FETCHING USER DATA FROM FIRESTORE:', firebaseUser.uid);
           // Try users collection first
           let snap = await getDoc(firestoreDoc(db, 'users', firebaseUser.uid));
           let data = snap.exists() ? snap.data() : null;
+          console.log('🔍 FIRESTORE DATA FETCHED:', {
+            exists: snap.exists(),
+            data: data ? {
+              role: data.role,
+              isVerified: data.isVerified,
+              email: data.email,
+              phone: data.phone
+            } : null
+          });
+          
           if (data) {
-            setIsVerified(!!data.isVerified);
+            // For new users, isVerified might be false initially
+            // We need to check if they just signed up and need verification
+            const isUserVerified = !!data.isVerified;
+            setIsVerified(isUserVerified);
             setRole(data.role || null);
+            
+            console.log('🔍 USER DATA PROCESSED:', {
+              uid: firebaseUser.uid,
+              role: data.role,
+              isVerified: isUserVerified,
+              email: data.email,
+              phone: data.phone
+            });
 
             // For transporters, check if they have a profile in transporters collection
             if (data.role === 'transporter') {
@@ -158,9 +238,13 @@ export default function App() {
                 if (transporterData) {
                   const isProfileComplete = checkTransporterProfileComplete(transporterData);
                   setProfileCompleted(isProfileComplete);
-                  // Only set isVerified true if transporter is approved
-                  setIsVerified(transporterData.status === 'approved');
-                  console.log('Transporter profile found:', { isProfileComplete, status: transporterData.status });
+                  // isVerified is already set from users collection - don't override it
+                  // Transporter approval status is separate from verification
+                  console.log('Transporter profile found:', { 
+                    isProfileComplete, 
+                    status: transporterData.status,
+                    isVerified: isUserVerified // Keep the verification status from users collection
+                  });
 
                   // Check subscription status for approved transporters
                   if (transporterData.status === 'approved') {
@@ -172,12 +256,14 @@ export default function App() {
                 } else {
                   // Transporter exists in users but no profile yet - this is the key case
                   setProfileCompleted(false);
-                  setIsVerified(false);
-                  console.log('🚨 Transporter user found but NO PROFILE in transporters collection - should go to TransporterCompletionScreen');
+                  // Don't override isVerified - keep it from users collection
+                  console.log('🚨 Transporter user found but NO PROFILE in transporters collection - should go to TransporterCompletionScreen', {
+                    isVerified: isUserVerified
+                  });
                 }
               } catch (e) {
                 setProfileCompleted(false);
-                setIsVerified(false);
+                // Don't override isVerified in error case - keep it from users collection
                 console.error('Error checking transporter profile:', e);
               }
             } else if (data.role === 'broker') {
@@ -255,6 +341,17 @@ export default function App() {
     console.log('❌ NON-BUSINESS ROLE:', role, 'Type:', typeof role);
   }
 
+  // Debug navigation state
+  console.log('🔍 NAVIGATION DEBUG:', {
+    user: !!user,
+    userId: user?.uid,
+    role,
+    isVerified,
+    profileCompleted,
+    subscriptionStatus: !!subscriptionStatus,
+    timestamp: new Date().toISOString()
+  });
+
   if (!user) {
     initialRouteName = 'Welcome';
     screens = (
@@ -266,16 +363,23 @@ export default function App() {
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+        <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+        <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+        <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+        <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         {/* Temporary: allow navigation for UI testing */}
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
         <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
-        <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
       </>
     );
   } else if (role && role !== 'transporter' && role !== 'broker' && !isVerified) {
-    // Unverified non-transporter/non-broker users
-    initialRouteName = 'Welcome';
+    // Unverified non-transporter/non-broker users - send to verification
+    console.log('🚨 UNVERIFIED USER DETECTED - routing to verification:', { role, isVerified });
+    console.log('🚨 NAVIGATING TO EMAIL VERIFICATION SCREEN');
+    console.log('🚨 NAVIGATION STACK: Unverified non-transporter/non-broker flow');
+    initialRouteName = 'EmailVerification'; // Default to email verification
     screens = (
       <>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -284,6 +388,101 @@ export default function App() {
         <Stack.Screen name="SignIn" component={LoginScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        {/* Add role-specific screens for after verification */}
+        <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+        <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+      </>
+    );
+  } else if (user && isVerified) {
+    // Verified users - route based on role
+    console.log('✅ VERIFIED USER DETECTED - routing based on role:', { role, isVerified });
+    
+    if (role === 'shipper') {
+      console.log('🚀 ROUTING SHIPPER TO MAIN TABS (Home tab = ServiceRequest)');
+      initialRouteName = 'MainTabs';
+      screens = (
+        <>
+          <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+          <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+          <Stack.Screen name="TripDetailsScreen" component={require('./src/screens/TripDetailsScreen').default} />
+          <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+          {/* Add verification screens for secondary verification */}
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        </>
+      );
+    } else if (role === 'business') {
+      console.log('🚀 ROUTING BUSINESS TO BUSINESS STACK');
+      initialRouteName = 'BusinessStack';
+      screens = (
+        <>
+          <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
+          <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+          <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+          {/* Add verification screens for secondary verification */}
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        </>
+      );
+    } else if (role === 'broker') {
+      console.log('🚀 ROUTING BROKER TO VERIFY IDENTIFICATION');
+      initialRouteName = 'VerifyIdentificationDocument';
+      screens = (
+        <>
+          <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+          <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+          {/* Add verification screens for secondary verification */}
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        </>
+      );
+    } else if (role === 'transporter') {
+      console.log('🚀 ROUTING TRANSPORTER TO COMPLETION SCREEN');
+      initialRouteName = 'TransporterCompletionScreen';
+      screens = (
+        <>
+          <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+          <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+          <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+          {/* Add verification screens for secondary verification */}
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        </>
+      );
+    } else {
+      // Fallback for other roles
+      console.log('🚀 ROUTING UNKNOWN ROLE TO MAIN TABS');
+      initialRouteName = 'MainTabs';
+      screens = (
+        <>
+          <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+          <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+          {/* Add verification screens for secondary verification */}
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        </>
+      );
+    }
+  } else if (user && !isVerified) {
+    // Fallback: Any authenticated user who is not verified should go to verification
+    console.log('🚨 FALLBACK: Authenticated but unverified user - routing to verification');
+    console.log('🚨 FALLBACK NAVIGATING TO EMAIL VERIFICATION SCREEN');
+    console.log('🚨 NAVIGATION STACK: Fallback unverified user flow');
+    initialRouteName = 'EmailVerification';
+    screens = (
+      <>
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} />
+        <Stack.Screen name="SignIn" component={LoginScreen} />
+        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+        <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+        <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+        <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
       </>
     );
   } else if (role === 'broker') {

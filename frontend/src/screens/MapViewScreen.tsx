@@ -26,29 +26,28 @@ const MapViewScreen = () => {
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [estimatedTime, setEstimatedTime] = useState('2 hours 30 minutes');
 
-    // Mock data for demonstration
-    const mockCurrentLocation = {
-        latitude: -1.2921,
-        longitude: 36.8219,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-    };
-
     useEffect(() => {
-        // TODO: Initialize map and fetch real-time location data
         initializeMap();
     }, []);
 
     const initializeMap = async () => {
         try {
-            // TODO: Replace with actual map initialization and location fetching
-            // For now, simulate loading
-            setTimeout(() => {
-                setCurrentLocation(mockCurrentLocation);
-                setLoading(false);
-            }, 2000);
+            // Get user's current location
+            const { getCurrentPositionAsync } = require('expo-location');
+            const { status } = await getCurrentPositionAsync();
+            
+            if (status === 'granted') {
+                const location = await getCurrentPositionAsync({});
+                setCurrentLocation({
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                });
+            }
         } catch (error) {
-            console.error('Error initializing map:', error);
+            console.error('Error getting location:', error);
+        } finally {
             setLoading(false);
         }
     };

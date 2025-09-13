@@ -15,9 +15,9 @@ import locationService from '../services/locationService';
 import subscriptionService from '../services/subscriptionService';
 import { apiRequest } from '../utils/api';
 
-export default function ManageTransporterScreen({ route }) {
+export default function ManageTransporterScreen({ route }: any) {
   const transporterType = route?.params?.transporterType || 'company';
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
 
   // Modal state and profile state for individual
   const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
@@ -89,6 +89,10 @@ export default function ManageTransporterScreen({ route }) {
   const [editPassword, setEditPassword] = useState('');
   const [editProfilePhoto, setEditProfilePhoto] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  
+  // Verification states for company transporter
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [verifyingPhone, setVerifyingPhone] = useState(false);
 
   // Fetch drivers and vehicles data
   useEffect(() => {
@@ -178,9 +182,11 @@ export default function ManageTransporterScreen({ route }) {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      setTimeout(() => {
-        navigation.navigate('Welcome');
-      }, 100);
+      // Reset the navigation stack to prevent back navigation
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Welcome' }],
+      });
     } catch (error) {
       Alert.alert('Logout Error', 'Failed to logout. Please try again.');
     }
@@ -505,6 +511,91 @@ export default function ManageTransporterScreen({ route }) {
     setVehicles(vehicles.map(v => v.assignedDriverId === drivers[idx].id ? { ...v, assignedDriverId: null } : v));
   };
 
+  // Verification functions for company transporter
+  const handleVerifyEmail = async () => {
+    setVerifyingEmail(true);
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await user.getIdToken()}`
+        },
+        body: JSON.stringify({
+          email: user.email
+        })
+      });
+
+      if (response.ok) {
+        Alert.alert(
+          'Verification Code Sent',
+          'Please check your email for the verification code.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation.navigate('EmailVerification')
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to send verification code. Please try again.');
+      }
+    } catch (error) {
+      console.error('Email verification error:', error);
+      Alert.alert('Error', 'Failed to send verification code. Please try again.');
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  const handleVerifyPhone = async () => {
+    setVerifyingPhone(true);
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await user.getIdToken()}`
+        },
+        body: JSON.stringify({
+          phone: editPhone || user.phoneNumber
+        })
+      });
+
+      if (response.ok) {
+        Alert.alert(
+          'Verification SMS Sent',
+          'Please check your phone for the verification code. You can then use your phone to log in.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation.navigate('PhoneOTPScreen')
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
+      }
+    } catch (error) {
+      console.error('Phone verification error:', error);
+      Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
+    } finally {
+      setVerifyingPhone(false);
+    }
+  };
+
   const assignDriverToVehicle = (vehicleIdx, driverId) => {
     setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: driverId } : v));
   };
@@ -537,6 +628,83 @@ export default function ManageTransporterScreen({ route }) {
               <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
               <Text style={[styles.actionText, { color: colors.error }]}>Logout</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Contact Verification Section */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Contact Verification</Text>
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Email</Text>
+                <View style={[
+                  styles.verificationBadge,
+                  false // TODO: Get actual verification status from profile
+                ]}>
+                  <MaterialCommunityIcons
+                    name="close-circle"
+                    size={12}
+                    color={colors.error}
+                  />
+                  <Text style={[
+                    styles.verificationBadgeText,
+                    styles.unverifiedText
+                  ]}>
+                    Unverified
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+                {/* TODO: Get actual email from profile */}
+                No email set
+              </Text>
+              <TouchableOpacity
+                style={styles.verifyButton}
+                onPress={handleVerifyEmail}
+                disabled={verifyingEmail}
+              >
+                {verifyingEmail ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.verifyButtonText}>Verify Email</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Phone</Text>
+                <View style={[
+                  styles.verificationBadge,
+                  false // TODO: Get actual verification status from profile
+                ]}>
+                  <MaterialCommunityIcons
+                    name="close-circle"
+                    size={12}
+                    color={colors.error}
+                  />
+                  <Text style={[
+                    styles.verificationBadgeText,
+                    styles.unverifiedText
+                  ]}>
+                    Unverified
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+                {editPhone || 'No phone set'}
+              </Text>
+              <TouchableOpacity
+                style={styles.verifyButton}
+                onPress={handleVerifyPhone}
+                disabled={verifyingPhone}
+              >
+                {verifyingPhone ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
           {/* Vehicles List */}
           <View style={styles.card}>
@@ -915,6 +1083,10 @@ export default function ManageTransporterScreen({ route }) {
     const [individualProfile, setIndividualProfile] = useState(null);
     const [loadingIndividualProfile, setLoadingIndividualProfile] = useState(true);
     const [individualProfilePhoto, setIndividualProfilePhoto] = useState(null);
+    
+    // Verification states
+    const [verifyingEmail, setVerifyingEmail] = useState(false);
+    const [verifyingPhone, setVerifyingPhone] = useState(false);
 
     // Location tracking state
     const [isLocationTracking, setIsLocationTracking] = useState(false);
@@ -990,6 +1162,92 @@ export default function ManageTransporterScreen({ route }) {
         locationService.stopLocationTracking();
       };
     }, []);
+    
+    // Verification functions
+    const handleVerifyEmail = async () => {
+      setVerifyingEmail(true);
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${await user.getIdToken()}`
+          },
+          body: JSON.stringify({
+            email: user.email
+          })
+        });
+
+        if (response.ok) {
+          Alert.alert(
+            'Verification Code Sent',
+            'Please check your email for the verification code.',
+            [
+              { text: 'OK' },
+              {
+                text: 'Go to Verification',
+                onPress: () => navigation.navigate('EmailVerification')
+              }
+            ]
+          );
+        } else {
+          Alert.alert('Error', 'Failed to send verification code. Please try again.');
+        }
+      } catch (error) {
+        console.error('Email verification error:', error);
+        Alert.alert('Error', 'Failed to send verification code. Please try again.');
+      } finally {
+        setVerifyingEmail(false);
+      }
+    };
+
+    const handleVerifyPhone = async () => {
+      setVerifyingPhone(true);
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${await user.getIdToken()}`
+          },
+          body: JSON.stringify({
+            phone: individualProfile?.phoneNumber || user.phoneNumber
+          })
+        });
+
+        if (response.ok) {
+          Alert.alert(
+            'Verification SMS Sent',
+            'Please check your phone for the verification code. You can then use your phone to log in.',
+            [
+              { text: 'OK' },
+              {
+                text: 'Go to Verification',
+                onPress: () => navigation.navigate('PhoneOTPScreen')
+              }
+            ]
+          );
+        } else {
+          Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
+        }
+      } catch (error) {
+        console.error('Phone verification error:', error);
+        Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
+      } finally {
+        setVerifyingPhone(false);
+      }
+    };
+    
     // Modal state for insurance and photo gallery
     const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
     const [licenseModalVisible, setLicenseModalVisible] = useState(false);
@@ -1019,6 +1277,93 @@ export default function ManageTransporterScreen({ route }) {
                 <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Logout</Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Contact Verification Section */}
+          <View style={[styles.card, { marginBottom: 12 }]}>
+            <Text style={styles.sectionTitle}>Contact Verification</Text>
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Email</Text>
+                <View style={[
+                  styles.verificationBadge,
+                  individualProfile?.emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
+                ]}>
+                  <MaterialCommunityIcons
+                    name={individualProfile?.emailVerified ? "check-circle" : "close-circle"}
+                    size={12}
+                    color={individualProfile?.emailVerified ? colors.success : colors.error}
+                  />
+                  <Text style={[
+                    styles.verificationBadgeText,
+                    individualProfile?.emailVerified ? styles.verifiedText : styles.unverifiedText
+                  ]}>
+                    {individualProfile?.emailVerified ? 'Verified' : 'Unverified'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+                {individualProfile?.email || 'No email set'}
+              </Text>
+              {!individualProfile?.emailVerified && (
+                <TouchableOpacity
+                  style={styles.verifyButton}
+                  onPress={handleVerifyEmail}
+                  disabled={verifyingEmail}
+                >
+                  {verifyingEmail ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.verifyButtonText}>Verify Email</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Phone</Text>
+                <View style={[
+                  styles.verificationBadge,
+                  individualProfile?.phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
+                ]}>
+                  <MaterialCommunityIcons
+                    name={individualProfile?.phoneVerified ? "check-circle" : "close-circle"}
+                    size={12}
+                    color={individualProfile?.phoneVerified ? colors.success : colors.error}
+                  />
+                  <Text style={[
+                    styles.verificationBadgeText,
+                    individualProfile?.phoneVerified ? styles.verifiedText : styles.unverifiedText
+                  ]}>
+                    {individualProfile?.phoneVerified ? 'Verified' : 'Unverified'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+                {individualProfile?.phoneNumber || 'No phone set'}
+              </Text>
+              {!individualProfile?.phoneVerified && (
+                <TouchableOpacity
+                  style={styles.verifyButton}
+                  onPress={handleVerifyPhone}
+                  disabled={verifyingPhone}
+                >
+                  {verifyingPhone ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {individualProfile?.emailVerified && individualProfile?.phoneVerified && (
+              <View style={styles.allVerified}>
+                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+                <Text style={styles.allVerifiedText}>All contact methods verified!</Text>
+              </View>
+            )}
           </View>
 
           {/* Location Tracking Section */}
@@ -1430,4 +1775,56 @@ const styles = StyleSheet.create({
   dropdownList: { backgroundColor: colors.white, borderRadius: 8, marginTop: 2, borderWidth: 1, borderColor: colors.text.light, width: '100%' },
   dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: colors.background },
   input: { backgroundColor: colors.background, borderRadius: 8, padding: 10, marginVertical: 6, fontSize: 15, borderWidth: 1, borderColor: colors.text.light },
+  // Verification styles
+  verificationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  verifiedBadge: {
+    backgroundColor: colors.success + '20',
+  },
+  unverifiedBadge: {
+    backgroundColor: colors.warning + '20',
+  },
+  verificationBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  verifiedText: {
+    color: colors.success,
+  },
+  unverifiedText: {
+    color: colors.warning,
+  },
+  verifyButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  verifyButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  allVerified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '10',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  allVerifiedText: {
+    color: colors.success,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    fontSize: 14,
+  },
 });

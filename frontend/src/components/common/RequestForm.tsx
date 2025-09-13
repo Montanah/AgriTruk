@@ -507,7 +507,11 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             )}
 
             <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-                <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+                <ScrollView 
+                    style={styles.scrollView} 
+                    contentContainerStyle={styles.scrollViewContent}
+                    showsVerticalScrollIndicator={false}
+                >
                     {/* Service Type Tabs */}
                     <View style={styles.tabContainer}>
                         {SERVICES.map((service) => (
@@ -1107,6 +1111,9 @@ const styles = StyleSheet.create({
     scrollView: {
         flex: 1,
         paddingHorizontal: spacing.lg,
+    },
+    scrollViewContent: {
+        paddingBottom: 100, // Extra padding to ensure button doesn't get hidden behind bottom nav
     },
     tabContainer: {
         flexDirection: 'row',

@@ -221,23 +221,35 @@ const BusinessProfileScreen = ({ navigation }: any) => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(API_ENDPOINTS.AUTH, {
+      const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ action: 'resend-phone-code' })
+        body: JSON.stringify({ 
+          phone: user.phoneNumber || editData.phone 
+        })
       });
 
       if (response.ok) {
-        Alert.alert('Verification Code Sent', 'Please check your phone for the verification code.');
+        Alert.alert(
+          'Verification SMS Sent',
+          'Please check your phone for the verification code. You can then use your phone to log in.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation.navigate('PhoneOTPScreen')
+            }
+          ]
+        );
       } else {
-        Alert.alert('Error', 'Failed to send verification code. Please try again.');
+        Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
       }
     } catch (error) {
       console.error('Phone verification error:', error);
-      Alert.alert('Error', 'Failed to send verification code. Please try again.');
+      Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
     } finally {
       setVerifyingPhone(false);
     }
@@ -258,7 +270,11 @@ const BusinessProfileScreen = ({ navigation }: any) => {
             try {
               const auth = getAuth();
               await signOut(auth);
-              // Navigation will be handled by App.tsx auth state
+              // Reset the navigation stack to prevent back navigation
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Welcome' }],
+              });
             } catch (error) {
               console.error('Logout error:', error);
             }

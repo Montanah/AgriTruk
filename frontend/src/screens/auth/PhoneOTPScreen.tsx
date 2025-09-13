@@ -9,6 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 import { apiRequest } from '../../utils/api';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -27,7 +29,14 @@ const PhoneOTPScreen = ({ navigation, route }) => {
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const { phone, email, role, password } = route.params || {};
+  const [userData, setUserData] = useState(null);
+  const { phone: routePhone, email: routeEmail, role: routeRole, password: routePassword } = route.params || {};
+  
+  // Get user data from route params or fetch from Firestore
+  const email = routeEmail || userData?.email;
+  const phone = routePhone || userData?.phone;
+  const role = routeRole || userData?.role;
+  const password = routePassword;
 
   // Animation refs
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -63,6 +72,36 @@ const PhoneOTPScreen = ({ navigation, route }) => {
     }
     setupSmsRetriever();
   }, []);
+
+  // Fetch user data if not provided via route params
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!routeEmail && !routePhone) {
+        try {
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (user) {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              setUserData(userData);
+              
+              // Check if user is already verified
+              if (userData.isVerified) {
+                console.log('User is already verified, redirecting...');
+                // User is already verified, let App.tsx handle navigation
+                return;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, [routeEmail, routePhone]);
 
   // Start countdown for resend
   useEffect(() => {
@@ -119,28 +158,43 @@ const PhoneOTPScreen = ({ navigation, route }) => {
       // Success - user is now verified
       console.log('Phone verification successful');
 
-      // Wait a moment for backend to update isVerified field
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Sign out and sign back in to refresh auth state with correct role
-      const auth = getAuth();
-
-      // Get the password from route params for re-authentication
-      const { password } = route.params || {};
-
-      if (password) {
-        // Sign out current user
-        await signOut(auth);
-
-        // Sign back in with email and password to refresh auth state
-        await signInWithEmailAndPassword(auth, email, password);
-
-        // Navigation will be handled automatically by App.tsx auth state listener
-        // based on the updated user role and verification status
-      } else {
-        // Let the auth state listener handle navigation
-        // No manual navigation needed
-      }
+      // Show success briefly, then navigate directly
+      setTimeout(() => {
+        console.log('✅ Phone verification complete - navigating to appropriate screen for role:', role);
+        
+        // Navigate directly based on role
+        if (role === 'shipper') {
+          console.log('🚀 Navigating shipper to MainTabs (Home tab = ServiceRequest)');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }]
+          });
+        } else if (role === 'business') {
+          console.log('🚀 Navigating business to BusinessStack');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'BusinessStack' }]
+          });
+        } else if (role === 'broker') {
+          console.log('🚀 Navigating broker to VerifyIdentificationDocument');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'VerifyIdentificationDocument' }]
+          });
+        } else if (role === 'transporter') {
+          console.log('🚀 Navigating transporter to TransporterCompletionScreen');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'TransporterCompletionScreen' }]
+          });
+        } else {
+          console.log('🚀 Navigating unknown role to MainTabs');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }]
+          });
+        }
+      }, 2000);
     } catch (err) {
       console.error('Phone verification error:', err);
       let errorMessage = 'Verification failed. Please try again.';

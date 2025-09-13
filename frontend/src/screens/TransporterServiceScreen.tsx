@@ -57,6 +57,50 @@ const TransporterServiceScreen = () => {
     fetchProfile();
   }, []);
 
+  // Fetch subscription status
+  React.useEffect(() => {
+    const fetchSubscriptionStatus = async () => {
+      try {
+        setLoadingSubscription(true);
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/subscriber/status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setSubscriptionStatus(data.data);
+          
+          // Set notification based on subscription status
+          if (data.data?.hasActiveSubscription) {
+            const daysRemaining = data.data.daysRemaining;
+            if (daysRemaining <= 3 && daysRemaining > 0) {
+              setNotification(`Your subscription expires in ${daysRemaining} day${daysRemaining > 1 ? 's' : ''}. Renew now to avoid interruption.`);
+            } else if (daysRemaining <= 0) {
+              setNotification('Your subscription has expired. Please renew to continue using premium features.');
+            }
+          } else if (data.data?.needsTrialActivation) {
+            setNotification('Activate your free trial to access all premium features.');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching subscription status:', error);
+      } finally {
+        setLoadingSubscription(false);
+      }
+    };
+    
+    fetchSubscriptionStatus();
+  }, []);
+
   const { jobs: bookings, loading, error } = useAssignedJobs('agri');
 
   const [showSubscription, setShowSubscription] = useState(false);
@@ -65,57 +109,61 @@ const TransporterServiceScreen = () => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [selectedTransporter, setSelectedTransporter] = useState(null);
 
-  const [notification, setNotification] = useState<string | null>(
-    'Your subscription expires in 3 days. Renew now to avoid interruption.'
-  );
-
-  const [subscriptionStatus, setSubscriptionStatus] = useState({
-    plan: '6 Months',
-    expires: '2024-06-30',
-    active: true,
-  });
+  const [notification, setNotification] = useState<string | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
 
   const handleAssignTransporter = (jobId: string, transporter: any) => {
     // Handle transporter assignment logic here
     console.log('Assigning transporter:', transporter, 'to job:', jobId);
   };
 
-  // Enhanced stats for different transporter types
-  const getStats = () => {
-    if (isCompanyOrBroker) {
-      return {
-        fleetSize: 12,
-        activeToday: 7,
-        avgUtilizationRate: 58,
-        totalRevenue: 198500,
-        monthlyRevenue: 45600,
-        weeklyRevenue: 12500,
-        totalTrips: 342,
-        completedTrips: 315,
-        cancelledTrips: 12,
-        pendingTrips: 15,
-        avgRating: 4.7,
-        totalReviews: 289,
-        netProfit: 29500,
-      };
-    } else {
-      return {
-        totalRevenue: 98500,
-        monthlyRevenue: 23400,
-        weeklyRevenue: 6800,
-        totalTrips: 156,
-        completedTrips: 142,
-        cancelledTrips: 8,
-        pendingTrips: 6,
-        avgRating: 4.8,
-        totalReviews: 134,
-        netEarnings: 58500,
-        onTimeDelivery: 89,
-      };
-    }
-  };
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    weeklyRevenue: 0,
+    totalTrips: 0,
+    completedTrips: 0,
+    cancelledTrips: 0,
+    pendingTrips: 0,
+    avgRating: 0,
+    totalReviews: 0,
+    netEarnings: 0,
+    onTimeDelivery: 0,
+    fleetSize: 0,
+    activeToday: 0,
+    avgUtilizationRate: 0,
+    netProfit: 0,
+  });
 
-  const stats = getStats();
+  // Fetch real stats from API
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/stats`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data.stats || stats);
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    };
+    
+    fetchStats();
+  }, []);
   const fleetStats = isCompanyOrBroker
     ? {
       fleetSize: stats.fleetSize || 0,

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { API_ENDPOINTS } from '../constants/api';
 
 interface RequestItem {
     id: string;
@@ -38,100 +39,13 @@ interface Client {
     isVerified: boolean;
 }
 
-const mockRequests: RequestItem[] = [
-    {
-        id: 'R001',
-        type: 'instant',
-        status: 'pending',
-        clientName: 'John Kamau',
-        clientCompany: 'Green Agri Co.',
-        fromLocation: 'Nairobi',
-        toLocation: 'Mombasa',
-        productType: 'Maize',
-        weight: '5 tons',
-        urgency: 'high',
-        createdAt: '2 hours ago',
-        estimatedValue: 250000,
-        description: 'Fresh maize for export',
-        clientRating: 4.8,
-        price: 45000,
-    },
-    {
-        id: 'R002',
-        type: 'booking',
-        status: 'confirmed',
-        clientName: 'Mary Wanjiku',
-        clientCompany: 'Farmers United',
-        fromLocation: 'Eldoret',
-        toLocation: 'Nairobi',
-        productType: 'Wheat',
-        weight: '3 tons',
-        urgency: 'medium',
-        createdAt: '1 day ago',
-        estimatedValue: 180000,
-        description: 'Wheat for milling',
-        clientRating: 4.9,
-        price: 32000,
-    },
-    {
-        id: 'R003',
-        type: 'instant',
-        status: 'in_transit',
-        clientName: 'David Ochieng',
-        clientCompany: 'Eldoret Maize Co.',
-        fromLocation: 'Kisumu',
-        toLocation: 'Nakuru',
-        productType: 'Vegetables',
-        weight: '2 tons',
-        urgency: 'high',
-        createdAt: '3 days ago',
-        estimatedValue: 120000,
-        description: 'Fresh vegetables',
-        clientRating: 4.7,
-        price: 28000,
-    },
-];
-
-const mockClients: Client[] = [
-    {
-        id: 'C001',
-        name: 'John Kamau',
-        company: 'Green Agri Co.',
-        phone: '+254712345678',
-        email: 'john@greenagri.co.ke',
-        totalRequests: 45,
-        activeRequests: 3,
-        lastRequest: '2 hours ago',
-        isVerified: true,
-    },
-    {
-        id: 'C002',
-        name: 'Mary Wanjiku',
-        company: 'Farmers United',
-        phone: '+254723456789',
-        email: 'mary@farmersunited.ke',
-        totalRequests: 32,
-        activeRequests: 2,
-        lastRequest: '1 day ago',
-        isVerified: true,
-    },
-    {
-        id: 'C003',
-        name: 'David Ochieng',
-        company: 'Eldoret Maize Co.',
-        phone: '+254734567890',
-        email: 'david@eldoretmaize.ke',
-        totalRequests: 28,
-        activeRequests: 1,
-        lastRequest: '3 days ago',
-        isVerified: false,
-    },
-];
+// Mock data removed - now using real API calls
 
 const BrokerManagementScreen = ({ navigation, route }: any) => {
     const [activeTab, setActiveTab] = useState('requests');
-    const [requests, setRequests] = useState<RequestItem[]>(mockRequests);
-    const [clients, setClients] = useState<Client[]>(mockClients);
+    const [requests, setRequests] = useState<RequestItem[]>([]);
+    const [clients, setClients] = useState<Client[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
     const [showConsolidationModal, setShowConsolidationModal] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -144,6 +58,63 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             setSelectedClient(route.params.selectedClient);
         }
     }, [route.params]);
+
+    useEffect(() => {
+        // Load data when component mounts
+        loadRequests();
+        loadClients();
+    }, []);
+
+    const loadRequests = async () => {
+        try {
+            setLoading(true);
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            const token = await user.getIdToken();
+            const res = await fetch(`${API_ENDPOINTS.BROKERS}/requests`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                setRequests(data.requests || []);
+            }
+        } catch (error) {
+            console.error('Error loading requests:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadClients = async () => {
+        try {
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+            
+            const token = await user.getIdToken();
+            const res = await fetch(`${API_ENDPOINTS.BROKERS}/clients`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                setClients(data.clients || []);
+            }
+        } catch (error) {
+            console.error('Error loading clients:', error);
+        }
+    };
 
     const handleTrackRequest = (request: RequestItem) => {
         if (request.type === 'instant') {

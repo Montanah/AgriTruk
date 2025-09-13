@@ -44,28 +44,33 @@ const LoginScreen = ({ navigation }: any) => {
     { code: '+254', flag: '🇰🇪' },
   ];
 
-  // Google Auth
+  // Google Auth - Using proper client IDs
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
   });
 
   useEffect(() => {
     if (response?.type === 'success') {
       const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      setLoading(true);
-      signInWithCredential(auth, credential)
-        .then(() => {
-          // User is signed in, navigation will update via App.tsx
-        })
-        .catch((error) => {
-          console.error('Google sign-in error:', error);
-          setError('Google sign-in failed. Please try again.');
-        })
-        .finally(() => setLoading(false));
+      if (id_token) {
+        const credential = GoogleAuthProvider.credential(id_token);
+        setLoading(true);
+        signInWithCredential(auth, credential)
+          .then(() => {
+            // User is signed in, navigation will update via App.tsx
+          })
+          .catch((error) => {
+            console.error('Google sign-in error:', error);
+            setError('Google sign-in failed. Please try again.');
+          })
+          .finally(() => setLoading(false));
+      }
+    } else if (response?.type === 'error') {
+      console.error('Google auth error:', response.error);
+      setError('Google authentication is not properly configured. Please use email/password login.');
     }
   }, [response]);
 
@@ -464,6 +469,7 @@ const styles = StyleSheet.create({
     color: '#222',
     fontWeight: '700',
     letterSpacing: 0.2,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   signupText: {
     color: colors.text.secondary,

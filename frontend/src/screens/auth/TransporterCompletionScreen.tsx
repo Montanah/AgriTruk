@@ -496,7 +496,11 @@ export default function TransporterCompletionScreen() {
         }
 
         if (res.ok) {
-          // Success: navigate immediately
+          // Success: navigate to processing screen
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'TransporterProcessingScreen', params: { transporterType } }]
+          });
           return true;
         } else {
           // Try to show backend error message if available

@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Script to build both APK and IPA for TRUKAPP
-# This script builds both Android and iOS apps for testing
+# This script builds both Android and iOS apps for production testing
 
-echo "🚀 Building TRUKAPP for both platforms..."
+echo "🚀 Building TRUKAPP for both platforms (Production Testing)..."
 
 # Navigate to frontend directory
 cd /home/clintmadeit/Projects/TRUKAPP/frontend
@@ -20,13 +20,17 @@ if ! eas whoami &> /dev/null; then
     exit 1
 fi
 
+# Clean build cache
+echo "🧹 Cleaning build cache..."
+eas build --platform all --profile testing --clear-cache
+
 echo "📱 Building APK (Android)..."
-eas build --platform android --profile preview
+eas build --platform android --profile testing
 
 echo "🍎 Building IPA (iOS)..."
-eas build --platform ios --profile preview
+eas build --platform ios --profile testing
 
 echo "✅ Both builds completed!"
-echo "📱 Android: Install the APK on your Android device using the QR code or download link above."
-echo "🍎 iOS: Install the IPA on your iOS device using the QR code or download link above."
-echo "📱 Note: For iOS, you'll need to trust the developer certificate on your device."
+echo "📱 Android: Download APK and share with testers (enable 'Install from unknown sources')"
+echo "🍎 iOS: Download IPA and share with testers (use TestFlight or trust developer certificate)"
+echo "📱 Both files are ready for production testing!"

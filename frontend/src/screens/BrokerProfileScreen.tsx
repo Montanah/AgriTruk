@@ -164,9 +164,11 @@ export default function BrokerProfileScreen() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      setTimeout(() => {
-        navigation.navigate('Welcome');
-      }, 100);
+      // Reset the navigation stack to prevent back navigation
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Welcome' }],
+      });
     } catch (error) {
       console.error('Logout error:', error);
       Alert.alert('Logout Error', 'Failed to logout. Please try again.');
@@ -233,24 +235,39 @@ export default function BrokerProfileScreen() {
   const handleVerifyPhone = async () => {
     setVerifyingPhone(true);
     try {
+      const user = auth.currentUser;
+      if (!user) return;
+
       // Call backend verification endpoint
-      const response = await fetch(API_ENDPOINTS.AUTH, {
+      const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
+          'Authorization': `Bearer ${await user.getIdToken()}`
         },
-        body: JSON.stringify({ action: 'resend-phone-code' })
+        body: JSON.stringify({ 
+          phone: user.phoneNumber || profileData?.phone 
+        })
       });
 
       if (response.ok) {
-        Alert.alert('Verification Code Sent', 'Please check your phone for the verification code.');
+        Alert.alert(
+          'Verification SMS Sent',
+          'Please check your phone for the verification code. You can then use your phone to log in.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation.navigate('PhoneOTPScreen')
+            }
+          ]
+        );
       } else {
-        Alert.alert('Error', 'Failed to send verification code. Please try again.');
+        Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
       }
     } catch (error) {
       console.error('Phone verification error:', error);
-      Alert.alert('Error', 'Failed to send verification code. Please try again.');
+      Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
     } finally {
       setVerifyingPhone(false);
     }

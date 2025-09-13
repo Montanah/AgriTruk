@@ -13,32 +13,9 @@ import {
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { API_ENDPOINTS } from '../constants/api';
 
-// Mock tracking data - replace with real API calls
-const mockTrackingData = {
-    bookingId: 'BK-2024-001',
-    status: 'in_transit',
-    pickupLocation: 'Nairobi, Kenya',
-    deliveryLocation: 'Mombasa, Kenya',
-    estimatedDelivery: '2024-06-15 14:00',
-    actualPickup: '2024-06-14 09:30',
-    transporter: {
-        name: 'John Doe',
-        phone: '+254712345678',
-        vehicle: 'Toyota Hiace - KCA 123A',
-    },
-    currentLocation: {
-        latitude: -1.2921,
-        longitude: 36.8219,
-        address: 'Nairobi CBD',
-        timestamp: '2024-06-14 15:30',
-    },
-    route: [
-        { status: 'completed', location: 'Nairobi', time: '09:30', description: 'Pickup completed' },
-        { status: 'in_progress', location: 'Nairobi CBD', time: '15:30', description: 'In transit' },
-        { status: 'pending', location: 'Mombasa', time: '14:00', description: 'Expected delivery' },
-    ],
-};
+// Mock data removed - now using real API calls
 
 const statusConfig = {
     pending: { color: colors.primary, icon: 'clock-outline', label: 'Pending' },
@@ -53,11 +30,10 @@ const TrackingScreen = () => {
     const route = useRoute();
     const navigation = useNavigation();
     const { booking, isConsolidated, consolidatedRequests } = route.params || {};
-    const [trackingData, setTrackingData] = useState(mockTrackingData);
+    const [trackingData, setTrackingData] = useState(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        // TODO: Fetch real tracking data based on booking ID
         if (booking?.id) {
             fetchTrackingData(booking.id);
         }
@@ -66,17 +42,26 @@ const TrackingScreen = () => {
     const fetchTrackingData = async (bookingId: string) => {
         setLoading(true);
         try {
-            // TODO: Replace with actual API call
-            // const response = await apiRequest(`/bookings/${bookingId}/tracking`);
-            // setTrackingData(response.data);
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
 
-            // For now, use mock data
-            setTimeout(() => {
-                setTrackingData(mockTrackingData);
-                setLoading(false);
-            }, 1000);
+            const token = await user.getIdToken();
+            const res = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}/tracking`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setTrackingData(data.trackingData || data);
+            }
         } catch (error) {
             console.error('Error fetching tracking data:', error);
+        } finally {
             setLoading(false);
         }
     };
@@ -86,6 +71,7 @@ const TrackingScreen = () => {
     };
 
     const renderStatusTimeline = () => {
+        if (!trackingData?.route) return null;
         return trackingData.route.map((step, index) => (
             <View key={index} style={styles.timelineItem}>
                 <View style={styles.timelineDot}>
@@ -113,6 +99,16 @@ const TrackingScreen = () => {
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
                     <Text style={styles.loadingText}>Loading tracking information...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (!trackingData) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>No tracking data available</Text>
                 </View>
             </SafeAreaView>
         );

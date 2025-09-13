@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Script to build APK for TRUKAPP
-# This script builds and installs the APK on your device
+# This script builds production-ready APK for testing
 
-echo "🚀 Building TRUKAPP APK..."
+echo "🚀 Building TRUKAPP APK for Production Testing..."
 
 # Navigate to frontend directory
 cd /home/clintmadeit/Projects/TRUKAPP/frontend
@@ -20,8 +20,13 @@ if ! eas whoami &> /dev/null; then
     exit 1
 fi
 
-echo "📱 Building APK..."
-eas build --platform android --profile preview
+# Clean build cache
+echo "🧹 Cleaning build cache..."
+eas build --platform android --profile testing --clear-cache
+
+echo "📱 Building APK for testing..."
+eas build --platform android --profile testing
 
 echo "✅ APK build completed!"
-echo "📱 Install the APK on your device using the QR code or download link above."
+echo "📱 Download the APK from the link above and share with testers."
+echo "📱 Testers can install directly on Android devices (enable 'Install from unknown sources')"

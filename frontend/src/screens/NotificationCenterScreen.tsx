@@ -2,28 +2,49 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../constants/colors';
-
-// For demo, import the mock notification log
-let mockNotifications: any[] = [];
-try {
-  // @ts-ignore
-  mockNotifications = (typeof window !== 'undefined' && window.mockNotifications) ? window.mockNotifications : require('../../mock/mockNotifications').mockNotifications;
-} catch (e) {}
+import { API_ENDPOINTS } from '../constants/api';
 
 // Props: userId, role (driver, customer, broker, admin, transporter)
 export default function NotificationCenterScreen({ userId, role, onReadAll }) {
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Filter notifications for this user/role
-    const filtered = (mockNotifications || []).filter(
-      n => (n.to === userId || n.audience === role)
-    ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    setNotifications(filtered);
-    // Mark as read
-    filtered.forEach(n => { n.read = true; });
-    if (onReadAll) onReadAll();
-  }, [userId, role, mockNotifications.length]);
+    fetchNotifications();
+  }, [userId, role]);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_ENDPOINTS.NOTIFICATIONS}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const filtered = (data.notifications || []).filter(
+          n => (n.to === userId || n.audience === role)
+        ).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setNotifications(filtered);
+        // Mark as read
+        filtered.forEach(n => { n.read = true; });
+        if (onReadAll) onReadAll();
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>

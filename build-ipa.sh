@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Script to build IPA for TRUKAPP
-# This script builds the iOS app for testing
+# This script builds production-ready IPA for testing
 
-echo "🍎 Building TRUKAPP IPA..."
+echo "🍎 Building TRUKAPP IPA for Production Testing..."
 
 # Navigate to frontend directory
 cd /home/clintmadeit/Projects/TRUKAPP/frontend
@@ -20,9 +20,14 @@ if ! eas whoami &> /dev/null; then
     exit 1
 fi
 
-echo "📱 Building IPA..."
-eas build --platform ios --profile preview
+# Clean build cache
+echo "🧹 Cleaning build cache..."
+eas build --platform ios --profile testing --clear-cache
+
+echo "📱 Building IPA for testing..."
+eas build --platform ios --profile testing
 
 echo "✅ IPA build completed!"
-echo "🍎 Install the IPA on your iOS device using the QR code or download link above."
-echo "📱 Note: You'll need to trust the developer certificate on your iOS device."
+echo "🍎 Download the IPA from the link above and share with testers."
+echo "📱 Testers need to install via TestFlight or Apple Configurator 2"
+echo "📱 Note: For direct installation, testers need to trust the developer certificate"

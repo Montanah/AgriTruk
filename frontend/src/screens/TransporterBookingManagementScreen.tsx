@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { API_ENDPOINTS } from '../constants/api';
 
 interface RouteParams {
     transporterType?: 'company' | 'individual' | 'broker';
@@ -49,125 +50,62 @@ const TransporterBookingManagementScreen = () => {
             try {
                 setLoading(true);
 
-                // Mock data for now - replace with actual API calls when backend is ready
-                const mockTransporter = {
-                    id: 'TRANS001',
-                    displayName: 'John Doe Transport',
-                    phoneNumber: '+254700000000',
-                    canHandle: ['agri', 'cargo'],
-                    refrigeration: true,
-                    humidityControl: false,
-                    specialCargo: ['fragile', 'oversized'],
-                    specialFeatures: ['temperature-control'],
-                    perishableSpecs: ['refrigerated', 'humidity']
-                };
-                setCurrentTransporter(mockTransporter);
+                // Get user token for API calls
+                const { getAuth } = require('firebase/auth');
+                const auth = getAuth();
+                const currentUser = auth.currentUser;
+                if (!currentUser) {
+                    setLoading(false);
+                    return;
+                }
 
-                const mockInstantRequests = [
-                    {
-                        id: 'REQ001',
-                        type: 'instant',
-                        serviceType: 'agriTRUK',
-                        fromLocation: 'Nairobi Industrial Area',
-                        toLocation: 'Mombasa Port',
-                        productType: 'Machinery',
-                        weight: '2.5 tons',
-                        isPerishable: false,
-                        isSpecialCargo: true,
-                        specialCargoSpecs: ['fragile', 'oversized'],
-                        perishableSpecs: [],
-                        specialRequirements: ['Fragile handling', 'Oversized load'],
-                        urgency: 'high',
-                        estimatedValue: 500000,
-                        client: { name: 'ABC Industries', rating: 4.5, completedOrders: 15 },
-                        pricing: {
-                            basePrice: 30000,
-                            urgencyBonus: 2000,
-                            specialHandling: 1000,
-                            total: 33000
-                        },
-                        route: {
-                            distance: '480 km',
-                            estimatedTime: '6-8 hours',
-                            detour: '0 km'
-                        },
-                        createdAt: new Date().toISOString(),
-                        expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() // 2 hours from now
-                    }
-                ];
-                setAllInstantRequests(mockInstantRequests);
+                const token = await currentUser.getIdToken();
 
-                const mockRouteLoads = [
-                    {
-                        id: 'LOAD001',
-                        type: 'route',
-                        serviceType: 'cargoTRUK',
-                        fromLocation: 'Eldoret',
-                        toLocation: 'Nakuru',
-                        productType: 'Agricultural Products',
-                        weight: '1.8 tons',
-                        isPerishable: true,
-                        isSpecialCargo: false,
-                        specialCargoSpecs: [],
-                        perishableSpecs: ['refrigerated'],
-                        specialRequirements: ['Refrigerated transport'],
-                        urgency: 'medium',
-                        estimatedValue: 150000,
-                        description: 'Transport fresh agricultural products from Eldoret to Nakuru with refrigeration requirements.',
-                        clientRating: 4.2,
-                        schedule: {
-                            pickupDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
-                            deliveryDate: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), // Day after tomorrow
-                            flexibility: 'flexible'
-                        },
-                        client: { name: 'Green Farms Ltd', rating: 4.2 },
-                        pricing: {
-                            basePrice: 20000,
-                            total: 21500
-                        },
-                        price: 21500, // For compatibility with render function
-                        route: {
-                            distance: '180 km',
-                            estimatedTime: '3-4 hours'
-                        }
-                    }
-                ];
-                setAllRouteLoads(mockRouteLoads);
+                // Fetch real data from API
+                const instantRequestsRes = await fetch(`${API_ENDPOINTS.BOOKINGS}/requests`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (instantRequestsRes.ok) {
+                    const instantRequestsData = await instantRequestsRes.json();
+                    setAllInstantRequests(instantRequestsData.requests || []);
+                }
 
-                const mockBookings = [
-                    {
-                        id: 'BOOK001',
-                        type: 'booking',
-                        status: 'active',
-                        serviceType: 'agriTRUK',
-                        fromLocation: 'Kisumu',
-                        toLocation: 'Nairobi',
-                        productType: 'Livestock',
-                        weight: '3.2 tons',
-                        isPerishable: false,
-                        isSpecialCargo: true,
-                        specialCargoSpecs: ['livestock'],
-                        perishableSpecs: [],
-                        specialRequirements: ['Livestock handling'],
-                        client: {
-                            name: 'Livestock Co',
-                            phone: '+254700000001',
-                            email: 'contact@livestockco.com'
-                        },
-                        pricing: {
-                            total: 28000,
-                            paid: 14000,
-                            pending: 14000
-                        },
-                        schedule: {
-                            pickupDate: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
-                            deliveryDate: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString() // 8 hours from now
-                        },
-                        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
-                        updatedAt: new Date().toISOString()
-                    }
-                ];
-                setAllBookings(mockBookings);
+                const routeLoadsRes = await fetch(`${API_ENDPOINTS.BOOKINGS}/transporters/route-loads`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (routeLoadsRes.ok) {
+                    const routeLoadsData = await routeLoadsRes.json();
+                    setAllRouteLoads(routeLoadsData.routeLoads || []);
+                }
+
+                const bookingsRes = await fetch(`${API_ENDPOINTS.BOOKINGS}/transporter/${currentUser.uid}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (bookingsRes.ok) {
+                    const bookingsData = await bookingsRes.json();
+                    setAllBookings(bookingsData.bookings || []);
+                }
+
+                // Fetch transporter profile
+                const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (transporterRes.ok) {
+                    const transporterData = await transporterRes.json();
+                    setCurrentTransporter(transporterData);
+                }
 
                 // TODO: Uncomment when backend endpoints are ready
                 // // Fetch current transporter profile

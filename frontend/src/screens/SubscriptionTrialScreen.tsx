@@ -54,7 +54,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     const [trialActivated, setTrialActivated] = useState(false);
 
     // Get trial duration from subscription status or default to 30 days
-    const trialDuration = subscriptionStatus?.daysRemaining || 30;
+    const trialDuration = subscriptionStatus?.trialDaysRemaining || subscriptionStatus?.daysRemaining || 30;
     const isTrialActive = subscriptionStatus?.isTrialActive || false;
 
     const handleActivateTrial = async () => {

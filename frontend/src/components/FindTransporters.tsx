@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
     maxHeight: 600,
   },
   transportersListContent: {
-    paddingBottom: spacing.lg,
+    paddingBottom: 100, // Extra padding to ensure content doesn't get hidden behind bottom nav
   },
 
   // Transporter Card Styles

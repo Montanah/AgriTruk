@@ -11,6 +11,7 @@ import {
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
+import { API_ENDPOINTS } from '../../constants/api';
 
 interface IncomingRequest {
     id: string;
@@ -63,75 +64,29 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
             try {
                 setLoading(true);
 
-                // Mock data for now - replace with actual API call when backend is ready
-                const mockRequests = [
-                    {
-                        id: 'REQ001',
-                        type: 'instant',
-                        fromLocation: 'Nairobi Industrial Area',
-                        toLocation: 'Mombasa Port',
-                        productType: 'Machinery',
-                        weight: '2.5 tons',
-                        createdAt: new Date().toISOString(),
-                        urgency: 'high' as const,
-                        estimatedValue: 150000,
-                        specialRequirements: ['Fragile handling', 'Oversized load'],
-                        client: {
-                            name: 'ABC Industries',
-                            rating: 4.8,
-                            completedOrders: 45
-                        },
-                        pricing: {
-                            basePrice: 25000,
-                            urgencyBonus: 5000,
-                            specialHandling: 3000,
-                            total: 33000
-                        },
-                        route: {
-                            distance: '450 km',
-                            estimatedTime: '6-8 hours',
-                            detour: '0 km'
-                        }
+                // Fetch real data from API
+                const { getAuth } = require('firebase/auth');
+                const auth = getAuth();
+                const user = auth.currentUser;
+                if (!user) {
+                    setRequests([]);
+                    return;
+                }
+
+                const token = await user.getIdToken();
+                const res = await fetch(`${API_ENDPOINTS.BOOKINGS}/requests`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
                     },
-                    {
-                        id: 'REQ002',
-                        type: 'instant',
-                        fromLocation: 'Eldoret',
-                        toLocation: 'Nakuru',
-                        productType: 'Agricultural Products',
-                        weight: '1.8 tons',
-                        createdAt: new Date().toISOString(),
-                        urgency: 'medium' as const,
-                        estimatedValue: 85000,
-                        specialRequirements: ['Refrigerated transport'],
-                        client: {
-                            name: 'Green Farms Ltd',
-                            rating: 4.6,
-                            completedOrders: 23
-                        },
-                        pricing: {
-                            basePrice: 18000,
-                            urgencyBonus: 2000,
-                            specialHandling: 1500,
-                            total: 21500
-                        },
-                        route: {
-                            distance: '120 km',
-                            estimatedTime: '2-3 hours',
-                            detour: '0 km'
-                        }
-                    }
-                ];
+                });
 
-                setRequests(mockRequests);
-
-                // TODO: Uncomment when backend endpoint is ready
-                // const data = await apiRequest('/bookings/requests');
-                // if (Array.isArray(data)) {
-                //     setRequests(data.slice(0, 3)); // Show only first 3 requests
-                // } else {
-                //     setRequests([]);
-                // }
+                if (res.ok) {
+                    const data = await res.json();
+                    setRequests(data.requests?.slice(0, 3) || []); // Show only first 3 requests
+                } else {
+                    setRequests([]);
+                }
             } catch (error) {
                 console.error('Failed to fetch incoming requests:', error);
                 setRequests([]);
