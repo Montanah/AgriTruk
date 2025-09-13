@@ -33,7 +33,6 @@ try {
     const { getAuth, setPersistence, browserLocalPersistence } = require('firebase/auth');
     auth = getAuth(app);
     setPersistence(auth, browserLocalPersistence);
-    console.log('🌐 Firebase Auth initialized for WEB with browserLocalPersistence');
   } else {
     // Native: use initializeAuth with AsyncStorage
     const { initializeAuth, getReactNativePersistence, getAuth } = require('firebase/auth');
@@ -42,13 +41,11 @@ try {
     try {
       // Try to get existing auth instance first
       auth = getAuth(app);
-      console.log('📱 Firebase Auth initialized for NATIVE (existing instance)');
     } catch (error) {
       // If no auth instance exists, create one
       auth = initializeAuth(app, {
         persistence: getReactNativePersistence(AsyncStorage),
       });
-      console.log('📱 Firebase Auth initialized for NATIVE (new instance) with AsyncStorage persistence');
     }
   }
 } catch (error) {

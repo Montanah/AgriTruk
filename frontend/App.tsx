@@ -238,11 +238,16 @@ export default function App() {
                 if (transporterData) {
                   const isProfileComplete = checkTransporterProfileComplete(transporterData);
                   setProfileCompleted(isProfileComplete);
+                  
+                  // Set transporter status for routing logic
+                  data.transporterStatus = transporterData.status || 'pending';
+                  
                   // isVerified is already set from users collection - don't override it
                   // Transporter approval status is separate from verification
                   console.log('Transporter profile found:', { 
                     isProfileComplete, 
                     status: transporterData.status,
+                    transporterStatus: data.transporterStatus,
                     isVerified: isUserVerified // Keep the verification status from users collection
                   });
 
@@ -256,13 +261,16 @@ export default function App() {
                 } else {
                   // Transporter exists in users but no profile yet - this is the key case
                   setProfileCompleted(false);
+                  data.transporterStatus = 'incomplete'; // Set status for routing
                   // Don't override isVerified - keep it from users collection
                   console.log('🚨 Transporter user found but NO PROFILE in transporters collection - should go to TransporterCompletionScreen', {
-                    isVerified: isUserVerified
+                    isVerified: isUserVerified,
+                    transporterStatus: data.transporterStatus
                   });
                 }
               } catch (e) {
                 setProfileCompleted(false);
+                data.transporterStatus = 'incomplete'; // Set status for routing
                 // Don't override isVerified in error case - keep it from users collection
                 console.error('Error checking transporter profile:', e);
               }
@@ -426,8 +434,12 @@ export default function App() {
         </>
       );
     } else if (role === 'broker') {
-      console.log('🚀 ROUTING BROKER TO VERIFY IDENTIFICATION');
+      // Check if broker is already verified (has completed ID verification)
+      // We'll need to fetch broker-specific data to check verification status
+      // For now, route all brokers to verification screen - they can check their status there
+      console.log('🚀 ROUTING BROKER TO ID VERIFICATION (status will be checked in screen)');
       initialRouteName = 'VerifyIdentificationDocument';
+      
       screens = (
         <>
           <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
@@ -438,8 +450,12 @@ export default function App() {
         </>
       );
     } else if (role === 'transporter') {
-      console.log('🚀 ROUTING TRANSPORTER TO COMPLETION SCREEN');
+      // For transporters, always route to completion screen initially
+      // The TransporterCompletionScreen will check the actual profile status
+      // and route accordingly (completion -> processing -> tabs)
+      console.log('🚀 ROUTING TRANSPORTER TO COMPLETION SCREEN (will check profile status)');
       initialRouteName = 'TransporterCompletionScreen';
+      
       screens = (
         <>
           <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />

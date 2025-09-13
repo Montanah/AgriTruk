@@ -182,7 +182,7 @@ const PhoneOTPScreen = ({ navigation, route }) => {
             routes: [{ name: 'VerifyIdentificationDocument' }]
           });
         } else if (role === 'transporter') {
-          console.log('🚀 Navigating transporter to TransporterCompletionScreen');
+          console.log('🚀 Navigating transporter to TransporterCompletionScreen (profile will be checked in App.tsx)');
           navigation.reset({
             index: 0,
             routes: [{ name: 'TransporterCompletionScreen' }]

@@ -149,6 +149,12 @@ export default function TransporterCompletionScreen() {
           } catch (e) {
             data = null;
           }
+        } else if (res.status === 404) {
+          // Transporter profile doesn't exist yet - this is expected for new transporters
+          clearTimeout(timeout);
+          setCheckingProfile(false);
+          setProfileCheckError(''); // Clear any error - this is normal for new transporters
+          return;
         } else {
           // Show backend error if available
           let errMsg = 'Profile check failed.';
@@ -521,7 +527,6 @@ export default function TransporterCompletionScreen() {
           contact: companyContact
         };
         const token = await user.getIdToken();
-        console.log('Submitting to /api/companies with:', companyPayload);
         const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
           method: 'POST',
           headers: {
@@ -543,7 +548,6 @@ export default function TransporterCompletionScreen() {
           companyReg,
           companyContact,
         };
-        console.log('Updating transporter document with:', transporterPayload);
         const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           method: 'PATCH',
           headers: {
@@ -619,71 +623,96 @@ export default function TransporterCompletionScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.header}>Complete Your Transporter Profile</Text>
-      {/* Selector for Individual vs Company */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: spacing.lg }}>
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            backgroundColor: transporterType === 'individual' ? colors.primary : colors.background,
-            padding: 12,
-            borderRadius: 8,
-            marginRight: 6,
-            borderWidth: 1.2,
-            borderColor: colors.primary,
-          }}
-          onPress={() => setTransporterType('individual')}
-        >
-          <Text style={{
-            color: transporterType === 'individual' ? '#fff' : colors.primary,
-            fontWeight: 'bold',
-            textAlign: 'center',
-          }}>Individual</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            backgroundColor: transporterType === 'company' ? colors.primary : colors.background,
-            padding: 12,
-            borderRadius: 8,
-            marginLeft: 6,
-            borderWidth: 1.2,
-            borderColor: colors.primary,
-          }}
-          onPress={() => setTransporterType('company')}
-        >
-          <Text style={{
-            color: transporterType === 'company' ? '#fff' : colors.primary,
-            fontWeight: 'bold',
-            textAlign: 'center',
-          }}>Company</Text>
-        </TouchableOpacity>
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Modern Header */}
+      <View style={styles.modernHeader}>
+        <View style={styles.headerIconContainer}>
+          <MaterialCommunityIcons name="truck-delivery" size={32} color={colors.primary} />
+        </View>
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.modernHeaderTitle}>Complete Your Profile</Text>
+          <Text style={styles.modernHeaderSubtitle}>
+            {transporterType === 'individual' 
+              ? 'Set up your individual transporter account' 
+              : 'Set up your company transporter account'
+            }
+          </Text>
+        </View>
       </View>
-      <View style={{ marginBottom: spacing.md, width: '100%' }}>
-        {transporterType === 'individual' ? (
-          <Text style={{ color: colors.text.secondary, fontSize: 15, textAlign: 'center' }}>
-            Register as an <Text style={{ fontWeight: 'bold' }}>Individual</Text> to get jobs directly and manage your own vehicle profile.
+
+      {/* Full-width Role Selector */}
+      <Text style={styles.roleSelectorTitle}>Account Type</Text>
+      <View style={styles.roleSelector}>
+        <TouchableOpacity
+          style={[
+            styles.roleButton,
+            transporterType === 'individual' && styles.roleButtonActive
+          ]}
+          onPress={() => setTransporterType('individual')}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons 
+            name="account" 
+            size={24} 
+            color={transporterType === 'individual' ? colors.white : colors.primary} 
+          />
+          <Text style={[
+            styles.roleButtonText,
+            transporterType === 'individual' && styles.roleButtonTextActive
+          ]}>
+            Individual
           </Text>
-        ) : (
-          <Text style={{ color: colors.text.secondary, fontSize: 15, textAlign: 'center' }}>
-            Register as a <Text style={{ fontWeight: 'bold' }}>Company</Text> to subscribe to plans, get transportation jobs, and assign them to your own or outsourced transporters.
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.roleButton,
+            transporterType === 'company' && styles.roleButtonActive
+          ]}
+          onPress={() => setTransporterType('company')}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons 
+            name="office-building" 
+            size={24} 
+            color={transporterType === 'company' ? colors.white : colors.primary} 
+          />
+          <Text style={[
+            styles.roleButtonText,
+            transporterType === 'company' && styles.roleButtonTextActive
+          ]}>
+            Company
           </Text>
-        )}
+        </TouchableOpacity>
       </View>
 
       {/* INDIVIDUAL FORM */}
       {transporterType === 'individual' && (
         <>
-          <Text style={styles.sectionTitle}>Profile Photo</Text>
-          <TouchableOpacity style={styles.photoPicker} onPress={handleProfilePhoto}>
-            {profilePhoto ? (
-              <Image source={{ uri: profilePhoto.uri }} style={styles.profilePhoto} />
-            ) : (
-              <Ionicons name="person-circle-outline" size={80} color={colors.text.light} />
-            )}
-            <Text style={styles.photoPickerText}>Upload Profile Photo</Text>
-          </TouchableOpacity>
+          {/* Profile Photo Section */}
+          <View style={styles.modernSection}>
+            <Text style={styles.modernSectionTitle}>
+              <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+              Profile Photo
+            </Text>
+            <TouchableOpacity 
+              style={styles.modernPhotoPicker} 
+              onPress={handleProfilePhoto}
+              activeOpacity={0.7}
+            >
+              {profilePhoto ? (
+                <Image source={{ uri: profilePhoto.uri }} style={styles.modernProfilePhoto} />
+              ) : (
+                <View style={styles.photoPlaceholder}>
+                  <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                  <Text style={styles.photoPlaceholderText}>Tap to add photo</Text>
+                </View>
+              )}
+              <View style={styles.photoOverlay}>
+                <MaterialCommunityIcons name="camera-plus" size={20} color={colors.white} />
+              </View>
+            </TouchableOpacity>
+          </View>
 
           <Text style={styles.sectionTitle}>Vehicle Details</Text>
           <VehicleDetailsForm
@@ -707,63 +736,113 @@ export default function TransporterCompletionScreen() {
             error={error}
           />
 
-          {/* Grouped Document Uploads: DL + ID, Logbook + Insurance */}
-          <View style={{ flexDirection: 'row', width: '100%', gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Driver's License</Text>
-              <TouchableOpacity style={styles.photoPicker} onPress={handleDlFile}>
-                {dlFile ? (
-                  dlFile.mimeType && dlFile.mimeType.startsWith('image/') ? (
-                    <Image source={{ uri: dlFile.uri }} style={styles.dlPhoto} />
+          {/* Documents Section */}
+          <View style={styles.modernSection}>
+            <Text style={styles.modernSectionTitle}>
+              <MaterialCommunityIcons name="file-document-multiple" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+              Required Documents
+            </Text>
+            <Text style={styles.modernSectionDescription}>
+              Upload clear photos or PDFs of your documents
+            </Text>
+            
+            {/* First Row - 2 Documents */}
+            <View style={styles.documentsRow}>
+              {/* Driver's License */}
+              <View style={styles.documentCardRow}>
+                <Text style={styles.documentTitle}>Driver's License</Text>
+                <TouchableOpacity 
+                  style={[styles.documentUploader, dlFile && styles.documentUploaderFilled]} 
+                  onPress={handleDlFile}
+                  activeOpacity={0.7}
+                >
+                  {dlFile ? (
+                    dlFile.mimeType && dlFile.mimeType.startsWith('image/') ? (
+                      <Image source={{ uri: dlFile.uri }} style={styles.documentImage} />
+                    ) : (
+                      <View style={styles.documentFileContainer}>
+                        <MaterialCommunityIcons name="file-pdf-box" size={32} color={colors.primary} />
+                        <Text style={styles.documentFileName}>{dlFile.name || 'PDF File'}</Text>
+                      </View>
+                    )
                   ) : (
-                    <View style={{ alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="file-pdf-box" size={60} color={colors.error} />
-                      <Text style={{ color: colors.text.secondary, marginTop: 4 }}>{dlFile.name || 'PDF File'}</Text>
+                    <View style={styles.documentPlaceholder}>
+                      <MaterialCommunityIcons name="card-account-details-outline" size={32} color={colors.text.light} />
+                      <Text style={styles.documentPlaceholderText}>Tap to upload</Text>
                     </View>
-                  )
-                ) : (
-                  <MaterialCommunityIcons name="card-account-details-outline" size={60} color={colors.text.light} />
-                )}
-                <Text style={styles.photoPickerText}>Upload DL</Text>
-              </TouchableOpacity>
+                  )}
+                  {dlFile && (
+                    <View style={styles.documentCheckmark}>
+                      <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Driver's ID */}
+              <View style={styles.documentCardRow}>
+                <Text style={styles.documentTitle}>Driver's ID</Text>
+                <TouchableOpacity 
+                  style={[styles.documentUploader, idFile && styles.documentUploaderFilled]} 
+                  onPress={handleIdFile}
+                  activeOpacity={0.7}
+                >
+                  {idFile ? (
+                    idFile.mimeType && idFile.mimeType.startsWith('image/') ? (
+                      <Image source={{ uri: idFile.uri }} style={styles.documentImage} />
+                    ) : (
+                      <View style={styles.documentFileContainer}>
+                        <MaterialCommunityIcons name="file-pdf-box" size={32} color={colors.primary} />
+                        <Text style={styles.documentFileName}>{idFile.name || 'PDF File'}</Text>
+                      </View>
+                    )
+                  ) : (
+                    <View style={styles.documentPlaceholder}>
+                      <MaterialCommunityIcons name="card-account-details-outline" size={32} color={colors.text.light} />
+                      <Text style={styles.documentPlaceholderText}>Tap to upload</Text>
+                    </View>
+                  )}
+                  {idFile && (
+                    <View style={styles.documentCheckmark}>
+                      <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Driver's ID</Text>
-              <TouchableOpacity style={styles.photoPicker} onPress={handleIdFile}>
-                {idFile ? (
-                  idFile.mimeType && idFile.mimeType.startsWith('image/') ? (
-                    <Image source={{ uri: idFile.uri }} style={styles.dlPhoto} />
+
+            {/* Second Row - 1 Document */}
+            <View style={styles.documentsRowSingle}>
+              {/* Insurance */}
+              <View style={styles.documentCardSingle}>
+                <Text style={styles.documentTitle}>Insurance</Text>
+                <TouchableOpacity 
+                  style={[styles.documentUploader, insuranceFile && styles.documentUploaderFilled]} 
+                  onPress={handleInsuranceFile}
+                  activeOpacity={0.7}
+                >
+                  {insuranceFile ? (
+                    insuranceFile.mimeType && insuranceFile.mimeType.startsWith('image/') ? (
+                      <Image source={{ uri: insuranceFile.uri }} style={styles.documentImage} />
+                    ) : (
+                      <View style={styles.documentFileContainer}>
+                        <MaterialCommunityIcons name="file-pdf-box" size={32} color={colors.primary} />
+                        <Text style={styles.documentFileName}>{insuranceFile.name || 'PDF File'}</Text>
+                      </View>
+                    )
                   ) : (
-                    <View style={{ alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="file-pdf-box" size={60} color={colors.error} />
-                      <Text style={{ color: colors.text.secondary, marginTop: 4 }}>{idFile.name || 'PDF File'}</Text>
+                    <View style={styles.documentPlaceholder}>
+                      <MaterialCommunityIcons name="shield-check-outline" size={32} color={colors.text.light} />
+                      <Text style={styles.documentPlaceholderText}>Tap to upload</Text>
                     </View>
-                  )
-                ) : (
-                  <MaterialCommunityIcons name="card-account-details-outline" size={60} color={colors.text.light} />
-                )}
-                <Text style={styles.photoPickerText}>Upload ID</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', width: '100%', gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Insurance</Text>
-              <TouchableOpacity style={styles.photoPicker} onPress={handleInsuranceFile}>
-                {insuranceFile ? (
-                  insuranceFile.mimeType && insuranceFile.mimeType.startsWith('image/') ? (
-                    <Image source={{ uri: insuranceFile.uri }} style={styles.dlPhoto} />
-                  ) : (
-                    <View style={{ alignItems: 'center' }}>
-                      <MaterialCommunityIcons name="file-pdf-box" size={60} color={colors.error} />
-                      <Text style={{ color: colors.text.secondary, marginTop: 4 }}>{insuranceFile.name || 'PDF File'}</Text>
+                  )}
+                  {insuranceFile && (
+                    <View style={styles.documentCheckmark}>
+                      <Ionicons name="checkmark-circle" size={18} color={colors.success} />
                     </View>
-                  )
-                ) : (
-                  <MaterialCommunityIcons name="shield-check-outline" size={60} color={colors.text.light} />
-                )}
-                <Text style={styles.photoPickerText}>Upload Insurance</Text>
-              </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </>
@@ -1131,5 +1210,311 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 8,
     textAlign: 'center',
+  },
+
+  // Modern Styles
+  modernHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.text.light + '20',
+  },
+  headerIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.lg,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  modernHeaderTitle: {
+    fontSize: fonts.size.xl + 4,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  modernHeaderSubtitle: {
+    fontSize: fonts.size.md,
+    color: colors.text.secondary,
+    lineHeight: 20,
+  },
+
+  // Role Selector
+  roleSelectorContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    shadowColor: colors.black,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  roleSelectorTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  roleSelector: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  roleButton: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: spacing.lg,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.text.light + '30',
+  },
+  roleButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  roleIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  roleIconContainerActive: {
+    backgroundColor: colors.white + '30',
+  },
+  roleButtonText: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  roleButtonTextActive: {
+    color: colors.white,
+  },
+  roleButtonDescription: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  roleButtonDescriptionActive: {
+    color: colors.white + 'CC',
+  },
+  roleDescriptionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+  roleDescription: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
+    flex: 1,
+    lineHeight: 18,
+  },
+
+  // Modern Sections
+  modernSection: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    shadowColor: colors.black,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  modernSectionTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modernSectionDescription: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: 18,
+  },
+
+  // Modern Photo Picker
+  modernPhotoPicker: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.primary + '30',
+    borderStyle: 'dashed',
+    position: 'relative',
+  },
+  modernProfilePhoto: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.background,
+  },
+  photoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoPlaceholderText: {
+    color: colors.text.light,
+    fontSize: fonts.size.sm,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  photoOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Full-width Role Selector
+  roleSelectorTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+  },
+  roleSelector: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: 6,
+    marginBottom: spacing.lg,
+    shadowColor: colors.black,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  roleButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    gap: spacing.sm,
+    minHeight: 60,
+  },
+  roleButtonActive: {
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  roleButtonText: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  roleButtonTextActive: {
+    color: colors.white,
+  },
+
+  // Documents Layout
+  documentsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  documentsRowSingle: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  documentCardRow: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.text.light + '20',
+  },
+  documentCardSingle: {
+    width: '60%',
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.text.light + '20',
+  },
+  documentTitle: {
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  documentUploader: {
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.text.light + '40',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  documentUploaderFilled: {
+    borderColor: colors.success,
+    borderStyle: 'solid',
+  },
+  documentImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+  },
+  documentFileContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  documentFileName: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  documentPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  documentPlaceholderText: {
+    fontSize: 10,
+    color: colors.text.light,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  documentCheckmark: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
 });

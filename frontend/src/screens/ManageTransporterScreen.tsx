@@ -14,6 +14,7 @@ import { auth } from '../firebaseConfig';
 import locationService from '../services/locationService';
 import subscriptionService from '../services/subscriptionService';
 import { apiRequest } from '../utils/api';
+import { handleLogoutWithConfirmation } from '../utils/logout';
 
 export default function ManageTransporterScreen({ route }: any) {
   const transporterType = route?.params?.transporterType || 'company';
@@ -178,18 +179,9 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   };
 
-  // Updated logout handler: sign out and reset navigation to WelcomeScreen
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      // Reset the navigation stack to prevent back navigation
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Welcome' }],
-      });
-    } catch (error) {
-      Alert.alert('Logout Error', 'Failed to logout. Please try again.');
-    }
+  // Updated logout handler: use common logout function
+  const handleLogout = () => {
+    handleLogoutWithConfirmation(navigation);
   };
 
   const handleSave = async () => {
@@ -562,14 +554,14 @@ export default function ManageTransporterScreen({ route }: any) {
       const user = auth.currentUser;
       if (!user) return;
 
-      const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
+      const response = await fetch(API_ENDPOINTS.AUTH, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${await user.getIdToken()}`
         },
         body: JSON.stringify({
-          phone: editPhone || user.phoneNumber
+          action: 'resend-phone-code'
         })
       });
 
@@ -1214,14 +1206,14 @@ export default function ManageTransporterScreen({ route }: any) {
         const user = auth.currentUser;
         if (!user) return;
 
-        const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
+        const response = await fetch(API_ENDPOINTS.AUTH, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${await user.getIdToken()}`
           },
           body: JSON.stringify({
-            phone: individualProfile?.phoneNumber || user.phoneNumber
+            action: 'resend-phone-code'
           })
         });
 

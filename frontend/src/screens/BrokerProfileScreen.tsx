@@ -10,6 +10,7 @@ import colors from '../constants/colors';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { auth, db } from '../firebaseConfig';
+import { handleLogoutWithConfirmation } from '../utils/logout';
 
 interface SubscriptionPlan {
   id: string;
@@ -161,18 +162,8 @@ export default function BrokerProfileScreen() {
     fetchProfile();
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      // Reset the navigation stack to prevent back navigation
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Welcome' }],
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-      Alert.alert('Logout Error', 'Failed to logout. Please try again.');
-    }
+  const handleLogout = () => {
+    handleLogoutWithConfirmation(navigation);
   };
 
   const handleSaveProfile = async () => {
@@ -239,14 +230,14 @@ export default function BrokerProfileScreen() {
       if (!user) return;
 
       // Call backend verification endpoint
-      const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
+      const response = await fetch(API_ENDPOINTS.AUTH, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${await user.getIdToken()}`
         },
         body: JSON.stringify({ 
-          phone: user.phoneNumber || profileData?.phone 
+          action: 'resend-phone-code'
         })
       });
 

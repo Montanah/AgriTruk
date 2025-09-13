@@ -11,6 +11,7 @@ import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
 import { API_ENDPOINTS } from '../../constants/api';
+import { handleLogoutWithConfirmation } from '../../utils/logout';
 
 
 
@@ -221,14 +222,14 @@ const BusinessProfileScreen = ({ navigation }: any) => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
+      const response = await fetch(API_ENDPOINTS.AUTH, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ 
-          phone: user.phoneNumber || editData.phone 
+          action: 'resend-phone-code'
         })
       });
 
@@ -258,30 +259,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
 
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const auth = getAuth();
-              await signOut(auth);
-              // Reset the navigation stack to prevent back navigation
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Welcome' }],
-              });
-            } catch (error) {
-              console.error('Logout error:', error);
-            }
-          },
-        },
-      ]
-    );
+    handleLogoutWithConfirmation(navigation);
   };
 
   const getStatusColor = (status: string) => {

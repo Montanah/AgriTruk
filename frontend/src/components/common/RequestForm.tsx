@@ -3,7 +3,6 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
@@ -23,7 +22,6 @@ import { PRODUCT_SUGGESTIONS } from '../../constants/productSuggestions';
 import spacing from '../../constants/spacing';
 import { useConsolidations } from '../../context/ConsolidationContext';
 import FindTransporters from '../FindTransporters';
-import LoadingSpinner from './LoadingSpinner';
 import CompactLocationSection from './CompactLocationSection';
 
 const SERVICES = [
@@ -138,11 +136,9 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     const [bulkQuantity, setBulkQuantity] = useState('');
 
     // UI state
-    const [loading, setLoading] = useState(false);
     const [formError, setFormError] = useState('');
 
     const accent = activeTab === 'agriTRUK' ? colors.primary : colors.secondary;
-    const canConsolidate = mode === 'business' || mode === 'broker';
 
     const validateForm = () => {
         if (!fromLocation || !toLocation || !productType || !weight) {
@@ -273,24 +269,13 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             setShowTransporters(true);
         } else {
             const requestData = createRequestData();
-            console.log('\n' + '='.repeat(100));
-            console.log('🚀 BOOKING NAVIGATION REQUEST FOR BACKEND ENGINEER');
-            console.log('='.repeat(100));
-            console.log('📋 Navigation Action: navigate to BookingConfirmation');
-            console.log('⏰ Request Timestamp:', new Date().toISOString());
-            console.log('📦 Request Data:', JSON.stringify(requestData, null, 2));
-            console.log('📦 Consolidations:', JSON.stringify(consolidations, null, 2));
-            console.log('📦 Mode:', mode);
-            console.log('='.repeat(100) + '\n');
 
             try {
                 navigation.navigate('BookingConfirmation', {
                     requests: consolidations.length > 0 ? consolidations : [requestData],
                     mode
                 });
-                console.log('✅ Navigation successful');
             } catch (navError) {
-                console.log('❌ Navigation failed:', navError);
                 throw navError;
             }
         }
@@ -941,13 +926,8 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                             <TouchableOpacity
                                 style={[styles.actionButton, styles.submitButton]}
                                 onPress={handleSubmit}
-                                disabled={loading}
                             >
-                                {loading ? (
-                                    <ActivityIndicator size="small" color={colors.white} />
-                                ) : (
-                                    <MaterialCommunityIcons name="check-circle" size={20} color={colors.white} />
-                                )}
+                                <MaterialCommunityIcons name="check-circle" size={20} color={colors.white} />
                                 <Text style={styles.actionButtonText}>
                                     {requestType === 'instant' ? 'Find Transporters' : 'Place Booking'}
                                 </Text>
@@ -1031,13 +1011,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                 onCancel={() => setShowRecurringEndDatePicker(false)}
             />
 
-            <LoadingSpinner
-                visible={loading}
-                message="Processing request..."
-                size="large"
-                type="pulse"
-                logo={true}
-            />
         </SafeAreaView>
     );
 };

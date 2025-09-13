@@ -23,6 +23,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { auth, db } from '../firebaseConfig';
+import { handleLogoutWithConfirmation } from '../utils/logout';
 
 interface ShipperProfileData {
   name: string;
@@ -302,14 +303,14 @@ const AccountScreen = () => {
 
       // Use backend API for phone verification
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-phone`, {
+      const response = await fetch(API_ENDPOINTS.AUTH, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          phone: profile.phone
+          action: 'resend-phone-code'
         }),
       });
 
@@ -342,30 +343,8 @@ const AccountScreen = () => {
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-              // Reset the navigation stack to prevent back navigation
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Welcome' }],
-              });
-            } catch (e: any) {
-              setError(e.message || 'Logout failed.');
-            }
-          },
-        },
-      ]
-    );
+  const handleLogout = () => {
+    handleLogoutWithConfirmation(navigation);
   };
 
   const handleSubmitComplaint = async () => {
