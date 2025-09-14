@@ -101,9 +101,7 @@ export const useTransporters = () => {
       setError(null);
 
       try {
-        console.log('🚛 Fetching transporters from API...');
         const data = await apiRequest('/transporters/available/list');
-        console.log('🚛 Transporters API response:', data);
 
         if (
           data &&
@@ -147,14 +145,12 @@ export const useTransporters = () => {
             address: t.address || t.location || 'Unknown',
           }));
           setTransporters(normalizedData);
-          console.log('🚛 Normalized transporters:', normalizedData);
         } else {
-          console.log('🚛 No transporters found, using mock data');
           setTransporters(mockTransporters);
         }
         setLoading(false);
       } catch (err: any) {
-        console.log('🚛 Using mock data due to API error:', err.message);
+        // Using mock data due to API error
         // Fallback to mock data
         setTransporters(mockTransporters);
         setError(null); // Don't show error, just use mock data

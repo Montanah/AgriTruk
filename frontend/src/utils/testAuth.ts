@@ -4,37 +4,33 @@ import { apiRequest } from './api';
 
 export async function testAuthentication() {
   try {
-    console.log('🔍 TESTING AUTHENTICATION STATUS');
-    console.log('='.repeat(50));
+    // Testing authentication status
     
     const auth = getAuth();
     const user = auth.currentUser;
     
-    console.log('👤 Current user:', user ? 'Authenticated' : 'Not authenticated');
-    console.log('👤 User UID:', user?.uid || 'No UID');
-    console.log('👤 User email:', user?.email || 'No email');
+    // Current user status
     
     if (user) {
       try {
         const token = await user.getIdToken(true);
-        console.log('🔑 Token obtained:', token ? 'Success' : 'Failed');
-        console.log('🔑 Token preview:', token ? `${token.substring(0, 30)}...` : 'No token');
+        // Token obtained
         
         // Test API call with token
-        console.log('🚀 Testing API call...');
+        // Testing API call
         const result = await apiRequest('/transporters/available/list', {}, {
           screen: 'TestAuth',
           action: 'test_api_call'
         });
         
-        console.log('✅ API call successful:', result);
+        // API call successful
         return { success: true, result };
       } catch (tokenError) {
         console.error('❌ Token error:', tokenError);
         return { success: false, error: 'Token error', details: tokenError };
       }
     } else {
-      console.log('❌ No authenticated user');
+      // No authenticated user
       return { success: false, error: 'No authenticated user' };
     }
   } catch (error) {
@@ -45,8 +41,7 @@ export async function testAuthentication() {
 
 export async function testBackendWithoutAuth() {
   try {
-    console.log('🔍 TESTING BACKEND WITHOUT AUTH');
-    console.log('='.repeat(50));
+    // Testing backend without auth
     
     const response = await fetch(API_ENDPOINTS.HEALTH, {
       method: 'GET',
@@ -56,7 +51,7 @@ export async function testBackendWithoutAuth() {
     });
     
     const data = await response.json();
-    console.log('✅ Backend health check:', data);
+    // Backend health check successful
     return { success: true, data };
   } catch (error) {
     console.error('❌ Backend test failed:', error);

@@ -170,7 +170,7 @@ const TrackingScreen = () => {
             const trackingData = generateMockTrackingData(booking);
             setTrackingData(trackingData);
         } catch (error) {
-            console.error('Error generating tracking data:', error);
+            // Handle error silently
         } finally {
             setLoading(false);
         }

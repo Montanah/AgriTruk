@@ -45,7 +45,7 @@ class GoogleMapsService {
    */
   async testApiKey(): Promise<boolean> {
     try {
-      console.log('🧪 Testing Google Maps API key...');
+      // Testing Google Maps API key
 
       // Try a simple geocoding request to test the API key
       const testParams = {
@@ -55,15 +55,15 @@ class GoogleMapsService {
       };
 
       const url = buildGoogleMapsUrl(GOOGLE_MAPS_ENDPOINTS.GEOCODING, testParams);
-      console.log('🧪 Test URL:', url);
+      // Test URL constructed
 
       const response = await fetch(url);
       const data = await response.json();
 
-      console.log('🧪 Test response:', data);
+      // Test response received
 
       if (data.status === 'OK') {
-        console.log('✅ API key is working correctly');
+        // API key is working correctly
         return true;
       } else {
         console.error('❌ API key test failed:', data.status, data.error_message);
@@ -238,24 +238,11 @@ class GoogleMapsService {
 
       const url = buildGoogleMapsUrl(GOOGLE_MAPS_ENDPOINTS.GEOCODING, params);
 
-      console.log('\n' + '='.repeat(100));
-      console.log('🚀 GOOGLE MAPS REVERSE GEOCODING REQUEST FOR BACKEND ENGINEER');
-      console.log('='.repeat(100));
-      console.log('📍 Endpoint: Google Maps Geocoding API');
-      console.log('📋 Method: GET');
-      console.log('⏰ Request Timestamp:', new Date().toISOString());
-      console.log('📦 Request Params:', JSON.stringify(params, null, 2));
-      console.log('🔗 Full URL:', url);
-      console.log('='.repeat(100) + '\n');
+      // Google Maps service initialized
 
       const response = await fetch(url);
 
-      console.log('='.repeat(100));
-      console.log('📊 GOOGLE MAPS REVERSE GEOCODING RESPONSE FOR BACKEND ENGINEER');
-      console.log('='.repeat(100));
-      console.log(`📋 Response Status: ${response.status} ${response.statusText}`);
-      console.log('⏰ Response Timestamp:', new Date().toISOString());
-      console.log('='.repeat(100) + '\n');
+      // Google Maps reverse geocoding response
 
       const data = await response.json();
 
@@ -270,7 +257,7 @@ class GoogleMapsService {
 
         // Don't treat ZERO_RESULTS as an error - it's a normal response
         if (data.status === 'ZERO_RESULTS') {
-          console.log('🔍 No address found for coordinates:', location);
+          // No address found for coordinates
           return `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
         }
 
@@ -280,21 +267,13 @@ class GoogleMapsService {
       }
 
       if (data.results.length === 0) {
-        console.log('🔍 No results from reverse geocoding for coordinates:', location);
+        // No results from reverse geocoding for coordinates
         return `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
       }
 
       return data.results[0].formatted_address;
     } catch (error) {
-      console.log('='.repeat(100));
-      console.log('❌ GOOGLE MAPS REVERSE GEOCODING ERROR FOR BACKEND ENGINEER');
-      console.log('='.repeat(100));
-      console.log('📍 Endpoint: Google Maps Geocoding API');
-      console.log('⏰ Error Timestamp:', new Date().toISOString());
-      console.log('❌ Error Name:', error.name);
-      console.log('❌ Error Message:', error.message);
-      console.log('❌ Error Stack:', error.stack);
-      console.log('='.repeat(100) + '\n');
+      // Google Maps reverse geocoding error
 
       console.error('Error reverse geocoding:', error);
       throw error;
@@ -327,13 +306,12 @@ class GoogleMapsService {
       }
 
       const url = buildGoogleMapsUrl(GOOGLE_MAPS_ENDPOINTS.PLACES_TEXT_SEARCH, params);
-      console.log('🔍 Searching places with URL:', url);
+      // Searching places
 
       const response = await fetch(url);
       const data = await response.json();
 
-      console.log('🔍 Places API response status:', data.status);
-      console.log('🔍 Places API response data:', data);
+      // Places API response received
 
       if (data.status === 'OK' && data.results) {
         return data.results.map((place: any) => ({
@@ -349,7 +327,7 @@ class GoogleMapsService {
           photos: place.photos?.map((photo: any) => photo.photo_reference) || [],
         }));
       } else if (data.status === 'ZERO_RESULTS') {
-        console.log('🔍 No places found for query:', query);
+        // No places found for query
         return [];
       } else {
         console.error('🔍 Places API error:', data.status, data.error_message);
@@ -373,12 +351,12 @@ class GoogleMapsService {
       };
 
       const url = buildGoogleMapsUrl(GOOGLE_MAPS_ENDPOINTS.PLACES_DETAILS, params);
-      console.log('🔍 Getting place details with URL:', url);
+      // Getting place details
 
       const response = await fetch(url);
       const data = await response.json();
 
-      console.log('🔍 Place details API response:', data);
+      // Place details API response received
 
       if (data.status !== 'OK') {
         throw new Error(`Place Details API error: ${data.status}`);

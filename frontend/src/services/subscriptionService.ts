@@ -83,21 +83,10 @@ class SubscriptionService {
     try {
       const token = await this.getAuthToken();
 
-      console.log('='.repeat(80));
-      console.log('🚀 SUBSCRIPTION STATUS REQUEST FOR BACKEND ENGINEER');
-      console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status');
-      console.log('📋 Method: GET');
-      console.log('⏰ Request Timestamp:', new Date().toISOString());
-      console.log('🔑 Auth Token Present:', token ? 'YES' : 'NO');
-      if (token) {
-        console.log('🔑 Token Preview:', `${token.substring(0, 30)}...`);
-      }
+      // Subscription status request
       const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const currentUser = auth.currentUser;
-      console.log('👤 User UID:', currentUser?.uid || 'No user');
-      console.log('='.repeat(80));
 
       const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
         method: 'GET',
@@ -107,42 +96,22 @@ class SubscriptionService {
         },
       });
 
-      console.log('='.repeat(80));
-      console.log('📊 SUBSCRIPTION STATUS RESPONSE FOR BACKEND ENGINEER');
-      console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status');
-      console.log(`📋 Response Status: ${response.status} ${response.statusText}`);
-      console.log('⏰ Response Timestamp:', new Date().toISOString());
-      console.log(
-        '📋 Response Headers:',
-        JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2),
-      );
+      // Subscription status response
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.log('❌ Subscription status request failed');
-        console.log('📦 Error Response Data:', JSON.stringify(errorData, null, 2));
-        console.log('='.repeat(80));
+        // Subscription status request failed
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ Subscription status retrieved successfully');
-      console.log('📦 Response Data:', JSON.stringify(data, null, 2));
+      // Subscription status retrieved successfully
       
       // Add debugging for trial eligibility
       const subscriptionData = data.data;
       if (subscriptionData) {
-        console.log('🔍 Trial Eligibility Check:', {
-          hasActiveSubscription: subscriptionData.hasActiveSubscription,
-          isTrialActive: subscriptionData.isTrialActive,
-          needsTrialActivation: subscriptionData.needsTrialActivation,
-          subscriptionStatus: subscriptionData.subscriptionStatus,
-          shouldShowTrial: subscriptionData.needsTrialActivation || (!subscriptionData.hasActiveSubscription && !subscriptionData.isTrialActive && subscriptionData.subscriptionStatus === 'none')
-        });
+        // Trial eligibility check
       }
-      
-      console.log('='.repeat(80));
       return data;
     } catch (error) {
       console.error('Error fetching subscription status:', error);
@@ -275,22 +244,10 @@ class SubscriptionService {
         phoneNumber,
       };
 
-      console.log('='.repeat(80));
-      console.log('🚀 SUBSCRIPTION PAYMENT REQUEST FOR BACKEND ENGINEER');
-      console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/pay');
-      console.log('📋 Method: POST');
-      console.log('⏰ Request Timestamp:', new Date().toISOString());
-      console.log('🔑 Auth Token Present:', token ? 'YES' : 'NO');
-      if (token) {
-        console.log('🔑 Token Preview:', `${token.substring(0, 30)}...`);
-      }
+      // Subscription payment request
       const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const currentUser = auth.currentUser;
-      console.log('👤 User UID:', currentUser?.uid || 'No user');
-      console.log('📦 Request Body:', JSON.stringify(requestData, null, 2));
-      console.log('='.repeat(80));
 
       const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/pay', {
         method: 'POST',
@@ -301,29 +258,17 @@ class SubscriptionService {
         body: JSON.stringify(requestData),
       });
 
-      console.log('='.repeat(80));
-      console.log('📊 SUBSCRIPTION PAYMENT RESPONSE FOR BACKEND ENGINEER');
-      console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/pay');
-      console.log(`📋 Response Status: ${response.status} ${response.statusText}`);
-      console.log('⏰ Response Timestamp:', new Date().toISOString());
-      console.log(
-        '📋 Response Headers:',
-        JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2),
-      );
+      // Subscription payment response
 
       const data = await response.json();
-      console.log('📦 Response Data:', JSON.stringify(data, null, 2));
+      // Response data received
 
       if (!response.ok) {
-        console.log('❌ Payment processing failed');
-        console.log('📦 Error Response Data:', JSON.stringify(data, null, 2));
-        console.log('='.repeat(80));
+        // Payment processing failed
         throw new Error(data.message || 'Failed to process payment');
       }
 
-      console.log('✅ Payment processed successfully');
-      console.log('='.repeat(80));
+      // Payment processed successfully
       return { success: true, data };
     } catch (error) {
       console.error('Error processing payment:', error);

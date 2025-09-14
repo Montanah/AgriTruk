@@ -82,7 +82,7 @@ const BusinessHomeScreen = ({ navigation }: any) => {
       const user = auth.currentUser;
 
       if (user) {
-        console.log(`🔍 Fetching business data for user: ${user.uid} (attempt ${retryCount + 1})`);
+        // Fetching business data for user
 
         // Add timeout to prevent connection abort
         const timeoutPromise = new Promise((_, reject) => 
@@ -97,7 +97,7 @@ const BusinessHomeScreen = ({ navigation }: any) => {
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          console.log('✅ Business user data found:', userData);
+          // Business user data found
           
           setBusiness({
             name: userData.businessName || userData.name || 'Business',
@@ -131,7 +131,7 @@ const BusinessHomeScreen = ({ navigation }: any) => {
         // TODO: Implement real recent bookings query when backend is ready
         setRecentBookings([]);
         
-        console.log('✅ Business data fetch completed successfully');
+        // Business data fetch completed successfully
       } else {
         console.warn('⚠️ No authenticated user found');
         setLoading(false);
@@ -151,7 +151,7 @@ const BusinessHomeScreen = ({ navigation }: any) => {
         error.message.includes('abort') ||
         error.code === 'unavailable'
       )) {
-        console.log(`🔄 Retrying business data fetch (attempt ${retryCount + 1}/${maxRetries})`);
+        // Retrying business data fetch
         setTimeout(() => {
           fetchBusinessData(retryCount + 1);
         }, 2000 * (retryCount + 1)); // Exponential backoff

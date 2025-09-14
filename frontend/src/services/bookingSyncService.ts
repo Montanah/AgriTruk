@@ -22,7 +22,7 @@ class BookingSyncService {
    */
   async syncPendingBookings(): Promise<{ success: number; failed: number }> {
     if (this.isSyncing) {
-      console.log('🔄 Sync already in progress, skipping...');
+      // Sync already in progress, skipping
       return { success: 0, failed: 0 };
     }
 
@@ -31,22 +31,22 @@ class BookingSyncService {
     let failedCount = 0;
 
     try {
-      console.log('🔄 Starting booking sync...');
+      // Starting booking sync
       
       const existingBookings = await AsyncStorage.getItem('pending_bookings');
       if (!existingBookings) {
-        console.log('📭 No pending bookings to sync');
+        // No pending bookings to sync
         return { success: 0, failed: 0 };
       }
 
       const bookings: LocalBooking[] = JSON.parse(existingBookings);
       const pendingBookings = bookings.filter(booking => booking.needsSync);
 
-      console.log(`📦 Found ${pendingBookings.length} pending bookings to sync`);
+      // Found pending bookings to sync
 
       for (const booking of pendingBookings) {
         try {
-          console.log(`🔄 Syncing booking: ${booking.id}`);
+          // Syncing booking
           
           // Remove local-specific fields before sending to backend
           const { id, storedAt, status, needsSync, ...bookingData } = booking;
@@ -62,7 +62,7 @@ class BookingSyncService {
           booking.syncedAt = new Date().toISOString();
           
           successCount++;
-          console.log(`✅ Successfully synced booking: ${booking.id}`);
+          // Successfully synced booking
         } catch (error) {
           failedCount++;
           console.error(`❌ Failed to sync booking ${booking.id}:`, error);
@@ -72,7 +72,7 @@ class BookingSyncService {
       // Update local storage with synced bookings
       await AsyncStorage.setItem('pending_bookings', JSON.stringify(bookings));
 
-      console.log(`✅ Sync completed: ${successCount} successful, ${failedCount} failed`);
+      // Sync completed
       return { success: successCount, failed: failedCount };
     } catch (error) {
       console.error('❌ Booking sync failed:', error);
@@ -110,7 +110,7 @@ class BookingSyncService {
       const pendingBookings = bookings.filter(booking => booking.needsSync);
       
       await AsyncStorage.setItem('pending_bookings', JSON.stringify(pendingBookings));
-      console.log('🧹 Cleared synced bookings from local storage');
+      // Cleared synced bookings from local storage
     } catch (error) {
       console.error('❌ Failed to clear synced bookings:', error);
     }

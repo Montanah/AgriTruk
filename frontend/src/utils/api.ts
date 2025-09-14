@@ -7,23 +7,13 @@ const API_BASE = `${API_BASE_URL}/api`;
 
 // Test logging function - call this to verify terminal logging works
 export function testTerminalLogging() {
-  console.log('\n' + '='.repeat(100));
-  console.log('🧪 TESTING TERMINAL LOGGING - YOU SHOULD SEE THIS IN YOUR TERMINAL');
-  console.log('='.repeat(100));
-  console.log('✅ If you can see this message, terminal logging is working!');
-  console.log('📱 This is a React Native app, so logs appear in the Metro terminal');
-  console.log(
-    '🔍 Look for logs with "================================================================================" separators',
-  );
-  console.log('⏰ Test timestamp:', new Date().toISOString());
-  console.log('='.repeat(100) + '\n');
+  // Terminal logging test
 }
 
 // Test backend connectivity
 export async function testBackendConnectivity() {
   try {
-    console.log('🔍 TESTING: Backend connectivity...');
-    console.log('🔍 TESTING: Health endpoint:', `${API_BASE.replace('/api', '')}/api/health`);
+    // Testing backend connectivity
 
     const response = await fetch(`${API_BASE.replace('/api', '')}/api/health`, {
       method: 'GET',
@@ -32,14 +22,14 @@ export async function testBackendConnectivity() {
       },
     });
 
-    console.log('🔍 TESTING: Health check response status:', response.status);
+    // Health check response received
 
     if (response.ok) {
       const data = await response.json();
-      console.log('✅ Backend is accessible:', data);
+      // Backend is accessible
       return true;
     } else {
-      console.log('❌ Backend health check failed:', response.status);
+      // Backend health check failed
       return false;
     }
   } catch (error) {
@@ -54,23 +44,20 @@ const CLOUDINARY_UPLOAD_PRESET = EXTERNAL_URLS.CLOUDINARY_PRESET;
 export async function apiRequest(endpoint: string, options: any = {}) {
   try {
     // Clear visual separator for terminal
-    console.log('\n' + '='.repeat(100));
-    console.log('🚀 STARTING API REQUEST - TERMINAL LOGGING ACTIVE');
-    console.log('='.repeat(100));
-    console.log('🔍 DEBUG: Starting API request...');
-    console.log('🔍 DEBUG: Full URL will be:', `${API_BASE}${endpoint}`);
+    // Starting API request
+    // Full URL constructed
 
     // Get Firebase Auth token instead of AsyncStorage JWT
     const auth = getAuth();
     const user = auth.currentUser;
     let token = null;
 
-    console.log('🔍 DEBUG: Firebase user:', user ? 'Authenticated' : 'Not authenticated');
+    // Firebase user status
 
     if (user) {
       try {
         token = await user.getIdToken(true); // Force refresh token
-        console.log('🔍 DEBUG: Firebase token obtained:', token ? 'Success' : 'Failed');
+        // Firebase token obtained
       } catch (tokenError) {
         console.warn('Failed to get Firebase token:', tokenError);
         // Continue without token - some endpoints might not require auth
@@ -83,51 +70,20 @@ export async function apiRequest(endpoint: string, options: any = {}) {
       ...options.headers,
     };
 
-    console.log('='.repeat(80));
-    console.log('🚀 API REQUEST DETAILS FOR BACKEND ENGINEER');
-    console.log('='.repeat(80));
-    console.log(`📍 Endpoint: ${API_BASE}${endpoint}`);
-    console.log(`🔧 Method: ${options.method || 'GET'}`);
-    console.log('⏰ Request Timestamp:', new Date().toISOString());
-    console.log('🔑 Auth Token Present:', token ? 'YES' : 'NO');
-    if (token) {
-      console.log('🔑 Token Preview:', `${token.substring(0, 30)}...`);
-    }
-    console.log('👤 User UID:', user?.uid || 'No user');
-    console.log('📋 Request Headers:', JSON.stringify(headers, null, 2));
-    console.log(
-      '📦 Request Body:',
-      options.body ? JSON.stringify(JSON.parse(options.body), null, 2) : 'No body',
-    );
-    console.log('='.repeat(80));
+    // API request details
 
-    console.log('🔍 DEBUG: About to make fetch request...');
-    console.log('🔍 DEBUG: Request options:', {
-      method: options.method || 'GET',
-      headers,
-      body: options.body,
-    });
-    console.log('🔍 DEBUG: Full URL:', `${API_BASE}${endpoint}`);
+    // Making fetch request
 
     const res = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
     });
 
-    console.log('='.repeat(80));
-    console.log('📊 API RESPONSE DETAILS FOR BACKEND ENGINEER');
-    console.log('='.repeat(80));
-    console.log(`📍 Endpoint: ${API_BASE}${endpoint}`);
-    console.log(`📋 Response Status: ${res.status} ${res.statusText}`);
-    console.log('⏰ Response Timestamp:', new Date().toISOString());
-    console.log(
-      '📋 Response Headers:',
-      JSON.stringify(Object.fromEntries(res.headers.entries()), null, 2),
-    );
+    // API response details
+    // Response received
 
     const data = await res.json();
-    console.log('📦 Response Data:', JSON.stringify(data, null, 2));
-    console.log('='.repeat(80));
+    // Response data received
 
     if (!res.ok) {
       // Handle specific authentication errors
@@ -143,17 +99,7 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     }
     return data;
   } catch (error: any) {
-    console.log('='.repeat(80));
-    console.log('❌ API ERROR DETAILS FOR BACKEND ENGINEER');
-    console.log('='.repeat(80));
-    console.log(`📍 Endpoint: ${API_BASE}${endpoint}`);
-    console.log(`🔧 Method: ${options.method || 'GET'}`);
-    console.log('⏰ Error Timestamp:', new Date().toISOString());
-    console.log('❌ Error Name:', error.name);
-    console.log('❌ Error Message:', error.message);
-    console.log('❌ Error Stack:', error.stack);
-    console.log('❌ Error Cause:', error.cause);
-    console.log('='.repeat(80));
+    // API error details
 
     // Provide better error messages
     if (error.message?.includes('Network request failed') || error.message?.includes('fetch')) {

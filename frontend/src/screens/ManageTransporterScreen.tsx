@@ -158,7 +158,7 @@ export default function ManageTransporterScreen({ route }: any) {
           }
         } else if (res.status === 404) {
           // Profile doesn't exist yet, this is expected for new transporters
-          console.log('Transporter profile not found - user needs to complete profile setup');
+          // Transporter profile not found - user needs to complete profile setup
         }
       } catch (error) {
         console.error('Error fetching transporter profile:', error);
@@ -1130,7 +1130,7 @@ export default function ManageTransporterScreen({ route }: any) {
           // Set up location update callback
           locationService.setLocationUpdateCallback((location) => {
             setCurrentLocation(location);
-            console.log('Location updated:', location);
+            // Location updated
           });
 
           // Check if location tracking should be active

@@ -49,14 +49,13 @@ const MapViewScreen = () => {
                 });
             }
         } catch (error) {
-            console.error('Error getting location:', error);
+            // Handle location error silently
         } finally {
             setLoading(false);
         }
     };
 
     const startRealTimeTracking = async () => {
-        console.log('Starting real-time tracking...');
         setIsTracking(true);
         
         // First, try to fetch current transporter location from backend
@@ -74,7 +73,6 @@ const MapViewScreen = () => {
     const fetchTransporterLocation = async () => {
         try {
             if (!booking?.transporterId) {
-                console.log('No transporter assigned to this booking');
                 return;
             }
 
@@ -106,12 +104,10 @@ const MapViewScreen = () => {
                 }
             } else {
                 // Fallback to mock data if backend doesn't have location
-                console.log('Backend location not available, using mock data');
                 const mockLocation = generateMockTransporterLocation();
                 setTransporterLocation(mockLocation);
             }
         } catch (error) {
-            console.error('Error fetching transporter location:', error);
             // Fallback to mock data
             const mockLocation = generateMockTransporterLocation();
             setTransporterLocation(mockLocation);
@@ -119,7 +115,6 @@ const MapViewScreen = () => {
     };
 
     const stopRealTimeTracking = () => {
-        console.log('Stopping real-time tracking...');
         setIsTracking(false);
         
         if (locationInterval) {

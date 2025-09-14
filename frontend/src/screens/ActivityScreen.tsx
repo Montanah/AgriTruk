@@ -74,12 +74,8 @@ const ActivityScreen = () => {
         throw new Error('User not authenticated');
       }
 
-      console.log('🔍 Loading bookings for user:', user.uid);
-
       // Fetch bookings for the current user
       const response = await apiRequest(`/bookings/shipper/${user.uid}`);
-      
-      console.log('📦 Bookings response:', response);
 
       if (response.bookings && Array.isArray(response.bookings)) {
         // Transform backend booking data to frontend format
@@ -105,14 +101,11 @@ const ActivityScreen = () => {
           } : null
         }));
 
-        console.log('✅ Transformed bookings:', transformedBookings.length, 'bookings found');
         setRequests(transformedBookings);
       } else {
-        console.log('⚠️ No bookings found or invalid response format');
         setRequests([]);
       }
     } catch (err: any) {
-      console.error('❌ Error loading requests:', err);
       setError(err.message || 'Failed to load requests');
       setRequests([]);
     } finally {

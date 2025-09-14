@@ -88,7 +88,7 @@ const PhoneOTPScreen = ({ navigation, route }) => {
               
               // Check if user is already verified
               if (userData.isVerified) {
-                console.log('User is already verified, redirecting...');
+                // User is already verified, redirecting
                 // User is already verified, let App.tsx handle navigation
                 return;
               }
@@ -156,27 +156,27 @@ const PhoneOTPScreen = ({ navigation, route }) => {
       });
 
       // Success - user is now verified
-      console.log('Phone verification successful');
+      // Phone verification successful
 
       // Show success briefly, then navigate directly
       setTimeout(() => {
-        console.log('✅ Phone verification complete - navigating to appropriate screen for role:', role);
+        // Phone verification complete - navigating to appropriate screen for role
         
         // Navigate directly based on role
         if (role === 'shipper') {
-          console.log('🚀 Navigating shipper to MainTabs (Home tab = ServiceRequest)');
+          // Navigating shipper to MainTabs
           navigation.reset({
             index: 0,
             routes: [{ name: 'MainTabs' }]
           });
         } else if (role === 'business') {
-          console.log('🚀 Navigating business to BusinessStack');
+          // Navigating business to BusinessStack
           navigation.reset({
             index: 0,
             routes: [{ name: 'BusinessStack' }]
           });
         } else if (role === 'broker') {
-          console.log('🚀 Navigating broker to VerifyIdentificationDocument');
+          // Navigating broker to VerifyIdentificationDocument
           navigation.reset({
             index: 0,
             routes: [{ name: 'VerifyIdentificationDocument' }]

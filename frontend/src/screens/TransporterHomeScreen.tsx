@@ -19,7 +19,6 @@ export default function TransporterHomeScreen() {
   const [connectivityStatus, setConnectivityStatus] = useState<string>('');
 
   const testBackend = async () => {
-    console.log('🔍 Testing backend connectivity...');
     setConnectivityStatus('Testing...');
     try {
       const isConnected = await testBackendConnectivity();
@@ -31,7 +30,6 @@ export default function TransporterHomeScreen() {
   };
 
   const testLogging = () => {
-    console.log('🧪 Testing terminal logging...');
     testTerminalLogging();
     setConnectivityStatus('✅ Logging Test Sent - Check Terminal');
   };
@@ -44,18 +42,7 @@ export default function TransporterHomeScreen() {
         const user = auth.currentUser;
         if (!user) throw new Error('Not authenticated');
         const token = await user.getIdToken();
-        console.log('='.repeat(80));
-        console.log('🚀 TRANSPORTER PROFILE REQUEST FOR BACKEND ENGINEER');
-        console.log('='.repeat(80));
-        console.log('📍 Endpoint:', `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`);
-        console.log('📋 Method: GET');
-        console.log('⏰ Request Timestamp:', new Date().toISOString());
-        console.log('🔑 Auth Token Present:', token ? 'YES' : 'NO');
-        if (token) {
-          console.log('🔑 Token Preview:', `${token.substring(0, 30)}...`);
-        }
-        console.log('👤 User UID:', user.uid);
-        console.log('='.repeat(80));
+        // Fetching transporter profile
 
         const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           headers: {
@@ -63,31 +50,21 @@ export default function TransporterHomeScreen() {
             'Content-Type': 'application/json',
           },
         });
-        console.log('='.repeat(80));
-        console.log('📊 TRANSPORTER PROFILE RESPONSE FOR BACKEND ENGINEER');
-        console.log('='.repeat(80));
-        console.log('📍 Endpoint:', `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`);
-        console.log(`📋 Response Status: ${res.status} ${res.statusText}`);
-        console.log('⏰ Response Timestamp:', new Date().toISOString());
-        console.log('📋 Response Headers:', JSON.stringify(Object.fromEntries(res.headers.entries()), null, 2));
+        // Processing transporter profile response
 
         if (res.ok) {
           const data = await res.json();
-          console.log('✅ Transporter profile retrieved successfully');
-          console.log('📦 Response Data:', JSON.stringify(data, null, 2));
+          // Transporter profile retrieved successfully
           setProfile(data.transporter);
         } else if (res.status === 404) {
-          console.log('⚠️ Transporter profile not found - redirecting to completion');
-          console.log('📦 404 Response Data: Profile not found');
+          // Transporter profile not found - redirecting to completion
           // Profile doesn't exist yet, redirect to profile completion
           navigation.navigate('TransporterCompletionScreen');
         } else {
           const errorData = await res.json();
-          console.log('❌ Failed to fetch transporter profile');
-          console.log('📦 Error Response Data:', JSON.stringify(errorData, null, 2));
+          // Failed to fetch transporter profile
           throw new Error('Failed to fetch profile');
         }
-        console.log('='.repeat(80));
       } catch (err) {
         setError(err.message || 'Failed to load profile');
       }

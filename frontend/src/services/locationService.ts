@@ -20,7 +20,7 @@ class LocationService {
    */
   async startLocationTracking(): Promise<boolean> {
     try {
-      console.log('Starting location tracking...');
+      // Starting location tracking
 
       // Request permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -46,7 +46,6 @@ class LocationService {
       );
 
       this.isTracking = true;
-      console.log('Location tracking started successfully');
       return true;
     } catch (error) {
       console.error('Failed to start location tracking:', error);
@@ -64,7 +63,6 @@ class LocationService {
         this.watchId = null;
       }
       this.isTracking = false;
-      console.log('Location tracking stopped');
     } catch (error) {
       console.error('Error stopping location tracking:', error);
     }
@@ -159,19 +157,7 @@ class LocationService {
         longitude: location.longitude,
       };
 
-      console.log('='.repeat(80));
-      console.log('🚀 LOCATION UPDATE REQUEST FOR BACKEND ENGINEER');
-      console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.TRANSPORTERS + '/update-location');
-      console.log('📋 Method: POST');
-      console.log('⏰ Request Timestamp:', new Date().toISOString());
-      console.log('🔑 Auth Token Present:', token ? 'YES' : 'NO');
-      if (token) {
-        console.log('🔑 Token Preview:', `${token.substring(0, 30)}...`);
-      }
-      console.log('👤 User UID:', user?.uid || 'No user');
-      console.log('📦 Request Body:', JSON.stringify(requestData, null, 2));
-      console.log('='.repeat(80));
+      // Sending location update to backend
 
       const response = await fetch(API_ENDPOINTS.TRANSPORTERS + '/update-location', {
         method: 'POST',
@@ -182,30 +168,16 @@ class LocationService {
         body: JSON.stringify(requestData),
       });
 
-      console.log('='.repeat(80));
-      console.log('📊 LOCATION UPDATE RESPONSE FOR BACKEND ENGINEER');
-      console.log('='.repeat(80));
-      console.log('📍 Endpoint:', API_ENDPOINTS.TRANSPORTERS + '/update-location');
-      console.log(`📋 Response Status: ${response.status} ${response.statusText}`);
-      console.log('⏰ Response Timestamp:', new Date().toISOString());
-      console.log(
-        '📋 Response Headers:',
-        JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2),
-      );
+      // Processing location update response
 
       if (response.ok) {
         this.lastUpdate = location.timestamp;
         const responseData = await response.json();
-        console.log('✅ Location updated successfully on backend');
-        console.log('📦 Response Data:', JSON.stringify(responseData, null, 2));
       } else {
         const errorData = await response.json();
-        console.log('❌ Failed to update location on backend');
-        console.log('📦 Error Response Data:', JSON.stringify(errorData, null, 2));
       }
-      console.log('='.repeat(80));
     } catch (error) {
-      console.error('Location update error:', error);
+      // Handle location update error silently
     }
   }
 

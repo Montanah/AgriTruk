@@ -27,7 +27,7 @@ class FallbackNotificationService {
   private channels: NotificationChannel[] = [];
 
   constructor() {
-    console.log('📱 Using Fallback Notification Service (Development Mode)');
+    // Using Fallback Notification Service (Development Mode)
     this.initializeDefaultChannels();
   }
 
@@ -90,7 +90,7 @@ class FallbackNotificationService {
         this.notifications = this.notifications.slice(0, 100);
       }
 
-      console.log('📱 Fallback Notification Sent:', notificationData);
+      // Fallback Notification Sent
       
       return { success: true, id };
     } catch (error) {
@@ -190,7 +190,7 @@ class FallbackNotificationService {
     try {
       // Return a mock token for development
       const mockToken = `mock_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      console.log('📱 Mock Push Token Generated:', mockToken);
+      // Mock Push Token Generated
       return mockToken;
     } catch (error) {
       console.error('Error registering for push notifications:', error);
@@ -203,7 +203,7 @@ class FallbackNotificationService {
    */
   async unregisterFromPushNotifications(): Promise<boolean> {
     try {
-      console.log('📱 Unregistered from push notifications (fallback mode)');
+      // Unregistered from push notifications (fallback mode)
       return true;
     } catch (error) {
       console.error('Error unregistering from push notifications:', error);
@@ -222,7 +222,7 @@ class FallbackNotificationService {
    * Request notification permissions
    */
   async requestPermissions(): Promise<boolean> {
-    console.log('📱 Notification permissions granted (fallback mode)');
+    // Notification permissions granted (fallback mode)
     return true;
   }
 
@@ -281,7 +281,7 @@ class FallbackNotificationService {
   async cancelScheduledNotification(notificationId: string): Promise<boolean> {
     try {
       // In fallback mode, we can't actually cancel scheduled notifications
-      console.log('📱 Cannot cancel scheduled notification in fallback mode:', notificationId);
+      // Cannot cancel scheduled notification in fallback mode
       return true;
     } catch (error) {
       console.error('Error canceling scheduled notification:', error);

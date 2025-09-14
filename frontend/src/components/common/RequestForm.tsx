@@ -615,7 +615,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                 onPickupLocationChange={setFromLocation}
                                 onDeliveryLocationChange={setToLocation}
                                 onPickupLocationSelected={(location) => {
-                                    console.log('Pickup location selected:', location);
+                                    // Pickup location selected
                                     setFromLocationCoords({
                                         latitude: location.latitude,
                                         longitude: location.longitude
@@ -623,7 +623,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                     setFromLocationAddress(location.address || fromLocation);
                                 }}
                                 onDeliveryLocationSelected={(location) => {
-                                    console.log('Delivery location selected:', location);
+                                    // Delivery location selected
                                     setToLocationCoords({
                                         latitude: location.latitude,
                                         longitude: location.longitude
@@ -634,7 +634,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                 showMap={true}
                                 onMapPress={() => {
                                     // Handle map press if needed
-                                    console.log('Map pressed');
+                                    // Map pressed
                                 }}
                                 showTitle={false}
                             />

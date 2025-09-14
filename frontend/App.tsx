@@ -32,15 +32,7 @@ const Stack = createStackNavigator();
 
 LogBox.ignoreLogs(['useInsertionEffect must not schedule updates']);
 
-// Initial logging test - you should see this in your terminal when the app starts
-console.log('\n' + '='.repeat(100));
-console.log('🚀 TRUKAPP STARTED - TERMINAL LOGGING ACTIVE');
-console.log('='.repeat(100));
-console.log('✅ App is starting up...');
-console.log('📱 This is a React Native app - logs appear in the Metro terminal');
-console.log('🔍 Look for API request logs with "================================================================================" separators');
-console.log('⏰ App start timestamp:', new Date().toISOString());
-console.log('='.repeat(100) + '\n');
+// App initialization
 
 // Helper function to check if transporter profile is complete
 const checkTransporterProfileComplete = (transporterData: any) => {
@@ -119,7 +111,7 @@ const checkSubscriptionStatus = async (userId: string, userType: 'transporter' |
   }
 
   // Fallback: return default values for development
-  console.log('🚨 SUBSCRIPTION STATUS FALLBACK - treating as new user needing trial');
+  // Fallback to trial for new users
   return {
     hasActiveSubscription: false,
     isTrialActive: false,

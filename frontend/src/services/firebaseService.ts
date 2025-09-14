@@ -20,7 +20,7 @@ class FirebaseService {
       await enableNetwork(db);
       this.isConnected = true;
       this.connectionRetries = 0;
-      console.log('✅ Firebase connected successfully');
+      // Firebase connected successfully
     } catch (error) {
       console.warn('⚠️ Firebase connection failed:', error);
       this.isConnected = false;
@@ -40,14 +40,14 @@ class FirebaseService {
     this.connectionRetries++;
     const delay = this.retryDelay * Math.pow(2, this.connectionRetries - 1);
     
-    console.log(`🔄 Retrying Firebase connection in ${delay}ms (attempt ${this.connectionRetries}/${this.maxRetries})`);
+    // Retrying Firebase connection
     
     setTimeout(async () => {
       try {
         await enableNetwork(db);
         this.isConnected = true;
         this.connectionRetries = 0;
-        console.log('✅ Firebase reconnected successfully');
+        // Firebase reconnected successfully
       } catch (error) {
         console.warn('⚠️ Firebase reconnection failed:', error);
         this.retryConnection();
@@ -235,13 +235,13 @@ class FirebaseService {
    */
   async forceReconnect() {
     try {
-      console.log('🔄 Force reconnecting to Firebase...');
+      // Force reconnecting to Firebase
       await disableNetwork(db);
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
       await enableNetwork(db);
       this.isConnected = true;
       this.connectionRetries = 0;
-      console.log('✅ Firebase force reconnected successfully');
+      // Firebase force reconnected successfully
     } catch (error) {
       console.error('❌ Firebase force reconnect failed:', error);
       this.isConnected = false;

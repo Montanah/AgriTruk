@@ -52,7 +52,7 @@ class ChatService {
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) {
-        console.log('No authenticated user, skipping chat initialization');
+        // No authenticated user, skipping chat initialization
         return;
       }
 
@@ -70,7 +70,7 @@ class ChatService {
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) {
-        console.log('No authenticated user, skipping WebSocket initialization');
+        // No authenticated user, skipping WebSocket initialization
         return;
       }
 
@@ -80,7 +80,7 @@ class ChatService {
       this.ws = new WebSocket(`${wsUrl}/ws?token=${token}`);
       
       this.ws.onopen = () => {
-        console.log('Chat WebSocket connected');
+        // Chat WebSocket connected
         this.reconnectAttempts = 0;
         this.connectionHandlers.forEach(handler => handler(true));
       };
@@ -98,7 +98,7 @@ class ChatService {
       };
 
       this.ws.onclose = () => {
-        console.log('Chat WebSocket disconnected');
+        // Chat WebSocket disconnected
         this.connectionHandlers.forEach(handler => handler(false));
         this.attemptReconnect();
       };
@@ -118,7 +118,7 @@ class ChatService {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       setTimeout(() => {
-        console.log(`Attempting to reconnect WebSocket (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        // Attempting to reconnect WebSocket
         this.initializeWebSocket();
       }, this.reconnectDelay * this.reconnectAttempts);
     }

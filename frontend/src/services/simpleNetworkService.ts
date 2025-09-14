@@ -163,13 +163,13 @@ class SimpleNetworkService {
    * Diagnose connection issues
    */
   async diagnoseConnectionIssues() {
-    console.log('🔍 Diagnosing connection issues...');
+    // Diagnosing connection issues
     
     const networkInfo = await this.getNetworkInfo();
-    console.log('📊 Network Info:', networkInfo);
+    // Network info retrieved
 
     if (!networkInfo.isConnected) {
-      console.log('❌ Device is not connected to any network');
+      // Device is not connected to any network
       return {
         issue: 'no_network',
         message: 'Device is not connected to any network',
@@ -178,7 +178,7 @@ class SimpleNetworkService {
     }
 
     if (!networkInfo.connectivityTest) {
-      console.log('❌ Device is connected but cannot reach the internet');
+      // Device is connected but cannot reach the internet
       return {
         issue: 'no_internet',
         message: 'Device is connected but cannot reach the internet',
@@ -187,7 +187,7 @@ class SimpleNetworkService {
     }
 
     if (!networkInfo.firebaseTest) {
-      console.log('❌ Internet works but Firebase is unreachable');
+      // Internet works but Firebase is unreachable
       return {
         issue: 'firebase_unreachable',
         message: 'Internet works but Firebase services are unreachable',
@@ -195,7 +195,7 @@ class SimpleNetworkService {
       };
     }
 
-    console.log('✅ All connectivity tests passed');
+    // All connectivity tests passed
     return {
       issue: 'none',
       message: 'All connectivity tests passed',

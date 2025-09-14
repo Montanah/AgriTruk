@@ -59,7 +59,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       bookings.push(localBooking);
       await AsyncStorage.setItem('pending_bookings', JSON.stringify(bookings));
       
-      console.log('💾 Booking stored locally:', localBooking.id);
+      // Booking stored locally
       return localBooking;
     } catch (error) {
       console.error('❌ Failed to store booking locally:', error);
@@ -87,7 +87,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         throw new Error('No booking requests found. Please try again.');
       }
       
-      console.log('🔍 Validating booking requests:', requests.length, 'requests found');
+      // Validating booking requests
       
       // Prepare payload for backend booking format
       payload = requests.map((req: any, index: number) => {
@@ -147,27 +147,9 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         return bookingData;
       });
 
-      console.log('\n' + '='.repeat(100));
-      console.log('🚀 BOOKING CONFIRMATION API REQUEST FOR BACKEND ENGINEER');
-      console.log('='.repeat(100));
-      console.log('📍 Endpoint:', API_ENDPOINTS.BOOKINGS);
-      console.log('📋 Method: POST');
-      console.log('⏰ Request Timestamp:', new Date().toISOString());
-      console.log('📦 Payload:', JSON.stringify(payload, null, 2));
-      console.log('📦 Single Booking Data:', JSON.stringify(payload[0], null, 2));
-      console.log('🔍 Required Fields Check:');
-      console.log('  - bookingType:', payload[0].bookingType);
-      console.log('  - fromLocation:', payload[0].fromLocation);
-      console.log('  - toLocation:', payload[0].toLocation);
-      console.log('  - productType:', payload[0].productType);
-      console.log('  - weightKg:', payload[0].weightKg, '(type:', typeof payload[0].weightKg, ')');
-      console.log('  - pickUpDate:', payload[0].pickUpDate);
-      console.log('  - urgencyLevel:', payload[0].urgencyLevel);
-      console.log('  - status:', payload[0].status);
-      console.log('  - perishable:', payload[0].perishable);
-      console.log('  - needsRefrigeration:', payload[0].needsRefrigeration);
-      console.log('  - humidityControl:', payload[0].humidityControl);
-      console.log('='.repeat(100) + '\n');
+      // Sending booking confirmation to backend
+      // Validating booking data before sending
+      // Sending request to backend
 
       // Post to backend bookings endpoint with retry logic
       let response;
@@ -176,7 +158,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       
       while (retryCount < maxRetries) {
         try {
-          console.log(`🔄 Attempting booking submission (attempt ${retryCount + 1}/${maxRetries})`);
+          // Attempting booking submission
           response = await apiRequest('/bookings', {
             method: 'POST',
             body: JSON.stringify(payload[0]) // Backend expects single booking, not array
@@ -184,7 +166,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           break; // Success, exit retry loop
         } catch (error: any) {
           retryCount++;
-          console.log(`❌ Booking attempt ${retryCount} failed:`, error.message);
+          // Booking attempt failed
           
           if (retryCount >= maxRetries) {
             throw error; // Re-throw if all retries failed
@@ -192,20 +174,12 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           
           // Wait before retry (exponential backoff)
           const waitTime = Math.pow(2, retryCount) * 1000; // 2s, 4s, 8s
-          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+          // Waiting before retry
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
 
-      // Log the response for debugging
-      console.log('📊 Booking API Response:', response);
-
-      console.log('='.repeat(100));
-      console.log('📊 BOOKING CONFIRMATION API RESPONSE FOR BACKEND ENGINEER');
-      console.log('='.repeat(100));
-      console.log('✅ Booking posted successfully');
-      console.log('📦 Response Data:', JSON.stringify(response, null, 2));
-      console.log('='.repeat(100) + '\n');
+      // Booking posted successfully
       // Extract booking ID from response
       const bookingId = response?.booking?.bookingId || response?.id || response?.bookingId || 'N/A';
       Alert.alert(
@@ -214,23 +188,13 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       );
       navigation.goBack();
     } catch (error: any) {
-      console.log('='.repeat(100));
-      console.log('❌ BOOKING CONFIRMATION API ERROR FOR BACKEND ENGINEER');
-      console.log('='.repeat(100));
-      console.log('📍 Endpoint:', API_ENDPOINTS.BOOKINGS);
-      console.log('📋 Method: POST');
-      console.log('⏰ Error Timestamp:', new Date().toISOString());
-      console.log('❌ Error Name:', error.name);
-      console.log('❌ Error Message:', error.message);
-      console.log('❌ Error Stack:', error.stack);
-      console.log('='.repeat(100) + '\n');
+      // Booking confirmation error
 
       console.error('Failed to post booking:', error);
       
       // Check if it's a 500 error (server error)
       if (error.message?.includes('Failed to create booking')) {
-        console.log('🔍 Backend returned 500 error - this might be a data validation issue');
-        console.log('🔍 Please check the backend logs for more details');
+        // Backend returned 500 error - this might be a data validation issue
       }
       
       // Try fallback: store locally when backend is unavailable
@@ -239,7 +203,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           throw new Error('No booking data available for local storage');
         }
         
-        console.log('🔄 Attempting to store booking locally as fallback...');
+        // Attempting to store booking locally as fallback
         await storeBookingLocally(payload[0]);
         
         Alert.alert(

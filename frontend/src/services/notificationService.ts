@@ -63,7 +63,7 @@ class NotificationService {
     if (!this.useFallback) {
       this.initializeNotifications();
     } else {
-      console.log('Using fallback notification service');
+      // Using fallback notification service
     }
   }
 
@@ -72,7 +72,7 @@ class NotificationService {
    */
   private async initializeNotifications() {
     if (!Device || !Notifications || !Constants) {
-      console.log('Expo modules not available, skipping push notification initialization');
+      // Expo modules not available, skipping push notification initialization
       return;
     }
 
@@ -87,7 +87,7 @@ class NotificationService {
         }
         
         if (finalStatus !== 'granted') {
-          console.log('Failed to get push token for push notification!');
+          // Failed to get push token for push notification
           return;
         }
         
@@ -95,7 +95,7 @@ class NotificationService {
           projectId: Constants.expoConfig?.extra?.eas?.projectId,
         });
         this.expoPushToken = token.data;
-        console.log('Expo push token:', this.expoPushToken);
+        // Expo push token obtained
         
         // Register token with backend
         await this.registerPushToken(this.expoPushToken);
@@ -103,7 +103,7 @@ class NotificationService {
         console.error('Error getting push token:', error);
       }
     } else {
-      console.log('Must use physical device for Push Notifications');
+      // Must use physical device for Push Notifications
     }
   }
 
@@ -421,8 +421,4 @@ class NotificationService {
 export const notificationService = new NotificationService();
 
 // Debug logging
-console.log('🔔 Notification Service initialized:', {
-  service: !!notificationService,
-  getUserNotifications: typeof notificationService.getUserNotifications,
-  useFallback: notificationService['useFallback']
-});
+// Notification Service initialized
