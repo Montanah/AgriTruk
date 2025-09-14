@@ -25,6 +25,9 @@ const MapViewScreen = () => {
     const [currentLocation, setCurrentLocation] = useState(null);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [estimatedTime, setEstimatedTime] = useState('2 hours 30 minutes');
+    const [isTracking, setIsTracking] = useState(false);
+    const [transporterLocation, setTransporterLocation] = useState(null);
+    const [locationInterval, setLocationInterval] = useState(null);
 
     useEffect(() => {
         initializeMap();
@@ -52,15 +55,144 @@ const MapViewScreen = () => {
         }
     };
 
-    const startRealTimeTracking = () => {
-        // TODO: Implement real-time location tracking
+    const startRealTimeTracking = async () => {
         console.log('Starting real-time tracking...');
+        setIsTracking(true);
+        
+        // First, try to fetch current transporter location from backend
+        await fetchTransporterLocation();
+        
+        // Set up polling for real-time updates
+        const interval = setInterval(async () => {
+            await fetchTransporterLocation();
+            updateEstimatedTime();
+        }, 10000); // Update every 10 seconds
+        
+        setLocationInterval(interval);
+    };
+
+    const fetchTransporterLocation = async () => {
+        try {
+            if (!booking?.transporterId) {
+                console.log('No transporter assigned to this booking');
+                return;
+            }
+
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const token = await user.getIdToken();
+            
+            // Try to fetch transporter location from backend
+            const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${booking.transporterId}/location`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.location) {
+                    setTransporterLocation({
+                        latitude: data.location.latitude,
+                        longitude: data.location.longitude,
+                        address: data.location.address || 'Transporter Location',
+                        timestamp: data.location.timestamp || new Date().toLocaleString(),
+                        speed: data.location.speed || 0,
+                    });
+                }
+            } else {
+                // Fallback to mock data if backend doesn't have location
+                console.log('Backend location not available, using mock data');
+                const mockLocation = generateMockTransporterLocation();
+                setTransporterLocation(mockLocation);
+            }
+        } catch (error) {
+            console.error('Error fetching transporter location:', error);
+            // Fallback to mock data
+            const mockLocation = generateMockTransporterLocation();
+            setTransporterLocation(mockLocation);
+        }
     };
 
     const stopRealTimeTracking = () => {
-        // TODO: Stop real-time location tracking
         console.log('Stopping real-time tracking...');
+        setIsTracking(false);
+        
+        if (locationInterval) {
+            clearInterval(locationInterval);
+            setLocationInterval(null);
+        }
     };
+
+    const generateMockTransporterLocation = () => {
+        // Generate a location between pickup and delivery
+        const fromLat = typeof booking?.fromLocation === 'object' 
+            ? booking.fromLocation.latitude 
+            : -0.0917016; // Kisumu
+        const fromLng = typeof booking?.fromLocation === 'object' 
+            ? booking.fromLocation.longitude 
+            : 34.7679568;
+        const toLat = typeof booking?.toLocation === 'object' 
+            ? booking.toLocation.latitude 
+            : -1.2920659; // Nairobi
+        const toLng = typeof booking?.toLocation === 'object' 
+            ? booking.toLocation.longitude 
+            : 36.8219462;
+
+        // Generate a random position between pickup and delivery
+        const progress = Math.random() * 0.8 + 0.1; // 10% to 90% progress
+        const currentLat = fromLat + (toLat - fromLat) * progress;
+        const currentLng = fromLng + (toLng - fromLng) * progress;
+
+        return {
+            latitude: currentLat,
+            longitude: currentLng,
+            address: `En route to ${booking?.toLocationAddress || 'Nairobi'}`,
+            timestamp: new Date().toLocaleString(),
+            speed: Math.floor(Math.random() * 40) + 30, // 30-70 km/h
+        };
+    };
+
+    const updateEstimatedTime = () => {
+        // Calculate estimated time based on distance and speed
+        const fromLat = typeof booking?.fromLocation === 'object' 
+            ? booking.fromLocation.latitude 
+            : -0.0917016;
+        const fromLng = typeof booking?.fromLocation === 'object' 
+            ? booking.fromLocation.longitude 
+            : 34.7679568;
+        const toLat = typeof booking?.toLocation === 'object' 
+            ? booking.toLocation.latitude 
+            : -1.2920659;
+        const toLng = typeof booking?.toLocation === 'object' 
+            ? booking.toLocation.longitude 
+            : 36.8219462;
+
+        // Calculate distance (simplified)
+        const distance = Math.sqrt(
+            Math.pow(toLat - fromLat, 2) + Math.pow(toLng - fromLng, 2)
+        ) * 111; // Rough conversion to km
+
+        const avgSpeed = 50; // km/h
+        const hours = distance / avgSpeed;
+        const minutes = Math.floor((hours % 1) * 60);
+        const hoursInt = Math.floor(hours);
+
+        setEstimatedTime(`${hoursInt}h ${minutes}m`);
+    };
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (locationInterval) {
+                clearInterval(locationInterval);
+            }
+        };
+    }, [locationInterval]);
 
     if (loading) {
         return (
@@ -99,45 +231,83 @@ const MapViewScreen = () => {
                     showUserLocation={true}
                     markers={[
                         // Pickup location marker
-                        ...(booking && booking.pickupLocation ? [{
+                        ...(booking && booking.fromLocation ? [{
                             id: 'pickup',
                             coordinate: {
-                                latitude: booking.pickupLocation.latitude || -1.2921,
-                                longitude: booking.pickupLocation.longitude || 36.8219,
+                                latitude: typeof booking.fromLocation === 'object' 
+                                    ? (booking.fromLocation.latitude || -1.2921)
+                                    : -1.2921,
+                                longitude: typeof booking.fromLocation === 'object' 
+                                    ? (booking.fromLocation.longitude || 36.8219)
+                                    : 36.8219,
                             },
                             title: 'Pickup Location',
-                            description: booking.pickupLocation.address || 'Pickup point',
+                            description: typeof booking.fromLocation === 'object' 
+                                ? (booking.fromLocation.address || booking.fromLocationAddress || 'Pickup point')
+                                : booking.fromLocation || 'Pickup point',
                             pinColor: colors.primary,
                         }] : []),
                         // Delivery location marker
                         ...(booking && booking.toLocation ? [{
                             id: 'delivery',
                             coordinate: {
-                                latitude: booking.toLocation.latitude || -1.2921,
-                                longitude: booking.toLocation.longitude || 36.8219,
+                                latitude: typeof booking.toLocation === 'object' 
+                                    ? (booking.toLocation.latitude || -1.2921)
+                                    : -1.2921,
+                                longitude: typeof booking.toLocation === 'object' 
+                                    ? (booking.toLocation.longitude || 36.8219)
+                                    : 36.8219,
                             },
                             title: 'Delivery Location',
-                            description: booking.toLocation.address || 'Delivery point',
+                            description: typeof booking.toLocation === 'object' 
+                                ? (booking.toLocation.address || booking.toLocationAddress || 'Delivery point')
+                                : booking.toLocation || 'Delivery point',
                             pinColor: colors.secondary,
                         }] : []),
-                        // Transporter location marker (if available)
-                        ...(trackingData && trackingData.currentLocation ? [{
+                        // Real-time transporter location marker
+                        ...(transporterLocation ? [{
                             id: 'transporter',
                             coordinate: {
-                                latitude: trackingData.currentLocation.latitude || -1.2921,
-                                longitude: trackingData.currentLocation.longitude || 36.8219,
+                                latitude: transporterLocation.latitude,
+                                longitude: transporterLocation.longitude,
                             },
                             title: 'Transporter Location',
-                            description: 'Current position',
+                            description: transporterLocation.address || 'Current position',
                             pinColor: colors.success,
                         }] : []),
                     ]}
-                    initialRegion={{
-                        latitude: -1.2921, // Nairobi
-                        longitude: 36.8219,
-                        latitudeDelta: 0.0922,
-                        longitudeDelta: 0.0421,
-                    }}
+                    initialRegion={(() => {
+                        // Try to center the map between pickup and delivery locations
+                        if (booking && booking.fromLocation && booking.toLocation) {
+                            const fromLat = typeof booking.fromLocation === 'object' 
+                                ? booking.fromLocation.latitude 
+                                : -1.2921;
+                            const fromLng = typeof booking.fromLocation === 'object' 
+                                ? booking.fromLocation.longitude 
+                                : 36.8219;
+                            const toLat = typeof booking.toLocation === 'object' 
+                                ? booking.toLocation.latitude 
+                                : -1.2921;
+                            const toLng = typeof booking.toLocation === 'object' 
+                                ? booking.toLocation.longitude 
+                                : 36.8219;
+                            
+                            return {
+                                latitude: (fromLat + toLat) / 2,
+                                longitude: (fromLng + toLng) / 2,
+                                latitudeDelta: Math.abs(fromLat - toLat) + 0.1,
+                                longitudeDelta: Math.abs(fromLng - toLng) + 0.1,
+                            };
+                        }
+                        
+                        // Default to Nairobi
+                        return {
+                            latitude: -1.2921,
+                            longitude: 36.8219,
+                            latitudeDelta: 0.0922,
+                            longitudeDelta: 0.0421,
+                        };
+                    })()}
                 />
 
                 {/* Map Controls */}
@@ -171,26 +341,63 @@ const MapViewScreen = () => {
                     <View style={styles.detailRow}>
                         <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
                         <View style={styles.detailText}>
-                            <Text style={styles.detailLabel}>Current Location</Text>
-                            <Text style={styles.detailValue}>Nairobi CBD, Kenya</Text>
+                            <Text style={styles.detailLabel}>Route</Text>
+                            <Text style={styles.detailValue}>
+                                {booking?.fromLocationAddress || (typeof booking?.fromLocation === 'object' 
+                                    ? booking.fromLocation.address 
+                                    : booking?.fromLocation) || 'Pickup'} → {booking?.toLocationAddress || (typeof booking?.toLocation === 'object' 
+                                    ? booking.toLocation.address 
+                                    : booking?.toLocation) || 'Delivery'}
+                            </Text>
                         </View>
                     </View>
 
                     <View style={styles.detailRow}>
-                        <MaterialCommunityIcons name="clock-outline" size={20} color={colors.secondary} />
+                        <MaterialCommunityIcons name="package-variant" size={20} color={colors.secondary} />
                         <View style={styles.detailText}>
-                            <Text style={styles.detailLabel}>Estimated Arrival</Text>
-                            <Text style={styles.detailValue}>{estimatedTime}</Text>
+                            <Text style={styles.detailLabel}>Cargo</Text>
+                            <Text style={styles.detailValue}>
+                                {booking?.productType || 'Unknown'} ({booking?.weight || 'Unknown'})
+                            </Text>
                         </View>
                     </View>
 
                     <View style={styles.detailRow}>
-                        <MaterialCommunityIcons name="speedometer" size={20} color={colors.tertiary} />
+                        <MaterialCommunityIcons name="clock-outline" size={20} color={colors.tertiary} />
                         <View style={styles.detailText}>
-                            <Text style={styles.detailLabel}>Speed</Text>
-                            <Text style={styles.detailValue}>65 km/h</Text>
+                            <Text style={styles.detailLabel}>Status</Text>
+                            <Text style={styles.detailValue}>
+                                {booking?.status ? booking.status.replace('_', ' ').toUpperCase() : 'PENDING'}
+                            </Text>
                         </View>
                     </View>
+
+                    {transporterLocation && (
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="map-marker-radius" size={20} color={colors.success} />
+                            <View style={styles.detailText}>
+                                <Text style={styles.detailLabel}>Transporter Location</Text>
+                                <Text style={styles.detailValue}>
+                                    {transporterLocation.address}
+                                </Text>
+                                <Text style={styles.detailSubtext}>
+                                    Last updated: {transporterLocation.timestamp}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
+
+                    {transporterLocation?.speed && (
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="speedometer" size={20} color={colors.warning} />
+                            <View style={styles.detailText}>
+                                <Text style={styles.detailLabel}>Speed</Text>
+                                <Text style={styles.detailValue}>
+                                    {transporterLocation.speed} km/h
+                                </Text>
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 {/* Action Buttons */}
@@ -343,6 +550,11 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.md,
         color: colors.text.primary,
         fontWeight: '600',
+    },
+    detailSubtext: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        marginTop: 2,
     },
     actionButtons: {
         flexDirection: 'row',

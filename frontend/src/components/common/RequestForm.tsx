@@ -102,6 +102,10 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     const [requestType, setRequestType] = useState<'instant' | 'booking'>('instant');
     const [fromLocation, setFromLocation] = useState('');
     const [toLocation, setToLocation] = useState('');
+    const [fromLocationCoords, setFromLocationCoords] = useState<{latitude: number, longitude: number} | null>(null);
+    const [toLocationCoords, setToLocationCoords] = useState<{latitude: number, longitude: number} | null>(null);
+    const [fromLocationAddress, setFromLocationAddress] = useState('');
+    const [toLocationAddress, setToLocationAddress] = useState('');
     const [productType, setProductType] = useState('');
     const [filteredProducts, setFilteredProducts] = useState<string[]>(PRODUCT_SUGGESTIONS);
     const [weight, setWeight] = useState('');
@@ -168,8 +172,10 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             // Map frontend fields to backend booking format
             bookingType: activeTab === 'agriTRUK' ? 'Agri' : 'Cargo',
             bookingMode: requestType, // 'instant' or 'booking'
-            fromLocation,
-            toLocation,
+            fromLocation: fromLocationCoords || fromLocation,
+            toLocation: toLocationCoords || toLocation,
+            fromLocationAddress: fromLocationAddress || fromLocation,
+            toLocationAddress: toLocationAddress || toLocation,
             productType,
             weightKg: parseFloat(weight) || 0,
             pickUpDate: requestType === 'booking' ? pickupDate.toISOString() : null,
@@ -178,7 +184,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             perishable: isPerishable,
             needsRefrigeration: isPerishable,
             humidityControl: isPerishable,
-            specialCargo: isSpecialCargo ? specialCargoSpecs : [],
+            specialCargo: isSpecialCargo ? specialCargoSpecs.map(key => CARGO_SPECIALS.find(spec => spec.key === key)?.label || key) : [],
             insured: insureGoods,
             value: insuranceValue ? parseFloat(insuranceValue) : 0,
             additionalNotes: additional,
@@ -220,7 +226,40 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             isPerishable,
             perishableSpecs,
             isSpecialCargo,
-            specialCargoSpecs,
+            specialCargoSpecs: isSpecialCargo ? specialCargoSpecs.map(key => CARGO_SPECIALS.find(spec => spec.key === key)?.label || key) : [],
+            isBulk,
+            bulkQuantity,
+            type: activeTab,
+            urgency,
+            additional,
+        };
+    };
+
+    const createConsolidationData = () => {
+        return {
+            id: Date.now().toString(),
+            // Use string locations for consolidation context
+            fromLocation,
+            toLocation,
+            fromLocationAddress: fromLocationAddress || fromLocation,
+            toLocationAddress: toLocationAddress || toLocation,
+            productType,
+            weight,
+            requestType,
+            date: requestType === 'booking' ? pickupDate.toISOString() : '',
+            isPriority,
+            isRecurring,
+            recurringFreq,
+            recurringTimeframe,
+            recurringDuration,
+            recurringEndDate: recurringEndDate?.toISOString() || null,
+            customRecurrence,
+            insureGoods,
+            insuranceValue,
+            isPerishable,
+            perishableSpecs,
+            isSpecialCargo,
+            specialCargoSpecs: isSpecialCargo ? specialCargoSpecs.map(key => CARGO_SPECIALS.find(spec => spec.key === key)?.label || key) : [],
             isBulk,
             bulkQuantity,
             type: activeTab,
@@ -232,12 +271,16 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     const handleAddToConsolidate = () => {
         if (!validateForm()) return;
 
-        const requestData = createRequestData();
-        addConsolidation(requestData);
+        const consolidationData = createConsolidationData();
+        addConsolidation(consolidationData);
 
         // Reset form
         setFromLocation('');
         setToLocation('');
+        setFromLocationCoords(null);
+        setToLocationCoords(null);
+        setFromLocationAddress('');
+        setToLocationAddress('');
         setProductType('');
         setWeight('');
         setPickupDate(new Date());
@@ -573,9 +616,19 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                 onDeliveryLocationChange={setToLocation}
                                 onPickupLocationSelected={(location) => {
                                     console.log('Pickup location selected:', location);
+                                    setFromLocationCoords({
+                                        latitude: location.latitude,
+                                        longitude: location.longitude
+                                    });
+                                    setFromLocationAddress(location.address || fromLocation);
                                 }}
                                 onDeliveryLocationSelected={(location) => {
                                     console.log('Delivery location selected:', location);
+                                    setToLocationCoords({
+                                        latitude: location.latitude,
+                                        longitude: location.longitude
+                                    });
+                                    setToLocationAddress(location.address || toLocation);
                                 }}
                                 useCurrentLocation={true}
                                 showMap={true}

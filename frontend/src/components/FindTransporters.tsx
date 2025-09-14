@@ -222,7 +222,7 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
     if (onSelect) {
       onSelect(t, payload);
     } else {
-      (navigation as any).navigate('TripDetails', isConsolidated ? { requests: reqs, transporter: t, eta: t.est, distance: calculatedDistance || distance } : { booking: payload });
+      (navigation as any).navigate('TripDetailsScreen', isConsolidated ? { requests: reqs, transporter: t, eta: t.est, distance: calculatedDistance || distance } : { booking: payload });
     }
   }
 

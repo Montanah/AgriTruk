@@ -12,6 +12,8 @@ import PhoneOTPScreen from './src/screens/auth/PhoneOTPScreen';
 import SignupScreen from './src/screens/auth/SignupScreen';
 import SignupSelectionScreen from './src/screens/auth/SignupSelectionScreen';
 import TransporterCompletionScreen from './src/screens/auth/TransporterCompletionScreen';
+import BookingConfirmationScreen from './src/screens/BookingConfirmationScreen';
+import ConsolidationScreen from './src/screens/business/ConsolidationScreen';
 import ServiceRequestScreen from './src/screens/ServiceRequestScreen';
 import SubscriptionExpiredScreen from './src/screens/SubscriptionExpiredScreen';
 import SubscriptionTrialScreen from './src/screens/SubscriptionTrialScreen';
@@ -376,6 +378,8 @@ export default function App() {
         <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
         <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+        <Stack.Screen name="Consolidation" component={ConsolidationScreen} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         {/* Temporary: allow navigation for UI testing */}
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
@@ -400,6 +404,7 @@ export default function App() {
         <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
         <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
       </>
     );
   } else if (user && isVerified) {
@@ -413,6 +418,8 @@ export default function App() {
         <>
           <Stack.Screen name="MainTabs" component={MainTabNavigator} />
           <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+          <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+          <Stack.Screen name="Consolidation" component={ConsolidationScreen} />
           <Stack.Screen name="TripDetailsScreen" component={require('./src/screens/TripDetailsScreen').default} />
           <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
           {/* Add verification screens for secondary verification */}
@@ -428,6 +435,7 @@ export default function App() {
           <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
           <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
           <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+          <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
           {/* Add verification screens for secondary verification */}
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
@@ -444,6 +452,7 @@ export default function App() {
         <>
           <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
           <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+          <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
           {/* Add verification screens for secondary verification */}
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
@@ -461,6 +470,7 @@ export default function App() {
           <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
           <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
           <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+          <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
           {/* Add verification screens for secondary verification */}
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
@@ -474,6 +484,7 @@ export default function App() {
         <>
           <Stack.Screen name="MainTabs" component={MainTabNavigator} />
           <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+          <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
           {/* Add verification screens for secondary verification */}
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
@@ -497,6 +508,7 @@ export default function App() {
         <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
         <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
         <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
       </>

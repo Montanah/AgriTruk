@@ -1,15 +1,19 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BusinessHomeScreen from '../screens/business/BusinessHomeScreen';
 import BusinessManageScreen from '../screens/business/BusinessManageScreen';
 import BusinessProfileScreen from '../screens/business/BusinessProfileScreen';
+import TrackingScreen from '../screens/TrackingScreen';
+import MapViewScreen from '../screens/MapViewScreen';
 import colors from '../constants/colors';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
 
-const BusinessTabNavigator = () => {
+const TabNavigator = () => {
   const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
@@ -71,6 +75,16 @@ const BusinessTabNavigator = () => {
       <Tab.Screen name="BusinessManage" component={BusinessManageScreen} />
       <Tab.Screen name="BusinessProfile" component={BusinessProfileScreen} />
     </Tab.Navigator>
+  );
+};
+
+const BusinessTabNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Tabs" component={TabNavigator} />
+      <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+      <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+    </Stack.Navigator>
   );
 };
 

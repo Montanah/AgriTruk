@@ -17,6 +17,9 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
+import { apiRequest } from '../utils/api';
+import { getAuth } from 'firebase/auth';
+import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
 
 interface RequestItem {
   id: string;
@@ -63,14 +66,53 @@ const ActivityScreen = () => {
       setLoading(true);
       setError(null);
 
-      // TODO: Replace with actual API call when backend is ready
-      // const response = await apiRequest('/shipper/requests');
-      // setRequests(response.data);
+      // Get current user
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
-      // For now, return empty array - no mock data
-      setRequests([]);
+      console.log('🔍 Loading bookings for user:', user.uid);
+
+      // Fetch bookings for the current user
+      const response = await apiRequest(`/bookings/shipper/${user.uid}`);
+      
+      console.log('📦 Bookings response:', response);
+
+      if (response.bookings && Array.isArray(response.bookings)) {
+        // Transform backend booking data to frontend format
+        const transformedBookings = response.bookings.map((booking: any) => ({
+          id: booking.bookingId || booking.id || `booking_${Date.now()}`,
+          type: booking.bookingMode === 'instant' ? 'instant' : 'booking',
+          status: booking.status || 'pending',
+          fromLocation: getReadableLocationName(booking.fromLocationAddress || booking.fromLocation),
+          toLocation: getReadableLocationName(booking.toLocationAddress || booking.toLocation),
+          productType: booking.productType || 'Unknown',
+          weight: booking.weightKg ? `${booking.weightKg}kg` : 'Unknown',
+          createdAt: booking.createdAt || booking.pickUpDate || new Date().toISOString(),
+          transporter: booking.transporterId ? {
+            name: booking.transporterName || 'Unknown Transporter',
+            phone: booking.transporterPhone || 'N/A',
+            profilePhoto: booking.transporterPhoto,
+            photo: booking.transporterPhoto,
+            rating: booking.transporterRating || 0,
+            experience: booking.transporterExperience || 'N/A',
+            availability: booking.transporterAvailability || 'N/A',
+            tripsCompleted: booking.transporterTripsCompleted || 0,
+            status: booking.transporterStatus || 'unknown'
+          } : null
+        }));
+
+        console.log('✅ Transformed bookings:', transformedBookings.length, 'bookings found');
+        setRequests(transformedBookings);
+      } else {
+        console.log('⚠️ No bookings found or invalid response format');
+        setRequests([]);
+      }
     } catch (err: any) {
-      console.error('Error loading requests:', err);
+      console.error('❌ Error loading requests:', err);
       setError(err.message || 'Failed to load requests');
       setRequests([]);
     } finally {
@@ -138,7 +180,7 @@ const ActivityScreen = () => {
         <View style={styles.requestId}>
           <Text style={styles.requestIdText}>#{item.id}</Text>
         </View>
-        <View style={styles.statusBadge}>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20', borderColor: getStatusColor(item.status) + '40' }]}>
           <MaterialCommunityIcons
             name={getStatusIcon(item.status)}
             size={16}
@@ -156,7 +198,7 @@ const ActivityScreen = () => {
           <View style={styles.routeText}>
             <Text style={styles.routeLabel}>Route</Text>
             <Text style={styles.routeValue}>
-              {item.fromLocation} → {item.toLocation}
+              {formatRoute(item.fromLocation, item.toLocation)}
             </Text>
           </View>
         </View>
@@ -457,10 +499,10 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    borderRadius: 20,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
   },
   statusText: {
     fontSize: fonts.size.xs,
@@ -554,14 +596,16 @@ const styles = StyleSheet.create({
   },
   requestCard: {
     backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: spacing.md,
+    borderRadius: 16,
+    padding: spacing.lg,
     marginBottom: spacing.md,
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
   requestHeader: {
     flexDirection: 'row',
@@ -577,19 +621,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     fontWeight: 'bold',
     color: colors.text.primary,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  statusText: {
-    fontSize: fonts.size.xs,
-    fontWeight: '600',
-    marginLeft: spacing.xs,
   },
 
 
@@ -610,9 +641,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   routeValue: {
-    fontSize: fonts.size.sm,
-    fontWeight: '600',
+    fontSize: fonts.size.md,
+    fontWeight: '700',
     color: colors.text.primary,
+    lineHeight: 22,
   },
   productInfo: {
     flexDirection: 'row',
@@ -752,10 +784,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 16,
     flex: 1,
+    minHeight: 48,
   },
   trackButton: {
     backgroundColor: colors.primary,

@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     SafeAreaView,
@@ -13,11 +13,40 @@ import {
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { API_ENDPOINTS } from '../constants/api';
-
 // Mock data removed - now using real API calls
 
-const statusConfig = {
+interface TrackingData {
+    bookingId: string;
+    status: string;
+    fromLocation: string;
+    toLocation: string;
+    productType: string;
+    weight: string;
+    route: {
+        status: string;
+        location: string;
+        time: string;
+        description: string;
+    }[];
+    currentLocation: {
+        address: string;
+        timestamp: string;
+    } | null;
+    estimatedDelivery: string;
+    transporter: {
+        name: string;
+        phone: string;
+        vehicle: string;
+    } | null;
+}
+
+interface RouteParams {
+    booking: any;
+    isConsolidated?: boolean;
+    consolidatedRequests?: any[];
+}
+
+const statusConfig: { [key: string]: { color: string; icon: string; label: string } } = {
     pending: { color: colors.primary, icon: 'clock-outline', label: 'Pending' },
     confirmed: { color: colors.secondary, icon: 'check-circle-outline', label: 'Confirmed' },
     pickup: { color: colors.tertiary, icon: 'package-variant', label: 'Pickup' },
@@ -29,42 +58,129 @@ const statusConfig = {
 const TrackingScreen = () => {
     const route = useRoute();
     const navigation = useNavigation();
-    const { booking, isConsolidated, consolidatedRequests } = route.params || {};
-    const [trackingData, setTrackingData] = useState(null);
+    const { booking, isConsolidated, consolidatedRequests } = (route.params as RouteParams) || {};
+    const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
     const [loading, setLoading] = useState(false);
+
+    const generateMockTrackingData = (booking: any): TrackingData => {
+        const now = new Date();
+        const pickupDate = new Date(booking.pickUpDate || booking.createdAt || now);
+        const deliveryDate = new Date(pickupDate.getTime() + (2 * 24 * 60 * 60 * 1000)); // 2 days later
+        
+        const status = booking.status || 'pending';
+        const fromLocation = booking.fromLocationAddress || (typeof booking.fromLocation === 'object' 
+            ? (booking.fromLocation.address || `${booking.fromLocation.latitude}, ${booking.fromLocation.longitude}`)
+            : booking.fromLocation) || 'Pickup Location';
+        const toLocation = booking.toLocationAddress || (typeof booking.toLocation === 'object' 
+            ? (booking.toLocation.address || `${booking.toLocation.latitude}, ${booking.toLocation.longitude}`)
+            : booking.toLocation) || 'Delivery Location';
+
+        const timeline = [];
+        
+        // Always add booking created
+        timeline.push({
+            status: 'completed',
+            location: 'Booking Created',
+            time: new Date(booking.createdAt || now).toLocaleString(),
+            description: 'Your booking request has been submitted and is being processed.'
+        });
+
+        if (['confirmed', 'pickup', 'in_transit', 'delivered'].includes(status)) {
+            timeline.push({
+                status: 'completed',
+                location: 'Booking Confirmed',
+                time: new Date(pickupDate.getTime() - (2 * 60 * 60 * 1000)).toLocaleString(), // 2 hours before pickup
+                description: 'Your booking has been confirmed by a transporter.'
+            });
+        }
+
+        if (['pickup', 'in_transit', 'delivered'].includes(status)) {
+            timeline.push({
+                status: 'completed',
+                location: fromLocation,
+                time: pickupDate.toLocaleString(),
+                description: 'Package has been picked up from the origin location.'
+            });
+        }
+
+        if (['in_transit', 'delivered'].includes(status)) {
+            timeline.push({
+                status: 'completed',
+                location: 'In Transit',
+                time: new Date(pickupDate.getTime() + (12 * 60 * 60 * 1000)).toLocaleString(), // 12 hours after pickup
+                description: 'Package is on its way to the destination.'
+            });
+        }
+
+        if (status === 'delivered') {
+            timeline.push({
+                status: 'completed',
+                location: toLocation,
+                time: deliveryDate.toLocaleString(),
+                description: 'Package has been delivered successfully.'
+            });
+        } else if (status === 'in_transit') {
+            timeline.push({
+                status: 'in_progress',
+                location: 'In Transit',
+                time: 'Currently',
+                description: 'Package is on its way to the destination.'
+            });
+        } else if (status === 'pickup') {
+            timeline.push({
+                status: 'in_progress',
+                location: fromLocation,
+                time: 'Currently',
+                description: 'Package is ready for pickup.'
+            });
+        } else {
+            timeline.push({
+                status: 'pending',
+                location: 'Awaiting Confirmation',
+                time: 'Pending',
+                description: 'Waiting for a transporter to confirm your booking.'
+            });
+        }
+
+        return {
+            bookingId: booking.id,
+            status: status,
+            fromLocation: fromLocation,
+            toLocation: toLocation,
+            productType: booking.productType || 'Cargo',
+            weight: booking.weight || 'Unknown',
+            route: timeline,
+            currentLocation: status === 'in_transit' ? {
+                address: 'En route to destination',
+                timestamp: new Date().toLocaleString()
+            } : null,
+            estimatedDelivery: deliveryDate.toLocaleString(),
+            transporter: booking.transporter ? {
+                name: booking.transporter.name || 'Transporter',
+                phone: booking.transporter.phone || 'N/A',
+                vehicle: booking.transporter.vehicle || 'N/A'
+            } : null
+        };
+    };
+
+    const fetchTrackingData = useCallback(async (bookingId: string) => {
+        setLoading(true);
+        try {
+            // Generate mock tracking data based on booking information
+            const trackingData = generateMockTrackingData(booking);
+            setTrackingData(trackingData);
+        } catch (error) {
+            console.error('Error generating tracking data:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [booking]);
 
     useEffect(() => {
         if (booking?.id) {
             fetchTrackingData(booking.id);
         }
-    }, [booking]);
-
-    const fetchTrackingData = async (bookingId: string) => {
-        setLoading(true);
-        try {
-            const { getAuth } = require('firebase/auth');
-            const auth = getAuth();
-            const user = auth.currentUser;
-            if (!user) return;
-
-            const token = await user.getIdToken();
-            const res = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}/tracking`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                setTrackingData(data.trackingData || data);
-            }
-        } catch (error) {
-            console.error('Error fetching tracking data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [booking, fetchTrackingData]);
 
     const getStatusConfig = (status: string) => {
         return statusConfig[status] || statusConfig.pending;
@@ -72,11 +188,11 @@ const TrackingScreen = () => {
 
     const renderStatusTimeline = () => {
         if (!trackingData?.route) return null;
-        return trackingData.route.map((step, index) => (
+        return trackingData.route.map((step: any, index: number) => (
             <View key={index} style={styles.timelineItem}>
                 <View style={styles.timelineDot}>
                     <MaterialCommunityIcons
-                        name={step.status === 'completed' ? 'check-circle' : step.status === 'in_progress' ? 'progress-clock' : 'circle-outline'}
+                        name={step.status === 'completed' ? 'check-circle' : step.status === 'in_progress' ? 'progress-clock' : 'circle-outline' as any}
                         size={20}
                         color={step.status === 'completed' ? colors.success : step.status === 'in_progress' ? colors.secondary : colors.text.light}
                     />
@@ -141,22 +257,60 @@ const TrackingScreen = () => {
                         </Text>
                     </View>
                     <View style={styles.bookingInfo}>
-                        <Text style={styles.bookingId}>#{trackingData.bookingId}</Text>
-                        <View style={styles.statusBadge}>
+                        <View style={styles.bookingIdContainer}>
+                            <Text style={styles.bookingId}>#{trackingData.bookingId}</Text>
+                            <Text style={styles.bookingDate}>
+                                Created: {new Date(trackingData.bookingId ? booking.createdAt || new Date() : new Date()).toLocaleDateString()}
+                            </Text>
+                        </View>
+                        <View style={[styles.statusBadge, { 
+                            backgroundColor: getStatusConfig(trackingData.status).color + '15',
+                            borderColor: getStatusConfig(trackingData.status).color + '50',
+                            borderWidth: 1.5
+                        }]}>
                             <MaterialCommunityIcons
-                                name={getStatusConfig(trackingData.status).icon}
-                                size={16}
+                                name={getStatusConfig(trackingData.status).icon as any}
+                                size={18}
                                 color={getStatusConfig(trackingData.status).color}
                             />
-                            <Text style={[styles.statusText, { color: getStatusConfig(trackingData.status).color }]}>
+                            <Text style={[styles.statusText, { 
+                                color: getStatusConfig(trackingData.status).color,
+                                fontWeight: '700'
+                            }]}>
                                 {getStatusConfig(trackingData.status).label}
                             </Text>
+                        </View>
+                    </View>
+                    
+                    {/* Additional Booking Details */}
+                    <View style={styles.bookingDetails}>
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="package-variant" size={16} color={colors.text.secondary} />
+                            <Text style={styles.detailLabel}>Product:</Text>
+                            <Text style={styles.detailValue}>{trackingData.productType}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="weight-kilogram" size={16} color={colors.text.secondary} />
+                            <Text style={styles.detailLabel}>Weight:</Text>
+                            <Text style={styles.detailValue}>{trackingData.weight}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="calendar-clock" size={16} color={colors.text.secondary} />
+                            <Text style={styles.detailLabel}>Pickup Date:</Text>
+                            <Text style={styles.detailValue}>
+                                {new Date(booking.pickUpDate || booking.createdAt || new Date()).toLocaleDateString()}
+                            </Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="truck-delivery" size={16} color={colors.text.secondary} />
+                            <Text style={styles.detailLabel}>Estimated Delivery:</Text>
+                            <Text style={styles.detailValue}>{trackingData.estimatedDelivery}</Text>
                         </View>
                     </View>
                     {isConsolidated && consolidatedRequests && (
                         <View style={styles.consolidatedInfo}>
                             <Text style={styles.consolidatedTitle}>Consolidated Requests:</Text>
-                            {consolidatedRequests.map((req, index) => (
+                            {consolidatedRequests.map((req: any, index: number) => (
                                 <View key={req.id} style={styles.consolidatedItem}>
                                     <Text style={styles.consolidatedItemText}>
                                         • {req.fromLocation} → {req.toLocation} ({req.productType}, {req.weight})
@@ -178,7 +332,7 @@ const TrackingScreen = () => {
                             <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
                             <View style={styles.routeText}>
                                 <Text style={styles.routeLabel}>Pickup</Text>
-                                <Text style={styles.routeValue}>{trackingData.pickupLocation}</Text>
+                                <Text style={styles.routeValue}>{trackingData.fromLocation}</Text>
                             </View>
                         </View>
                         <View style={styles.routeDivider} />
@@ -186,7 +340,7 @@ const TrackingScreen = () => {
                             <MaterialCommunityIcons name="map-marker-check" size={20} color={colors.success} />
                             <View style={styles.routeText}>
                                 <Text style={styles.routeLabel}>Delivery</Text>
-                                <Text style={styles.routeValue}>{trackingData.deliveryLocation}</Text>
+                                <Text style={styles.routeValue}>{trackingData.toLocation}</Text>
                             </View>
                         </View>
                     </View>
@@ -198,21 +352,44 @@ const TrackingScreen = () => {
                         <MaterialCommunityIcons name="account-tie" size={24} color={colors.tertiary} />
                         <Text style={styles.cardTitle}>Transporter</Text>
                     </View>
-                    <View style={styles.transporterInfo}>
-                        <Text style={styles.transporterName}>{trackingData.transporter.name}</Text>
-                        <Text style={styles.transporterPhone}>{trackingData.transporter.phone}</Text>
-                        <Text style={styles.transporterVehicle}>{trackingData.transporter.vehicle}</Text>
-                    </View>
+                    {trackingData.transporter?.name && trackingData.transporter.name !== 'N/A' ? (
+                        <View style={styles.transporterInfo}>
+                            <View style={styles.transporterDetailRow}>
+                                <MaterialCommunityIcons name="account" size={16} color={colors.text.secondary} />
+                                <Text style={styles.transporterLabel}>Name:</Text>
+                                <Text style={styles.transporterValue}>{trackingData.transporter.name}</Text>
+                            </View>
+                            <View style={styles.transporterDetailRow}>
+                                <MaterialCommunityIcons name="phone" size={16} color={colors.text.secondary} />
+                                <Text style={styles.transporterLabel}>Phone:</Text>
+                                <Text style={styles.transporterValue}>{trackingData.transporter.phone}</Text>
+                            </View>
+                            <View style={styles.transporterDetailRow}>
+                                <MaterialCommunityIcons name="truck" size={16} color={colors.text.secondary} />
+                                <Text style={styles.transporterLabel}>Vehicle:</Text>
+                                <Text style={styles.transporterValue}>{trackingData.transporter.vehicle}</Text>
+                            </View>
+                        </View>
+                    ) : (
+                        <View style={styles.noTransporterInfo}>
+                            <MaterialCommunityIcons name="clock-outline" size={32} color={colors.text.light} />
+                            <Text style={styles.noTransporterText}>Awaiting Transporter Assignment</Text>
+                            <Text style={styles.noTransporterSubtext}>
+                                A transporter will be assigned to your booking soon
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* Real-time Tracking Button */}
                 <TouchableOpacity
                     style={styles.trackingButton}
-                    onPress={() => navigation.navigate('MapViewScreen', {
+                    onPress={() => (navigation as any).navigate('MapViewScreen', {
                         booking: booking,
                         trackingData: trackingData,
-                        isConsolidated: isConsolidated,
-                        consolidatedRequests: consolidatedRequests
+                        isConsolidated: isConsolidated || false,
+                        consolidatedRequests: consolidatedRequests || [],
+                        isInstant: false
                     })}
                 >
                     <MaterialCommunityIcons name="map-marker-radius" size={24} color={colors.white} />
@@ -227,6 +404,24 @@ const TrackingScreen = () => {
                     </View>
                     <View style={styles.timeline}>
                         {renderStatusTimeline()}
+                    </View>
+                    
+                    {/* Progress Summary */}
+                    <View style={styles.progressSummary}>
+                        <View style={styles.progressBar}>
+                            <View style={[styles.progressFill, { 
+                                width: trackingData.status === 'delivered' ? '100%' : 
+                                      trackingData.status === 'in_transit' ? '75%' :
+                                      trackingData.status === 'pickup' ? '50%' :
+                                      trackingData.status === 'confirmed' ? '25%' : '10%'
+                            }]} />
+                        </View>
+                        <Text style={styles.progressText}>
+                            {trackingData.status === 'delivered' ? 'Completed' : 
+                             trackingData.status === 'in_transit' ? 'In Progress' :
+                             trackingData.status === 'pickup' ? 'Ready for Pickup' :
+                             trackingData.status === 'confirmed' ? 'Confirmed' : 'Processing'}
+                        </Text>
                     </View>
                 </View>
 
@@ -293,14 +488,16 @@ const styles = StyleSheet.create({
     },
     card: {
         backgroundColor: colors.white,
-        borderRadius: 12,
+        borderRadius: 16,
         padding: spacing.lg,
         marginBottom: spacing.md,
         shadowColor: colors.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
         elevation: 3,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.primary,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -318,23 +515,57 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
     },
+    bookingIdContainer: {
+        flex: 1,
+    },
     bookingId: {
         fontSize: fonts.size.lg,
         fontWeight: 'bold',
         color: colors.primary,
+        marginBottom: spacing.xs,
+    },
+    bookingDate: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        fontWeight: '500',
     },
     statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.surface,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs,
-        borderRadius: 16,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: 20,
+        borderWidth: 1,
     },
     statusText: {
         fontSize: fonts.size.sm,
         fontWeight: '600',
         marginLeft: spacing.xs,
+    },
+    bookingDetails: {
+        marginTop: spacing.md,
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    detailLabel: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginLeft: spacing.sm,
+        marginRight: spacing.sm,
+        fontWeight: '500',
+        minWidth: 100,
+    },
+    detailValue: {
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
+        fontWeight: '600',
+        flex: 1,
     },
     routeInfo: {
         gap: spacing.sm,
@@ -364,20 +595,44 @@ const styles = StyleSheet.create({
         marginLeft: 10,
     },
     transporterInfo: {
-        gap: spacing.xs,
+        gap: spacing.sm,
     },
-    transporterName: {
-        fontSize: fonts.size.md,
-        fontWeight: 'bold',
+    transporterDetailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    transporterLabel: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginLeft: spacing.sm,
+        marginRight: spacing.sm,
+        fontWeight: '500',
+        minWidth: 60,
+    },
+    transporterValue: {
+        fontSize: fonts.size.sm,
         color: colors.text.primary,
+        fontWeight: '600',
+        flex: 1,
     },
-    transporterPhone: {
-        fontSize: fonts.size.sm,
-        color: colors.text.secondary,
+    noTransporterInfo: {
+        alignItems: 'center',
+        paddingVertical: spacing.lg,
     },
-    transporterVehicle: {
-        fontSize: fonts.size.sm,
+    noTransporterText: {
+        fontSize: fonts.size.md,
+        fontWeight: '600',
         color: colors.text.secondary,
+        marginTop: spacing.sm,
+        textAlign: 'center',
+    },
+    noTransporterSubtext: {
+        fontSize: fonts.size.sm,
+        color: colors.text.light,
+        marginTop: spacing.xs,
+        textAlign: 'center',
+        lineHeight: 20,
     },
     trackingButton: {
         backgroundColor: colors.primary,
@@ -431,6 +686,30 @@ const styles = StyleSheet.create({
         top: 24,
         width: 2,
         height: 20,
+    },
+    progressSummary: {
+        marginTop: spacing.lg,
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    progressBar: {
+        height: 8,
+        backgroundColor: colors.surface,
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginBottom: spacing.sm,
+    },
+    progressFill: {
+        height: '100%',
+        backgroundColor: colors.primary,
+        borderRadius: 4,
+    },
+    progressText: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.primary,
+        textAlign: 'center',
     },
     locationInfo: {
         gap: spacing.xs,

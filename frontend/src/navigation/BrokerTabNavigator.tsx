@@ -1,15 +1,19 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import BrokerHomeScreen from '../screens/BrokerHomeScreen';
 import BrokerManagementScreen from '../screens/BrokerManagementScreen';
 import BrokerProfileScreen from '../screens/BrokerProfileScreen';
+import TrackingScreen from '../screens/TrackingScreen';
+import MapViewScreen from '../screens/MapViewScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
 
-export default function BrokerTabNavigator({ route }: any) {
+const TabNavigator = ({ route }: any) => {
   const insets = useSafeAreaInsets();
   const subscriptionStatus = route.params?.subscriptionStatus;
 
@@ -62,5 +66,15 @@ export default function BrokerTabNavigator({ route }: any) {
       <Tab.Screen name="Management" component={BrokerManagementScreen} />
       <Tab.Screen name="Profile" component={BrokerProfileScreen} />
     </Tab.Navigator>
+  );
+};
+
+export default function BrokerTabNavigator({ route }: any) {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Tabs" component={TabNavigator} initialParams={route.params} />
+      <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+      <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+    </Stack.Navigator>
   );
 }

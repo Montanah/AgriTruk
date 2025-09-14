@@ -14,7 +14,31 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const requests = params.requests || (params.booking ? [params.booking] : []);
   const isConsolidated = Array.isArray(requests) && requests.length > 1;
   const mode = params.mode || 'shipper'; // shipper, broker, business
-  const [pickupDate, setPickupDate] = useState(new Date());
+  // Initialize pickup date from request data
+  const getInitialPickupDate = () => {
+    if (isConsolidated && requests.length > 0) {
+      // For consolidated bookings, use the pickup date from the last item
+      const lastRequest = requests[requests.length - 1];
+      if (lastRequest.pickUpDate) {
+        return new Date(lastRequest.pickUpDate);
+      }
+      if (lastRequest.date) {
+        return new Date(lastRequest.date);
+      }
+    } else if (requests.length > 0) {
+      // For single bookings, use the pickup date from the request
+      const request = requests[0];
+      if (request.pickUpDate) {
+        return new Date(request.pickUpDate);
+      }
+      if (request.date) {
+        return new Date(request.date);
+      }
+    }
+    return new Date();
+  };
+  
+  const [pickupDate, setPickupDate] = useState(getInitialPickupDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [posting, setPosting] = useState(false);
 
@@ -66,7 +90,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       console.log('🔍 Validating booking requests:', requests.length, 'requests found');
       
       // Prepare payload for backend booking format
-      payload = requests.map((req, index) => {
+      payload = requests.map((req: any, index: number) => {
         // Validate required fields
         if (!req.fromLocation || !req.toLocation) {
           throw new Error(`Request ${index + 1} is missing required location information.`);
@@ -182,7 +206,12 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       console.log('✅ Booking posted successfully');
       console.log('📦 Response Data:', JSON.stringify(response, null, 2));
       console.log('='.repeat(100) + '\n');
-      Alert.alert('Booking posted!', isConsolidated ? 'Your consolidated booking has been posted.' : 'Your booking has been posted.');
+      // Extract booking ID from response
+      const bookingId = response?.booking?.bookingId || response?.id || response?.bookingId || 'N/A';
+      Alert.alert(
+        'Booking Posted Successfully!', 
+        `Your ${isConsolidated ? 'consolidated ' : ''}booking has been posted.\n\nBooking ID: ${bookingId}\n\nYou will be notified when a transporter accepts your request.`
+      );
       navigation.goBack();
     } catch (error: any) {
       console.log('='.repeat(100));
@@ -211,7 +240,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         }
         
         console.log('🔄 Attempting to store booking locally as fallback...');
-        const localBooking = await storeBookingLocally(payload[0]);
+        await storeBookingLocally(payload[0]);
         
         Alert.alert(
           'Booking Saved Locally', 
@@ -245,8 +274,8 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         renderItem={({ item, index }) => (
           <View style={[styles.bookingCard, index % 2 === 0 ? { backgroundColor: colors.surface } : { backgroundColor: colors.background }]}>
             <Text style={styles.bookingId}>Request ID: {item.id}</Text>
-            <Text style={styles.bookingDetail}>From: <Text style={{ fontWeight: 'bold' }}>{item.fromLocation}</Text></Text>
-            <Text style={styles.bookingDetail}>To: <Text style={{ fontWeight: 'bold' }}>{item.toLocation}</Text></Text>
+            <Text style={styles.bookingDetail}>From: <Text style={{ fontWeight: 'bold' }}>{item.fromLocationAddress || (typeof item.fromLocation === 'object' ? (item.fromLocation.address || `${item.fromLocation.latitude}, ${item.fromLocation.longitude}`) : item.fromLocation)}</Text></Text>
+            <Text style={styles.bookingDetail}>To: <Text style={{ fontWeight: 'bold' }}>{item.toLocationAddress || (typeof item.toLocation === 'object' ? (item.toLocation.address || `${item.toLocation.latitude}, ${item.toLocation.longitude}`) : item.toLocation)}</Text></Text>
             <Text style={styles.bookingDetail}>Product: {item.productType} | {item.weight}kg</Text>
             <Text style={styles.bookingDetail}>Type: {item.type === 'agriTRUK' ? 'Agri' : 'Cargo'}</Text>
           </View>

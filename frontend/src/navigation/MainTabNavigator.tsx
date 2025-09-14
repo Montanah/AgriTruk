@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import colors from '../constants/colors';
@@ -7,12 +8,15 @@ import { spacing } from '../constants';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
 
 import ServiceRequestScreen from '../screens/ServiceRequestScreen';
 import ActivityScreen from '../screens/ActivityScreen';
 import AccountScreen from '../screens/AccountScreen';
+import TrackingScreen from '../screens/TrackingScreen';
+import MapViewScreen from '../screens/MapViewScreen';
 
-const MainTabNavigator = () => {
+const TabNavigator = () => {
   const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
@@ -74,6 +78,16 @@ const MainTabNavigator = () => {
       <Tab.Screen name="Activity" component={ActivityScreen} />
       <Tab.Screen name="Account" component={AccountScreen} />
     </Tab.Navigator>
+  );
+};
+
+const MainTabNavigator = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Tabs" component={TabNavigator} />
+      <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+      <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+    </Stack.Navigator>
   );
 };
 
