@@ -132,82 +132,46 @@ export default function App() {
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
 
-  // Debug: Log app state changes
-  React.useEffect(() => {
-    console.log('🔍 APP STATE CHANGED:', {
-      user: !!user,
-      isVerified,
-      role,
-      profileCompleted,
-      loading,
-      timestamp: new Date().toISOString()
-    });
-  }, [user, isVerified, role, profileCompleted, loading]);
+  // App state changes
 
-  // Debug: Log app lifecycle
+  // App lifecycle
   React.useEffect(() => {
-    console.log('🚀 APP MOUNTED - Authentication should persist');
     
     // Check current auth state immediately
     if (auth && auth.currentUser) {
-      console.log('✅ CURRENT USER FOUND ON APP START:', {
-        uid: auth.currentUser.uid,
-        email: auth.currentUser.email,
-        timestamp: new Date().toISOString()
-      });
+      // Current user found on app start
     } else {
-      console.log('❌ NO CURRENT USER ON APP START - This is normal for first launch');
+      // No current user on app start - this is normal for first launch
     }
     
     return () => {
-      console.log('🛑 APP UNMOUNTING - This should not happen during normal operation');
+      // App unmounting
     };
   }, []);
 
   React.useEffect(() => {
-    console.log('🔧 Setting up auth state listener...');
+    // Setting up auth state listener
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('🔄 AUTH STATE CHANGED:', {
-        hasUser: !!firebaseUser,
-        uid: firebaseUser?.uid,
-        email: firebaseUser?.email,
-        timestamp: new Date().toISOString()
-      });
+      // Auth state changed
       
       // Debug: Check if user is being lost
       if (!firebaseUser && user) {
-        console.log('🚨 USER LOST - Previous user was:', {
-          uid: user.uid,
-          email: user.email,
-          timestamp: new Date().toISOString()
-        });
+        // User lost
       }
       
       // Debug: Check if this is the initial auth state
       if (firebaseUser && !user) {
-        console.log('✅ USER FOUND - Initial authentication state:', {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          timestamp: new Date().toISOString()
-        });
+        // User found - initial authentication state
       }
       
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
-          console.log('🔍 FETCHING USER DATA FROM FIRESTORE:', firebaseUser.uid);
+          // Fetching user data from Firestore
           // Try users collection first
           let snap = await getDoc(firestoreDoc(db, 'users', firebaseUser.uid));
           let data = snap.exists() ? snap.data() : null;
-          console.log('🔍 FIRESTORE DATA FETCHED:', {
-            exists: snap.exists(),
-            data: data ? {
-              role: data.role,
-              isVerified: data.isVerified,
-              email: data.email,
-              phone: data.phone
-            } : null
-          });
+          // Firestore data fetched
           
           if (data) {
             // For new users, isVerified might be false initially
@@ -216,13 +180,7 @@ export default function App() {
             setIsVerified(isUserVerified);
             setRole(data.role || null);
             
-            console.log('🔍 USER DATA PROCESSED:', {
-              uid: firebaseUser.uid,
-              role: data.role,
-              isVerified: isUserVerified,
-              email: data.email,
-              phone: data.phone
-            });
+            // User data processed
 
             // For transporters, check if they have a profile in transporters collection
             if (data.role === 'transporter') {
@@ -238,18 +196,13 @@ export default function App() {
                   
                   // isVerified is already set from users collection - don't override it
                   // Transporter approval status is separate from verification
-                  console.log('Transporter profile found:', { 
-                    isProfileComplete, 
-                    status: transporterData.status,
-                    transporterStatus: data.transporterStatus,
-                    isVerified: isUserVerified // Keep the verification status from users collection
-                  });
+                  // Transporter profile found
 
                   // Check subscription status for approved transporters
                   if (transporterData.status === 'approved') {
-                    console.log('🚨 CHECKING TRANSPORTER SUBSCRIPTION STATUS');
+                    // Checking transporter subscription status
                     const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
-                    console.log('🚨 TRANSPORTER SUBSCRIPTION STATUS RESULT:', subStatus);
+                    // Transporter subscription status result
                     setSubscriptionStatus(subStatus);
                   }
                 } else {
@@ -257,10 +210,7 @@ export default function App() {
                   setProfileCompleted(false);
                   data.transporterStatus = 'incomplete'; // Set status for routing
                   // Don't override isVerified - keep it from users collection
-                  console.log('🚨 Transporter user found but NO PROFILE in transporters collection - should go to TransporterCompletionScreen', {
-                    isVerified: isUserVerified,
-                    transporterStatus: data.transporterStatus
-                  });
+                  // Transporter user found but no profile in transporters collection
                 }
               } catch (e) {
                 setProfileCompleted(false);
@@ -276,7 +226,7 @@ export default function App() {
               }
             } else if (data.role === 'business') {
               // For business users, no subscription needed - just check verification
-              console.log('📋 BUSINESS USER FOUND - checking verification status');
+              // Business user found - checking verification status
               setProfileCompleted(!!data.profileCompleted);
             } else {
               // For other users (shippers), use the profileCompleted field
@@ -326,33 +276,16 @@ export default function App() {
   let initialRouteName = 'Welcome';
   let screens = null;
 
-  console.log('🔍 Navigation state:', {
-    user: !!user,
-    role,
-    roleType: typeof role,
-    isVerified,
-    profileCompleted,
-    subscriptionStatus,
-    userId: user?.uid
-  });
+  // Navigation state
 
   // Debug business role specifically
   if (role === 'business') {
-    console.log('✅ BUSINESS USER DETECTED - routing to BusinessStack');
+    // Business user detected - routing to BusinessStack
   } else if (role) {
-    console.log('❌ NON-BUSINESS ROLE:', role, 'Type:', typeof role);
+    // Non-business role
   }
 
-  // Debug navigation state
-  console.log('🔍 NAVIGATION DEBUG:', {
-    user: !!user,
-    userId: user?.uid,
-    role,
-    isVerified,
-    profileCompleted,
-    subscriptionStatus: !!subscriptionStatus,
-    timestamp: new Date().toISOString()
-  });
+  // Navigation debug
 
   if (!user) {
     initialRouteName = 'Welcome';
@@ -380,9 +313,7 @@ export default function App() {
     );
   } else if (role && role !== 'transporter' && role !== 'broker' && !isVerified) {
     // Unverified non-transporter/non-broker users - send to verification
-    console.log('🚨 UNVERIFIED USER DETECTED - routing to verification:', { role, isVerified });
-    console.log('🚨 NAVIGATING TO EMAIL VERIFICATION SCREEN');
-    console.log('🚨 NAVIGATION STACK: Unverified non-transporter/non-broker flow');
+    // Unverified user detected - routing to verification
     initialRouteName = 'EmailVerification'; // Default to email verification
     screens = (
       <>
@@ -401,10 +332,10 @@ export default function App() {
     );
   } else if (user && isVerified) {
     // Verified users - route based on role
-    console.log('✅ VERIFIED USER DETECTED - routing based on role:', { role, isVerified });
+    // Verified user detected - routing based on role
     
     if (role === 'shipper') {
-      console.log('🚀 ROUTING SHIPPER TO MAIN TABS (Home tab = ServiceRequest)');
+      // Routing shipper to main tabs
       initialRouteName = 'MainTabs';
       screens = (
         <>
@@ -420,7 +351,7 @@ export default function App() {
         </>
       );
     } else if (role === 'business') {
-      console.log('🚀 ROUTING BUSINESS TO BUSINESS STACK');
+      // Routing business to business stack
       initialRouteName = 'BusinessStack';
       screens = (
         <>
@@ -437,7 +368,7 @@ export default function App() {
       // Check if broker is already verified (has completed ID verification)
       // We'll need to fetch broker-specific data to check verification status
       // For now, route all brokers to verification screen - they can check their status there
-      console.log('🚀 ROUTING BROKER TO ID VERIFICATION (status will be checked in screen)');
+      // Routing broker to ID verification
       initialRouteName = 'VerifyIdentificationDocument';
       
       screens = (
@@ -454,7 +385,7 @@ export default function App() {
       // For transporters, always route to completion screen initially
       // The TransporterCompletionScreen will check the actual profile status
       // and route accordingly (completion -> processing -> tabs)
-      console.log('🚀 ROUTING TRANSPORTER TO COMPLETION SCREEN (will check profile status)');
+      // Routing transporter to completion screen
       initialRouteName = 'TransporterCompletionScreen';
       
       screens = (
@@ -470,7 +401,7 @@ export default function App() {
       );
     } else {
       // Fallback for other roles
-      console.log('🚀 ROUTING UNKNOWN ROLE TO MAIN TABS');
+      // Routing unknown role to main tabs
       initialRouteName = 'MainTabs';
       screens = (
         <>
@@ -485,9 +416,7 @@ export default function App() {
     }
   } else if (user && !isVerified) {
     // Fallback: Any authenticated user who is not verified should go to verification
-    console.log('🚨 FALLBACK: Authenticated but unverified user - routing to verification');
-    console.log('🚨 FALLBACK NAVIGATING TO EMAIL VERIFICATION SCREEN');
-    console.log('🚨 NAVIGATION STACK: Fallback unverified user flow');
+    // Fallback: authenticated but unverified user - routing to verification
     initialRouteName = 'EmailVerification';
     screens = (
       <>
@@ -603,13 +532,13 @@ export default function App() {
     }
   } else if (role === 'transporter') {
     // Enhanced transporter navigation logic
-    console.log('🚨 TRANSPORTER CONDITION HIT - checking profile completion');
-    console.log('Transporter navigation logic:', { profileCompleted, isVerified, subscriptionStatus });
+    // Transporter condition hit - checking profile completion
+    // Transporter navigation logic
 
     if (!profileCompleted) {
       // Profile not completed - go to completion screen
       initialRouteName = 'TransporterCompletionScreen';
-      console.log('🚨 ROUTING TO TransporterCompletionScreen - profile not completed');
+      // Routing to TransporterCompletionScreen - profile not completed
       screens = (
         <>
           <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />

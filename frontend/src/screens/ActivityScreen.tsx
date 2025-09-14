@@ -393,6 +393,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingBottom: 80, // Add bottom padding to account for tab bar
   },
   header: {
     flexDirection: 'row',
@@ -451,6 +452,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: spacing.lg,
+    paddingBottom: 100, // Extra bottom padding for tab bar clearance
     flexGrow: 1,
   },
   activityItem: {
