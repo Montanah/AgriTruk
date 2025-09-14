@@ -16,18 +16,14 @@ export default function APITestComponent() {
         addResult('🔍 Testing health endpoint...');
 
         try {
-            console.log('\n' + '='.repeat(100));
-            console.log('🧪 API TEST - HEALTH ENDPOINT');
-            console.log('='.repeat(100));
-            console.log('⏰ Test timestamp:', new Date().toISOString());
-            console.log('='.repeat(100) + '\n');
+            // API test - health endpoint
 
             const response = await apiRequest('/health');
             addResult(`✅ Health endpoint successful: ${JSON.stringify(response)}`);
-            console.log('✅ Health endpoint test successful');
+            // Health endpoint test successful
         } catch (error) {
             addResult(`❌ Health endpoint failed: ${error.message}`);
-            console.log('❌ Health endpoint test failed:', error.message);
+            // Health endpoint test failed
         } finally {
             setIsLoading(false);
         }
@@ -38,19 +34,16 @@ export default function APITestComponent() {
         addResult('🔍 Testing transporter endpoint...');
 
         try {
-            console.log('\n' + '='.repeat(100));
-            console.log('🧪 API TEST - TRANSPORTER ENDPOINT');
-            console.log('='.repeat(100));
-            console.log('⏰ Test timestamp:', new Date().toISOString());
-            console.log('='.repeat(100) + '\n');
+            // API test - transporter endpoint
+            // Test separator
 
             // This will likely fail with 401, but we'll see the request in logs
             const response = await apiRequest('/transporters/test');
             addResult(`✅ Transporter endpoint successful: ${JSON.stringify(response)}`);
-            console.log('✅ Transporter endpoint test successful');
+            // Transporter endpoint test successful
         } catch (error) {
             addResult(`❌ Transporter endpoint failed: ${error.message}`);
-            console.log('❌ Transporter endpoint test failed:', error.message);
+            // Transporter endpoint test failed
         } finally {
             setIsLoading(false);
         }

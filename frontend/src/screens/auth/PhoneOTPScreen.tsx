@@ -23,14 +23,14 @@ if (Platform.OS === 'android') {
   } catch { }
 }
 
-const PhoneOTPScreen = ({ navigation, route }) => {
+const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) => {
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [userData, setUserData] = useState(null);
-  const { phone: routePhone, email: routeEmail, role: routeRole, password: routePassword } = route.params || {};
+  const [userData, setUserData] = useState<any>(null);
+  const { phone: routePhone, email: routeEmail, role: routeRole, password: routePassword } = (route.params as any) || {};
   
   // Get user data from route params or fetch from Firestore
   const email = routeEmail || userData?.email;
@@ -84,7 +84,7 @@ const PhoneOTPScreen = ({ navigation, route }) => {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
               const userData = userDoc.data();
-              setUserData(userData);
+              setUserData(userData as any);
               
               // Check if user is already verified
               if (userData.isVerified) {
@@ -182,20 +182,20 @@ const PhoneOTPScreen = ({ navigation, route }) => {
             routes: [{ name: 'VerifyIdentificationDocument' }]
           });
         } else if (role === 'transporter') {
-          console.log('🚀 Navigating transporter to TransporterCompletionScreen (profile will be checked in App.tsx)');
+          // Navigating transporter to TransporterCompletionScreen
           navigation.reset({
             index: 0,
             routes: [{ name: 'TransporterCompletionScreen' }]
           });
         } else {
-          console.log('🚀 Navigating unknown role to MainTabs');
+          // Navigating unknown role to MainTabs
           navigation.reset({
             index: 0,
             routes: [{ name: 'MainTabs' }]
           });
         }
       }, 2000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Phone verification error:', err);
       let errorMessage = 'Verification failed. Please try again.';
 
@@ -239,7 +239,7 @@ const PhoneOTPScreen = ({ navigation, route }) => {
 
       setCountdown(60); // Start 60 second countdown
       setError(''); // Clear any previous errors
-    } catch (err) {
+    } catch (err: any) {
       console.error('Resend error:', err);
       setError('Failed to resend code. Please try again.');
     } finally {
@@ -247,7 +247,7 @@ const PhoneOTPScreen = ({ navigation, route }) => {
     }
   };
 
-  const formatPhone = (phoneNumber) => {
+  const formatPhone = (phoneNumber: any) => {
     if (!phoneNumber) return '';
     // Format phone number for display (e.g., +254 712 345 678)
     const cleaned = phoneNumber.replace(/\D/g, '');

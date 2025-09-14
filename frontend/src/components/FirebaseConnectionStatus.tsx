@@ -47,11 +47,7 @@ const FirebaseConnectionStatus: React.FC<FirebaseConnectionStatusProps> = ({
       setNetworkInfo(network);
       setDiagnosis(diagnosisResult);
 
-      console.log('🔍 Connection Status Check:', {
-        firebase: status,
-        network,
-        diagnosis: diagnosisResult
-      });
+      // Connection Status Check completed
     } catch (error) {
       console.error('Error checking connection status:', error);
       setIsConnected(false);

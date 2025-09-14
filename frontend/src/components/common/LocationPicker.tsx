@@ -171,7 +171,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
                 );
             } else {
                 // Silent fail for current location - user can still enter manually
-                console.log('Current location unavailable, user can enter manually');
+                // Current location unavailable, user can enter manually
             }
         } finally {
             setIsGettingCurrentLocation(false);

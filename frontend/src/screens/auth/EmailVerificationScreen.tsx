@@ -62,7 +62,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
               
               // Check if user is already verified
               if (userData.isVerified) {
-                console.log('User is already verified, redirecting...');
+                // User is already verified, redirecting
                 // User is already verified, let App.tsx handle navigation
                 return;
               }
@@ -133,40 +133,40 @@ const EmailVerificationScreen = ({ navigation, route }) => {
       });
 
       // Success - user is now verified
-      console.log('Email verification successful');
+      // Email verification successful
       setVerified(true);
 
       // Show success animation briefly, then navigate directly
       setTimeout(() => {
-        console.log('✅ Email verification complete - navigating to appropriate screen for role:', role);
+        // Email verification complete - navigating to appropriate screen for role
         
         // Navigate directly based on role
         if (role === 'shipper') {
-          console.log('🚀 Navigating shipper to MainTabs (Home tab = ServiceRequest)');
+          // Navigating shipper to MainTabs
           navigation.reset({
             index: 0,
             routes: [{ name: 'MainTabs' }]
           });
         } else if (role === 'business') {
-          console.log('🚀 Navigating business to BusinessStack');
+          // Navigating business to BusinessStack
           navigation.reset({
             index: 0,
             routes: [{ name: 'BusinessStack' }]
           });
         } else if (role === 'broker') {
-          console.log('🚀 Navigating broker to VerifyIdentificationDocument');
+          // Navigating broker to VerifyIdentificationDocument
           navigation.reset({
             index: 0,
             routes: [{ name: 'VerifyIdentificationDocument' }]
           });
         } else if (role === 'transporter') {
-          console.log('🚀 Navigating transporter to TransporterCompletionScreen (profile will be checked in App.tsx)');
+          // Navigating transporter to TransporterCompletionScreen
           navigation.reset({
             index: 0,
             routes: [{ name: 'TransporterCompletionScreen' }]
           });
         } else {
-          console.log('🚀 Navigating unknown role to MainTabs');
+          // Navigating unknown role to MainTabs
           navigation.reset({
             index: 0,
             routes: [{ name: 'MainTabs' }]

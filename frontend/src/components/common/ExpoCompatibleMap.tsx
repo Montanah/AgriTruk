@@ -62,7 +62,7 @@ const ExpoCompatibleMap: React.FC<ExpoCompatibleMapProps> = ({
                 getCurrentLocation();
             }
         } catch (error) {
-            console.log('Location permission error:', error);
+            // Location permission error
         }
     };
 
@@ -86,7 +86,7 @@ const ExpoCompatibleMap: React.FC<ExpoCompatibleMapProps> = ({
                 onRegionChange(newRegion);
             }
         } catch (error) {
-            console.log('Get current location error:', error);
+            // Get current location error
         }
     };
 
@@ -104,7 +104,7 @@ const ExpoCompatibleMap: React.FC<ExpoCompatibleMapProps> = ({
             window.open(url, '_blank');
         } else {
             // For mobile, you can use Linking.openURL
-            console.log('Open in Google Maps:', url);
+            // Open in Google Maps
         }
     };
 
@@ -115,7 +115,7 @@ const ExpoCompatibleMap: React.FC<ExpoCompatibleMapProps> = ({
         if (Platform.OS === 'web') {
             window.open(url, '_blank');
         } else {
-            console.log('Open in Apple Maps:', url);
+            // Open in Apple Maps
         }
     };
 

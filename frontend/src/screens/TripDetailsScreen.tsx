@@ -80,7 +80,7 @@ const TripDetailsScreen = () => {
             const bookingResponse = await apiRequest(`/bookings/${params.bookingId}`);
             setBookingData(bookingResponse);
           } catch (error) {
-            console.log('Booking endpoint not available, using passed data');
+            // Booking endpoint not available, using passed data
             // Endpoint not available, use passed data
           }
         }
@@ -90,7 +90,7 @@ const TripDetailsScreen = () => {
             const tripResponse = await apiRequest(`/trips/${params.tripId}`);
             setTripData(tripResponse);
           } catch (error) {
-            console.log('Trip endpoint not available, using passed data');
+            // Trip endpoint not available, using passed data
             // Endpoint not available, use passed data
           }
         }
@@ -339,7 +339,7 @@ const TripDetailsScreen = () => {
         onClose={() => setChatVisible(false)}
         participantIds={[commTarget.id]}
         onChatCreated={(chatRoom) => {
-          console.log('Chat created:', chatRoom);
+          // Chat created
         }}
       />
 

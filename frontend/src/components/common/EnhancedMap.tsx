@@ -160,7 +160,7 @@ const EnhancedMap: React.FC<EnhancedMapProps> = ({
         if (origin) {
             if (typeof origin === 'string') {
                 // Handle string origin (address) - would need geocoding
-                console.log('String origin detected, geocoding needed');
+                // String origin detected, geocoding needed
             } else {
                 newMarkers.push({
                     id: 'origin',
@@ -189,7 +189,7 @@ const EnhancedMap: React.FC<EnhancedMapProps> = ({
         if (destination) {
             if (typeof destination === 'string') {
                 // Handle string destination (address) - would need geocoding
-                console.log('String destination detected, geocoding needed');
+                // String destination detected, geocoding needed
             } else {
                 newMarkers.push({
                     id: 'destination',

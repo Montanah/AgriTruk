@@ -20,9 +20,9 @@ if (missingKeys.length > 0) {
 }
 
 // Initialize Firebase app only if it doesn't exist
-let app;
-let db;
-let auth;
+let app: any;
+let db: any;
+let auth: any;
 
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();

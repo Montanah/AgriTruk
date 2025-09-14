@@ -60,7 +60,7 @@ const AssignTransporterModal: React.FC<Props> = ({
 
   const handleConfirm = () => {
     if (selected) {
-      console.log(`Assigned ${selected.name} to job ${job.id}`);
+      // Assigned transporter to job
       onAssign?.(job.id, selected);
       onClose();
     }

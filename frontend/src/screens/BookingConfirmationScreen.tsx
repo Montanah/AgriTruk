@@ -5,7 +5,6 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
-import { API_ENDPOINTS } from '../constants/api';
 import { apiRequest } from '../utils/api';
 
 // Accepts either a single booking or an array of bookings (for consolidated)

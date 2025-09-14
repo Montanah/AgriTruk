@@ -65,11 +65,11 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
         distanceTimeoutRef.current = setTimeout(async () => {
             setIsCalculatingDistance(true);
             try {
-                console.log('Calculating route distance between:', { pickupLocation, deliveryLocation });
+                // Calculating route distance
                 // Get coordinates for both locations using geocoding for consistency
                 const pickupCoords = await getCoordinatesForAddress(pickupLocation);
                 const deliveryCoords = await getCoordinatesForAddress(deliveryLocation);
-                console.log('Coordinates retrieved:', { pickupCoords, deliveryCoords });
+                // Coordinates retrieved
 
                 if (pickupCoords && deliveryCoords) {
                     // Use route distance (same as FindTransporters) for consistency
@@ -208,13 +208,13 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
                             placeholder="Enter pickup location"
                             value={pickupLocation}
                             onAddressChange={(address) => {
-                                console.log('Pickup location address changed:', address);
+                                // Pickup location address changed
                                 if (onPickupLocationChange) {
                                     onPickupLocationChange(address);
                                 }
                             }}
                             onLocationSelected={(location) => {
-                                console.log('Pickup location selected:', location);
+                                // Pickup location selected
                                 if (onPickupLocationSelected) {
                                     onPickupLocationSelected(location);
                                 }
@@ -240,13 +240,13 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
                             placeholder="Enter delivery location"
                             value={deliveryLocation}
                             onAddressChange={(address) => {
-                                console.log('Delivery location address changed:', address);
+                                // Delivery location address changed
                                 if (onDeliveryLocationChange) {
                                     onDeliveryLocationChange(address);
                                 }
                             }}
                             onLocationSelected={(location) => {
-                                console.log('Delivery location selected:', location);
+                                // Delivery location selected
                                 if (onDeliveryLocationSelected) {
                                     onDeliveryLocationSelected(location);
                                 }
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     },
     fieldLabel: {
         fontSize: fonts.size.md,
-        fontFamily: fonts.family.semiBold,
+        fontFamily: fonts.family.medium,
         color: colors.text.primary,
         marginBottom: spacing.sm,
     },

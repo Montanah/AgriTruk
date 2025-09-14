@@ -115,7 +115,7 @@ const TransporterServiceScreen = () => {
 
   const handleAssignTransporter = (jobId: string, transporter: any) => {
     // Handle transporter assignment logic here
-    console.log('Assigning transporter:', transporter, 'to job:', jobId);
+    // Assigning transporter to job
   };
 
   const [stats, setStats] = useState({
@@ -212,11 +212,11 @@ const TransporterServiceScreen = () => {
         {/* Latest Requests */}
         <IncomingRequestsCard
           onRequestAccepted={(request) => {
-            console.log('Request accepted:', request.id);
+            // Request accepted
             // Handle request acceptance
           }}
           onRequestRejected={(request) => {
-            console.log('Request rejected:', request.id);
+            // Request rejected
             // Handle request rejection
           }}
           onViewAll={() => {

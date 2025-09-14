@@ -25,7 +25,7 @@ export async function testBackendConnectivity() {
     // Health check response received
 
     if (response.ok) {
-      const data = await response.json();
+      await response.json(); // Health check data
       // Backend is accessible
       return true;
     } else {

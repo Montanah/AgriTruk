@@ -12,19 +12,15 @@ export default function NetworkTest() {
 
     const testBasicFetch = async () => {
         addResult('🔍 Testing basic fetch to Google...');
-        console.log('\n' + '='.repeat(100));
-        console.log('🧪 NETWORK TEST - BASIC FETCH TO GOOGLE');
-        console.log('='.repeat(100));
-        console.log('⏰ Test timestamp:', new Date().toISOString());
-        console.log('='.repeat(100) + '\n');
+        // Network test - basic fetch to Google
 
         try {
             const response = await fetch(EXTERNAL_URLS.GOOGLE);
             addResult(`✅ Google fetch successful: ${response.status}`);
-            console.log('✅ Google fetch successful:', response.status);
+            // Google fetch successful
         } catch (error) {
             addResult(`❌ Google fetch failed: ${error.message}`);
-            console.log('❌ Google fetch failed:', error.message);
+            // Google fetch failed
         }
     };
 

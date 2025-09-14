@@ -214,7 +214,7 @@ const ContactCustomerScreen: React.FC<ContactCustomerScreenProps> = ({ route }) 
                 onClose={() => setChatVisible(false)}
                 participantIds={[customerEmail]} // Use customer email as participant ID
                 onChatCreated={(chatRoom) => {
-                    console.log('Chat created with customer:', chatRoom);
+                    // Chat created with customer
                 }}
             />
         </SafeAreaView>

@@ -467,7 +467,7 @@ export default function App() {
           <>
             <Stack.Screen
               name="SubscriptionTrial"
-              component={SubscriptionTrialScreen}
+              component={SubscriptionTrialScreen as any}
               initialParams={{
                 userType: 'broker',
                 subscriptionStatus: subscriptionStatus
@@ -494,7 +494,7 @@ export default function App() {
           <>
             <Stack.Screen
               name="SubscriptionExpired"
-              component={SubscriptionExpiredScreen}
+              component={SubscriptionExpiredScreen as any}
               initialParams={{
                 userType: 'broker',
                 userId: user.uid,
@@ -581,26 +581,20 @@ export default function App() {
       );
     } else {
       // Profile completed and verified - check subscription status
-      console.log('🚨 TRANSPORTER SUBSCRIPTION CHECK:', {
-        subscriptionStatus,
-        needsTrialActivation: subscriptionStatus?.needsTrialActivation,
-        hasActiveSubscription: subscriptionStatus?.hasActiveSubscription,
-        isTrialActive: subscriptionStatus?.isTrialActive,
-        subscriptionStatusValue: subscriptionStatus?.subscriptionStatus
-      });
+      // Transporter subscription check
       
       // If user has no active subscription and no trial, they need trial activation
       // Also handle case where subscriptionStatus is null/undefined (new users)
       if (subscriptionStatus?.needsTrialActivation || 
           !subscriptionStatus || 
           (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
-        console.log('🚨 ROUTING TRANSPORTER TO TRIAL ACTIVATION');
+        // Routing transporter to trial activation
         initialRouteName = 'SubscriptionTrial';
         screens = (
           <>
             <Stack.Screen
               name="SubscriptionTrial"
-              component={SubscriptionTrialScreen}
+              component={SubscriptionTrialScreen as any}
               initialParams={{
                 userType: 'transporter',
                 subscriptionStatus: subscriptionStatus
@@ -613,13 +607,13 @@ export default function App() {
           </>
         );
       } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'expired') {
-        console.log('🚨 ROUTING TRANSPORTER TO EXPIRED SUBSCRIPTION');
+        // Routing transporter to expired subscription
         initialRouteName = 'SubscriptionExpired';
         screens = (
           <>
             <Stack.Screen
               name="SubscriptionExpired"
-              component={SubscriptionExpiredScreen}
+              component={SubscriptionExpiredScreen as any}
               initialParams={{
                 userType: 'transporter',
                 userId: user.uid,
@@ -633,13 +627,13 @@ export default function App() {
         );
       } else if (!subscriptionStatus) {
         // Fallback: if no subscription status, treat as new user needing trial
-        console.log('🚨 ROUTING TRANSPORTER TO TRIAL ACTIVATION (NO SUBSCRIPTION STATUS)');
+        // Routing transporter to trial activation (no subscription status)
         initialRouteName = 'SubscriptionTrial';
         screens = (
           <>
             <Stack.Screen
               name="SubscriptionTrial"
-              component={SubscriptionTrialScreen}
+              component={SubscriptionTrialScreen as any}
               initialParams={{
                 userType: 'transporter',
                 subscriptionStatus: null
@@ -675,7 +669,7 @@ export default function App() {
       }
     }
   } else if (role === 'business') {
-    console.log('📋 BUSINESS USER NAVIGATION - isVerified:', isVerified);
+    // Business user navigation
 
     if (!isVerified) {
       // Unverified business users - send to verification

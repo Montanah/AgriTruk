@@ -186,43 +186,23 @@ const LoginScreen = ({ navigation }: any) => {
                 }
                 try {
                   if (loginMode === 'email') {
-                    console.log('='.repeat(80));
-                    console.log('🚀 EMAIL LOGIN REQUEST FOR BACKEND ENGINEER');
-                    console.log('='.repeat(80));
-                    console.log('📋 Method: Firebase Email Authentication');
-                    console.log('⏰ Request Timestamp:', new Date().toISOString());
-                    console.log('📧 Email:', email);
-                    console.log('🔒 Password Present:', password ? 'YES' : 'NO');
-                    console.log('='.repeat(80));
+                    // Email login request for backend engineer
+                    // Request details
 
                     // Use the imported auth instance directly
                     const { signInWithEmailAndPassword } = await import('firebase/auth');
                     const { auth } = await import('../../firebaseConfig');
                     const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-                    console.log('='.repeat(80));
-                    console.log('📊 EMAIL LOGIN RESPONSE FOR BACKEND ENGINEER');
-                    console.log('='.repeat(80));
-                    console.log('✅ Login successful');
-                    console.log('👤 User UID:', userCredential.user.uid);
-                    console.log('📧 User Email:', userCredential.user.email);
-                    console.log('⏰ Response Timestamp:', new Date().toISOString());
-                    console.log('='.repeat(80));
+                    // Login response details
+                    // User details
                   } else {
                     setError('Phone login is not implemented in this demo.');
                   }
                   // Navigation is handled by App.tsx auth state
                 } catch (e: any) {
-                  console.log('='.repeat(80));
-                  console.log('❌ EMAIL LOGIN ERROR FOR BACKEND ENGINEER');
-                  console.log('='.repeat(80));
-                  console.log('📋 Method: Firebase Email Authentication');
-                  console.log('⏰ Error Timestamp:', new Date().toISOString());
-                  console.log('📧 Email:', email);
-                  console.log('❌ Error Code:', e.code);
-                  console.log('❌ Error Message:', e.message);
-                  console.log('❌ Error Stack:', e.stack);
-                  console.log('='.repeat(80));
+                  // Email login error for backend engineer
+                  // Error details
 
                   console.error('Login error:', e);
                   let errorMessage = 'Login failed. Please try again.';

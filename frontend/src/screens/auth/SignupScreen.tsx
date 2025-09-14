@@ -190,7 +190,7 @@ const SignupScreen = () => {
       };
 
       // Register user profile in backend
-      console.log('Registering user in backend...');
+      // Registering user in backend
       await apiRequest('/auth/register', {
         method: 'POST',
         headers: {
@@ -210,7 +210,7 @@ const SignupScreen = () => {
         }),
       });
 
-      console.log('Backend registration complete, user will be routed to verification screen automatically');
+      // Backend registration complete
 
       // Force refresh the authentication state to trigger App.tsx navigation
       try {
@@ -219,14 +219,14 @@ const SignupScreen = () => {
         if (currentUser) {
           // Force a token refresh to trigger the auth state listener
           await currentUser.getIdToken(true);
-          console.log('Authentication state refreshed, App.tsx should now route to verification');
+          // Authentication state refreshed
           
           // Add a small delay to allow App.tsx to process the auth state change
           setTimeout(() => {
-            console.log('Checking if navigation happened...');
+            // Checking if navigation happened
             // If we're still on the signup screen after 2 seconds, navigate manually
             if (navigation.getState().routes[navigation.getState().index].name === 'Signup') {
-              console.log('Manual navigation fallback triggered');
+              // Manual navigation fallback triggered
               if (signupMethod === 'phone') {
                 navigation.navigate('PhoneOTPScreen', {
                   email: email.trim(),
