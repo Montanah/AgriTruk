@@ -137,21 +137,13 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
     setLoading(true);
 
     try {
-      const token = await AsyncStorage.getItem('jwt');
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-
-      // Use the new API structure with action
+      // Use the proper phone verification endpoint - let apiRequest handle authentication
       await apiRequest('/auth', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           action: 'verify-phone',
           code: otp,
+          phoneNumber: phone,
         }),
       });
 
@@ -220,20 +212,12 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
     setResendLoading(true);
 
     try {
-      const token = await AsyncStorage.getItem('jwt');
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-
-      // Use the new API structure with action
+      // Use the new API structure with action - let apiRequest handle authentication
       await apiRequest('/auth', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           action: 'resend-phone-code',
+          phoneNumber: phone,
         }),
       });
 

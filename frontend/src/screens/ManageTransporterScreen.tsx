@@ -554,32 +554,25 @@ export default function ManageTransporterScreen({ route }: any) {
       const user = auth.currentUser;
       if (!user) return;
 
-      const response = await fetch(API_ENDPOINTS.AUTH, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await user.getIdToken()}`
-        },
-        body: JSON.stringify({
-          action: 'resend-phone-code'
-        })
-      });
+        const response = await apiRequest('/auth', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'resend-phone-code',
+            phoneNumber: transporter?.phone
+          }),
+        });
 
-      if (response.ok) {
-        Alert.alert(
-          'Verification SMS Sent',
-          'Please check your phone for the verification code. You can then use your phone to log in.',
-          [
-            { text: 'OK' },
-            {
-              text: 'Go to Verification',
-              onPress: () => navigation.navigate('PhoneOTPScreen')
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
-      }
+      Alert.alert(
+        'Verification SMS Sent',
+        'Please check your phone for the verification code. You can then use your phone to log in.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Go to Verification',
+            onPress: () => navigation.navigate('PhoneOTPScreen')
+          }
+        ]
+      );
     } catch (error) {
       console.error('Phone verification error:', error);
       Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
@@ -1164,32 +1157,25 @@ export default function ManageTransporterScreen({ route }: any) {
         const user = auth.currentUser;
         if (!user) return;
 
-        const response = await fetch(`${API_ENDPOINTS.AUTH}/verify-email`, {
+        const response = await apiRequest('/auth', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${await user.getIdToken()}`
-          },
           body: JSON.stringify({
+            action: 'resend-email-code',
             email: user.email
-          })
+          }),
         });
 
-        if (response.ok) {
-          Alert.alert(
-            'Verification Code Sent',
-            'Please check your email for the verification code.',
-            [
-              { text: 'OK' },
-              {
-                text: 'Go to Verification',
-                onPress: () => navigation.navigate('EmailVerification')
-              }
-            ]
-          );
-        } else {
-          Alert.alert('Error', 'Failed to send verification code. Please try again.');
-        }
+        Alert.alert(
+          'Verification Code Sent',
+          'Please check your email for the verification code.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation.navigate('EmailVerification')
+            }
+          ]
+        );
       } catch (error) {
         console.error('Email verification error:', error);
         Alert.alert('Error', 'Failed to send verification code. Please try again.');
@@ -1206,32 +1192,25 @@ export default function ManageTransporterScreen({ route }: any) {
         const user = auth.currentUser;
         if (!user) return;
 
-        const response = await fetch(API_ENDPOINTS.AUTH, {
+        const response = await apiRequest('/auth', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${await user.getIdToken()}`
-          },
           body: JSON.stringify({
-            action: 'resend-phone-code'
-          })
+            action: 'resend-phone-code',
+            phoneNumber: driver?.phone
+          }),
         });
 
-        if (response.ok) {
-          Alert.alert(
-            'Verification SMS Sent',
-            'Please check your phone for the verification code. You can then use your phone to log in.',
-            [
-              { text: 'OK' },
-              {
-                text: 'Go to Verification',
-                onPress: () => navigation.navigate('PhoneOTPScreen')
-              }
-            ]
-          );
-        } else {
-          Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
-        }
+        Alert.alert(
+          'Verification SMS Sent',
+          'Please check your phone for the verification code. You can then use your phone to log in.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation.navigate('PhoneOTPScreen')
+            }
+          ]
+        );
       } catch (error) {
         console.error('Phone verification error:', error);
         Alert.alert('Error', 'Failed to send verification SMS. Please try again.');

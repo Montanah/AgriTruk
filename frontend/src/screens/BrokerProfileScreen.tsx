@@ -11,6 +11,7 @@ import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { auth, db } from '../firebaseConfig';
 import { handleLogoutWithConfirmation } from '../utils/logout';
+import { apiRequest } from '../utils/api';
 
 interface SubscriptionPlan {
   id: string;
@@ -200,21 +201,16 @@ export default function BrokerProfileScreen() {
   const handleVerifyEmail = async () => {
     setVerifyingEmail(true);
     try {
-      // Call backend verification endpoint
-      const response = await fetch(API_ENDPOINTS.AUTH, {
+      // Call backend verification endpoint - same pattern as auth flow
+      const response = await apiRequest('/auth', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await auth.currentUser?.getIdToken()}`
-        },
-        body: JSON.stringify({ action: 'resend-email-code' })
+        body: JSON.stringify({
+          action: 'resend-email-code',
+          email: auth.currentUser?.email
+        }),
       });
 
-      if (response.ok) {
-        Alert.alert('Verification Code Sent', 'Please check your email for the verification code.');
-      } else {
-        Alert.alert('Error', 'Failed to send verification code. Please try again.');
-      }
+      Alert.alert('Verification Code Sent', 'Please check your email for the verification code.');
     } catch (error) {
       console.error('Email verification error:', error);
       Alert.alert('Error', 'Failed to send verification code. Please try again.');
@@ -229,33 +225,26 @@ export default function BrokerProfileScreen() {
       const user = auth.currentUser;
       if (!user) return;
 
-      // Call backend verification endpoint
-      const response = await fetch(API_ENDPOINTS.AUTH, {
+      // Call backend verification endpoint - same pattern as auth flow
+      const response = await apiRequest('/auth', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${await user.getIdToken()}`
-        },
-        body: JSON.stringify({ 
-          action: 'resend-phone-code'
-        })
+        body: JSON.stringify({
+          action: 'resend-phone-code',
+          phoneNumber: profileData?.phone
+        }),
       });
 
-      if (response.ok) {
-        Alert.alert(
-          'Verification SMS Sent',
-          'Please check your phone for the verification code. You can then use your phone to log in.',
-          [
-            { text: 'OK' },
-            {
-              text: 'Go to Verification',
-              onPress: () => navigation.navigate('PhoneOTPScreen')
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Error', 'Failed to send verification SMS. Please try again.');
-      }
+      Alert.alert(
+        'Verification SMS Sent',
+        'Please check your phone for the verification code. You can then use your phone to log in.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Go to Verification',
+            onPress: () => navigation.navigate('PhoneOTPScreen')
+          }
+        ]
+      );
     } catch (error) {
       console.error('Phone verification error:', error);
       Alert.alert('Error', 'Failed to send verification SMS. Please try again.');

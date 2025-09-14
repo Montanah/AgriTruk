@@ -24,6 +24,7 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { auth, db } from '../firebaseConfig';
 import { handleLogoutWithConfirmation } from '../utils/logout';
+import { apiRequest } from '../utils/api';
 
 interface ShipperProfileData {
   name: string;
@@ -281,36 +282,26 @@ const AccountScreen = () => {
     try {
       setVerifyingEmail(true);
 
-      // Use backend API for email verification
-      const token = await user.getIdToken();
-      const response = await fetch(API_ENDPOINTS.AUTH, {
+      // Use backend API for email verification - same pattern as EmailVerificationScreen
+      const response = await apiRequest('/auth', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
-          action: 'resend-email-code'
+          action: 'resend-email-code',
+          email: user.email
         }),
       });
 
-      const result = await response.json();
-
-      if (response.ok) {
-        Alert.alert(
-          'Verification Email Sent',
-          'Please check your email for the verification code. You can then use your email to log in.',
-          [
-            { text: 'OK' },
-            {
-              text: 'Go to Verification',
-              onPress: () => navigation.navigate('EmailVerification')
-            }
-          ]
-        );
-      } else {
-        throw new Error(result.message || 'Failed to send verification email');
-      }
+      Alert.alert(
+        'Verification Email Sent',
+        'Please check your email for the verification code. You can then use your email to log in.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Go to Verification',
+            onPress: () => navigation.navigate('EmailVerification')
+          }
+        ]
+      );
     } catch (e: any) {
       console.error('Email verification error:', e);
       Alert.alert(
@@ -335,36 +326,26 @@ const AccountScreen = () => {
     try {
       setVerifyingPhone(true);
 
-      // Use backend API for phone verification
-      const token = await user.getIdToken();
-      const response = await fetch(API_ENDPOINTS.AUTH, {
+      // Use backend API for phone verification - same pattern as auth flow
+      const response = await apiRequest('/auth', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
-          action: 'resend-phone-code'
+          action: 'resend-phone-code',
+          phoneNumber: profile?.phone
         }),
       });
 
-      const result = await response.json();
-
-      if (response.ok) {
-        Alert.alert(
-          'Verification SMS Sent',
-          'Please check your phone for the verification code. You can then use your phone to log in.',
-          [
-            { text: 'OK' },
-            {
-              text: 'Go to Verification',
-              onPress: () => navigation.navigate('PhoneOTPScreen')
-            }
-          ]
-        );
-      } else {
-        throw new Error(result.message || 'Failed to send verification SMS');
-      }
+      Alert.alert(
+        'Verification SMS Sent',
+        'Please check your phone for the verification code. You can then use your phone to log in.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Go to Verification',
+            onPress: () => navigation.navigate('PhoneOTPScreen')
+          }
+        ]
+      );
     } catch (e: any) {
       console.error('Phone verification error:', e);
       Alert.alert(
