@@ -1766,7 +1766,7 @@ const styles = StyleSheet.create({
   inputDropdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.background, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: colors.text.light },
   dropdownList: { backgroundColor: colors.white, borderRadius: 8, marginTop: 2, borderWidth: 1, borderColor: colors.text.light, width: '100%' },
   dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: colors.background },
-  input: { backgroundColor: colors.background, borderRadius: 8, padding: 10, marginVertical: 6, fontSize: 15, borderWidth: 1, borderColor: colors.text.light },
+  input: { backgroundColor: colors.background, borderRadius: 8, padding: 10, marginVertical: 6, fontSize: 15, borderWidth: 1, borderColor: colors.text.light, color: colors.text.primary, placeholderTextColor: colors.text.light },
   // Verification styles
   verificationBadge: {
     flexDirection: 'row',

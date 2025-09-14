@@ -101,7 +101,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           throw new Error(`Request ${index + 1} has invalid weight.`);
         }
         
-        // Use backend booking format if available, otherwise convert from frontend format
+        // Simplified payload that was working before
         const bookingData = {
           bookingType: req.bookingType || (req.type === 'agriTRUK' ? 'Agri' : 'Cargo'),
           bookingMode: req.bookingMode || req.requestType || 'booking',
@@ -109,39 +109,17 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           toLocation: req.toLocation,
           productType: req.productType,
           weightKg: req.weightKg || parseFloat(req.weight) || 0,
-          pickUpDate: pickupDate.toISOString(), // override with consolidated date
+          pickUpDate: pickupDate.toISOString(),
           urgencyLevel: req.urgencyLevel || (req.urgency ? req.urgency.charAt(0).toUpperCase() + req.urgency.slice(1) : 'Low'),
           priority: req.priority || req.isPriority || false,
           perishable: req.perishable || req.isPerishable || false,
           needsRefrigeration: req.needsRefrigeration || req.isPerishable || false,
           humidityControl: req.humidityControl || req.isPerishable || false,
-          specialCargo: req.specialCargo || (req.isSpecialCargo ? req.specialCargoSpecs : []),
+          specialCargo: req.specialCargo || (req.isSpecialCargo ? (req.specialCargoSpecs || []) : []),
           insured: req.insured || req.insureGoods || false,
           value: req.value || (req.insuranceValue ? parseFloat(req.insuranceValue) : 0),
           additionalNotes: req.additionalNotes || req.additional || '',
-          recurrence: req.recurrence || {
-            isRecurring: req.isRecurring || false,
-            frequency: req.recurringFreq || null,
-            timeFrame: req.recurringTimeframe || null,
-            duration: req.recurringDuration || null,
-            startDate: pickupDate.toISOString(),
-            endDate: req.recurringEndDate || null,
-            interval: 1,
-            occurences: [],
-            baseBookingId: null
-          },
           status: 'pending',
-          // Add potentially required fields
-          clientId: req.clientId || null,
-          transporterId: req.transporterId || null,
-          estimatedCost: req.estimatedCost || 0,
-          actualCost: req.actualCost || 0,
-          distance: req.distance || null,
-          estimatedDuration: req.estimatedDuration || null,
-          actualDuration: req.actualDuration || null,
-          trackingNumber: req.trackingNumber || null,
-          deliveryInstructions: req.deliveryInstructions || '',
-          specialRequirements: req.specialRequirements || '',
         };
         return bookingData;
       });
@@ -157,10 +135,11 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       
       while (retryCount < maxRetries) {
         try {
+          
           // Attempting booking submission
           response = await apiRequest('/bookings', {
             method: 'POST',
-            body: JSON.stringify(payload[0]) // Backend expects single booking, not array
+            body: JSON.stringify(payload[0])
           });
           break; // Success, exit retry loop
         } catch (error: any) {

@@ -222,13 +222,47 @@ const AccountScreen = () => {
 
       try {
         if (user?.uid) {
-          await updateDoc(doc(db, 'users', user.uid), {
-            profilePhotoUrl: newUri,
+          // Upload to Cloudinary via backend
+          const formData = new FormData();
+          formData.append('file', {
+            uri: newUri,
+            type: 'image/jpeg',
+            name: 'profile_photo.jpg',
+          } as any);
+          formData.append('userId', user.uid);
+          formData.append('type', 'profile_photo');
+
+          const token = await user.getIdToken();
+          const uploadResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/upload/profile-photo`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data',
+            },
+            body: formData,
           });
-          setProfile(prev => prev ? { ...prev, profilePhotoUrl: newUri } : null);
+
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            const cloudinaryUrl = uploadData.secure_url;
+
+            // Update Firestore with Cloudinary URL
+            await updateDoc(doc(db, 'users', user.uid), {
+              profilePhotoUrl: cloudinaryUrl,
+              updatedAt: new Date().toISOString(),
+            });
+            
+            setProfile(prev => prev ? { ...prev, profilePhotoUrl: cloudinaryUrl } : null);
+            setEditData(prev => ({ ...prev, profilePhotoUrl: cloudinaryUrl }));
+            Alert.alert('Success', 'Profile photo updated successfully');
+          } else {
+            throw new Error('Failed to upload photo to server');
+          }
         }
       } catch (e: any) {
         setError(e.message || 'Failed to update profile photo.');
+        // Revert the local state
+        setEditData(prev => ({ ...prev, profilePhotoUrl: profile?.profilePhotoUrl || '' }));
       } finally {
         setLoading(false);
       }
@@ -1787,6 +1821,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.background,
     marginBottom: spacing.xs,
+    color: colors.text.primary,
+    placeholderTextColor: colors.text.light,
   },
   preferencesSection: {
     backgroundColor: colors.white,
@@ -1926,6 +1962,8 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
     marginTop: spacing.sm,
+    color: colors.text.primary,
+    placeholderTextColor: colors.text.light,
   },
   verifiedText: {
     color: colors.success,

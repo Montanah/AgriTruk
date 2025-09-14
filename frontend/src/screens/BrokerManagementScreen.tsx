@@ -6,6 +6,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
+import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
 
 interface RequestItem {
     id: string;
@@ -222,12 +223,12 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{item.fromLocation}</Text>
+                    <Text style={styles.routeText}>{getReadableLocationName(item.fromLocation)}</Text>
                 </View>
                 <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
-                    <Text style={styles.routeText}>{item.toLocation}</Text>
+                    <Text style={styles.routeText}>{getReadableLocationName(item.toLocation)}</Text>
                 </View>
             </View>
 
@@ -598,7 +599,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                                 .map(request => (
                                     <View key={request.id} style={styles.previewItem}>
                                         <Text style={styles.previewText}>
-                                            • {request.fromLocation} → {request.toLocation} ({request.productType})
+                                            • {formatRoute(request.fromLocation, request.toLocation)} ({request.productType})
                                         </Text>
                                     </View>
                                 ))

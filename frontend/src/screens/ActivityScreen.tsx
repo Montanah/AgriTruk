@@ -78,6 +78,7 @@ const ActivityScreen = () => {
       const response = await apiRequest(`/bookings/shipper/${user.uid}`);
 
       if (response.bookings && Array.isArray(response.bookings)) {
+        
         // Transform backend booking data to frontend format
         const transformedBookings = response.bookings.map((booking: any) => ({
           id: booking.bookingId || booking.id || `booking_${Date.now()}`,

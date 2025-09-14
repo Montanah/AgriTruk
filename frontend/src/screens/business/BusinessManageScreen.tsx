@@ -10,6 +10,7 @@ import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
 import { PLACEHOLDER_IMAGES } from '../../constants/images';
 import { apiRequest } from '../../utils/api';
+import { getReadableLocationName, formatRoute } from '../../utils/locationUtils';
 
 // Real API integration - no mock data
 
@@ -171,7 +172,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
           <View style={styles.routeText}>
             <Text style={styles.routeLabel}>Route</Text>
             <Text style={styles.routeValue}>
-              {item.isConsolidated ? 'Multiple Locations' : `${item.fromLocation} → ${item.toLocation}`}
+              {item.isConsolidated ? 'Multiple Locations' : formatRoute(item.fromLocation, item.toLocation)}
             </Text>
           </View>
         </View>
@@ -200,7 +201,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
             {item.consolidatedRequests.map((req, index) => (
               <View key={req.id} style={styles.consolidatedItem}>
                 <Text style={styles.consolidatedItemText}>
-                  • {req.fromLocation} → {req.toLocation} ({req.productType}, {req.weight})
+                  • {formatRoute(req.fromLocation, req.toLocation)} ({req.productType}, {req.weight})
                 </Text>
               </View>
             ))}

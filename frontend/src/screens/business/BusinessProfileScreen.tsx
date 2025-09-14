@@ -149,7 +149,42 @@ const BusinessProfileScreen = ({ navigation }: any) => {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setEditData({ ...editData, logo: result.assets[0] });
+      const logoFile = result.assets[0];
+      setEditData({ ...editData, logo: logoFile });
+      
+      // Upload to backend
+      try {
+        setLoading(true);
+        const formData = new FormData();
+        formData.append('file', {
+          uri: logoFile.uri,
+          type: logoFile.type || 'image/jpeg',
+          name: 'business_logo.jpg',
+        } as any);
+        formData.append('type', 'business_logo');
+
+        const token = await user?.getIdToken();
+        const uploadResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/upload/business-logo`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+          body: formData,
+        });
+
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          setEditData({ ...editData, logo: { ...logoFile, uri: uploadData.secure_url } });
+          Alert.alert('Success', 'Logo uploaded successfully');
+        } else {
+          throw new Error('Failed to upload logo');
+        }
+      } catch (error) {
+        Alert.alert('Error', 'Failed to upload logo. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 

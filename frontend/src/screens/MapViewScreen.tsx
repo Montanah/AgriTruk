@@ -14,6 +14,7 @@ import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
 
 const { width, height } = Dimensions.get('window');
 
@@ -338,11 +339,7 @@ const MapViewScreen = () => {
                         <View style={styles.detailText}>
                             <Text style={styles.detailLabel}>Route</Text>
                             <Text style={styles.detailValue}>
-                                {booking?.fromLocationAddress || (typeof booking?.fromLocation === 'object' 
-                                    ? booking.fromLocation.address 
-                                    : booking?.fromLocation) || 'Pickup'} → {booking?.toLocationAddress || (typeof booking?.toLocation === 'object' 
-                                    ? booking.toLocation.address 
-                                    : booking?.toLocation) || 'Delivery'}
+                                {formatRoute(booking?.fromLocation, booking?.toLocation)}
                             </Text>
                         </View>
                     </View>

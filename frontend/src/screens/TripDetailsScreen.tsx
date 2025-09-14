@@ -10,6 +10,7 @@ import ChatModal from '../components/Chat/ChatModal';
 import colors from '../constants/colors';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
+import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
 
 interface TripDetailsParams {
   requests?: any[];
@@ -266,9 +267,9 @@ const TripDetailsScreen = () => {
         {/* Route Information */}
         <View style={[styles.tripInfoRow, { marginBottom: 4 }]}>
           <FontAwesome5 name="map-marker-alt" size={16} color={colors.primary} />
-          <Text style={styles.tripInfoText}>From: <Text style={{ fontWeight: 'bold' }}>{booking && booking.pickupLocation ? booking.pickupLocation : (trip && trip.from ? trip.from : '--')}</Text></Text>
+          <Text style={styles.tripInfoText}>From: <Text style={{ fontWeight: 'bold' }}>{getReadableLocationName(booking?.pickupLocation || trip?.from) || '--'}</Text></Text>
           <FontAwesome5 name="flag-checkered" size={16} color={colors.secondary} style={{ marginLeft: 12 }} />
-          <Text style={styles.tripInfoText}>To: <Text style={{ fontWeight: 'bold' }}>{booking && booking.toLocation ? booking.toLocation : '--'}</Text></Text>
+          <Text style={styles.tripInfoText}>To: <Text style={{ fontWeight: 'bold' }}>{getReadableLocationName(booking?.toLocation) || '--'}</Text></Text>
         </View>
 
         {/* ETA and Distance */}

@@ -13,6 +13,7 @@ import {
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
 // Mock data removed - now using real API calls
 
 interface TrackingData {
@@ -68,12 +69,8 @@ const TrackingScreen = () => {
         const deliveryDate = new Date(pickupDate.getTime() + (2 * 24 * 60 * 60 * 1000)); // 2 days later
         
         const status = booking.status || 'pending';
-        const fromLocation = booking.fromLocationAddress || (typeof booking.fromLocation === 'object' 
-            ? (booking.fromLocation.address || `${booking.fromLocation.latitude}, ${booking.fromLocation.longitude}`)
-            : booking.fromLocation) || 'Pickup Location';
-        const toLocation = booking.toLocationAddress || (typeof booking.toLocation === 'object' 
-            ? (booking.toLocation.address || `${booking.toLocation.latitude}, ${booking.toLocation.longitude}`)
-            : booking.toLocation) || 'Delivery Location';
+        const fromLocation = getReadableLocationName(booking.fromLocationAddress || booking.fromLocation) || 'Pickup Location';
+        const toLocation = getReadableLocationName(booking.toLocationAddress || booking.toLocation) || 'Delivery Location';
 
         const timeline = [];
         
@@ -313,7 +310,7 @@ const TrackingScreen = () => {
                             {consolidatedRequests.map((req: any, index: number) => (
                                 <View key={req.id} style={styles.consolidatedItem}>
                                     <Text style={styles.consolidatedItemText}>
-                                        • {req.fromLocation} → {req.toLocation} ({req.productType}, {req.weight})
+                                        • {formatRoute(req.fromLocation, req.toLocation)} ({req.productType}, {req.weight})
                                     </Text>
                                 </View>
                             ))}

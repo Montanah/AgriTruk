@@ -24,7 +24,37 @@ const KNOWN_LOCATIONS: { [key: string]: string } = {
   '-0.023559,37.906193': 'Nakuru',
   '0.4244,33.2042': 'Jinja',
   '0.3163,32.5822': 'Wakiso',
-  // Add more known locations as needed
+  
+  // Coastal region (including the problematic coordinate)
+  '-3.3199,40.0730': 'Malindi',
+  '-3.2199,40.1230': 'Kilifi',
+  '-2.5199,40.3230': 'Mtwapa',
+  '-4.0437,39.6682': 'Mombasa Port',
+  
+  // Central region
+  '-1.1921,36.7772': 'Thika',
+  '-0.4167,36.9500': 'Nyeri',
+  '-0.3667,36.0833': 'Nakuru',
+  '-0.5167,36.1833': 'Naivasha',
+  
+  // Western region
+  '0.2833,34.7500': 'Kakamega',
+  '0.5167,35.2833': 'Eldoret',
+  '0.0167,34.5833': 'Bungoma',
+  
+  // Eastern region
+  '-0.5167,37.4500': 'Embu',
+  '-0.4167,37.6667': 'Meru',
+  '0.5167,37.4500': 'Isiolo',
+  
+  // Northern region
+  '1.2833,36.8167': 'Garissa',
+  '2.2833,37.9000': 'Wajir',
+  '3.1167,35.6000': 'Lodwar',
+  
+  // Rift Valley
+  '0.2833,35.2833': 'Kericho',
+  '0.0167,35.2833': 'Bomet',
 };
 
 /**
@@ -53,8 +83,39 @@ export function getReadableLocationName(location: any): string {
       return KNOWN_LOCATIONS[coordString];
     }
     
-    // If no known location, return formatted coordinates
-    return `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`;
+    // Try approximate matching with tolerance
+    const lat = location.latitude;
+    const lng = location.longitude;
+    
+    // Find the closest known location within reasonable distance
+    let closestLocation = '';
+    let minDistance = Infinity;
+    
+    for (const [coords, name] of Object.entries(KNOWN_LOCATIONS)) {
+      const [knownLat, knownLng] = coords.split(',').map(Number);
+      const distance = Math.sqrt(
+        Math.pow(lat - knownLat, 2) + Math.pow(lng - knownLng, 2)
+      );
+      
+      if (distance < minDistance && distance < 0.5) { // Within ~50km
+        minDistance = distance;
+        closestLocation = name;
+      }
+    }
+    
+    if (closestLocation) {
+      return closestLocation;
+    }
+    
+    // If no close match, try to determine region
+    if (lat > 0.5) return 'Northern Kenya';
+    if (lat < -3.5) return 'Coastal Kenya';
+    if (lng > 37.5) return 'Eastern Kenya';
+    if (lng < 34.5) return 'Western Kenya';
+    if (lat > -1.5 && lat < 0.5 && lng > 35.5 && lng < 37.5) return 'Central Kenya';
+    
+    // Last resort - return a generic location name instead of coordinates
+    return 'Kenya';
   }
   
   return 'Unknown Location';

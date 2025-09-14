@@ -11,7 +11,7 @@
     "ios": {
       "bundleIdentifier": "com.truk.trukapp",
       "supportsTablet": true,
-      "icon": "./assets/images/ios-icon-180.png",
+      "icon": "./assets/images/ios-icon-1024.png",
       "config": {
         "googleMapsApiKey": "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"
       },
@@ -25,7 +25,7 @@
       "icon": "./assets/images/android-icon-512.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1a1a1a"
       },
       "edgeToEdgeEnabled": true,
       "config": {

@@ -172,57 +172,113 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
   }
 
   // On transporter select
-  function handleSelect(t: any) {
-    // Compose booking/trip payload
-    const base = reqs[0];
-    const payload = isConsolidated
-      ? { requests: reqs, transporter: t, type: 'instant', status: 'in-progress', eta: t.est, distance: calculatedDistance || distance }
-      : {
-        id: t.id,
-        pickupLocation: base.fromLocation,
-        toLocation: base.toLocation,
-        cargoDetails: base.productType + (base.weight ? `, ${base.weight} kg` : ''),
-        pickupTime: '',
-        status: 'in-progress',
-        type: 'instant',
-        transporterType: 'individual',
-        transporter: {
+  async function handleSelect(t: any) {
+    try {
+      // Compose booking/trip payload
+      const base = reqs[0];
+      const payload = isConsolidated
+        ? { requests: reqs, transporter: t, type: 'instant', status: 'in-progress', eta: t.est, distance: calculatedDistance || distance }
+        : {
           id: t.id,
-          name: t.name,
-          phone: t.phone,
-          photo: t.photo,
-          profilePhoto: t.profilePhoto,
-          rating: t.rating,
-          experience: t.experience,
-          languages: t.languages,
-          availability: t.availability,
-          tripsCompleted: t.tripsCompleted,
-          status: t.status,
-        },
-        vehicle: {
-          type: t.vehicleType,
-          color: t.vehicleColor,
-          make: t.vehicleMake,
-          capacity: t.capacity + 'T',
-          plate: t.reg,
-          bodyType: t.bodyType,
-          driveType: t.driveType || '',
-          year: t.year,
-          photo: t.vehiclePhoto,
+          pickupLocation: base.fromLocation,
+          toLocation: base.toLocation,
+          cargoDetails: base.productType + (base.weight ? `, ${base.weight} kg` : ''),
+          pickupTime: '',
+          status: 'in-progress',
+          type: 'instant',
+          transporterType: 'individual',
+          transporter: {
+            id: t.id,
+            name: t.name,
+            phone: t.phone,
+            photo: t.photo,
+            profilePhoto: t.profilePhoto,
+            rating: t.rating,
+            experience: t.experience,
+            languages: t.languages,
+            availability: t.availability,
+            tripsCompleted: t.tripsCompleted,
+            status: t.status,
+          },
+          vehicle: {
+            type: t.vehicleType,
+            color: t.vehicleColor,
+            make: t.vehicleMake,
+            capacity: t.capacity + 'T',
+            plate: t.reg,
+            bodyType: t.bodyType,
+            driveType: t.driveType || '',
+            year: t.year,
+            photo: t.vehiclePhoto,
+            specialFeatures: t.specialFeatures,
+            insurance: t.insurance,
+            gpsTracking: t.gpsTracking,
+          },
+          reference: 'REF-' + t.id,
+          eta: t.est,
+          distance: calculatedDistance || distance,
+          estimatedCost: t.estimatedCost,
           specialFeatures: t.specialFeatures,
-          insurance: t.insurance,
-          gpsTracking: t.gpsTracking,
-        },
-        reference: 'REF-' + t.id,
-        eta: t.est,
-        distance: calculatedDistance || distance,
-        estimatedCost: t.estimatedCost,
-        specialFeatures: t.specialFeatures,
-      };
-    if (onSelect) {
-      onSelect(t, payload);
-    } else {
-      (navigation as any).navigate('TripDetailsScreen', isConsolidated ? { requests: reqs, transporter: t, eta: t.est, distance: calculatedDistance || distance } : { booking: payload });
+        };
+
+      // For instant requests, also submit to backend
+      if (base.requestType === 'instant' || base.bookingMode === 'instant') {
+        try {
+          const instantBookingData = {
+            bookingType: base.type === 'agriTRUK' ? 'Agri' : 'Cargo',
+            bookingMode: 'instant',
+            fromLocation: base.fromLocation,
+            toLocation: base.toLocation,
+            productType: base.productType,
+            weightKg: parseFloat(base.weight) || 0,
+            pickUpDate: new Date().toISOString(),
+            urgencyLevel: base.urgency || 'High',
+            priority: base.isPriority || false,
+            perishable: base.isPerishable || false,
+            needsRefrigeration: base.isPerishable || false,
+            humidityControl: base.isPerishable || false,
+            specialCargo: base.isSpecialCargo ? base.specialCargoSpecs : [],
+            insured: base.insureGoods || false,
+            value: base.insuranceValue ? parseFloat(base.insuranceValue) : 0,
+            additionalNotes: base.additional || '',
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            transporterId: t.id,
+            estimatedCost: t.estimatedCost || 0,
+            distance: calculatedDistance || distance,
+            deliveryInstructions: '',
+            specialRequirements: '',
+          };
+
+          // Submit instant booking to backend
+          const { apiRequest } = await import('../utils/api');
+          await apiRequest('/bookings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(instantBookingData)
+          });
+        } catch (error) {
+          // If backend submission fails, continue with local flow
+          console.error('Failed to submit instant booking to backend:', error);
+        }
+      }
+
+      if (onSelect) {
+        onSelect(t, payload);
+      } else {
+        (navigation as any).navigate('TripDetailsScreen', isConsolidated ? { requests: reqs, transporter: t, eta: t.est, distance: calculatedDistance || distance } : { booking: payload });
+      }
+    } catch (error) {
+      console.error('Error in handleSelect:', error);
+      // Still navigate even if backend submission fails
+      if (onSelect) {
+        onSelect(t, payload);
+      } else {
+        (navigation as any).navigate('TripDetailsScreen', isConsolidated ? { requests: reqs, transporter: t, eta: t.est, distance: calculatedDistance || distance } : { booking: payload });
+      }
     }
   }
 
