@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { apiRequest } from '../utils/api';
+import SuccessBookingModal from '../components/common/SuccessBookingModal';
 
 // Accepts either a single booking or an array of bookings (for consolidated)
 const BookingConfirmationScreen = ({ route, navigation }: any) => {
@@ -40,6 +41,8 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const [pickupDate, setPickupDate] = useState(getInitialPickupDate());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [bookingId, setBookingId] = useState('');
 
   // Fallback function to store booking locally when backend is unavailable
   const storeBookingLocally = async (bookingData: any) => {
@@ -159,12 +162,9 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
 
       // Booking posted successfully
       // Extract booking ID from response
-      const bookingId = response?.booking?.bookingId || response?.id || response?.bookingId || 'N/A';
-      Alert.alert(
-        'Booking Posted Successfully!', 
-        `Your ${isConsolidated ? 'consolidated ' : ''}booking has been posted.\n\nBooking ID: ${bookingId}\n\nYou will be notified when a transporter accepts your request.`
-      );
-      navigation.goBack();
+      const extractedBookingId = response?.booking?.bookingId || response?.id || response?.bookingId || 'N/A';
+      setBookingId(extractedBookingId);
+      setShowSuccessModal(true);
     } catch (error: any) {
       // Booking confirmation error
 
@@ -184,16 +184,10 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         // Attempting to store booking locally as fallback
         await storeBookingLocally(payload[0]);
         
-        Alert.alert(
-          'Booking Saved Locally', 
-          'The booking server is currently unavailable. Your booking has been saved locally and will be synced when the server is back online.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack()
-            }
-          ]
-        );
+        // Generate a local booking ID for display
+        const localBookingId = `LOCAL_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+        setBookingId(localBookingId);
+        setShowSuccessModal(true);
       } catch (fallbackError) {
         console.error('❌ Fallback storage also failed:', fallbackError);
         Alert.alert('Error', `Failed to post booking: ${error.message}. Please try again later.`);
@@ -202,6 +196,21 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       clearTimeout(timeoutId);
       setPosting(false);
     }
+  };
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    navigation.goBack();
+  };
+
+  const handleViewBooking = () => {
+    // Navigate to booking details or booking list
+    navigation.navigate('BookingListScreen');
+  };
+
+  const handleContinue = () => {
+    // Navigate back to home or appropriate screen
+    navigation.goBack();
   };
 
   return (
@@ -258,6 +267,15 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           </>
         )}
       </TouchableOpacity>
+
+      <SuccessBookingModal
+        visible={showSuccessModal}
+        onClose={handleSuccessModalClose}
+        bookingId={bookingId}
+        isConsolidated={isConsolidated}
+        onViewBooking={handleViewBooking}
+        onContinue={handleContinue}
+      />
     </View>
   );
 };

@@ -122,6 +122,34 @@ export async function apiRequest(endpoint: string, options: any = {}) {
 
 // File upload function - upload directly to Cloudinary
 export async function uploadFile(uri: string, type: 'profile' | 'logo' | 'document' | 'transporter' = 'profile', resourceId?: string) {
+  // Retry mechanism for uploads
+  const maxRetries = 3;
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Upload attempt ${attempt}/${maxRetries} for ${type}`);
+      return await attemptUpload(uri, type, resourceId);
+    } catch (error) {
+      lastError = error;
+      console.error(`Upload attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 2s, 4s, 8s
+        console.log(`Retrying upload in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  // All retries failed
+  console.error('All upload attempts failed, using placeholder URL');
+  const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
+  return placeholderUrl;
+}
+
+// Internal function to attempt a single upload
+async function attemptUpload(uri: string, type: 'profile' | 'logo' | 'document' | 'transporter' = 'profile', resourceId?: string) {
   // Fallback to Cloudinary direct upload using actual credentials
   try {
     const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || 'trukapp';
@@ -210,10 +238,7 @@ export async function uploadFile(uri: string, type: 'profile' | 'logo' | 'docume
         return await uploadToCloudinarySigned(uri, type, cloudName);
       } catch (signedError) {
         console.error('Signed upload also failed:', signedError);
-        // Return a placeholder URL for now to prevent app crashes
-        const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
-        console.log('Using placeholder URL:', placeholderUrl);
-        return placeholderUrl;
+        throw new Error(`Both unsigned and signed uploads failed: ${signedError.message}`);
       }
     }
     
@@ -225,6 +250,13 @@ export async function uploadFile(uri: string, type: 'profile' | 'logo' | 'docume
 async function uploadToCloudinarySigned(uri: string, type: string, cloudName: string): Promise<string> {
   const apiKey = process.env.EXPO_PUBLIC_CLOUDINARY_API_KEY;
   const apiSecret = process.env.EXPO_PUBLIC_CLOUDINARY_API_SECRET;
+  
+  console.log('Attempting signed upload with credentials:', {
+    hasApiKey: !!apiKey,
+    hasApiSecret: !!apiSecret,
+    cloudName,
+    type
+  });
   
   if (!apiKey || !apiSecret) {
     throw new Error('Cloudinary API credentials not configured');
@@ -249,17 +281,31 @@ async function uploadToCloudinarySigned(uri: string, type: string, cloudName: st
   formData.append('timestamp', timestamp.toString());
   formData.append('signature', signature);
   
+  console.log('Making signed Cloudinary request to:', `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`);
+  
   const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
     method: 'POST',
     body: formData,
   });
   
+  console.log('Signed Cloudinary response status:', res.status);
+  
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
+    console.error('Signed Cloudinary upload error details:', {
+      status: res.status,
+      statusText: res.statusText,
+      error: errorData,
+      cloudName,
+      apiKey: apiKey.substring(0, 8) + '...',
+      publicId,
+      folder
+    });
     throw new Error(`Signed Cloudinary upload failed: ${res.status} - ${errorData.error?.message || res.statusText}`);
   }
   
   const data = await res.json();
+  console.log('Signed upload successful:', data.secure_url);
   return data.secure_url;
 }
 

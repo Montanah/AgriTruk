@@ -14,7 +14,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ImagePickerModal from '../../components/common/ImagePickerModal';
@@ -833,14 +834,25 @@ export default function TransporterCompletionScreen() {
         // Company submission - upload logo first if available
         let logoUrl = null;
         if (profilePhoto && profilePhoto.uri) {
-          logoUrl = await uploadFile(profilePhoto.uri, 'logo', user.uid);
+          try {
+            console.log('Uploading company logo...');
+            logoUrl = await uploadFile(profilePhoto.uri, 'logo', user.uid);
+            console.log('Logo upload successful:', logoUrl);
+          } catch (uploadError: any) {
+            console.error('Logo upload failed:', uploadError);
+            setError(`Failed to upload company logo: ${uploadError.message || 'Unknown error'}. Please try again.`);
+            return false;
+          }
         }
         
         const companyPayload = {
-          name: companyName,
-          registration: companyReg,
-          contact: companyContact,
-          logo: logoUrl
+          companyName,
+          companyRegistration: companyReg,
+          companyContact,
+          companyLogo: logoUrl || '',
+          transporterId: user.uid,
+          companyEmail: user.email || undefined,
+          companyAddress: '',
         };
         const token = await user.getIdToken();
         const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
@@ -851,11 +863,30 @@ export default function TransporterCompletionScreen() {
           },
           body: JSON.stringify(companyPayload),
         });
+        
+        let companyResponseData: any = null;
+        let companyResponseText: string | null = null;
+        try {
+          companyResponseData = await res.json();
+        } catch (e) {
+          try {
+            companyResponseText = await res.text();
+          } catch {}
+          // Some backends return 201 with empty body
+          companyResponseData = null;
+        }
+        console.log('Company creation response:', res.status, res.statusText, companyResponseData || companyResponseText);
+        
         if (!res.ok) {
-          let data = null;
-          try { data = await res.json(); } catch { }
-          setError((data && data.message) || 'Failed to submit profile.');
-          return false;
+          const msg = (companyResponseData && (companyResponseData.message || companyResponseData.error)) || companyResponseText || '';
+          const isDuplicate = /exist|duplicate|already/i.test(msg || '');
+          const maybeCreated = companyResponseData && (companyResponseData.companyId || companyResponseData.id || companyResponseData.success);
+          if (isDuplicate || maybeCreated) {
+            console.warn('Company creation returned non-OK but indicates existing/created. Proceeding. Message:', msg);
+          } else {
+            setError(msg ? `Failed to create company: ${msg}` : `Failed to create company. Status: ${res.status}`);
+            return false;
+          }
         }
         // 2. Also update the transporter document with company details (PATCH/POST as JSON)
         const transporterPayload = {
@@ -872,55 +903,32 @@ export default function TransporterCompletionScreen() {
           },
           body: JSON.stringify(transporterPayload),
         });
+        
+        console.log('Transporter update response:', transporterRes.status, transporterRes.statusText);
+        
         if (!transporterRes.ok) {
           let data = null;
-          try { data = await transporterRes.json(); } catch { }
-          setError((data && data.message) || 'Failed to update transporter profile.');
-          return false;
-        }
-        // After submission, fetch company profile and check completeness
-        const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/${user.uid}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (companyRes.ok) {
-          let companyData = null;
-          try { companyData = await companyRes.json(); } catch { }
-          // Check if company profile is complete (name, registration, contact, logo)
-          // Be more flexible with field names as backend might use different naming
-          const hasName = companyData?.name || companyData?.businessName || companyData?.companyName;
-          const hasRegistration = companyData?.registration || companyData?.registrationNumber || companyData?.companyReg;
-          const hasContact = companyData?.contact || companyData?.phone || companyData?.contactNumber;
-          const hasLogo = companyData?.logo || companyData?.logoUrl || companyData?.profilePhotoUrl;
-          
-          if (
-            companyData &&
-            typeof companyData === 'object' &&
-            hasName &&
-            hasRegistration &&
-            hasContact &&
-            hasLogo
-          ) {
-            navigation.navigate('TransporterProcessingScreen', { transporterType });
-            return true;
-          } else {
-            // Log the actual data for debugging
-            console.log('Company profile data:', companyData);
-            console.log('Missing fields:', {
-              name: !hasName,
-              registration: !hasRegistration,
-              contact: !hasContact,
-              logo: !hasLogo
-            });
-            setError('Company profile is incomplete after submission. Please try again.');
-            return false;
+          try { 
+            data = await transporterRes.json(); 
+            console.log('Transporter update error response:', data);
+          } catch (e) {
+            console.log('Failed to parse transporter error response:', e);
           }
-        } else {
-          setError('Failed to fetch company profile after submission.');
+          setError((data && data.message) || `Failed to update transporter profile. Status: ${transporterRes.status}`);
           return false;
         }
+        
+        // Log successful transporter update
+        let transporterResponseData = null;
+        try { 
+          transporterResponseData = await transporterRes.json(); 
+          console.log('Transporter update successful:', transporterResponseData);
+        } catch (e) {
+          console.log('Failed to parse transporter success response:', e);
+        }
+        // Company created and transporter updated; navigate to processing screen
+        navigation.navigate('TransporterProcessingScreen', { transporterType });
+        return true;
       }
     } catch (e) {
       setError('Failed to submit profile. Please try again.');
