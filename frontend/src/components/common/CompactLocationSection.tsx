@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
@@ -147,9 +147,12 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
                                     {pickupLocation}
                                 </Text>
                             </View>
-                            <View style={styles.changeButton}>
+                            <TouchableOpacity 
+                                style={styles.changeButton}
+                                onPress={() => setIsExpanded(true)}
+                            >
                                 <Text style={styles.changeButtonText}>Change</Text>
-                            </View>
+                            </TouchableOpacity>
                         </View>
                     </View>
 
@@ -182,9 +185,12 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
                                     {deliveryLocation}
                                 </Text>
                             </View>
-                            <View style={styles.changeButton}>
+                            <TouchableOpacity 
+                                style={styles.changeButton}
+                                onPress={() => setIsExpanded(true)}
+                            >
                                 <Text style={styles.changeButtonText}>Change</Text>
-                            </View>
+                            </TouchableOpacity>
                         </View>
                     </View>
 

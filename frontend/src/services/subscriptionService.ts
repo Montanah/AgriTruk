@@ -59,7 +59,7 @@ class SubscriptionService {
     }
 
     try {
-      const { getAuth } = require('firebase/auth');
+      const { getAuth } = await import('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
 
@@ -83,11 +83,6 @@ class SubscriptionService {
     try {
       const token = await this.getAuthToken();
 
-      // Subscription status request
-      const { getAuth } = require('firebase/auth');
-      const auth = getAuth();
-      const currentUser = auth.currentUser;
-
       const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
         method: 'GET',
         headers: {
@@ -96,25 +91,15 @@ class SubscriptionService {
         },
       });
 
-      // Subscription status response
-
       if (!response.ok) {
-        const errorData = await response.json();
-        // Subscription status request failed
+        console.warn(`Subscription status API returned ${response.status}, using default status`);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      // Subscription status retrieved successfully
-      
-      // Add debugging for trial eligibility
-      const subscriptionData = data.data;
-      if (subscriptionData) {
-        // Trial eligibility check
-      }
       return data;
-    } catch (error) {
-      console.error('Error fetching subscription status:', error);
+    } catch (error: any) {
+      console.warn('Subscription status API unavailable, using default status:', error.message);
 
       // Return default status if API fails
       return {
@@ -245,9 +230,6 @@ class SubscriptionService {
       };
 
       // Subscription payment request
-      const { getAuth } = require('firebase/auth');
-      const auth = getAuth();
-      const currentUser = auth.currentUser;
 
       const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/pay', {
         method: 'POST',

@@ -213,7 +213,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         }
 
         // Clear previous search results when starting a new search
-        if (text.length <= 2) {
+        if (text.length <= 3) {
             if (searchTimeoutRef.current) {
                 clearTimeout(searchTimeoutRef.current);
                 searchTimeoutRef.current = null;
@@ -229,7 +229,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         clearSearchResults();
         searchTimeoutRef.current = setTimeout(() => {
             searchPlaces(text);
-        }, 300);
+        }, 800); // Increased delay to allow more natural typing
     };
 
     const searchPlaces = async (query: string) => {

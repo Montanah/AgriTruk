@@ -19,10 +19,6 @@ export const EXTERNAL_URLS = {
   // Google services
   GOOGLE: 'https://www.google.com',
   FIREBASE_FIRESTORE: 'https://firestore.googleapis.com',
-  
-  // Cloudinary (placeholder values - should be configured)
-  CLOUDINARY_UPLOAD: 'https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload',
-  CLOUDINARY_PRESET: 'YOUR_UPLOAD_PRESET',
 } as const;
 
 export const API_TIMEOUTS = {

@@ -1,5 +1,5 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
@@ -13,8 +13,7 @@ import { API_ENDPOINTS } from '../constants/api';
 import { auth } from '../firebaseConfig';
 import locationService from '../services/locationService';
 import subscriptionService from '../services/subscriptionService';
-import { apiRequest } from '../utils/api';
-import { handleLogoutWithConfirmation } from '../utils/logout';
+import { apiRequest, uploadFile } from '../utils/api';
 
 export default function ManageTransporterScreen({ route }: any) {
   const transporterType = route?.params?.transporterType || 'company';
@@ -169,19 +168,123 @@ export default function ManageTransporterScreen({ route }: any) {
   }, []);
 
   const pickProfilePhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Image,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
-      setEditProfilePhoto({ uri: result.assets[0].uri });
+    Alert.alert(
+      'Select Photo',
+      'Choose how you want to add your profile photo',
+      [
+        { text: 'Take Photo', onPress: () => pickProfilePhotoCamera() },
+        { text: 'Choose from Gallery', onPress: () => pickProfilePhotoGallery() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickProfilePhotoCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        const asset = result.assets[0];
+        setEditProfilePhoto(asset);
+        
+        // Upload the photo
+        try {
+          setLoadingProfile(true);
+          const user = auth.currentUser;
+          if (user) {
+            const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
+            setEditProfilePhoto({ ...asset, uri: uploadedUrl });
+            Alert.alert('Success', 'Profile photo updated successfully');
+          }
+        } catch (uploadError: any) {
+          console.error('Upload error:', uploadError);
+          Alert.alert('Upload Error', 'Failed to upload profile photo. Please try again.');
+        } finally {
+          setLoadingProfile(false);
+        }
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickProfilePhotoGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        const asset = result.assets[0];
+        setEditProfilePhoto(asset);
+        
+        // Upload the photo
+        try {
+          setLoadingProfile(true);
+          const user = auth.currentUser;
+          if (user) {
+            const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
+            setEditProfilePhoto({ ...asset, uri: uploadedUrl });
+            Alert.alert('Success', 'Profile photo updated successfully');
+          }
+        } catch (uploadError: any) {
+          console.error('Upload error:', uploadError);
+          Alert.alert('Upload Error', 'Failed to upload profile photo. Please try again.');
+        } finally {
+          setLoadingProfile(false);
+        }
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
     }
   };
 
   // Updated logout handler: use common logout function
   const handleLogout = () => {
-    handleLogoutWithConfirmation(navigation);
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut(auth);
+              // Navigate to Welcome screen after successful logout
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: 'Welcome' }],
+                })
+              );
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSave = async () => {
@@ -1077,8 +1180,48 @@ export default function ManageTransporterScreen({ route }: any) {
     const [isLocationTracking, setIsLocationTracking] = useState(false);
     const [currentLocation, setCurrentLocation] = useState(null);
     const [locationPermission, setLocationPermission] = useState(false);
-    // Add: image picker for individual profile
-    const pickIndividualProfilePhoto = async () => {
+  // Add: image picker for individual profile
+  const pickIndividualProfilePhoto = async () => {
+    Alert.alert(
+      'Select Photo',
+      'Choose how you want to add your profile photo',
+      [
+        { text: 'Take Photo', onPress: () => pickIndividualProfilePhotoCamera() },
+        { text: 'Choose from Gallery', onPress: () => pickIndividualProfilePhotoGallery() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickIndividualProfilePhotoCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        setIndividualProfilePhoto({ uri: result.assets[0].uri });
+        // Optionally: upload to backend here
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickIndividualProfilePhotoGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -1088,7 +1231,11 @@ export default function ManageTransporterScreen({ route }: any) {
         setIndividualProfilePhoto({ uri: result.assets[0].uri });
         // Optionally: upload to backend here
       }
-    };
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
     React.useEffect(() => {
       const fetchProfile = async () => {
         try {

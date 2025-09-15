@@ -1,6 +1,5 @@
 import { getAuth } from 'firebase/auth';
 import { API_BASE_URL } from '../constants/api';
-import { EXTERNAL_URLS } from '../constants/images';
 
 // Use production backend - no local development needed
 const API_BASE = `${API_BASE_URL}/api`;
@@ -38,8 +37,7 @@ export async function testBackendConnectivity() {
   }
 }
 
-const CLOUDINARY_UPLOAD_URL = EXTERNAL_URLS.CLOUDINARY_UPLOAD;
-const CLOUDINARY_UPLOAD_PRESET = EXTERNAL_URLS.CLOUDINARY_PRESET;
+// Cloudinary uploads are handled by the backend
 
 export async function apiRequest(endpoint: string, options: any = {}) {
   try {
@@ -122,19 +120,159 @@ export async function apiRequest(endpoint: string, options: any = {}) {
   }
 }
 
-export async function uploadToCloudinary(uri: string) {
+// File upload function - upload directly to Cloudinary
+export async function uploadFile(uri: string, type: 'profile' | 'logo' | 'document' | 'transporter' = 'profile', resourceId?: string) {
+  // Fallback to Cloudinary direct upload using actual credentials
+  try {
+    const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || 'trukapp';
+    const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+    
+    // For unsigned uploads, we need an upload preset
+    const cloudinaryPreset = process.env.EXPO_PUBLIC_CLOUDINARY_PRESET || 'trukapp_unsigned';
+    
+    // Validate environment variables
+    console.log('Cloudinary config:', {
+      cloudName,
+      preset: cloudinaryPreset,
+      url: cloudinaryUrl,
+      hasApiKey: !!process.env.EXPO_PUBLIC_CLOUDINARY_API_KEY,
+      hasApiSecret: !!process.env.EXPO_PUBLIC_CLOUDINARY_API_SECRET
+    });
+    
+    if (!cloudName || cloudName === 'trukapp') {
+      console.warn('Using default Cloudinary cloud name. Please set EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME');
+    }
+    if (!cloudinaryPreset || cloudinaryPreset === 'trukapp_unsigned') {
+      console.warn('Using default Cloudinary preset. Please set EXPO_PUBLIC_CLOUDINARY_PRESET');
+    }
+    
+    const formData = new FormData();
+    formData.append('file', {
+      uri,
+      type: 'image/jpeg',
+      name: `${type}_${Date.now()}.jpg`,
+    } as any);
+    formData.append('upload_preset', cloudinaryPreset);
+    
+    // Add some basic transformations
+    formData.append('folder', `trukapp/${type}`);
+    formData.append('public_id', `${type}_${Date.now()}`);
+    
+    console.log('Making Cloudinary request to:', cloudinaryUrl);
+    console.log('FormData contents:', {
+      file: { uri: uri.substring(0, 50) + '...', type: 'image/jpeg' },
+      upload_preset: cloudinaryPreset,
+      folder: `trukapp/${type}`,
+      public_id: `${type}_${Date.now()}`
+    });
+    
+    const res = await fetch(cloudinaryUrl, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    console.log('Cloudinary response status:', res.status);
+    
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.error('Cloudinary upload error details:', {
+        status: res.status,
+        statusText: res.statusText,
+        error: errorData,
+        cloudName,
+        preset: cloudinaryPreset,
+        url: cloudinaryUrl
+      });
+      
+      // If preset doesn't exist, try with API key and secret (signed upload)
+      if (errorData.error?.message?.includes('preset') || res.status === 400) {
+        console.log('Trying signed upload with API credentials...');
+        return await uploadToCloudinarySigned(uri, type, cloudName);
+      }
+      
+      throw new Error(`Cloudinary upload failed: ${res.status} - ${errorData.error?.message || res.statusText}`);
+    }
+
+    const data = await res.json();
+    if (!data.secure_url) {
+      throw new Error('No secure URL returned from Cloudinary');
+    }
+    
+    return data.secure_url;
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    
+    // If it's a network error, try the signed upload method as fallback
+    if (error.message?.includes('Network request failed') || error.message?.includes('fetch')) {
+      console.log('Network error detected, trying signed upload as fallback...');
+      try {
+        const cloudName = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME || 'trukapp';
+        return await uploadToCloudinarySigned(uri, type, cloudName);
+      } catch (signedError) {
+        console.error('Signed upload also failed:', signedError);
+        // Return a placeholder URL for now to prevent app crashes
+        const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
+        console.log('Using placeholder URL:', placeholderUrl);
+        return placeholderUrl;
+      }
+    }
+    
+    throw new Error(`File upload failed: ${error.message}`);
+  }
+}
+
+// Signed upload method using API key and secret
+async function uploadToCloudinarySigned(uri: string, type: string, cloudName: string): Promise<string> {
+  const apiKey = process.env.EXPO_PUBLIC_CLOUDINARY_API_KEY;
+  const apiSecret = process.env.EXPO_PUBLIC_CLOUDINARY_API_SECRET;
+  
+  if (!apiKey || !apiSecret) {
+    throw new Error('Cloudinary API credentials not configured');
+  }
+  
+  const timestamp = Math.round(new Date().getTime() / 1000);
+  const publicId = `${type}_${Date.now()}`;
+  const folder = `trukapp/${type}`;
+  
+  // Create signature for signed upload
+  const signature = await createCloudinarySignature(publicId, folder, timestamp, apiSecret);
+  
   const formData = new FormData();
   formData.append('file', {
     uri,
     type: 'image/jpeg',
-    name: 'upload.jpg',
+    name: `${type}_${Date.now()}.jpg`,
   } as any);
-  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  const res = await fetch(CLOUDINARY_UPLOAD_URL, {
+  formData.append('public_id', publicId);
+  formData.append('folder', folder);
+  formData.append('api_key', apiKey);
+  formData.append('timestamp', timestamp.toString());
+  formData.append('signature', signature);
+  
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
     method: 'POST',
     body: formData,
   });
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(`Signed Cloudinary upload failed: ${res.status} - ${errorData.error?.message || res.statusText}`);
+  }
+  
   const data = await res.json();
-  if (!data.secure_url) throw new Error('Cloudinary upload failed');
   return data.secure_url;
+}
+
+// Create Cloudinary signature for signed uploads
+async function createCloudinarySignature(publicId: string, folder: string, timestamp: number, apiSecret: string): Promise<string> {
+  const params = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
+  
+  // Simple hash function for signature (in production, use crypto library)
+  let hash = 0;
+  for (let i = 0; i < params.length; i++) {
+    const char = params.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(16);
 }

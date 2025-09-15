@@ -22,6 +22,7 @@ import { API_ENDPOINTS } from '../../constants/api';
 import VehicleDetailsForm from '../../components/VehicleDetailsForm';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
+import { uploadFile } from '../../utils/api';
 
 const VEHICLE_TYPES = [
   {
@@ -310,8 +311,8 @@ export default function TransporterCompletionScreen() {
         result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.IMAGE,
           allowsEditing: true,
-          aspect: [4, 3],
-          quality: 0.7,
+          aspect: [1, 1], // Square aspect ratio for profile photos
+          quality: 0.8,
         });
       } else if (choice === 'gallery') {
         if (!mediaPermission?.granted) {
@@ -324,8 +325,8 @@ export default function TransporterCompletionScreen() {
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.IMAGE,
           allowsEditing: true,
-          aspect: [4, 3],
-          quality: 0.7,
+          aspect: [1, 1], // Square aspect ratio for profile photos
+          quality: 0.8,
         });
       } else {
         return;
@@ -384,8 +385,77 @@ export default function TransporterCompletionScreen() {
   };
 
   const handleDlFile = async () => {
+    Alert.alert(
+      'Select Document',
+      'Choose how you want to add your driver\'s license',
+      [
+        { text: 'Take Photo', onPress: () => handleDlCamera() },
+        { text: 'Choose from Gallery', onPress: () => handleDlGallery() },
+        { text: 'Upload PDF', onPress: () => handleDlPDF() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleDlCamera = async () => {
+    try {
+      if (!cameraPermission?.granted) {
+        const { status } = await requestCameraPermission();
+        if (status !== 'granted') {
+          setError('Permission to access camera is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setDlFile({
+          ...result.assets[0],
+          name: 'driver_license.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      setError('Failed to open camera.');
+      console.error('Camera error:', err);
+    }
+  };
+
+  const handleDlGallery = async () => {
+    try {
+      if (!mediaPermission?.granted) {
+        const { status } = await requestMediaPermission();
+        if (status !== 'granted') {
+          setError('Permission to access media library is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setDlFile({
+          ...result.assets[0],
+          name: 'driver_license.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      setError('Failed to open gallery.');
+      console.error('Gallery error:', err);
+    }
+  };
+
+  const handleDlPDF = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['image/*', 'application/pdf'],
+      type: ['application/pdf'],
       copyToCacheDirectory: true,
       multiple: false,
     });
@@ -395,8 +465,77 @@ export default function TransporterCompletionScreen() {
   };
 
   const handleIdFile = async () => {
+    Alert.alert(
+      'Select Document',
+      'Choose how you want to add your driver\'s ID',
+      [
+        { text: 'Take Photo', onPress: () => handleIdCamera() },
+        { text: 'Choose from Gallery', onPress: () => handleIdGallery() },
+        { text: 'Upload PDF', onPress: () => handleIdPDF() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleIdCamera = async () => {
+    try {
+      if (!cameraPermission?.granted) {
+        const { status } = await requestCameraPermission();
+        if (status !== 'granted') {
+          setError('Permission to access camera is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIdFile({
+          ...result.assets[0],
+          name: 'driver_id.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      setError('Failed to open camera.');
+      console.error('Camera error:', err);
+    }
+  };
+
+  const handleIdGallery = async () => {
+    try {
+      if (!mediaPermission?.granted) {
+        const { status } = await requestMediaPermission();
+        if (status !== 'granted') {
+          setError('Permission to access media library is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIdFile({
+          ...result.assets[0],
+          name: 'driver_id.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      setError('Failed to open gallery.');
+      console.error('Gallery error:', err);
+    }
+  };
+
+  const handleIdPDF = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['image/*', 'application/pdf'],
+      type: ['application/pdf'],
       copyToCacheDirectory: true,
       multiple: false,
     });
@@ -406,8 +545,77 @@ export default function TransporterCompletionScreen() {
   };
 
   const handleInsuranceFile = async () => {
+    Alert.alert(
+      'Select Document',
+      'Choose how you want to add your insurance document',
+      [
+        { text: 'Take Photo', onPress: () => handleInsuranceCamera() },
+        { text: 'Choose from Gallery', onPress: () => handleInsuranceGallery() },
+        { text: 'Upload PDF', onPress: () => handleInsurancePDF() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleInsuranceCamera = async () => {
+    try {
+      if (!cameraPermission?.granted) {
+        const { status } = await requestCameraPermission();
+        if (status !== 'granted') {
+          setError('Permission to access camera is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setInsuranceFile({
+          ...result.assets[0],
+          name: 'insurance.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      setError('Failed to open camera.');
+      console.error('Camera error:', err);
+    }
+  };
+
+  const handleInsuranceGallery = async () => {
+    try {
+      if (!mediaPermission?.granted) {
+        const { status } = await requestMediaPermission();
+        if (status !== 'granted') {
+          setError('Permission to access media library is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setInsuranceFile({
+          ...result.assets[0],
+          name: 'insurance.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      setError('Failed to open gallery.');
+      console.error('Gallery error:', err);
+    }
+  };
+
+  const handleInsurancePDF = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['image/*', 'application/pdf'],
+      type: ['application/pdf'],
       copyToCacheDirectory: true,
       multiple: false,
     });
@@ -417,8 +625,77 @@ export default function TransporterCompletionScreen() {
   };
 
   const handleLogBookFile = async () => {
+    Alert.alert(
+      'Select Document',
+      'Choose how you want to add your logbook',
+      [
+        { text: 'Take Photo', onPress: () => handleLogBookCamera() },
+        { text: 'Choose from Gallery', onPress: () => handleLogBookGallery() },
+        { text: 'Upload PDF', onPress: () => handleLogBookPDF() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleLogBookCamera = async () => {
+    try {
+      if (!cameraPermission?.granted) {
+        const { status } = await requestCameraPermission();
+        if (status !== 'granted') {
+          setError('Permission to access camera is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setLogBookFile({
+          ...result.assets[0],
+          name: 'logbook.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      setError('Failed to open camera.');
+      console.error('Camera error:', err);
+    }
+  };
+
+  const handleLogBookGallery = async () => {
+    try {
+      if (!mediaPermission?.granted) {
+        const { status } = await requestMediaPermission();
+        if (status !== 'granted') {
+          setError('Permission to access media library is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setLogBookFile({
+          ...result.assets[0],
+          name: 'logbook.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      setError('Failed to open gallery.');
+      console.error('Gallery error:', err);
+    }
+  };
+
+  const handleLogBookPDF = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['image/*', 'application/pdf'],
+      type: ['application/pdf'],
       copyToCacheDirectory: true,
       multiple: false,
     });
@@ -452,45 +729,78 @@ export default function TransporterCompletionScreen() {
       if (!user) throw new Error('Not authenticated');
 
       if (transporterType === 'individual') {
-        // Prepare FormData for multipart/form-data
-        const formData = new FormData();
-        formData.append('vehicleType', vehicleType);
-        formData.append('vehicleRegistration', registration);
-        formData.append('vehicleMake', vehicleMake);
-        formData.append('vehicleColor', vehicleColor);
-        formData.append('vehicleModel', vehicleMake);
-        formData.append('vehicleYear', year ? String(year) : '');
-        if (maxCapacity && !isNaN(parseInt(maxCapacity, 10))) {
-          formData.append('vehicleCapacity', String(parseInt(maxCapacity, 10)));
+        // Upload all files to Cloudinary first
+        const uploadPromises = [];
+        
+        if (profilePhoto && profilePhoto.uri) {
+          uploadPromises.push(uploadFile(profilePhoto.uri, 'profile', user.uid).then(url => ({ type: 'profilePhoto', url })));
         }
-        formData.append('driveType', driveType || '');
-        formData.append('bodyType', bodyType || '');
-        formData.append('vehicleFeatures', vehicleFeatures || '');
-        formData.append('humidityControl', humidityControl ? 'true' : 'false');
-        formData.append('refrigerated', refrigeration ? 'true' : 'false');
-        formData.append('transporterType', transporterType);
-
-        // Files
-        if (profilePhoto && profilePhoto.uri) formData.append('profilePhoto', { uri: profilePhoto.uri, name: 'profile.jpg', type: 'image/jpeg' });
-        if (dlFile && dlFile.uri) formData.append('dlFile', { uri: dlFile.uri, name: 'license.jpg', type: 'image/jpeg' });
-        if (insuranceFile && insuranceFile.uri) formData.append('insuranceFile', { uri: insuranceFile.uri, name: 'insurance.jpg', type: 'image/jpeg' });
-        if (logBookFile && logBookFile.uri) formData.append('logbook', { uri: logBookFile.uri, name: 'logbook.jpg', type: 'image/jpeg' });
-        if (idFile && idFile.uri) formData.append('idFile', { uri: idFile.uri, name: 'id.jpg', type: 'image/jpeg' });
+        if (dlFile && dlFile.uri) {
+          uploadPromises.push(uploadFile(dlFile.uri, 'document', user.uid).then(url => ({ type: 'dlFile', url })));
+        }
+        if (insuranceFile && insuranceFile.uri) {
+          uploadPromises.push(uploadFile(insuranceFile.uri, 'document', user.uid).then(url => ({ type: 'insuranceFile', url })));
+        }
+        if (logBookFile && logBookFile.uri) {
+          uploadPromises.push(uploadFile(logBookFile.uri, 'document', user.uid).then(url => ({ type: 'logbook', url })));
+        }
+        if (idFile && idFile.uri) {
+          uploadPromises.push(uploadFile(idFile.uri, 'document', user.uid).then(url => ({ type: 'idFile', url })));
+        }
         if (vehiclePhotos && vehiclePhotos.length > 0) {
           vehiclePhotos.forEach((img, idx) => {
             if (img.uri) {
-              formData.append('vehiclePhoto', { uri: img.uri, name: `vehicle_${idx}.jpg`, type: 'image/jpeg' });
+              uploadPromises.push(uploadFile(img.uri, 'transporter', user.uid).then(url => ({ type: 'vehiclePhoto', url, index: idx })));
             }
           });
         }
+
+        // Wait for all uploads to complete
+        const uploadResults = await Promise.all(uploadPromises);
+        
+        // Prepare JSON payload with uploaded URLs
+        const transporterData = {
+          vehicleType,
+          vehicleRegistration: registration,
+          vehicleMake,
+          vehicleColor,
+          vehicleModel: vehicleMake,
+          vehicleYear: year ? String(year) : '',
+          vehicleCapacity: maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? parseInt(maxCapacity, 10) : null,
+          driveType: driveType || '',
+          bodyType: bodyType || '',
+          vehicleFeatures: vehicleFeatures || '',
+          humidityControl,
+          refrigerated: refrigeration,
+          transporterType,
+        };
+
+        // Add uploaded file URLs to the payload
+        uploadResults.forEach(result => {
+          if (result.type === 'profilePhoto') {
+            transporterData.driverProfileImage = result.url;
+          } else if (result.type === 'dlFile') {
+            transporterData.driverLicense = result.url;
+          } else if (result.type === 'insuranceFile') {
+            transporterData.insuranceUrl = result.url;
+          } else if (result.type === 'logbook') {
+            transporterData.logbookUrl = result.url;
+          } else if (result.type === 'idFile') {
+            transporterData.idDocument = result.url;
+          } else if (result.type === 'vehiclePhoto') {
+            if (!transporterData.vehicleImagesUrl) transporterData.vehicleImagesUrl = [];
+            transporterData.vehicleImagesUrl.push(result.url);
+          }
+        });
 
         const token = await user.getIdToken();
         const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-          body: formData,
+          body: JSON.stringify(transporterData),
         });
 
         let data = null;
@@ -520,11 +830,17 @@ export default function TransporterCompletionScreen() {
           return false;
         }
       } else {
-        // Company submission (send JSON, not FormData)
+        // Company submission - upload logo first if available
+        let logoUrl = null;
+        if (profilePhoto && profilePhoto.uri) {
+          logoUrl = await uploadFile(profilePhoto.uri, 'logo', user.uid);
+        }
+        
         const companyPayload = {
           name: companyName,
           registration: companyReg,
-          contact: companyContact
+          contact: companyContact,
+          logo: logoUrl
         };
         const token = await user.getIdToken();
         const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
@@ -573,17 +889,31 @@ export default function TransporterCompletionScreen() {
           let companyData = null;
           try { companyData = await companyRes.json(); } catch { }
           // Check if company profile is complete (name, registration, contact, logo)
+          // Be more flexible with field names as backend might use different naming
+          const hasName = companyData?.name || companyData?.businessName || companyData?.companyName;
+          const hasRegistration = companyData?.registration || companyData?.registrationNumber || companyData?.companyReg;
+          const hasContact = companyData?.contact || companyData?.phone || companyData?.contactNumber;
+          const hasLogo = companyData?.logo || companyData?.logoUrl || companyData?.profilePhotoUrl;
+          
           if (
             companyData &&
             typeof companyData === 'object' &&
-            companyData.name &&
-            companyData.registration &&
-            companyData.contact &&
-            companyData.logo
+            hasName &&
+            hasRegistration &&
+            hasContact &&
+            hasLogo
           ) {
             navigation.navigate('TransporterProcessingScreen', { transporterType });
             return true;
           } else {
+            // Log the actual data for debugging
+            console.log('Company profile data:', companyData);
+            console.log('Missing fields:', {
+              name: !hasName,
+              registration: !hasRegistration,
+              contact: !hasContact,
+              logo: !hasLogo
+            });
             setError('Company profile is incomplete after submission. Please try again.');
             return false;
           }

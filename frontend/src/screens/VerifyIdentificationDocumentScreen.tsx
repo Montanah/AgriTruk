@@ -1,28 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, ActivityIndicator } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getAuth } from 'firebase/auth';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
-import { notificationService } from '../../services/notificationService';
+import { notificationService } from '../services/notificationService';
+import { uploadFile } from '../utils/api';
 
-const VerifyIdentificationDocumentScreen = ({ navigation, route }) => {
-  const { broker } = route.params || {};
+interface VerifyIdentificationDocumentScreenProps {
+  navigation: any;
+  route: any;
+}
+
+const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentificationDocumentScreenProps) => {
   const [idType, setIdType] = useState('national');
-  const [idDoc, setIdDoc] = useState(null);
+  const [idDoc, setIdDoc] = useState<any>(null);
   const [status, setStatus] = useState('not_uploaded'); // 'not_uploaded', 'pending', 'verified', 'rejected'
-  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
 
-  // Check broker verification status on component mount
-  useEffect(() => {
-    checkBrokerStatus();
-  }, []);
-
-  const checkBrokerStatus = async () => {
+  const checkBrokerStatus = useCallback(async () => {
     try {
       setCheckingStatus(true);
       const auth = getAuth();
@@ -30,21 +28,60 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }) => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BROKERS}/${user.uid}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      
+      // Try brokers endpoint first
+      let response;
+      let brokerData = null;
+      
+      try {
+        response = await fetch(`${API_ENDPOINTS.BROKERS}/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        const brokerData = data.broker || data;
+        if (response.ok) {
+          const data = await response.json();
+          brokerData = data.broker || data;
+        } else {
+          console.warn(`Brokers endpoint returned ${response.status}, trying auth endpoint...`);
+        }
+      } catch (brokerError: any) {
+        console.warn('Brokers endpoint failed:', brokerError.message);
+      }
+
+      // Fallback: try auth endpoint for user profile
+      if (!brokerData) {
+        try {
+          response = await fetch(`${API_ENDPOINTS.AUTH}/users/${user.uid}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            brokerData = await response.json();
+          } else {
+            console.warn(`Auth endpoint returned ${response.status}`);
+          }
+        } catch (authError: any) {
+          console.warn('Auth endpoint failed:', authError.message);
+        }
+      }
+
+      if (brokerData) {
+        
+        console.log('Broker data received:', brokerData);
         
         // Check if broker has uploaded documents and their status
         if (brokerData.idDocument) {
-          setIdDoc(brokerData.idDocument);
+          setIdDoc({ uri: brokerData.idDocument, name: 'ID Document' });
           setIdType(brokerData.idType || 'national');
+          
+          console.log('Found ID document:', brokerData.idDocument);
+          console.log('Verification status:', brokerData.verificationStatus);
           
           // Check verification status
           if (brokerData.verificationStatus === 'approved') {
@@ -60,15 +97,28 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }) => {
             setStatus('rejected');
           } else if (brokerData.verificationStatus === 'pending') {
             setStatus('pending');
+          } else {
+            setStatus('pending');
           }
+        } else {
+          console.log('No ID document found in broker data');
+          setStatus('not_uploaded');
         }
+      } else {
+        console.log('Failed to fetch broker data, status:', response?.status);
+        setStatus('not_uploaded');
       }
     } catch (error) {
       console.error('Error checking broker status:', error);
     } finally {
       setCheckingStatus(false);
     }
-  };
+  }, [navigation]);
+
+  // Check broker verification status on component mount
+  useEffect(() => {
+    checkBrokerStatus();
+  }, [checkBrokerStatus]);
 
   const handlePickIdDoc = async () => {
     try {
@@ -103,8 +153,8 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }) => {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.7,
+        // No aspect ratio constraint - allows free-form cropping for ID documents
+        quality: 0.8, // Higher quality for document clarity
       });
       
       if (!result.canceled && result.assets && result.assets[0]) {
@@ -127,8 +177,8 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }) => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.7,
+        // No aspect ratio constraint - allows free-form cropping for ID documents
+        quality: 0.8, // Higher quality for document clarity
       });
       
       if (!result.canceled && result.assets && result.assets[0]) {
@@ -140,56 +190,57 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }) => {
     }
   };
 
-  const uploadDocument = async (asset) => {
+  const uploadDocument = async (asset: any) => {
     try {
       setUploading(true);
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
 
-      const token = await user.getIdToken();
+      // Upload directly to Cloudinary
+      const uploadedUrl = await uploadFile(asset.uri, 'document', user.uid);
       
-      // Create FormData for file upload
-      const formData = new FormData();
-      formData.append('idDocument', {
-        uri: asset.uri,
-        type: 'image/jpeg',
-        name: `id_document_${Date.now()}.jpg`,
-      } as any);
-      formData.append('idType', idType);
-      formData.append('verificationStatus', 'pending');
-
-      const response = await fetch(`${API_ENDPOINTS.BROKERS}/${user.uid}/upload-id`, {
-        method: 'POST',
+      // Save the uploaded document URL to the user's profile
+      const token = await user.getIdToken();
+      const profileUpdateResponse = await fetch(`${API_ENDPOINTS.AUTH}/update`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'application/json',
         },
-        body: formData,
+        body: JSON.stringify({
+          idDocument: uploadedUrl,
+          idType: idType,
+          verificationStatus: 'pending',
+          updatedAt: new Date().toISOString(),
+        }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setIdDoc(asset);
+      if (profileUpdateResponse.ok) {
+        // Update local state with the uploaded URL for preview
+        setIdDoc({ ...asset, uri: uploadedUrl });
         setStatus('pending');
         
         Alert.alert(
           'Document Uploaded',
-          'Your ID document has been submitted for verification. You will be notified once it\'s reviewed.',
+          'Your ID document has been uploaded successfully. You will be notified once it\'s reviewed.',
           [{ text: 'OK' }]
         );
         
         // Notify admin for verification
-        notificationService.sendInApp(
-          'ADMIN',
-          `Broker ${user.email} uploaded ID for verification.`,
-          'admin',
-          'admin_alert',
-          { broker: { email: user.email, uid: user.uid }, idType, idDoc: asset }
-        );
+        try {
+          await notificationService.sendInApp(
+            'ADMIN',
+            `Broker ${user.email} uploaded ID for verification.`,
+            'admin',
+            'admin_alert',
+            { broker: { email: user.email, uid: user.uid }, idType, idDoc: { ...asset, uri: uploadedUrl } }
+          );
+        } catch (notificationError) {
+          console.warn('Failed to send notification:', notificationError);
+        }
       } else {
-        const errorData = await response.json();
-        Alert.alert('Upload Failed', errorData.message || 'Failed to upload document. Please try again.');
+        throw new Error('Failed to save document information to profile');
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -246,7 +297,18 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }) => {
                 {uploading ? 'Uploading...' : (idDoc ? 'Change ID Document' : 'Upload ID Document')}
               </Text>
             </TouchableOpacity>
-            {idDoc && <Text style={styles.fileName}>{idDoc.name || idDoc.uri?.split('/').pop()}</Text>}
+            {idDoc && (
+              <>
+                <Text style={styles.fileName}>{idDoc.name || idDoc.uri?.split('/').pop()}</Text>
+                <View style={styles.imagePreview}>
+                  <Image 
+                    source={{ uri: idDoc.uri }} 
+                    style={styles.previewImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              </>
+            )}
           </>
         )}
         {/* Status Section */}
@@ -328,6 +390,18 @@ const styles = StyleSheet.create({
   uploadBtnDisabled: { opacity: 0.6 },
   loadingText: { color: colors.text.secondary, fontSize: 16, marginTop: 12, textAlign: 'center' },
   infoMsg: { color: colors.text.secondary, fontSize: 15, marginBottom: 10, textAlign: 'center', fontStyle: 'italic' },
+  imagePreview: {
+    marginTop: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+  },
 });
 
 export default VerifyIdentificationDocumentScreen;

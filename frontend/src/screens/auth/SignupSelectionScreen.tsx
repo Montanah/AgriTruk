@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -141,17 +142,23 @@ const SignupSelectionScreen = () => {
         end={{ x: 0.8, y: 1 }}
       />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.container}>
-          {/* Animated Logo */}
-          <View style={styles.logoBgWrap}>
-            <View style={styles.logoBg} />
-            <Animated.Image
-              source={require('../../../assets/images/TRUK Logo.png')}
-              style={[styles.logo, { transform: [{ translateX: logoTranslate }] }]}
-            />
-          </View>
-          <Text style={styles.title}>Signing up as?</Text>
-          {roles.map((role, i) => (
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          <View style={styles.container}>
+            {/* Animated Logo */}
+            <View style={styles.logoBgWrap}>
+              <View style={styles.logoBg} />
+              <Animated.Image
+                source={require('../../../assets/images/TRUK Logo.png')}
+                style={[styles.logo, { transform: [{ translateX: logoTranslate }] }]}
+              />
+            </View>
+            <Text style={styles.title}>Signing up as?</Text>
+            {roles.map((role, i) => (
             <Animated.View
               key={role.key}
               style={{
@@ -224,7 +231,8 @@ const SignupSelectionScreen = () => {
               </TouchableOpacity>
             </Animated.View>
           ))}
-        </View>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </>
   );
@@ -234,11 +242,20 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  container: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    minHeight: Dimensions.get('window').height - 100,
+  },
+  container: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xxl,
   },
   logoBgWrap: {
     alignItems: 'center',
@@ -291,8 +308,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 16,
     elevation: 10,
-    width: width - spacing.xl * 2,
+    width: Math.min(width - spacing.xl * 2, 440),
     maxWidth: 440,
+    minHeight: 80,
     borderWidth: 1.2,
     borderColor: '#eeeeee',
     position: 'relative',

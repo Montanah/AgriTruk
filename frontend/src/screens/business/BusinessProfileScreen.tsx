@@ -1,4 +1,5 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,8 +12,8 @@ import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
 import { API_ENDPOINTS } from '../../constants/api';
-import { handleLogoutWithConfirmation } from '../../utils/logout';
-import { apiRequest } from '../../utils/api';
+import { auth } from '../../firebaseConfig';
+import { apiRequest, uploadFile } from '../../utils/api';
 
 
 
@@ -153,34 +154,13 @@ const BusinessProfileScreen = ({ navigation }: any) => {
       const logoFile = result.assets[0];
       setEditData({ ...editData, logo: logoFile });
       
-      // Upload to backend
+      // Upload to Cloudinary
       try {
         setLoading(true);
-        const formData = new FormData();
-        formData.append('file', {
-          uri: logoFile.uri,
-          type: logoFile.type || 'image/jpeg',
-          name: 'business_logo.jpg',
-        } as any);
-        formData.append('type', 'business_logo');
-
-        const token = await user?.getIdToken();
-        const uploadResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/upload/business-logo`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-          body: formData,
-        });
-
-        if (uploadResponse.ok) {
-          const uploadData = await uploadResponse.json();
-          setEditData({ ...editData, logo: { ...logoFile, uri: uploadData.secure_url } });
-          Alert.alert('Success', 'Logo uploaded successfully');
-        } else {
-          throw new Error('Failed to upload logo');
-        }
+        const uploadedUrl = await uploadFile(logoFile.uri, 'logo');
+        
+        setEditData({ ...editData, logo: { ...logoFile, uri: uploadedUrl } });
+        Alert.alert('Success', 'Logo uploaded successfully');
       } catch (error) {
         Alert.alert('Error', 'Failed to upload logo. Please try again.');
       } finally {
@@ -190,12 +170,86 @@ const BusinessProfileScreen = ({ navigation }: any) => {
   };
 
   const uploadDocument = async () => {
+    Alert.alert(
+      'Select Document',
+      'Choose how you want to add your business document',
+      [
+        { text: 'Take Photo', onPress: () => uploadDocumentCamera() },
+        { text: 'Choose from Gallery', onPress: () => uploadDocumentGallery() },
+        { text: 'Upload PDF', onPress: () => uploadDocumentPDF() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const uploadDocumentCamera = async () => {
+    try {
+      if (!cameraPermission?.granted) {
+        const { status } = await requestCameraPermission();
+        if (status !== 'granted') {
+          Alert.alert('Error', 'Permission to access camera is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        handleDocumentUpload({
+          ...result.assets[0],
+          name: 'business_document.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to open camera.');
+      console.error('Camera error:', err);
+    }
+  };
+
+  const uploadDocumentGallery = async () => {
+    try {
+      if (!mediaPermission?.granted) {
+        const { status } = await requestMediaPermission();
+        if (status !== 'granted') {
+          Alert.alert('Error', 'Permission to access media library is required!');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows free-form cropping for documents
+        quality: 0.8, // Higher quality for document clarity
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        handleDocumentUpload({
+          ...result.assets[0],
+          name: 'business_document.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to open gallery.');
+      console.error('Gallery error:', err);
+    }
+  };
+
+  const uploadDocumentPDF = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'image/*'],
+      type: ['application/pdf'],
       copyToCacheDirectory: true,
     });
-
     if (!result.canceled && result.assets[0]) {
+      handleDocumentUpload(result.assets[0]);
+    }
+  };
+
+  const handleDocumentUpload = async (document) => {
+    if (document) {
       setUploading(true);
       try {
         // TODO: Upload to backend
@@ -281,7 +335,32 @@ const BusinessProfileScreen = ({ navigation }: any) => {
 
 
   const handleLogout = () => {
-    handleLogoutWithConfirmation(navigation);
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut(auth);
+              // Navigate to Welcome screen after successful logout
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: 'Welcome' }],
+                })
+              );
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getStatusColor = (status: string) => {

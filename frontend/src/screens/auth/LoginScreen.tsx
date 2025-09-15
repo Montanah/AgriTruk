@@ -21,7 +21,7 @@ import { colors, fonts, spacing } from '../../constants';
 
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -190,8 +190,6 @@ const LoginScreen = ({ navigation }: any) => {
                     // Request details
 
                     // Use the imported auth instance directly
-                    const { signInWithEmailAndPassword } = await import('firebase/auth');
-                    const { auth } = await import('../../firebaseConfig');
                     const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
                     // Login response details

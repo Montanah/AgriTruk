@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { uploadFile } from '../utils/api';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,7 +24,6 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { auth, db } from '../firebaseConfig';
-import { handleLogoutWithConfirmation } from '../utils/logout';
 import { apiRequest } from '../utils/api';
 
 interface ShipperProfileData {
@@ -123,20 +123,32 @@ const AccountScreen = () => {
   };
 
   useEffect(() => {
-    if (user) {
-      loadProfile();
-    }
+    loadProfile();
   }, [user]);
 
+
   const loadProfile = async () => {
-    if (!user?.uid) return;
+    console.log('loadProfile called, user:', user?.uid ? 'exists' : 'null');
+    
+    if (!user?.uid) {
+      console.log('No user UID, clearing profile and loading state');
+      setLoading(false);
+      setProfile(null);
+      setError('');
+      return;
+    }
 
     try {
+      console.log('Starting profile load for user:', user.uid);
       setLoading(true);
+      setError('');
+      
       const userDoc = await getDoc(doc(db, 'users', user.uid));
+      console.log('User document exists:', userDoc.exists());
 
       if (userDoc.exists()) {
         const userData = userDoc.data();
+        console.log('User data loaded:', Object.keys(userData));
 
         // Get the actual user creation date from Firebase Auth metadata
         const userCreationDate = user.metadata?.creationTime || userData.createdAt || new Date().toISOString();
@@ -161,8 +173,33 @@ const AccountScreen = () => {
           },
         };
 
+        console.log('Profile data created successfully');
         setProfile(profileData);
         setEditData(profileData);
+      } else {
+        console.log('User document does not exist, creating default profile');
+        // Create a default profile if document doesn't exist
+        const defaultProfile: ShipperProfileData = {
+          name: user.displayName || '',
+          email: user.email || '',
+          phone: '',
+          address: '',
+          profilePhotoUrl: user.photoURL || '',
+          emailVerified: user.emailVerified || false,
+          phoneVerified: false,
+          role: 'shipper',
+          createdAt: user.metadata?.creationTime || new Date().toISOString(),
+          preferences: {
+            notificationSettings: {
+              email: true,
+              push: true,
+              sms: false,
+            },
+            preferredVerificationMethod: 'email',
+          },
+        };
+        setProfile(defaultProfile);
+        setEditData(defaultProfile);
       }
     } catch (e: any) {
       console.error('Profile loading error:', e);
@@ -211,7 +248,7 @@ const AccountScreen = () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: [1, 1], // Square aspect ratio is good for profile photos
       quality: 0.8,
     });
 
@@ -223,42 +260,18 @@ const AccountScreen = () => {
 
       try {
         if (user?.uid) {
-          // Upload to Cloudinary via backend
-          const formData = new FormData();
-          formData.append('file', {
-            uri: newUri,
-            type: 'image/jpeg',
-            name: 'profile_photo.jpg',
-          } as any);
-          formData.append('userId', user.uid);
-          formData.append('type', 'profile_photo');
+          // Use backend upload API for profile photo
+          const uploadedUrl = await uploadFile(newUri, 'profile');
 
-          const token = await user.getIdToken();
-          const uploadResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/upload/profile-photo`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'multipart/form-data',
-            },
-            body: formData,
+          // Update Firestore with uploaded URL
+          await updateDoc(doc(db, 'users', user.uid), {
+            profilePhotoUrl: uploadedUrl,
+            updatedAt: new Date().toISOString(),
           });
-
-          if (uploadResponse.ok) {
-            const uploadData = await uploadResponse.json();
-            const cloudinaryUrl = uploadData.secure_url;
-
-            // Update Firestore with Cloudinary URL
-            await updateDoc(doc(db, 'users', user.uid), {
-              profilePhotoUrl: cloudinaryUrl,
-              updatedAt: new Date().toISOString(),
-            });
-            
-            setProfile(prev => prev ? { ...prev, profilePhotoUrl: cloudinaryUrl } : null);
-            setEditData(prev => ({ ...prev, profilePhotoUrl: cloudinaryUrl }));
-            Alert.alert('Success', 'Profile photo updated successfully');
-          } else {
-            throw new Error('Failed to upload photo to server');
-          }
+          
+          setProfile(prev => prev ? { ...prev, profilePhotoUrl: uploadedUrl } : null);
+          setEditData(prev => ({ ...prev, profilePhotoUrl: uploadedUrl }));
+          Alert.alert('Success', 'Profile photo updated successfully');
         }
       } catch (e: any) {
         setError(e.message || 'Failed to update profile photo.');
@@ -359,7 +372,32 @@ const AccountScreen = () => {
   };
 
   const handleLogout = () => {
-    handleLogoutWithConfirmation(navigation);
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut(auth);
+              // Navigate to Welcome screen after successful logout
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: 'Welcome' }],
+                })
+              );
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSubmitComplaint = async () => {
@@ -393,11 +431,15 @@ const AccountScreen = () => {
     );
   }
 
+
   if (!profile) {
     return (
       <SafeAreaView style={styles.errorContainer}>
         <MaterialCommunityIcons name="account-alert" size={64} color={colors.error} />
         <Text style={styles.errorText}>Failed to load profile</Text>
+        {error && (
+          <Text style={styles.errorDetailText}>{error}</Text>
+        )}
         <TouchableOpacity style={styles.retryButton} onPress={loadProfile}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
@@ -572,6 +614,7 @@ const AccountScreen = () => {
                   value={editData.name}
                   onChangeText={(text) => setEditData(prev => ({ ...prev, name: text }))}
                   placeholder="Enter your full name"
+                  placeholderTextColor={colors.text.light}
                 />
               </View>
             </View>
@@ -585,6 +628,7 @@ const AccountScreen = () => {
                   value={editData.email}
                   onChangeText={(text) => setEditData(prev => ({ ...prev, email: text }))}
                   placeholder="Enter your email"
+                  placeholderTextColor={colors.text.light}
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
@@ -621,6 +665,7 @@ const AccountScreen = () => {
                   value={editData.phone}
                   onChangeText={(text) => setEditData(prev => ({ ...prev, phone: text }))}
                   placeholder="Enter your phone number"
+                  placeholderTextColor={colors.text.light}
                   keyboardType="phone-pad"
                 />
                 <View style={styles.verificationStatus}>
@@ -656,6 +701,7 @@ const AccountScreen = () => {
                   value={editData.address}
                   onChangeText={(text) => setEditData(prev => ({ ...prev, address: text }))}
                   placeholder="Enter your address"
+                  placeholderTextColor={colors.text.light}
                 />
               </View>
             </View>
@@ -731,8 +777,8 @@ const AccountScreen = () => {
           <TouchableOpacity
             style={styles.secondaryActionButton}
             onPress={() => {
-              // Navigate to Activity tab (index 1) instead of separate screen
-              navigation.navigate('MainTabs', { screen: 'Activity' });
+              // Navigate to Activity tab
+              navigation.navigate('Activity');
             }}
           >
             <MaterialCommunityIcons name="format-list-bulleted" size={24} color={colors.primary} />
@@ -875,6 +921,7 @@ const AccountScreen = () => {
                 value={complaintText}
                 onChangeText={setComplaintText}
                 multiline
+                placeholderTextColor={colors.text.light}
                 numberOfLines={5}
                 placeholder="Enter your complaint here..."
               />
@@ -1803,7 +1850,6 @@ const styles = StyleSheet.create({
     borderColor: colors.background,
     marginBottom: spacing.xs,
     color: colors.text.primary,
-    placeholderTextColor: colors.text.light,
   },
   preferencesSection: {
     backgroundColor: colors.white,
@@ -1886,6 +1932,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.md,
   },
+  errorDetailText: {
+    color: colors.text.light,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    fontSize: 14,
+  },
   retryButton: {
     backgroundColor: colors.primary,
     borderRadius: 10,
@@ -1944,7 +1996,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     marginTop: spacing.sm,
     color: colors.text.primary,
-    placeholderTextColor: colors.text.light,
   },
   verifiedText: {
     color: colors.success,

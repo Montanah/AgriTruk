@@ -4,14 +4,14 @@
     "slug": "TRUKapp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon-gradient.png",
     "scheme": "trukapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "ios": {
       "bundleIdentifier": "com.truk.trukapp",
       "supportsTablet": true,
-      "icon": "./assets/images/ios-icon-1024.png",
+      "icon": "./assets/images/ios-icon-1024-gradient.png",
       "config": {
         "googleMapsApiKey": "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"
       },
@@ -22,9 +22,9 @@
     },
     "android": {
       "package": "com.truk.trukapp",
-      "icon": "./assets/images/android-icon-512.png",
+      "icon": "./assets/images/android-icon-512-gradient.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
+        "foregroundImage": "./assets/images/adaptive-icon-foreground-gradient.png",
         "backgroundColor": "#1a1a1a"
       },
       "edgeToEdgeEnabled": true,
@@ -59,13 +59,13 @@
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon-gradient.png"
     },
     "plugins": [
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/splash-icon-gradient.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"

@@ -2,7 +2,7 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Animated,
   Dimensions,
@@ -63,6 +63,14 @@ const WelcomeScreen = () => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const translateYAnim = useRef(new Animated.Value(0)).current;
   const logoAnim = useRef(new Animated.Value(0)).current;
+
+  const handleSignupPress = useCallback(() => {
+    navigation.navigate('SignupSelection');
+  }, [navigation]);
+
+  const handleSignInPress = useCallback(() => {
+    navigation.navigate('SignIn');
+  }, [navigation]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -201,14 +209,14 @@ const WelcomeScreen = () => {
           <Spacer size={spacing.xl} />
           <Button
             title="Get Started"
-            onPress={() => navigation.navigate('SignupSelection')}
+            onPress={handleSignupPress}
             style={styles.button}
             textColor={colors.white}
           />
           <Spacer size={spacing.md} />
           <Button
             title="Sign In"
-            onPress={() => navigation.navigate('SignIn')}
+            onPress={handleSignInPress}
             style={styles.signInButton}
             textColor={colors.primary}
           />

@@ -11,21 +11,15 @@ export const handleLogout = async (navigation?: any) => {
     // Sign out from Firebase
     await signOut(auth);
     
-    // Force a small delay to ensure auth state change is processed
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // If navigation is provided, try to navigate to Welcome screen
+    // Navigate to Welcome screen immediately
     if (navigation) {
-      try {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Welcome' }],
-        });
-      } catch (navError) {
-        // Don't throw here - logout was successful even if navigation failed
-      }
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Welcome' }],
+      });
     }
   } catch (error) {
+    console.error('Logout error:', error);
     Alert.alert('Logout Error', 'Failed to logout. Please try again.');
     throw error;
   }

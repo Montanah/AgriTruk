@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -10,8 +10,7 @@ import colors from '../constants/colors';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { auth, db } from '../firebaseConfig';
-import { handleLogoutWithConfirmation } from '../utils/logout';
-import { apiRequest } from '../utils/api';
+import { apiRequest, uploadFile } from '../utils/api';
 
 interface SubscriptionPlan {
   id: string;
@@ -80,14 +79,109 @@ export default function BrokerProfileScreen() {
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [verifyingPhone, setVerifyingPhone] = useState(false);
 
+  const showPhotoOptions = () => {
+    Alert.alert(
+      'Select Photo',
+      'Choose how you want to add a profile photo',
+      [
+        { text: 'Camera', onPress: pickProfilePhotoCamera },
+        { text: 'Gallery', onPress: pickProfilePhoto },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickProfilePhotoCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8
+      });
+
+      if (!result.canceled && result.assets && result.assets[0].uri) {
+        const asset = result.assets[0];
+        setProfilePhoto(asset);
+        
+        // Upload the photo
+        try {
+          setLoading(true);
+          const user = auth.currentUser;
+          if (user) {
+            const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
+            
+            // Update the profile photo in Firestore
+            await updateDoc(doc(db, 'users', user.uid), {
+              profilePhotoUrl: uploadedUrl,
+              updatedAt: new Date().toISOString(),
+            });
+            
+            Alert.alert('Success', 'Profile photo updated successfully');
+          }
+        } catch (uploadError: any) {
+          console.error('Upload error:', uploadError);
+          Alert.alert('Upload Error', 'Failed to upload profile photo. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
   const pickProfilePhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7
-    });
-    if (!result.canceled && result.assets && result.assets[0].uri) {
-      setProfilePhoto(result.assets[0]);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8
+      });
+
+      if (!result.canceled && result.assets && result.assets[0].uri) {
+        const asset = result.assets[0];
+        setProfilePhoto(asset);
+        
+        // Upload the photo
+        try {
+          setLoading(true);
+          const user = auth.currentUser;
+          if (user) {
+            const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
+            
+            // Update the profile photo in Firestore
+            await updateDoc(doc(db, 'users', user.uid), {
+              profilePhotoUrl: uploadedUrl,
+              updatedAt: new Date().toISOString(),
+            });
+            
+            Alert.alert('Success', 'Profile photo updated successfully');
+          }
+        } catch (uploadError: any) {
+          console.error('Upload error:', uploadError);
+          Alert.alert('Upload Error', 'Failed to upload profile photo. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
     }
   };
 
@@ -164,7 +258,32 @@ export default function BrokerProfileScreen() {
   }, []);
 
   const handleLogout = () => {
-    handleLogoutWithConfirmation(navigation);
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut(auth);
+              // Navigate to Welcome screen after successful logout
+              navigation.dispatch(
+                CommonActions.reset({
+                  index: 0,
+                  routes: [{ name: 'Welcome' }],
+                })
+              );
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSaveProfile = async () => {
@@ -255,7 +374,7 @@ export default function BrokerProfileScreen() {
 
   const renderProfileHeader = () => (
     <View style={styles.profileHeader}>
-      <TouchableOpacity style={styles.profilePhotoContainer} onPress={pickProfilePhoto}>
+      <TouchableOpacity style={styles.profilePhotoContainer} onPress={showPhotoOptions}>
         {profilePhoto ? (
           <Image source={{ uri: profilePhoto.uri }} style={styles.profilePhoto} />
         ) : (
