@@ -1,5 +1,5 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -346,13 +346,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
           onPress: async () => {
             try {
               await signOut(auth);
-              // Navigate to Welcome screen after successful logout
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [{ name: 'Welcome' }],
-                })
-              );
+              // After sign out, App.tsx auth listener will render the Welcome flow.
             } catch (error) {
               console.error('Logout error:', error);
               Alert.alert('Logout Error', 'Failed to logout. Please try again.');

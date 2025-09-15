@@ -153,6 +153,8 @@ export default function App() {
     // Setting up auth state listener
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       // Auth state changed
+      // Ensure we show loading while we resolve user role and verification status to prevent flicker
+      setLoading(true);
       
       // Debug: Check if user is being lost
       if (!firebaseUser && user) {
@@ -257,7 +259,7 @@ export default function App() {
   if (loading) {
     // Show a proper loading screen instead of null to prevent navigation issues
     return (
-      <NavigationContainer>
+      <NavigationContainer key={`${user ? user.uid : 'guest'}-${role || 'none'}`}>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Loading">
             {() => (
@@ -731,8 +733,8 @@ export default function App() {
       <ConsolidationProvider>
         <NotificationProvider>
           <StatusBar style="dark" translucent />
-          <NavigationContainer>
-            <Stack.Navigator key={role || 'guest'} screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+          <NavigationContainer key={`${user ? user.uid : 'guest'}-${role || 'none'}`}>
+            <Stack.Navigator key={`${user ? user.uid : 'guest'}-${role || 'none'}`} screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
               {screens}
             </Stack.Navigator>
           </NavigationContainer>
