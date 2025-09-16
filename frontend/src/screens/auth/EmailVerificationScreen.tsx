@@ -220,7 +220,17 @@ const EmailVerificationScreen = ({ navigation, route }) => {
       setError(''); // Clear any previous errors
     } catch (err) {
       console.error('Resend error:', err);
-      setError('Failed to resend code. Please try again.');
+      let errorMessage = 'Failed to resend code. Please try again.';
+      
+      if (err.message?.includes('network') || err.message?.includes('Network request failed')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message?.includes('already verified')) {
+        errorMessage = 'Your email is already verified. You can proceed to the app.';
+      } else if (err.message?.includes('rate limit') || err.message?.includes('too many')) {
+        errorMessage = 'Too many requests. Please wait a moment before trying again.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setResendLoading(false);
     }

@@ -210,59 +210,24 @@ const SignupScreen = () => {
         }),
       });
 
-      // Backend registration complete
+      // Backend registration complete - verification codes are automatically sent by backend
+      console.log('User registered successfully, verification codes sent by backend');
 
-      // Force refresh the authentication state to trigger App.tsx navigation
-      try {
-        const auth = getAuth();
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-          // Force a token refresh to trigger the auth state listener
-          await currentUser.getIdToken(true);
-          // Authentication state refreshed
-          
-          // Add a small delay to allow App.tsx to process the auth state change
-          setTimeout(() => {
-            // Checking if navigation happened
-            // If we're still on the signup screen after 2 seconds, navigate manually
-            if (navigation.getState().routes[navigation.getState().index].name === 'Signup') {
-              // Manual navigation fallback triggered
-              if (signupMethod === 'phone') {
-                navigation.navigate('PhoneOTPScreen', {
-                  email: email.trim(),
-                  phone: selectedCountry.code + phone.trim(),
-                  role: role || 'shipper',
-                  password
-                });
-              } else {
-                navigation.navigate('EmailVerification', {
-                  email: email.trim(),
-                  phone: selectedCountry.code + phone.trim(),
-                  role: role || 'shipper',
-                  password
-                });
-              }
-            }
-          }, 2000);
-        }
-      } catch (error) {
-        console.error('Error refreshing auth state:', error);
-        // Fallback: navigate manually if auth refresh fails
-        if (signupMethod === 'phone') {
-          navigation.navigate('PhoneOTPScreen', {
-            email: email.trim(),
-            phone: selectedCountry.code + phone.trim(),
-            role: role || 'shipper',
-            password
-          });
-        } else {
-          navigation.navigate('EmailVerification', {
-            email: email.trim(),
-            phone: selectedCountry.code + phone.trim(),
-            role: role || 'shipper',
-            password
-          });
-        }
+      // Navigate to verification screen immediately
+      if (signupMethod === 'phone') {
+        navigation.navigate('PhoneOTPScreen', {
+          email: email.trim(),
+          phone: selectedCountry.code + phone.trim(),
+          role: role || 'shipper',
+          password
+        });
+      } else {
+        navigation.navigate('EmailVerification', {
+          email: email.trim(),
+          phone: selectedCountry.code + phone.trim(),
+          role: role || 'shipper',
+          password
+        });
       }
     } catch (err: any) {
       console.error('Signup error:', err);

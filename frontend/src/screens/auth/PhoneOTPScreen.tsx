@@ -1,10 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, PermissionsAndroid, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, PermissionsAndroid, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
@@ -12,7 +11,6 @@ import { apiRequest } from '../../utils/api';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 
-const { width } = Dimensions.get('window');
 
 // For Android SMS Retriever
 declare const require: any;
@@ -30,13 +28,11 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [userData, setUserData] = useState<any>(null);
-  const { phone: routePhone, email: routeEmail, role: routeRole, password: routePassword } = (route.params as any) || {};
+  const { phone: routePhone, role: routeRole } = (route.params as any) || {};
   
   // Get user data from route params or fetch from Firestore
-  const email = routeEmail || userData?.email;
   const phone = routePhone || userData?.phone;
   const role = routeRole || userData?.role;
-  const password = routePassword;
 
   // Animation refs
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -67,7 +63,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
               SmsRetriever.removeSmsListener();
             });
           }
-        } catch (e) { }
+        } catch { }
       }
     }
     setupSmsRetriever();
@@ -76,7 +72,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
   // Fetch user data if not provided via route params
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!routeEmail && !routePhone) {
+      if (!routePhone) {
         try {
           const auth = getAuth();
           const user = auth.currentUser;
@@ -101,7 +97,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
     };
     
     fetchUserData();
-  }, [routeEmail, routePhone]);
+  }, [routePhone]);
 
   // Start countdown for resend
   useEffect(() => {
@@ -125,7 +121,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [logoAnim, inputAnim]);
 
   const handleVerify = async () => {
     if (!otp || otp.length < 4) {
@@ -225,7 +221,19 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
       setError(''); // Clear any previous errors
     } catch (err: any) {
       console.error('Resend error:', err);
-      setError('Failed to resend code. Please try again.');
+      let errorMessage = 'Failed to resend code. Please try again.';
+      
+      if (err.message?.includes('network') || err.message?.includes('Network request failed')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message?.includes('already verified')) {
+        errorMessage = 'Your phone is already verified. You can proceed to the app.';
+      } else if (err.message?.includes('rate limit') || err.message?.includes('too many')) {
+        errorMessage = 'Too many requests. Please wait a moment before trying again.';
+      } else if (err.message?.includes('invalid phone') || err.message?.includes('phone number')) {
+        errorMessage = 'Invalid phone number. Please check your number and try again.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setResendLoading(false);
     }
