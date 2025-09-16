@@ -95,6 +95,28 @@ exports.getBroker = async (req, res) => {
     const broker = await Broker.get(req.params.brokerId);
     const user = await User.get(broker.userId);
     broker.user = formatTimestamps(user);
+    const clients = await Client.getClients(broker.id);
+    broker.clients = formatTimestamps(clients);
+    broker.clientCount = clients.length;
+    const bookings = await Booking.get(broker.id);
+    broker.bookings = formatTimestamps(bookings);
+    broker.bookingCount = bookings.length;
+
+    const totalEarnings = 0;
+    for (const booking of bookings) {
+      totalEarnings += booking.cost;
+    }
+    broker.totalEarnings = totalEarnings * broker.commission / 100;
+
+    const averageShippmentValue = 0;
+    for (const booking of bookings) {
+      averageShippmentValue += booking.cost;
+    }
+    broker.averageShippmentValue = averageShippmentValue / bookings.length;
+
+    const monthlyActiveClients = await Client.getMonthlyActiveClients(broker.id);
+    broker.monthlyActiveClients = monthlyActiveClients.length;
+
     await logAdminActivity(req.user.uid, 'get_broker', req);
 
     const notificationData = {
