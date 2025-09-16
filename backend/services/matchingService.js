@@ -59,7 +59,7 @@ class MatchingService {
 
   static async matchBooking(bookingId) {
     const booking = await Booking.get(bookingId);
-    console.log('Matching booking:', booking);
+    // console.log('Matching booking:', booking);
 
     if (booking.status !== 'pending') return null;
 
