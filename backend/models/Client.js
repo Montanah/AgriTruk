@@ -81,6 +81,11 @@ const Client = {
     const snapshot = await db.collection('clients').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
+
+  async getMonthlyActiveClients() {
+    const snapshot = await db.collection('clients').where('status', '==', 'active').get();
+    return snapshot.size;
+  },
 };
 
 module.exports = Client;
