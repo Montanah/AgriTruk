@@ -847,89 +847,69 @@ export default function TransporterCompletionScreen() {
           } as any);
         }
         
+        console.log('FormData contents:', {
+          name: companyName,
+          registration: companyReg,
+          contact: companyContact,
+          hasLogo: !!(profilePhoto && profilePhoto.uri)
+        });
+        
         const token = await user.getIdToken();
-        const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            // Don't set Content-Type - let fetch set it with boundary for FormData
-          },
-          body: formData,
-        });
         
-        let companyResponseData: any = null;
-        let companyResponseText: string | null = null;
+        // Try using apiRequest with FormData
         try {
-          companyResponseData = await res.json();
-        } catch (e) {
-          try {
-            companyResponseText = await res.text();
-          } catch {}
-          // Some backends return 201 with empty body
-          companyResponseData = null;
-        }
-        console.log('Company creation response:', res.status, res.statusText, companyResponseData || companyResponseText);
-        
-        if (!res.ok) {
-          const msg = (companyResponseData && (companyResponseData.message || companyResponseData.error)) || companyResponseText || '';
-          const isDuplicate = /exist|duplicate|already/i.test(msg || '');
-          const maybeCreated = companyResponseData && (companyResponseData.companyId || companyResponseData.id || companyResponseData.success);
-          if (isDuplicate || maybeCreated) {
-            console.warn('Company creation returned non-OK but indicates existing/created. Proceeding. Message:', msg);
-          } else {
-            let errorMessage = `Failed to create company. Status: ${res.status}`;
-            if (msg) {
-              errorMessage = `Failed to create company: ${msg}`;
-            } else if (res.status === 400) {
-              errorMessage = 'Invalid company data. Please check all required fields are filled correctly.';
-            } else if (res.status === 409) {
-              errorMessage = 'A company with this name or registration number already exists.';
-            }
-            setError(errorMessage);
-            return false;
+          const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              // Don't set Content-Type - let fetch set it with boundary for FormData
+            },
+            body: formData,
+          });
+          
+          console.log('Company creation response:', res.status, res.statusText);
+          
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error('Company creation error response:', errorText);
+            throw new Error(`Company creation failed: ${res.status} - ${errorText}`);
           }
-        }
-        // 2. Also update the transporter document with company details (PATCH/POST as JSON)
-        const transporterPayload = {
-          transporterType: 'company',
-          companyName,
-          companyReg,
-          companyContact,
-        };
-        const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(transporterPayload),
-        });
-        
-        console.log('Transporter update response:', transporterRes.status, transporterRes.statusText);
-        
-        if (!transporterRes.ok) {
-          let data = null;
-          try { 
-            data = await transporterRes.json(); 
-            console.log('Transporter update error response:', data);
-          } catch (e) {
-            console.log('Failed to parse transporter error response:', e);
+          
+          const companyData = await res.json();
+          console.log('Company created successfully:', companyData);
+          
+          // Continue with transporter update
+          const transporterPayload = {
+            transporterType: 'company',
+            companyName,
+            companyReg,
+            companyContact,
+            companyLogo: companyData.logo || '',
+            companyEmail: user.email || undefined,
+            companyAddress: '',
+          };
+          
+          const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(transporterPayload),
+          });
+          
+          if (!transporterRes.ok) {
+            console.warn('Failed to update transporter with company details, but company was created');
           }
-          setError((data && data.message) || `Failed to update transporter profile. Status: ${transporterRes.status}`);
+          
+          // Company created and transporter updated; navigate to processing screen
+          navigation.navigate('TransporterProcessingScreen', { transporterType });
+          return true;
+        } catch (error: any) {
+          console.error('Company creation error:', error);
+          setError(`Failed to create company: ${error.message || 'Unknown error'}`);
           return false;
         }
-        
-        // Log successful transporter update
-        let transporterResponseData = null;
-        try { 
-          transporterResponseData = await transporterRes.json(); 
-          console.log('Transporter update successful:', transporterResponseData);
-        } catch (e) {
-          console.log('Failed to parse transporter success response:', e);
-        }
-        // Company created and transporter updated; navigate to processing screen
-        navigation.navigate('TransporterProcessingScreen', { transporterType });
-        return true;
       }
     } catch (e) {
       setError('Failed to submit profile. Please try again.');
