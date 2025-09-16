@@ -58,7 +58,7 @@ const Booking = {
 
   async get(bookingId) {
     const doc = await db.collection('bookings').doc(bookingId).get();
-    if (!doc.exists) throw new Error('Booking not found');
+    if (!doc.exists) return [];
     return doc.data();
   },
   async update(bookingId, updates) {

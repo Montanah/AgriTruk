@@ -1,4 +1,5 @@
 const admin = require('../config/firebase');
+const { getAll } = require('./Subscribers');
 const db = admin.firestore();
 
 const Client = {
@@ -74,6 +75,11 @@ const Client = {
       .limit(1)
       .get();
     return querySnapshot.empty ? null : querySnapshot.docs[0].data();
+  },
+
+  async getAll() {
+    const snapshot = await db.collection('clients').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
 };
 
