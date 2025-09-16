@@ -731,68 +731,91 @@ export default function TransporterCompletionScreen() {
       if (!user) throw new Error('Not authenticated');
 
       if (transporterType === 'individual') {
-        // Upload all files to Cloudinary first
-        const uploadPromises = [];
+        // Files will be sent directly in FormData - no need to pre-upload
+
+        // Create FormData for multipart/form-data request
+        const formData = new FormData();
         
+        // Add text fields
+        formData.append('vehicleType', vehicleType);
+        formData.append('vehicleRegistration', registration);
+        formData.append('vehicleMake', vehicleMake);
+        formData.append('vehicleColor', vehicleColor);
+        formData.append('vehicleModel', vehicleMake);
+        formData.append('vehicleYear', year ? String(year) : '');
+        formData.append('vehicleCapacity', maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? String(parseInt(maxCapacity, 10)) : '');
+        formData.append('driveType', driveType || '');
+        formData.append('bodyType', bodyType || '');
+        formData.append('vehicleFeatures', vehicleFeatures || '');
+        formData.append('humidityControl', humidityControl ? 'true' : 'false');
+        formData.append('refrigerated', refrigeration ? 'true' : 'false');
+        formData.append('transporterType', transporterType);
+        
+        // Add files directly to FormData
         if (profilePhoto && profilePhoto.uri) {
-          uploadPromises.push(uploadFile(profilePhoto.uri, 'profile', user.uid).then(url => ({ type: 'profilePhoto', url })));
+          formData.append('profilePhoto', {
+            uri: profilePhoto.uri,
+            type: profilePhoto.type || 'image/jpeg',
+            name: 'profile-photo.jpg',
+          } as any);
         }
+        
         if (dlFile && dlFile.uri) {
-          uploadPromises.push(uploadFile(dlFile.uri, 'document', user.uid).then(url => ({ type: 'dlFile', url })));
+          formData.append('dlFile', {
+            uri: dlFile.uri,
+            type: dlFile.type || 'image/jpeg',
+            name: 'drivers-license.jpg',
+          } as any);
         }
+        
         if (insuranceFile && insuranceFile.uri) {
-          uploadPromises.push(uploadFile(insuranceFile.uri, 'document', user.uid).then(url => ({ type: 'insuranceFile', url })));
+          formData.append('insuranceFile', {
+            uri: insuranceFile.uri,
+            type: insuranceFile.type || 'image/jpeg',
+            name: 'insurance.jpg',
+          } as any);
         }
+        
         if (logBookFile && logBookFile.uri) {
-          uploadPromises.push(uploadFile(logBookFile.uri, 'document', user.uid).then(url => ({ type: 'logbook', url })));
+          formData.append('logbook', {
+            uri: logBookFile.uri,
+            type: logBookFile.type || 'image/jpeg',
+            name: 'logbook.jpg',
+          } as any);
         }
+        
         if (idFile && idFile.uri) {
-          uploadPromises.push(uploadFile(idFile.uri, 'document', user.uid).then(url => ({ type: 'idFile', url })));
+          formData.append('idFile', {
+            uri: idFile.uri,
+            type: idFile.type || 'image/jpeg',
+            name: 'id-document.jpg',
+          } as any);
         }
+        
         if (vehiclePhotos && vehiclePhotos.length > 0) {
           vehiclePhotos.forEach((img, idx) => {
             if (img.uri) {
-              uploadPromises.push(uploadFile(img.uri, 'transporter', user.uid).then(url => ({ type: 'vehiclePhoto', url, index: idx })));
+              formData.append('vehiclePhoto', {
+                uri: img.uri,
+                type: img.type || 'image/jpeg',
+                name: `vehicle-photo-${idx}.jpg`,
+              } as any);
             }
           });
         }
-
-        // Wait for all uploads to complete
-        const uploadResults = await Promise.all(uploadPromises);
         
-        // Prepare JSON payload with uploaded URLs
-        const transporterData = {
+        console.log('Individual transporter FormData contents:', {
           vehicleType,
           vehicleRegistration: registration,
           vehicleMake,
           vehicleColor,
-          vehicleModel: vehicleMake,
-          vehicleYear: year ? String(year) : '',
-          vehicleCapacity: maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? parseInt(maxCapacity, 10) : null,
-          driveType: driveType || '',
-          bodyType: bodyType || '',
-          vehicleFeatures: vehicleFeatures || '',
-          humidityControl,
-          refrigerated: refrigeration,
           transporterType,
-        };
-
-        // Add uploaded file URLs to the payload
-        uploadResults.forEach(result => {
-          if (result.type === 'profilePhoto') {
-            transporterData.driverProfileImage = result.url;
-          } else if (result.type === 'dlFile') {
-            transporterData.driverLicense = result.url;
-          } else if (result.type === 'insuranceFile') {
-            transporterData.insuranceUrl = result.url;
-          } else if (result.type === 'logbook') {
-            transporterData.logbookUrl = result.url;
-          } else if (result.type === 'idFile') {
-            transporterData.idDocument = result.url;
-          } else if (result.type === 'vehiclePhoto') {
-            if (!transporterData.vehicleImagesUrl) transporterData.vehicleImagesUrl = [];
-            transporterData.vehicleImagesUrl.push(result.url);
-          }
+          hasProfilePhoto: !!(profilePhoto && profilePhoto.uri),
+          hasDlFile: !!(dlFile && dlFile.uri),
+          hasInsuranceFile: !!(insuranceFile && insuranceFile.uri),
+          hasLogbookFile: !!(logbookFile && logbookFile.uri),
+          hasIdFile: !!(idFile && idFile.uri),
+          vehiclePhotosCount: vehiclePhotos ? vehiclePhotos.length : 0
         });
 
         const token = await user.getIdToken();
@@ -800,11 +823,13 @@ export default function TransporterCompletionScreen() {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            // Don't set Content-Type - let fetch set it with boundary for FormData
           },
-          body: JSON.stringify(transporterData),
+          body: formData,
         });
 
+        console.log('Individual transporter response:', res.status, res.statusText);
+        
         let data = null;
         let parseError = null;
         try {
@@ -814,6 +839,7 @@ export default function TransporterCompletionScreen() {
         }
 
         if (res.ok) {
+          console.log('Individual transporter created successfully:', data);
           // Success: navigate to processing screen
           navigation.reset({
             index: 0,
@@ -827,8 +853,8 @@ export default function TransporterCompletionScreen() {
           else if (parseError) errorMsg = 'Server error: could not parse response.';
           else if (res.statusText) errorMsg = res.statusText;
           setError(errorMsg);
-          // Optionally log for debugging
-          console.error('Profile submit error:', { status: res.status, data, parseError });
+          // Log for debugging
+          console.error('Individual transporter submit error:', { status: res.status, data, parseError });
           return false;
         }
       } else {
