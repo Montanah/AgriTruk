@@ -7,9 +7,13 @@ const { formatTimestamps } = require('../utils/formatData');
 const geolib = require('geolib');
 const Transporter = require('../models/Transporter');
 const MatchingService = require('../services/matchingService');
-const { calculateDistance } = require('../utils/geoUtils');
+const { calculateDistance, calculateRoadDistanceAndDuration } = require('../utils/geoUtils');
 const User = require('../models/User');
+const calculateTransportCost = require('../utils/calculateCost');
+require('dotenv').config();
 
+const google_key = process.env.GOOGLE_MAPS_API_KEY;
+console.log(google_key);
 exports.createBooking = async (req, res) => {
   try {
     const {
@@ -31,7 +35,14 @@ exports.createBooking = async (req, res) => {
       pickUpDate,
       additionalNotes,
       specialCargo = [], 
-      consolidated
+      consolidated,
+      lengthCm, 
+      widthCm,
+      heightCm,
+      tolls = 0, 
+      fuelSurchargePct = 0, 
+      waitMinutes = 0, 
+      nightSurcharge = false, 
     } = req.body;
 
     const user = req.user?.uid || null;
@@ -49,6 +60,48 @@ exports.createBooking = async (req, res) => {
     // Validate required fields
     if (!fromLocation || !toLocation || !weightKg || !productType) {
       return res.status(400).json({ message: 'Required fields are missing' });
+    }
+
+    // Validate fromLocation and toLocation
+    const validateLocation = (location, fieldName) => {
+      // Check if location is an object
+      if (!location || typeof location !== 'object') {
+        throw new Error(`${fieldName} must be an object`);
+      }
+
+      // Define required fields
+      const requiredFields = ['address', 'latitude', 'longitude'];
+      const providedFields = Object.keys(location);
+
+      // Check for missing required fields
+      const missingFields = requiredFields.filter(field => !(field in location) || location[field] === undefined || location[field] === null);
+      if (missingFields.length > 0) {
+        throw new Error(`${fieldName} is missing required fields: ${missingFields.join(', ')}`);
+      }
+
+      // Check for extra fields
+      const extraFields = providedFields.filter(field => !requiredFields.includes(field));
+      if (extraFields.length > 0) {
+        throw new Error(`${fieldName} contains invalid fields: ${extraFields.join(', ')}`);
+      }
+
+      // Validate field types
+      if (typeof location.address !== 'string' || location.address.trim() === '') {
+        throw new Error(`${fieldName}.address must be a non-empty string`);
+      }
+      if (typeof location.latitude !== 'number' || isNaN(location.latitude)) {
+        throw new Error(`${fieldName}.latitude must be a valid number`);
+      }
+      if (typeof location.longitude !== 'number' || isNaN(location.longitude)) {
+        throw new Error(`${fieldName}.longitude must be a valid number`);
+      }
+    };
+
+    try {
+      validateLocation(fromLocation, 'fromLocation');
+      validateLocation(toLocation, 'toLocation');
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
     }
 
     let validatedPickUpDate = null;
@@ -111,7 +164,47 @@ exports.createBooking = async (req, res) => {
     const requestId = req.body.requestId || 
       `${bookingType[0].toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 1000)}`;
     
-    const actualDistance = calculateDistance(fromLocation, toLocation);
+    // const actualDistance = calculateDistance(fromLocation, toLocation);
+    
+   console.log("fromLocation:", fromLocation);
+   console.log("toLocation:", toLocation);
+  console.log("google_key:", google_key);
+    const { actualDistance, estimatedDurationMinutes, formattedDuration, routePolyline, success } = await calculateRoadDistanceAndDuration(
+      fromLocation,
+      toLocation,
+      google_key,
+      weightKg
+    );
+
+    if (!success) {
+      console.warn('Using fallback distance and duration due to API error');
+    }
+    // Calculate volumetric weight
+    const volumetricWeight = (lengthCm && widthCm && heightCm)
+      ? (lengthCm * widthCm * heightCm) / 5000
+      : 0;
+
+    // Calculate transport cost
+    const bookingDataForCost = {
+      actualDistance,
+      weightKg,
+      lengthCm: lengthCm || 0,
+      widthCm: widthCm || 0,
+      heightCm: heightCm || 0,
+      urgencyLevel: urgencyLevel || 'Low',
+      perishable: !!perishable,
+      needsRefrigeration: !!needsRefrigeration,
+      humidyControl: !!humidyControl,
+      insured: !!insured,
+      value: value || 0,
+      tolls: tolls || 0,
+      priority: !!priority,
+      fuelSurchargePct: fuelSurchargePct || 0,
+      waitMinutes: waitMinutes || 0,
+      nightSurcharge: !!nightSurcharge,
+    };
+    const { cost, costBreakdown } = calculateTransportCost(bookingDataForCost);
+    
     // Prepare booking data
     const bookingData = {
       requestId,
@@ -136,7 +229,20 @@ exports.createBooking = async (req, res) => {
       specialCargo: bookingType === 'Cargo' ? specialCargo : [],
       additionalNotes: additionalNotes || null,
       consolidated,
-      actualDistance
+      actualDistance,
+      estimatedDuration: formattedDuration,
+      routePolyline,
+      cost,
+      costBreakdown,
+      volumetricWeight,
+      lengthCm: lengthCm || 0,
+      widthCm: widthCm || 0,
+      heightCm: heightCm || 0,
+      tolls,
+      fuelSurchargePct: fuelSurchargePct || 0,
+      waitMinutes: waitMinutes || 0,
+      nightSurcharge: !!nightSurcharge,
+      statusHistory: [{ status: 'pending', timestamp: Timestamp.now(), reason: null }],
     };
 
     const booking = await Booking.create(bookingData); 
@@ -160,7 +266,7 @@ exports.createBooking = async (req, res) => {
       userId: user,
       userType: "user",
     });
-    console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
+    // console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
 
     if (bookingMode === 'instant') {
       const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
@@ -608,4 +714,106 @@ exports.calculateStatusCounts = (fleet) => {
   });
   
   return counts;
+};
+
+exports.updateBooking = async (req, res) => {
+  try {
+    const { bookingId, waitMinutes, status, cancellationReason } = req.body;
+
+    if (!bookingId) {
+      return res.status(400).json({ message: 'bookingId is required' });
+    }
+
+    const bookingDoc = await Booking.get(bookingId);
+
+    if (!bookingDoc.exists) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    const bookingData = bookingDoc.data();
+    const updates = {};
+
+    // Update wait time and recalculate waitTimeFee
+    if (waitMinutes !== undefined) {
+      if (isNaN(waitMinutes) || waitMinutes < 0) {
+        return res.status(400).json({ message: 'Invalid waitMinutes: must be a non-negative number' });
+      }
+      updates.waitMinutes = waitMinutes;
+      updates.waitTimeFee = waitMinutes * 30; // KES 30/min
+      updates.costBreakdown = {
+        ...bookingData.costBreakdown,
+        waitTimeFee: waitMinutes * 30,
+      };
+
+      // Recalculate total cost if needed
+      const costCalculationData = {
+        actualDistance: bookingData.actualDistance,
+        weightKg: bookingData.weightKg,
+        lengthCm: bookingData.lengthCm,
+        widthCm: bookingData.widthCm,
+        heightCm: bookingData.heightCm,
+        urgencyLevel: bookingData.urgencyLevel,
+        perishable: bookingData.perishable,
+        needsRefrigeration: bookingData.needsRefrigeration,
+        humidityControl: bookingData.humidyControl, 
+        insured: bookingData.insured,
+        value: bookingData.value,
+        tolls: bookingData.tolls,
+        priority: bookingData.priority,
+        fuelSurchargePct: bookingData.fuelSurchargePct,
+        waitMinutes,
+        nightSurcharge: bookingData.nightSurcharge,
+      };
+      const { cost, costBreakdown} =calculateTransportCost(costCalculationData);
+      
+      updates.cost = cost;
+      updates.costBreakdown = costBreakdown;
+    }
+
+    // Update status and statusHistory
+    if (status) {
+      const validStatuses = ['pending', 'accepted', 'started', 'completed', 'cancelled'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' });
+      }
+      updates.status = status;
+      updates.statusHistory = [
+        ...bookingData.statusHistory,
+        {
+          status,
+          timestamp: admin.firestore.Timestamp.now(),
+          reason: status === 'cancelled' ? cancellationReason || null : null,
+        },
+      ];
+      if (status === 'accepted') updates.acceptedAt = admin.firestore.Timestamp.now();
+      if (status === 'started') updates.startedAt = admin.firestore.Timestamp.now();
+      if (status === 'completed') updates.completedAt = admin.firestore.Timestamp.now();
+      if (status === 'cancelled') {
+        updates.cancelledAt = admin.firestore.Timestamp.now();
+        updates.cancellationReason = cancellationReason || null;
+      }
+    }
+
+    // Update updatedAt timestamp
+    updates.updatedAt = admin.firestore.Timestamp.now();
+
+    // Apply updates
+  // await bookingRef.update(updates);
+    await Booking.update(bookingId, updates);
+
+    // Log activity
+    await logActivity(req.user.uid, 'update_booking', req);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Booking updated successfully',
+      booking: { ...bookingData, ...updates },
+    });
+  } catch (error) {
+    console.error('Update booking error:', error);
+    return res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Failed to update booking',
+    });
+  }
 };

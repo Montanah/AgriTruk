@@ -430,4 +430,35 @@ router.get(
  */
 router.get('/transporter/:transporterId', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingsByTransporterId);
 
+/**
+ * @swagger
+ * /api/bookings/update/{bookingId}:
+ *   patch:
+ *     summary: Update a specific booking by ID
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Booking'
+ *     responses:
+ *       200:
+ *         description: Booking updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'broker', 'shipper', 'transporter', 'business']), authorize(['manage_bookings', 'super_admin']), bookingController.updateBooking);
+
 module.exports = router;
