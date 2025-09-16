@@ -189,7 +189,7 @@ export default function ManageTransporterScreen({ route }: any) {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
-        aspect: [1, 1],
+        // No aspect ratio constraint - allows flexible cropping for profile photos
         quality: 0.8,
       });
       if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
@@ -228,7 +228,7 @@ export default function ManageTransporterScreen({ route }: any) {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
-        aspect: [1, 1],
+        // No aspect ratio constraint - allows flexible cropping for profile photos
         quality: 0.8,
       });
       if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {

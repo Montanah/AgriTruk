@@ -134,9 +134,23 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
     setLoading(true);
 
     try {
-      // Use the proper phone verification endpoint - let apiRequest handle authentication
+      // Get fresh token from Firebase Auth
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated. Please sign in again.');
+      }
+
+      const token = await user.getIdToken();
+      console.log('Phone verification - using fresh Firebase token');
+
+      // Use the proper phone verification endpoint
       await apiRequest('/auth', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           action: 'verify-phone',
           code: otp,
@@ -210,9 +224,23 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
     setResendLoading(true);
 
     try {
-      // Use the new API structure with action - let apiRequest handle authentication
+      // Get fresh token from Firebase Auth
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated. Please sign in again.');
+      }
+
+      const token = await user.getIdToken();
+      console.log('Phone resend - using fresh Firebase token');
+
+      // Use the new API structure with action
       await apiRequest('/auth', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           action: 'resend-phone-code',
           phoneNumber: phone,

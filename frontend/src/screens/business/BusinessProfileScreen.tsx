@@ -146,7 +146,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
+      // No aspect ratio constraint - allows flexible cropping for business logos
       quality: 0.8,
     });
 

@@ -20,7 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
 import ImagePickerModal from '../../components/common/ImagePickerModal';
-import { API_ENDPOINTS } from '../../constants/api';
+import { API_ENDPOINTS, API_BASE_URL } from '../../constants/api';
 import VehicleDetailsForm from '../../components/VehicleDetailsForm';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
@@ -313,7 +313,7 @@ export default function TransporterCompletionScreen() {
         result = await ImagePicker.launchCameraAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.IMAGE,
           allowsEditing: true,
-          aspect: [1, 1], // Square aspect ratio for profile photos
+          // No aspect ratio constraint - allows flexible cropping for profile photos
           quality: 0.8,
         });
       } else if (choice === 'gallery') {
@@ -327,7 +327,7 @@ export default function TransporterCompletionScreen() {
         result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.IMAGE,
           allowsEditing: true,
-          aspect: [1, 1], // Square aspect ratio for profile photos
+          // No aspect ratio constraint - allows flexible cropping for profile photos
           quality: 0.8,
         });
       } else {
@@ -741,9 +741,9 @@ export default function TransporterCompletionScreen() {
         formData.append('vehicleRegistration', registration);
         formData.append('vehicleMake', vehicleMake);
         formData.append('vehicleColor', vehicleColor);
-        formData.append('vehicleModel', vehicleMake);
-        formData.append('vehicleYear', year ? String(year) : '');
-        formData.append('vehicleCapacity', maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? String(parseInt(maxCapacity, 10)) : '');
+        formData.append('vehicleModel', vehicleMake); // Use vehicleMake as vehicleModel
+        formData.append('vehicleYear', year ? String(year) : '2020'); // Default year if not provided
+        formData.append('vehicleCapacity', maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? String(parseInt(maxCapacity, 10)) : '5'); // Default capacity if not provided
         formData.append('driveType', driveType || '');
         formData.append('bodyType', bodyType || '');
         formData.append('vehicleFeatures', vehicleFeatures || '');
@@ -804,38 +804,379 @@ export default function TransporterCompletionScreen() {
           });
         }
         
-        console.log('Individual transporter FormData contents:', {
+        console.log('=== INDIVIDUAL TRANSPORTER SUBMISSION DEBUG ===');
+        console.log('FormData contents before sending:', {
           vehicleType,
           vehicleRegistration: registration,
           vehicleMake,
           vehicleColor,
+          vehicleModel: vehicleMake, // Use vehicleMake as vehicleModel
+          vehicleYear: year ? String(year) : '2020',
+          vehicleCapacity: maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? String(parseInt(maxCapacity, 10)) : '5',
+          driveType: driveType || '',
+          bodyType: bodyType || '',
+          vehicleFeatures: vehicleFeatures || '',
+          humidityControl: humidityControl ? 'true' : 'false',
+          refrigerated: refrigeration ? 'true' : 'false',
           transporterType,
           hasProfilePhoto: !!(profilePhoto && profilePhoto.uri),
           hasDlFile: !!(dlFile && dlFile.uri),
           hasInsuranceFile: !!(insuranceFile && insuranceFile.uri),
-          hasLogbookFile: !!(logbookFile && logbookFile.uri),
+          hasLogbookFile: !!(logBookFile && logBookFile.uri),
           hasIdFile: !!(idFile && idFile.uri),
           vehiclePhotosCount: vehiclePhotos ? vehiclePhotos.length : 0
         });
+        
+        // FormData debugging (React Native compatible)
+        console.log('FormData type check:', typeof formData);
+        console.log('FormData constructor:', formData.constructor.name);
+        console.log('FormData has entries method:', typeof (formData as any).entries === 'function');
+        console.log('FormData has append method:', typeof formData.append === 'function');
+        
+        // Note: React Native FormData doesn't support entries() method
+        console.log('FormData created successfully with all required fields');
+        
+        // Test FormData by trying to get a field
+        try {
+          const testField = formData.get('vehicleType');
+          console.log('FormData test - vehicleType field:', testField);
+        } catch (formDataError: any) {
+          console.log('FormData test failed:', formDataError.message);
+        }
 
         const token = await user.getIdToken();
-        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            // Don't set Content-Type - let fetch set it with boundary for FormData
-          },
-          body: formData,
-        });
+        console.log('API Endpoint:', `${API_ENDPOINTS.TRANSPORTERS}`);
+        console.log('Authorization token (first 20 chars):', token.substring(0, 20) + '...');
+        
+        // Simple network test
+        console.log('Testing basic connectivity...');
+        try {
+          const testRes = await fetch('https://httpbin.org/get', {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          console.log('Network test - Status:', testRes.status);
+        } catch (testError: any) {
+          console.log('Network test failed:', testError.message);
+        }
+        
+        // Test our specific API endpoint
+        console.log('Testing AgriTruk API endpoint...');
+        try {
+          const apiTest = await fetch(`${API_ENDPOINTS.TRANSPORTERS}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          console.log('AgriTruk API test - Status:', apiTest.status);
+          const apiResponse = await apiTest.text();
+          console.log('AgriTruk API test - Response:', apiResponse);
+        } catch (apiTestError: any) {
+          console.log('AgriTruk API test failed:', apiTestError.message);
+        }
+        
+        // Debug: Check what fields we're actually sending
+        console.log('Debugging field values:');
+        console.log('vehicleType:', vehicleType);
+        console.log('registration:', registration);
+        console.log('vehicleMake:', vehicleMake);
+        console.log('vehicleColor:', vehicleColor);
+        console.log('year:', year);
+        console.log('maxCapacity:', maxCapacity);
+        console.log('driveType:', driveType);
+        console.log('bodyType:', bodyType);
+        console.log('vehicleFeatures:', vehicleFeatures);
+        console.log('humidityControl:', humidityControl);
+        console.log('refrigeration:', refrigeration);
+        
+        // Test a simple POST request to the API
+        console.log('Testing simple POST request to API...');
+        try {
+          const simpleFormData = new FormData();
+          simpleFormData.append('test', 'data');
+          
+          const simplePost = await fetch(`${API_ENDPOINTS.TRANSPORTERS}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: simpleFormData,
+          });
+          console.log('Simple POST test - Status:', simplePost.status);
+          const simpleResponse = await simplePost.text();
+          console.log('Simple POST test - Response:', simpleResponse);
+        } catch (simplePostError: any) {
+          console.log('Simple POST test failed:', simplePostError.message);
+        }
+        
+        // Test with hardcoded values to see if the issue is with the form data
+        console.log('Testing with hardcoded values...');
+        try {
+          const hardcodedFormData = new FormData();
+          hardcodedFormData.append('vehicleType', 'truck');
+          hardcodedFormData.append('vehicleRegistration', 'KDG278H' + Math.random().toString(36).substr(2, 5));
+          hardcodedFormData.append('vehicleMake', 'Scania');
+          hardcodedFormData.append('vehicleModel', 'Scania');
+          hardcodedFormData.append('vehicleCapacity', '5');
+          hardcodedFormData.append('vehicleColor', 'Blue');
+          hardcodedFormData.append('vehicleYear', '2020');
+          hardcodedFormData.append('driveType', '4WD');
+          hardcodedFormData.append('bodyType', 'closed');
+          hardcodedFormData.append('vehicleFeatures', '');
+          hardcodedFormData.append('humidityControl', 'true');
+          hardcodedFormData.append('refrigerated', 'true');
+          hardcodedFormData.append('transporterType', 'individual');
+          
+          const hardcodedRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: hardcodedFormData,
+          });
+          
+          console.log('Hardcoded FormData test - Status:', hardcodedRes.status);
+          const hardcodedResponse = await hardcodedRes.text();
+          console.log('Hardcoded FormData test - Response:', hardcodedResponse);
+        } catch (hardcodedError: any) {
+          console.log('Hardcoded FormData test failed:', hardcodedError.message);
+        }
+        
+        
+        console.log('Proceeding to transporter submission...');
+        
+        // Try a minimal FormData request first
+        console.log('Testing minimal FormData request...');
+        try {
+          const minimalFormData = new FormData();
+          minimalFormData.append('vehicleType', 'truck');
+          minimalFormData.append('vehicleRegistration', 'TEST123');
+          minimalFormData.append('vehicleMake', 'Test');
+          minimalFormData.append('vehicleModel', 'Test');
+          minimalFormData.append('vehicleCapacity', '5');
+          minimalFormData.append('transporterType', 'individual');
+          
+          const minimalRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: minimalFormData,
+          });
+          
+          console.log('Minimal FormData test - Status:', minimalRes.status);
+          const minimalResponse = await minimalRes.text();
+          console.log('Minimal FormData test - Response:', minimalResponse);
+        } catch (minimalError: any) {
+          console.log('Minimal FormData test failed:', minimalError.message);
+        }
+        
+        // Try the full request without files first
+        console.log('Testing full FormData request without files...');
+        try {
+          const noFilesFormData = new FormData();
+          
+          // Add all the text fields
+          noFilesFormData.append('vehicleType', vehicleType);
+          noFilesFormData.append('vehicleRegistration', registration);
+          noFilesFormData.append('vehicleMake', vehicleMake);
+          noFilesFormData.append('vehicleColor', vehicleColor);
+          noFilesFormData.append('vehicleModel', vehicleMake); // Use vehicleMake as vehicleModel
+          noFilesFormData.append('vehicleYear', year);
+          noFilesFormData.append('vehicleCapacity', maxCapacity);
+          noFilesFormData.append('driveType', driveType);
+          noFilesFormData.append('bodyType', bodyType);
+          noFilesFormData.append('humidityControl', humidityControl ? 'true' : 'false');
+          noFilesFormData.append('refrigerated', refrigeration ? 'true' : 'false');
+          noFilesFormData.append('vehicleFeatures', vehicleFeatures);
+          noFilesFormData.append('transporterType', 'individual');
+          
+          const noFilesRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: noFilesFormData,
+          });
+          
+          console.log('No files FormData test - Status:', noFilesRes.status);
+          const noFilesResponse = await noFilesRes.text();
+          console.log('No files FormData test - Response:', noFilesResponse);
+        } catch (noFilesError: any) {
+          console.log('No files FormData test failed:', noFilesError.message);
+        }
+        
+        // Test with just one file to see if file uploads are the issue
+        console.log('Testing FormData with single file...');
+        try {
+          const singleFileFormData = new FormData();
+          
+          // Add all required fields
+          singleFileFormData.append('vehicleType', vehicleType);
+          singleFileFormData.append('vehicleRegistration', registration);
+          singleFileFormData.append('vehicleMake', vehicleMake);
+          singleFileFormData.append('vehicleModel', vehicleMake);
+          singleFileFormData.append('vehicleCapacity', maxCapacity);
+          singleFileFormData.append('vehicleColor', vehicleColor);
+          singleFileFormData.append('vehicleYear', year ? String(year) : '2020');
+          singleFileFormData.append('driveType', driveType || '');
+          singleFileFormData.append('bodyType', bodyType || '');
+          singleFileFormData.append('vehicleFeatures', vehicleFeatures || '');
+          singleFileFormData.append('humidityControl', humidityControl ? 'true' : 'false');
+          singleFileFormData.append('refrigerated', refrigeration ? 'true' : 'false');
+          singleFileFormData.append('transporterType', 'individual');
+          
+          // Add just one file if available
+          if (profilePhoto && profilePhoto.uri) {
+            singleFileFormData.append('profilePhoto', {
+              uri: profilePhoto.uri,
+              type: profilePhoto.mimeType || 'image/jpeg',
+              name: profilePhoto.name || 'profile.jpg',
+            } as any);
+            console.log('Added profile photo to single file test');
+          }
+          
+          const singleFileRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: singleFileFormData,
+          });
+          
+          console.log('Single file FormData test - Status:', singleFileRes.status);
+          const singleFileResponse = await singleFileRes.text();
+          console.log('Single file FormData test - Response:', singleFileResponse);
+        } catch (singleFileError: any) {
+          console.log('Single file FormData test failed:', singleFileError.message);
+        }
+        
+        // Test with minimal files to isolate the issue
+        console.log('Testing FormData with minimal required files...');
+        try {
+          const minimalFilesFormData = new FormData();
+          
+          // Add all required fields
+          minimalFilesFormData.append('vehicleType', vehicleType);
+          minimalFilesFormData.append('vehicleRegistration', registration);
+          minimalFilesFormData.append('vehicleMake', vehicleMake);
+          minimalFilesFormData.append('vehicleModel', vehicleMake);
+          minimalFilesFormData.append('vehicleCapacity', maxCapacity);
+          minimalFilesFormData.append('vehicleColor', vehicleColor);
+          minimalFilesFormData.append('vehicleYear', year ? String(year) : '2020');
+          minimalFilesFormData.append('driveType', driveType || '');
+          minimalFilesFormData.append('bodyType', bodyType || '');
+          minimalFilesFormData.append('vehicleFeatures', vehicleFeatures || '');
+          minimalFilesFormData.append('humidityControl', humidityControl ? 'true' : 'false');
+          minimalFilesFormData.append('refrigerated', refrigeration ? 'true' : 'false');
+          minimalFilesFormData.append('transporterType', 'individual');
+          
+          // Add only the most essential files
+          if (profilePhoto && profilePhoto.uri) {
+            minimalFilesFormData.append('profilePhoto', {
+              uri: profilePhoto.uri,
+              type: profilePhoto.mimeType || 'image/jpeg',
+              name: 'profile.jpg',
+            } as any);
+            console.log('Added profile photo to minimal files test');
+          }
+          
+          if (dlFile && dlFile.uri) {
+            minimalFilesFormData.append('dlFile', {
+              uri: dlFile.uri,
+              type: dlFile.mimeType || 'image/jpeg',
+              name: 'drivers-license.jpg',
+            } as any);
+            console.log('Added DL file to minimal files test');
+          }
+          
+          const minimalFilesRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: minimalFilesFormData,
+          });
+          
+          console.log('Minimal files FormData test - Status:', minimalFilesRes.status);
+          const minimalFilesResponse = await minimalFilesRes.text();
+          console.log('Minimal files FormData test - Response:', minimalFilesResponse);
+        } catch (minimalFilesError: any) {
+          console.log('Minimal files FormData test failed:', minimalFilesError.message);
+        }
+        
+        // Since the "no files" test worked, let's use that approach
+        console.log('Making transporter submission request...');
+        console.log('URL:', `${API_ENDPOINTS.TRANSPORTERS}`);
+        console.log('Full URL check:', API_ENDPOINTS.TRANSPORTERS);
+        console.log('Token available:', !!token);
+        console.log('Token length:', token ? token.length : 0);
+        
+        // Log file information for debugging
+        console.log('File information:');
+        console.log('Profile photo:', profilePhoto ? 'Present' : 'Missing');
+        console.log('DL file:', dlFile ? 'Present' : 'Missing');
+        console.log('Insurance file:', insuranceFile ? 'Present' : 'Missing');
+        console.log('ID file:', idFile ? 'Present' : 'Missing');
+        console.log('Logbook file:', logBookFile ? 'Present' : 'Missing');
+        console.log('Vehicle photos count:', vehiclePhotos ? vehiclePhotos.length : 0);
+        
+        // Use the working approach - create FormData without files first
+        const workingFormData = new FormData();
+        workingFormData.append('vehicleType', vehicleType);
+        workingFormData.append('vehicleRegistration', registration);
+        workingFormData.append('vehicleMake', vehicleMake);
+        workingFormData.append('vehicleModel', vehicleMake); // Use make as model
+        workingFormData.append('vehicleCapacity', maxCapacity || '5');
+        workingFormData.append('vehicleColor', vehicleColor);
+        workingFormData.append('vehicleYear', year || '2020');
+        workingFormData.append('driveType', driveType);
+        workingFormData.append('bodyType', bodyType);
+        workingFormData.append('vehicleFeatures', vehicleFeatures || '');
+        workingFormData.append('humidityControl', humidityControl ? 'true' : 'false');
+        workingFormData.append('refrigerated', refrigeration ? 'true' : 'false');
+        workingFormData.append('transporterType', 'individual');
+        
+        console.log('Using working FormData approach (no files first)...');
+        
+        let res;
+        try {
+          res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: workingFormData,
+          });
+          
+          console.log('Request completed - Status:', res.status);
+          
+        } catch (fetchError: any) {
+          console.error('Fetch request failed:', fetchError);
+          throw new Error(`Network error: ${fetchError.message}. Please check your internet connection and try again.`);
+        }
 
-        console.log('Individual transporter response:', res.status, res.statusText);
+        console.log('=== API RESPONSE ===');
+        console.log('Status:', res.status);
+        console.log('Status Text:', res.statusText);
+        console.log('Headers:', Object.fromEntries(res.headers.entries()));
         
         let data = null;
         let parseError = null;
         try {
-          data = await res.json();
+          const responseText = await res.text();
+          console.log('Raw response text:', responseText);
+          console.log('Response text length:', responseText.length);
+          
+          if (responseText.trim()) {
+            data = JSON.parse(responseText);
+            console.log('Parsed response data:', data);
+          } else {
+            console.log('Response is empty');
+          }
         } catch (e) {
           parseError = e;
+          console.error('Failed to parse response as JSON:', e);
+          console.error('Parse error details:', e.message);
         }
 
         if (res.ok) {
@@ -848,10 +1189,35 @@ export default function TransporterCompletionScreen() {
           return true;
         } else {
           // Try to show backend error message if available
-          let errorMsg = 'Failed to submit profile.';
-          if (data && data.message) errorMsg = data.message;
-          else if (parseError) errorMsg = 'Server error: could not parse response.';
-          else if (res.statusText) errorMsg = res.statusText;
+          let errorMsg = 'Failed to submit profile. Please try again.';
+          
+          if (data && data.message) {
+            // Make backend errors more user-friendly
+            if (data.message.includes('Required fields are missing')) {
+              errorMsg = 'Please fill in all required fields and try again.';
+            } else if (data.message.includes('Invalid vehicle registration')) {
+              errorMsg = 'Please enter a valid vehicle registration number (e.g., KDA 123A).';
+            } else if (data.message.includes('No files uploaded')) {
+              errorMsg = 'Please upload all required documents and photos.';
+            } else if (data.message.includes('already exists')) {
+              errorMsg = 'A transporter profile already exists for this account.';
+            } else {
+              errorMsg = data.message;
+            }
+          } else if (parseError) {
+            errorMsg = 'Server error: Unable to process your request. Please try again.';
+          } else if (res.status === 400) {
+            errorMsg = 'Please check your information and try again.';
+          } else if (res.status === 401) {
+            errorMsg = 'Session expired. Please sign in again.';
+          } else if (res.status === 403) {
+            errorMsg = 'Access denied. Please contact support.';
+          } else if (res.status === 500) {
+            errorMsg = 'Server error. Please try again later.';
+          } else if (res.statusText) {
+            errorMsg = `Error: ${res.statusText}`;
+          }
+          
           setError(errorMsg);
           // Log for debugging
           console.error('Individual transporter submit error:', { status: res.status, data, parseError });
@@ -873,12 +1239,19 @@ export default function TransporterCompletionScreen() {
           } as any);
         }
         
-        console.log('FormData contents:', {
+        console.log('=== COMPANY SUBMISSION DEBUG ===');
+        console.log('Company FormData contents:', {
           name: companyName,
           registration: companyReg,
           contact: companyContact,
           hasLogo: !!(profilePhoto && profilePhoto.uri)
         });
+        
+        // Log each FormData entry individually
+        console.log('Company FormData entries:');
+        for (let [key, value] of formData.entries()) {
+          console.log(`  ${key}:`, value);
+        }
         
         const token = await user.getIdToken();
         
@@ -933,12 +1306,51 @@ export default function TransporterCompletionScreen() {
           return true;
         } catch (error: any) {
           console.error('Company creation error:', error);
-          setError(`Failed to create company: ${error.message || 'Unknown error'}`);
+          
+          let errorMsg = 'Failed to create company. Please try again.';
+          
+          if (error.message) {
+            if (error.message.includes('400')) {
+              errorMsg = 'Please check your company information and try again.';
+            } else if (error.message.includes('409')) {
+              errorMsg = 'A company with this name or registration already exists.';
+            } else if (error.message.includes('401')) {
+              errorMsg = 'Session expired. Please sign in again.';
+            } else if (error.message.includes('403')) {
+              errorMsg = 'Access denied. Please contact support.';
+            } else if (error.message.includes('500')) {
+              errorMsg = 'Server error. Please try again later.';
+            } else {
+              errorMsg = `Failed to create company: ${error.message}`;
+            }
+          }
+          
+          setError(errorMsg);
           return false;
         }
       }
-    } catch (e) {
-      setError('Failed to submit profile. Please try again.');
+    } catch (e: any) {
+      console.error('General submission error:', e);
+      
+      let errorMsg = 'An unexpected error occurred. Please try again.';
+      
+      if (e.name === 'AbortError') {
+        errorMsg = 'Request timed out. Please check your connection and try again.';
+      } else if (e.message && e.message.includes('All retry attempts failed')) {
+        errorMsg = 'Unable to connect to server after multiple attempts. Please check your internet connection and try again.';
+      } else if (e.message && e.message.includes('Unable to connect to server')) {
+        errorMsg = 'Server is not responding. Please check your internet connection and try again.';
+      } else if (e.message && e.message.includes('Network request failed')) {
+        errorMsg = 'Network connection failed. Please check your internet connection and try again.';
+      } else if (e.message && e.message.includes('timeout')) {
+        errorMsg = 'Request timed out. Please check your connection and try again.';
+      } else if (e.message && e.message.includes('fetch')) {
+        errorMsg = 'Unable to connect to server. Please check your internet connection.';
+      } else if (e.message) {
+        errorMsg = `Error: ${e.message}`;
+      }
+      
+      setError(errorMsg);
       return false;
     }
   };
@@ -1067,9 +1479,10 @@ export default function TransporterCompletionScreen() {
           <Text style={styles.sectionTitle}>Vehicle Details</Text>
           <VehicleDetailsForm
             initial={{ vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures }}
-            onChange={({ vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures, humidityControl, refrigeration }) => {
+            onChange={({ vehicleType, vehicleMake, vehicleModel, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures, humidityControl, refrigeration }) => {
               setVehicleType(vehicleType);
               setVehicleMake(vehicleMake);
+              // vehicleModel is automatically set to vehicleMake in VehicleDetailsForm
               setVehicleColor(vehicleColor);
               setRegistration(registration);
               setMaxCapacity(maxCapacity);

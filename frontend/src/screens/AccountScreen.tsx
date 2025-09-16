@@ -248,7 +248,7 @@ const AccountScreen = () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1], // Square aspect ratio is good for profile photos
+      // No aspect ratio constraint - allows flexible cropping for profile photos
       quality: 0.8,
     });
 

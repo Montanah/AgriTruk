@@ -102,7 +102,7 @@ export default function BrokerProfileScreen() {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
-        aspect: [1, 1],
+        // No aspect ratio constraint - allows flexible cropping for profile photos
         quality: 0.8
       });
 
@@ -149,7 +149,7 @@ export default function BrokerProfileScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
-        aspect: [1, 1],
+        // No aspect ratio constraint - allows flexible cropping for profile photos
         quality: 0.8
       });
 

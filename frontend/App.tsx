@@ -2,7 +2,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { ActivityIndicator, LogBox, Text, View } from 'react-native';
+import { ActivityIndicator, LogBox, Text, TouchableOpacity, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import BusinessStackNavigator from './src/navigation/BusinessStackNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
@@ -131,6 +132,15 @@ export default function App() {
   const [profileCompleted, setProfileCompleted] = React.useState<boolean>(false);
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+  const [connectionError, setConnectionError] = React.useState<string | null>(null);
+
+  // Retry function for connection errors
+  const retryConnection = React.useCallback(() => {
+    console.log('App.tsx: Retrying connection...');
+    setConnectionError(null);
+    setLoading(true);
+    // The auth state listener will automatically retry when loading is set to true
+  }, []);
 
   // App state changes
 
@@ -169,6 +179,9 @@ export default function App() {
       setUser(firebaseUser);
       if (firebaseUser) {
         try {
+          // Clear any previous connection errors
+          setConnectionError(null);
+          
           // Fetching user data from Firestore
           // Try users collection first
           let snap = await getDoc(firestoreDoc(db, 'users', firebaseUser.uid));
@@ -236,14 +249,41 @@ export default function App() {
             }
           } else {
             // User not found in users collection
+            // Check if Firebase Auth shows email verified as fallback
+            if (firebaseUser.emailVerified) {
+              console.log('App.tsx: User not found in Firestore but Firebase Auth shows email verified - using as fallback');
+              setIsVerified(true);
+              setRole(null); // We can't determine role without Firestore data
+              setProfileCompleted(false);
+            } else {
+              setIsVerified(false);
+              setRole(null);
+              setProfileCompleted(false);
+            }
+          }
+        } catch (e) {
+          console.error('Error fetching user data from Firestore:', e);
+          
+          // Set connection error for user feedback
+          setConnectionError('Unable to load user data. Please check your connection and try again.');
+          
+          // If Firestore fails, use Firebase Auth as fallback
+          // This prevents verified users from being stuck in verification loop
+          if (firebaseUser.emailVerified) {
+            console.log('App.tsx: Firestore failed but Firebase Auth shows email verified - using as fallback');
+            setIsVerified(true);
+            // We can't get role from Firestore, so we'll need to handle this case
+            // For now, set a default role or let the user re-authenticate
+            setRole(null);
+            setProfileCompleted(false);
+            setConnectionError(null); // Clear error since we have fallback
+          } else {
+            // Show a user-friendly error message instead of the raw Firebase error
+            console.log('App.tsx: Firestore failed and user not verified - showing error state');
             setIsVerified(false);
             setRole(null);
             setProfileCompleted(false);
           }
-        } catch (e) {
-          setIsVerified(false);
-          setRole(null);
-          setProfileCompleted(false);
         }
       } else {
         setIsVerified(false);
@@ -266,6 +306,41 @@ export default function App() {
               <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
                 <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={{ marginTop: 16, fontSize: 16, color: colors.text.primary }}>Loading...</Text>
+              </View>
+            )}
+          </Stack.Screen>
+        </Stack.Navigator>
+      </NavigationContainer>
+    );
+  }
+
+  // Show connection error screen if there's a connection error
+  if (connectionError) {
+    return (
+      <NavigationContainer key={`${user ? user.uid : 'guest'}-error`}>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="ConnectionError">
+            {() => (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: 20 }}>
+                <MaterialCommunityIcons name="wifi-off" size={64} color={colors.error} />
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text.primary, marginTop: 16, textAlign: 'center' }}>
+                  Connection Error
+                </Text>
+                <Text style={{ fontSize: 16, color: colors.text.secondary, marginTop: 8, textAlign: 'center', lineHeight: 24 }}>
+                  {connectionError}
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: colors.primary,
+                    paddingHorizontal: 24,
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    marginTop: 24,
+                  }}
+                  onPress={retryConnection}
+                >
+                  <Text style={{ color: colors.white, fontSize: 16, fontWeight: '600' }}>Retry</Text>
+                </TouchableOpacity>
               </View>
             )}
           </Stack.Screen>
@@ -309,6 +384,32 @@ export default function App() {
         <Stack.Screen name="Consolidation" component={ConsolidationScreen} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         {/* Temporary: allow navigation for UI testing */}
+        <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+        <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+      </>
+    );
+  } else if (user && isVerified && !role) {
+    // User is verified but we couldn't get role from Firestore (Firestore error)
+    // This is a fallback case to prevent verified users from being stuck
+    console.log('App.tsx: Verified user but no role data - routing to role selection');
+    initialRouteName = 'SignupSelection';
+    screens = (
+      <>
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} />
+        <Stack.Screen name="SignIn" component={LoginScreen} />
+        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+        <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+        <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+        <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+        <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+        <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+        <Stack.Screen name="Consolidation" component={ConsolidationScreen} />
+        <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
         <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
       </>
@@ -419,25 +520,59 @@ export default function App() {
       );
     }
   } else if (user && !isVerified) {
-    // Fallback: Any authenticated user who is not verified should go to verification
-    // Fallback: authenticated but unverified user - routing to verification
-    initialRouteName = 'EmailVerification';
-    screens = (
-      <>
-        <Stack.Screen name="Welcome" component={WelcomeScreen} />
-        <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
-        <Stack.Screen name="Signup" component={SignupScreen} />
-        <Stack.Screen name="SignIn" component={LoginScreen} />
-        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-        <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
-        <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
-        <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
-        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-        <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
-        <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
-        <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
-      </>
-    );
+    // Handle unverified users based on their role
+    if (role === 'transporter') {
+      // Check if transporter is actually verified but Firestore hasn't updated yet
+      console.log('App.tsx: Unverified transporter detected - checking Firebase Auth email verification status');
+      
+      // Check Firebase Auth email verification status as fallback
+      if (user.emailVerified) {
+        console.log('App.tsx: Firebase Auth shows email verified - routing to TransporterCompletionScreen');
+        initialRouteName = 'TransporterCompletionScreen';
+        screens = (
+          <>
+            <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+            <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+            <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+          </>
+        );
+      } else {
+        // Unverified transporter - route to verification screen
+        console.log('App.tsx: Unverified transporter detected - routing to EmailVerification');
+        initialRouteName = 'EmailVerification';
+        screens = (
+          <>
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+            <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+            <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+            <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+          </>
+        );
+      }
+    } else {
+      // Fallback: Any other authenticated user who is not verified should go to verification
+      // Fallback: authenticated but unverified user - routing to verification
+      initialRouteName = 'EmailVerification';
+      screens = (
+        <>
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
+          <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen name="SignIn" component={LoginScreen} />
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+          <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
+          <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+          <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+          <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+          <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+        </>
+      );
+    }
   } else if (role === 'broker') {
     if (!isVerified) {
       initialRouteName = 'VerifyIdentificationDocument';

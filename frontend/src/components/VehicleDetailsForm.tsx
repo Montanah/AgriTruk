@@ -102,6 +102,7 @@ export default function VehicleDetailsForm({
     onChange && onChange({
       vehicleType,
       vehicleMake,
+      vehicleModel: vehicleMake, // Use vehicleMake as vehicleModel for backend compatibility
       vehicleColor,
       registration,
       maxCapacity,
@@ -232,6 +233,7 @@ export default function VehicleDetailsForm({
           )}
         </View>
       </View>
+
       {/* Vehicle Type Section */}
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionLabel}>

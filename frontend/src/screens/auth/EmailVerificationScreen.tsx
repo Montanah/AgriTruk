@@ -71,6 +71,8 @@ const EmailVerificationScreen = ({ navigation, route }) => {
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
+          // Don't show Firebase errors to user - just log them
+          // The user can still proceed with verification using route params
         }
       }
     };
@@ -115,13 +117,18 @@ const EmailVerificationScreen = ({ navigation, route }) => {
     setLoading(true);
 
     try {
-      const token = await AsyncStorage.getItem('jwt');
-      if (!token) {
-        throw new Error('Authentication token not found');
+      // Get fresh token from Firebase Auth instead of AsyncStorage
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated. Please sign in again.');
       }
 
+      const token = await user.getIdToken();
+      console.log('Email verification - using fresh Firebase token');
+
       // Use the new API structure with action
-      await apiRequest('/auth', {
+      const response = await apiRequest('/auth', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -133,9 +140,44 @@ const EmailVerificationScreen = ({ navigation, route }) => {
         }),
       });
 
+      console.log('Email verification response:', response);
+
       // Success - user is now verified
       // Email verification successful
       setVerified(true);
+      
+      // Wait for Firestore to update and verify the user is now verified
+      console.log('Waiting for Firestore update...');
+      
+      // Wait a moment for the backend to update Firestore
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Verify that the user is now verified in Firestore
+      try {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            console.log('User verification status after update:', {
+              isVerified: userData.isVerified,
+              emailVerified: userData.emailVerified,
+              phoneVerified: userData.phoneVerified
+            });
+            
+            if (userData.isVerified) {
+              console.log('User is now verified in Firestore - proceeding with navigation');
+            } else {
+              console.log('User not yet verified in Firestore - waiting a bit more...');
+              // Wait a bit more and try again
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          }
+        }
+      } catch (verifyError) {
+        console.error('Error verifying user status:', verifyError);
+      }
 
       // Show success animation briefly, then navigate directly
       setTimeout(() => {
@@ -201,10 +243,15 @@ const EmailVerificationScreen = ({ navigation, route }) => {
     setResendLoading(true);
 
     try {
-      const token = await AsyncStorage.getItem('jwt');
-      if (!token) {
-        throw new Error('Authentication token not found');
+      // Get fresh token from Firebase Auth instead of AsyncStorage
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated. Please sign in again.');
       }
+
+      const token = await user.getIdToken();
+      console.log('Email resend - using fresh Firebase token');
 
       // Use the new API structure with action
       await apiRequest('/auth', {

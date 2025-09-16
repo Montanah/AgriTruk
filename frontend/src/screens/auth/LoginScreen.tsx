@@ -187,6 +187,16 @@ const LoginScreen = ({ navigation }: any) => {
                   setError('Please enter all required fields.');
                   return;
                 }
+
+                // Email format validation
+                if (loginMode === 'email') {
+                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                  if (!emailRegex.test(email)) {
+                    setLoading(false);
+                    setError('Please enter a valid email address (e.g., user@example.com).');
+                    return;
+                  }
+                }
                 try {
                   if (loginMode === 'email') {
                     // Email login request for backend engineer
@@ -214,12 +224,19 @@ const LoginScreen = ({ navigation }: any) => {
                     errorMessage = 'Incorrect password. Please try again.';
                   } else if (e.code === 'auth/invalid-email') {
                     errorMessage = 'Please enter a valid email address.';
+                  } else if (e.code === 'auth/invalid-credential') {
+                    errorMessage = 'Invalid email or password. Please check your credentials and try again.';
                   } else if (e.code === 'auth/too-many-requests') {
                     errorMessage = 'Too many failed attempts. Please try again later.';
                   } else if (e.code === 'auth/network-request-failed') {
                     errorMessage = 'Network error. Please check your connection.';
+                  } else if (e.code === 'auth/user-disabled') {
+                    errorMessage = 'This account has been disabled. Please contact support.';
+                  } else if (e.code === 'auth/operation-not-allowed') {
+                    errorMessage = 'Email/password sign-in is not enabled. Please contact support.';
                   } else if (e.message) {
-                    errorMessage = e.message;
+                    // For any other Firebase errors, show a generic but helpful message
+                    errorMessage = 'Login failed. Please check your email and password, then try again.';
                   }
 
                   setError(errorMessage);

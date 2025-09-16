@@ -135,6 +135,15 @@ const SignupScreen = () => {
       return;
     }
 
+    // Email format validation
+    if (email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email.trim())) {
+        setError('Please enter a valid email address (e.g., user@example.com).');
+        return;
+      }
+    }
+
     if (signupMethod === 'phone' && !phone.trim()) {
       setError('Please enter your phone number.');
       return;
