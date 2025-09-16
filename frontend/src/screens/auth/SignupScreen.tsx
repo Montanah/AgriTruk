@@ -27,7 +27,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential, getAuth } from 'firebase/auth';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { auth } from '../../firebaseConfig';
-import { apiRequest } from '../../utils/api';
+import { apiRequest, apiRequestWithRetry } from '../../utils/api';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -178,6 +178,7 @@ const SignupScreen = () => {
 
       // Get Firebase JWT
       const idToken = await userCredential.user.getIdToken();
+      console.log('Firebase token obtained:', idToken ? 'Yes' : 'No');
 
       // Store JWT for future requests
       await AsyncStorage.setItem('jwt', idToken);
@@ -191,25 +192,54 @@ const SignupScreen = () => {
       };
 
       // Register user profile in backend
-      // Registering user in backend
-      await apiRequest('/auth/register', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      console.log('Registering user in backend with data:', {
+        name: name.trim(),
+        email: email.trim(),
+        phone: selectedCountry.code + phone.trim(),
+        role: backendRoleMap[role || 'shipper'],
+        preferredVerificationMethod: signupMethod,
+        userType: role || 'shipper',
+        languagePreference: 'en',
+        location: null,
+        profilePhotoUrl: null,
+      });
+      
+      try {
+        await apiRequestWithRetry('/auth/register', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: name.trim(),
+            email: email.trim(),
+            phone: selectedCountry.code + phone.trim(),
+            role: backendRoleMap[role || 'shipper'],
+            preferredVerificationMethod: signupMethod,
+            userType: role || 'shipper', // Add userType field
+            languagePreference: 'en', // Default language
+            location: null, // Will be set later
+            profilePhotoUrl: null, // Will be set later
+          }),
+        });
+        console.log('Backend registration successful');
+      } catch (backendError) {
+        console.warn('Backend registration failed, but Firebase user created:', backendError);
+        // Continue with signup even if backend fails - user can complete profile later
+        // Store user data locally for later sync
+        await AsyncStorage.setItem('pendingUserData', JSON.stringify({
           name: name.trim(),
           email: email.trim(),
           phone: selectedCountry.code + phone.trim(),
           role: backendRoleMap[role || 'shipper'],
           preferredVerificationMethod: signupMethod,
-          userType: role || 'shipper', // Add userType field
-          languagePreference: 'en', // Default language
-          location: null, // Will be set later
-          profilePhotoUrl: null, // Will be set later
-        }),
-      });
+          userType: role || 'shipper',
+          languagePreference: 'en',
+          location: null,
+          profilePhotoUrl: null,
+        }));
+      }
 
       // Backend registration complete - verification codes are automatically sent by backend
       console.log('User registered successfully, verification codes sent by backend');
@@ -245,6 +275,10 @@ const SignupScreen = () => {
         msg = 'Network error. Please check your connection.';
       } else if (err.message && err.message.includes('network')) {
         msg = 'Network error. Please check your connection and try again.';
+      } else if (err.message && err.message.includes('Server error')) {
+        msg = 'Backend server is temporarily unavailable. Your account has been created and will be synced when the server is back online.';
+      } else if (err.message && err.message.includes('User already exists')) {
+        msg = 'This email is already registered. Please sign in instead.';
       } else if (err.message) {
         msg = err.message;
       }

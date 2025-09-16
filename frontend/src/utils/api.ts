@@ -37,6 +37,30 @@ export async function testBackendConnectivity() {
   }
 }
 
+// Retry mechanism for critical API calls
+export async function apiRequestWithRetry(endpoint: string, options: any = {}, maxRetries: number = 3) {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`API request attempt ${attempt}/${maxRetries} to ${endpoint}`);
+      return await apiRequest(endpoint, options);
+    } catch (error) {
+      lastError = error;
+      console.warn(`API request attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        // Wait before retrying (exponential backoff)
+        const delay = Math.pow(2, attempt) * 1000;
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
 // Cloudinary uploads are handled by the backend
 
 export async function apiRequest(endpoint: string, options: any = {}) {
@@ -84,6 +108,12 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     // Response data received
 
     if (!res.ok) {
+      console.error('API Error Response:', {
+        status: res.status,
+        statusText: res.statusText,
+        data: data
+      });
+      
       // Handle specific authentication errors
       if (res.status === 401) {
         throw new Error('Authentication failed. Please log in again.');
@@ -91,8 +121,12 @@ export async function apiRequest(endpoint: string, options: any = {}) {
         throw new Error("Access denied. You don't have permission for this action.");
       } else if (res.status === 404) {
         throw new Error('Resource not found. Please check your request.');
+      } else if (res.status === 409) {
+        throw new Error(data.message || 'User already exists. Please sign in instead.');
+      } else if (res.status === 400) {
+        throw new Error(data.message || 'Invalid request. Please check your input.');
       } else {
-        throw new Error(data.message || `API error: ${res.status}`);
+        throw new Error(data.message || `API error: ${res.status} - ${res.statusText}`);
       }
     }
     return data;
