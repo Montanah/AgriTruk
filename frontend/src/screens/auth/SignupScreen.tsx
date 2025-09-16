@@ -151,6 +151,13 @@ const SignupScreen = () => {
       return;
     }
 
+    // Validate phone number format
+    const fullPhoneNumber = selectedCountry.code + phone.trim();
+    if (phone.trim() && !/^\+?[1-9]\d{1,14}$/.test(fullPhoneNumber)) {
+      setError('Please enter a valid phone number.');
+      return;
+    }
+
     if (!password) {
       setError('Please enter a password.');
       return;
@@ -225,9 +232,27 @@ const SignupScreen = () => {
         });
         console.log('Backend registration successful');
       } catch (backendError) {
-        console.warn('Backend registration failed, but Firebase user created:', backendError);
-        // Continue with signup even if backend fails - user can complete profile later
-        // Store user data locally for later sync
+        console.warn('Backend registration failed:', backendError);
+        
+        // Check if it's a duplicate user error
+        if (backendError.message && (
+          backendError.message.includes('already registered') || 
+          backendError.message.includes('already exists') ||
+          backendError.message.includes('Phone number is already registered') ||
+          backendError.message.includes('Email is already registered')
+        )) {
+          // This is a duplicate user error - clean up Firebase user and throw error
+          try {
+            await userCredential.user.delete();
+            console.log('Firebase user deleted due to duplicate data');
+          } catch (deleteError) {
+            console.warn('Failed to delete Firebase user:', deleteError);
+          }
+          throw backendError;
+        }
+        
+        // For other errors, continue with signup and store data locally
+        console.warn('Backend registration failed, but Firebase user created. Storing data locally for later sync.');
         await AsyncStorage.setItem('pendingUserData', JSON.stringify({
           name: name.trim(),
           email: email.trim(),
@@ -279,6 +304,12 @@ const SignupScreen = () => {
         msg = 'Backend server is temporarily unavailable. Your account has been created and will be synced when the server is back online.';
       } else if (err.message && err.message.includes('User already exists')) {
         msg = 'This email is already registered. Please sign in instead.';
+      } else if (err.message && err.message.includes('Phone number is already registered')) {
+        msg = 'This phone number is already registered. Please sign in or use a different phone number.';
+      } else if (err.message && err.message.includes('Email is already registered')) {
+        msg = 'This email is already registered. Please sign in or use a different email.';
+      } else if (err.message && err.message.includes('already registered')) {
+        msg = 'This account is already registered. Please sign in instead.';
       } else if (err.message) {
         msg = err.message;
       }
