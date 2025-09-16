@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import KeyboardAwareScrollView from '../components/common/KeyboardAwareScrollView';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
@@ -227,7 +228,12 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                 </View>
             </View>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <KeyboardAwareScrollView 
+                style={styles.content} 
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                extraScrollHeight={50}
+            >
                 {/* Earnings Overview */}
                 <View style={styles.earningsSection}>
                     <View style={styles.sectionHeader}>
@@ -348,7 +354,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                         </TouchableOpacity>
                     </View>
                 )}
-            </ScrollView>
+            </KeyboardAwareScrollView>
 
             {/* Add Client Modal */}
             <Modal
@@ -366,7 +372,12 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                             </TouchableOpacity>
                         </View>
 
-                        <ScrollView style={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+                        <KeyboardAwareScrollView 
+                            style={styles.modalScrollContent} 
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                            extraScrollHeight={50}
+                        >
                             <View style={styles.inputGroup}>
                                 <Text style={styles.inputLabel}>Client Type *</Text>
                                 <View style={styles.clientTypeContainer}>
@@ -502,7 +513,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                                     placeholderTextColor={colors.text.light}
                                 />
                             </View>
-                        </ScrollView>
+                        </KeyboardAwareScrollView>
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity

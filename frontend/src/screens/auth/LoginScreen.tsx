@@ -14,6 +14,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Spacer from '../../components/common/Spacer';
@@ -85,9 +86,11 @@ const LoginScreen = ({ navigation }: any) => {
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
       />
-      <KeyboardAvoidingView
+      <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        keyboardShouldPersistTaps="handled"
+        extraScrollHeight={50}
       >
         <View style={styles.container}>
           <View style={styles.formCard}>
@@ -238,7 +241,7 @@ const LoginScreen = ({ navigation }: any) => {
             </Text>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       {countryModalVisible && (
         <TouchableWithoutFeedback onPress={() => setCountryModalVisible(false)}>

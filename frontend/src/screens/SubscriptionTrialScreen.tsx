@@ -14,6 +14,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import KeyboardAwareScrollView from '../components/common/KeyboardAwareScrollView';
 import PaymentMethodCard from '../components/common/PaymentMethodCard';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
@@ -323,7 +324,12 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 </View>
             </LinearGradient>
 
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <KeyboardAwareScrollView 
+                style={styles.scrollView} 
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                extraScrollHeight={50}
+            >
                 {/* Welcome Section */}
                 <View style={styles.welcomeCard}>
                     <View style={styles.welcomeIcon}>
@@ -438,7 +444,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         </Text>
                     </View>
                 </View>
-            </ScrollView>
+            </KeyboardAwareScrollView>
 
             {/* Action Button */}
             <View style={styles.actionContainer}>

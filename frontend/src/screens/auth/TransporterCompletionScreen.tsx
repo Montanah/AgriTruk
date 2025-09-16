@@ -18,6 +18,7 @@ import {
   Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
 import ImagePickerModal from '../../components/common/ImagePickerModal';
 import { API_ENDPOINTS } from '../../constants/api';
 import VehicleDetailsForm from '../../components/VehicleDetailsForm';
@@ -961,7 +962,12 @@ export default function TransporterCompletionScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <KeyboardAwareScrollView 
+      contentContainerStyle={styles.container} 
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      extraScrollHeight={100}
+    >
       {/* Modern Header */}
       <View style={styles.modernHeader}>
         <View style={styles.headerIconContainer}>
@@ -1280,7 +1286,7 @@ export default function TransporterCompletionScreen() {
         onSelect={handleImagePickerSelect}
         onCancel={() => setPickerVisible(false)}
       />
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 

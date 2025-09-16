@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef } from 'react';
 import { View, TextInput, Text, StyleSheet, TextInputProps, TouchableOpacity } from 'react-native';
 import { colors, spacing, fonts } from '../../constants';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,7 @@ type InputProps = TextInputProps & {
   secureTextEntryToggle?: boolean;
 };
 
-const Input = ({ label, error, secureTextEntryToggle, ...props }: InputProps) => {
+const Input = forwardRef<TextInput, InputProps>(({ label, error, secureTextEntryToggle, ...props }, ref) => {
   const [secure, setSecure] = useState(props.secureTextEntry);
 
   return (
@@ -17,8 +17,11 @@ const Input = ({ label, error, secureTextEntryToggle, ...props }: InputProps) =>
       {label && <Text style={styles.label}>{label}</Text>}
       <View style={styles.inputWrapper}>
         <TextInput
+          ref={ref}
           style={styles.input}
           placeholderTextColor={colors.text.light}
+          returnKeyType="next"
+          blurOnSubmit={false}
           {...props}
           secureTextEntry={secure}
         />
@@ -31,7 +34,7 @@ const Input = ({ label, error, secureTextEntryToggle, ...props }: InputProps) =>
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

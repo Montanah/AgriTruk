@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 
@@ -267,14 +268,11 @@ const SignupScreen = () => {
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
       />
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+        extraScrollHeight={50}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="handled"
-        >
           <View style={styles.container}>
             <LoadingSpinner
               visible={loading}
@@ -534,8 +532,7 @@ const SignupScreen = () => {
               </Text>
             </Animated.View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       {/* Country Dropdown - Outside ScrollView to prevent clipping */}
       {showCountryDropdown && (

@@ -6,6 +6,7 @@ import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 import { apiRequest } from '../../utils/api';
@@ -256,7 +257,11 @@ const EmailVerificationScreen = ({ navigation, route }) => {
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
       />
-      <View style={styles.container}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        extraScrollHeight={50}
+      >
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -417,7 +422,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
             )}
           </TouchableOpacity>
         </Animated.View>
-      </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 };
