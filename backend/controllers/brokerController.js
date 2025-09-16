@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Broker = require('../models/Broker');
 const Client = require('../models/Client');
 const Request = require('../models/Request');
+const Booking = require('../models/Booking');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const { uploadImage } = require('../utils/upload');
 const fs = require('fs');
@@ -352,11 +353,25 @@ exports.getRequestsByClient = async (req, res) => {
 exports.getAllBrokers = async (req, res) => {
   try {
     const brokers = await Broker.getAll();
+    const bookings = [];
 
    for (const broker of brokers) {
       const user = await User.get(broker.userId);
       broker.user = formatTimestamps(user); 
+
+      const clients = await Client.getClients(broker.id);
+      broker.clients = formatTimestamps(clients);
+      broker.clientCount = clients.length;
+
+      const bookings = await Booking.get(broker.id);
+      broker.bookings = formatTimestamps(bookings);
+      broker.bookingCount = bookings.length;
+      bookings.push(...bookings);
     }
+
+    const activeBrokers = brokers.filter(broker => broker.status === 'active' || broker.status === 'approved');
+    const inactiveBrokers = brokers.filter(broker => broker.status === 'pending' || broker.status === 'rejected');
+    const totalClients = await Client.getAll();
     
     await logAdminActivity(req.user.uid, 'get_all_brokers', req);
 
@@ -372,6 +387,11 @@ exports.getAllBrokers = async (req, res) => {
       success: true,
       message: 'Brokers retrieved successfully',
       data: formatTimestamps(brokers), 
+      activeBrokers: activeBrokers.length,
+      inactiveBrokers: inactiveBrokers.length,
+      totalBrokers: brokers.length,
+      totalClients: totalClients.length,
+      totalBookings: bookings.length  
     });
   } catch (error) {
     res.status(500).json({
