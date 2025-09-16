@@ -832,37 +832,29 @@ export default function TransporterCompletionScreen() {
           return false;
         }
       } else {
-        // Company submission - upload logo first if available
-        let logoUrl = null;
+        // Company submission - create FormData for multipart/form-data request
+        const formData = new FormData();
+        formData.append('name', companyName);
+        formData.append('registration', companyReg);
+        formData.append('contact', companyContact);
+        
+        // Add logo file if available
         if (profilePhoto && profilePhoto.uri) {
-          try {
-            console.log('Uploading company logo...');
-            logoUrl = await uploadFile(profilePhoto.uri, 'logo', user.uid);
-            console.log('Logo upload successful:', logoUrl);
-          } catch (uploadError: any) {
-            console.error('Logo upload failed:', uploadError);
-            setError(`Failed to upload company logo: ${uploadError.message || 'Unknown error'}. Please try again.`);
-            return false;
-          }
+          formData.append('logo', {
+            uri: profilePhoto.uri,
+            type: profilePhoto.type || 'image/jpeg',
+            name: 'company-logo.jpg',
+          } as any);
         }
         
-        const companyPayload = {
-          companyName,
-          companyRegistration: companyReg,
-          companyContact,
-          companyLogo: logoUrl || '',
-          transporterId: user.uid,
-          companyEmail: user.email || undefined,
-          companyAddress: '',
-        };
         const token = await user.getIdToken();
         const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            // Don't set Content-Type - let fetch set it with boundary for FormData
           },
-          body: JSON.stringify(companyPayload),
+          body: formData,
         });
         
         let companyResponseData: any = null;
@@ -885,7 +877,15 @@ export default function TransporterCompletionScreen() {
           if (isDuplicate || maybeCreated) {
             console.warn('Company creation returned non-OK but indicates existing/created. Proceeding. Message:', msg);
           } else {
-            setError(msg ? `Failed to create company: ${msg}` : `Failed to create company. Status: ${res.status}`);
+            let errorMessage = `Failed to create company. Status: ${res.status}`;
+            if (msg) {
+              errorMessage = `Failed to create company: ${msg}`;
+            } else if (res.status === 400) {
+              errorMessage = 'Invalid company data. Please check all required fields are filled correctly.';
+            } else if (res.status === 409) {
+              errorMessage = 'A company with this name or registration number already exists.';
+            }
+            setError(errorMessage);
             return false;
           }
         }
