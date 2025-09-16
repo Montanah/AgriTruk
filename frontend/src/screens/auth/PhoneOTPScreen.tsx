@@ -172,6 +172,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
           });
         } else if (role === 'transporter') {
           // Navigating transporter to TransporterCompletionScreen
+          console.log('Phone verification complete - navigating transporter to TransporterCompletionScreen');
           navigation.reset({
             index: 0,
             routes: [{ name: 'TransporterCompletionScreen' }]

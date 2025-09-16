@@ -335,6 +335,7 @@ export default function App() {
   } else if (user && isVerified) {
     // Verified users - route based on role
     // Verified user detected - routing based on role
+    console.log('App.tsx: Verified user detected with role:', role);
     
     if (role === 'shipper') {
       // Routing shipper to main tabs
@@ -388,6 +389,7 @@ export default function App() {
       // The TransporterCompletionScreen will check the actual profile status
       // and route accordingly (completion -> processing -> tabs)
       // Routing transporter to completion screen
+      console.log('App.tsx: Verified transporter detected - routing to TransporterCompletionScreen');
       initialRouteName = 'TransporterCompletionScreen';
       
       screens = (

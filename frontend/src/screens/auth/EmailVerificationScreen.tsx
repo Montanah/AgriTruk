@@ -162,6 +162,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
           });
         } else if (role === 'transporter') {
           // Navigating transporter to TransporterCompletionScreen
+          console.log('Email verification complete - navigating transporter to TransporterCompletionScreen');
           navigation.reset({
             index: 0,
             routes: [{ name: 'TransporterCompletionScreen' }]
