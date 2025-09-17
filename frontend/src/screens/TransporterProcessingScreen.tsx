@@ -243,7 +243,7 @@ export default function TransporterProcessingScreen({ route }) {
               // Determine endpoint based on transporterType
               const endpoint = transporterType === 'company'
                 ? `${API_ENDPOINTS.COMPANIES}/${user.uid}`
-                : `${API_ENDPOINTS.TRANSPORTERS}/profile/me`;
+                : `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`;
               // Get JWT token
               const token = await user.getIdToken();
               // Fetch status from backend with Authorization header
@@ -253,13 +253,17 @@ export default function TransporterProcessingScreen({ route }) {
                   'Content-Type': 'application/json',
                 },
               });
-              const data = await res.json();
               if (!res.ok) {
-                setStatusMessage(data.message || 'Failed to fetch status');
+                const errorText = await res.text();
+                console.error('Status fetch error:', res.status, errorText);
+                setStatusMessage(`Failed to fetch status: ${res.status} - ${errorText}`);
                 return;
               }
+              const data = await res.json();
+              console.log('Status fetch response:', data);
               // Update status and message
               let status = data.status || data.body?.status || (data.transporter && data.transporter.status) || 'unknown';
+              console.log('Extracted status:', status);
               setCurrentStatus(status);
               setStatusMessage(getStatusMessage(status));
               // If approved, navigate to dashboard
