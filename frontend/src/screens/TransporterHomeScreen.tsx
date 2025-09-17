@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import APITestComponent from '../components/APITestComponent';
 import Divider from '../components/common/Divider';
 import NetworkTest from '../components/NetworkTest';
@@ -17,6 +17,8 @@ export default function TransporterHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [connectivityStatus, setConnectivityStatus] = useState<string>('');
+  const [acceptingBooking, setAcceptingBooking] = useState(false);
+  const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
 
   const testBackend = async () => {
     setConnectivityStatus('Testing...');
@@ -32,6 +34,46 @@ export default function TransporterHomeScreen() {
   const testLogging = () => {
     testTerminalLogging();
     setConnectivityStatus('✅ Logging Test Sent - Check Terminal');
+  };
+
+  const updateAcceptingBookingStatus = async (newStatus: boolean) => {
+    try {
+      setUpdatingBookingStatus(true);
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          acceptingBooking: newStatus,
+        }),
+      });
+
+      if (response.ok) {
+        setAcceptingBooking(newStatus);
+        // Update local profile state
+        setProfile(prev => ({ ...prev, acceptingBooking: newStatus }));
+        Alert.alert(
+          'Status Updated',
+          `You are now ${newStatus ? 'accepting' : 'not accepting'} new booking requests.`
+        );
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update booking status');
+      }
+    } catch (error) {
+      console.error('Error updating booking status:', error);
+      Alert.alert('Error', error.message || 'Failed to update booking status. Please try again.');
+    } finally {
+      setUpdatingBookingStatus(false);
+    }
   };
 
   useEffect(() => {
@@ -56,6 +98,7 @@ export default function TransporterHomeScreen() {
           const data = await res.json();
           // Transporter profile retrieved successfully
           setProfile(data.transporter);
+          setAcceptingBooking(data.transporter?.acceptingBooking || false);
         } else if (res.status === 404) {
           // Transporter profile not found - redirecting to completion
           // Profile doesn't exist yet, redirect to profile completion
@@ -205,6 +248,27 @@ export default function TransporterHomeScreen() {
           />
           <Text style={styles.label}>Email: <Text style={styles.value}>{profile.email}</Text></Text>
           <Text style={styles.label}>Status: <Text style={[styles.value, { color: colors.secondary }]}>{profile.status}</Text></Text>
+          
+          {/* Accepting Requests Toggle */}
+          <View style={styles.toggleContainer}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleLabel}>Accepting New Requests</Text>
+              <Text style={styles.toggleDescription}>
+                {acceptingBooking 
+                  ? 'You are currently accepting new booking requests' 
+                  : 'You are not accepting new booking requests'
+                }
+              </Text>
+            </View>
+            <Switch
+              value={acceptingBooking}
+              onValueChange={updateAcceptingBookingStatus}
+              disabled={updatingBookingStatus}
+              trackColor={{ false: colors.text.light, true: colors.primary + '40' }}
+              thumbColor={acceptingBooking ? colors.primary : colors.text.light}
+              ios_backgroundColor={colors.text.light}
+            />
+          </View>
         </View>
       )}
       {/* Current Trip (mock fallback) */}
@@ -233,8 +297,25 @@ export default function TransporterHomeScreen() {
       )}
       {/* Incoming Requests (mock fallback) */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Incoming Requests (Demo)</Text>
-        {requests.length === 0 ? (
+        <View style={styles.requestsHeader}>
+          <Text style={styles.sectionTitle}>Incoming Requests (Demo)</Text>
+          {!acceptingBooking && (
+            <View style={styles.notAcceptingBadge}>
+              <Ionicons name="pause-circle" size={16} color={colors.warning} />
+              <Text style={styles.notAcceptingText}>Not Accepting</Text>
+            </View>
+          )}
+        </View>
+        
+        {!acceptingBooking ? (
+          <View style={styles.notAcceptingContainer}>
+            <Ionicons name="pause-circle-outline" size={48} color={colors.warning} />
+            <Text style={styles.notAcceptingTitle}>Not Accepting Requests</Text>
+            <Text style={styles.notAcceptingDescription}>
+              You have disabled new booking requests. Toggle the switch above to start accepting requests again.
+            </Text>
+          </View>
+        ) : requests.length === 0 ? (
           <Text style={styles.emptyText}>No new requests at the moment.</Text>
         ) : (
           <FlatList
@@ -454,5 +535,67 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.sm,
     fontWeight: 'bold',
     marginVertical: 4,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.text.light + '30',
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  toggleLabel: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  toggleDescription: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    lineHeight: 18,
+  },
+  requestsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  notAcceptingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning + '20',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  notAcceptingText: {
+    fontSize: fonts.size.sm,
+    color: colors.warning,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  notAcceptingContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  notAcceptingTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  notAcceptingDescription: {
+    fontSize: fonts.size.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: spacing.md,
   },
 });

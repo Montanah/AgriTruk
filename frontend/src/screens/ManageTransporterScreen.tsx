@@ -3,7 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { notificationService } from '../../services/notificationService';
 import SubscriptionStatusCard from '../components/common/SubscriptionStatusCard';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
@@ -1165,6 +1165,8 @@ export default function ManageTransporterScreen({ route }: any) {
     const [individualProfile, setIndividualProfile] = useState(null);
     const [loadingIndividualProfile, setLoadingIndividualProfile] = useState(true);
     const [individualProfilePhoto, setIndividualProfilePhoto] = useState(null);
+    const [acceptingBooking, setAcceptingBooking] = useState(false);
+    const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
     
     // Verification states
     const [verifyingEmail, setVerifyingEmail] = useState(false);
@@ -1247,6 +1249,7 @@ export default function ManageTransporterScreen({ route }: any) {
           if (res.ok) {
             const data = await res.json();
             setIndividualProfile(data.transporter);
+            setAcceptingBooking(data.transporter?.acceptingBooking || false);
             if (data.transporter?.driverProfileImage) {
               setIndividualProfilePhoto({ uri: data.transporter.driverProfileImage });
             }
@@ -1359,6 +1362,44 @@ export default function ManageTransporterScreen({ route }: any) {
         setVerifyingPhone(false);
       }
     };
+
+    const updateAcceptingBookingStatus = async (newStatus: boolean) => {
+      try {
+        setUpdatingBookingStatus(true);
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) throw new Error('Not authenticated');
+
+        const token = await user.getIdToken();
+        const response = await apiRequest(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            acceptingBooking: newStatus,
+          }),
+        });
+
+        if (response.success) {
+          setAcceptingBooking(newStatus);
+          setIndividualProfile(prev => ({ ...prev, acceptingBooking: newStatus }));
+          Alert.alert(
+            'Status Updated',
+            `You are now ${newStatus ? 'accepting' : 'not accepting'} new booking requests.`
+          );
+        } else {
+          throw new Error(response.message || 'Failed to update booking status');
+        }
+      } catch (error) {
+        console.error('Error updating booking status:', error);
+        Alert.alert('Error', error.message || 'Failed to update booking status. Please try again.');
+      } finally {
+        setUpdatingBookingStatus(false);
+      }
+    };
     
     // Modal state for insurance and photo gallery
     const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
@@ -1381,6 +1422,28 @@ export default function ManageTransporterScreen({ route }: any) {
               <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 18, marginBottom: 2 }}>{individualProfile?.displayName || ''}</Text>
               <Text style={{ color: colors.text.secondary, fontSize: 15 }}>{individualProfile?.phoneNumber || ''}</Text>
             </View>
+            
+            {/* Accepting Requests Toggle */}
+            <View style={styles.toggleContainer}>
+              <View style={styles.toggleInfo}>
+                <Text style={styles.toggleLabel}>Accepting New Requests</Text>
+                <Text style={styles.toggleDescription}>
+                  {acceptingBooking 
+                    ? 'You are currently accepting new booking requests' 
+                    : 'You are not accepting new booking requests'
+                  }
+                </Text>
+              </View>
+              <Switch
+                value={acceptingBooking}
+                onValueChange={updateAcceptingBookingStatus}
+                disabled={updatingBookingStatus}
+                trackColor={{ false: colors.text.light, true: colors.primary + '40' }}
+                thumbColor={acceptingBooking ? colors.primary : colors.text.light}
+                ios_backgroundColor={colors.text.light}
+              />
+            </View>
+            
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 6 }}>
               <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, marginRight: 8 }} onPress={() => setEditModal(true)}>
                 <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Edit Profile</Text>
@@ -1938,5 +2001,30 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
     fontSize: 14,
+  },
+  // Toggle styles
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.text.light + '30',
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  toggleDescription: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    lineHeight: 18,
   },
 });
