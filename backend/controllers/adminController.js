@@ -22,6 +22,7 @@ const Company = require("../models/Company");
 const Driver = require("../models/Driver");
 const Vehicle = require("../models/Vehicle");
 const Action = require("../models/Action");
+const { getRejectTemplate } = require("../utils/sendMailTemplate");
 
 
 exports.deleteTransporter = async (req, res) => {
@@ -738,6 +739,7 @@ exports.reviewTransporter = async (req, res) => {
       await sendEmail({
         to: transporter.email,
         subject: 'Transporter Rejected',
+        html: getRejectTemplate('Transporter Rejected', `Your transporter account has been rejected. Reason: ${reason || 'Unqualified'}`, transporter),
         text: `Your transporter account has been rejected. Reason: ${reason || 'Unqualified'}`
       });
 

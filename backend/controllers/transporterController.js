@@ -53,7 +53,8 @@ exports.createTransporter = async (req, res) => {
     const email = userData?.email;
     const driverName = userData?.name;
     const phoneNumber = userData?.phone;
-
+    
+    console.log('receive files', req.files);
     console.log('User data:', driverName);
     
     // Handle multiple file uploads dynamically
