@@ -3,7 +3,7 @@ const User = require("../models/User");
 const ActivityLog = require("../models/ActivityLog");
 const generateOtp = require("../utils/generateOtp");
 const sendEmail = require("../utils/sendEmail");
-const {getMFATemplate, getResetPasswordTemplate, getSuccessTemplate } = require("../utils/sendMailTemplate");
+const {getMFATemplate, getResetPasswordTemplate, getSuccessTemplate, getRejectTemplate } = require("../utils/sendMailTemplate");
 const getGeoLocation = require("../utils/locationHelper");
 const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const { uploadImage } = require('../utils/upload');
@@ -377,6 +377,173 @@ exports.updateUser = async (req, res) => {
     });
   }
 };
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email, phone } = req.body;
+
+    if (!email && !phone) {
+      return res.status(400).json({
+        code: 'ERR_INVALID_INPUT',
+        message: 'Email or phone number is required'
+      });
+    }
+
+    let user;
+    if (email) {
+      user = await admin.auth().getUserByEmail(email);
+    } else if (phone) {
+      user = await admin.auth().getUserByPhoneNumber(phone);
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        code: 'ERR_USER_NOT_FOUND',
+        message: 'User not found'
+      });
+    }
+
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+    const resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes expiry
+
+    // Store reset token and expiry in database
+    await User.update(user.uid, {
+      resetToken: verificationCode,
+      resetTokenExpiry: resetTokenExpiry
+    });
+
+    if (email) {
+      const userData = await User.get(user.uid);
+      await sendEmail({
+        to: email,
+        subject: "Password Reset Code",
+        text: `Your password reset code is: ${verificationCode}`,
+        html: getRejectTemplate('Password Reset Code', `You are receiving this email because we received a forget password request for your account. <br> <br>Your password reset code is: ${verificationCode}. <br> <br> If you did not request a password reset, you can safely ignore this email. <br> <br> Thank you for using our services. <br> <br> Best regards, <br>  ${process.env.APP_NAME}`, userData)
+      });
+    } else if (phone) {
+      const smsMessage = `Your password reset code is: ${verificationCode}`;
+      const formattedPhoneNumber = formatPhoneNumber(phone);
+      await smsService.sendSMS(
+        'TRUK LTD',
+        formattedPhoneNumber, 
+        smsMessage);
+    }
+
+    await logActivity(user.uid, 'forgot_password', req);
+
+    res.status(200).json({
+      message: 'Password reset code sent successfully',
+      userId: user.uid 
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Failed to send password reset code'
+    });
+  }
+};
+exports.verifyPasswordResetCode = async (req, res) => {
+  try {
+    const { code, userId } = req.body;
+
+    if (!code || !userId) {
+      return res.status(400).json({
+        code: 'ERR_INVALID_INPUT',
+        message: 'Reset code and user ID are required'
+      });
+    }
+
+    const user = await User.get(userId);
+    if (!user) {
+      return res.status(404).json({
+        code: 'ERR_USER_NOT_FOUND',
+        message: 'User not found'
+      });
+    }
+
+    if (user.resetToken === code && user.resetTokenExpiry > Date.now()) {
+      
+      res.status(200).json({
+        message: 'Password reset code is valid',
+        userId: userId
+      });
+    } else {
+      res.status(400).json({
+        code: 'ERR_INVALID_CODE',
+        message: 'Invalid or expired password reset code'
+      });
+    }
+  } catch (error) {
+    console.error('Verify password reset code error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Failed to verify password reset code'
+    });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { newPassword, userId } = req.body;
+
+    console.log(newPassword, userId);
+
+    if (!newPassword || !userId) {
+      return res.status(400).json({
+        code: 'ERR_INVALID_INPUT',
+        message: 'New password and user ID are required'
+      });
+    }
+
+    const user = await User.get(userId);
+    console.log(user);
+    if (!user || !user.resetToken) {
+      return res.status(400).json({
+        code: 'ERR_INVALID_REQUEST',
+        message: 'Invalid password reset request'
+      });
+    }
+
+    await admin.auth().updateUser(userId, {
+      password: newPassword
+    });
+
+    await User.update(userId, {
+      resetToken: null,
+      resetTokenExpiry: null
+    });
+
+    await logActivity(userId, 'password_reset', req);
+
+    await Notification.create({
+      type: "Reset Password",
+      message: "You reset your password",
+      userId: userId,
+      userType: "user",
+    })
+    
+    const userData = await User.get(userId);
+    console.log(userData);
+    await sendEmail({
+      to: userData.email,
+      subject: "Password Reset Confirmation",
+      html: getRejectTemplate("Password Reset Confirmation", `You have successfully reset your password. <br> <br> Thank you for using our services. <br> <br> Best regards, <br>  ${process.env.APP_NAME}`, userData)
+    })
+
+    res.status(200).json({
+      message: 'Password reset successfully'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Failed to reset password'
+    });
+  }
+};
+
 
 exports.updatePassword = async (req, res) => {
     const { newPassword } = req.body;

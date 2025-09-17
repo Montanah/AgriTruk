@@ -659,7 +659,7 @@ exports.reviewBroker = async (req, res) => {
         approvedBy: adminId,
         idExpiryDate: idExpiryDate || null
       }
-      console.log("up", updateData)
+     // console.log("up", updateData)
       await Broker.update(brokerId, updateData);
       await logAdminActivity(req.user.uid, 'approve_broker', req);
 

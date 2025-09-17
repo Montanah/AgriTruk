@@ -107,7 +107,7 @@ class AlertService {
     `;
     
     // This would be replaced with actual user email lookup
-    const adminEmails = ['admin@truk.com', 'support@truk.com'];
+    const adminEmails = ['agritrukltd@gmail.com', 'support@truk.com'];
     
     for (const email of adminEmails) {
       try {
