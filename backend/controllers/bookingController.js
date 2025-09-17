@@ -13,7 +13,6 @@ const calculateTransportCost = require('../utils/calculateCost');
 require('dotenv').config();
 
 const google_key = process.env.GOOGLE_MAPS_API_KEY;
-console.log(google_key);
 exports.createBooking = async (req, res) => {
   try {
     const {
