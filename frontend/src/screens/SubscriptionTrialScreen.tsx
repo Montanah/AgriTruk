@@ -59,24 +59,22 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     const isTrialActive = subscriptionStatus?.isTrialActive || false;
 
     const handleActivateTrial = async () => {
-        if (!selectedPaymentMethod) {
-            Alert.alert('Payment Method Required', 'Please select a payment method to activate your trial.');
-            return;
-        }
-
-        if (selectedPaymentMethod === 'mpesa' && !mpesaPhone.trim()) {
-            Alert.alert('Phone Number Required', 'Please enter your M-PESA phone number.');
-            return;
-        }
-
-        if (selectedPaymentMethod === 'stripe' && (!cardNumber.trim() || !expiryDate.trim() || !cvv.trim() || !cardholderName.trim())) {
-            Alert.alert('Card Details Required', 'Please fill in all card details.');
-            return;
-        }
-
         setActivatingTrial(true);
         try {
-            const result = await subscriptionService.activateTrial(userType);
+            // First, get available subscription plans to find the trial plan
+            const plans = await subscriptionService.getSubscriptionPlans();
+            const trialPlan = plans.find(plan => plan.price === 0);
+            
+            if (!trialPlan) {
+                Alert.alert('Error', 'No trial plan available. Please contact support.');
+                return;
+            }
+
+            // Create subscriber for trial (no payment required for free trial)
+            const result = await subscriptionService.createSubscription(
+                trialPlan.id,
+                'trial' // Special payment method for trial
+            );
             
             if (result.success) {
                 setTrialActivated(true);
@@ -387,27 +385,23 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                     </TouchableOpacity>
                 </View>
 
-                {/* Payment Method Selection */}
+                {/* Trial Activation Info */}
                 <View style={styles.paymentCard}>
-                    <Text style={styles.sectionTitle}>Payment Method</Text>
+                    <Text style={styles.sectionTitle}>Activate Your Trial</Text>
                     <Text style={styles.paymentDescription}>
-                        Select a payment method to activate your trial. You won&apos;t be charged until your trial ends.
+                        Your trial is completely free - no payment method required! Click the button below to start your {trialDuration}-day trial.
                     </Text>
-
-                    <PaymentMethodCard
-                        method="mpesa"
-                        selected={selectedPaymentMethod === 'mpesa'}
-                        onSelect={() => setSelectedPaymentMethod('mpesa')}
-                    />
-
-                    <PaymentMethodCard
-                        method="stripe"
-                        selected={selectedPaymentMethod === 'stripe'}
-                        onSelect={() => setSelectedPaymentMethod('stripe')}
-                    />
-
-                    {/* Payment Form */}
-                    {renderPaymentForm()}
+                    
+                    <View style={styles.trialInfo}>
+                        <MaterialCommunityIcons
+                            name="gift"
+                            size={24}
+                            color={colors.secondary}
+                        />
+                        <Text style={styles.trialInfoText}>
+                            No credit card required • Cancel anytime • Full access to all features
+                        </Text>
+                    </View>
                 </View>
 
                 {/* Important Notes */}
@@ -451,10 +445,10 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 <TouchableOpacity
                     style={[
                         styles.activateButton,
-                        !selectedPaymentMethod && styles.activateButtonDisabled
+                        activatingTrial && styles.activateButtonDisabled
                     ]}
                     onPress={handleActivateTrial}
-                    disabled={!selectedPaymentMethod || activatingTrial}
+                    disabled={activatingTrial}
                 >
                     {activatingTrial ? (
                         <ActivityIndicator size="small" color={colors.white} />
@@ -744,6 +738,21 @@ const styles = StyleSheet.create({
     cardColumn: {
         flex: 1,
         marginHorizontal: spacing.sm,
+    },
+    trialInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.secondary + '10',
+        padding: spacing.md,
+        borderRadius: 8,
+        marginTop: spacing.md,
+    },
+    trialInfoText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginLeft: spacing.sm,
+        flex: 1,
+        lineHeight: 20,
     },
 });
 

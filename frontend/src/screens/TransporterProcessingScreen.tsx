@@ -6,6 +6,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
+import subscriptionService from '../services/subscriptionService';
 
 export default function TransporterProcessingScreen({ route }) {
   // route.params?.transporterType can be 'individual' or 'company'
@@ -15,6 +16,8 @@ export default function TransporterProcessingScreen({ route }) {
   const [loadingProfile, setLoadingProfile] = React.useState(true);
   const [currentStatus, setCurrentStatus] = React.useState('pending'); // pending, under review, approved, rejected, etc.
   const [statusMessage, setStatusMessage] = React.useState('Your documents are under review. You will be notified once your account is activated.');
+  const [subscriptionStatus, setSubscriptionStatus] = React.useState(null);
+  const [checkingSubscription, setCheckingSubscription] = React.useState(false);
 
   // Helper to map status to step index
   const getStepIndex = (status) => {
@@ -30,6 +33,45 @@ export default function TransporterProcessingScreen({ route }) {
     if (status === 'rejected') return 'Your documents were rejected. Please contact support or re-submit.';
     if (status === 'pending' || status === 'under review' || status === 'under_review') return 'Your documents are under review. You will be notified once your account is activated.';
     return 'Your profile status is being processed.';
+  };
+
+  // Check subscription status
+  const checkSubscriptionStatus = async () => {
+    try {
+      setCheckingSubscription(true);
+      const status = await subscriptionService.getSubscriptionStatus();
+      setSubscriptionStatus(status);
+      
+      // If user needs trial activation, redirect to trial screen
+      if (status.needsTrialActivation) {
+        navigation.navigate('SubscriptionTrialScreen', { 
+          userType: transporterType,
+          subscriptionStatus: status 
+        });
+        return;
+      }
+      
+      // If subscription has expired, redirect to expiry screen
+      if (status.subscriptionStatus === 'expired' || status.trialUsed) {
+        navigation.navigate('SubscriptionExpiredScreen', { 
+          userType: transporterType,
+          userId: 'current_user', // Will be replaced with actual user ID
+          expiredDate: new Date().toISOString()
+        });
+        return;
+      }
+      
+      // If trial is active but expiring soon (less than 3 days), show warning
+      if (status.isTrialActive && status.daysRemaining <= 3) {
+        // You could show a warning modal here
+        console.log(`Trial expiring in ${status.daysRemaining} days`);
+      }
+      
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+    } finally {
+      setCheckingSubscription(false);
+    }
   };
 
   // Fetch profile photo and status on mount
@@ -55,8 +97,13 @@ export default function TransporterProcessingScreen({ route }) {
           if (data.transporter && data.transporter.status) {
             setCurrentStatus(data.transporter.status);
             setStatusMessage(getStatusMessage(data.transporter.status));
-            // If approved, navigate to dashboard after short delay
+            // If approved, check subscription status before navigating
             if (data.transporter.status === 'approved') {
+              // Check subscription status first
+              await checkSubscriptionStatus();
+              
+              // The navigation will be handled in checkSubscriptionStatus
+              // If no subscription issues, navigate to dashboard
               setTimeout(() => {
                 navigation.reset({
                   index: 0,
@@ -217,6 +264,13 @@ export default function TransporterProcessingScreen({ route }) {
           })}
         </View>
         <Text style={styles.waitingText}>{statusMessage}</Text>
+        
+        {checkingSubscription && (
+          <View style={styles.subscriptionCheckContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.subscriptionCheckText}>Checking subscription status...</Text>
+          </View>
+        )}
         <View style={styles.tipsBox}>
           <Ionicons name="information-circle-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
           <Text style={styles.tipsText}>
@@ -266,8 +320,11 @@ export default function TransporterProcessingScreen({ route }) {
               console.log('Extracted status:', status);
               setCurrentStatus(status);
               setStatusMessage(getStatusMessage(status));
-              // If approved, navigate to dashboard
+              // If approved, check subscription status before navigating
               if (status === 'approved') {
+                await checkSubscriptionStatus();
+                
+                // If no subscription issues, navigate to dashboard
                 setTimeout(() => {
                   navigation.reset({
                     index: 0,
@@ -473,5 +530,20 @@ const styles = StyleSheet.create({
     color: colors.secondary,
     fontSize: fonts.size.sm,
     flex: 1,
+  },
+  subscriptionCheckContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    padding: spacing.sm,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 8,
+  },
+  subscriptionCheckText: {
+    color: colors.primary,
+    fontSize: fonts.size.sm,
+    marginLeft: spacing.sm,
+    fontWeight: '500',
   },
 });
