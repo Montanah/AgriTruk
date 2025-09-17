@@ -707,6 +707,7 @@ export default function TransporterCompletionScreen() {
   };
 
   const handleSubmit = async () => {
+    console.log('🚀 Submitting transporter profile...');
     setError('');
 
     // Validation
@@ -752,49 +753,84 @@ export default function TransporterCompletionScreen() {
         formData.append('transporterType', transporterType);
         
         // Add files directly to FormData
+        // Add files directly to FormData with proper logging
+        console.log('=== ADDING FILES TO FORMDATA ===');
+        
         if (profilePhoto && profilePhoto.uri) {
+          console.log('Adding profile photo:', {
+            uri: profilePhoto.uri,
+            type: profilePhoto.type || 'image/jpeg',
+            name: 'profile-photo.jpg',
+          });
           formData.append('profilePhoto', {
             uri: profilePhoto.uri,
             type: profilePhoto.type || 'image/jpeg',
             name: 'profile-photo.jpg',
           } as any);
+        } else {
+          console.log('No profile photo to add');
         }
         
         if (dlFile && dlFile.uri) {
+          console.log('Adding driver license:', {
+            uri: dlFile.uri,
+            type: dlFile.type || 'image/jpeg',
+            name: 'drivers-license.jpg',
+          });
           formData.append('dlFile', {
             uri: dlFile.uri,
             type: dlFile.type || 'image/jpeg',
             name: 'drivers-license.jpg',
           } as any);
+        } else {
+          console.log('No driver license to add');
         }
         
         if (insuranceFile && insuranceFile.uri) {
+          console.log('Adding insurance file:', {
+            uri: insuranceFile.uri,
+            type: insuranceFile.type || 'image/jpeg',
+            name: 'insurance.jpg',
+          });
           formData.append('insuranceFile', {
             uri: insuranceFile.uri,
             type: insuranceFile.type || 'image/jpeg',
             name: 'insurance.jpg',
           } as any);
+        } else {
+          console.log('No insurance file to add');
         }
         
+        // Note: Backend doesn't handle logbook files, so we skip it
         if (logBookFile && logBookFile.uri) {
-          formData.append('logbook', {
-            uri: logBookFile.uri,
-            type: logBookFile.type || 'image/jpeg',
-            name: 'logbook.jpg',
-          } as any);
+          console.log('Logbook file selected but backend doesn\'t handle it, skipping');
         }
         
         if (idFile && idFile.uri) {
+          console.log('Adding driver ID:', {
+            uri: idFile.uri,
+            type: idFile.type || 'image/jpeg',
+            name: 'driver-id.jpg',
+          });
           formData.append('idFile', {
             uri: idFile.uri,
             type: idFile.type || 'image/jpeg',
-            name: 'id-document.jpg',
+            name: 'driver-id.jpg',
           } as any);
+        } else {
+          console.log('No driver ID to add');
         }
         
+        // Add vehicle photos
         if (vehiclePhotos && vehiclePhotos.length > 0) {
+          console.log(`Adding ${vehiclePhotos.length} vehicle photos`);
           vehiclePhotos.forEach((img, idx) => {
             if (img.uri) {
+              console.log(`Adding vehicle photo ${idx + 1}:`, {
+                uri: img.uri,
+                type: img.type || 'image/jpeg',
+                name: `vehicle-photo-${idx}.jpg`,
+              });
               formData.append('vehiclePhoto', {
                 uri: img.uri,
                 type: img.type || 'image/jpeg',
@@ -802,6 +838,8 @@ export default function TransporterCompletionScreen() {
               } as any);
             }
           });
+        } else {
+          console.log('No vehicle photos to add');
         }
         
         console.log('=== INDIVIDUAL TRANSPORTER SUBMISSION DEBUG ===');
@@ -1120,7 +1158,7 @@ export default function TransporterCompletionScreen() {
         console.log('Logbook file:', logBookFile ? 'Present' : 'Missing');
         console.log('Vehicle photos count:', vehiclePhotos ? vehiclePhotos.length : 0);
         
-        // Use the working approach - create FormData without files first
+        // Use the working approach - create FormData with files
         const workingFormData = new FormData();
         workingFormData.append('vehicleType', vehicleType);
         workingFormData.append('vehicleRegistration', registration);
@@ -1136,7 +1174,60 @@ export default function TransporterCompletionScreen() {
         workingFormData.append('refrigerated', refrigeration ? 'true' : 'false');
         workingFormData.append('transporterType', 'individual');
         
-        console.log('Using working FormData approach (no files first)...');
+        // Add files to workingFormData
+        console.log('📁 Adding files to FormData...');
+        
+        if (profilePhoto && profilePhoto.uri) {
+          const fileType = profilePhoto.type === 'image' ? 'image/jpeg' : (profilePhoto.type || 'image/jpeg');
+          workingFormData.append('profilePhoto', {
+            uri: profilePhoto.uri,
+            type: fileType,
+            name: 'profile-photo.jpg',
+          } as any);
+        }
+        
+        if (dlFile && dlFile.uri) {
+          const fileType = dlFile.type === 'image' ? 'image/jpeg' : (dlFile.type || 'image/jpeg');
+          workingFormData.append('dlFile', {
+            uri: dlFile.uri,
+            type: fileType,
+            name: 'drivers-license.jpg',
+          } as any);
+        }
+        
+        if (insuranceFile && insuranceFile.uri) {
+          const fileType = insuranceFile.type === 'image' ? 'image/jpeg' : (insuranceFile.type || 'image/jpeg');
+          workingFormData.append('insuranceFile', {
+            uri: insuranceFile.uri,
+            type: fileType,
+            name: 'insurance.jpg',
+          } as any);
+        }
+        
+        if (idFile && idFile.uri) {
+          const fileType = idFile.type === 'image' ? 'image/jpeg' : (idFile.type || 'image/jpeg');
+          workingFormData.append('idFile', {
+            uri: idFile.uri,
+            type: fileType,
+            name: 'driver-id.jpg',
+          } as any);
+        }
+        
+        // Add vehicle photos
+        if (vehiclePhotos && vehiclePhotos.length > 0) {
+          vehiclePhotos.forEach((img, idx) => {
+            if (img.uri) {
+              const fileType = img.type === 'image' ? 'image/jpeg' : (img.type || 'image/jpeg');
+              workingFormData.append('vehiclePhoto', {
+                uri: img.uri,
+                type: fileType,
+                name: `vehicle-photo-${idx}.jpg`,
+              } as any);
+            }
+          });
+        }
+        
+        console.log('Using working FormData approach (with files)...');
         
         let res;
         try {
@@ -1149,21 +1240,22 @@ export default function TransporterCompletionScreen() {
           });
           
           console.log('Request completed - Status:', res.status);
+          console.log('Response headers:', Object.fromEntries(res.headers.entries()));
           
         } catch (fetchError: any) {
           console.error('Fetch request failed:', fetchError);
           throw new Error(`Network error: ${fetchError.message}. Please check your internet connection and try again.`);
         }
 
-        console.log('=== API RESPONSE ===');
-        console.log('Status:', res.status);
-        console.log('Status Text:', res.statusText);
-        console.log('Headers:', Object.fromEntries(res.headers.entries()));
+        console.log('📡 API Response Status:', res.status);
+        
+        // Log response body for debugging
+        const responseText = await res.text();
         
         let data = null;
         let parseError = null;
         try {
-          const responseText = await res.text();
+          // Parse the response text
           console.log('Raw response text:', responseText);
           console.log('Response text length:', responseText.length);
           
@@ -1179,8 +1271,12 @@ export default function TransporterCompletionScreen() {
           console.error('Parse error details:', e.message);
         }
 
-        if (res.ok) {
-          console.log('Individual transporter created successfully:', data);
+        
+        // Check if the request was successful (200-299 status codes)
+        const isSuccess = res.status >= 200 && res.status < 300;
+        
+        if (isSuccess) {
+          console.log('✅ Individual transporter created successfully:', data);
           // Success: navigate to processing screen
           navigation.reset({
             index: 0,
@@ -1188,6 +1284,7 @@ export default function TransporterCompletionScreen() {
           });
           return true;
         } else {
+          console.log('❌ Response not OK, showing error');
           // Try to show backend error message if available
           let errorMsg = 'Failed to submit profile. Please try again.';
           
