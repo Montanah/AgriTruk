@@ -1,7 +1,7 @@
 import { FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -19,6 +19,8 @@ import { SubscriptionPlan } from '../components/common/SubscriptionPlanCard';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import CardValidator, { CardData, CardValidationResult } from '../utils/cardValidation';
+import paymentService from '../services/paymentService';
 
 interface PaymentScreenProps {
     route: {
@@ -47,12 +49,56 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
     const [cardholderName, setCardholderName] = useState('');
     const [isCardValid, setIsCardValid] = useState(false);
     const [cardData, setCardData] = useState<any>(null);
+    const [cardValidation, setCardValidation] = useState<CardValidationResult | null>(null);
+    const [cardType, setCardType] = useState<string>('unknown');
+    const [savedPaymentMethods, setSavedPaymentMethods] = useState<any[]>([]);
+    const [selectedSavedMethod, setSelectedSavedMethod] = useState<string | null>(null);
+
+    // Load saved payment methods on component mount
+    useEffect(() => {
+        loadSavedPaymentMethods();
+    }, []);
+
+    // Real-time card validation
+    useEffect(() => {
+        if (cardNumber && expiryDate && cvv && cardholderName) {
+            const cardData: CardData = {
+                number: cardNumber,
+                expiry: expiryDate,
+                cvc: cvv,
+                cardholderName: cardholderName,
+            };
+            
+            const validation = CardValidator.validateCard(cardData);
+            setCardValidation(validation);
+            setIsCardValid(validation.isValid);
+            setCardType(validation.cardType);
+        } else {
+            setCardValidation(null);
+            setIsCardValid(false);
+            setCardType('unknown');
+        }
+    }, [cardNumber, expiryDate, cvv, cardholderName]);
+
+    const loadSavedPaymentMethods = async () => {
+        try {
+            const result = await paymentService.getPaymentMethods();
+            if (result.success && result.paymentMethods) {
+                setSavedPaymentMethods(result.paymentMethods);
+            }
+        } catch (error) {
+            console.error('Error loading payment methods:', error);
+        }
+    };
 
     const handlePaymentMethodSelect = (method: 'mpesa' | 'stripe') => {
         setSelectedPaymentMethod(method);
         if (method === 'stripe') {
-            setPaymentStep('processing');
-            handleStripePayment();
+            if (savedPaymentMethods.length > 0) {
+                setPaymentStep('stripe-form');
+            } else {
+                setPaymentStep('stripe-form');
+            }
         } else {
             setPaymentStep('details');
         }
@@ -108,7 +154,60 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
     };
 
     const handleStripePayment = async () => {
-        setPaymentStep('stripe-form');
+        // Validate card data before processing
+        if (!isCardValid || !cardValidation?.isValid) {
+            Alert.alert(
+                'Invalid Card Details',
+                cardValidation?.errors.join('\n') || 'Please check your card information and try again.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const cardData: CardData = {
+                number: cardNumber,
+                expiry: expiryDate,
+                cvc: cvv,
+                cardholderName: cardholderName,
+            };
+
+            // Use the enhanced payment service
+            const paymentData = {
+                planId: plan.id,
+                amount: getTotalAmount(),
+                currency: 'USD',
+                isTrial: false,
+                autoRenew: true,
+            };
+
+            const result = await paymentService.processSubscriptionPayment(
+                paymentData,
+                selectedSavedMethod || undefined,
+                selectedSavedMethod ? undefined : cardData
+            );
+
+            if (result.success) {
+                Alert.alert(
+                    'Payment Successful! 🎉',
+                    'Your subscription has been activated successfully!',
+                    [
+                        {
+                            text: 'Continue',
+                            onPress: () => navigation.navigate(userType === 'transporter' ? 'TransporterTabs' : 'BrokerTabs')
+                        }
+                    ]
+                );
+            } else {
+                throw new Error(result.error || 'Payment failed');
+            }
+        } catch (error) {
+            console.error('Stripe payment error:', error);
+            Alert.alert('Error', (error as Error).message || 'Failed to process card payment. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCardValid = (data: any) => {

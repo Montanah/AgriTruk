@@ -246,6 +246,15 @@ const LoginScreen = ({ navigation }: any) => {
               disabled={loading}
             />
             {error ? <Text style={{ color: colors.error, marginTop: 12, textAlign: 'center', fontWeight: '600' }}>{error}</Text> : null}
+            
+            {/* Forgot Password Link */}
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={() => navigation.navigate('PasswordResetScreen')}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+            
             <Spacer size={spacing.md} />
             <Text style={styles.signupText}>
               Don't have an account?{' '}
@@ -510,6 +519,17 @@ const styles = StyleSheet.create({
   countryItemText: {
     fontSize: fonts.size.md,
     color: colors.text.primary,
+  },
+  forgotPasswordButton: {
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  forgotPasswordText: {
+    fontSize: fonts.size.sm,
+    color: colors.primary,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 
 });

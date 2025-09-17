@@ -372,6 +372,8 @@ export default function App() {
         <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="SignIn" component={LoginScreen} />
+        <Stack.Screen name="PasswordResetScreen" component={require('./src/screens/auth/PasswordResetScreen').default} />
+        <Stack.Screen name="ChangePasswordScreen" component={require('./src/screens/auth/ChangePasswordScreen').default} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
@@ -399,6 +401,8 @@ export default function App() {
         <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="SignIn" component={LoginScreen} />
+        <Stack.Screen name="PasswordResetScreen" component={require('./src/screens/auth/PasswordResetScreen').default} />
+        <Stack.Screen name="ChangePasswordScreen" component={require('./src/screens/auth/ChangePasswordScreen').default} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
@@ -424,6 +428,8 @@ export default function App() {
         <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="SignIn" component={LoginScreen} />
+        <Stack.Screen name="PasswordResetScreen" component={require('./src/screens/auth/PasswordResetScreen').default} />
+        <Stack.Screen name="ChangePasswordScreen" component={require('./src/screens/auth/ChangePasswordScreen').default} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         {/* Add role-specific screens for after verification */}

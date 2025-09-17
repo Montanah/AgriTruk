@@ -365,6 +365,15 @@ export default function TransporterCompletionScreen() {
     }
   }, [photoJustAdded]);
 
+  const validatePhone = (phone: string): boolean => {
+    if (!phone) return false;
+    const cleanPhone = phone.replace(/\s/g, '');
+    // Accept various phone number formats: 01, 07, 011, etc.
+    // Remove leading 0 and check if it's 9-10 digits
+    const withoutLeadingZero = cleanPhone.startsWith('0') ? cleanPhone.slice(1) : cleanPhone;
+    return /^[0-9]{9,10}$/.test(withoutLeadingZero);
+  };
+
   const isValid = () => {
     if (transporterType === 'individual') {
       return (
@@ -381,6 +390,7 @@ export default function TransporterCompletionScreen() {
         companyName &&
         companyReg &&
         companyContact &&
+        validatePhone(companyContact) &&
         profilePhoto
       );
     }
@@ -1741,7 +1751,7 @@ export default function TransporterCompletionScreen() {
             </View>
             <TextInput
               style={styles.input}
-              placeholder="Enter company contact (e.g. +254712345678)"
+              placeholder="Enter company contact (e.g. 0712345678 or 0112345678)"
               placeholderTextColor={colors.text.light}
               value={companyContact}
               onChangeText={setCompanyContact}

@@ -3,8 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { uploadFile } from '../utils/api';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,12 +18,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { API_ENDPOINTS } from '../constants/api';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { auth, db } from '../firebaseConfig';
-import { apiRequest } from '../utils/api';
+import { apiRequest, uploadFile } from '../utils/api';
 
 interface ShipperProfileData {
   name: string;
@@ -122,12 +120,39 @@ const AccountScreen = () => {
     }
   };
 
-  useEffect(() => {
-    loadProfile();
-  }, [user]);
+  const handleNotificationToggle = async (setting: 'email' | 'push' | 'sms') => {
+    if (!user?.uid || !profile) return;
 
+    try {
+      setLoading(true);
+      const newValue = !profile.preferences.notificationSettings[setting];
+      
+      await updateDoc(doc(db, 'users', user.uid), {
+        [`preferences.notificationSettings.${setting}`]: newValue,
+        updatedAt: new Date().toISOString(),
+      });
 
-  const loadProfile = async () => {
+      // Update local state
+      setProfile(prev => prev ? {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          notificationSettings: {
+            ...prev.preferences.notificationSettings,
+            [setting]: newValue
+          }
+        }
+      } : null);
+
+      Alert.alert('Success', `${setting.charAt(0).toUpperCase() + setting.slice(1)} notifications ${newValue ? 'enabled' : 'disabled'}`);
+    } catch (e: any) {
+      setError(e.message || `Failed to update ${setting} notification setting.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadProfile = useCallback(async () => {
     console.log('loadProfile called, user:', user?.uid ? 'exists' : 'null');
     
     if (!user?.uid) {
@@ -207,7 +232,11 @@ const AccountScreen = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [user, loadProfile]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -296,7 +325,7 @@ const AccountScreen = () => {
       setVerifyingEmail(true);
 
       // Use backend API for email verification - same pattern as EmailVerificationScreen
-      const response = await apiRequest('/auth', {
+      await apiRequest('/auth', {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-email-code',
@@ -340,7 +369,7 @@ const AccountScreen = () => {
       setVerifyingPhone(true);
 
       // Use backend API for phone verification - same pattern as auth flow
-      const response = await apiRequest('/auth', {
+      await apiRequest('/auth', {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-phone-code',
@@ -706,7 +735,11 @@ const AccountScreen = () => {
         <View style={styles.preferencesSection}>
           <Text style={styles.sectionTitle}>Notification Preferences</Text>
 
-          <View style={styles.preferenceRow}>
+          <TouchableOpacity 
+            style={[styles.preferenceRow, loading && styles.preferenceRowDisabled]}
+            onPress={() => handleNotificationToggle('email')}
+            disabled={loading}
+          >
             <View style={styles.preferenceInfo}>
               <MaterialCommunityIcons name="email-outline" size={20} color={colors.primary} />
               <Text style={styles.preferenceLabel}>Email Notifications</Text>
@@ -715,15 +748,23 @@ const AccountScreen = () => {
               styles.preferenceToggle,
               profile.preferences.notificationSettings.email && styles.preferenceActive
             ]}>
-              <MaterialCommunityIcons
-                name={profile.preferences.notificationSettings.email ? "check" : "close"}
-                size={16}
-                color={profile.preferences.notificationSettings.email ? colors.success : colors.error}
-              />
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <MaterialCommunityIcons
+                  name={profile.preferences.notificationSettings.email ? "check" : "close"}
+                  size={16}
+                  color={profile.preferences.notificationSettings.email ? colors.success : colors.error}
+                />
+              )}
             </View>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.preferenceRow}>
+          <TouchableOpacity 
+            style={[styles.preferenceRow, loading && styles.preferenceRowDisabled]}
+            onPress={() => handleNotificationToggle('push')}
+            disabled={loading}
+          >
             <View style={styles.preferenceInfo}>
               <MaterialCommunityIcons name="bell-outline" size={20} color={colors.primary} />
               <Text style={styles.preferenceLabel}>Push Notifications</Text>
@@ -732,15 +773,23 @@ const AccountScreen = () => {
               styles.preferenceToggle,
               profile.preferences.notificationSettings.push && styles.preferenceActive
             ]}>
-              <MaterialCommunityIcons
-                name={profile.preferences.notificationSettings.push ? "check" : "close"}
-                size={16}
-                color={profile.preferences.notificationSettings.push ? colors.success : colors.error}
-              />
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <MaterialCommunityIcons
+                  name={profile.preferences.notificationSettings.push ? "check" : "close"}
+                  size={16}
+                  color={profile.preferences.notificationSettings.push ? colors.success : colors.error}
+                />
+              )}
             </View>
-          </View>
+          </TouchableOpacity>
 
-          <View style={styles.preferenceRow}>
+          <TouchableOpacity 
+            style={[styles.preferenceRow, loading && styles.preferenceRowDisabled]}
+            onPress={() => handleNotificationToggle('sms')}
+            disabled={loading}
+          >
             <View style={styles.preferenceInfo}>
               <MaterialCommunityIcons name="message-text-outline" size={20} color={colors.primary} />
               <Text style={styles.preferenceLabel}>SMS Notifications</Text>
@@ -749,13 +798,17 @@ const AccountScreen = () => {
               styles.preferenceToggle,
               profile.preferences.notificationSettings.sms && styles.preferenceActive
             ]}>
-              <MaterialCommunityIcons
-                name={profile.preferences.notificationSettings.sms ? "check" : "close"}
-                size={16}
-                color={profile.preferences.notificationSettings.sms ? colors.success : colors.error}
-              />
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <MaterialCommunityIcons
+                  name={profile.preferences.notificationSettings.sms ? "check" : "close"}
+                  size={16}
+                  color={profile.preferences.notificationSettings.sms ? colors.success : colors.error}
+                />
+              )}
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Action Buttons */}
@@ -781,7 +834,7 @@ const AccountScreen = () => {
 
           <TouchableOpacity
             style={styles.utilityButton}
-            onPress={() => setChangePwd(true)}
+            onPress={() => navigation.navigate('ChangePasswordScreen')}
           >
             <MaterialCommunityIcons name="lock" size={24} color={colors.primary} />
             <Text style={styles.utilityButtonText}>Change Password</Text>
@@ -1860,6 +1913,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
+  },
+  preferenceRowDisabled: {
+    opacity: 0.6,
   },
   preferenceInfo: {
     flexDirection: 'row',

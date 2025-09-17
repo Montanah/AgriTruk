@@ -6,10 +6,12 @@ import APITestComponent from '../components/APITestComponent';
 import Divider from '../components/common/Divider';
 import NetworkTest from '../components/NetworkTest';
 import TransporterProfile from '../components/TransporterService/TransporterProfile';
+import TransporterInsights from '../components/TransporterService/TransporterInsights';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
 import { testBackendConnectivity, testTerminalLogging } from '../utils/api';
+import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 
 export default function TransporterHomeScreen() {
   const navigation = useNavigation();
@@ -19,6 +21,25 @@ export default function TransporterHomeScreen() {
   const [connectivityStatus, setConnectivityStatus] = useState<string>('');
   const [acceptingBooking, setAcceptingBooking] = useState(false);
   const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
+  
+  // Real data states
+  const [requests, setRequests] = useState([]);
+  const [currentTrip, setCurrentTrip] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  
+  // Insights data
+  const [insightsData, setInsightsData] = useState({
+    totalRevenue: 0,
+    weeklyRevenue: 0,
+    currentTripRevenue: 0,
+    totalTrips: 0,
+    completedTrips: 0,
+    accumulatedRevenue: 0,
+  });
+  
+  // Subscription status
+  const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
 
   const testBackend = async () => {
     setConnectivityStatus('Testing...');
@@ -116,59 +137,94 @@ export default function TransporterHomeScreen() {
     fetchProfile();
   }, []);
 
-  // Fetch requests and current trip data
+  // Fetch real data for insights and requests
+  const fetchInsightsData = async () => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      
+      // Fetch transporter stats
+      const statsResponse = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setInsightsData({
+          totalRevenue: statsData.totalRevenue || 0,
+          weeklyRevenue: statsData.weeklyRevenue || 0,
+          currentTripRevenue: statsData.currentTripRevenue || 0,
+          totalTrips: statsData.totalTrips || 0,
+          completedTrips: statsData.completedTrips || 0,
+          accumulatedRevenue: statsData.accumulatedRevenue || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching insights data:', error);
+    }
+  };
+
+  const fetchRequests = async () => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/requests`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setRequests(data.requests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching requests:', error);
+    }
+  };
+  
+  const fetchCurrentTrip = async () => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/current-trip`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentTrip(data.trip || null);
+      }
+    } catch (error) {
+      console.error('Error fetching current trip:', error);
+    }
+  };
+
+  // Fetch all data when component mounts
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const { getAuth } = require('firebase/auth');
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (user) {
-          const token = await user.getIdToken();
-          const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/requests`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          const data = await res.json();
-          setRequests(data.requests || []);
-        }
-      } catch (error) {
-        console.error('Error fetching requests:', error);
-      }
-    };
-    
-    const fetchCurrentTrip = async () => {
-      try {
-        const { getAuth } = require('firebase/auth');
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (user) {
-          const token = await user.getIdToken();
-          const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/current-trip`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          const data = await res.json();
-          setCurrentTrip(data.trip || null);
-        }
-      } catch (error) {
-        console.error('Error fetching current trip:', error);
-      }
-    };
-    
+    fetchInsightsData();
     fetchRequests();
     fetchCurrentTrip();
   }, []);
-
-  // Real API integration - no mock data
-  const [requests, setRequests] = useState([]);
-  const [currentTrip, setCurrentTrip] = useState(null);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [showModal, setShowModal] = useState(false);
 
   const handleAccept = (req) => {
     setCurrentTrip({ ...req, status: 'On Transit' });
@@ -191,14 +247,18 @@ export default function TransporterHomeScreen() {
     setSelectedRequest(null);
   };
 
-  if (loading) {
+  // Show loading if profile or subscription is loading
+  if (loading || subscriptionLoading) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ marginTop: 16, color: colors.primary, fontWeight: 'bold' }}>Loading profile...</Text>
+        <Text style={{ marginTop: 16, color: colors.primary, fontWeight: 'bold' }}>
+          {subscriptionLoading ? 'Checking subscription...' : 'Loading profile...'}
+        </Text>
       </View>
     );
   }
+  
   if (error) {
     return (
       <View style={styles.container}>
@@ -231,6 +291,24 @@ export default function TransporterHomeScreen() {
       <NetworkTest />
 
       <Divider style={{ marginVertical: spacing.md }} />
+      
+      {/* Real Insights Data */}
+      <View style={styles.card}>
+        <TransporterInsights
+          totalRevenue={insightsData.totalRevenue}
+          weeklyRevenue={insightsData.weeklyRevenue}
+          currentTripRevenue={insightsData.currentTripRevenue}
+          totalTrips={insightsData.totalTrips}
+          completedTrips={insightsData.completedTrips}
+          accumulatedRevenue={insightsData.accumulatedRevenue}
+          subscriptionStatus={subscriptionStatus ? {
+            isTrialActive: subscriptionStatus.isTrialActive,
+            daysRemaining: subscriptionStatus.daysRemaining,
+            planName: subscriptionStatus.currentPlan?.name || 'Free Trial'
+          } : undefined}
+        />
+      </View>
+
       {/* Profile Details */}
       {profile && (
         <View style={styles.card}>
@@ -271,18 +349,18 @@ export default function TransporterHomeScreen() {
           </View>
         </View>
       )}
-      {/* Current Trip (mock fallback) */}
+      {/* Current Trip */}
       {currentTrip && (
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Current Trip (Demo)</Text>
-          <Text style={styles.label}>Customer: <Text style={styles.value}>{currentTrip.customer}</Text></Text>
-          <Text style={styles.label}>From: <Text style={styles.value}>{currentTrip.from}</Text></Text>
-          <Text style={styles.label}>To: <Text style={styles.value}>{currentTrip.to}</Text></Text>
-          <Text style={styles.label}>Product: <Text style={styles.value}>{currentTrip.product}</Text></Text>
-          <Text style={styles.label}>Weight: <Text style={styles.value}>{currentTrip.weight} kg</Text></Text>
-          <Text style={styles.label}>ETA: <Text style={styles.value}>{currentTrip.eta}</Text></Text>
-          <Text style={styles.label}>Status: <Text style={[styles.value, { color: colors.success }]}>{currentTrip.status}</Text></Text>
-          <Text style={styles.label}>Contact: <Text style={styles.value}>{currentTrip.contact}</Text></Text>
+          <Text style={styles.sectionTitle}>Current Trip</Text>
+          <Text style={styles.label}>Customer: <Text style={styles.value}>{currentTrip.customer || 'N/A'}</Text></Text>
+          <Text style={styles.label}>From: <Text style={styles.value}>{currentTrip.from || 'N/A'}</Text></Text>
+          <Text style={styles.label}>To: <Text style={styles.value}>{currentTrip.to || 'N/A'}</Text></Text>
+          <Text style={styles.label}>Product: <Text style={styles.value}>{currentTrip.product || 'N/A'}</Text></Text>
+          <Text style={styles.label}>Weight: <Text style={styles.value}>{currentTrip.weight || 0} kg</Text></Text>
+          <Text style={styles.label}>ETA: <Text style={styles.value}>{currentTrip.eta || 'N/A'}</Text></Text>
+          <Text style={styles.label}>Status: <Text style={[styles.value, { color: colors.success }]}>{currentTrip.status || 'N/A'}</Text></Text>
+          <Text style={styles.label}>Contact: <Text style={styles.value}>{currentTrip.contact || 'N/A'}</Text></Text>
           {currentTrip.special && currentTrip.special.length > 0 && (
             <Text style={styles.label}>Special: <Text style={styles.value}>{currentTrip.special.join(', ')}</Text></Text>
           )}
@@ -295,10 +373,10 @@ export default function TransporterHomeScreen() {
           </TouchableOpacity>
         </View>
       )}
-      {/* Incoming Requests (mock fallback) */}
+      {/* Incoming Requests */}
       <View style={styles.card}>
         <View style={styles.requestsHeader}>
-          <Text style={styles.sectionTitle}>Incoming Requests (Demo)</Text>
+          <Text style={styles.sectionTitle}>Incoming Requests</Text>
           {!acceptingBooking && (
             <View style={styles.notAcceptingBadge}>
               <Ionicons name="pause-circle" size={16} color={colors.warning} />
@@ -357,7 +435,7 @@ export default function TransporterHomeScreen() {
           />
         )}
       </View>
-      {/* Modal for request details and actions (mock fallback) */}
+      {/* Modal for request details and actions */}
       {showModal && selectedRequest && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>

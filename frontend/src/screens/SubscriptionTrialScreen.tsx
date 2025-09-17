@@ -21,6 +21,7 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import subscriptionService from '../services/subscriptionService';
+import paymentService from '../services/paymentService';
 
 interface SubscriptionTrialScreenProps {
     route: {
@@ -71,10 +72,17 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
             }
 
             // Create subscriber for trial (no payment required for free trial)
-            const result = await subscriptionService.createSubscription(
-                trialPlan.id,
-                'trial' // Special payment method for trial
-            );
+            // Use payment service with isTrial flag to ensure no payment deduction
+            const paymentData = {
+                planId: trialPlan.id,
+                amount: 0, // Free trial
+                currency: 'USD',
+                isTrial: true,
+                trialDays: trialDuration,
+                autoRenew: false, // Don't auto-renew trials
+            };
+
+            const result = await paymentService.processSubscriptionPayment(paymentData);
             
             if (result.success) {
                 setTrialActivated(true);
@@ -89,7 +97,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                     ]
                 );
             } else {
-                Alert.alert('Error', result.message || 'Failed to activate trial. Please try again.');
+                Alert.alert('Error', result.error || 'Failed to activate trial. Please try again.');
             }
         } catch (error) {
             console.error('Trial activation error:', error);
