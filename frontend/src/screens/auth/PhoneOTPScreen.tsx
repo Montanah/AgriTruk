@@ -29,11 +29,12 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [userData, setUserData] = useState<any>(null);
-  const { phone: routePhone, role: routeRole } = (route.params as any) || {};
+  const { phone: routePhone, role: routeRole, userId: routeUserId } = (route.params as any) || {};
   
   // Get user data from route params or fetch from Firestore
   const phone = routePhone || userData?.phone;
   const role = routeRole || userData?.role;
+  const userId = routeUserId;
 
   // Animation refs
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -154,7 +155,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
         body: JSON.stringify({
           action: 'verify-phone',
           code: otp,
-          phoneNumber: phone,
+          userId: userId,
         }),
       });
 
@@ -243,7 +244,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
         },
         body: JSON.stringify({
           action: 'resend-phone-code',
-          phoneNumber: phone,
+          userId: userId,
         }),
       });
 

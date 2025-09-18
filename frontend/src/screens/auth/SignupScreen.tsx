@@ -4,11 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Dimensions,
   Image,
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -24,14 +21,12 @@ import colors from '../../constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithCredential, getAuth } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import PasswordStrengthIndicator from '../../components/common/PasswordStrengthIndicator';
 import { auth } from '../../firebaseConfig';
-import { apiRequest, apiRequestWithRetry } from '../../utils/api';
 
 WebBrowser.maybeCompleteAuthSession();
-
-const { width } = Dimensions.get('window');
 
 const countryOptions = [
   { code: '+255', name: 'Tanzania', flag: '🇹🇿' },
@@ -55,7 +50,7 @@ const roleLabels = {
 };
 
 const SignupScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation() as any;
   const route = useRoute();
   const { role } = route.params as { role?: string } || {};
   const accent = roleAccents[role as keyof typeof roleAccents] || colors.primary;
@@ -115,13 +110,14 @@ const SignupScreen = () => {
       duration: 600,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [inputAnim]);
 
 
 
   const handleSignup = async () => {
     if (loading) return;
 
+    console.log('handleSignup called - signupMethod:', signupMethod);
     setError('');
 
     // Validation
@@ -185,20 +181,6 @@ const SignupScreen = () => {
     setLoading(true);
 
     try {
-      // Firebase Auth signup
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-
-      // Get Firebase JWT
-      const idToken = await userCredential.user.getIdToken();
-      console.log('Firebase token obtained:', idToken ? 'Yes' : 'No');
-
-      // Store JWT for future requests
-      await AsyncStorage.setItem('jwt', idToken);
-
       // Map frontend role to backend role
       const backendRoleMap: Record<string, string> = {
         shipper: 'shipper',
@@ -207,92 +189,91 @@ const SignupScreen = () => {
         transporter: 'transporter',
       };
 
-      // Register user profile in backend
-      console.log('Registering user in backend with data:', {
+      // Use backend signup endpoint that creates both Firebase user and Firestore record
+      console.log('Using backend signup to create Firebase user with both email and phone providers');
+      console.log('SignupScreen - Received role from SignupSelectionScreen:', role);
+      
+      const userData = {
         name: name.trim(),
         email: email.trim(),
         phone: selectedCountry.code + phone.trim(),
+        password: password,
         role: backendRoleMap[role || 'shipper'],
         preferredVerificationMethod: signupMethod,
         userType: role || 'shipper',
         languagePreference: 'en',
         location: null,
         profilePhotoUrl: null,
-      });
+      };
+
+      console.log('Registering user via backend signup with data:', userData);
       
       try {
-        await apiRequestWithRetry('/auth/register', {
+        // Use the backend signup endpoint that creates Firebase user with both email and phone
+        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/auth/signup`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${idToken}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            name: name.trim(),
+          body: JSON.stringify(userData),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('Backend signup successful:', result);
+        
+        // Store user data for later use
+        await AsyncStorage.setItem('pendingUserData', JSON.stringify(userData));
+        
+        // Sign in the user with Firebase after successful backend registration
+        console.log('Signing in user with Firebase after backend registration');
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        console.log('Firebase sign-in successful:', userCredential.user.uid);
+        
+        // Store Firebase token for future requests
+        const idToken = await userCredential.user.getIdToken();
+        await AsyncStorage.setItem('jwt', idToken);
+        
+        // Backend registration complete - verification codes are automatically sent by backend
+        console.log('User registered successfully, verification codes sent by backend');
+
+        // Navigate to verification screen immediately based on preferred method
+        console.log('🔍 Navigation decision - signupMethod:', signupMethod);
+        console.log('🔍 preferredVerificationMethod in userData:', userData.preferredVerificationMethod);
+        
+        if (signupMethod === 'phone') {
+          console.log('✅ Navigating to PhoneOTPScreen for phone verification');
+          navigation.navigate('PhoneOTPScreen', {
             email: email.trim(),
             phone: selectedCountry.code + phone.trim(),
-            role: backendRoleMap[role || 'shipper'],
-            preferredVerificationMethod: signupMethod,
-            userType: role || 'shipper', // Add userType field
-            languagePreference: 'en', // Default language
-            location: null, // Will be set later
-            profilePhotoUrl: null, // Will be set later
-          }),
-        });
-        console.log('Backend registration successful');
-      } catch (backendError) {
-        console.warn('Backend registration failed:', backendError);
-        
-        // Check if it's a duplicate user error
-        if (backendError.message && (
-          backendError.message.includes('already registered') || 
-          backendError.message.includes('already exists') ||
-          backendError.message.includes('Phone number is already registered') ||
-          backendError.message.includes('Email is already registered')
-        )) {
-          // This is a duplicate user error - clean up Firebase user and throw error
-          try {
-            await userCredential.user.delete();
-            console.log('Firebase user deleted due to duplicate data');
-          } catch (deleteError) {
-            console.warn('Failed to delete Firebase user:', deleteError);
-          }
-          throw backendError;
+            role: role || 'shipper',
+            userId: userCredential.user.uid
+          });
+        } else if (signupMethod === 'email') {
+          console.log('✅ Navigating to EmailVerification for email verification');
+          navigation.navigate('EmailVerification', {
+            email: email.trim(),
+            phone: selectedCountry.code + phone.trim(),
+            role: role || 'shipper',
+            userId: userCredential.user.uid
+          });
+        } else {
+          console.log('❌ Unknown signupMethod:', signupMethod, 'defaulting to phone');
+          navigation.navigate('PhoneOTPScreen', {
+            email: email.trim(),
+            phone: selectedCountry.code + phone.trim(),
+            role: role || 'shipper',
+            userId: userCredential.user.uid
+          });
         }
         
-        // For other errors, continue with signup and store data locally
-        console.warn('Backend registration failed, but Firebase user created. Storing data locally for later sync.');
-        await AsyncStorage.setItem('pendingUserData', JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
-          phone: selectedCountry.code + phone.trim(),
-          role: backendRoleMap[role || 'shipper'],
-          preferredVerificationMethod: signupMethod,
-          userType: role || 'shipper',
-          languagePreference: 'en',
-          location: null,
-          profilePhotoUrl: null,
-        }));
-      }
-
-      // Backend registration complete - verification codes are automatically sent by backend
-      console.log('User registered successfully, verification codes sent by backend');
-
-      // Navigate to verification screen immediately
-      if (signupMethod === 'phone') {
-        navigation.navigate('PhoneOTPScreen', {
-          email: email.trim(),
-          phone: selectedCountry.code + phone.trim(),
-          role: role || 'shipper',
-          password
-        });
-      } else {
-        navigation.navigate('EmailVerification', {
-          email: email.trim(),
-          phone: selectedCountry.code + phone.trim(),
-          role: role || 'shipper',
-          password
-        });
+      } catch (backendError) {
+        console.warn('Backend signup failed:', backendError);
+        throw backendError;
       }
     } catch (err: any) {
       console.error('Signup error:', err);
@@ -431,7 +412,10 @@ const SignupScreen = () => {
                     styles.switchBtn,
                     signupMethod === 'phone' && { backgroundColor: accent }
                   ]}
-                  onPress={() => setSignupMethod('phone')}
+                  onPress={() => {
+                    console.log('User selected phone verification method');
+                    setSignupMethod('phone');
+                  }}
                 >
                   <Ionicons
                     name="call"
@@ -448,7 +432,10 @@ const SignupScreen = () => {
                     styles.switchBtn,
                     signupMethod === 'email' && { backgroundColor: accent }
                   ]}
-                  onPress={() => setSignupMethod('email')}
+                  onPress={() => {
+                    console.log('User selected email verification method');
+                    setSignupMethod('email');
+                  }}
                 >
                   <Ionicons
                     name="mail"
@@ -574,6 +561,14 @@ const SignupScreen = () => {
                   />
                 </TouchableOpacity>
               </View>
+
+              {/* Password Strength Indicator */}
+              <PasswordStrengthIndicator
+                password={password}
+                confirmPassword={confirmPassword}
+                showLabel={true}
+                containerStyle={styles.passwordStrengthContainer}
+              />
 
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -858,6 +853,9 @@ const styles = StyleSheet.create({
   passwordContainer: {
     width: '100%',
     position: 'relative',
+    marginBottom: spacing.md,
+  },
+  passwordStrengthContainer: {
     marginBottom: spacing.md,
   },
   eyeIcon: {

@@ -133,6 +133,7 @@ export default function App() {
   const [subscriptionStatus, setSubscriptionStatus] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
   const [connectionError, setConnectionError] = React.useState<string | null>(null);
+  const [userData, setUserData] = React.useState<any>(null);
 
   // Retry function for connection errors
   const retryConnection = React.useCallback(() => {
@@ -194,6 +195,7 @@ export default function App() {
             const isUserVerified = !!data.isVerified;
             setIsVerified(isUserVerified);
             setRole(data.role || null);
+            setUserData(data); // Store user data for routing decisions
             
             // User data processed
 
@@ -421,7 +423,17 @@ export default function App() {
   } else if (role && role !== 'transporter' && role !== 'broker' && !isVerified) {
     // Unverified non-transporter/non-broker users - send to verification
     // Unverified user detected - routing to verification
-    initialRouteName = 'EmailVerification'; // Default to email verification
+    // Check user's preferred verification method
+    const preferredMethod = userData?.preferredVerificationMethod;
+    console.log('🔍 App.tsx: User preferred verification method:', preferredMethod);
+    
+    if (preferredMethod === 'phone') {
+      console.log('✅ App.tsx: Routing to PhoneOTPScreen based on user preference');
+      initialRouteName = 'PhoneOTPScreen';
+    } else {
+      console.log('✅ App.tsx: Routing to EmailVerification (default or email preference)');
+      initialRouteName = 'EmailVerification';
+    }
     screens = (
       <>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -545,8 +557,16 @@ export default function App() {
         );
       } else {
         // Unverified transporter - route to verification screen
-        console.log('App.tsx: Unverified transporter detected - routing to EmailVerification');
-        initialRouteName = 'EmailVerification';
+        console.log('App.tsx: Unverified transporter detected - checking preferred verification method');
+        const preferredMethod = userData?.preferredVerificationMethod;
+        
+        if (preferredMethod === 'phone') {
+          console.log('✅ App.tsx: Routing transporter to PhoneOTPScreen based on user preference');
+          initialRouteName = 'PhoneOTPScreen';
+        } else {
+          console.log('✅ App.tsx: Routing transporter to EmailVerification (default or email preference)');
+          initialRouteName = 'EmailVerification';
+        }
         screens = (
           <>
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
@@ -561,7 +581,15 @@ export default function App() {
     } else {
       // Fallback: Any other authenticated user who is not verified should go to verification
       // Fallback: authenticated but unverified user - routing to verification
-      initialRouteName = 'EmailVerification';
+      const preferredMethod = userData?.preferredVerificationMethod;
+      
+      if (preferredMethod === 'phone') {
+        console.log('✅ App.tsx: Routing fallback user to PhoneOTPScreen based on user preference');
+        initialRouteName = 'PhoneOTPScreen';
+      } else {
+        console.log('✅ App.tsx: Routing fallback user to EmailVerification (default or email preference)');
+        initialRouteName = 'EmailVerification';
+      }
       screens = (
         <>
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -818,7 +846,15 @@ export default function App() {
 
     if (!isVerified) {
       // Unverified business users - send to verification
-      initialRouteName = 'EmailVerification';
+      const preferredMethod = userData?.preferredVerificationMethod;
+      
+      if (preferredMethod === 'phone') {
+        console.log('✅ App.tsx: Routing business user to PhoneOTPScreen based on user preference');
+        initialRouteName = 'PhoneOTPScreen';
+      } else {
+        console.log('✅ App.tsx: Routing business user to EmailVerification (default or email preference)');
+        initialRouteName = 'EmailVerification';
+      }
       screens = (
         <>
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
