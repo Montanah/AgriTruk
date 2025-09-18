@@ -24,7 +24,20 @@ function formatPhoneNumber(phone) {
   }
   return phone;
 }
+function formatPhoneNumberAuth(phone) {
+  if (!phone) return null;
 
+  let cleaned = phone.toString().replace(/\D/g, ""); 
+
+  // If it starts with "0", replace with +254
+  if (cleaned.startsWith("0")) {
+    cleaned = "+254" + cleaned.slice(1);
+  } else if (!cleaned.startsWith("+")) {
+    cleaned = "+" + cleaned;
+  }
+
+  return cleaned;
+}
 exports.registerUser = async (req, res) => {
   const { name, phone,email, role, location, userType, languagePreference, profilePhotoUrl, preferredVerificationMethod } = req.body;
   console.log('Registering user:', req.user);
@@ -197,9 +210,9 @@ exports.verifyEmailCode = async (req, res) => {
 };
 
 exports.verifyPhoneCode = async (req, res) => {
-  const { code } = req.body;
-  const uid = req.user.uid;
-
+  const { code, userId } = req.body;
+  const uid = req.user.uid || userId;
+  //const uid = userId
   try {
     const userData =await User.get(uid);
     const userRef = admin.firestore().collection("users").doc(uid);
@@ -388,12 +401,14 @@ exports.forgotPassword = async (req, res) => {
         message: 'Email or phone number is required'
       });
     }
-
+  
+   
     let user;
     if (email) {
       user = await admin.auth().getUserByEmail(email);
     } else if (phone) {
-      user = await admin.auth().getUserByPhoneNumber(phone);
+      const formatPhone = formatPhoneNumberAuth(phone);
+      user = await admin.auth().getUserByPhoneNumber(formatPhone);
     }
 
     if (!user) {
@@ -422,11 +437,13 @@ exports.forgotPassword = async (req, res) => {
       });
     } else if (phone) {
       const smsMessage = `Your password reset code is: ${verificationCode}`;
+      
       const formattedPhoneNumber = formatPhoneNumber(phone);
       await smsService.sendSMS(
         'TRUK LTD',
-        formattedPhoneNumber, 
-        smsMessage);
+        smsMessage,
+        formattedPhoneNumber
+     );
     }
 
     await logActivity(user.uid, 'forgot_password', req);
@@ -804,5 +821,114 @@ exports.deactivateAccount = async (req, res) => {
   } catch (error) {
     console.error('Deactivate account error:', error);
     res.status(500).json({ message: 'Failed to deactivate account' });
+  }
+};
+
+exports.registerUserFromBackend = async (req, res) => {
+  const { 
+    name, 
+    phone, 
+    email, 
+    password,     // 👈 add password (or generate random if OTP-only)
+    role, 
+    location, 
+    userType, 
+    languagePreference, 
+    profilePhotoUrl, 
+    preferredVerificationMethod 
+  } = req.body;
+
+  if (!["shipper", "transporter", "admin", "user", "broker", "business"].includes(role)) {
+    return res.status(400).json({ message: "Invalid role" });
+  }
+
+  try {
+    // 🔹 Step 1: Check if email/phone already exists in Auth
+    let existingUser;
+    try {
+      existingUser = await admin.auth().getUserByEmail(email);
+    } catch (_) {}
+    if (existingUser) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    try {
+      existingUser = await admin.auth().getUserByPhoneNumber(phone);
+    } catch (_) {}
+    if (existingUser) {
+      return res.status(409).json({ message: "Phone already registered" });
+    }
+
+    // 🔹 Step 2: Create Firebase user
+    const userRecord = await admin.auth().createUser({
+      email,
+      password,       // or omit if OTP-only
+      phoneNumber: phone,
+      displayName: name,
+      // photoURL: profilePhotoUrl || null,
+    });
+
+    const uid = userRecord.uid;
+
+    // 🔹 Step 3: Generate verification codes
+    const emailVerificationCode = generateOtp();
+    const phoneVerificationCode = generateOtp();
+    const verificationExpiry = admin.firestore.Timestamp.fromDate(
+      new Date(Date.now() + 10 * 60 * 1000) // 10 mins
+    );
+
+    // 🔹 Step 4: Save user in Firestore
+    const user = await User.create({
+      uid,
+      email,
+      name,
+      phone,
+      role,
+      userType,
+      location,
+      languagePreference,
+      profilePhotoUrl,
+      emailVerificationCode, 
+      phoneVerificationCode,
+      emailVerified: false,
+      phoneVerified: false,
+      isVerified: false,
+      phoneVerificationExpires: verificationExpiry,
+      verificationExpires: verificationExpiry,
+      preferredVerificationMethod
+    });
+
+    // 🔹 Step 5: Send code
+    if (preferredVerificationMethod === "email") {
+      await sendEmail({
+        to: email,
+        subject: 'Your Truk Verification Code',
+        text: `Your verification code is: ${emailVerificationCode}`,
+        html: getMFATemplate(emailVerificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
+      });
+    } else if (preferredVerificationMethod === "phone") {
+      const formattedPhone = formatPhoneNumber(phone);
+      const smsMessage = `Your Truk verification code is: ${phoneVerificationCode}`;
+      await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+    } else {
+      return res.status(400).json({ message: "Invalid preferred verification method" });
+    }
+
+    // 🔹 Step 6: Log + Notify
+    await logActivity(uid, 'user_registration', req);
+    await Notification.create({
+      userId: uid,
+      type: 'Welcome to Truk',
+      message: 'Your account has been created successfully',
+      UserType: 'user',
+    });
+
+    res.status(201).json({ message: "User account created", user });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(400).json({
+      code: 'REGISTRATION_FAILED',
+      message: error.message || 'User registration failed'
+    });
   }
 };
