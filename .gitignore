@@ -125,5 +125,5 @@ app-example
 *.md
 !README.md
 
-# Mobile branch specific: Exclude backend folder
-backend/
+# Mobile branch specific: Exclude backend folder (temporarily disabled for phone login changes)
+# backend/

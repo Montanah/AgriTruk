@@ -932,3 +932,41 @@ exports.registerUserFromBackend = async (req, res) => {
     });
   }
 };
+
+// Get user by phone number for login
+exports.getUserByPhone = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({ 
+        code: "ERR_MISSING_PHONE",
+        message: "Phone number is required" 
+      });
+    }
+    
+    // Use the User model to get user by phone
+    const user = await User.getUserByPhone(phone);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        code: "ERR_USER_NOT_FOUND",
+        message: "No account found with this phone number" 
+      });
+    }
+    
+    // Return only necessary data for login
+    res.json({
+      email: user.email,
+      phoneVerified: user.phoneVerified || false,
+      emailVerified: user.emailVerified || false
+    });
+    
+  } catch (error) {
+    console.error('Get user by phone error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Internal server error'
+    });
+  }
+};
