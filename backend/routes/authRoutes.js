@@ -665,4 +665,52 @@ router.post('/signup', authController.registerUserFromBackend);
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/verify-phone', authController.verifyPhoneCode);
+
+/**
+ * @swagger
+ * /api/auth/get-user-by-phone:
+ *   post:
+ *     summary: Get user by phone number
+ *     description: Retrieve user information by phone number for login purposes.
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - phone
+ *             properties:
+ *               phone:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User found successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 email:
+ *                   type: string
+ *                 phoneVerified:
+ *                   type: boolean
+ *                 emailVerified:
+ *                   type: boolean
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/get-user-by-phone', authController.getUserByPhone);
+
 module.exports = router
