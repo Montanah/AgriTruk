@@ -117,7 +117,6 @@ const SignupScreen = () => {
   const handleSignup = async () => {
     if (loading) return;
 
-    console.log('handleSignup called - signupMethod:', signupMethod);
     setError('');
 
     // Validation
@@ -242,28 +241,15 @@ const SignupScreen = () => {
         console.log('User registered successfully, verification codes sent by backend');
 
         // Navigate to verification screen immediately based on preferred method
-        console.log('🔍 Navigation decision - signupMethod:', signupMethod);
-        console.log('🔍 preferredVerificationMethod in userData:', userData.preferredVerificationMethod);
-        
         if (signupMethod === 'phone') {
-          console.log('✅ Navigating to PhoneOTPScreen for phone verification');
           navigation.navigate('PhoneOTPScreen', {
-            email: email.trim(),
-            phone: selectedCountry.code + phone.trim(),
-            role: role || 'shipper',
-            userId: userCredential.user.uid
-          });
-        } else if (signupMethod === 'email') {
-          console.log('✅ Navigating to EmailVerification for email verification');
-          navigation.navigate('EmailVerification', {
             email: email.trim(),
             phone: selectedCountry.code + phone.trim(),
             role: role || 'shipper',
             userId: userCredential.user.uid
           });
         } else {
-          console.log('❌ Unknown signupMethod:', signupMethod, 'defaulting to phone');
-          navigation.navigate('PhoneOTPScreen', {
+          navigation.navigate('EmailVerification', {
             email: email.trim(),
             phone: selectedCountry.code + phone.trim(),
             role: role || 'shipper',
@@ -412,10 +398,7 @@ const SignupScreen = () => {
                     styles.switchBtn,
                     signupMethod === 'phone' && { backgroundColor: accent }
                   ]}
-                  onPress={() => {
-                    console.log('User selected phone verification method');
-                    setSignupMethod('phone');
-                  }}
+                  onPress={() => setSignupMethod('phone')}
                 >
                   <Ionicons
                     name="call"
@@ -432,10 +415,7 @@ const SignupScreen = () => {
                     styles.switchBtn,
                     signupMethod === 'email' && { backgroundColor: accent }
                   ]}
-                  onPress={() => {
-                    console.log('User selected email verification method');
-                    setSignupMethod('email');
-                  }}
+                  onPress={() => setSignupMethod('email')}
                 >
                   <Ionicons
                     name="mail"

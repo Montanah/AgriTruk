@@ -425,13 +425,10 @@ export default function App() {
     // Unverified user detected - routing to verification
     // Check user's preferred verification method
     const preferredMethod = userData?.preferredVerificationMethod;
-    console.log('🔍 App.tsx: User preferred verification method:', preferredMethod);
     
     if (preferredMethod === 'phone') {
-      console.log('✅ App.tsx: Routing to PhoneOTPScreen based on user preference');
       initialRouteName = 'PhoneOTPScreen';
     } else {
-      console.log('✅ App.tsx: Routing to EmailVerification (default or email preference)');
       initialRouteName = 'EmailVerification';
     }
     screens = (
@@ -557,14 +554,11 @@ export default function App() {
         );
       } else {
         // Unverified transporter - route to verification screen
-        console.log('App.tsx: Unverified transporter detected - checking preferred verification method');
         const preferredMethod = userData?.preferredVerificationMethod;
         
         if (preferredMethod === 'phone') {
-          console.log('✅ App.tsx: Routing transporter to PhoneOTPScreen based on user preference');
           initialRouteName = 'PhoneOTPScreen';
         } else {
-          console.log('✅ App.tsx: Routing transporter to EmailVerification (default or email preference)');
           initialRouteName = 'EmailVerification';
         }
         screens = (
@@ -584,10 +578,8 @@ export default function App() {
       const preferredMethod = userData?.preferredVerificationMethod;
       
       if (preferredMethod === 'phone') {
-        console.log('✅ App.tsx: Routing fallback user to PhoneOTPScreen based on user preference');
         initialRouteName = 'PhoneOTPScreen';
       } else {
-        console.log('✅ App.tsx: Routing fallback user to EmailVerification (default or email preference)');
         initialRouteName = 'EmailVerification';
       }
       screens = (
@@ -849,10 +841,8 @@ export default function App() {
       const preferredMethod = userData?.preferredVerificationMethod;
       
       if (preferredMethod === 'phone') {
-        console.log('✅ App.tsx: Routing business user to PhoneOTPScreen based on user preference');
         initialRouteName = 'PhoneOTPScreen';
       } else {
-        console.log('✅ App.tsx: Routing business user to EmailVerification (default or email preference)');
         initialRouteName = 'EmailVerification';
       }
       screens = (

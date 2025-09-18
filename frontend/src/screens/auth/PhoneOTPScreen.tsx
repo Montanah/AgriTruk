@@ -28,6 +28,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [verified, setVerified] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const { phone: routePhone, role: routeRole, userId: routeUserId } = (route.params as any) || {};
   
@@ -40,6 +41,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
   const logoAnim = useRef(new Animated.Value(0)).current;
   const inputAnim = useRef(new Animated.Value(0)).current;
   const buttonAnim = useRef(new Animated.Value(1)).current;
+  const successAnim = useRef(new Animated.Value(0)).current;
 
   // Attempt SMS autofill/auto-read (Android only)
   useEffect(() => {
@@ -109,6 +111,17 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
     }
   }, [countdown]);
 
+  // Success animation
+  useEffect(() => {
+    if (verified) {
+      Animated.timing(successAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [verified]);
+
   // Animation on mount
   useEffect(() => {
     Animated.sequence([
@@ -161,8 +174,9 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
 
       // Success - user is now verified
       // Phone verification successful
+      setVerified(true);
 
-      // Show success briefly, then navigate directly
+      // Show success animation briefly, then navigate directly
       setTimeout(() => {
         // Phone verification complete - navigating to appropriate screen for role
         
@@ -415,6 +429,28 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             )}
           </TouchableOpacity>
         </Animated.View>
+
+        {/* Success Animation Overlay */}
+        {verified && (
+          <Animated.View
+            style={[
+              styles.successContainer,
+              {
+                opacity: successAnim,
+                transform: [{
+                  scale: successAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                }],
+              },
+            ]}
+          >
+            <Ionicons name="checkmark-circle" size={60} color={colors.success} />
+            <Text style={styles.successText}>Phone Verified!</Text>
+            <Text style={styles.successSubtext}>Redirecting you...</Text>
+          </Animated.View>
+        )}
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );
@@ -564,6 +600,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: fonts.size.md,
     textDecorationLine: 'underline',
+  },
+  successContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  successText: {
+    color: colors.white,
+    fontSize: fonts.size.lg + 4,
+    fontWeight: 'bold',
+    marginTop: spacing.lg,
+    textAlign: 'center',
+  },
+  successSubtext: {
+    color: colors.text.light,
+    fontSize: fonts.size.md,
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
 });
 
