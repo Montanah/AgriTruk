@@ -253,7 +253,7 @@ exports.toggleAvailability = async (req, res) => {
       return res.status(400).json({ message: 'Availability must be true or false' });
     }
 
-    const updated = await Transporter.update(transporterId, { availability });
+    const updated = await Transporter.update(transporterId, { acceptingBooking: availability });
 
     await logActivity(req.user.uid, 'toggle_availability', req);
 
