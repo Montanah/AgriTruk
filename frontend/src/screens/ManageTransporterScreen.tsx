@@ -182,7 +182,7 @@ export default function ManageTransporterScreen({ route }: any) {
         if (!user) return;
 
         const token = await user.getIdToken();
-        const response = await fetch(`${API_ENDPOINTS.USERS}/${user.uid}`, {
+        const response = await fetch(`${API_ENDPOINTS.AUTH}/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -191,10 +191,49 @@ export default function ManageTransporterScreen({ route }: any) {
 
         if (response.ok) {
           const data = await response.json();
-          setUserProfile(data.userData);
+          const userProfileData = data.userData || data;
+          setUserProfile({
+            ...userProfileData,
+            emailVerified: userProfileData.emailVerified === true || userProfileData.isVerified === true,
+            phoneVerified: userProfileData.phoneVerified === true,
+            isVerified: userProfileData.isVerified === true || userProfileData.emailVerified === true,
+          });
+        } else {
+          console.error('Failed to fetch user profile:', response.status, response.statusText);
+          // Fallback to Firebase user data
+          setUserProfile({
+            name: user.displayName || user.email?.split('@')[0] || 'User',
+            firstName: user.displayName || user.email?.split('@')[0] || 'User',
+            profilePhotoUrl: user.photoURL || null,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+            emailVerified: user.emailVerified === true,
+            phoneVerified: false,
+            isVerified: user.emailVerified === true,
+            role: 'transporter',
+            status: 'active'
+          });
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
+        // Fallback to Firebase user data on error
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          setUserProfile({
+            name: user.displayName || user.email?.split('@')[0] || 'User',
+            firstName: user.displayName || user.email?.split('@')[0] || 'User',
+            profilePhotoUrl: user.photoURL || null,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+            emailVerified: user.emailVerified === true,
+            phoneVerified: false,
+            isVerified: user.emailVerified === true,
+            role: 'transporter',
+            status: 'active'
+          });
+        }
       }
     };
 
@@ -256,6 +295,46 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   }, [transporterType]);
 
+  // Function to update location in backend
+  const updateLocationInBackend = async (location: any) => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/update-location`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          latitude: location.latitude,
+          longitude: location.longitude,
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Location updated in backend successfully');
+        // Update the individual profile with the new location
+        setIndividualProfile((prev: any) => ({
+          ...prev,
+          lastKnownLocation: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            updatedAt: new Date().toISOString(),
+          }
+        }));
+      } else {
+        console.error('Failed to update location in backend:', response.status);
+      }
+    } catch (error) {
+      console.error('Error updating location in backend:', error);
+    }
+  };
+
   // Location tracking setup
   useEffect(() => {
     if (transporterType === 'individual') {
@@ -264,6 +343,9 @@ export default function ManageTransporterScreen({ route }: any) {
             // Set up location update callback
             locationService.setLocationUpdateCallback(async (location) => {
               setCurrentLocation(location);
+              
+              // Update location in backend
+              await updateLocationInBackend(location);
               
               // Convert coordinates to place name
               if (location.latitude && location.longitude) {
@@ -1745,7 +1827,12 @@ export default function ManageTransporterScreen({ route }: any) {
                 : 'Enable location tracking to receive nearby job requests and share your location with clients.'
               }
             </Text>
-            {currentLocation && (
+            {!locationName && (currentLocation || individualProfile?.lastKnownLocation) && (
+              <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                Note: Location names require a valid Google Maps API key. Coordinates are shown as fallback.
+              </Text>
+            )}
+            {(currentLocation || individualProfile?.lastKnownLocation) && (
               <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12, marginTop: 8 }}>
                 <Text style={{ color: colors.text.secondary, fontSize: 12, marginBottom: 4 }}>Last Updated Location:</Text>
                 {locationNameLoading ? (
@@ -1756,17 +1843,25 @@ export default function ManageTransporterScreen({ route }: any) {
                 ) : (
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold', flex: 1 }}>
-                      {locationName || 'Location not available'}
+                      {locationName || (() => {
+                        // Use current location if available, otherwise fall back to lastKnownLocation from backend
+                        const location = currentLocation || individualProfile?.lastKnownLocation;
+                        if (location) {
+                          return `Near ${location.latitude?.toFixed(4) || location.lat?.toFixed(4)}, ${location.longitude?.toFixed(4) || location.lng?.toFixed(4)}`;
+                        }
+                        return 'Location not available';
+                      })()}
                     </Text>
-                    {!locationName && (
+                    {!locationName && (currentLocation || individualProfile?.lastKnownLocation) && (
                       <TouchableOpacity 
                         onPress={async () => {
-                          if (currentLocation) {
+                          const location = currentLocation || individualProfile?.lastKnownLocation;
+                          if (location) {
                             setLocationNameLoading(true);
                             try {
                               const placeName = await getShortLocationName({
-                                latitude: currentLocation.latitude,
-                                longitude: currentLocation.longitude
+                                latitude: location.latitude || location.lat,
+                                longitude: location.longitude || location.lng
                               });
                               setLocationName(placeName);
                             } catch (error) {
@@ -1784,7 +1879,15 @@ export default function ManageTransporterScreen({ route }: any) {
                   </View>
                 )}
                 <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 4 }}>
-                  Updated: {new Date(currentLocation.timestamp).toLocaleTimeString()}
+                  Updated: {(() => {
+                    const location = currentLocation || individualProfile?.lastKnownLocation;
+                    if (location?.timestamp) {
+                      return new Date(location.timestamp).toLocaleTimeString();
+                    } else if (location?.updatedAt) {
+                      return new Date(location.updatedAt).toLocaleTimeString();
+                    }
+                    return 'Unknown';
+                  })()}
                 </Text>
               </View>
             )}

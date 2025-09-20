@@ -51,7 +51,7 @@ const TransporterServiceScreen = () => {
         }
         
         const token = await user.getIdToken();
-        console.log('Fetching profiles for user:', user.uid);
+        // console.log('Fetching profiles for user:', user.uid);
         
         // Fetch both transporter profile and user profile in parallel
         const [transporterRes, userRes] = await Promise.all([
@@ -72,7 +72,7 @@ const TransporterServiceScreen = () => {
         // Handle transporter profile response
         if (transporterRes.ok) {
           const transporterData = await transporterRes.json();
-          console.log('Transporter profile data:', transporterData);
+          // console.log('Transporter profile data:', transporterData);
           setProfile(transporterData);
         } else {
           console.error('Failed to fetch transporter profile:', transporterRes.status, transporterRes.statusText);
@@ -81,7 +81,7 @@ const TransporterServiceScreen = () => {
         // Handle user profile response
         if (userRes.ok) {
           const userData = await userRes.json();
-          console.log('User profile data:', userData);
+          // console.log('User profile data:', userData);
           
           // Ensure we have the correct user data structure
           const userProfileData = userData.userData || userData;
@@ -274,10 +274,10 @@ const TransporterServiceScreen = () => {
 
       <AvailableJobsCard
         onJobAccepted={(job) => {
-          console.log('Job accepted:', job);
+          // console.log('Job accepted:', job);
         }}
         onJobRejected={(job) => {
-          console.log('Job rejected:', job);
+          // console.log('Job rejected:', job);
         }}
         onViewAll={() => {
           navigation.navigate('JobManagementScreen');

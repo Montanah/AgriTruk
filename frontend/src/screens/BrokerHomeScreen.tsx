@@ -7,6 +7,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
+import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 
 interface BrokerStats {
     totalClients: number;
@@ -58,7 +59,9 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
         businessType: '',
         occupation: '',
     });
-    const subscriptionStatus = route.params?.subscriptionStatus;
+    
+    // Use the centralized subscription hook
+    const { subscriptionStatus, loadingSubscription } = useSubscriptionStatus();
 
     useEffect(() => {
         fetchBrokerStats();

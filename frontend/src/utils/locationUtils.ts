@@ -29,12 +29,12 @@ export const convertCoordinatesToPlaceName = async (location: Location): Promise
   
   const cacheKey = `${lat},${lng}`;
   
-  console.log('Converting coordinates to place name:', { latitude: lat, longitude: lng });
+  // console.log('Converting coordinates to place name:', { latitude: lat, longitude: lng });
   
   // Check cache first
   if (locationCache.has(cacheKey)) {
     const cached = locationCache.get(cacheKey)!;
-    console.log('Using cached location name:', cached.name);
+    // console.log('Using cached location name:', cached.name);
     return cached.name || cached.address;
   }
 
@@ -47,7 +47,13 @@ export const convertCoordinatesToPlaceName = async (location: Location): Promise
     
     if (response.ok) {
       const data = await response.json();
-      console.log('Geocoding API response:', data);
+      // console.log('Geocoding API response:', data);
+      
+      // Check for API key errors
+      if (data.status === 'REQUEST_DENIED' && data.error_message?.includes('API key')) {
+        console.error('Google Maps API key is invalid:', data.error_message);
+        throw new Error('Invalid Google Maps API key');
+      }
       
       if (data.results && data.results.length > 0) {
         const result = data.results[0];
@@ -74,7 +80,7 @@ export const convertCoordinatesToPlaceName = async (location: Location): Promise
 
   // Fallback: return a more user-friendly format
   console.warn('Geocoding failed, using fallback format');
-  return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+  return `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 };
 
 export const convertCoordinatesArrayToPlaceNames = async (locations: Location[]): Promise<string[]> => {
@@ -103,13 +109,20 @@ export const getShortLocationName = async (location: Location): Promise<string> 
   }
 
   try {
+    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4";
     const response = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
     );
     
     if (response.ok) {
       const data = await response.json();
-      console.log('Geocoding API response:', data);
+      // console.log('Geocoding API response:', data);
+      
+      // Check for API key errors
+      if (data.status === 'REQUEST_DENIED' && data.error_message?.includes('API key')) {
+        console.error('Google Maps API key is invalid:', data.error_message);
+        throw new Error('Invalid Google Maps API key');
+      }
       
       if (data.results && data.results.length > 0) {
         const result = data.results[0];
@@ -140,8 +153,8 @@ export const getShortLocationName = async (location: Location): Promise<string> 
     console.error('Error getting short location name:', error);
   }
 
-  // Fallback: return coordinates if geocoding fails
-  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  // Fallback: return a more user-friendly format
+  return `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 };
 
 // Helper function to format location for display

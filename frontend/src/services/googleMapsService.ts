@@ -375,7 +375,7 @@ class GoogleMapsService {
         rating: place.rating,
         photos: place.photos?.map(
           (photo: any) =>
-            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`,
+            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photo.photo_reference}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"}`,
         ),
       };
     } catch (error) {

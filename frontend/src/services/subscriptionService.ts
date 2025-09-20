@@ -100,7 +100,7 @@ class SubscriptionService {
       }
 
       const subscriberData = await subscriberResponse.json();
-      console.log('Subscriber API response:', subscriberData);
+      // console.log('Subscriber API response:', subscriberData);
       
       // Extract subscription data
       const subscriptionData = subscriberData.data || subscriberData;
@@ -111,7 +111,7 @@ class SubscriptionService {
       // If we have a planId, fetch the full plan details
       if (planId) {
         try {
-          console.log('Fetching plan details for planId:', planId);
+          // console.log('Fetching plan details for planId:', planId);
           const planResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + `/plans/${planId}`, {
             method: 'GET',
             headers: {
@@ -122,7 +122,7 @@ class SubscriptionService {
           
           if (planResponse.ok) {
             const planData = await planResponse.json();
-            console.log('Plan API response:', planData);
+            // console.log('Plan API response:', planData);
             planDetails = planData.plan || planData;
           } else {
             console.warn(`Plan details API returned ${planResponse.status}`);
@@ -162,18 +162,18 @@ class SubscriptionService {
           daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
         }
         
-        console.log('Days calculation:', {
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          now: now.toISOString(),
-          daysSinceStart,
-          isTrial,
-          trialDaysRemaining,
-          daysRemaining,
-          planId: subscriberData.subscriber?.planId,
-          subscriberId: subscriberData.subscriber?.id,
-          activationTime: subscriberData.subscriber?.createdAt
-        });
+        // console.log('Days calculation:', {
+        //   startDate: startDate.toISOString(),
+        //   endDate: endDate.toISOString(),
+        //   now: now.toISOString(),
+        //   daysSinceStart,
+        //   isTrial,
+        //   trialDaysRemaining,
+        //   daysRemaining,
+        //   planId: subscriberData.subscriber?.planId,
+        //   subscriberId: subscriberData.subscriber?.id,
+        //   activationTime: subscriberData.subscriber?.createdAt
+        // });
       } else {
         // Fallback to API values if subscriber data not available
         daysRemaining = subscriptionData.daysRemaining || 0;
@@ -195,11 +195,11 @@ class SubscriptionService {
     } catch (error: any) {
       console.warn('Subscription status API unavailable, using default status:', error.message);
 
-      // Return default status if API fails
+      // Return default status if API fails - don't force trial activation
       return {
         hasActiveSubscription: false,
         isTrialActive: false,
-        needsTrialActivation: true,
+        needsTrialActivation: false, // Changed from true to false
         currentPlan: null,
         daysRemaining: 0,
         subscriptionStatus: 'none',

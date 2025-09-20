@@ -8,9 +8,10 @@ import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, T
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
-import { API_ENDPOINTS } from '../constants/api';
+// import { API_ENDPOINTS } from '../constants/api';
 import { auth, db } from '../firebaseConfig';
 import { apiRequest, uploadFile } from '../utils/api';
+import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 
 interface SubscriptionPlan {
   id: string;
@@ -79,6 +80,9 @@ export default function BrokerProfileScreen() {
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [verifyingPhone, setVerifyingPhone] = useState(false);
 
+  // Use the centralized subscription hook
+  const { subscriptionStatus } = useSubscriptionStatus();
+
   const showPhotoOptions = () => {
     Alert.alert(
       'Select Photo',
@@ -100,7 +104,7 @@ export default function BrokerProfileScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         // No aspect ratio constraint - allows flexible cropping for profile photos
         quality: 0.8
@@ -147,7 +151,7 @@ export default function BrokerProfileScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         // No aspect ratio constraint - allows flexible cropping for profile photos
         quality: 0.8
@@ -356,7 +360,7 @@ export default function BrokerProfileScreen() {
   };
 
   const handleVerifyPhone = async () => {
-    if (!profileData?.phone) {
+    if (!phone) {
       Alert.alert('Error', 'No phone number found.');
       return;
     }
@@ -372,7 +376,7 @@ export default function BrokerProfileScreen() {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-phone-code',
-          phoneNumber: profileData?.phone
+          phoneNumber: phone
         }),
       });
 
