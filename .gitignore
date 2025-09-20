@@ -3,6 +3,11 @@ backend/
 # Ignore build scripts and backups
 create-eas-project.sh
 setup-new-eas-project.sh
+build-apk.sh
+build-ios.sh
+build-all.sh
+quick-build.sh
+setup-build.sh
 frontend/app.config.js.backup
 frontend/app.json.backup
 
