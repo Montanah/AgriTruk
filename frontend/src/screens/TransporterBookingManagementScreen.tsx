@@ -1193,32 +1193,50 @@ const TransporterBookingManagementScreen = () => {
                 )}
             </View>
 
-            {/* Filter Toggle */}
-            <View style={styles.filterContainer}>
-                <TouchableOpacity
-                    style={styles.filterToggle}
-                    onPress={() => setShowFilters(!showFilters)}
-                >
-                    <MaterialCommunityIcons 
-                        name={showFilters ? "filter" : "filter-outline"} 
-                        size={20} 
-                        color={colors.primary} 
-                    />
-                    <Text style={styles.filterToggleText}>
-                        {showFilters ? 'Hide Filters' : 'Show Filters'}
-                    </Text>
-                    <MaterialCommunityIcons 
-                        name={showFilters ? "chevron-up" : "chevron-down"} 
-                        size={20} 
-                        color={colors.primary} 
-                    />
-                </TouchableOpacity>
+            {/* Enhanced Filter Bar */}
+            <View style={styles.enhancedFilterBar}>
+                <View style={styles.filterHeader}>
+                    <View style={styles.filterLeft}>
+                        <TouchableOpacity 
+                            style={[styles.filterButton, showFilters && styles.filterButtonActive]}
+                            onPress={() => setShowFilters(!showFilters)}
+                        >
+                            <MaterialCommunityIcons 
+                                name="filter-variant" 
+                                size={18} 
+                                color={showFilters ? colors.white : colors.primary} 
+                            />
+                            <Text style={[styles.filterButtonText, showFilters && styles.filterButtonTextActive]}>
+                                Filters
+                            </Text>
+                            {showFilters && <View style={styles.filterIndicator} />}
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity style={styles.sortButton}>
+                            <MaterialCommunityIcons name="sort" size={18} color={colors.text.secondary} />
+                            <Text style={styles.sortButtonText}>
+                                {sortBy === 'distance' ? 'Distance' : 
+                                 sortBy === 'price' ? 'Price' : 
+                                 sortBy === 'urgency' ? 'Urgency' : 'Pickup Time'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                    
+                    {currentRoute && (
+                        <View style={styles.routeIndicator}>
+                            <MaterialCommunityIcons name="map-marker" size={14} color={colors.primary} />
+                            <Text style={styles.routeIndicatorText}>
+                                {currentRoute.from.name} → {currentRoute.to.name}
+                            </Text>
+                        </View>
+                    )}
+                </View>
             </View>
 
-            {/* Advanced Filters */}
+            {/* Enhanced Filter Options */}
             {showFilters && (
-                <View style={styles.filtersPanel}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
+                <View style={styles.enhancedFilterOptions}>
+                    <ScrollView showsVerticalScrollIndicator={false} style={styles.filterScrollView}>
                         {/* Route Filters */}
                         <View style={styles.filterGroup}>
                             <Text style={styles.filterGroupTitle}>Route</Text>
@@ -1735,6 +1753,241 @@ const styles = StyleSheet.create({
     },
     activeTabButtonText: {
         color: colors.white,
+    },
+    // Enhanced Filter Styles
+    enhancedFilterBar: {
+        backgroundColor: colors.white,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.text.light + '20',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    filterHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    filterLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: colors.background,
+        marginRight: 12,
+        borderWidth: 1,
+        borderColor: colors.primary + '30',
+    },
+    filterButtonActive: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    filterButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.primary,
+        marginLeft: 6,
+    },
+    filterButtonTextActive: {
+        color: colors.white,
+    },
+    filterIndicator: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.error,
+    },
+    sortButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.text.light + '30',
+    },
+    sortButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        marginLeft: 6,
+    },
+    routeIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: colors.primary + '15',
+    },
+    routeIndicatorText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.primary,
+        marginLeft: 4,
+    },
+    enhancedFilterOptions: {
+        backgroundColor: colors.white,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.text.light + '20',
+        maxHeight: 400,
+    },
+    filterScrollView: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    filterSection: {
+        marginBottom: 20,
+    },
+    filterSectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    filterSectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: colors.text.primary,
+        marginLeft: 8,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    inputWrapper: {
+        flex: 1,
+        position: 'relative',
+    },
+    inputIcon: {
+        position: 'absolute',
+        left: 12,
+        top: 12,
+        zIndex: 1,
+    },
+    enhancedFilterInput: {
+        backgroundColor: colors.background,
+        borderRadius: 12,
+        paddingHorizontal: 40,
+        paddingVertical: 12,
+        fontSize: 14,
+        color: colors.text.primary,
+        borderWidth: 1,
+        borderColor: colors.text.light + '30',
+    },
+    filterChips: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    enhancedFilterChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.primary + '30',
+    },
+    enhancedFilterChipActive: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    enhancedFilterChipText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.primary,
+        marginLeft: 4,
+    },
+    enhancedFilterChipTextActive: {
+        color: colors.white,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 4,
+    },
+    priceRangeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    priceInputWrapper: {
+        flex: 1,
+    },
+    priceLabel: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        marginBottom: 4,
+    },
+    priceInput: {
+        backgroundColor: colors.background,
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        fontSize: 14,
+        color: colors.text.primary,
+        borderWidth: 1,
+        borderColor: colors.text.light + '30',
+    },
+    priceSeparator: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 20,
+    },
+    priceSeparatorText: {
+        fontSize: 12,
+        color: colors.text.light,
+    },
+    filterActions: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 20,
+        paddingTop: 20,
+        borderTopWidth: 1,
+        borderTopColor: colors.text.light + '20',
+    },
+    clearFiltersButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 8,
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.error + '30',
+    },
+    clearFiltersText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.error,
+        marginLeft: 6,
+    },
+    applyFiltersButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 8,
+        backgroundColor: colors.primary,
+    },
+    applyFiltersText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.white,
+        marginLeft: 6,
     },
     tabContent: {
         flexDirection: 'row',
