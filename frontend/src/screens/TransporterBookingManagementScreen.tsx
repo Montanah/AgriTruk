@@ -31,7 +31,8 @@ const TransporterBookingManagementScreen = () => {
     const params = route.params as RouteParams;
     const transporterType = params?.transporterType || 'company';
 
-    const [activeTab, setActiveTab] = useState<'instant' | 'bookings' | 'route'>('instant');
+    const [activeTab, setActiveTab] = useState<'accepted' | 'route_loads' | 'history'>('accepted');
+    const [jobStatusFilter, setJobStatusFilter] = useState<'all' | 'pending' | 'in_transit' | 'completed'>('all');
     const [refreshing, setRefreshing] = useState(false);
     const [acceptingId, setAcceptingId] = useState<string | null>(null);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -74,9 +75,20 @@ const TransporterBookingManagementScreen = () => {
     });
 
     // Real data from API
-    const [allInstantRequests, setAllInstantRequests] = useState<any[]>([]);
-    const [allRouteLoads, setAllRouteLoads] = useState<any[]>([]);
-    const [allBookings, setAllBookings] = useState<any[]>([]);
+    const [acceptedJobs, setAcceptedJobs] = useState<any[]>([]);
+    const [routeLoads, setRouteLoads] = useState<any[]>([]);
+    const [completedJobs, setCompletedJobs] = useState<any[]>([]);
+    
+    // Current route for intelligent matching
+    const [currentRoute, setCurrentRoute] = useState<{
+        from: { name: string; coordinates: { lat: number; lng: number } };
+        to: { name: string; coordinates: { lat: number; lng: number } };
+        waypoints?: Array<{ name: string; coordinates: { lat: number; lng: number } }>;
+    } | null>(null);
+    
+    // Enhanced filtering states
+    const [sortBy, setSortBy] = useState<'distance' | 'price' | 'urgency' | 'pickup_time'>('distance');
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
     const [currentTransporter, setCurrentTransporter] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
@@ -437,6 +449,185 @@ const TransporterBookingManagementScreen = () => {
                 return colors.success;
             default:
                 return colors.warning;
+        }
+    };
+
+    // Render functions for new job management system
+    const renderAcceptedJob = ({ item }: { item: any }) => (
+        <View style={styles.jobCard}>
+            <View style={styles.jobHeader}>
+                <View style={styles.jobInfo}>
+                    <Text style={styles.jobId}>#{item.id}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getJobStatusColor(item.status) + '20' }]}>
+                        <Text style={[styles.statusText, { color: getJobStatusColor(item.status) }]}>
+                            {item.status?.toUpperCase() || 'PENDING'}
+                        </Text>
+                    </View>
+                </View>
+                <Text style={styles.jobValue}>KES {item.value?.toLocaleString() || '0'}</Text>
+            </View>
+            
+            <View style={styles.routeInfo}>
+                <View style={styles.routeItem}>
+                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                    <Text style={styles.routeText}>{item.fromLocation}</Text>
+                </View>
+                <View style={styles.routeArrow}>
+                    <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
+                </View>
+                <View style={styles.routeItem}>
+                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
+                    <Text style={styles.routeText}>{item.toLocation}</Text>
+                </View>
+            </View>
+            
+            <View style={styles.jobDetails}>
+                <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="package-variant" size={14} color={colors.text.secondary} />
+                    <Text style={styles.detailText}>{item.productType || 'General Cargo'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="weight" size={14} color={colors.text.secondary} />
+                    <Text style={styles.detailText}>{item.weightKg || 0} kg</Text>
+                </View>
+                <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="clock" size={14} color={colors.text.secondary} />
+                    <Text style={styles.detailText}>
+                        {item.pickupDate ? new Date(item.pickupDate).toLocaleDateString() : 'ASAP'}
+                    </Text>
+                </View>
+            </View>
+            
+            <View style={styles.jobActions}>
+                <TouchableOpacity style={[styles.actionButton, styles.startButton]}>
+                    <MaterialCommunityIcons name="play" size={16} color={colors.white} />
+                    <Text style={styles.actionButtonText}>Start Trip</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, styles.completeButton]}>
+                    <MaterialCommunityIcons name="check" size={16} color={colors.white} />
+                    <Text style={styles.actionButtonText}>Complete</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    const renderRouteLoad = ({ item }: { item: any }) => (
+        <View style={styles.loadCard}>
+            <View style={styles.loadHeader}>
+                <View style={styles.loadInfo}>
+                    <Text style={styles.loadId}>#{item.id}</Text>
+                    <View style={[styles.urgencyBadge, { backgroundColor: getUrgencyColor(item.urgency) + '20' }]}>
+                        <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency) }]}>
+                            {item.urgency?.toUpperCase() || 'MEDIUM'}
+                        </Text>
+                    </View>
+                </View>
+                <Text style={styles.loadValue}>KES {item.cost?.toLocaleString() || '0'}</Text>
+            </View>
+            
+            <View style={styles.routeInfo}>
+                <View style={styles.routeItem}>
+                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                    <Text style={styles.routeText}>{item.fromLocation}</Text>
+                </View>
+                <View style={styles.routeArrow}>
+                    <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
+                </View>
+                <View style={styles.routeItem}>
+                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
+                    <Text style={styles.routeText}>{item.toLocation}</Text>
+                </View>
+            </View>
+            
+            <View style={styles.loadDetails}>
+                <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="package-variant" size={14} color={colors.text.secondary} />
+                    <Text style={styles.detailText}>{item.productType || 'General Cargo'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="weight" size={14} color={colors.text.secondary} />
+                    <Text style={styles.detailText}>{item.weightKg || 0} kg</Text>
+                </View>
+                <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="clock" size={14} color={colors.text.secondary} />
+                    <Text style={styles.detailText}>
+                        {item.pickupDate ? new Date(item.pickupDate).toLocaleDateString() : 'ASAP'}
+                    </Text>
+                </View>
+            </View>
+            
+            <View style={styles.loadActions}>
+                <TouchableOpacity 
+                    style={[styles.actionButton, styles.acceptButton]}
+                    onPress={() => handleAcceptLoad(item)}
+                    disabled={acceptingId === item.id}
+                >
+                    {acceptingId === item.id ? (
+                        <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                        <>
+                            <MaterialCommunityIcons name="check" size={16} color={colors.white} />
+                            <Text style={styles.actionButtonText}>Accept Load</Text>
+                        </>
+                    )}
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionButton, styles.detailsButton]}>
+                    <MaterialCommunityIcons name="eye" size={16} color={colors.primary} />
+                    <Text style={[styles.actionButtonText, { color: colors.primary }]}>Details</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
+    const renderCompletedJob = ({ item }: { item: any }) => (
+        <View style={styles.completedJobCard}>
+            <View style={styles.jobHeader}>
+                <View style={styles.jobInfo}>
+                    <Text style={styles.jobId}>#{item.id}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
+                        <Text style={[styles.statusText, { color: colors.success }]}>COMPLETED</Text>
+                    </View>
+                </View>
+                <Text style={styles.jobValue}>KES {item.value?.toLocaleString() || '0'}</Text>
+            </View>
+            
+            <View style={styles.routeInfo}>
+                <View style={styles.routeItem}>
+                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                    <Text style={styles.routeText}>{item.fromLocation}</Text>
+                </View>
+                <View style={styles.routeArrow}>
+                    <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
+                </View>
+                <View style={styles.routeItem}>
+                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
+                    <Text style={styles.routeText}>{item.toLocation}</Text>
+                </View>
+            </View>
+            
+            <View style={styles.completedInfo}>
+                <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="calendar-check" size={14} color={colors.success} />
+                    <Text style={styles.detailText}>
+                        Completed: {item.completedAt ? new Date(item.completedAt).toLocaleDateString() : 'N/A'}
+                    </Text>
+                </View>
+                <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="star" size={14} color={colors.warning} />
+                    <Text style={styles.detailText}>Rating: {item.rating || 'N/A'}</Text>
+                </View>
+            </View>
+        </View>
+    );
+
+    // Helper functions
+    const getJobStatusColor = (status: string) => {
+        switch (status?.toLowerCase()) {
+            case 'pending': return colors.warning;
+            case 'in_transit': return colors.primary;
+            case 'completed': return colors.success;
+            case 'cancelled': return colors.error;
+            default: return colors.text.secondary;
         }
     };
 
@@ -1037,30 +1228,39 @@ const TransporterBookingManagementScreen = () => {
         </View>
     );
 
-    const renderTabButton = (tab: 'instant' | 'bookings' | 'route', title: string, icon: string) => (
+    const renderTabButton = (tab: 'accepted' | 'route_loads' | 'history', title: string, icon: string, count?: number) => (
         <TouchableOpacity
             style={[styles.tabButton, activeTab === tab && styles.activeTabButton]}
             onPress={() => setActiveTab(tab)}
         >
-            <MaterialCommunityIcons
-                name={icon as any}
-                size={20}
-                color={activeTab === tab ? colors.white : colors.text.secondary}
-            />
-            <Text style={[styles.tabButtonText, activeTab === tab && styles.activeTabButtonText]}>
-                {title}
-            </Text>
+            <View style={styles.tabContent}>
+                <MaterialCommunityIcons
+                    name={icon as any}
+                    size={20}
+                    color={activeTab === tab ? colors.white : colors.text.secondary}
+                />
+                <Text style={[styles.tabButtonText, activeTab === tab && styles.activeTabButtonText]}>
+                    {title}
+                </Text>
+                {count !== undefined && count > 0 && (
+                    <View style={[styles.tabBadge, activeTab === tab && styles.activeTabBadge]}>
+                        <Text style={[styles.tabBadgeText, activeTab === tab && styles.activeTabBadgeText]}>
+                            {count}
+                        </Text>
+                    </View>
+                )}
+            </View>
         </TouchableOpacity>
     );
 
     const renderContent = () => {
         switch (activeTab) {
-            case 'instant':
+            case 'accepted':
                 return (
                     <FlatList
-                        data={filteredRequests}
+                        data={acceptedJobs}
                         keyExtractor={(item) => item.id}
-                        renderItem={renderInstantRequest}
+                        renderItem={renderAcceptedJob}
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.listContainer}
                         ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -1069,42 +1269,19 @@ const TransporterBookingManagementScreen = () => {
                         }
                         ListEmptyComponent={
                             <View style={styles.emptyContainer}>
-                                <MaterialCommunityIcons name="package-variant-closed" size={48} color={colors.text.secondary} />
-                                <Text style={styles.emptyTitle}>No Instant Requests</Text>
+                                <MaterialCommunityIcons name="truck-delivery" size={48} color={colors.text.secondary} />
+                                <Text style={styles.emptyTitle}>No Active Jobs</Text>
                                 <Text style={styles.emptySubtitle}>
-                                    New instant requests will appear here when they match your route
+                                    Your accepted jobs will appear here. Start by accepting requests from the Route Loads tab.
                                 </Text>
                             </View>
                         }
                     />
                 );
-            case 'bookings':
+            case 'route_loads':
                 return (
                     <FlatList
-                        data={filteredBookings}
-                        keyExtractor={(item) => item.id}
-                        renderItem={renderBooking}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.listContainer}
-                        ItemSeparatorComponent={() => <View style={styles.separator} />}
-                        refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                        }
-                        ListEmptyComponent={
-                            <View style={styles.emptyContainer}>
-                                <MaterialCommunityIcons name="calendar-blank" size={48} color={colors.text.secondary} />
-                                <Text style={styles.emptyTitle}>No Active Bookings</Text>
-                                <Text style={styles.emptySubtitle}>
-                                    Your scheduled bookings will appear here
-                                </Text>
-                            </View>
-                        }
-                    />
-                );
-            case 'route':
-                return (
-                    <FlatList
-                        data={filteredRouteLoads}
+                        data={routeLoads}
                         keyExtractor={(item) => item.id}
                         renderItem={renderRouteLoad}
                         showsVerticalScrollIndicator={false}
@@ -1118,7 +1295,33 @@ const TransporterBookingManagementScreen = () => {
                                 <MaterialCommunityIcons name="map-marker-path" size={48} color={colors.text.secondary} />
                                 <Text style={styles.emptyTitle}>No Route Loads</Text>
                                 <Text style={styles.emptySubtitle}>
-                                    Loads along your route will appear here
+                                    {currentRoute ? 
+                                        `No loads found along your route from ${currentRoute.from.name} to ${currentRoute.to.name}` :
+                                        'Set your current route to see matching loads'
+                                    }
+                                </Text>
+                            </View>
+                        }
+                    />
+                );
+            case 'history':
+                return (
+                    <FlatList
+                        data={completedJobs}
+                        keyExtractor={(item) => item.id}
+                        renderItem={renderCompletedJob}
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={styles.listContainer}
+                        ItemSeparatorComponent={() => <View style={styles.separator} />}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                        }
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <MaterialCommunityIcons name="check-circle" size={48} color={colors.text.secondary} />
+                                <Text style={styles.emptyTitle}>No Completed Jobs</Text>
+                                <Text style={styles.emptySubtitle}>
+                                    Your completed jobs will appear here
                                 </Text>
                             </View>
                         }
@@ -1141,11 +1344,49 @@ const TransporterBookingManagementScreen = () => {
                 <View style={styles.headerRight} />
             </LinearGradient>
 
-            {/* Tab Navigation */}
+            {/* Enhanced Tab Navigation */}
             <View style={styles.tabContainer}>
-                {renderTabButton('instant', 'Instant', 'lightning-bolt')}
-                {renderTabButton('bookings', 'Bookings', 'calendar')}
-                {renderTabButton('route', 'Route Loads', 'map-marker-path')}
+                {renderTabButton('accepted', 'Active Jobs', 'truck-delivery', acceptedJobs.length)}
+                {renderTabButton('route_loads', 'Route Loads', 'map-marker-path', routeLoads.length)}
+                {renderTabButton('history', 'Completed', 'check-circle', completedJobs.length)}
+            </View>
+            
+            {/* Enhanced Filter Bar */}
+            <View style={styles.filterBar}>
+                <View style={styles.filterLeft}>
+                    <TouchableOpacity 
+                        style={styles.filterButton}
+                        onPress={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    >
+                        <MaterialCommunityIcons 
+                            name="filter-variant" 
+                            size={18} 
+                            color={showAdvancedFilters ? colors.primary : colors.text.secondary} 
+                        />
+                        <Text style={[styles.filterButtonText, showAdvancedFilters && { color: colors.primary }]}>
+                            Filters
+                        </Text>
+                        {showAdvancedFilters && <View style={styles.filterIndicator} />}
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity style={styles.sortButton}>
+                        <MaterialCommunityIcons name="sort" size={18} color={colors.text.secondary} />
+                        <Text style={styles.sortButtonText}>
+                            {sortBy === 'distance' ? 'Distance' : 
+                             sortBy === 'price' ? 'Price' : 
+                             sortBy === 'urgency' ? 'Urgency' : 'Pickup Time'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+                
+                {currentRoute && (
+                    <View style={styles.routeIndicator}>
+                        <MaterialCommunityIcons name="map-marker" size={14} color={colors.primary} />
+                        <Text style={styles.routeIndicatorText}>
+                            {currentRoute.from.name} → {currentRoute.to.name}
+                        </Text>
+                    </View>
+                )}
             </View>
 
             {/* Filter Toggle */}
@@ -1663,15 +1904,42 @@ const styles = StyleSheet.create({
     },
     tabButton: {
         flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 6,
+        paddingVertical: 12,
+        paddingHorizontal: 8,
         borderRadius: 12,
         marginHorizontal: 2,
         borderWidth: 1,
         borderColor: colors.text.light + '30',
+        backgroundColor: colors.white,
+    },
+    tabContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+    },
+    tabBadge: {
+        position: 'absolute',
+        top: -8,
+        right: -8,
+        backgroundColor: colors.error,
+        borderRadius: 10,
+        minWidth: 20,
+        height: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+    },
+    activeTabBadge: {
+        backgroundColor: colors.white,
+    },
+    tabBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: colors.white,
+    },
+    activeTabBadgeText: {
+        color: colors.primary,
     },
     activeTabButton: {
         backgroundColor: colors.primary,
@@ -1690,6 +1958,230 @@ const styles = StyleSheet.create({
     },
     activeTabButtonText: {
         color: colors.white,
+    },
+    filterBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.white,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.text.light + '20',
+    },
+    filterLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: colors.background,
+        marginRight: 12,
+    },
+    filterButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        marginLeft: 6,
+    },
+    filterIndicator: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.primary,
+    },
+    sortButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: colors.background,
+    },
+    sortButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        marginLeft: 6,
+    },
+    routeIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: colors.primary + '15',
+    },
+    routeIndicatorText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.primary,
+        marginLeft: 4,
+    },
+    // New job management styles
+    jobCard: {
+        backgroundColor: colors.white,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.primary,
+    },
+    jobHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    jobInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    jobId: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginRight: 8,
+    },
+    statusBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    statusText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    jobValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.success,
+    },
+    jobDetails: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    detailItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    detailText: {
+        fontSize: 12,
+        color: colors.text.secondary,
+        marginLeft: 4,
+    },
+    jobActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    actionButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        borderRadius: 8,
+    },
+    startButton: {
+        backgroundColor: colors.primary,
+    },
+    completeButton: {
+        backgroundColor: colors.success,
+    },
+    acceptButton: {
+        backgroundColor: colors.primary,
+    },
+    detailsButton: {
+        backgroundColor: colors.white,
+        borderWidth: 1,
+        borderColor: colors.primary,
+    },
+    actionButtonText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.white,
+        marginLeft: 4,
+    },
+    loadCard: {
+        backgroundColor: colors.white,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        shadowColor: colors.secondary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.secondary,
+    },
+    loadHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    loadInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    loadId: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginRight: 8,
+    },
+    urgencyBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    loadValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.secondary,
+    },
+    loadDetails: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
+    loadActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    completedJobCard: {
+        backgroundColor: colors.white,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        shadowColor: colors.success,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.success,
+        opacity: 0.8,
+    },
+    completedInfo: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 8,
     },
     content: {
         flex: 1,
