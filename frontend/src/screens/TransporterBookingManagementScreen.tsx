@@ -39,6 +39,22 @@ const TransporterBookingManagementScreen = () => {
     const [showLoadDetails, setShowLoadDetails] = useState(false);
     const [selectedLoad, setSelectedLoad] = useState<any>(null);
     
+    // Real data from API
+    const [acceptedJobs, setAcceptedJobs] = useState<any[]>([]);
+    const [routeLoads, setRouteLoads] = useState<any[]>([]);
+    const [completedJobs, setCompletedJobs] = useState<any[]>([]);
+    
+    // Current route for intelligent matching
+    const [currentRoute, setCurrentRoute] = useState<{
+        from: { name: string; coordinates: { lat: number; lng: number } };
+        to: { name: string; coordinates: { lat: number; lng: number } };
+        waypoints?: Array<{ name: string; coordinates: { lat: number; lng: number } }>;
+    } | null>(null);
+    
+    // Enhanced filtering states
+    const [sortBy, setSortBy] = useState<'distance' | 'price' | 'urgency' | 'pickup_time'>('distance');
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    
     // Advanced filtering states
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState({
@@ -75,20 +91,9 @@ const TransporterBookingManagementScreen = () => {
     });
 
     // Real data from API
-    const [acceptedJobs, setAcceptedJobs] = useState<any[]>([]);
-    const [routeLoads, setRouteLoads] = useState<any[]>([]);
-    const [completedJobs, setCompletedJobs] = useState<any[]>([]);
-    
-    // Current route for intelligent matching
-    const [currentRoute, setCurrentRoute] = useState<{
-        from: { name: string; coordinates: { lat: number; lng: number } };
-        to: { name: string; coordinates: { lat: number; lng: number } };
-        waypoints?: Array<{ name: string; coordinates: { lat: number; lng: number } }>;
-    } | null>(null);
-    
-    // Enhanced filtering states
-    const [sortBy, setSortBy] = useState<'distance' | 'price' | 'urgency' | 'pickup_time'>('distance');
-    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [allInstantRequests, setAllInstantRequests] = useState<any[]>([]);
+    const [allRouteLoads, setAllRouteLoads] = useState<any[]>([]);
+    const [allBookings, setAllBookings] = useState<any[]>([]);
     const [currentTransporter, setCurrentTransporter] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
@@ -856,8 +861,8 @@ const TransporterBookingManagementScreen = () => {
         </View>
     );
 
-    const renderRouteLoad = ({ item }: { item: any }) => (
-        <View style={styles.loadCard}>
+    const renderBooking = ({ item }: { item: any }) => (
+        <View style={styles.bookingCard}>
             {/* Header with service type and urgency indicator */}
             <View style={styles.requestHeader}>
                 <View style={styles.headerLeft}>
@@ -1904,13 +1909,33 @@ const styles = StyleSheet.create({
     },
     tabButton: {
         flex: 1,
-        paddingVertical: 12,
-        paddingHorizontal: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 6,
         borderRadius: 12,
         marginHorizontal: 2,
         borderWidth: 1,
         borderColor: colors.text.light + '30',
-        backgroundColor: colors.white,
+    },
+    activeTabButton: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    tabButtonText: {
+        fontSize: fonts.size.xs,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        marginLeft: 4,
+    },
+    activeTabButtonText: {
+        color: colors.white,
     },
     tabContent: {
         flexDirection: 'row',
@@ -1940,24 +1965,6 @@ const styles = StyleSheet.create({
     },
     activeTabBadgeText: {
         color: colors.primary,
-    },
-    activeTabButton: {
-        backgroundColor: colors.primary,
-        borderColor: colors.primary,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    tabButtonText: {
-        fontSize: fonts.size.xs,
-        fontWeight: '600',
-        color: colors.text.secondary,
-        marginLeft: 4,
-    },
-    activeTabButtonText: {
-        color: colors.white,
     },
     filterBar: {
         flexDirection: 'row',
