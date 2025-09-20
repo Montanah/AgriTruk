@@ -1038,14 +1038,14 @@ const TransporterBookingManagementScreen = () => {
             onPress={() => setActiveTab(tab)}
         >
             <View style={styles.tabContent}>
-                <MaterialCommunityIcons
-                    name={icon as any}
-                    size={20}
-                    color={activeTab === tab ? colors.white : colors.text.secondary}
-                />
-                <Text style={[styles.tabButtonText, activeTab === tab && styles.activeTabButtonText]}>
-                    {title}
-                </Text>
+            <MaterialCommunityIcons
+                name={icon as any}
+                size={20}
+                color={activeTab === tab ? colors.white : colors.text.secondary}
+            />
+            <Text style={[styles.tabButtonText, activeTab === tab && styles.activeTabButtonText]}>
+                {title}
+            </Text>
                 {count !== undefined && count > 0 && (
                     <View style={[styles.tabBadge, activeTab === tab && styles.activeTabBadge]}>
                         <Text style={[styles.tabBadgeText, activeTab === tab && styles.activeTabBadgeText]}>
@@ -1154,61 +1154,23 @@ const TransporterBookingManagementScreen = () => {
                 {renderTabButton('route_loads', 'Route Loads', 'map-marker-path', routeLoads.length)}
                 {renderTabButton('history', 'Completed', 'check-circle', completedJobs.length)}
             </View>
-            
-            {/* Enhanced Filter Bar */}
-            <View style={styles.filterBar}>
-                <View style={styles.filterLeft}>
-                    <TouchableOpacity 
-                        style={styles.filterButton}
-                        onPress={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                    >
-                        <MaterialCommunityIcons 
-                            name="filter-variant" 
-                            size={18} 
-                            color={showAdvancedFilters ? colors.primary : colors.text.secondary} 
-                        />
-                        <Text style={[styles.filterButtonText, showAdvancedFilters && { color: colors.primary }]}>
-                            Filters
-                        </Text>
-                        {showAdvancedFilters && <View style={styles.filterIndicator} />}
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity style={styles.sortButton}>
-                        <MaterialCommunityIcons name="sort" size={18} color={colors.text.secondary} />
-                        <Text style={styles.sortButtonText}>
-                            {sortBy === 'distance' ? 'Distance' : 
-                             sortBy === 'price' ? 'Price' : 
-                             sortBy === 'urgency' ? 'Urgency' : 'Pickup Time'}
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-                
-                {currentRoute && (
-                    <View style={styles.routeIndicator}>
-                        <MaterialCommunityIcons name="map-marker" size={14} color={colors.primary} />
-                        <Text style={styles.routeIndicatorText}>
-                            {currentRoute.from.name} → {currentRoute.to.name}
-                        </Text>
-                    </View>
-                )}
-            </View>
 
             {/* Enhanced Filter Bar */}
             <View style={styles.enhancedFilterBar}>
                 <View style={styles.filterHeader}>
                     <View style={styles.filterLeft}>
-                        <TouchableOpacity 
+                <TouchableOpacity
                             style={[styles.filterButton, showFilters && styles.filterButtonActive]}
-                            onPress={() => setShowFilters(!showFilters)}
-                        >
-                            <MaterialCommunityIcons 
+                    onPress={() => setShowFilters(!showFilters)}
+                >
+                    <MaterialCommunityIcons 
                                 name="filter-variant" 
                                 size={18} 
                                 color={showFilters ? colors.white : colors.primary} 
                             />
                             <Text style={[styles.filterButtonText, showFilters && styles.filterButtonTextActive]}>
                                 Filters
-                            </Text>
+                    </Text>
                             {showFilters && <View style={styles.filterIndicator} />}
                         </TouchableOpacity>
                         
@@ -1219,9 +1181,9 @@ const TransporterBookingManagementScreen = () => {
                                  sortBy === 'price' ? 'Price' : 
                                  sortBy === 'urgency' ? 'Urgency' : 'Pickup Time'}
                             </Text>
-                        </TouchableOpacity>
-                    </View>
-                    
+                </TouchableOpacity>
+            </View>
+
                     {currentRoute && (
                         <View style={styles.routeIndicator}>
                             <MaterialCommunityIcons name="map-marker" size={14} color={colors.primary} />
@@ -2017,16 +1979,6 @@ const styles = StyleSheet.create({
     },
     activeTabBadgeText: {
         color: colors.primary,
-    },
-    filterBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: colors.white,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.text.light + '20',
     },
     filterLeft: {
         flexDirection: 'row',
