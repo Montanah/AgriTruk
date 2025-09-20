@@ -1,1 +1,16 @@
 backend/
+
+# Ignore build scripts and backups
+create-eas-project.sh
+setup-new-eas-project.sh
+frontend/app.config.js.backup
+frontend/app.json.backup
+
+# Ignore environment files
+.env
+
+# Ignore node_modules
+frontend/node_modules/
+
+# Ignore expo cache
+frontend/.expo/

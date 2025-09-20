@@ -1,171 +1,209 @@
-// Utility functions for location handling
+// Location utilities for converting coordinates to place names
+import { API_ENDPOINTS } from '../constants/api';
 
-export interface LocationData {
-  latitude: number;
-  longitude: number;
-  address?: string;
+interface Location {
+  latitude: number | string;
+  longitude: number | string;
 }
 
-export interface CoordinateLocation {
-  latitude: number;
-  longitude: number;
+interface PlaceName {
+  name: string;
+  address: string;
+  city?: string;
+  country?: string;
 }
 
-// Known locations mapping for better UX
-const KNOWN_LOCATIONS: { [key: string]: string } = {
-  // Kenya major cities
-  '-0.0917016,34.7679568': 'Kisumu',
-  '-1.2920659,36.8219462': 'Nairobi',
-  '-4.0437401,39.6682065': 'Mombasa',
-  '0.3475964,32.5825197': 'Kampala',
-  '-1.9440727,30.0618851': 'Kigali',
-  '-6.792354,39.2083284': 'Dar es Salaam',
-  '0.3136111,32.5811111': 'Entebbe',
-  '-0.023559,37.906193': 'Nakuru',
-  '0.4244,33.2042': 'Jinja',
-  '0.3163,32.5822': 'Wakiso',
-  
-  // Coastal region (including the problematic coordinate)
-  '-3.3199,40.0730': 'Malindi',
-  '-3.2199,40.1230': 'Kilifi',
-  '-2.5199,40.3230': 'Mtwapa',
-  '-4.0437,39.6682': 'Mombasa Port',
-  
-  // Central region
-  '-1.1921,36.7772': 'Thika',
-  '-0.4167,36.9500': 'Nyeri',
-  '-0.3667,36.0833': 'Nakuru',
-  '-0.5167,36.1833': 'Naivasha',
-  
-  // Western region
-  '0.2833,34.7500': 'Kakamega',
-  '0.5167,35.2833': 'Eldoret',
-  '0.0167,34.5833': 'Bungoma',
-  
-  // Eastern region
-  '-0.5167,37.4500': 'Embu',
-  '-0.4167,37.6667': 'Meru',
-  '0.5167,37.4500': 'Isiolo',
-  
-  // Northern region
-  '1.2833,36.8167': 'Garissa',
-  '2.2833,37.9000': 'Wajir',
-  '3.1167,35.6000': 'Lodwar',
-  
-  // Rift Valley
-  '0.2833,35.2833': 'Kericho',
-  '0.0167,35.2833': 'Bomet',
-};
+// Cache for location names to avoid repeated API calls
+const locationCache = new Map<string, PlaceName>();
 
-/**
- * Converts coordinates to a readable location name
- * @param location - Can be a coordinate object, address string, or coordinate string
- * @returns Readable location name
- */
-export function getReadableLocationName(location: any): string {
-  if (!location) return 'Unknown Location';
+export const convertCoordinatesToPlaceName = async (location: Location): Promise<string> => {
+  // Convert to numbers if they're strings
+  const lat = typeof location.latitude === 'string' ? parseFloat(location.latitude) : location.latitude;
+  const lng = typeof location.longitude === 'string' ? parseFloat(location.longitude) : location.longitude;
   
-  // If it's already a string (address), return it
-  if (typeof location === 'string') {
-    return location;
+  // Check if conversion was successful
+  if (isNaN(lat) || isNaN(lng)) {
+    console.warn('Invalid coordinates:', { latitude: location.latitude, longitude: location.longitude });
+    return 'Invalid coordinates';
   }
   
-  // If it's a coordinate object
-  if (typeof location === 'object' && location.latitude && location.longitude) {
-    // First check if it has an address property
-    if (location.address) {
-      return location.address;
-    }
+  const cacheKey = `${lat},${lng}`;
+  
+  console.log('Converting coordinates to place name:', { latitude: lat, longitude: lng });
+  
+  // Check cache first
+  if (locationCache.has(cacheKey)) {
+    const cached = locationCache.get(cacheKey)!;
+    console.log('Using cached location name:', cached.name);
+    return cached.name || cached.address;
+  }
+
+  try {
+    // Use Google Maps Geocoding API
+    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4";
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
+    );
     
-    // Create coordinate string and check known locations
-    const coordString = `${location.latitude},${location.longitude}`;
-    if (KNOWN_LOCATIONS[coordString]) {
-      return KNOWN_LOCATIONS[coordString];
-    }
-    
-    // Try approximate matching with tolerance
-    const lat = location.latitude;
-    const lng = location.longitude;
-    
-    // Find the closest known location within reasonable distance
-    let closestLocation = '';
-    let minDistance = Infinity;
-    
-    for (const [coords, name] of Object.entries(KNOWN_LOCATIONS)) {
-      const [knownLat, knownLng] = coords.split(',').map(Number);
-      const distance = Math.sqrt(
-        Math.pow(lat - knownLat, 2) + Math.pow(lng - knownLng, 2)
-      );
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Geocoding API response:', data);
       
-      if (distance < minDistance && distance < 0.5) { // Within ~50km
-        minDistance = distance;
-        closestLocation = name;
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        const placeName: PlaceName = {
+          name: result.formatted_address,
+          address: result.formatted_address,
+          city: result.address_components?.find((component: any) => 
+            component.types.includes('locality')
+          )?.long_name,
+          country: result.address_components?.find((component: any) => 
+            component.types.includes('country')
+          )?.long_name,
+        };
+        
+        // Cache the result
+        locationCache.set(cacheKey, placeName);
+        
+        return placeName.name;
       }
     }
+  } catch (error) {
+    console.error('Error converting coordinates to place name:', error);
+  }
+
+  // Fallback: return a more user-friendly format
+  console.warn('Geocoding failed, using fallback format');
+  return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+};
+
+export const convertCoordinatesArrayToPlaceNames = async (locations: Location[]): Promise<string[]> => {
+  const promises = locations.map(location => convertCoordinatesToPlaceName(location));
+  return Promise.all(promises);
+};
+
+// Helper function to get a short location name (city, area)
+export const getShortLocationName = async (location: Location): Promise<string> => {
+  // Convert to numbers if they're strings
+  const lat = typeof location.latitude === 'string' ? parseFloat(location.latitude) : location.latitude;
+  const lng = typeof location.longitude === 'string' ? parseFloat(location.longitude) : location.longitude;
+  
+  // Check if conversion was successful
+  if (isNaN(lat) || isNaN(lng)) {
+    console.warn('Invalid coordinates:', { latitude: location.latitude, longitude: location.longitude });
+    return 'Invalid coordinates';
+  }
+  
+  const cacheKey = `${lat},${lng}`;
+  
+  // Check cache first
+  if (locationCache.has(cacheKey)) {
+    const cached = locationCache.get(cacheKey)!;
+    return cached.city || cached.name || cached.address;
+  }
+
+  try {
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`
+    );
     
-    if (closestLocation) {
-      return closestLocation;
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Geocoding API response:', data);
+      
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        const city = result.address_components?.find((component: any) => 
+          component.types.includes('locality')
+        )?.long_name;
+        
+        const area = result.address_components?.find((component: any) => 
+          component.types.includes('sublocality') || component.types.includes('neighborhood')
+        )?.long_name;
+        
+        const placeName: PlaceName = {
+          name: city || area || result.formatted_address,
+          address: result.formatted_address,
+          city,
+          country: result.address_components?.find((component: any) => 
+            component.types.includes('country')
+          )?.long_name,
+        };
+        
+        // Cache the result
+        locationCache.set(cacheKey, placeName);
+        
+        return placeName.name;
+      }
     }
-    
-    // If no close match, try to determine region
-    if (lat > 0.5) return 'Northern Kenya';
-    if (lat < -3.5) return 'Coastal Kenya';
-    if (lng > 37.5) return 'Eastern Kenya';
-    if (lng < 34.5) return 'Western Kenya';
-    if (lat > -1.5 && lat < 0.5 && lng > 35.5 && lng < 37.5) return 'Central Kenya';
-    
-    // Last resort - return a generic location name instead of coordinates
-    return 'Kenya';
+  } catch (error) {
+    console.error('Error getting short location name:', error);
   }
-  
-  return 'Unknown Location';
-}
 
-/**
- * Formats a route display (from -> to)
- * @param fromLocation - Starting location
- * @param toLocation - Destination location
- * @returns Formatted route string
- */
-export function formatRoute(fromLocation: any, toLocation: any): string {
-  const from = getReadableLocationName(fromLocation);
-  const to = getReadableLocationName(toLocation);
-  return `${from} → ${to}`;
-}
+  // Fallback: return coordinates if geocoding fails
+  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+};
 
-/**
- * Gets location coordinates for backend processing
- * @param location - Location data
- * @returns Coordinate object or null
- */
-export function getLocationCoordinates(location: any): CoordinateLocation | null {
-  if (!location) return null;
-  
-  if (typeof location === 'object' && location.latitude && location.longitude) {
-    return {
-      latitude: location.latitude,
-      longitude: location.longitude
-    };
-  }
-  
-  return null;
-}
-
-/**
- * Gets location address for display
- * @param location - Location data
- * @returns Address string
- */
-export function getLocationAddress(location: any): string {
-  if (!location) return '';
-  
+// Helper function to format location for display
+export const formatLocationForDisplay = (location: Location | string): string => {
   if (typeof location === 'string') {
     return location;
   }
   
-  if (typeof location === 'object' && location.address) {
-    return location.address;
+  // Handle cases where latitude/longitude might be strings or undefined
+  if (!location || typeof location.latitude === 'undefined' || typeof location.longitude === 'undefined') {
+    return 'Unknown location';
   }
   
-  return '';
-}
+  // Check if location has an address field first
+  if ((location as any).address) {
+    return (location as any).address;
+  }
+  
+  // Convert to numbers if they're strings
+  const lat = typeof location.latitude === 'string' ? parseFloat(location.latitude) : location.latitude;
+  const lng = typeof location.longitude === 'string' ? parseFloat(location.longitude) : location.longitude;
+  
+  // Check if conversion was successful
+  if (isNaN(lat) || isNaN(lng)) {
+    return 'Invalid coordinates';
+  }
+  
+  // Try to get a short location name asynchronously
+  // For now, return coordinates as fallback
+  // In a real app, you'd want to use the geocoding functions above
+  return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+};
+
+// Helper function to get distance between two locations
+export const getDistanceBetweenLocations = (location1: Location, location2: Location): number => {
+  // Convert to numbers if they're strings
+  const lat1 = typeof location1.latitude === 'string' ? parseFloat(location1.latitude) : location1.latitude;
+  const lng1 = typeof location1.longitude === 'string' ? parseFloat(location1.longitude) : location1.longitude;
+  const lat2 = typeof location2.latitude === 'string' ? parseFloat(location2.latitude) : location2.latitude;
+  const lng2 = typeof location2.longitude === 'string' ? parseFloat(location2.longitude) : location2.longitude;
+  
+  // Check if conversion was successful
+  if (isNaN(lat1) || isNaN(lng1) || isNaN(lat2) || isNaN(lng2)) {
+    return 0;
+  }
+  
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lng2 - lng1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c; // Distance in kilometers
+  return distance;
+};
+
+// Helper function to format distance
+export const formatDistance = (distance: number): string => {
+  if (distance < 1) {
+    return `${Math.round(distance * 1000)}m`;
+  }
+  return `${distance.toFixed(1)}km`;
+};

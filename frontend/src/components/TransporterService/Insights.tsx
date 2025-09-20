@@ -28,6 +28,13 @@ export default function Insights({
   currencyCode,
   fleetStats,
 }: Props) {
+  // Ensure all values are numbers and handle NaN cases
+  const safeRevenue = isNaN(revenue) ? 0 : revenue;
+  const safeRecentRevenue = isNaN(recentRevenue) ? 0 : recentRevenue;
+  const safeCurrentTripRevenue = isNaN(currentTripRevenue) ? 0 : currentTripRevenue;
+  const safeAccumulatedRevenue = isNaN(accumulatedRevenue) ? 0 : accumulatedRevenue;
+  const safeSuccessfulTrips = isNaN(successfulTrips) ? 0 : successfulTrips;
+  const safeCompletionRate = isNaN(completionRate) ? 0 : completionRate;
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Insights</Text>
@@ -35,13 +42,13 @@ export default function Insights({
       <View style={styles.cardRow}>
         <InsightCard
           label="Total Revenue"
-          value={`${currencyCode} ${revenue.toLocaleString()}`}
+          value={`${currencyCode} ${safeRevenue.toLocaleString()}`}
           icon="cash-outline"
           color={colors.primary}
         />
         <InsightCard
           label="This Week"
-          value={`${currencyCode} ${recentRevenue.toLocaleString()}`}
+          value={`${currencyCode} ${safeRecentRevenue.toLocaleString()}`}
           icon="calendar-outline"
           color={colors.secondary}
         />
@@ -50,13 +57,13 @@ export default function Insights({
       <View style={styles.cardRow}>
         <InsightCard
           label="Current Trip"
-          value={`${currencyCode} ${currentTripRevenue.toLocaleString()}`}
+          value={`${currencyCode} ${safeCurrentTripRevenue.toLocaleString()}`}
           icon="car-outline"
           color={colors.accent}
         />
         <InsightCard
           label="Total Trips"
-          value={`${successfulTrips}`}
+          value={`${safeSuccessfulTrips}`}
           icon="checkmark-done-outline"
           color={colors.success}
         />
@@ -65,13 +72,13 @@ export default function Insights({
       <View style={styles.cardRow}>
         <InsightCard
           label="Trip Completion"
-          value={`${completionRate}%`}
+          value={`${safeCompletionRate}%`}
           icon="stats-chart-outline"
           color={colors.info}
         />
         <InsightCard
           label="Accumulated Revenue"
-          value={`${currencyCode} ${accumulatedRevenue.toLocaleString()}`}
+          value={`${currencyCode} ${safeAccumulatedRevenue.toLocaleString()}`}
           icon="archive-outline"
           color={colors.warning}
         />

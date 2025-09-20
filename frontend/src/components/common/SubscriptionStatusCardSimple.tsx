@@ -1,22 +1,16 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import colors from '../../constants/colors';
 import { SubscriptionStatus } from '../../services/subscriptionService';
 
-interface SubscriptionStatusCardProps {
+interface SubscriptionStatusCardSimpleProps {
     subscriptionStatus: SubscriptionStatus;
-    onManagePress: () => void;
-    onRenewPress: () => void;
-    onActivateTrial?: () => void;
     loading?: boolean;
 }
 
-const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
+const SubscriptionStatusCardSimple: React.FC<SubscriptionStatusCardSimpleProps> = ({
     subscriptionStatus,
-    onManagePress,
-    onRenewPress,
-    onActivateTrial,
     loading = false,
 }) => {
     // Safety check for subscriptionStatus
@@ -24,8 +18,7 @@ const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
         return null;
     }
 
-    const formatStatus = (status: SubscriptionStatus) => {
-        console.log('SubscriptionStatusCard - formatStatus called with:', status);
+    const formatStatus = (status: any) => {
         let planName = 'No Active Plan';
         let statusText = 'Inactive';
         let daysRemaining = 0;
@@ -33,36 +26,51 @@ const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
         let progressPercentage = 0;
         let statusColor = colors.error;
 
-        if (status.isTrialActive) {
+        // Handle different data structures
+        const data = status.data || status;
+        const plan = status.plan || status.planDetails || status.currentPlan;
+        
+        console.log('Formatting subscription status:', { status, data, plan });
+
+        if (data?.isTrialActive || status.isTrialActive) {
             planName = 'Free Trial';
             statusText = 'Trial Active';
-            daysRemaining = status.daysRemaining;
+            daysRemaining = data?.daysRemaining || status.daysRemaining || 0;
             isTrial = true;
-            progressPercentage = Math.max(0, Math.min(1, (30 - daysRemaining) / 30));
+            // Progress bar: show progress based on days used (30 - daysRemaining) / 30
+            const daysUsed = 30 - daysRemaining;
+            progressPercentage = Math.max(0, Math.min(1, daysUsed / 30));
             statusColor = colors.success;
-        } else if (status.hasActiveSubscription && status.currentPlan) {
-            planName = status.currentPlan.name;
+        } else if ((data?.hasActiveSubscription || status.hasActiveSubscription) && plan) {
+            planName = plan.name || plan.planName || 'Active Plan';
             statusText = 'Active';
-            daysRemaining = status.daysRemaining;
+            daysRemaining = data?.daysRemaining || status.daysRemaining || 0;
             isTrial = false;
             // Assuming monthly subscription (30 days)
             const totalDays = 30;
-            progressPercentage = Math.max(0, Math.min(1, (totalDays - daysRemaining) / totalDays));
+            progressPercentage = Math.max(0, Math.min(1, daysRemaining / totalDays));
             statusColor = colors.primary;
-        } else if (status.subscriptionStatus === 'expired') {
+        } else if (data?.subscriptionStatus === 'expired' || status.subscriptionStatus === 'expired') {
             planName = 'Expired';
             statusText = 'Expired';
             daysRemaining = 0;
             isTrial = false;
-            progressPercentage = 1;
+            progressPercentage = 0;
             statusColor = colors.error;
-        } else if (status.needsTrialActivation) {
+        } else if (data?.needsTrialActivation || status.needsTrialActivation) {
             planName = 'Trial Available';
             statusText = 'Activate Trial';
             daysRemaining = 30;
             isTrial = false;
             progressPercentage = 0;
             statusColor = colors.warning;
+        } else if (data?.subscriptionStatus === 'none' || status.subscriptionStatus === 'none') {
+            planName = 'No Active Plan';
+            statusText = 'Inactive';
+            daysRemaining = 0;
+            isTrial = false;
+            progressPercentage = 0;
+            statusColor = colors.error;
         }
 
         return {
@@ -100,6 +108,16 @@ const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
             return 'No active subscription';
         }
     };
+
+    if (loading) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>Loading subscription status...</Text>
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -141,77 +159,29 @@ const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
                     {getStatusMessage()}
                 </Text>
             </View>
-
-            <View style={styles.actions}>
-                {subscriptionStatus.needsTrialActivation && onActivateTrial ? (
-                    <TouchableOpacity
-                        style={[styles.actionButton, styles.activateButton]}
-                        onPress={onActivateTrial}
-                        disabled={loading}
-                    >
-                        <MaterialCommunityIcons name="play-circle" size={18} color="#fff" style={styles.buttonIcon} />
-                        <Text style={styles.activateButtonText}>Activate Trial</Text>
-                    </TouchableOpacity>
-                ) : (
-                    <>
-                        <TouchableOpacity
-                            style={[styles.actionButton, styles.manageButton]}
-                            onPress={onManagePress}
-                            disabled={loading}
-                        >
-                            <MaterialCommunityIcons name="cog-outline" size={18} color="#fff" style={styles.buttonIcon} />
-                            <Text style={styles.manageButtonText}>Manage</Text>
-                        </TouchableOpacity>
-
-                        {formatted.statusText === 'Active' && (
-                            <TouchableOpacity
-                                style={[styles.actionButton, styles.renewButton]}
-                                onPress={onRenewPress}
-                                disabled={loading}
-                            >
-                                <MaterialCommunityIcons name="refresh" size={18} color="#fff" style={styles.buttonIcon} />
-                                <Text style={styles.renewButtonText}>Renew</Text>
-                            </TouchableOpacity>
-                        )}
-                    </>
-                )}
-            </View>
-
-            {subscriptionStatus.currentPlan && subscriptionStatus.currentPlan.features && Array.isArray(subscriptionStatus.currentPlan.features) && (
-                <View style={styles.featuresContainer}>
-                    <Text style={styles.featuresTitle}>Plan Features:</Text>
-                    {subscriptionStatus.currentPlan.features.slice(0, 3).map((feature, index) => (
-                        <Text key={index} style={styles.featureText}>
-                            • {feature}
-                        </Text>
-                    ))}
-                    {subscriptionStatus.currentPlan.features.length > 3 && (
-                        <Text style={styles.featureText}>
-                            • +{subscriptionStatus.currentPlan.features.length - 3} more features
-                        </Text>
-                    )}
-                </View>
-            )}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: colors.background,
+        backgroundColor: '#fff',
         borderRadius: 12,
         padding: 16,
         marginVertical: 8,
-        elevation: 2,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 2 },
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
     header: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 12,
     },
     headerLeft: {
@@ -241,14 +211,14 @@ const styles = StyleSheet.create({
     daysText: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: colors.primary,
+        color: colors.text.secondary,
     },
     progressContainer: {
-        marginBottom: 16,
+        marginTop: 8,
     },
     progressBar: {
         height: 8,
-        backgroundColor: colors.text.light + '33',
+        backgroundColor: colors.background,
         borderRadius: 4,
         overflow: 'hidden',
         marginBottom: 8,
@@ -262,63 +232,15 @@ const styles = StyleSheet.create({
         color: colors.text.secondary,
         textAlign: 'center',
     },
-    actions: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 12,
-    },
-    actionButton: {
-        flex: 1,
-        flexDirection: 'row',
+    loadingContainer: {
+        padding: 20,
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 8,
     },
-    buttonIcon: {
-        marginRight: 6,
-    },
-    manageButton: {
-        backgroundColor: colors.primary,
-    },
-    manageButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
+    loadingText: {
         fontSize: 14,
-    },
-    renewButton: {
-        backgroundColor: colors.secondary,
-    },
-    renewButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 14,
-    },
-    activateButton: {
-        backgroundColor: colors.success,
-    },
-    activateButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 14,
-    },
-    featuresContainer: {
-        borderTopWidth: 1,
-        borderTopColor: colors.text.light + '33',
-        paddingTop: 12,
-    },
-    featuresTitle: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: colors.text.primary,
-        marginBottom: 6,
-    },
-    featureText: {
-        fontSize: 12,
         color: colors.text.secondary,
-        marginBottom: 2,
     },
 });
 
-export default SubscriptionStatusCard;
+export default SubscriptionStatusCardSimple;
+

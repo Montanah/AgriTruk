@@ -10,6 +10,7 @@ import SubscriptionModal from '../components/TransporterService/SubscriptionModa
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
+import { convertCoordinatesToPlaceName, getShortLocationName } from '../utils/locationUtils';
 import { auth } from '../firebaseConfig';
 import locationService from '../services/locationService';
 import subscriptionService from '../services/subscriptionService';
@@ -113,26 +114,38 @@ export default function ManageTransporterScreen({ route }: any) {
   const [locationSpeed, setLocationSpeed] = useState<number | null>(null);
   const [locationHeading, setLocationHeading] = useState<number | null>(null);
   const [locationAltitude, setLocationAltitude] = useState<number | null>(null);
+  const [locationName, setLocationName] = useState<string | null>(null);
+  const [locationNameLoading, setLocationNameLoading] = useState<boolean>(false);
   
   // Modal states
   const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
   const [licenseModalVisible, setLicenseModalVisible] = useState(false);
   const [photoGalleryModalVisible, setPhotoGalleryModalVisible] = useState(false);
 
-  // Fetch drivers and vehicles data
+  // Fetch drivers and vehicles data (only for company transporters)
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch drivers
-        const driversData = await apiRequest('/transporters/drivers');
-        setDrivers(driversData || []);
+        // Only fetch drivers/vehicles for company transporters
+        if (transporterType === 'company') {
+          // Fetch drivers
+          const driversData = await apiRequest('/transporters/drivers');
+          setDrivers(driversData || []);
 
-        // Fetch vehicles
-        const vehiclesData = await apiRequest('/transporters/vehicles');
-        setVehicles(vehiclesData || []);
+          // Fetch vehicles
+          const vehiclesData = await apiRequest('/transporters/vehicles');
+          setVehicles(vehiclesData || []);
+        } else {
+          // For individual transporters, set empty arrays
+          setDrivers([]);
+          setVehicles([]);
+        }
 
       } catch (error) {
         console.error('Failed to fetch drivers/vehicles:', error);
+        // Set empty arrays on error
+        setDrivers([]);
+        setVehicles([]);
       } finally {
         setLoadingDrivers(false);
         setLoadingVehicles(false);
@@ -140,7 +153,7 @@ export default function ManageTransporterScreen({ route }: any) {
     };
 
     fetchData();
-  }, []);
+  }, [transporterType]);
 
   // Fetch subscription status
   useEffect(() => {
@@ -207,7 +220,7 @@ export default function ManageTransporterScreen({ route }: any) {
                 'Content-Type': 'application/json',
               },
             }),
-            fetch(`${API_ENDPOINTS.USERS}/${user.uid}`, {
+            fetch(`${API_ENDPOINTS.AUTH}/profile`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -226,7 +239,13 @@ export default function ManageTransporterScreen({ route }: any) {
           
           if (userRes.ok) {
             const userData = await userRes.json();
-            setUserProfile(userData.userData);
+            const userProfileData = userData.userData || userData;
+            setUserProfile({
+              ...userProfileData,
+              emailVerified: userProfileData.emailVerified === true || userProfileData.isVerified === true,
+              phoneVerified: userProfileData.phoneVerified === true,
+              isVerified: userProfileData.isVerified === true || userProfileData.emailVerified === true,
+            });
           }
         } catch (error) {
           console.error('Error fetching individual transporter profile:', error);
@@ -241,12 +260,28 @@ export default function ManageTransporterScreen({ route }: any) {
   useEffect(() => {
     if (transporterType === 'individual') {
       const setupLocationTracking = async () => {
-        try {
-          // Set up location update callback
-          locationService.setLocationUpdateCallback((location) => {
-            setCurrentLocation(location);
-            // Location updated
-          });
+          try {
+            // Set up location update callback
+            locationService.setLocationUpdateCallback(async (location) => {
+              setCurrentLocation(location);
+              
+              // Convert coordinates to place name
+              if (location.latitude && location.longitude) {
+                setLocationNameLoading(true);
+                try {
+                  const placeName = await getShortLocationName({
+                    latitude: location.latitude,
+                    longitude: location.longitude
+                  });
+                  setLocationName(placeName);
+                } catch (error) {
+                  console.error('Error converting coordinates to place name:', error);
+                  setLocationName(null);
+                } finally {
+                  setLocationNameLoading(false);
+                }
+              }
+            });
 
           // Check if location tracking should be active
           // This would typically be based on transporter's online status
@@ -819,25 +854,26 @@ export default function ManageTransporterScreen({ route }: any) {
       if (!user) throw new Error('Not authenticated');
 
       const token = await user.getIdToken();
-        const response = await apiRequest(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}/availability`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            availability: newStatus,
-          }),
-        });
+      const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          acceptingBooking: newStatus,
+        }),
+      });
 
-      if (response.success) {
+      if (response.ok) {
         setAcceptingBooking(newStatus);
         Alert.alert(
           'Status Updated',
           `You are now ${newStatus ? 'accepting' : 'not accepting'} new booking requests.`
         );
       } else {
-        throw new Error(response.message || 'Failed to update booking status');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update booking status');
       }
     } catch (error: any) {
       console.error('Error updating booking status:', error);
@@ -1226,7 +1262,7 @@ export default function ManageTransporterScreen({ route }: any) {
                     {recruitIdDoc && <Text style={styles.fileName}>{recruitIdDoc.fileName || recruitIdDoc.uri?.split('/').pop()}</Text>}
                   </View>
                   <View style={styles.section}>
-                    <Text style={styles.editLabel}>Driver's License (PDF or Image) *</Text>
+                    <Text style={styles.editLabel}>Driver&apos;s License (PDF or Image) *</Text>
                     <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverLicense(setRecruitLicense)}>
                       <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
                       <Text style={styles.uploadBtnText}>{recruitLicense ? 'Change File' : 'Upload File'}</Text>
@@ -1502,18 +1538,18 @@ export default function ManageTransporterScreen({ route }: any) {
         if (!user) throw new Error('Not authenticated');
 
         const token = await user.getIdToken();
-        const response = await apiRequest(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}/availability`, {
+        const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            availability: newStatus,
+            acceptingBooking: newStatus,
           }),
         });
 
-        if (response.success) {
+        if (response.ok) {
           setAcceptingBooking(newStatus);
           setIndividualProfile((prev: any) => ({ ...prev, acceptingBooking: newStatus }));
           Alert.alert(
@@ -1521,7 +1557,8 @@ export default function ManageTransporterScreen({ route }: any) {
             `You are now ${newStatus ? 'accepting' : 'not accepting'} new booking requests.`
           );
         } else {
-          throw new Error(response.message || 'Failed to update booking status');
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to update booking status');
         }
       } catch (error: any) {
         console.error('Error updating booking status:', error);
@@ -1547,7 +1584,7 @@ export default function ManageTransporterScreen({ route }: any) {
                 <MaterialCommunityIcons name="account-circle" size={100} color={colors.primary} style={{ marginBottom: 10 }} />
               )}
               <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 18, marginBottom: 2 }}>{individualProfile?.displayName || ''}</Text>
-              <Text style={{ color: colors.text.secondary, fontSize: 15 }}>{individualProfile?.phoneNumber || ''}</Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 15 }}>{individualProfile?.phoneNumber || ''}</Text>
             </View>
             
             {/* Accepting Requests Toggle */}
@@ -1589,25 +1626,25 @@ export default function ManageTransporterScreen({ route }: any) {
                 <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Email</Text>
                 <View style={[
                   styles.verificationBadge,
-                  individualProfile?.emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
+                  userProfile?.emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
                 ]}>
                   <MaterialCommunityIcons
-                    name={individualProfile?.emailVerified ? "check-circle" : "close-circle"}
+                    name={userProfile?.emailVerified ? "check-circle" : "close-circle"}
                     size={12}
-                    color={individualProfile?.emailVerified ? colors.success : colors.error}
+                    color={userProfile?.emailVerified ? colors.success : colors.error}
                   />
                   <Text style={[
                     styles.verificationBadgeText,
-                    individualProfile?.emailVerified ? styles.verifiedText : styles.unverifiedText
+                    userProfile?.emailVerified ? styles.verifiedText : styles.unverifiedText
                   ]}>
-                    {individualProfile?.emailVerified ? 'Verified' : 'Unverified'}
+                    {userProfile?.emailVerified ? 'Verified' : 'Unverified'}
                   </Text>
                 </View>
               </View>
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
                 {individualProfile?.email || 'No email set'}
               </Text>
-              {!individualProfile?.emailVerified && (
+              {!userProfile?.emailVerified && (
                 <TouchableOpacity
                   style={styles.verifyButton}
                   onPress={handleVerifyEmail}
@@ -1660,7 +1697,7 @@ export default function ManageTransporterScreen({ route }: any) {
               )}
             </View>
 
-            {individualProfile?.emailVerified && individualProfile?.phoneVerified && (
+            {userProfile?.emailVerified && userProfile?.phoneVerified && (
               <View style={styles.allVerified}>
                 <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
                 <Text style={styles.allVerifiedText}>All contact methods verified!</Text>
@@ -1711,9 +1748,41 @@ export default function ManageTransporterScreen({ route }: any) {
             {currentLocation && (
               <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12, marginTop: 8 }}>
                 <Text style={{ color: colors.text.secondary, fontSize: 12, marginBottom: 4 }}>Last Updated Location:</Text>
-                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}>
-                  {currentLocation.latitude.toFixed(6)}, {currentLocation.longitude.toFixed(6)}
-                </Text>
+                {locationNameLoading ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={{ color: colors.text.secondary, fontSize: 14 }}>Loading location name...</Text>
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold', flex: 1 }}>
+                      {locationName || 'Location not available'}
+                    </Text>
+                    {!locationName && (
+                      <TouchableOpacity 
+                        onPress={async () => {
+                          if (currentLocation) {
+                            setLocationNameLoading(true);
+                            try {
+                              const placeName = await getShortLocationName({
+                                latitude: currentLocation.latitude,
+                                longitude: currentLocation.longitude
+                              });
+                              setLocationName(placeName);
+                            } catch (error) {
+                              console.error('Error converting coordinates to place name:', error);
+                            } finally {
+                              setLocationNameLoading(false);
+                            }
+                          }
+                        }}
+                        style={{ padding: 4 }}
+                      >
+                        <MaterialCommunityIcons name="refresh" size={16} color={colors.primary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
                 <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 4 }}>
                   Updated: {new Date(currentLocation.timestamp).toLocaleTimeString()}
                 </Text>
@@ -1782,7 +1851,7 @@ export default function ManageTransporterScreen({ route }: any) {
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2, justifyContent: 'space-between' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <MaterialCommunityIcons name={individualProfile.driverLicense ? 'card-account-details-outline' : 'card-account-details-outline'} size={20} color={individualProfile.driverLicense ? colors.success : colors.error} style={{ marginRight: 8 }} />
-                      <Text style={{ color: individualProfile.driverLicense ? colors.success : colors.error, fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>Driver's License</Text>
+                      <Text style={{ color: individualProfile.driverLicense ? colors.success : colors.error, fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>Driver&apos;s License</Text>
                       <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
                         {individualProfile.driverLicense ? 'Uploaded' : 'Not Uploaded'}
                       </Text>
@@ -1932,15 +2001,20 @@ export default function ManageTransporterScreen({ route }: any) {
             </View>
           </Modal>
           {/* Subscription Section */}
-          {subscriptionStatus && (
-            <SubscriptionStatusCard
-              subscriptionStatus={subscriptionStatus}
-              onManagePress={() => setSubscriptionModalVisible(true)}
-              onRenewPress={handlePayment}
-              onActivateTrial={handleActivateTrial}
-              loading={loadingSubscription}
-            />
-          )}
+          <SubscriptionStatusCard
+            subscriptionStatus={subscriptionStatus || {
+              hasActiveSubscription: false,
+              isTrialActive: false,
+              needsTrialActivation: true,
+              currentPlan: null,
+              daysRemaining: 0,
+              subscriptionStatus: 'none'
+            }}
+            onManagePress={() => setSubscriptionModalVisible(true)}
+            onRenewPress={handlePayment}
+            onActivateTrial={handleActivateTrial}
+            loading={loadingSubscription}
+          />
           {/* Subscription Plans Modal */}
           {subscriptionModalVisible && (
             <SubscriptionModal
@@ -2076,7 +2150,7 @@ const styles = StyleSheet.create({
   inputDropdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.background, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: colors.text.light },
   dropdownList: { backgroundColor: colors.white, borderRadius: 8, marginTop: 2, borderWidth: 1, borderColor: colors.text.light, width: '100%' },
   dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: colors.background },
-  input: { backgroundColor: colors.background, borderRadius: 8, padding: 10, marginVertical: 6, fontSize: 15, borderWidth: 1, borderColor: colors.text.light, color: colors.text.primary, placeholderTextColor: colors.text.light },
+  input: { backgroundColor: colors.background, borderRadius: 8, padding: 10, marginVertical: 6, fontSize: 15, borderWidth: 1, borderColor: colors.text.light, color: colors.text.primary },
   // Verification styles
   verificationBadge: {
     flexDirection: 'row',

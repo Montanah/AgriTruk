@@ -33,25 +33,8 @@ export const useSubscriptionStatus = (): UseSubscriptionStatusReturn => {
       const status = await subscriptionService.getSubscriptionStatus();
       setSubscriptionStatus(status);
       
-      // Handle navigation based on subscription status
-      if (status.needsTrialActivation) {
-        // New user needs to activate trial
-        navigation.navigate('SubscriptionTrialScreen', { 
-          userType: 'transporter',
-          subscriptionStatus: status 
-        });
-        return;
-      }
-      
-      if (status.subscriptionStatus === 'expired' || (status.trialUsed && !status.hasActiveSubscription)) {
-        // Subscription expired or trial used up
-        navigation.navigate('SubscriptionExpiredScreen', { 
-          userType: 'transporter',
-          userId: 'current_user',
-          expiredDate: new Date().toISOString()
-        });
-        return;
-      }
+      // Don't auto-navigate here - let the calling component handle navigation
+      // This hook should only provide subscription status data
       
     } catch (err: any) {
       console.error('Error checking subscription status:', err);

@@ -332,18 +332,45 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                             <MaterialCommunityIcons name="star-circle" size={32} color={colors.secondary} />
                             <View style={styles.subscriptionInfo}>
                                 <Text style={styles.subscriptionTitle}>
-                                    {subscriptionStatus.currentPlan?.name || 'Subscription'}
+                                    {subscriptionStatus.isTrialActive ? 'Free Trial' : subscriptionStatus.currentPlan?.name || 'Subscription'}
                                 </Text>
-                                <Text style={styles.subscriptionStatus}>
+                                <Text style={[styles.subscriptionStatus, { color: subscriptionStatus.isTrialActive ? colors.success : colors.primary }]}>
                                     {subscriptionStatus.isTrialActive
-                                        ? `Trial • ${subscriptionStatus.daysRemaining || 0} days remaining`
+                                        ? 'Trial Active'
                                         : subscriptionStatus.hasActiveSubscription
-                                            ? `Active • ${subscriptionStatus.daysRemaining || 0} days remaining`
+                                            ? 'Active'
                                             : 'Inactive'
                                     }
                                 </Text>
                             </View>
+                            <Text style={styles.daysRemaining}>
+                                {subscriptionStatus.daysRemaining || 0} days
+                            </Text>
                         </View>
+                        
+                        {/* Progress Bar */}
+                        <View style={styles.progressContainer}>
+                            <View style={styles.progressBar}>
+                                <View 
+                                    style={[
+                                        styles.progressFill, 
+                                        { 
+                                            width: `${Math.max(0, Math.min(100, ((30 - (subscriptionStatus.daysRemaining || 0)) / 30) * 100))}%`,
+                                            backgroundColor: subscriptionStatus.isTrialActive ? colors.success : colors.primary
+                                        }
+                                    ]} 
+                                />
+                            </View>
+                            <Text style={styles.progressText}>
+                                {subscriptionStatus.isTrialActive 
+                                    ? `Trial ends in ${subscriptionStatus.daysRemaining || 0} days`
+                                    : subscriptionStatus.hasActiveSubscription 
+                                        ? `${subscriptionStatus.daysRemaining || 0} days remaining`
+                                        : 'No active subscription'
+                                }
+                            </Text>
+                        </View>
+                        
                         <TouchableOpacity
                             style={styles.manageButton}
                             onPress={() => navigation.navigate('BrokerProfileScreen')}
@@ -910,19 +937,20 @@ const styles = StyleSheet.create({
         backgroundColor: colors.white,
         padding: spacing.lg,
         borderRadius: 16,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         shadowColor: colors.black,
         shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 4,
+        marginBottom: spacing.md,
     },
     subscriptionHeader: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
+        marginBottom: 12,
     },
     subscriptionInfo: {
+        flex: 1,
         marginLeft: spacing.md,
     },
     subscriptionTitle: {
@@ -933,13 +961,38 @@ const styles = StyleSheet.create({
     },
     subscriptionStatus: {
         fontSize: fonts.size.sm,
+        fontWeight: '500',
+    },
+    daysRemaining: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: colors.primary,
+    },
+    progressContainer: {
+        marginBottom: 12,
+    },
+    progressBar: {
+        height: 8,
+        backgroundColor: colors.text.light + '30',
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginBottom: 8,
+    },
+    progressFill: {
+        height: '100%',
+        borderRadius: 4,
+    },
+    progressText: {
+        fontSize: 12,
         color: colors.text.secondary,
+        textAlign: 'center',
     },
     manageButton: {
         backgroundColor: colors.secondary,
         paddingHorizontal: spacing.lg,
         paddingVertical: spacing.sm,
         borderRadius: 20,
+        alignSelf: 'flex-start',
     },
     manageButtonText: {
         color: colors.white,

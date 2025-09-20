@@ -22,6 +22,8 @@ import SubscriptionTrialScreen from './src/screens/SubscriptionTrialScreen';
 import TransporterProcessingScreen from './src/screens/TransporterProcessingScreen';
 import TripDetailsScreen from './src/screens/TripDetailsScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
+import JobManagementScreen from './src/screens/JobManagementScreen';
+import RouteLoadsScreen from './src/screens/RouteLoadsScreen';
 
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
@@ -522,6 +524,8 @@ export default function App() {
             <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
             <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+            <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
+            <Stack.Screen name="RouteLoadsScreen" component={RouteLoadsScreen} />
             <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
             <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
@@ -879,6 +883,8 @@ export default function App() {
         screens = (
           <>
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+            <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
+            <Stack.Screen name="RouteLoadsScreen" component={RouteLoadsScreen} />
             <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
             <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
             <Stack.Screen name="RequestForm" component={require('./src/components/common/RequestForm').default} />

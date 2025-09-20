@@ -22,6 +22,8 @@ export interface SubscriptionStatus {
   daysRemaining: number;
   subscriptionStatus: 'active' | 'expired' | 'trial' | 'none';
   subscription?: any;
+  isTrial?: boolean;
+  trialDaysRemaining?: number;
 }
 
 export interface Subscriber {
@@ -83,7 +85,8 @@ class SubscriptionService {
     try {
       const token = await this.getAuthToken();
 
-      const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
+      // First, get the subscriber status to get planId
+      const subscriberResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -91,13 +94,104 @@ class SubscriptionService {
         },
       });
 
-      if (!response.ok) {
-        console.warn(`Subscription status API returned ${response.status}, using default status`);
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!subscriberResponse.ok) {
+        console.warn(`Subscriber status API returned ${subscriberResponse.status}, using default status`);
+        throw new Error(`HTTP error! status: ${subscriberResponse.status}`);
       }
 
-      const data = await response.json();
-      return data;
+      const subscriberData = await subscriberResponse.json();
+      console.log('Subscriber API response:', subscriberData);
+      
+      // Extract subscription data
+      const subscriptionData = subscriberData.data || subscriberData;
+      const planId = subscriptionData.planId || subscriberData.planId;
+      
+      let planDetails = null;
+      
+      // If we have a planId, fetch the full plan details
+      if (planId) {
+        try {
+          console.log('Fetching plan details for planId:', planId);
+          const planResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + `/plans/${planId}`, {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (planResponse.ok) {
+            const planData = await planResponse.json();
+            console.log('Plan API response:', planData);
+            planDetails = planData.plan || planData;
+          } else {
+            console.warn(`Plan details API returned ${planResponse.status}`);
+          }
+        } catch (planError) {
+          console.warn('Failed to fetch plan details:', planError);
+        }
+      }
+      
+      // Parse the subscription data
+      const hasActiveSubscription = subscriptionData.hasActiveSubscription || false;
+      const isTrialActive = subscriptionData.isTrialActive || false;
+      const needsTrialActivation = subscriptionData.needsTrialActivation || false;
+      const subscriptionStatus = subscriptionData.subscriptionStatus || 'none';
+      const isTrial = subscriptionData.isTrial || false;
+      
+      // Calculate actual days remaining based on start date
+      let daysRemaining = 0;
+      let trialDaysRemaining = 0;
+      
+      if (subscriberData.subscriber && subscriberData.subscriber.startDate) {
+        const startDate = new Date(subscriberData.subscriber.startDate);
+        const endDate = new Date(subscriberData.subscriber.endDate);
+        const now = new Date();
+        
+        // Calculate days since start
+        const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+        
+        if (isTrial) {
+          // For trial, calculate remaining days from 30-day trial period
+          const totalTrialDays = 30;
+          trialDaysRemaining = Math.max(0, totalTrialDays - daysSinceStart);
+          daysRemaining = trialDaysRemaining;
+        } else {
+          // For regular subscription, calculate from end date
+          const timeDiff = endDate.getTime() - now.getTime();
+          daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        }
+        
+        console.log('Days calculation:', {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          now: now.toISOString(),
+          daysSinceStart,
+          isTrial,
+          trialDaysRemaining,
+          daysRemaining,
+          planId: subscriberData.subscriber?.planId,
+          subscriberId: subscriberData.subscriber?.id,
+          activationTime: subscriberData.subscriber?.createdAt
+        });
+      } else {
+        // Fallback to API values if subscriber data not available
+        daysRemaining = subscriptionData.daysRemaining || 0;
+        trialDaysRemaining = subscriptionData.trialDaysRemaining || 0;
+      }
+      
+      return {
+        hasActiveSubscription,
+        isTrialActive,
+        needsTrialActivation,
+        currentPlan: planDetails,
+        daysRemaining,
+        subscriptionStatus,
+        subscription: subscriberData.subscriber || subscriptionData,
+        isTrial,
+        trialDaysRemaining
+      };
+      
     } catch (error: any) {
       console.warn('Subscription status API unavailable, using default status:', error.message);
 
@@ -322,7 +416,27 @@ class SubscriptionService {
     try {
       const token = await this.getAuthToken();
 
-      // Use the correct endpoint from Swagger docs: POST /api/subscriptions/subscriber/
+      // First, get available subscription plans to find the trial plan
+      const plansResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!plansResponse.ok) {
+        throw new Error('Failed to fetch subscription plans');
+      }
+
+      const plansData = await plansResponse.json();
+      const trialPlan = plansData.subscriptions?.find((plan: any) => plan.price === 0 || plan.name.toLowerCase().includes('trial'));
+
+      if (!trialPlan) {
+        throw new Error('No trial plan available. Please contact support.');
+      }
+
+      // Create subscriber with trial plan
       const response = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/', {
         method: 'POST',
         headers: {
@@ -330,10 +444,9 @@ class SubscriptionService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          planId: 'trial', // Trial plan ID
+          planId: trialPlan.planId,
           userType,
-          isTrial: true,
-          duration: 30, // 30-day trial
+          autoRenew: false, // Don't auto-renew trials
         }),
       });
 

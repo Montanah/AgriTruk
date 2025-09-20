@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useCameraPermissions, useMediaLibraryPermissions } from 'expo-image-picker';
 import { getAuth } from 'firebase/auth';
 import React, { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ActivityIndicator,
   Animated, Easing,
@@ -25,6 +26,7 @@ import VehicleDetailsForm from '../../components/VehicleDetailsForm';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 import { uploadFile } from '../../utils/api';
+import { useSubscriptionStatus } from '../../hooks/useSubscriptionStatus';
 
 const VEHICLE_TYPES = [
   {
@@ -67,11 +69,11 @@ const VEHICLE_TYPES = [
 // Helper to check if transporter profile is truly complete
 function isTransporterProfileComplete(transporter) {
   if (!transporter) return false;
+  
+  console.log('Checking profile completeness for:', transporter);
+  
   // Required fields for a completed profile (individual)
   const requiredFields = [
-    'driverProfileImage',
-    'driverLicense',
-    'insuranceUrl',
     'vehicleType',
     'vehicleRegistration',
     'vehicleMake',
@@ -83,19 +85,50 @@ function isTransporterProfileComplete(transporter) {
     'phoneNumber',
     'status',
   ];
+  
+  // Check basic required fields
   for (const field of requiredFields) {
     if (!transporter[field] || typeof transporter[field] !== 'string' || transporter[field].length === 0) {
+      console.log(`Missing or empty field: ${field} = ${transporter[field]}`);
       return false;
     }
   }
-  // At least one vehicle image
-  if (!Array.isArray(transporter.vehicleImagesUrl) || transporter.vehicleImagesUrl.length === 0) {
+  
+  // Check for profile image (flexible field names)
+  const hasProfileImage = transporter.driverProfileImage || transporter.profilePhoto || transporter.profileImage;
+  if (!hasProfileImage) {
+    console.log('Missing profile image');
     return false;
   }
+  
+  // Check for driver license (flexible field names)
+  const hasDriverLicense = transporter.driverLicense || transporter.dlFile || transporter.driverLicenseUrl;
+  if (!hasDriverLicense) {
+    console.log('Missing driver license');
+    return false;
+  }
+  
+  // Check for insurance (flexible field names)
+  const hasInsurance = transporter.insuranceUrl || transporter.insuranceFile || transporter.insurance;
+  if (!hasInsurance) {
+    console.log('Missing insurance');
+    return false;
+  }
+  
+  // Check for vehicle images (flexible field names)
+  const vehicleImages = transporter.vehicleImagesUrl || transporter.vehicleImages || transporter.vehiclePhotos;
+  if (!Array.isArray(vehicleImages) || vehicleImages.length === 0) {
+    console.log('Missing vehicle images');
+    return false;
+  }
+  
   // Status must be at least 'pending', 'under_review', or 'approved'
   if (!['pending', 'under_review', 'approved'].includes(transporter.status)) {
+    console.log(`Invalid status: ${transporter.status}`);
     return false;
   }
+  
+  console.log('Profile is complete!');
   return true;
 }
 
@@ -104,6 +137,7 @@ export default function TransporterCompletionScreen() {
   const [transporterType, setTransporterType] = useState('individual'); // 'individual' or 'company'
   const [checkingProfile, setCheckingProfile] = useState(true);
   const [profileCheckError, setProfileCheckError] = useState('');
+  const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
 
   const runProfileCheck = React.useCallback(() => {
     setCheckingProfile(true);
@@ -149,6 +183,11 @@ export default function TransporterCompletionScreen() {
         if (res.ok) {
           try {
             data = await res.json();
+            console.log('Transporter profile data:', data);
+            if (data.transporter) {
+              console.log('Transporter fields:', Object.keys(data.transporter));
+              console.log('Profile completeness check:', isTransporterProfileComplete(data.transporter));
+            }
           } catch (e) {
             data = null;
           }
@@ -182,12 +221,52 @@ export default function TransporterCompletionScreen() {
           if (isTransporterProfileComplete(data.transporter)) {
             if (data.transporter.status === 'approved') {
               clearTimeout(timeout);
-              navigation.reset({
-                index: 0,
-                routes: [
-                  { name: 'TransporterTabs', params: { transporterType: data.transporter.transporterType || 'individual' } },
-                ],
-              });
+              
+              // Check subscription status before navigating to dashboard
+              console.log('Subscription status check:', { subscriptionStatus, subscriptionLoading });
+              if (subscriptionStatus && !subscriptionLoading) {
+                console.log('Subscription details:', {
+                  hasActiveSubscription: subscriptionStatus.hasActiveSubscription,
+                  isTrialActive: subscriptionStatus.isTrialActive,
+                  subscriptionStatus: subscriptionStatus.subscriptionStatus
+                });
+                // User has active subscription or trial - go to dashboard
+                if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
+                  navigation.reset({
+                    index: 0,
+                    routes: [
+                      { name: 'TransporterTabs', params: { transporterType: data.transporter.transporterType || 'individual' } },
+                    ],
+                  });
+                } else if (subscriptionStatus.subscriptionStatus === 'expired') {
+                  // Subscription expired - go to expired screen
+                  navigation.reset({
+                    index: 0,
+                    routes: [
+                      { name: 'SubscriptionExpiredScreen', params: { 
+                        userType: 'transporter',
+                        userId: 'current_user',
+                        expiredDate: new Date().toISOString()
+                      } },
+                    ],
+                  });
+                } else {
+                  // No subscription or needs trial activation - go to trial screen
+                  navigation.reset({
+                    index: 0,
+                    routes: [
+                      { name: 'SubscriptionTrialScreen', params: { 
+                        userType: 'transporter',
+                        subscriptionStatus: subscriptionStatus 
+                      } },
+                    ],
+                  });
+                }
+              } else {
+                // Subscription status not loaded yet, wait for it
+                console.log('Subscription status not loaded yet, waiting...');
+                return;
+              }
               return;
             } else if (['pending', 'under_review'].includes(data.transporter.status)) {
               clearTimeout(timeout);
@@ -212,11 +291,31 @@ export default function TransporterCompletionScreen() {
         setCheckingProfile(false);
       }
     })();
-  }, [navigation]);
+  }, [navigation, subscriptionStatus, subscriptionLoading]);
 
   useEffect(() => {
     runProfileCheck();
   }, [runProfileCheck]);
+
+  // Re-run profile check when subscription status changes
+  useEffect(() => {
+    if (subscriptionStatus && !subscriptionLoading) {
+      runProfileCheck();
+    }
+  }, [subscriptionStatus, subscriptionLoading, runProfileCheck]);
+
+  // Fallback: If subscription status doesn't load after 10 seconds, proceed anyway
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      if (checkingProfile && !subscriptionStatus && !subscriptionLoading) {
+        console.log('Subscription status timeout - proceeding with default navigation');
+        setCheckingProfile(false);
+        // Allow the form to show if no profile exists, or navigate based on profile status
+      }
+    }, 10000);
+
+    return () => clearTimeout(fallbackTimer);
+  }, [checkingProfile, subscriptionStatus, subscriptionLoading]);
   const [vehicleType, setVehicleType] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [vehicleMake, setVehicleMake] = useState('');
@@ -241,18 +340,20 @@ export default function TransporterCompletionScreen() {
   const [registration, setRegistration] = useState('');
   const [humidityControl, setHumidityControl] = useState(false);
   const [refrigeration, setRefrigeration] = useState(false);
-  const [profilePhoto, setProfilePhoto] = useState(null);
-  const [vehiclePhotos, setVehiclePhotos] = useState([]);
+  const [profilePhoto, setProfilePhoto] = useState<any>(null);
+  const [vehiclePhotos, setVehiclePhotos] = useState<any[]>([]);
   const [photoJustAdded, setPhotoJustAdded] = useState(false);
-  const [dlFile, setDlFile] = useState(null); // can be image or pdf
-  const [idFile, setIdFile] = useState(null); // driver's ID
-  const [insuranceFile, setInsuranceFile] = useState(null); // insurance
+  const [dlFile, setDlFile] = useState<any>(null); // can be image or pdf
+  const [idFile, setIdFile] = useState<any>(null); // driver's ID
+  const [insuranceFile, setInsuranceFile] = useState<any>(null); // insurance
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const [logBookFile, setLogBookFile] = useState(null); // can be image or pdf
+  const [logBookFile, setLogBookFile] = useState<any>(null); // can be image or pdf
   const [companyName, setCompanyName] = useState('');
   const [companyReg, setCompanyReg] = useState('');
   const [companyContact, setCompanyContact] = useState('');
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
 
   // Prefill company name and contact from Firebase Auth on mount and when user changes
   // Prefill company name and contact from backend user document on company tab select
@@ -359,7 +460,7 @@ export default function TransporterCompletionScreen() {
   const handleDlFile = async () => {
     Alert.alert(
       'Select Document',
-      'Choose how you want to add your driver\'s license',
+      'Choose how you want to add your driver&apos;s license',
       [
         { text: 'Take Photo', onPress: () => handleDlCamera() },
         { text: 'Choose from Gallery', onPress: () => handleDlGallery() },
@@ -439,7 +540,7 @@ export default function TransporterCompletionScreen() {
   const handleIdFile = async () => {
     Alert.alert(
       'Select Document',
-      'Choose how you want to add your driver\'s ID',
+      'Choose how you want to add your driver&apos;s ID',
       [
         { text: 'Take Photo', onPress: () => handleIdCamera() },
         { text: 'Choose from Gallery', onPress: () => handleIdGallery() },
@@ -685,9 +786,9 @@ export default function TransporterCompletionScreen() {
       if (!vehicleType) { setError('Please select a vehicle type.'); return false; }
       if (!registration) { setError('Please enter the vehicle registration number.'); return false; }
       if (!profilePhoto) { setError('Please upload a profile photo.'); return false; }
-      if (!dlFile) { setError("Please upload the driver's license."); return false; }
+      if (!dlFile) { setError("Please upload the driver&apos;s license."); return false; }
       if (!insuranceFile) { setError('Please upload the insurance document.'); return false; }
-      if (!idFile) { setError("Please upload the driver's ID."); return false; }
+      if (!idFile) { setError("Please upload the driver&apos;s ID."); return false; }
       if (!vehiclePhotos || vehiclePhotos.length === 0) { setError('Please add at least one vehicle photo.'); return false; }
     } else {
       if (!companyName) { setError('Please enter the company name.'); return false; }
@@ -1422,6 +1523,123 @@ export default function TransporterCompletionScreen() {
     }
   };
 
+  const handleSaveDraft = async () => {
+    console.log('💾 Saving transporter profile as draft...');
+    setSavingDraft(true);
+    setError('');
+
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      // Prepare draft data based on transporter type
+      let draftData;
+      
+      if (transporterType === 'individual') {
+        draftData = {
+          transporterType: 'individual',
+          vehicleType,
+          vehicleRegistration: registration,
+          vehicleMake,
+          vehicleColor,
+          vehicleModel: vehicleMake,
+          vehicleYear: year ? String(year) : '2020',
+          vehicleCapacity: maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? String(parseInt(maxCapacity, 10)) : '5',
+          driveType: driveType || '',
+          bodyType: bodyType || '',
+          vehicleFeatures: vehicleFeatures || '',
+          humidityControl: humidityControl ? 'true' : 'false',
+          refrigerated: refrigeration ? 'true' : 'false',
+          // Note: Files cannot be saved in draft - user will need to re-upload them
+          hasProfilePhoto: !!(profilePhoto && profilePhoto.uri),
+          hasDlFile: !!(dlFile && dlFile.uri),
+          hasInsuranceFile: !!(insuranceFile && insuranceFile.uri),
+          hasIdFile: !!(idFile && idFile.uri),
+          hasLogbookFile: !!(logBookFile && logBookFile.uri),
+          vehiclePhotosCount: vehiclePhotos ? vehiclePhotos.length : 0,
+          isDraft: true,
+          savedAt: new Date().toISOString()
+        };
+      } else {
+        draftData = {
+          transporterType: 'company',
+          companyName,
+          companyReg,
+          companyContact,
+          hasLogo: !!(profilePhoto && profilePhoto.uri),
+          isDraft: true,
+          savedAt: new Date().toISOString()
+        };
+      }
+
+      // Save draft to localStorage
+      const draftKey = `transporter_draft_${user.uid}`;
+      await AsyncStorage.setItem(draftKey, JSON.stringify(draftData));
+
+      console.log('✅ Draft saved successfully');
+      setDraftSaved(true);
+      
+      // Show success message for 3 seconds
+      setTimeout(() => {
+        setDraftSaved(false);
+      }, 3000);
+
+      return true;
+    } catch (e: any) {
+      console.error('Draft save error:', e);
+      setError('Failed to save draft. Please try again.');
+      return false;
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  const loadDraftData = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const draftKey = `transporter_draft_${user.uid}`;
+      const draftData = await AsyncStorage.getItem(draftKey);
+      
+      if (draftData) {
+        const parsedDraft = JSON.parse(draftData);
+        console.log('📄 Loading draft data:', parsedDraft);
+        
+        // Restore form data based on transporter type
+        if (parsedDraft.transporterType === 'individual') {
+          setVehicleType(parsedDraft.vehicleType || '');
+          setRegistration(parsedDraft.vehicleRegistration || '');
+          setVehicleMake(parsedDraft.vehicleMake || '');
+          setVehicleColor(parsedDraft.vehicleColor || '');
+          setYear(parsedDraft.vehicleYear || '');
+          setMaxCapacity(parsedDraft.vehicleCapacity || '');
+          setDriveType(parsedDraft.driveType || '');
+          setBodyType(parsedDraft.bodyType || 'closed');
+          setVehicleFeatures(parsedDraft.vehicleFeatures || '');
+          setHumidityControl(parsedDraft.humidityControl === 'true');
+          setRefrigeration(parsedDraft.refrigerated === 'true');
+        } else if (parsedDraft.transporterType === 'company') {
+          setCompanyName(parsedDraft.companyName || '');
+          setCompanyReg(parsedDraft.companyReg || '');
+          setCompanyContact(parsedDraft.companyContact || '');
+        }
+        
+        // Note: Files cannot be restored from draft - user will need to re-upload them
+        console.log('✅ Draft data loaded successfully');
+      }
+    } catch (e) {
+      console.error('Failed to load draft data:', e);
+    }
+  };
+
+  // Load draft data when component mounts
+  useEffect(() => {
+    loadDraftData();
+  }, []);
+
   const insets = useSafeAreaInsets();
 
   if (checkingProfile) {
@@ -1580,7 +1798,7 @@ export default function TransporterCompletionScreen() {
             <View style={styles.documentsRow}>
               {/* Driver's License */}
               <View style={styles.documentCardRow}>
-                <Text style={styles.documentTitle}>Driver's License</Text>
+                <Text style={styles.documentTitle}>Driver&apos;s License</Text>
                 <TouchableOpacity 
                   style={[styles.documentUploader, dlFile && styles.documentUploaderFilled]} 
                   onPress={handleDlFile}
@@ -1611,7 +1829,7 @@ export default function TransporterCompletionScreen() {
 
               {/* Driver's ID */}
               <View style={styles.documentCardRow}>
-                <Text style={styles.documentTitle}>Driver's ID</Text>
+                <Text style={styles.documentTitle}>Driver&apos;s ID</Text>
                 <TouchableOpacity 
                   style={[styles.documentUploader, idFile && styles.documentUploaderFilled]} 
                   onPress={handleIdFile}
@@ -1744,28 +1962,60 @@ export default function TransporterCompletionScreen() {
       )}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      
+      {/* Draft Saved Success Message */}
+      {draftSaved && (
+        <View style={styles.draftSuccessContainer}>
+          <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+          <Text style={styles.draftSuccessText}>Draft saved successfully!</Text>
+        </View>
+      )}
+      
       <View style={{ paddingBottom: insets.bottom + 18, width: '100%' }}>
-        <TouchableOpacity
-          style={[styles.submitBtn, { backgroundColor: isValid() && !photoJustAdded ? colors.primary : colors.text.light }]}
-          onPress={async () => {
-            if (uploading || !isValid() || photoJustAdded) return;
+        {/* Action Buttons Container */}
+        <View style={styles.actionButtonsContainer}>
+          {/* Save as Draft Button */}
+          <TouchableOpacity
+            style={[styles.draftBtn, { backgroundColor: colors.background, borderColor: colors.primary }]}
+            onPress={async () => {
+              if (savingDraft) return;
+              await handleSaveDraft();
+            }}
+            disabled={savingDraft}
+          >
+            {savingDraft ? (
+              <ActivityIndicator color={colors.primary} size="small" />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="content-save-outline" size={20} color={colors.primary} />
+                <Text style={[styles.draftBtnText, { color: colors.primary }]}>Save as Draft</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-            setUploading(true);
-            try {
-              const success = await handleSubmit();
-              if (success) {
-                navigation.navigate('TransporterProcessingScreen', { transporterType });
+          {/* Submit Profile Button */}
+          <TouchableOpacity
+            style={[styles.submitBtn, { backgroundColor: isValid() && !photoJustAdded ? colors.primary : colors.text.light }]}
+            onPress={async () => {
+              if (uploading || !isValid() || photoJustAdded) return;
+
+              setUploading(true);
+              try {
+                const success = await handleSubmit();
+                if (success) {
+                  navigation.navigate('TransporterProcessingScreen', { transporterType });
+                }
+              } catch (e) {
+                setError('Failed to submit profile. Please try again.');
+              } finally {
+                setUploading(false);
               }
-            } catch (e) {
-              setError('Failed to submit profile. Please try again.');
-            } finally {
-              setUploading(false);
-            }
-          }}
-          disabled={!isValid() || uploading || photoJustAdded}
-        >
-          {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
-        </TouchableOpacity>
+            }}
+            disabled={!isValid() || uploading || photoJustAdded}
+          >
+            {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
+          </TouchableOpacity>
+        </View>
       </View>
       <ImagePickerModal
         visible={pickerVisible}
@@ -2225,14 +2475,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Full-width Role Selector
-  roleSelectorTitle: {
+  // Full-width Role Selector (overrides previous definitions)
+  roleSelectorTitleOverride: {
     fontSize: fonts.size.lg,
     fontWeight: 'bold',
     color: colors.text.primary,
     marginBottom: spacing.md,
   },
-  roleSelector: {
+  roleSelectorOverride: {
     flexDirection: 'row',
     backgroundColor: colors.background,
     borderRadius: 16,
@@ -2244,7 +2494,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
-  roleButton: {
+  roleButtonOverride: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2255,7 +2505,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     minHeight: 60,
   },
-  roleButtonActive: {
+  roleButtonActiveOverride: {
     backgroundColor: colors.primary,
     shadowColor: colors.primary,
     shadowOpacity: 0.3,
@@ -2263,12 +2513,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
-  roleButtonText: {
+  roleButtonTextOverride: {
     fontSize: fonts.size.lg,
     fontWeight: 'bold',
     color: colors.text.primary,
   },
-  roleButtonTextActive: {
+  roleButtonTextActiveOverride: {
     color: colors.white,
   },
 
@@ -2349,5 +2599,44 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
+  },
+
+  // Draft functionality styles
+  draftSuccessContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.success + '15',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.success + '30',
+  },
+  draftSuccessText: {
+    color: colors.success,
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    marginLeft: spacing.sm,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+  },
+  draftBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 2,
+    gap: spacing.sm,
+  },
+  draftBtnText: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
   },
 });

@@ -10,7 +10,7 @@ interface LocationUpdate {
 class LocationService {
   private watchId: Location.LocationSubscription | null = null;
   private isTracking = false;
-  private updateInterval = 30000; // 30 seconds
+  private updateInterval = 10000; // 10 seconds
   private lastUpdate = 0;
   private minDistanceInterval = 100; // 100 meters
   private onLocationUpdateCallback?: (location: LocationUpdate) => void;
