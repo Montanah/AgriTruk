@@ -29,7 +29,16 @@ const SubscriptionExpiredScreen: React.FC<SubscriptionExpiredScreenProps> = ({ r
     const { userType, userId, expiredDate } = route.params;
 
     const handleRenewSubscription = () => {
-        navigation.navigate('SubscriptionScreen', { userType });
+        if (userType === 'broker') {
+            // Navigate to payment confirmation for brokers after subscription renewal
+            navigation.navigate('PaymentConfirmation', {
+                userType: 'broker',
+                subscriptionType: 'renewal',
+                expiredDate: expiredDate
+            });
+        } else {
+            navigation.navigate('SubscriptionScreen', { userType });
+        }
     };
 
     const handleContactSupport = () => {

@@ -223,7 +223,7 @@ class PaymentService {
         finalPaymentMethodId = paymentMethodResult.paymentMethod?.id;
       }
 
-      const response = await fetch(`${API_ENDPOINTS.PAYMENTS}/subscription-payment`, {
+      const response = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/subscriber/pay`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

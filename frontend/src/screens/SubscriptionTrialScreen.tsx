@@ -13,13 +13,14 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import KeyboardAwareScrollView from '../components/common/KeyboardAwareScrollView';
+import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { API_ENDPOINTS } from '../constants/api';
 import subscriptionService from '../services/subscriptionService';
-import paymentService from '../services/paymentService';
+import { handleAuthBackNavigation } from '../utils/navigationUtils';
+// import paymentService from '../services/paymentService';
+import { API_ENDPOINTS } from '../constants/api';
 
 interface SubscriptionTrialScreenProps {
     route: {
@@ -50,61 +51,141 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     const [cvv, setCvv] = useState('');
     const [cardholderName, setCardholderName] = useState('');
     const [activatingTrial, setActivatingTrial] = useState(false);
+    // const [trialActivated, setTrialActivated] = useState(false);
 
     // Get trial duration from subscription status or default to 30 days
     const trialDuration = subscriptionStatus?.daysRemaining || 30;
 
+    // Method to create trial plan and subscription following the proper backend flow
+    const createTrialPlanAndSubscription = async (userType: string, duration: number) => {
+        try {
+            const token = await (subscriptionService as any).getAuthToken();
+            
+            // Step 1: Check if user already has a subscription
+            const statusResponse = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/subscriber/status`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                console.log('Current subscription status:', statusData);
+                
+                // If user already has a subscription, don't create another one
+                if (statusData.data && statusData.data.hasActiveSubscription) {
+                    return { 
+                        success: true, 
+                        data: statusData.data,
+                        message: 'User already has an active subscription'
+                    };
+                }
+            }
+
+            // Step 2: Get existing trial plans
+            const plansResponse = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            let trialPlan = null;
+            
+            if (plansResponse.ok) {
+                const plansData = await plansResponse.json();
+                const plans = plansData.data || [];
+                console.log('Existing plans:', plans);
+                
+                // Look for existing trial plan (price = 0)
+                trialPlan = plans.find((plan: any) => plan.price === 0);
+                
+                if (trialPlan) {
+                    console.log('Found existing trial plan:', trialPlan);
+                } else {
+                    throw new Error('No trial plan available. Please contact support.');
+                }
+            } else {
+                throw new Error('Failed to fetch subscription plans.');
+            }
+
+            // Step 3: Create subscription with the trial plan using the subscriber endpoint
+            // For trials (price = 0), we don't need payment processing
+            const subscriptionResponse = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/subscriber/`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    planId: trialPlan.planId,
+                    userType,
+                    autoRenew: false,
+                }),
+            });
+
+            const subscriptionData = await subscriptionResponse.json();
+
+            if (!subscriptionResponse.ok) {
+                throw new Error(subscriptionData.message || 'Failed to create trial subscription');
+            }
+
+            console.log('Trial subscription created successfully:', subscriptionData);
+            return { success: true, data: subscriptionData };
+        } catch (error) {
+            console.error('Error creating trial plan and subscription:', error);
+            return { success: false, message: (error as Error).message };
+        }
+    };
+
+
     const handleActivateTrial = async () => {
+        // For trials, we don't need payment method selection since price is 0
+        // But we still need to collect payment method for future reference
         if (!selectedPaymentMethod) {
-            Alert.alert('Select Payment Method', 'Please select a payment method to activate your trial.');
+            Alert.alert('Select Payment Method', 'Please select a payment method for future reference.');
             return;
         }
 
         setActivatingTrial(true);
         try {
-            // First, get available subscription plans to find the trial plan
-            const plans = await subscriptionService.getSubscriptionPlans();
-            const trialPlan = plans.find(plan => plan.price === 0);
-            
-            if (!trialPlan) {
-                Alert.alert('Error', 'No trial plan available. Please contact support.');
-                return;
-            }
+            // For trial activation, we'll create a trial plan and subscription
+            // The backend will handle the payment verification for $1 test charge
+            console.log('Creating trial plan and subscription...');
 
-            // For trial activation, we need to verify payment method with $1 test charge
-            const paymentData = {
-                planId: trialPlan.id,
-                amount: 1, // $1 test charge for payment verification
-                currency: 'USD',
-                isTrial: true,
-                trialDays: trialDuration,
-                autoRenew: false, // Don't auto-renew trials
-                paymentMethod: selectedPaymentMethod,
-                phoneNumber: selectedPaymentMethod === 'mpesa' ? mpesaPhone : undefined,
-                cardDetails: selectedPaymentMethod === 'stripe' ? {
-                    cardNumber,
-                    expiryDate,
-                    cvv,
-                    cardholderName
-                } : undefined
-            };
-
-            const result = await paymentService.processSubscriptionPayment(paymentData);
+            // Create the trial plan and subscription using the proper backend flow
+            const result = await createTrialPlanAndSubscription(userType, trialDuration);
             
             if (result.success) {
-                setTrialActivated(true);
+                // setTrialActivated(true);
                 Alert.alert(
                     'Trial Activated! 🎉',
-                    `Your ${trialDuration}-day free trial has been activated! The $1 test charge has been refunded to your account. You can now access all premium features.`,
+                    `Your ${trialDuration}-day free trial has been activated! No payment was charged. You can now access all premium features.`,
                     [
                         {
                             text: 'Continue',
-                            onPress: () => navigation.navigate(userType === 'transporter' ? 'TransporterTabs' : 'BrokerTabs')
+                            onPress: () => {
+                                if (userType === 'transporter') {
+                                    navigation.navigate('TransporterTabs');
+                                } else if (userType === 'broker') {
+                                    // Navigate to payment confirmation for brokers
+                                    navigation.navigate('PaymentConfirmation', {
+                                        userType: 'broker',
+                                        subscriptionType: 'trial',
+                                        trialDuration: trialDuration
+                                    });
+                                } else {
+                                    navigation.navigate('MainTabs');
+                                }
+                            }
                         }
                     ]
                 );
             } else {
-                Alert.alert('Error', result.error || 'Failed to activate trial. Please try again.');
+                Alert.alert('Error', result.message || 'Failed to activate trial. Please try again.');
             }
         } catch (error) {
             console.error('Trial activation error:', error);
@@ -233,7 +314,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
             >
                 <View style={styles.headerContent}>
                     <TouchableOpacity
-                        onPress={() => navigation.goBack()}
+                        onPress={() => handleAuthBackNavigation(navigation as any)}
                         style={styles.backButton}
                     >
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
@@ -245,11 +326,9 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 </View>
             </LinearGradient>
 
-            <KeyboardAwareScrollView 
+            <FormKeyboardWrapper 
                 style={styles.scrollView} 
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                extraScrollHeight={50}
+                keyboardVerticalOffset={0}
             >
                 {/* Welcome Section */}
                 <View style={styles.welcomeCard}>
@@ -407,7 +486,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         </Text>
                     </View>
                 </View>
-            </KeyboardAwareScrollView>
+            </FormKeyboardWrapper>
 
             {/* Action Button */}
             <View style={styles.actionContainer}>
@@ -623,19 +702,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: spacing.md,
-        paddingHorizontal: spacing.lg,
-        borderRadius: 12,
+        paddingVertical: spacing.lg,
+        paddingHorizontal: spacing.xl,
+        borderRadius: 14,
         marginBottom: spacing.md,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
     },
     activateButtonDisabled: {
         backgroundColor: colors.text.light,
+        shadowOpacity: 0,
+        elevation: 0,
     },
     activateButtonText: {
         color: colors.white,
-        fontSize: fonts.size.md,
+        fontSize: fonts.size.lg,
         fontWeight: 'bold',
         marginLeft: spacing.sm,
+        letterSpacing: 0.5,
     },
     skipButton: {
         alignItems: 'center',
@@ -659,18 +746,24 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.primary + '15',
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.md,
-        borderRadius: 8,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        borderRadius: 12,
         marginTop: spacing.md,
         borderWidth: 1,
         borderColor: colors.primary + '30',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     viewPlansButtonText: {
         color: colors.primary,
-        fontSize: fonts.size.sm,
-        fontWeight: '600',
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
         marginLeft: spacing.sm,
+        letterSpacing: 0.3,
     },
     paymentForm: {
         marginTop: spacing.md,

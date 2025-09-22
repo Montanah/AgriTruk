@@ -20,6 +20,9 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
+import { cleanLocationDisplay } from '../utils/locationDisplay';
+import { chatService } from '../services/chatService';
+import { enhancedNotificationService } from '../services/enhancedNotificationService';
 
 interface RouteParams {
     transporterType?: 'company' | 'individual' | 'broker';
@@ -375,24 +378,105 @@ const TransporterBookingManagementScreen = () => {
         try {
             await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // Remove from appropriate list based on request type
-            if (request.type === 'instant' || request.type === 'instant-request') {
-                setAllInstantRequests(prev => prev.filter(req => req.id !== request.id));
-            } else if (request.type === 'booking') {
-                setAllBookings(prev => prev.filter(req => req.id !== request.id));
-            } else {
-                setAllRouteLoads(prev => prev.filter(req => req.id !== request.id));
-            }
-
-            // Check if transporter already has active requests (consolidation)
-            const hasActiveRequests = filteredRequests.length > 0 || filteredBookings.length > 0 || filteredRouteLoads.length > 0;
-
-            if (hasActiveRequests) {
-                Alert.alert(
-                    'Consolidation Active',
-                    `Request ${request.id} accepted and added to your active trip! You're now handling multiple requests.`
+            // Create chat room for communication
+            try {
+                const chatRoom = await chatService.getOrCreateChatRoom(
+                    request.id,
+                    'transporter-id', // This should come from auth context
+                    request.client?.id || 'client-id'
                 );
-            } else {
+
+                // Send notification to client about request acceptance
+                await enhancedNotificationService.sendNotification(
+                    'instant_request_accepted',
+                    request.client?.id || 'client-id',
+                    {
+                        requestId: request.id,
+                        transporterName: 'You', // This should come from user profile
+                        pickupLocation: cleanLocationDisplay(request.fromLocation || ''),
+                        deliveryLocation: cleanLocationDisplay(request.toLocation || ''),
+                    }
+                );
+                
+                // Remove from appropriate list based on request type
+                if (request.type === 'instant' || request.type === 'instant-request') {
+                    setAllInstantRequests(prev => prev.filter(req => req.id !== request.id));
+                } else if (request.type === 'booking') {
+                    setAllBookings(prev => prev.filter(req => req.id !== request.id));
+                } else {
+                    setAllRouteLoads(prev => prev.filter(req => req.id !== request.id));
+                }
+
+                // Check if transporter already has active requests (consolidation)
+                const hasActiveRequests = filteredRequests.length > 0 || filteredBookings.length > 0 || filteredRouteLoads.length > 0;
+
+                if (hasActiveRequests) {
+                    Alert.alert(
+                        'Request Accepted! 🎉',
+                        'You can now communicate with the client directly.',
+                        [
+                            {
+                                text: 'Continue',
+                                onPress: () => {
+                                    // Request already moved
+                                }
+                            },
+                            {
+                                text: 'Start Chat',
+                                onPress: () => {
+                                    // Navigate to chat screen
+                                    navigation.navigate('ChatScreen', {
+                                        roomId: chatRoom.id,
+                                        bookingId: request.id,
+                                        transporterName: 'You', // This should come from user profile
+                                        clientName: request.client?.name || 'Client',
+                                        transporterPhone: 'your-phone', // This should come from user profile
+                                        clientPhone: request.client?.phone,
+                                        userType: 'transporter'
+                                    });
+                                }
+                            }
+                        ]
+                    );
+                } else {
+                    Alert.alert(
+                        'Request Accepted! 🎉',
+                        'You can now communicate with the client directly.',
+                        [
+                            {
+                                text: 'Continue',
+                                onPress: () => {
+                                    // Request already moved
+                                }
+                            },
+                            {
+                                text: 'Start Chat',
+                                onPress: () => {
+                                    // Navigate to chat screen
+                                    navigation.navigate('ChatScreen', {
+                                        roomId: chatRoom.id,
+                                        bookingId: request.id,
+                                        transporterName: 'You', // This should come from user profile
+                                        clientName: request.client?.name || 'Client',
+                                        transporterPhone: 'your-phone', // This should come from user profile
+                                        clientPhone: request.client?.phone,
+                                        userType: 'transporter'
+                                    });
+                                }
+                            }
+                        ]
+                    );
+                }
+            } catch (chatError) {
+                console.error('Error creating chat room:', chatError);
+                // Fallback to original behavior
+                if (request.type === 'instant' || request.type === 'instant-request') {
+                    setAllInstantRequests(prev => prev.filter(req => req.id !== request.id));
+                } else if (request.type === 'booking') {
+                    setAllBookings(prev => prev.filter(req => req.id !== request.id));
+                } else {
+                    setAllRouteLoads(prev => prev.filter(req => req.id !== request.id));
+                }
                 Alert.alert('Success', `Request ${request.id} accepted successfully!`);
             }
         } catch (error) {
@@ -475,14 +559,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{item.fromLocation}</Text>
+                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
-                    <Text style={styles.routeText}>{item.toLocation}</Text>
+                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
                 </View>
             </View>
             
@@ -533,14 +617,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{item.fromLocation}</Text>
+                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
-                    <Text style={styles.routeText}>{item.toLocation}</Text>
+                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
                 </View>
             </View>
             
@@ -599,14 +683,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{item.fromLocation}</Text>
+                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
-                    <Text style={styles.routeText}>{item.toLocation}</Text>
+                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
                 </View>
             </View>
             
@@ -678,14 +762,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeContainer}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{item.fromLocation}</Text>
+                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
-                    <Text style={styles.routeText}>{item.toLocation}</Text>
+                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
                 </View>
             </View>
 
@@ -2278,6 +2362,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 12,
+    },
+    routeInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: spacing.sm,
     },
     routeItem: {
         flexDirection: 'row',

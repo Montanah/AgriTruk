@@ -3,6 +3,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import colors from '../../constants/colors';
 import { SubscriptionStatus } from '../../services/subscriptionService';
+import EnhancedSubscriptionProgressBar from './EnhancedSubscriptionProgressBar';
 
 interface SubscriptionStatusCardProps {
     subscriptionStatus: SubscriptionStatus;
@@ -38,7 +39,8 @@ const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
             statusText = 'Trial Active';
             daysRemaining = status.daysRemaining;
             isTrial = true;
-            progressPercentage = Math.max(0, Math.min(1, (30 - daysRemaining) / 30));
+            // Progress should show remaining time, not elapsed time
+            progressPercentage = Math.max(0, Math.min(1, daysRemaining / 30));
             statusColor = colors.success;
         } else if (status.hasActiveSubscription && status.currentPlan) {
             planName = status.currentPlan.name;
@@ -47,7 +49,8 @@ const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
             isTrial = false;
             // Assuming monthly subscription (30 days)
             const totalDays = 30;
-            progressPercentage = Math.max(0, Math.min(1, (totalDays - daysRemaining) / totalDays));
+            // Progress should show remaining time, not elapsed time
+            progressPercentage = Math.max(0, Math.min(1, daysRemaining / totalDays));
             statusColor = colors.primary;
         } else if (status.subscriptionStatus === 'expired') {
             planName = 'Expired';
@@ -125,22 +128,14 @@ const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
                 </View>
             </View>
 
-            <View style={styles.progressContainer}>
-                <View style={styles.progressBar}>
-                    <View
-                        style={[
-                            styles.progressFill,
-                            {
-                                width: `${formatted.progressPercentage * 100}%`,
-                                backgroundColor: formatted.statusColor,
-                            }
-                        ]}
-                    />
-                </View>
-                <Text style={styles.progressText}>
-                    {getStatusMessage()}
-                </Text>
-            </View>
+            <EnhancedSubscriptionProgressBar
+                daysRemaining={formatted.daysRemaining}
+                totalDays={30}
+                isTrial={formatted.isTrial}
+                statusColor={formatted.statusColor}
+                showDetails={true}
+                animated={true}
+            />
 
             <View style={styles.actions}>
                 {subscriptionStatus.needsTrialActivation && onActivateTrial ? (

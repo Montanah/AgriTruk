@@ -13,9 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../../components/common/Button';
+import PasswordStrengthIndicator from '../../components/common/PasswordStrengthIndicator';
+import NetworkStatusIndicator from '../../components/common/NetworkStatusIndicator';
 import { colors, fonts, spacing } from '../../constants';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../../firebaseConfig';
+import { API_ENDPOINTS } from '../../constants/api';
+import { handleNetworkError, retryWithBackoff, checkNetworkConnectivity, showNetworkErrorAlert } from '../../utils/networkUtils';
+import { handleAuthBackNavigation } from '../../utils/navigationUtils';
 
 interface PasswordResetScreenProps {
   navigation: any;
@@ -40,7 +43,6 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
   const [selectedMethod, setSelectedMethod] = useState<'email' | 'phone' | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [verifiedPhoneFormat, setVerifiedPhoneFormat] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
 
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -61,7 +63,6 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -69,40 +70,11 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
 
   const validatePhone = (phone: string): boolean => {
     const cleanPhone = phone.replace(/\s/g, '');
-    // Accept various phone number formats: 01, 07, 011, etc.
-    // Remove leading 0 and check if it's 9-10 digits
     const withoutLeadingZero = cleanPhone.startsWith('0') ? cleanPhone.slice(1) : cleanPhone;
     return /^[0-9]{9,10}$/.test(withoutLeadingZero);
   };
 
-  const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
-    const errors: string[] = [];
-    
-    if (password.length < 8) {
-      errors.push('Password must be at least 8 characters long');
-    }
-    
-    if (!/[A-Z]/.test(password)) {
-      errors.push('Password must contain at least one uppercase letter');
-    }
-    
-    if (!/[a-z]/.test(password)) {
-      errors.push('Password must contain at least one lowercase letter');
-    }
-    
-    if (!/[0-9]/.test(password)) {
-      errors.push('Password must contain at least one number');
-    }
-    
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-      errors.push('Password must contain at least one special character');
-    }
-    
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
-  };
+
 
   const handleMethodSelection = (method: 'email' | 'phone') => {
     setSelectedMethod(method);
@@ -130,35 +102,54 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
     setError('');
 
     try {
-      // Use Firebase's built-in password reset email
-      // This will only work if the email exists in Firebase Auth
-      await sendPasswordResetEmail(auth, email);
-      
-      Alert.alert(
-        'Reset Link Sent',
-        'We\'ve sent a password reset link to your email address. Please check your inbox and follow the instructions to reset your password.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error('Password reset error:', error);
-      let errorMessage = 'Failed to send reset email. Please try again.';
-      
-      if (error.code === 'auth/user-not-found') {
-        errorMessage = 'No account found with this email address. Please use the email associated with your account.';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Please enter a valid email address.';
-      } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many attempts. Please try again later.';
-      } else if (error.code === 'auth/invalid-action-code') {
-        errorMessage = 'Invalid action. Please try again.';
+      // Check network connectivity first
+      const isConnected = await checkNetworkConnectivity();
+      if (!isConnected) {
+        throw new Error('No internet connection. Please check your network and try again.');
       }
+
+      // Call backend API to send password reset code via email with retry logic
+      const response = await retryWithBackoff(async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        try {
+          const response = await fetch(`${API_ENDPOINTS.AUTH}/forgotPassword`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: email,
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
+      }, 3, 1000);
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserId(data.userId);
+        setStep('code');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send password reset code');
+      }
+    } catch (error: any) {
+      console.error('Password reset email error:', error);
+      const networkError = handleNetworkError(error);
+      setError(networkError.message);
       
-      setError(errorMessage);
+      // Show retry option for retryable errors
+      if (networkError.retryable) {
+        showNetworkErrorAlert(networkError, handleEmailSubmit);
+      }
     } finally {
       setLoading(false);
     }
@@ -179,83 +170,59 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
     setError('');
 
     try {
-      // Process phone number - handle different formats
+      // Check network connectivity first
+      const isConnected = await checkNetworkConnectivity();
+      if (!isConnected) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+
+      // Format phone number for API
       const cleanPhone = phone.replace(/\s/g, '');
       let phoneWithoutZero = cleanPhone.startsWith('0') ? cleanPhone.slice(1) : cleanPhone;
-      
-      // Try both formats: with and without leading zero
-      const format1 = `${countryCode}${phoneWithoutZero}`; // +254113168134
-      const format2 = `${countryCode}0${phoneWithoutZero}`; // +2540113168134
-      
-      console.log('Trying phone formats:', { format1, format2, originalPhone: phone });
+      const formattedPhone = `${countryCode}${phoneWithoutZero}`;
 
-      // Call backend API to send password reset code
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/auth/forgot-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phone: format1, // Try format1 first
-        }),
-      });
+      // Call backend API to send password reset code via SMS with retry logic
+      const response = await retryWithBackoff(async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        try {
+          const response = await fetch(`${API_ENDPOINTS.AUTH}/forgotPassword`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              phone: formattedPhone,
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
+      }, 3, 1000);
 
       if (response.ok) {
         const data = await response.json();
-        setVerifiedPhoneFormat(format1);
         setUserId(data.userId);
         setStep('code');
-        Alert.alert(
-          'Verification Code Sent',
-          'A verification code has been sent to your phone. Please check your messages.',
-          [
-            {
-              text: 'OK',
-              onPress: () => setStep('code'),
-            },
-          ]
-        );
       } else {
-        // Try format2 if format1 fails
-        const response2 = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/auth/forgot-password`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            phone: format2,
-          }),
-        });
-
-        if (response2.ok) {
-          const data = await response2.json();
-          setVerifiedPhoneFormat(format2);
-          setUserId(data.userId);
-          setStep('code');
-          Alert.alert(
-            'Verification Code Sent',
-            'A verification code has been sent to your phone. Please check your messages.',
-            [
-              {
-                text: 'OK',
-                onPress: () => setStep('code'),
-              },
-            ]
-          );
-        } else {
-          const errorData = await response2.json();
-          throw new Error(errorData.message || 'Failed to send verification code');
-        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send password reset code');
       }
     } catch (error: any) {
-      console.error('Phone reset error:', error);
-      let errorMessage = 'Failed to send verification code. Please try again.';
+      console.error('Password reset SMS error:', error);
+      const networkError = handleNetworkError(error);
+      setError(networkError.message);
       
-      if (error.message?.includes('not found') || error.message?.includes('not verified')) {
-        errorMessage = 'No verified account found with this phone number. Please use the phone number associated with your account.';
+      // Show retry option for retryable errors
+      if (networkError.retryable) {
+        showNetworkErrorAlert(networkError, handlePhoneSubmit);
       }
-      
-      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -271,27 +238,39 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
     setError('');
 
     try {
-      // Use the verified phone format that was stored during phone submission
-      if (!verifiedPhoneFormat) {
-        throw new Error('Phone verification session expired. Please start over.');
+      // Check network connectivity first
+      const isConnected = await checkNetworkConnectivity();
+      if (!isConnected) {
+        throw new Error('No internet connection. Please check your network and try again.');
       }
 
-      // Call backend API to verify the reset code
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/auth/verify-password-reset-code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code: verificationCode,
-          userId: userId,
-        }),
-      });
+      // Call backend API to verify the reset code with retry logic
+      const response = await retryWithBackoff(async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        try {
+          const response = await fetch(`${API_ENDPOINTS.AUTH}/verifyResetCode`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              code: verificationCode,
+              userId: userId,
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
+      }, 3, 1000);
 
       if (response.ok) {
-        const data = await response.json();
-        // Store the userId for password reset
-        setVerifiedPhoneFormat(data.userId || verifiedPhoneFormat);
         setStep('new-password');
       } else {
         const errorData = await response.json();
@@ -299,7 +278,13 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
       }
     } catch (error: any) {
       console.error('Code verification error:', error);
-      setError(error.message || 'Invalid verification code. Please try again.');
+      const networkError = handleNetworkError(error);
+      setError(networkError.message);
+      
+      // Show retry option for retryable errors
+      if (networkError.retryable) {
+        showNetworkErrorAlert(networkError, handleCodeVerification);
+      }
     } finally {
       setLoading(false);
     }
@@ -321,9 +306,15 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
       return;
     }
 
-    const passwordValidation = validatePassword(newPassword);
-    if (!passwordValidation.isValid) {
-      setError(passwordValidation.errors.join('\n'));
+    // Use password strength instead of basic validation
+    // Basic password validation
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
@@ -331,56 +322,65 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
     setError('');
 
     try {
-      if (selectedMethod === 'email') {
-        // For email reset, Firebase handles the password reset automatically
-        // The user should have received a reset link in their email
+      // Check network connectivity first
+      const isConnected = await checkNetworkConnectivity();
+      if (!isConnected) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+
+      // Call backend API to reset password with retry logic
+      const response = await retryWithBackoff(async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        try {
+          const response = await fetch(`${API_ENDPOINTS.AUTH}/resetPassword`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              newPassword,
+              userId: userId,
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
+      }, 3, 1000);
+
+      if (response.ok) {
         Alert.alert(
-          'Check Your Email',
-          'Please check your email for the password reset link and follow the instructions to set your new password.',
+          'Password Reset Successful',
+          'Your password has been successfully reset. You can now sign in with your new password.',
           [
             {
               text: 'OK',
-              onPress: () => navigation.navigate('LoginScreen'),
+              onPress: () => navigation.reset({
+                index: 0,
+                routes: [{ name: 'SignIn' }]
+              }),
             },
           ]
         );
       } else {
-        // For phone reset, use backend API
-        if (!verifiedPhoneFormat) {
-          throw new Error('Phone verification session expired. Please start over.');
-        }
-
-        // Call backend API to reset password
-        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/auth/reset-password`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        body: JSON.stringify({
-          newPassword,
-          userId: userId,
-        }),
-        });
-
-        if (response.ok) {
-          Alert.alert(
-            'Password Reset Successful',
-            'Your password has been successfully reset. You can now sign in with your new password.',
-            [
-              {
-                text: 'OK',
-                onPress: () => navigation.navigate('LoginScreen'),
-              },
-            ]
-          );
-        } else {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to reset password');
-        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to reset password');
       }
     } catch (error: any) {
       console.error('Password reset error:', error);
-      setError(error.message || 'Failed to reset password. Please try again.');
+      const networkError = handleNetworkError(error);
+      setError(networkError.message);
+      
+      // Show retry option for retryable errors
+      if (networkError.retryable) {
+        showNetworkErrorAlert(networkError, handlePasswordReset);
+      }
     } finally {
       setLoading(false);
     }
@@ -394,45 +394,47 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
       >
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => handleAuthBackNavigation(navigation)}
         >
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Reset Password</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.placeholder} />
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <MaterialCommunityIcons name="lock-reset" size={80} color={colors.primary} />
+          <MaterialCommunityIcons name="lock-reset" size={64} color={colors.primary} />
         </View>
 
         <Text style={styles.title}>Choose Reset Method</Text>
         <Text style={styles.subtitle}>
-          Select how you&apos;d like to reset your password using your verified contact information
+          Select how you&apos;d like to receive your password reset code
         </Text>
 
         <View style={styles.methodContainer}>
           <TouchableOpacity
-            style={[styles.methodCard, { borderColor: colors.primary }]}
+            style={styles.methodButton}
             onPress={() => handleMethodSelection('email')}
           >
-            <MaterialCommunityIcons name="email" size={32} color={colors.primary} />
-            <Text style={styles.methodTitle}>Email</Text>
-            <Text style={styles.methodDescription}>
-              Send reset link to your verified email address
-            </Text>
+            <MaterialCommunityIcons name="email" size={24} color={colors.primary} />
+            <View style={styles.methodTextContainer}>
+              <Text style={styles.methodTitle}>Email</Text>
+              <Text style={styles.methodSubtitle}>Send code to your email</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.light} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.methodCard, { borderColor: colors.secondary }]}
+            style={styles.methodButton}
             onPress={() => handleMethodSelection('phone')}
           >
-            <MaterialCommunityIcons name="phone" size={32} color={colors.secondary} />
-            <Text style={styles.methodTitle}>Phone</Text>
-            <Text style={styles.methodDescription}>
-              Send verification code to your verified phone number
-            </Text>
+            <MaterialCommunityIcons name="phone" size={24} color={colors.primary} />
+            <View style={styles.methodTextContainer}>
+              <Text style={styles.methodTitle}>Phone</Text>
+              <Text style={styles.methodSubtitle}>Send code via SMS</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.light} />
           </TouchableOpacity>
         </View>
       </View>
@@ -451,19 +453,24 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
         >
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Reset via Email</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>Enter Email</Text>
+        <View style={styles.placeholder} />
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <MaterialCommunityIcons name="email" size={60} color={colors.primary} />
+          <MaterialCommunityIcons name="email" size={64} color={colors.primary} />
         </View>
 
         <Text style={styles.title}>Enter Your Email</Text>
         <Text style={styles.subtitle}>
-          We&apos;ll send a password reset link to your verified email address
+          We&apos;ll send a verification code to your email address
         </Text>
+
+        <NetworkStatusIndicator 
+          onRetry={handleEmailSubmit}
+          showWhenConnected={false}
+        />
 
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Email Address</Text>
@@ -482,7 +489,7 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <Button
-          title="Send Reset Link"
+          title="Send Code"
           onPress={handleEmailSubmit}
           loading={loading}
           style={styles.button}
@@ -503,35 +510,38 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
         >
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Reset via Phone</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>Enter Phone</Text>
+        <View style={styles.placeholder} />
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <MaterialCommunityIcons name="phone" size={60} color={colors.secondary} />
+          <MaterialCommunityIcons name="phone" size={64} color={colors.primary} />
         </View>
 
         <Text style={styles.title}>Enter Your Phone</Text>
         <Text style={styles.subtitle}>
-          We&apos;ll send a verification code to your verified phone number
+          We&apos;ll send a verification code via SMS
         </Text>
 
-        <View style={styles.phoneContainer}>
+        <NetworkStatusIndicator 
+          onRetry={handlePhoneSubmit}
+          showWhenConnected={false}
+        />
+
+        <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Phone Number</Text>
-          <View style={styles.phoneInputWrapper}>
-            <TouchableOpacity style={styles.countryCodeButton}>
-              <Text style={styles.countryCode}>{countryCode}</Text>
-              <Ionicons name="chevron-down" size={16} color={colors.text.secondary} />
-            </TouchableOpacity>
+          <View style={styles.phoneInputContainer}>
+            <Text style={styles.countryCode}>+254</Text>
             <TextInput
               style={styles.phoneInput}
               value={phone}
               onChangeText={setPhone}
-              placeholder="01X XXX XXX or 07X XXX XXX"
+              placeholder="712345678"
               placeholderTextColor={colors.text.light}
               keyboardType="phone-pad"
-              maxLength={10}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
         </View>
@@ -539,7 +549,7 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <Button
-          title="Send Verification Code"
+          title="Send Code"
           onPress={handlePhoneSubmit}
           loading={loading}
           style={styles.button}
@@ -556,22 +566,22 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
       >
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => setStep('phone')}
+          onPress={() => setStep(selectedMethod === 'email' ? 'email' : 'phone')}
         >
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Enter Code</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>Verify Code</Text>
+        <View style={styles.placeholder} />
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <MaterialCommunityIcons name="message-text" size={60} color={colors.success} />
+          <MaterialCommunityIcons name="shield-check" size={64} color={colors.primary} />
         </View>
 
         <Text style={styles.title}>Enter Verification Code</Text>
         <Text style={styles.subtitle}>
-          We&apos;ve sent a 6-digit code to {verifiedPhoneFormat || `${countryCode} ${phone}`}
+          We&apos;ve sent a 6-digit code to your {selectedMethod === 'email' ? 'email' : 'phone'}
         </Text>
 
         <View style={styles.inputContainer}>
@@ -580,11 +590,11 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
             style={styles.codeInput}
             value={verificationCode}
             onChangeText={setVerificationCode}
-            placeholder="000000"
+            placeholder="Enter 6-digit code"
             placeholderTextColor={colors.text.light}
             keyboardType="number-pad"
             maxLength={6}
-            textAlign="center"
+            autoFocus
           />
         </View>
 
@@ -598,7 +608,7 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
         />
 
         <TouchableOpacity style={styles.resendButton}>
-          <Text style={styles.resendText}>Didn&apos;t receive code? Resend</Text>
+          <Text style={styles.resendText}>Didn&apos;t receive the code? Resend</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -617,12 +627,12 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>New Password</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.placeholder} />
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <MaterialCommunityIcons name="lock-plus" size={60} color={colors.success} />
+          <MaterialCommunityIcons name="lock-plus" size={64} color={colors.primary} />
         </View>
 
         <Text style={styles.title}>Create New Password</Text>
@@ -680,12 +690,29 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
           </View>
         </View>
 
+        {/* Password Strength Indicator */}
+        <PasswordStrengthIndicator
+          password={newPassword}
+          confirmPassword={confirmPassword}
+          showLabel={true}
+          containerStyle={styles.passwordStrengthContainer}
+        />
+
+        {/* Password Tips */}
+        <View style={styles.passwordTips}>
+          <MaterialCommunityIcons name="lightbulb-outline" size={16} color={colors.primary} />
+          <Text style={styles.passwordTipsText}>
+            Use a combination of letters, numbers, and symbols for better security
+          </Text>
+        </View>
+
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <Button
           title="Reset Password"
           onPress={handlePasswordReset}
           loading={loading}
+          disabled={loading}
           style={styles.button}
         />
       </View>
@@ -714,24 +741,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingTop: 10,
-    paddingBottom: 20,
-    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+    paddingTop: spacing.xl,
   },
   backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignSelf: 'flex-start',
+    padding: spacing.sm,
   },
   headerTitle: {
-    fontSize: fonts.size.lg,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontFamily: fonts.family.bold,
     color: colors.white,
-    textAlign: 'center',
-    marginTop: 10,
   },
-  headerSpacer: {
+  placeholder: {
     width: 40,
   },
   content: {
@@ -744,147 +769,168 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    fontSize: fonts.size.xl,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: fonts.size.md,
+    fontSize: 16,
+    fontFamily: fonts.family.regular,
     color: colors.text.secondary,
     textAlign: 'center',
     marginBottom: spacing.xl,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   methodContainer: {
-    gap: spacing.md,
+    marginTop: spacing.lg,
   },
-  methodCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: spacing.lg,
-    borderWidth: 2,
+  methodButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.white,
+    padding: spacing.lg,
+    borderRadius: 12,
+    marginBottom: spacing.md,
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  methodTextContainer: {
+    flex: 1,
+    marginLeft: spacing.md,
   },
   methodTitle: {
-    fontSize: fonts.size.lg,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
-  methodDescription: {
-    fontSize: fonts.size.sm,
+  methodSubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.regular,
     color: colors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 18,
   },
   inputContainer: {
     marginBottom: spacing.lg,
   },
   inputLabel: {
-    fontSize: fonts.size.md,
-    fontWeight: '600',
+    fontSize: 16,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
     marginBottom: spacing.sm,
   },
   input: {
     backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: fonts.size.md,
+    paddingVertical: spacing.md,
+    fontSize: 16,
+    fontFamily: fonts.family.regular,
     color: colors.text.primary,
-    borderWidth: 1,
-    borderColor: colors.text.light + '30',
   },
-  phoneContainer: {
-    marginBottom: spacing.lg,
-  },
-  phoneInputWrapper: {
-    flexDirection: 'row',
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.text.light + '30',
-    overflow: 'hidden',
-  },
-  countryCodeButton: {
+  phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderRightWidth: 1,
-    borderRightColor: colors.text.light + '30',
   },
   countryCode: {
-    fontSize: fonts.size.md,
+    fontSize: 16,
+    fontFamily: fonts.family.regular,
     color: colors.text.primary,
-    marginRight: spacing.xs,
+    marginRight: spacing.sm,
   },
   phoneInput: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: fonts.size.md,
+    paddingVertical: spacing.md,
+    fontSize: 16,
+    fontFamily: fonts.family.regular,
     color: colors.text.primary,
   },
   codeInput: {
     backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: fonts.size.xl,
+    paddingVertical: spacing.md,
+    fontSize: 18,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
-    borderWidth: 1,
-    borderColor: colors.text.light + '30',
-    letterSpacing: 8,
+    textAlign: 'center',
+    letterSpacing: 4,
   },
   passwordInputWrapper: {
     flexDirection: 'row',
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.text.light + '30',
     alignItems: 'center',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
   },
   passwordInput: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: fonts.size.md,
+    paddingVertical: spacing.md,
+    fontSize: 16,
+    fontFamily: fonts.family.regular,
     color: colors.text.primary,
   },
   eyeButton: {
     padding: spacing.sm,
   },
   button: {
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
   },
-  errorText: {
-    color: colors.error,
+  passwordStrengthContainer: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  passwordTips: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '10',
+    padding: spacing.sm,
+    borderRadius: 8,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  passwordTipsText: {
     fontSize: fonts.size.sm,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-    lineHeight: 18,
+    fontFamily: fonts.family.regular,
+    color: colors.primary,
+    marginLeft: spacing.xs,
+    flex: 1,
   },
   resendButton: {
     alignItems: 'center',
     marginTop: spacing.lg,
   },
   resendText: {
+    fontSize: 16,
+    fontFamily: fonts.family.regular,
     color: colors.primary,
-    fontSize: fonts.size.sm,
-    textDecorationLine: 'underline',
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: fonts.family.regular,
+    color: colors.error,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    lineHeight: 20,
   },
 });
 
 export default PasswordResetScreen;
-

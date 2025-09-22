@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useCameraPermissions, useMediaLibraryPermissions } from 'expo-image-picker';
+import { handleImagePicker, requestCameraPermission, requestMediaLibraryPermission } from '../../utils/permissionUtils';
 import { getAuth } from 'firebase/auth';
 import React, { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,8 +20,8 @@ import {
   Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
-import ImagePickerModal from '../../components/common/ImagePickerModal';
+import FormKeyboardWrapper from '../../components/common/FormKeyboardWrapper';
+// import ImagePickerModal from '../../components/common/ImagePickerModal'; // Removed - using new permission utility
 import { API_ENDPOINTS, API_BASE_URL } from '../../constants/api';
 import VehicleDetailsForm from '../../components/VehicleDetailsForm';
 import { fonts, spacing } from '../../constants';
@@ -387,13 +388,13 @@ export default function TransporterCompletionScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transporterType]);
 
-  // Image picker modal state
+  // Image picker modal state (keeping for compatibility but not using)
   const [pickerVisible, setPickerVisible] = useState(false);
   const [onImagePicked, setOnImagePicked] = useState(() => (img) => { });
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = useMediaLibraryPermissions();
 
-  // Image picker helper using modal
+  // Image picker helper using modal (deprecated - using new permission utility instead)
   const pickImage = (onPick) => {
     setOnImagePicked(() => onPick);
     setPickerVisible(true);
@@ -403,19 +404,104 @@ export default function TransporterCompletionScreen() {
     onImagePicked(image);
   };
 
-  const handleAddVehiclePhoto = () => {
-    pickImage((img) => {
-      setVehiclePhotos((prev) => [...prev, img]);
-      setPhotoJustAdded(true);
-    });
+  const handleAddVehiclePhoto = async () => {
+    Alert.alert(
+      'Add Vehicle Photo',
+      'Choose how you want to add a vehicle photo',
+      [
+        { text: 'Take Photo', onPress: () => handleVehiclePhotoCamera() },
+        { text: 'Choose from Gallery', onPress: () => handleVehiclePhotoGallery() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleVehiclePhotoCamera = async () => {
+    try {
+      const result = await handleImagePicker('camera', {
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (result && !result.canceled && result.assets && result.assets.length > 0) {
+        setVehiclePhotos((prev) => [...prev, result.assets[0]]);
+        setPhotoJustAdded(true);
+        setError('');
+      }
+    } catch (err) {
+      setError('Failed to open camera.');
+      console.error('Camera error:', err);
+    }
+  };
+
+  const handleVehiclePhotoGallery = async () => {
+    try {
+      const result = await handleImagePicker('gallery', {
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (result && !result.canceled && result.assets && result.assets.length > 0) {
+        setVehiclePhotos((prev) => [...prev, result.assets[0]]);
+        setPhotoJustAdded(true);
+        setError('');
+      }
+    } catch (err) {
+      setError('Failed to open gallery.');
+      console.error('Gallery error:', err);
+    }
   };
 
   const handleRemoveVehiclePhoto = (idx) => {
     setVehiclePhotos((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleProfilePhoto = () => {
-    pickImage(setProfilePhoto);
+  const handleProfilePhoto = async () => {
+    Alert.alert(
+      'Select Profile Photo',
+      'Choose how you want to add your profile photo',
+      [
+        { text: 'Take Photo', onPress: () => handleProfilePhotoCamera() },
+        { text: 'Choose from Gallery', onPress: () => handleProfilePhotoGallery() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleProfilePhotoCamera = async () => {
+    try {
+      const result = await handleImagePicker('camera', {
+        allowsEditing: true,
+        quality: 0.8,
+        aspect: [1, 1], // Square aspect ratio for profile photos
+      });
+      
+      if (result && !result.canceled && result.assets && result.assets.length > 0) {
+        setProfilePhoto(result.assets[0]);
+        setError('');
+      }
+    } catch (err) {
+      setError('Failed to open camera.');
+      console.error('Camera error:', err);
+    }
+  };
+
+  const handleProfilePhotoGallery = async () => {
+    try {
+      const result = await handleImagePicker('gallery', {
+        allowsEditing: true,
+        quality: 0.8,
+        aspect: [1, 1], // Square aspect ratio for profile photos
+      });
+      
+      if (result && !result.canceled && result.assets && result.assets.length > 0) {
+        setProfilePhoto(result.assets[0]);
+        setError('');
+      }
+    } catch (err) {
+      setError('Failed to open gallery.');
+      console.error('Gallery error:', err);
+    }
   };
 
   // Debounce submit after adding a photo
@@ -472,25 +558,18 @@ export default function TransporterCompletionScreen() {
 
   const handleDlCamera = async () => {
     try {
-      if (!cameraPermission?.granted) {
-        const { status } = await requestCameraPermission();
-        if (status !== 'granted') {
-          setError('Permission to access camera is required!');
-          return;
-        }
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      const result = await handleImagePicker('camera', {
         allowsEditing: true,
-        // No aspect ratio constraint - allows free-form cropping for documents
-        quality: 0.8, // Higher quality for document clarity
+        quality: 0.8,
       });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
+      
+      if (result && !result.canceled && result.assets && result.assets.length > 0) {
         setDlFile({
           ...result.assets[0],
           name: 'driver_license.jpg',
           mimeType: 'image/jpeg'
         });
+        setError('');
       }
     } catch (err) {
       setError('Failed to open camera.');
@@ -500,25 +579,18 @@ export default function TransporterCompletionScreen() {
 
   const handleDlGallery = async () => {
     try {
-      if (!mediaPermission?.granted) {
-        const { status } = await requestMediaPermission();
-        if (status !== 'granted') {
-          setError('Permission to access media library is required!');
-          return;
-        }
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      const result = await handleImagePicker('gallery', {
         allowsEditing: true,
-        // No aspect ratio constraint - allows free-form cropping for documents
-        quality: 0.8, // Higher quality for document clarity
+        quality: 0.8,
       });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
+      
+      if (result && !result.canceled && result.assets && result.assets.length > 0) {
         setDlFile({
           ...result.assets[0],
           name: 'driver_license.jpg',
           mimeType: 'image/jpeg'
         });
+        setError('');
       }
     } catch (err) {
       setError('Failed to open gallery.');
@@ -1665,11 +1737,9 @@ export default function TransporterCompletionScreen() {
   }
 
   return (
-    <KeyboardAwareScrollView 
+    <FormKeyboardWrapper 
       contentContainerStyle={styles.container} 
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      extraScrollHeight={100}
+      keyboardVerticalOffset={0}
     >
       {/* Modern Header */}
       <View style={styles.modernHeader}>
@@ -1700,7 +1770,7 @@ export default function TransporterCompletionScreen() {
         >
           <MaterialCommunityIcons 
             name="account" 
-            size={24} 
+            size={20} 
             color={transporterType === 'individual' ? colors.white : colors.primary} 
           />
           <Text style={[
@@ -1721,7 +1791,7 @@ export default function TransporterCompletionScreen() {
         >
           <MaterialCommunityIcons 
             name="office-building" 
-            size={24} 
+            size={20} 
             color={transporterType === 'company' ? colors.white : colors.primary} 
           />
           <Text style={[
@@ -2017,15 +2087,8 @@ export default function TransporterCompletionScreen() {
           </TouchableOpacity>
         </View>
       </View>
-      <ImagePickerModal
-        visible={pickerVisible}
-        onClose={() => setPickerVisible(false)}
-        onImageSelected={handleImagePickerSelect}
-        title="Select Profile Photo"
-        allowEditing={true}
-        quality={0.8}
-      />
-    </KeyboardAwareScrollView>
+      {/* ImagePickerModal removed - using new permission utility instead */}
+    </FormKeyboardWrapper>
   );
 }
 
@@ -2261,17 +2324,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#eee',
   },
   submitBtn: {
-    marginTop: spacing.lg,
-    borderRadius: 14,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    width: '100%',
+    flex: 2,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   submitBtnText: {
-    color: '#fff',
+    color: colors.white,
     fontWeight: 'bold',
     fontSize: fonts.size.lg,
+    letterSpacing: 0.5,
   },
   error: {
     color: colors.error,
@@ -2354,15 +2425,28 @@ const styles = StyleSheet.create({
   roleButton: {
     flex: 1,
     backgroundColor: colors.background,
-    borderRadius: 16,
-    padding: spacing.lg,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.text.light + '30',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.text.light + '40',
+    shadowColor: colors.text.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    minHeight: 48,
   },
   roleButtonActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   roleIconContainer: {
     width: 48,
@@ -2377,13 +2461,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white + '30',
   },
   roleButtonText: {
-    fontSize: fonts.size.md,
-    fontWeight: 'bold',
+    fontSize: fonts.size.sm + 1,
+    fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: 4,
+    marginTop: 4,
+    letterSpacing: 0.2,
   },
   roleButtonTextActive: {
     color: colors.white,
+    fontWeight: '700',
   },
   roleButtonDescription: {
     fontSize: fonts.size.sm,
@@ -2630,13 +2716,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
     borderWidth: 2,
     gap: spacing.sm,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   draftBtnText: {
     fontSize: fonts.size.md,
     fontWeight: 'bold',
+    letterSpacing: 0.3,
   },
 });

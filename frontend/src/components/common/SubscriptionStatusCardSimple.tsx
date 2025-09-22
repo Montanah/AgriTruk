@@ -37,9 +37,8 @@ const SubscriptionStatusCardSimple: React.FC<SubscriptionStatusCardSimpleProps> 
             statusText = 'Trial Active';
             daysRemaining = data?.daysRemaining || status.daysRemaining || 0;
             isTrial = true;
-            // Progress bar: show progress based on days used (30 - daysRemaining) / 30
-            const daysUsed = 30 - daysRemaining;
-            progressPercentage = Math.max(0, Math.min(1, daysUsed / 30));
+            // Progress bar: show remaining time, not elapsed time
+            progressPercentage = Math.max(0, Math.min(1, daysRemaining / 30));
             statusColor = colors.success;
         } else if ((data?.hasActiveSubscription || status.hasActiveSubscription) && plan) {
             planName = plan.name || plan.planName || 'Active Plan';

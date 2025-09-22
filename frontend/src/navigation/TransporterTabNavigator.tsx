@@ -33,6 +33,7 @@ const HomeStack = ({ transporterType }) => (
     <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
     <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+    <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
   </Stack.Navigator>
 );
 
@@ -47,6 +48,7 @@ const ManageStack = ({ transporterType }) => (
     <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
     <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+    <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
   </Stack.Navigator>
 );
 
@@ -58,6 +60,7 @@ const ProfileStack = ({ transporterType }) => (
     <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
     <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+    <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
   </Stack.Navigator>
 );
 

@@ -7,10 +7,12 @@ import NotificationBell from '../components/Notification/NotificationBell';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
 import ChatModal from '../components/Chat/ChatModal';
+import { enhancedRatingService } from '../../services/enhancedRatingService';
 import colors from '../constants/colors';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
 
 interface TripDetailsParams {
   requests?: any[];
@@ -55,6 +57,46 @@ const TripDetailsScreen = () => {
     // Can cancel if pending, confirmed, or assigned
     const cancellableStatuses = ['pending', 'confirmed', 'assigned', 'accepted'];
     return cancellableStatuses.includes(status.toLowerCase());
+  };
+
+  // Check if trip is completed and can be rated
+  const isTripCompleted = () => {
+    if (!currentBooking && !currentTrip) return false;
+    const status = currentBooking?.status || currentTrip?.status || '';
+    const completedStatuses = ['completed', 'delivered', 'finished'];
+    return completedStatuses.includes(status.toLowerCase());
+  };
+
+  // Check if user can rate (not transporter rating themselves)
+  const canRate = () => {
+    return isTripCompleted() && userType !== 'transporter' && !hasRated;
+  };
+
+  // Handle rating submission
+  const handleRateTransporter = () => {
+    if (!currentBooking && !currentTrip) return;
+    
+    const transporterId = currentBooking?.transporterId || currentTrip?.transporterId;
+    const transporterName = currentBooking?.transporterName || currentTrip?.transporterName || 'Transporter';
+    
+    if (!transporterId) {
+      Alert.alert('Error', 'Transporter information not available');
+      return;
+    }
+
+    // Determine rater role based on user type
+    let raterRole = 'client';
+    if (userType === 'broker') raterRole = 'broker';
+    if (userType === 'business') raterRole = 'business';
+
+    navigation.navigate('RatingSubmission', {
+      transporterId,
+      transporterName,
+      bookingId: currentBooking?.id,
+      tripId: currentTrip?.id,
+      raterRole,
+      existingRating,
+    });
   };
 
   // booking param should be passed in navigation
@@ -142,6 +184,8 @@ const TripDetailsScreen = () => {
 
   const [chatVisible, setChatVisible] = useState(false);
   const [callVisible, setCallVisible] = useState(false);
+  const [hasRated, setHasRated] = useState(false);
+  const [existingRating, setExistingRating] = useState(null);
 
   // Mock users for notification demo
   const customer = { id: 'C001', name: 'Green Agri Co.', email: 'info@greenagri.com', phone: '+254712345678' };
@@ -266,10 +310,18 @@ const TripDetailsScreen = () => {
 
         {/* Route Information */}
         <View style={[styles.tripInfoRow, { marginBottom: 4 }]}>
-          <FontAwesome5 name="map-marker-alt" size={16} color={colors.primary} />
-          <Text style={styles.tripInfoText}>From: <Text style={{ fontWeight: 'bold' }}>{getReadableLocationName(booking?.pickupLocation || trip?.from) || '--'}</Text></Text>
-          <FontAwesome5 name="flag-checkered" size={16} color={colors.secondary} style={{ marginLeft: 12 }} />
-          <Text style={styles.tripInfoText}>To: <Text style={{ fontWeight: 'bold' }}>{getReadableLocationName(booking?.toLocation) || '--'}</Text></Text>
+          <LocationDisplay 
+            location={booking?.pickupLocation || trip?.from || '--'} 
+            iconName="map-marker-alt"
+            iconColor={colors.primary}
+            style={styles.tripInfoText}
+          />
+          <LocationDisplay 
+            location={booking?.toLocation || '--'} 
+            iconName="flag-checkered"
+            iconColor={colors.secondary}
+            style={[styles.tripInfoText, { marginLeft: 12 }]}
+          />
         </View>
 
         {/* ETA and Distance */}
@@ -308,6 +360,20 @@ const TripDetailsScreen = () => {
             <TouchableOpacity style={[styles.cancelBtn, { marginBottom: 8, marginTop: 8 }]} onPress={() => notifyTripStatus('cancelled')}>
               <Text style={styles.cancelText}>Cancel Trip</Text>
             </TouchableOpacity>
+          )}
+          
+          {canRate() && (
+            <TouchableOpacity style={[styles.rateBtn, { marginBottom: 8, marginTop: 8 }]} onPress={handleRateTransporter}>
+              <MaterialCommunityIcons name="star" size={20} color={colors.white} />
+              <Text style={styles.rateText}>Rate Transporter</Text>
+            </TouchableOpacity>
+          )}
+          
+          {hasRated && (
+            <View style={[styles.ratedBtn, { marginBottom: 8, marginTop: 8 }]}>
+              <MaterialCommunityIcons name="star-check" size={20} color={colors.success} />
+              <Text style={styles.ratedText}>Rated</Text>
+            </View>
           )}
           <View style={styles.actionIconsRight}>
             <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
@@ -437,6 +503,42 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cancelText: { color: '#fff', fontWeight: 'bold', fontSize: 15, letterSpacing: 0.2 },
+  rateBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rateText: { 
+    color: '#fff', 
+    fontWeight: 'bold', 
+    fontSize: 15, 
+    letterSpacing: 0.2,
+    marginLeft: 6,
+  },
+  ratedBtn: {
+    backgroundColor: colors.success + '20',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 22,
+    borderWidth: 1,
+    borderColor: colors.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratedText: { 
+    color: colors.success, 
+    fontWeight: 'bold', 
+    fontSize: 15, 
+    letterSpacing: 0.2,
+    marginLeft: 6,
+  },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' },
   chatModal: { backgroundColor: colors.white, borderRadius: 18, padding: 16, width: '90%', height: 340, shadowColor: colors.black, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
   callModal: { backgroundColor: colors.white, borderRadius: 18, padding: 24, alignItems: 'center', width: 300 },

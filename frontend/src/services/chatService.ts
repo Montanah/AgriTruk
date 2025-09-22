@@ -1,370 +1,257 @@
-// Real-time chat service with WebSocket support
+// Chat service for in-app communication between transporters and clients
 import { API_ENDPOINTS } from '../constants/api';
-import { getAuth } from 'firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { enhancedNotificationService } from './enhancedNotificationService';
 
 export interface ChatMessage {
   id: string;
-  chatId: string;
   senderId: string;
   senderName: string;
-  senderRole: 'customer' | 'transporter' | 'broker' | 'admin';
+  senderType: 'transporter' | 'client';
   message: string;
-  type: 'text' | 'image' | 'location' | 'file';
-  timestamp: number;
-  read: boolean;
+  timestamp: Date;
+  type: 'text' | 'image' | 'voice' | 'location';
   metadata?: any;
+  read: boolean;
 }
 
 export interface ChatRoom {
   id: string;
-  participants: {
-    id: string;
-    name: string;
-    role: 'customer' | 'transporter' | 'broker' | 'admin';
-    avatar?: string;
-  }[];
+  bookingId: string;
+  transporterId: string;
+  clientId: string;
+  transporterName: string;
+  clientName: string;
+  transporterPhone?: string;
+  clientPhone?: string;
   lastMessage?: ChatMessage;
   unreadCount: number;
-  createdAt: number;
-  updatedAt: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface VoiceCall {
+  id: string;
+  roomId: string;
+  callerId: string;
+  callerName: string;
+  callerType: 'transporter' | 'client';
+  status: 'initiated' | 'ringing' | 'answered' | 'ended' | 'missed';
+  startTime: Date;
+  endTime?: Date;
+  duration?: number; // in seconds
 }
 
 class ChatService {
-  private ws: WebSocket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
-  private messageHandlers: ((message: ChatMessage) => void)[] = [];
-  private connectionHandlers: ((connected: boolean) => void)[] = [];
-
-  constructor() {
-    // Don't initialize WebSocket immediately, wait for user authentication
-  }
-
-  /**
-   * Initialize chat service when user is authenticated
-   */
-  async initialize() {
-    if (this.ws) return; // Already initialized
-    
+  private baseUrl = API_ENDPOINTS.CHATS;
+  
+  // Get or create a chat room for a booking
+  async getOrCreateChatRoom(bookingId: string, transporterId: string, clientId: string): Promise<ChatRoom> {
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) {
-        // No authenticated user, skipping chat initialization
-        return;
-      }
-
-      await this.initializeWebSocket();
-    } catch (error) {
-      console.error('Error initializing chat service:', error);
-    }
-  }
-
-  /**
-   * Initialize WebSocket connection
-   */
-  private async initializeWebSocket() {
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) {
-        // No authenticated user, skipping WebSocket initialization
-        return;
-      }
-
-      const token = await user.getIdToken();
-      const wsUrl = API_ENDPOINTS.CHATS.replace('https://', 'wss://').replace('http://', 'ws://');
-      
-      this.ws = new WebSocket(`${wsUrl}/ws?token=${token}`);
-      
-      this.ws.onopen = () => {
-        // Chat WebSocket connected
-        this.reconnectAttempts = 0;
-        this.connectionHandlers.forEach(handler => handler(true));
-      };
-
-      this.ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'message') {
-            const message: ChatMessage = data.message;
-            this.messageHandlers.forEach(handler => handler(message));
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-
-      this.ws.onclose = () => {
-        // Chat WebSocket disconnected
-        this.connectionHandlers.forEach(handler => handler(false));
-        this.attemptReconnect();
-      };
-
-      this.ws.onerror = (error) => {
-        console.error('Chat WebSocket error:', error);
-      };
-    } catch (error) {
-      console.error('Error initializing WebSocket:', error);
-    }
-  }
-
-  /**
-   * Attempt to reconnect WebSocket
-   */
-  private attemptReconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      setTimeout(() => {
-        // Attempting to reconnect WebSocket
-        this.initializeWebSocket();
-      }, this.reconnectDelay * this.reconnectAttempts);
-    }
-  }
-
-  /**
-   * Send message via WebSocket
-   */
-  async sendMessage(chatId: string, message: string, type: 'text' | 'image' | 'location' | 'file' = 'text', metadata?: any) {
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) throw new Error('User not authenticated');
-
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        const messageData = {
-          type: 'send_message',
-          chatId,
-          message,
-          messageType: type,
-          metadata,
-        };
-        this.ws.send(JSON.stringify(messageData));
-      } else {
-        // Fallback to HTTP API
-        await this.sendMessageViaAPI(chatId, message, type, metadata);
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Send message via HTTP API (fallback)
-   */
-  private async sendMessageViaAPI(chatId: string, message: string, type: string, metadata?: any) {
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) throw new Error('User not authenticated');
-
-      const token = await user.getIdToken();
-      
-      const response = await fetch(`${API_ENDPOINTS.CHATS}`, {
+      const response = await fetch(`${this.baseUrl}/rooms`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          chatId,
-          message,
-          type,
-          metadata,
+          bookingId,
+          transporterId,
+          clientId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to send message: ${response.status}`);
+        throw new Error('Failed to create chat room');
       }
 
-      const data = await response.json();
-      return data.message;
+      return await response.json();
     } catch (error) {
-      console.error('Error sending message via API:', error);
+      console.error('Error creating chat room:', error);
       throw error;
     }
   }
 
-  /**
-   * Get chat rooms for current user
-   */
-  async getChatRooms(): Promise<ChatRoom[]> {
+  // Get all chat rooms for a user
+  async getChatRooms(userId: string, userType: 'transporter' | 'client'): Promise<ChatRoom[]> {
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return [];
-
-      const token = await user.getIdToken();
-      
-      const response = await fetch(`${API_ENDPOINTS.CHATS}`, {
+      const response = await fetch(`${this.baseUrl}/rooms?userId=${userId}&userType=${userType}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        return data.chats || [];
+      if (!response.ok) {
+        throw new Error('Failed to fetch chat rooms');
       }
       
-      return [];
+      return await response.json();
     } catch (error) {
       console.error('Error fetching chat rooms:', error);
       return [];
     }
   }
 
-  /**
-   * Get messages for a specific chat
-   */
-  async getChatMessages(chatId: string, limit: number = 50, offset: number = 0): Promise<ChatMessage[]> {
+  // Get messages for a chat room
+  async getMessages(roomId: string, page: number = 1, limit: number = 50): Promise<ChatMessage[]> {
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return [];
-
-      const token = await user.getIdToken();
-      
-      const response = await fetch(`${API_ENDPOINTS.CHATS}/${chatId}?limit=${limit}&offset=${offset}`, {
+      const response = await fetch(`${this.baseUrl}/rooms/${roomId}/messages?page=${page}&limit=${limit}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        return data.messages || [];
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
       }
       
-      return [];
+      return await response.json();
     } catch (error) {
-      console.error('Error fetching chat messages:', error);
+      console.error('Error fetching messages:', error);
       return [];
     }
   }
 
-  /**
-   * Create or get existing chat room
-   */
-  async createOrGetChat(participantIds: string[]): Promise<ChatRoom> {
+  // Send a message
+  async sendMessage(roomId: string, message: Omit<ChatMessage, 'id' | 'timestamp' | 'read'>): Promise<ChatMessage> {
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) throw new Error('User not authenticated');
-
-      const token = await user.getIdToken();
-      
-      const response = await fetch(`${API_ENDPOINTS.CHATS}/create`, {
+      const response = await fetch(`${this.baseUrl}/rooms/${roomId}/messages`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          participants: participantIds,
-        }),
+        body: JSON.stringify(message),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        return data.chat;
+      if (!response.ok) {
+        throw new Error('Failed to send message');
       }
-      
-      throw new Error(`Failed to create chat: ${response.status}`);
+
+      const sentMessage = await response.json();
+
+      // Send notification to the recipient
+      try {
+        const isUrgent = message.message.toLowerCase().includes('urgent') || 
+                        message.message.toLowerCase().includes('emergency') ||
+                        message.message.toLowerCase().includes('asap');
+        
+        await enhancedNotificationService.sendNotification(
+          isUrgent ? 'message_urgent' : 'chat_message_received',
+          message.senderId === 'transporter-id' ? 'client-id' : 'transporter-id', // This should be the actual recipient ID
+          {
+            senderName: message.senderName,
+            messagePreview: message.message.length > 50 ? 
+              message.message.substring(0, 50) + '...' : 
+              message.message,
+            roomId,
+          }
+        );
+      } catch (notificationError) {
+        console.error('Error sending chat notification:', notificationError);
+        // Don't fail the message send if notification fails
+      }
+
+      return sentMessage;
     } catch (error) {
-      console.error('Error creating chat:', error);
+      console.error('Error sending message:', error);
       throw error;
     }
   }
 
-  /**
-   * Mark messages as read
-   */
-  async markMessagesAsRead(chatId: string, messageIds: string[]) {
+  // Mark messages as read
+  async markMessagesAsRead(roomId: string, userId: string): Promise<void> {
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const token = await user.getIdToken();
-      
-      const response = await fetch(`${API_ENDPOINTS.CHATS}/${chatId}/read`, {
+      await fetch(`${this.baseUrl}/rooms/${roomId}/read`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          messageIds,
-        }),
+        body: JSON.stringify({ userId }),
       });
-
-      if (!response.ok) {
-        console.error('Failed to mark messages as read:', response.status);
-      }
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
   }
 
-  /**
-   * Subscribe to new messages
-   */
-  onMessage(handler: (message: ChatMessage) => void) {
-    this.messageHandlers.push(handler);
-    return () => {
-      const index = this.messageHandlers.indexOf(handler);
-      if (index > -1) {
-        this.messageHandlers.splice(index, 1);
+  // Initiate a voice call
+  async initiateVoiceCall(roomId: string, callerId: string, callerName: string, callerType: 'transporter' | 'client'): Promise<VoiceCall> {
+    try {
+      const response = await fetch(`${this.baseUrl}/calls`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId,
+          callerId,
+          callerName,
+          callerType,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to initiate voice call');
       }
-    };
-  }
 
-  /**
-   * Subscribe to connection status changes
-   */
-  onConnectionChange(handler: (connected: boolean) => void) {
-    this.connectionHandlers.push(handler);
-    return () => {
-      const index = this.connectionHandlers.indexOf(handler);
-      if (index > -1) {
-        this.connectionHandlers.splice(index, 1);
-      }
-    };
-  }
-
-  /**
-   * Check if WebSocket is connected
-   */
-  isConnected(): boolean {
-    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
-  }
-
-  /**
-   * Disconnect WebSocket
-   */
-  disconnect() {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
+      return await response.json();
+    } catch (error) {
+      console.error('Error initiating voice call:', error);
+      throw error;
     }
   }
 
-  /**
-   * Reconnect WebSocket
-   */
-  reconnect() {
-    this.disconnect();
-    this.reconnectAttempts = 0;
-    this.initializeWebSocket();
+  // Update call status
+  async updateCallStatus(callId: string, status: VoiceCall['status']): Promise<void> {
+    try {
+      await fetch(`${this.baseUrl}/calls/${callId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+    } catch (error) {
+      console.error('Error updating call status:', error);
+    }
+  }
+
+  // Get call history for a room
+  async getCallHistory(roomId: string): Promise<VoiceCall[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/rooms/${roomId}/calls`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch call history');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching call history:', error);
+      return [];
+    }
+  }
+
+  // Subscribe to real-time updates (WebSocket or polling)
+  subscribeToRoom(roomId: string, onMessage: (message: ChatMessage) => void, onCall: (call: VoiceCall) => void): () => void {
+    // In a real implementation, this would set up WebSocket connection
+    // For now, we'll use polling as a fallback
+    const interval = setInterval(async () => {
+      try {
+        const messages = await this.getMessages(roomId, 1, 1);
+        if (messages.length > 0) {
+          onMessage(messages[0]);
+        }
+      } catch (error) {
+        console.error('Error polling for messages:', error);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
   }
 }
 

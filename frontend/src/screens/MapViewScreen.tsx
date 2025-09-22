@@ -15,6 +15,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
 
 const { width, height } = Dimensions.get('window');
 

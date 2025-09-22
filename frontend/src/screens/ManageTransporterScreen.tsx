@@ -3,7 +3,8 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
 import { notificationService } from '../../services/notificationService';
 import SubscriptionStatusCard from '../components/common/SubscriptionStatusCard';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
@@ -12,6 +13,8 @@ import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
 import { convertCoordinatesToPlaceName, getShortLocationName } from '../utils/locationUtils';
 import { auth } from '../firebaseConfig';
+import Toast, { ToastProps } from '../components/common/Toast';
+import ModernToggle from '../components/common/ModernToggle';
 import locationService from '../services/locationService';
 import subscriptionService from '../services/subscriptionService';
 import { apiRequest, uploadFile } from '../utils/api';
@@ -97,6 +100,7 @@ export default function ManageTransporterScreen({ route }: any) {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [acceptingBooking, setAcceptingBooking] = useState(false);
   const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
+  const [toast, setToast] = useState<ToastProps | null>(null);
   
   // Individual transporter states
   const [individualProfile, setIndividualProfile] = useState<any>(null);
@@ -937,7 +941,7 @@ export default function ManageTransporterScreen({ route }: any) {
 
       const token = await user.getIdToken();
       const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -949,17 +953,36 @@ export default function ManageTransporterScreen({ route }: any) {
 
       if (response.ok) {
         setAcceptingBooking(newStatus);
-        Alert.alert(
-          'Status Updated',
-          `You are now ${newStatus ? 'accepting' : 'not accepting'} new booking requests.`
-        );
+        
+        // Show success toast
+        setToast({
+          visible: true,
+          message: newStatus 
+            ? '🎉 You are now accepting new booking requests!' 
+            : '⏸️ You have paused accepting new booking requests',
+          type: 'success',
+          duration: 3000,
+          onHide: () => setToast(null),
+        });
       } else {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update booking status');
       }
     } catch (error: any) {
       console.error('Error updating booking status:', error);
-      Alert.alert('Error', error.message || 'Failed to update booking status. Please try again.');
+      
+      // Show error toast
+      setToast({
+        visible: true,
+        message: '❌ Failed to update booking status. Please try again.',
+        type: 'error',
+        duration: 4000,
+        onHide: () => setToast(null),
+        action: {
+          label: 'Retry',
+          onPress: () => updateAcceptingBookingStatus(!acceptingBooking),
+        },
+      });
     } finally {
       setUpdatingBookingStatus(false);
     }
@@ -972,7 +995,7 @@ export default function ManageTransporterScreen({ route }: any) {
   if (transporterType === 'company') {
     return (
       <>
-        <ScrollView style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}>
+        <FormKeyboardWrapper style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}>
           <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
           {/* Profile Section */}
           <View style={styles.card}>
@@ -996,22 +1019,18 @@ export default function ManageTransporterScreen({ route }: any) {
             
             {/* Accepting Requests Toggle for Company */}
             <View style={styles.toggleContainer}>
-              <View style={styles.toggleInfo}>
-                <Text style={styles.toggleLabel}>Accepting New Requests</Text>
-                <Text style={styles.toggleDescription}>
-                  {acceptingBooking 
-                    ? 'You are currently accepting new booking requests' 
-                    : 'You are not accepting new booking requests'
-                  }
-                </Text>
-              </View>
-              <Switch
+              <ModernToggle
                 value={acceptingBooking}
                 onValueChange={updateAcceptingBookingStatus}
                 disabled={updatingBookingStatus}
-                trackColor={{ false: colors.text.light, true: colors.primary + '40' }}
-                thumbColor={acceptingBooking ? colors.primary : colors.text.light}
-                ios_backgroundColor={colors.text.light}
+                loading={updatingBookingStatus}
+                label="Accepting New Requests"
+                description={acceptingBooking 
+                  ? 'You are currently accepting new booking requests' 
+                  : 'You are not accepting new booking requests'
+                }
+                size="medium"
+                variant="success"
               />
             </View>
             
@@ -1406,7 +1425,7 @@ export default function ManageTransporterScreen({ route }: any) {
               </ScrollView>
             </View>
           </Modal>
-        </ScrollView>
+        </FormKeyboardWrapper>
         {/* Edit Profile Modal (always rendered) */}
         <Modal
           visible={editModal}
@@ -1621,7 +1640,7 @@ export default function ManageTransporterScreen({ route }: any) {
 
         const token = await user.getIdToken();
         const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
-          method: 'PATCH',
+          method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -1654,7 +1673,7 @@ export default function ManageTransporterScreen({ route }: any) {
     return (
       <>
         {/* --- INDIVIDUAL UI --- */}
-        <ScrollView style={styles.bg} contentContainerStyle={{ ...styles.container, paddingBottom: 120 }}>
+        <FormKeyboardWrapper style={styles.bg} contentContainerStyle={{ ...styles.container, paddingBottom: 120 }}>
           <Text style={styles.title}>Manage My Vehicle & Profile</Text>
           <View style={[styles.card, { alignItems: 'center', paddingTop: 24, paddingBottom: 18, marginBottom: 12 }]}>
             <View style={{ alignItems: 'center', marginBottom: 8 }}>
@@ -1671,22 +1690,18 @@ export default function ManageTransporterScreen({ route }: any) {
             
             {/* Accepting Requests Toggle */}
             <View style={styles.toggleContainer}>
-              <View style={styles.toggleInfo}>
-                <Text style={styles.toggleLabel}>Accepting New Requests</Text>
-                <Text style={styles.toggleDescription}>
-                  {acceptingBooking 
-                    ? 'You are currently accepting new booking requests' 
-                    : 'You are not accepting new booking requests'
-                  }
-                </Text>
-              </View>
-              <Switch
+              <ModernToggle
                 value={acceptingBooking}
                 onValueChange={updateAcceptingBookingStatus}
                 disabled={updatingBookingStatus}
-                trackColor={{ false: colors.text.light, true: colors.primary + '40' }}
-                thumbColor={acceptingBooking ? colors.primary : colors.text.light}
-                ios_backgroundColor={colors.text.light}
+                loading={updatingBookingStatus}
+                label="Accepting New Requests"
+                description={acceptingBooking 
+                  ? 'You are currently accepting new booking requests' 
+                  : 'You are not accepting new booking requests'
+                }
+                size="medium"
+                variant="success"
               />
             </View>
             
@@ -1847,7 +1862,11 @@ export default function ManageTransporterScreen({ route }: any) {
                         // Use current location if available, otherwise fall back to lastKnownLocation from backend
                         const location = currentLocation || individualProfile?.lastKnownLocation;
                         if (location) {
-                          return `Near ${location.latitude?.toFixed(4) || location.lat?.toFixed(4)}, ${location.longitude?.toFixed(4) || location.lng?.toFixed(4)}`;
+                          const lat = location.latitude || location.lat;
+                          const lng = location.longitude || location.lng;
+                          if (typeof lat === 'number' && typeof lng === 'number') {
+                            return `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                          }
                         }
                         return 'Location not available';
                       })()}
@@ -2127,7 +2146,7 @@ export default function ManageTransporterScreen({ route }: any) {
               onSubscribe={handleSubscribe}
             />
           )}
-        </ScrollView>
+        </FormKeyboardWrapper>
         {/* Edit Profile Modal (always rendered) */}
         <Modal
           visible={editModal}
@@ -2179,6 +2198,18 @@ export default function ManageTransporterScreen({ route }: any) {
             </View>
           </View>
         </Modal>
+        
+        {/* Toast Notification */}
+        {toast && (
+          <Toast
+            visible={toast.visible}
+            message={toast.message}
+            type={toast.type}
+            duration={toast.duration}
+            onHide={toast.onHide}
+            action={toast.action}
+          />
+        )}
       </>
     );
   }

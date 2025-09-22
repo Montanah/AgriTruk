@@ -14,6 +14,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
 // Mock data removed - now using real API calls
 
 interface TrackingData {
@@ -69,8 +70,8 @@ const TrackingScreen = () => {
         const deliveryDate = new Date(pickupDate.getTime() + (2 * 24 * 60 * 60 * 1000)); // 2 days later
         
         const status = booking.status || 'pending';
-        const fromLocation = getReadableLocationName(booking.fromLocationAddress || booking.fromLocation) || 'Pickup Location';
-        const toLocation = getReadableLocationName(booking.toLocationAddress || booking.toLocation) || 'Delivery Location';
+        const fromLocation = booking.fromLocationAddress || booking.fromLocation || 'Pickup Location';
+        const toLocation = booking.toLocationAddress || booking.toLocation || 'Delivery Location';
 
         const timeline = [];
         
@@ -329,7 +330,11 @@ const TrackingScreen = () => {
                             <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
                             <View style={styles.routeText}>
                                 <Text style={styles.routeLabel}>Pickup</Text>
-                                <Text style={styles.routeValue}>{trackingData.fromLocation}</Text>
+                                <LocationDisplay 
+                                    location={trackingData.fromLocation} 
+                                    style={styles.routeValue}
+                                    showIcon={false}
+                                />
                             </View>
                         </View>
                         <View style={styles.routeDivider} />
@@ -337,7 +342,11 @@ const TrackingScreen = () => {
                             <MaterialCommunityIcons name="map-marker-check" size={20} color={colors.success} />
                             <View style={styles.routeText}>
                                 <Text style={styles.routeLabel}>Delivery</Text>
-                                <Text style={styles.routeValue}>{trackingData.toLocation}</Text>
+                                <LocationDisplay 
+                                    location={trackingData.toLocation} 
+                                    style={styles.routeValue}
+                                    showIcon={false}
+                                />
                             </View>
                         </View>
                     </View>

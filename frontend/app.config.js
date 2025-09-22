@@ -103,10 +103,6 @@ export default {
       EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: "agritruk-d543b.firebasestorage.app",
       EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "86814869135",
       EXPO_PUBLIC_FIREBASE_APP_ID: "1:86814869135:web:49d6806e9b9917eb6e92fa",
-      EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID: "86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com",
-      EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: "86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com",
-      EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: "86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com",
-      EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: "86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
     },
     owner: "truk"
   }

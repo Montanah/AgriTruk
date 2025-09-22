@@ -11,6 +11,7 @@ import colors from '../../constants/colors';
 import { apiRequest } from '../../utils/api';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import { handleVerificationBackNavigation } from '../../utils/navigationUtils';
 
 
 // For Android SMS Retriever
@@ -308,7 +309,15 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
         keyboardShouldPersistTaps="handled"
         extraScrollHeight={50}
       >
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity 
+          style={styles.backBtn} 
+          onPress={() => handleVerificationBackNavigation(navigation, {
+            email: route.params?.email,
+            phone: route.params?.phone,
+            role: route.params?.role,
+            password: route.params?.password
+          })}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
 

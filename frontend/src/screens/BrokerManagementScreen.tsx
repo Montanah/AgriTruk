@@ -7,6 +7,7 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
 
 interface RequestItem {
     id: string;
@@ -221,15 +222,18 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             </View>
 
             <View style={styles.routeInfo}>
-                <View style={styles.routeItem}>
-                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{getReadableLocationName(item.fromLocation)}</Text>
-                </View>
+                <LocationDisplay 
+                    location={item.fromLocation} 
+                    style={styles.routeText}
+                    iconColor={colors.primary}
+                />
                 <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
-                <View style={styles.routeItem}>
-                    <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
-                    <Text style={styles.routeText}>{getReadableLocationName(item.toLocation)}</Text>
-                </View>
+                <LocationDisplay 
+                    location={item.toLocation} 
+                    style={styles.routeText}
+                    iconColor={colors.success}
+                    iconName="map-marker-check"
+                />
             </View>
 
             <View style={styles.cargoInfo}>

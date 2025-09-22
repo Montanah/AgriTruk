@@ -220,3 +220,15 @@ export const formatDistance = (distance: number): string => {
   }
   return `${distance.toFixed(1)}km`;
 };
+
+// Helper function to get readable location name (alias for formatLocationForDisplay)
+export const getReadableLocationName = (location: Location | string): string => {
+  return formatLocationForDisplay(location);
+};
+
+// Helper function to format route
+export const formatRoute = (fromLocation: Location | string, toLocation: Location | string): string => {
+  const from = getReadableLocationName(fromLocation);
+  const to = getReadableLocationName(toLocation);
+  return `${from} → ${to}`;
+};

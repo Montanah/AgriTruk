@@ -474,7 +474,7 @@ const AccountScreen = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Shipper Profile</Text>
+        <Text style={styles.headerTitle}>Account</Text>
         <TouchableOpacity
           style={styles.editButton}
           onPress={() => setEditing(!editing)}

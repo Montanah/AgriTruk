@@ -13,7 +13,6 @@ import PhoneOTPScreen from './src/screens/auth/PhoneOTPScreen';
 import SignupScreen from './src/screens/auth/SignupScreen';
 import SignupSelectionScreen from './src/screens/auth/SignupSelectionScreen';
 import TransporterCompletionScreen from './src/screens/auth/TransporterCompletionScreen';
-import VerificationOptionsScreen from './src/screens/auth/VerificationOptionsScreen';
 import BookingConfirmationScreen from './src/screens/BookingConfirmationScreen';
 import ConsolidationScreen from './src/screens/business/ConsolidationScreen';
 import ServiceRequestScreen from './src/screens/ServiceRequestScreen';
@@ -24,10 +23,14 @@ import TripDetailsScreen from './src/screens/TripDetailsScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import JobManagementScreen from './src/screens/JobManagementScreen';
 import RouteLoadsScreen from './src/screens/RouteLoadsScreen';
+import NotificationPreferencesScreen from './src/screens/NotificationPreferencesScreen';
+import RatingSubmissionScreen from './src/screens/RatingSubmissionScreen';
+import RatingAnalyticsScreen from './src/screens/RatingAnalyticsScreen';
 
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
 import { NotificationProvider } from './src/components/Notification/NotificationContext';
+import NotificationManager from './src/components/Notification/NotificationManager';
 import { ConsolidationProvider } from './src/context/ConsolidationContext';
 import colors from './src/constants/colors';
 import { auth, db } from './src/firebaseConfig';
@@ -392,7 +395,6 @@ export default function App() {
         <Stack.Screen name="SignIn" component={LoginScreen} />
         <Stack.Screen name="PasswordResetScreen" component={require('./src/screens/auth/PasswordResetScreen').default} />
         <Stack.Screen name="ChangePasswordScreen" component={require('./src/screens/auth/ChangePasswordScreen').default} />
-        <Stack.Screen name="VerificationOptions" component={VerificationOptionsScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
@@ -404,6 +406,9 @@ export default function App() {
         <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
         <Stack.Screen name="Consolidation" component={ConsolidationScreen} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
+        <Stack.Screen name="NotificationPreferences" component={NotificationPreferencesScreen} />
+        <Stack.Screen name="RatingSubmission" component={RatingSubmissionScreen} />
+        <Stack.Screen name="RatingAnalytics" component={RatingAnalyticsScreen} />
         {/* Temporary: allow navigation for UI testing */}
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
         <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
@@ -422,7 +427,6 @@ export default function App() {
         <Stack.Screen name="SignIn" component={LoginScreen} />
         <Stack.Screen name="PasswordResetScreen" component={require('./src/screens/auth/PasswordResetScreen').default} />
         <Stack.Screen name="ChangePasswordScreen" component={require('./src/screens/auth/ChangePasswordScreen').default} />
-        <Stack.Screen name="VerificationOptions" component={VerificationOptionsScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
@@ -441,7 +445,7 @@ export default function App() {
   } else if (role && role !== 'transporter' && role !== 'broker' && !isVerified) {
     // Unverified non-transporter/non-broker users - send to verification options
     // Unverified user detected - routing to verification options
-    initialRouteName = 'VerificationOptions';
+    initialRouteName = 'EmailVerification';
     screens = (
       <>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -450,7 +454,6 @@ export default function App() {
         <Stack.Screen name="SignIn" component={LoginScreen} />
         <Stack.Screen name="PasswordResetScreen" component={require('./src/screens/auth/PasswordResetScreen').default} />
         <Stack.Screen name="ChangePasswordScreen" component={require('./src/screens/auth/ChangePasswordScreen').default} />
-        <Stack.Screen name="VerificationOptions" component={VerificationOptionsScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         {/* Add role-specific screens for after verification */}
@@ -496,28 +499,106 @@ export default function App() {
         </>
       );
     } else if (role === 'broker') {
-      // Check if broker is already verified (has completed ID verification)
-      // We'll need to fetch broker-specific data to check verification status
-      // For now, route all brokers to verification screen - they can check their status there
-      // Routing broker to ID verification
-      initialRouteName = 'VerifyIdentificationDocument';
+      // Check broker verification and subscription status
+      console.log('App.tsx: Verified broker detected - checking verification and subscription status');
       
-      screens = (
-        <>
-          <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
-          <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
-          <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
-          {/* Add verification screens for secondary verification */}
-          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
-        </>
-      );
+      // Check if broker has completed ID verification
+      const isBrokerVerified = userData?.verificationStatus === 'approved';
+      const hasBrokerProfile = userData?.idDocument;
+      
+      if (!hasBrokerProfile || !isBrokerVerified) {
+        // Broker needs to complete ID verification
+        initialRouteName = 'VerifyIdentificationDocument';
+        screens = (
+          <>
+            <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          </>
+        );
+      } else {
+        // Broker is verified - check subscription status
+        if (subscriptionStatus?.needsTrialActivation || 
+            !subscriptionStatus || 
+            (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
+          // No active subscription - route to trial activation
+          initialRouteName = 'SubscriptionTrial';
+          screens = (
+            <>
+              <Stack.Screen
+                name="SubscriptionTrial"
+                component={SubscriptionTrialScreen as any}
+                initialParams={{
+                  userType: 'broker',
+                  subscriptionStatus: subscriptionStatus
+                }}
+              />
+              <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+              <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+              <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+              <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+              <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
+            </>
+          );
+        } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'expired') {
+          // Subscription expired - route to expired screen
+          initialRouteName = 'SubscriptionExpired';
+          screens = (
+            <>
+              <Stack.Screen
+                name="SubscriptionExpired"
+                component={SubscriptionExpiredScreen as any}
+                initialParams={{
+                  userType: 'broker',
+                  userId: user.uid,
+                  expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
+                }}
+              />
+              <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+              <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+              <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+              <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+              <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
+            </>
+          );
+        } else {
+          // Has active subscription - route to dashboard
+          initialRouteName = 'BrokerTabs';
+          screens = (
+            <>
+              <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+              <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
+              <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
+              <Stack.Screen name="BrokerRequestScreen" component={require('./src/screens/BrokerRequestScreen').default} />
+              <Stack.Screen name="BrokerNetworkScreen" component={require('./src/screens/BrokerNetworkScreen').default} />
+              <Stack.Screen name="BrokerRequestsScreen" component={require('./src/screens/BrokerRequestsScreen').default} />
+              <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+              <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+              <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
+              <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+              <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+              <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+              <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
+              <Stack.Screen name="SubscriptionManagement" component={require('./src/screens/SubscriptionManagementScreen').default} />
+              <Stack.Screen name="ContactCustomer" component={require('./src/screens/ContactCustomerScreen').default} />
+              <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+              <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+            </>
+          );
+        }
+      }
     } else if (role === 'transporter') {
-      // For transporters, check profile completion and subscription status
-      console.log('App.tsx: Verified transporter detected - checking profile and subscription status');
+      // For transporters, check profile completion, approval status, and subscription status
+      console.log('App.tsx: Verified transporter detected - checking profile, approval, and subscription status');
+      
+      const transporterStatus = userData?.transporterStatus || 'incomplete';
+      console.log('App.tsx: Transporter status:', transporterStatus);
       
       if (!profileCompleted) {
         // Profile not completed - go to completion screen
+        console.log('App.tsx: Profile not completed - routing to completion screen');
         initialRouteName = 'TransporterCompletionScreen';
         screens = (
           <>
@@ -531,12 +612,30 @@ export default function App() {
             <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
           </>
         );
+      } else if (transporterStatus !== 'approved') {
+        // Profile completed but not approved yet - stay on processing screen
+        console.log('App.tsx: Profile completed but not approved - routing to processing screen');
+        initialRouteName = 'TransporterProcessingScreen';
+        screens = (
+          <>
+            <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+            <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+            <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
+            <Stack.Screen name="RouteLoadsScreen" component={RouteLoadsScreen} />
+            <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          </>
+        );
       } else {
-        // Profile completed - check subscription status
+        // Profile completed and approved - check subscription status
+        console.log('App.tsx: Profile completed and approved - checking subscription status');
         if (subscriptionStatus?.needsTrialActivation || 
             !subscriptionStatus || 
             (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
           // No active subscription - route to trial activation
+          console.log('App.tsx: No active subscription - routing to trial activation');
           initialRouteName = 'SubscriptionTrial';
           screens = (
             <>
@@ -556,6 +655,7 @@ export default function App() {
           );
         } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'expired') {
           // Subscription expired - route to expired screen
+          console.log('App.tsx: Subscription expired - routing to expired screen');
           initialRouteName = 'SubscriptionExpired';
           screens = (
             <>
@@ -575,6 +675,7 @@ export default function App() {
           );
         } else {
           // Has active subscription - route to dashboard
+          console.log('App.tsx: Has active subscription - routing to dashboard');
           initialRouteName = 'TransporterTabs';
           screens = (
             <>
@@ -632,8 +733,8 @@ export default function App() {
           </>
         );
       } else {
-        // Unverified transporter - route to verification options
-        initialRouteName = 'VerificationOptions';
+        // Unverified transporter - route directly to email verification
+        initialRouteName = 'EmailVerification';
         screens = (
           <>
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
@@ -648,7 +749,7 @@ export default function App() {
     } else {
       // Fallback: Any other authenticated user who is not verified should go to verification options
       // Fallback: authenticated but unverified user - routing to verification options
-      initialRouteName = 'VerificationOptions';
+      initialRouteName = 'EmailVerification';
       screens = (
         <>
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -668,14 +769,13 @@ export default function App() {
     }
   } else if (role === 'broker') {
     if (!isVerified) {
-      initialRouteName = 'VerifyIdentificationDocument';
+      // Unverified broker - route directly to email verification
+      initialRouteName = 'EmailVerification';
       screens = (
         <>
-          <Stack.Screen
-            name="VerifyIdentificationDocument"
-            component={require('./src/screens/VerifyIdentificationDocumentScreen').default}
-            initialParams={{ broker: { name: user?.displayName || '', email: user?.email, phone: user?.phoneNumber || '' } }}
-          />
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
           <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
           <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
           <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
@@ -688,6 +788,7 @@ export default function App() {
           <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
           <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
           <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+          <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
         </>
       );
     } else {
@@ -908,10 +1009,9 @@ export default function App() {
 
     if (!isVerified) {
       // Unverified business users - send to verification options
-      initialRouteName = 'VerificationOptions';
+      initialRouteName = 'EmailVerification';
       screens = (
         <>
-          <Stack.Screen name="VerificationOptions" component={VerificationOptionsScreen} />
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
           <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
@@ -972,6 +1072,7 @@ export default function App() {
               {screens}
             </Stack.Navigator>
           </NavigationContainer>
+          <NotificationManager />
         </NotificationProvider>
       </ConsolidationProvider>
     </ErrorBoundary>

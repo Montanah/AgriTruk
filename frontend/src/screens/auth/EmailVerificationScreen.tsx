@@ -12,6 +12,7 @@ import colors from '../../constants/colors';
 import { apiRequest } from '../../utils/api';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import { handleVerificationBackNavigation } from '../../utils/navigationUtils';
 
 const { width } = Dimensions.get('window');
 
@@ -108,6 +109,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
   }, [verified]);
 
   const handleVerify = async () => {
+    console.log('Verification attempt - code:', code, 'length:', code.length, 'type:', typeof code);
     if (code.length !== 6) {
       setError('Please enter a valid 6-digit code.');
       return;
@@ -128,6 +130,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
       console.log('Email verification - using fresh Firebase token');
 
       // Use the new API structure with action
+      console.log('Sending verification code:', code, 'Type:', typeof code);
       const response = await apiRequest('/auth', {
         method: 'POST',
         headers: {
@@ -310,7 +313,15 @@ const EmailVerificationScreen = ({ navigation, route }) => {
         keyboardShouldPersistTaps="handled"
         extraScrollHeight={50}
       >
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity 
+          style={styles.backBtn} 
+          onPress={() => handleVerificationBackNavigation(navigation, {
+            email,
+            phone,
+            role,
+            password
+          })}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
 
@@ -371,7 +382,9 @@ const EmailVerificationScreen = ({ navigation, route }) => {
                   onChangeText={(val) => {
                     const newCode = code.split('');
                     newCode[i] = val.replace(/[^0-9]/g, '');
-                    setCode(newCode.join(''));
+                    const finalCode = newCode.join('').trim();
+                    console.log('Code input - raw:', val, 'cleaned:', newCode[i], 'final:', finalCode);
+                    setCode(finalCode);
                     // Auto-focus next input
                     if (val && i < 5) {
                       // Focus next input using ref
@@ -468,6 +481,19 @@ const EmailVerificationScreen = ({ navigation, route }) => {
             ) : (
               <Text style={styles.resendBtnText}>Resend Code</Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.correctDetailsBtn}
+            onPress={() => handleVerificationBackNavigation(navigation, {
+              email,
+              phone,
+              role,
+              password
+            })}
+          >
+            <Ionicons name="create-outline" size={16} color={colors.white} />
+            <Text style={styles.correctDetailsBtnText}>Correct Details</Text>
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAwareScrollView>
@@ -642,6 +668,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: fonts.size.md,
     textDecorationLine: 'underline',
+  },
+  correctDetailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  correctDetailsBtnText: {
+    color: colors.white,
+    fontWeight: '500',
+    fontSize: fonts.size.sm,
+    marginLeft: 8,
   },
 });
 

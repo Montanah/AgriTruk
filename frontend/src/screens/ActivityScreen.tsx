@@ -19,14 +19,14 @@ import spacing from '../constants/spacing';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 import { getAuth } from 'firebase/auth';
-import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
 
 interface RequestItem {
   id: string;
   type: 'instant' | 'booking';
   status: string;
-  fromLocation: string;
-  toLocation: string;
+  fromLocation: string | { latitude: number; longitude: number; address?: string };
+  toLocation: string | { latitude: number; longitude: number; address?: string };
   productType: string;
   weight: string;
   createdAt: string;
@@ -84,8 +84,8 @@ const ActivityScreen = () => {
           id: booking.bookingId || booking.id || `booking_${Date.now()}`,
           type: booking.bookingMode === 'instant' ? 'instant' : 'booking',
           status: booking.status || 'pending',
-          fromLocation: getReadableLocationName(booking.fromLocationAddress || booking.fromLocation),
-          toLocation: getReadableLocationName(booking.toLocationAddress || booking.toLocation),
+          fromLocation: booking.fromLocationAddress || booking.fromLocation || booking.from,
+          toLocation: booking.toLocationAddress || booking.toLocation || booking.to,
           productType: booking.productType || 'Unknown',
           weight: booking.weightKg ? `${booking.weightKg}kg` : 'Unknown',
           createdAt: booking.createdAt || booking.pickUpDate || new Date().toISOString(),
@@ -191,9 +191,19 @@ const ActivityScreen = () => {
           <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
           <View style={styles.routeText}>
             <Text style={styles.routeLabel}>Route</Text>
-            <Text style={styles.routeValue}>
-              {formatRoute(item.fromLocation, item.toLocation)}
-            </Text>
+            <View style={styles.routeContainer}>
+              <LocationDisplay 
+                location={item.fromLocation} 
+                iconColor={colors.primary}
+                style={styles.routeValue}
+              />
+              <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} style={styles.routeArrow} />
+              <LocationDisplay 
+                location={item.toLocation} 
+                iconColor={colors.secondary}
+                style={styles.routeValue}
+              />
+            </View>
           </View>
         </View>
 
@@ -641,6 +651,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text.primary,
     lineHeight: 22,
+  },
+  routeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  routeArrow: {
+    marginHorizontal: spacing.xs,
   },
   productInfo: {
     flexDirection: 'row',

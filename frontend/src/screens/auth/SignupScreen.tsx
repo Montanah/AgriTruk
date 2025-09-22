@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import KeyboardAwareScrollView from '../../components/common/KeyboardAwareScrollView';
+import FormKeyboardWrapper from '../../components/common/FormKeyboardWrapper';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 
@@ -52,16 +52,29 @@ const roleLabels = {
 const SignupScreen = () => {
   const navigation = useNavigation() as any;
   const route = useRoute();
-  const { role } = route.params as { role?: string } || {};
+  const { 
+    role, 
+    email: prefilledEmail, 
+    phone: prefilledPhone, 
+    password: prefilledPassword,
+    isCorrection = false 
+  } = route.params as { 
+    role?: string; 
+    email?: string; 
+    phone?: string; 
+    password?: string;
+    isCorrection?: boolean;
+  } || {};
+  
   const accent = roleAccents[role as keyof typeof roleAccents] || colors.primary;
   const label = roleLabels[role as keyof typeof roleLabels] || 'User';
 
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState(prefilledEmail || '');
+  const [phone, setPhone] = useState(prefilledPhone || '');
   const [signupMethod, setSignupMethod] = useState<'phone' | 'email'>('phone');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [password, setPassword] = useState(prefilledPassword || '');
+  const [confirmPassword, setConfirmPassword] = useState(prefilledPassword || '');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
@@ -309,10 +322,9 @@ const SignupScreen = () => {
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
       />
-      <KeyboardAwareScrollView
+      <FormKeyboardWrapper
         contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-        extraScrollHeight={50}
+        keyboardVerticalOffset={0}
       >
           <View style={styles.container}>
             <LoadingSpinner
@@ -352,8 +364,23 @@ const SignupScreen = () => {
                     style={styles.logo}
                   />
                 </View>
-                <Text style={styles.welcomeText}>Welcome to TRUK</Text>
-                <Text style={styles.subtitleText}>Create your account to get started</Text>
+                <Text style={styles.welcomeText}>
+                  {isCorrection ? 'Correct Your Details' : 'Welcome to TRUK'}
+                </Text>
+                <Text style={styles.subtitleText}>
+                  {isCorrection 
+                    ? 'Update your information and try again' 
+                    : 'Create your account to get started'
+                  }
+                </Text>
+                {isCorrection && (
+                  <View style={styles.correctionBanner}>
+                    <Ionicons name="information-circle" size={16} color={colors.primary} />
+                    <Text style={styles.correctionBannerText}>
+                      You can update any field below and resubmit
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Google Sign Up Button */}
@@ -581,7 +608,7 @@ const SignupScreen = () => {
               </Text>
             </Animated.View>
           </View>
-      </KeyboardAwareScrollView>
+      </FormKeyboardWrapper>
 
       {/* Country Dropdown - Outside ScrollView to prevent clipping */}
       {showCountryDropdown && (
@@ -950,6 +977,22 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: fonts.size.sm,
     textAlign: 'center',
+  },
+  correctionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '10',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+    marginTop: spacing.md,
+  },
+  correctionBannerText: {
+    color: colors.primary,
+    fontSize: fonts.size.sm,
+    marginLeft: 8,
+    flex: 1,
   },
   signInText: {
     fontSize: fonts.size.md,

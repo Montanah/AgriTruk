@@ -86,11 +86,23 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
           // Check verification status
           if (brokerData.verificationStatus === 'approved') {
             setStatus('verified');
-            // Auto-navigate to broker tabs if already approved
+            // Auto-navigate to subscription check after verification
             setTimeout(() => {
+              // Navigate to subscription trial screen for new brokers
               navigation.reset({
                 index: 0,
-                routes: [{ name: 'BrokerTabs' }]
+                routes: [{ 
+                  name: 'SubscriptionTrial',
+                  params: {
+                    userType: 'broker',
+                    subscriptionStatus: {
+                      needsTrialActivation: true,
+                      hasActiveSubscription: false,
+                      isTrialActive: false,
+                      subscriptionStatus: 'none'
+                    }
+                  }
+                }]
               });
             }, 1000);
           } else if (brokerData.verificationStatus === 'rejected') {
@@ -330,9 +342,20 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
             <Text style={styles.statusSubText}>Your ID is verified. You can now access the broker dashboard.</Text>
             <TouchableOpacity style={styles.goDashboardBtn} onPress={() => navigation.reset({
               index: 0,
-              routes: [{ name: 'BrokerTabs' }]
+              routes: [{ 
+                name: 'SubscriptionTrial',
+                params: {
+                  userType: 'broker',
+                  subscriptionStatus: {
+                    needsTrialActivation: true,
+                    hasActiveSubscription: false,
+                    isTrialActive: false,
+                    subscriptionStatus: 'none'
+                  }
+                }
+              }]
             })}>
-              <Text style={styles.goDashboardBtnText}>Go to Dashboard</Text>
+              <Text style={styles.goDashboardBtnText}>Continue to Subscription</Text>
             </TouchableOpacity>
           </View>
         )}

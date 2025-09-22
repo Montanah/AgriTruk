@@ -17,6 +17,10 @@ import spacing from '../../constants/spacing';
 import { API_ENDPOINTS } from '../../constants/api';
 import { convertCoordinatesToPlaceName, formatLocationForDisplay } from '../../utils/locationUtils';
 import { useLocationName } from '../../hooks/useLocationName';
+import { cleanLocationDisplay } from '../../utils/locationDisplay';
+import { chatService } from '../../services/chatService';
+import { enhancedNotificationService } from '../../services/enhancedNotificationService';
+import LocationDisplay from '../common/LocationDisplay';
 
 interface AvailableJob {
     id: string;
@@ -141,6 +145,8 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                 setError('Request timed out. Please check your internet connection and try again.');
             } else if (err.message?.includes('Network request failed') || err.message?.includes('fetch')) {
                 setError('Network error. Please check your internet connection and try again.');
+            } else if (err.message?.includes('TypeError: Network request failed')) {
+                setError('Network error. Please check your internet connection and try again.');
             } else {
                 setError(err.message || 'Failed to fetch available jobs');
             }
@@ -176,10 +182,65 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
             });
 
             if (response.ok) {
-                Alert.alert('Success', 'Job accepted successfully!');
-                // Remove the job from the list
-                setJobs(prev => prev.filter(j => j.id !== job.id));
-                onJobAccepted?.(job);
+                // Create chat room for communication
+                try {
+                    const chatRoom = await chatService.getOrCreateChatRoom(
+                        job.id,
+                        user.uid,
+                        job.client?.id || 'client-id' // This should come from the job data
+                    );
+                    
+                    // Send notification to client
+                    await enhancedNotificationService.sendNotification(
+                        'booking_accepted',
+                        job.client?.id || 'client-id',
+                        {
+                            bookingId: job.id,
+                            transporterName: 'You', // This should come from user profile
+                        pickupLocation: formatLocationForDisplay(job.fromLocation),
+                        deliveryLocation: formatLocationForDisplay(job.toLocation),
+                        }
+                    );
+
+                    Alert.alert(
+                        'Job Accepted! 🎉',
+                        'You can now communicate with the client directly.',
+                        [
+                            {
+                                text: 'Continue',
+                                onPress: () => {
+                                    // Remove the job from the list
+                                    setJobs(prev => prev.filter(j => j.id !== job.id));
+                                    onJobAccepted?.(job);
+                                }
+                            },
+                            {
+                                text: 'Start Chat',
+                                onPress: () => {
+                                    // Navigate to chat screen
+                                    navigation.navigate('ChatScreen', {
+                                        roomId: chatRoom.id,
+                                        bookingId: job.id,
+                                        transporterName: 'You', // This should come from user profile
+                                        clientName: job.client?.name || 'Client',
+                                        transporterPhone: 'your-phone', // This should come from user profile
+                                        clientPhone: job.client?.phone,
+                                        userType: 'transporter'
+                                    });
+                                    // Remove the job from the list
+                                    setJobs(prev => prev.filter(j => j.id !== job.id));
+                                    onJobAccepted?.(job);
+                                }
+                            }
+                        ]
+                    );
+                } catch (chatError) {
+                    console.error('Error creating chat room:', chatError);
+                    Alert.alert('Success', 'Job accepted successfully!');
+                    // Remove the job from the list
+                    setJobs(prev => prev.filter(j => j.id !== job.id));
+                    onJobAccepted?.(job);
+                }
             } else {
                 throw new Error('Failed to accept job');
             }
@@ -250,20 +311,19 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
         });
     };
 
-    // Component for displaying location with place name
-    const LocationDisplay = ({ location, icon, iconColor }: { location: any, icon: string, iconColor: string }) => {
-        const { locationName, loading } = useLocationName(location);
-        
-        return (
-            <View style={styles.locationRow}>
-                <MaterialCommunityIcons name={icon} size={16} color={iconColor} />
-                {loading ? (
-                    <Text style={styles.locationText}>Loading location...</Text>
-                ) : (
-                    <Text style={styles.locationText}>{locationName}</Text>
-                )}
-            </View>
-        );
+    // Helper function to format location for display
+    const formatLocationForDisplay = (location: any): string => {
+        if (typeof location === 'string') {
+            return location;
+        }
+        if (location?.address) {
+            return location.address;
+        }
+        if (location?.latitude && location?.longitude && 
+            typeof location.latitude === 'number' && typeof location.longitude === 'number') {
+            return `Location (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`;
+        }
+        return 'Unknown location';
     };
 
     const renderJobItem = ({ item }: { item: AvailableJob }) => (
@@ -287,14 +347,13 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
 
             <View style={styles.jobDetails}>
                 <LocationDisplay 
-                    location={item.fromLocation} 
-                    icon="map-marker" 
+                    location={formatLocationForDisplay(item.fromLocation)} 
                     iconColor={colors.primary} 
                 />
                 <LocationDisplay 
-                    location={item.toLocation} 
-                    icon="map-marker-outline" 
-                    iconColor={colors.text.secondary} 
+                    location={formatLocationForDisplay(item.toLocation)} 
+                    iconColor={colors.text.secondary}
+                    iconName="map-marker-outline"
                 />
             </View>
 
@@ -318,9 +377,17 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                     <Text style={styles.clientName}>{item.client?.name || 'Client'}</Text>
                     <View style={styles.ratingRow}>
                         <MaterialCommunityIcons name="star" size={12} color={colors.warning} />
-                        <Text style={styles.ratingText}>{item.client?.rating?.toFixed(1) || 'N/A'}</Text>
+                        <Text style={styles.ratingText}>
+                            {typeof item.client?.rating === 'number' ? item.client.rating.toFixed(1) : 'New'}
+                        </Text>
                         <Text style={styles.ordersText}>({item.client?.completedOrders || 0} orders)</Text>
                     </View>
+                    {item.client?.phone && (
+                        <View style={styles.contactRow}>
+                            <MaterialCommunityIcons name="phone" size={12} color={colors.primary} />
+                            <Text style={styles.contactText}>{item.client.phone}</Text>
+                        </View>
+                    )}
                 </View>
                 <View style={styles.actionButtons}>
                     <TouchableOpacity
@@ -608,6 +675,17 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.xs,
         color: colors.text.light,
         marginLeft: 4,
+    },
+    contactRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 2,
+    },
+    contactText: {
+        fontSize: fonts.size.xs,
+        color: colors.primary,
+        marginLeft: 4,
+        fontWeight: '500',
     },
     actionButtons: {
         flexDirection: 'row',

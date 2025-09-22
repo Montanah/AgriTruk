@@ -5,6 +5,7 @@ import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
@@ -660,16 +661,16 @@ export default function BrokerProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
+      <FormKeyboardWrapper
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+        keyboardVerticalOffset={0}
       >
         {renderProfileHeader()}
         {renderQuickActions()}
         {renderProfileDetails()}
         {renderPaymentMethods()}
-      </ScrollView>
+      </FormKeyboardWrapper>
 
       {/* Profile Edit Modal */}
       <Modal
