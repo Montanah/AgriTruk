@@ -5,6 +5,8 @@ const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const Notification = require('../models/Notification');
 const Booking = require('../models/Booking');
 const { formatTimestamps } = require('../utils/formatData');
+const Action = require('../models/Action');
+const sendEmail = require('../utils/sendEmail');
 
 exports.createDispute = async (req, res) => {
   try {
@@ -68,6 +70,27 @@ exports.createDispute = async (req, res) => {
       userId: req.user.uid,
       userType: "business",
     });
+
+    await Action.create({
+      type: "dispute_created",
+      entityId: dispute.disputeId,
+      priority: "high",
+      metadata: {
+        userId: req.user.uid,
+        transporterId: transporterId,
+        bookingId: bookingId,
+      },
+      status: 'open',
+      message: `Dispute created successfully.. Dispute ID: ${dispute.disputeId}`,
+    });
+
+    await sendEmail({
+        to: "support@trukafrica.com",
+        subject: 'Dispute Created',
+        html: adminNotification(
+          "Dispute Created",
+          `A new dispute has been created. Dispute ID: ${dispute.disputeId}`),
+      });
 
     res.status(201).json({ message: 'Dispute created successfully', dispute });
   } catch (err) {

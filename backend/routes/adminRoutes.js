@@ -302,7 +302,7 @@ router.get('/bookings', authenticateToken, authorize(['view_bookings', 'super_ad
  *             schema:
  *               $ref: '#/components/schemas/Error'
 */
-router.get('/actions', authenticateToken, getAllActions);
+router.get('/actions', authenticateToken, requireRole('admin'), getAllActions);
 
 /**
  * @swagger

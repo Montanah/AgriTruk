@@ -174,6 +174,12 @@ exports.createTransporter = async (req, res) => {
       message: 'New transporter needs approval',
     });
 
+    await sendEmail({
+        to: "support@trukafrica.com",
+        subject: 'Transporter Account Needs Review',
+        html: adminNotification('Transporter Needs Review', `A new transporter needs review. Transporter ID: ${transporter.transporterId}`),
+      });
+
     res.status(201).json({
       message: "Transporter created successfully",
       transporter

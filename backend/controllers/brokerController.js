@@ -12,7 +12,7 @@ const MatchingService = require('../services/matchingService');
 const { formatTimestamps } = require('../utils/formatData');
 const Action = require('../models/Action');
 const { generateEmailTemplate } = require('../services/documentExpiryCronService');
-const { getBrokerTemplate, getRejectTemplate } = require('../utils/sendMailTemplate');
+const { getBrokerTemplate, getRejectTemplate, adminNotification } = require('../utils/sendMailTemplate');
 const { get } = require('../models/Alert');
 
 exports.createBroker = async (req, res) => {
@@ -77,6 +77,12 @@ exports.createBroker = async (req, res) => {
       status: "Needs Approval",
       message: 'New broker needs approval',
     });
+
+    await sendEmail({
+        to: "support@trukafrica.com",
+        subject: 'Broker Account Needs Review',
+        html: adminNotification('Broker Account Needs Review', 'A new broker needs approval', `Broker ID: ${broker.brokerId}`),
+      });
 
     res.status(201).json({
       success: true,
@@ -716,13 +722,33 @@ exports.uploadDocuments = async (req, res) => {
           console.log('No idImage file received');
         }
     const documents = {
-      brokerIdUrl: idImage
+      brokerIdUrl: idImage,
+      status: 'renewal'
     };
 
     const updated = await Broker.update(broker.brokerId, documents);
     console.log("updated", updated);
 
     await logActivity(req.user.uid, 'update_broker_documents', req);
+
+    await Action.create({
+      type: "broker_review",
+      entityId: broker.brokerId,
+      priority: "high",
+      metadata: {
+        brokerId: broker.brokerId
+      },
+      status: "Needs Approval",
+      message: 'Broker documents changed',
+    });
+
+    await sendEmail({
+      to: 'support@trukafrica.com',
+      subject: 'Broker Documents Updated',
+      html: adminNotification('Broker Documents Updated', 'A broker has updated their documents', broker.brokerId),
+      text: 'Your broker account has been approved. Welcome to Truk!'
+    })
+
     res.status(200).json({
       success: true,
       message: 'Documents uploaded successfully',
@@ -733,4 +759,4 @@ exports.uploadDocuments = async (req, res) => {
       message: `Error uploading documents: ${error.message}`,
     });
   }
-}
+};
