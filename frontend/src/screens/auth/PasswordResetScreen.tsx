@@ -180,6 +180,12 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
       const cleanPhone = phone.replace(/\s/g, '');
       let phoneWithoutZero = cleanPhone.startsWith('0') ? cleanPhone.slice(1) : cleanPhone;
       const formattedPhone = `${countryCode}${phoneWithoutZero}`;
+      
+      console.log('Phone formatting - Original:', phone);
+      console.log('Phone formatting - Clean:', cleanPhone);
+      console.log('Phone formatting - Without zero:', phoneWithoutZero);
+      console.log('Phone formatting - Country code:', countryCode);
+      console.log('Phone formatting - Final formatted:', formattedPhone);
 
       // Call backend API to send password reset code via SMS with retry logic
       const response = await retryWithBackoff(async () => {
@@ -206,12 +212,17 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
         }
       }, 3, 1000);
 
+      console.log('Password reset response status:', response.status);
+      console.log('Password reset response ok:', response.ok);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Password reset response data:', data);
         setUserId(data.userId);
         setStep('code');
       } else {
         const errorData = await response.json();
+        console.log('Password reset error data:', errorData);
         throw new Error(errorData.message || 'Failed to send password reset code');
       }
     } catch (error: any) {
