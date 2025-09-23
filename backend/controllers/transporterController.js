@@ -8,6 +8,8 @@ const MatchingService = require('../services/matchingService');
 const { formatTimestamps } = require('../utils/formatData');
 const admin = require("../config/firebase");
 const Action = require('../models/Action');
+const sendEmail = require('../utils/sendEmail');
+const { adminNotification } = require('../utils/sendMailTemplate');
 
 exports.createTransporter = async (req, res) => {
   try {
