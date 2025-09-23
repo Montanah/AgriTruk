@@ -18,6 +18,8 @@ export default function TransporterProcessingScreen({ route }) {
   const [statusMessage, setStatusMessage] = React.useState('Your documents are under review. You will be notified once your account is activated.');
   const [subscriptionStatus, setSubscriptionStatus] = React.useState(null);
   const [checkingSubscription, setCheckingSubscription] = React.useState(false);
+  const [isRetrying, setIsRetrying] = React.useState(false);
+  const [retryCount, setRetryCount] = React.useState(0);
 
   // Helper to map status to step index
   const getStepIndex = (status) => {
@@ -81,47 +83,90 @@ export default function TransporterProcessingScreen({ route }) {
         const { getAuth } = require('firebase/auth');
         const auth = getAuth();
         const user = auth.currentUser;
-        if (!user) return;
+        if (!user) {
+          setStatusMessage('Not authenticated. Please sign in again.');
+          setLoadingProfile(false);
+          return;
+        }
+        
         const token = await user.getIdToken();
-        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.transporter && data.transporter.driverProfileImage) {
-            setProfilePhotoUrl(data.transporter.driverProfileImage);
-          }
-          if (data.transporter && data.transporter.status) {
-            setCurrentStatus(data.transporter.status);
-            setStatusMessage(getStatusMessage(data.transporter.status));
-            // If approved, check subscription status before navigating
-            if (data.transporter.status === 'approved') {
-              // Check subscription status first
-              await checkSubscriptionStatus();
-              
-              // The navigation will be handled in checkSubscriptionStatus
-              // If no subscription issues, navigate to dashboard
-              setTimeout(() => {
-                navigation.reset({
-                  index: 0,
-                  routes: [
-                    { name: 'TransporterTabs', params: { transporterType: data.transporter.transporterType || transporterType } },
-                  ],
-                });
-              }, 1200);
+        
+        // Determine endpoint based on transporterType
+        const endpoint = transporterType === 'company'
+          ? `${API_ENDPOINTS.COMPANIES}/${user.uid}`
+          : `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`;
+        
+        console.log('Initial fetch from:', endpoint);
+        
+        // Add timeout to the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        try {
+          const res = await fetch(endpoint, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (res.ok) {
+            const data = await res.json();
+            console.log('Initial fetch response:', data);
+            
+            if (data.transporter && data.transporter.driverProfileImage) {
+              setProfilePhotoUrl(data.transporter.driverProfileImage);
             }
+            if (data.transporter && data.transporter.status) {
+              setCurrentStatus(data.transporter.status);
+              setStatusMessage(getStatusMessage(data.transporter.status));
+              // If approved, check subscription status before navigating
+              if (data.transporter.status === 'approved') {
+                // Check subscription status first
+                await checkSubscriptionStatus();
+                
+                // The navigation will be handled in checkSubscriptionStatus
+                // If no subscription issues, navigate to dashboard
+                setTimeout(() => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [
+                      { name: 'TransporterTabs', params: { transporterType: data.transporter.transporterType || transporterType } },
+                    ],
+                  });
+                }, 1200);
+              }
+            }
+          } else {
+            const errorText = await res.text();
+            console.error('Initial fetch error:', res.status, errorText);
+            setStatusMessage(`Failed to load status: ${res.status} - ${errorText}`);
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          if (fetchError.name === 'AbortError') {
+            setStatusMessage('Request timed out. Please check your internet connection and try refreshing.');
+          } else {
+            throw fetchError;
           }
         }
       } catch (err) {
-        // ignore
+        console.error('Initial fetch error:', err);
+        if (err.message.includes('Network request failed')) {
+          setStatusMessage('Network error: Please check your internet connection and try refreshing.');
+        } else if (err.message.includes('timeout')) {
+          setStatusMessage('Request timed out. Please try refreshing.');
+        } else {
+          setStatusMessage('Error loading status: ' + err.message);
+        }
       }
       setLoadingProfile(false);
     };
     fetchProfile();
-  }, []);
+  }, [transporterType]);
 
   // Animated glowing ring effect (LED-like)
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
@@ -283,64 +328,115 @@ export default function TransporterProcessingScreen({ route }) {
           style={({ pressed }) => [
             styles.refreshBtn,
             pressed && { backgroundColor: colors.primary + '22' },
+            isRetrying && { opacity: 0.6 },
           ]}
+          disabled={isRetrying}
           onPress={async () => {
+            if (isRetrying) return;
+            
             try {
+              setIsRetrying(true);
+              setRetryCount(prev => prev + 1);
+              setStatusMessage('Refreshing status...');
+              
               // Get user ID from Firebase Auth
               const { getAuth } = require('firebase/auth');
               const auth = getAuth();
               const user = auth.currentUser;
               if (!user) {
-                alert('Not authenticated');
+                setStatusMessage('Not authenticated. Please sign in again.');
                 return;
               }
+
               // Determine endpoint based on transporterType
               const endpoint = transporterType === 'company'
                 ? `${API_ENDPOINTS.COMPANIES}/${user.uid}`
                 : `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`;
+              
+              console.log('Fetching status from:', endpoint);
+              
               // Get JWT token
               const token = await user.getIdToken();
-              // Fetch status from backend with Authorization header
-              const res = await fetch(endpoint, {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-              });
-              if (!res.ok) {
-                const errorText = await res.text();
-                console.error('Status fetch error:', res.status, errorText);
-                setStatusMessage(`Failed to fetch status: ${res.status} - ${errorText}`);
-                return;
-              }
-              const data = await res.json();
-              console.log('Status fetch response:', data);
-              // Update status and message
-              let status = data.status || data.body?.status || (data.transporter && data.transporter.status) || 'unknown';
-              console.log('Extracted status:', status);
-              setCurrentStatus(status);
-              setStatusMessage(getStatusMessage(status));
-              // If approved, check subscription status before navigating
-              if (status === 'approved') {
-                await checkSubscriptionStatus();
+              
+              // Add timeout to the fetch request
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+              
+              try {
+                // Fetch status from backend with Authorization header
+                const res = await fetch(endpoint, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  signal: controller.signal,
+                });
                 
-                // If no subscription issues, navigate to dashboard
-                setTimeout(() => {
-                  navigation.reset({
-                    index: 0,
-                    routes: [
-                      { name: 'TransporterTabs', params: { transporterType: (data.transporter && data.transporter.transporterType) || transporterType } },
-                    ],
-                  });
-                }, 1200);
+                clearTimeout(timeoutId);
+                
+                if (!res.ok) {
+                  const errorText = await res.text();
+                  console.error('Status fetch error:', res.status, errorText);
+                  setStatusMessage(`Failed to fetch status: ${res.status} - ${errorText}`);
+                  return;
+                }
+                
+                const data = await res.json();
+                console.log('Status fetch response:', data);
+                
+                // Update status and message
+                let status = data.status || data.body?.status || (data.transporter && data.transporter.status) || 'unknown';
+                console.log('Extracted status:', status);
+                setCurrentStatus(status);
+                setStatusMessage(getStatusMessage(status));
+                
+                // Reset retry count on success
+                setRetryCount(0);
+                
+                // If approved, check subscription status before navigating
+                if (status === 'approved') {
+                  await checkSubscriptionStatus();
+                  
+                  // If no subscription issues, navigate to dashboard
+                  setTimeout(() => {
+                    navigation.reset({
+                      index: 0,
+                      routes: [
+                        { name: 'TransporterTabs', params: { transporterType: (data.transporter && data.transporter.transporterType) || transporterType } },
+                      ],
+                    });
+                  }, 1200);
+                }
+              } catch (fetchError) {
+                clearTimeout(timeoutId);
+                if (fetchError.name === 'AbortError') {
+                  setStatusMessage('Request timed out. Please check your internet connection and try again.');
+                } else {
+                  throw fetchError;
+                }
               }
             } catch (err) {
-              setStatusMessage('Error refreshing status: ' + err.message);
+              console.error('Refresh status error:', err);
+              if (err.message.includes('Network request failed')) {
+                setStatusMessage(`Network error: Please check your internet connection and try again. (Attempt ${retryCount + 1})`);
+              } else if (err.message.includes('timeout')) {
+                setStatusMessage(`Request timed out. Please try again. (Attempt ${retryCount + 1})`);
+              } else {
+                setStatusMessage(`Error refreshing status: ${err.message} (Attempt ${retryCount + 1})`);
+              }
+            } finally {
+              setIsRetrying(false);
             }
           }}
         >
-          <Ionicons name="refresh" size={20} color={colors.primary} style={{ marginRight: 6 }} />
-          <Text style={styles.refreshBtnText}>Refresh Status</Text>
+          {isRetrying ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 6 }} />
+          ) : (
+            <Ionicons name="refresh" size={20} color={colors.primary} style={{ marginRight: 6 }} />
+          )}
+          <Text style={styles.refreshBtnText}>
+            {isRetrying ? 'Refreshing...' : 'Refresh Status'}
+          </Text>
         </Pressable>
       </View>
     </View>
