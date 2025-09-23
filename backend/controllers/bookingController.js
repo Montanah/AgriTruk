@@ -2,6 +2,7 @@ const { Timestamp } = require('firebase-admin/firestore');
 const { scheduleRecurringBookings } = require('../services/bookingService');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
+const Action = require('../models/Action');
 const { logActivity } = require('../utils/activityLogger');
 const { formatTimestamps } = require('../utils/formatData');
 const geolib = require('geolib');
