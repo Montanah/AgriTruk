@@ -186,6 +186,8 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
       console.log('Phone formatting - Without zero:', phoneWithoutZero);
       console.log('Phone formatting - Country code:', countryCode);
       console.log('Phone formatting - Final formatted:', formattedPhone);
+      console.log('Expected Firebase format: +254113168134');
+      console.log('Sending to backend:', formattedPhone);
 
       // Call backend API to send password reset code via SMS with retry logic
       const response = await retryWithBackoff(async () => {
