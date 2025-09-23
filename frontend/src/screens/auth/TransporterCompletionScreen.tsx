@@ -34,28 +34,28 @@ const VEHICLE_TYPES = [
     label: 'Truck',
     value: 'truck',
     icon: (active: boolean) => (
-      <FontAwesome5 name="truck" size={28} color={active ? colors.white : colors.primary} />
+      <FontAwesome5 name="truck" size={18} color={active ? colors.white : colors.primary} />
     ),
   },
   {
     label: 'Van',
     value: 'van',
     icon: (active: boolean) => (
-      <MaterialCommunityIcons name="van-utility" size={28} color={active ? colors.white : colors.secondary} />
+      <MaterialCommunityIcons name="van-utility" size={18} color={active ? colors.white : colors.secondary} />
     ),
   },
   {
     label: 'Pickup',
     value: 'pickup',
     icon: (active: boolean) => (
-      <MaterialCommunityIcons name="car-pickup" size={28} color={active ? colors.white : colors.tertiary} />
+      <MaterialCommunityIcons name="car-pickup" size={18} color={active ? colors.white : colors.tertiary} />
     ),
   },
   {
     label: 'Refrigerated Truck',
     value: 'refrigerated_truck',
     icon: (active: boolean) => (
-      <MaterialCommunityIcons name="snowflake" size={28} color={active ? colors.white : colors.success} />
+      <MaterialCommunityIcons name="snowflake" size={18} color={active ? colors.white : colors.success} />
     ),
   },
   {
@@ -2085,7 +2085,7 @@ export default function TransporterCompletionScreen() {
               <ActivityIndicator color={colors.primary} size="small" />
             ) : (
               <>
-                <MaterialCommunityIcons name="content-save-outline" size={20} color={colors.primary} />
+                <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.primary} />
                 <Text style={[styles.draftBtnText, { color: colors.primary }]}>Save as Draft</Text>
               </>
             )}
@@ -2356,21 +2356,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     gap: spacing.sm,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   submitBtnText: {
     color: colors.white,
-    fontWeight: 'bold',
-    fontSize: fonts.size.lg,
-    letterSpacing: 0.5,
+    fontWeight: '600',
+    fontSize: fonts.size.md,
+    letterSpacing: 0.3,
   },
   error: {
     color: colors.error,
@@ -2453,9 +2453,9 @@ const styles = StyleSheet.create({
   roleButton: {
     flex: 1,
     backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    borderRadius: 16,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -2465,7 +2465,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
-    minHeight: 48,
+    minHeight: 44,
   },
   roleButtonActive: {
     backgroundColor: colors.primary,
@@ -2489,10 +2489,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white + '30',
   },
   roleButtonText: {
-    fontSize: fonts.size.sm + 1,
+    fontSize: fonts.size.sm,
     fontWeight: '600',
     color: colors.text.primary,
-    marginTop: 4,
+    marginTop: 2,
     letterSpacing: 0.2,
   },
   roleButtonTextActive: {
@@ -2743,20 +2743,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 2,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1.5,
     gap: spacing.sm,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   draftBtnText: {
-    fontSize: fonts.size.md,
-    fontWeight: 'bold',
-    letterSpacing: 0.3,
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });
