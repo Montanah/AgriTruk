@@ -438,7 +438,8 @@ exports.forgotPassword = async (req, res) => {
     } else if (phone) {
       const smsMessage = `Your password reset code is: ${verificationCode}`;
       
-      const formattedPhoneNumber = formatPhoneNumber(phone);
+      // Use the same formatting function that was used to find the user
+      const formattedPhoneNumber = formatPhoneNumberAuth(phone);
       await smsService.sendSMS(
         'TRUK LTD',
         smsMessage,
