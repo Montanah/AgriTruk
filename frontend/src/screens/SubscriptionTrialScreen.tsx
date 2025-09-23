@@ -63,24 +63,15 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     useEffect(() => {
         const loadTrialPlan = async () => {
             try {
-                const token = await (subscriptionService as any).getAuthToken();
-                const plansResponse = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/plans`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
-
-                if (plansResponse.ok) {
-                    const plansData = await plansResponse.json();
-                    const plans = plansData.data || [];
-                    const trialPlan = plans.find((plan: any) => plan.price === 0);
-                    if (trialPlan) {
-                        setTrialPlan(trialPlan);
-                    }
+                // Use the subscription service to get plans instead of direct API call
+                const plans = await subscriptionService.getSubscriptionPlans();
+                const trialPlan = plans.find((plan: any) => plan.price === 0);
+                if (trialPlan) {
+                    setTrialPlan(trialPlan);
                 }
             } catch (error) {
                 console.error('Error loading trial plan:', error);
+                // Don't show error to user, just log it
             }
         };
 
@@ -103,8 +94,11 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
         try {
             // Use the same simple approach as transporters
             console.log('Activating trial using subscription service...');
+            console.log('User type:', userType);
+            console.log('Subscription status:', subscriptionStatus);
             
             const result = await subscriptionService.activateTrial(userType as 'transporter' | 'broker');
+            console.log('Trial activation result:', result);
             
             if (result.success) {
                 // Check if user already had a subscription
@@ -192,7 +186,15 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
             }
         } catch (error) {
             console.error('Trial activation error:', error);
-            Alert.alert('Error', 'Failed to activate trial. Please try again.');
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+            Alert.alert(
+                'Activation Failed', 
+                `Failed to activate trial: ${errorMessage}\n\nPlease check your internet connection and try again.`,
+                [
+                    { text: 'Retry', onPress: () => handleActivateTrial() },
+                    { text: 'Cancel', style: 'cancel' }
+                ]
+            );
         } finally {
             setActivatingTrial(false);
         }
