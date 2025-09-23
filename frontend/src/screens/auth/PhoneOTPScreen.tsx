@@ -177,6 +177,18 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
       // Phone verification successful
       setVerified(true);
 
+      // Send phone verification success notification
+      try {
+        const { NotificationHelper } = require('../../services/notificationHelper');
+        await NotificationHelper.sendAuthNotification('verification', {
+          userId,
+          role,
+          verificationType: 'phone'
+        });
+      } catch (notificationError) {
+        console.warn('Failed to send phone verification notification:', notificationError);
+      }
+
       // Show success animation briefly, then navigate directly
       setTimeout(() => {
         // Phone verification complete - navigating to appropriate screen for role

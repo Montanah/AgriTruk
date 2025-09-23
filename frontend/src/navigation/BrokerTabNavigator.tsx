@@ -7,6 +7,8 @@ import colors from '../constants/colors';
 import BrokerHomeScreen from '../screens/BrokerHomeScreen';
 import BrokerManagementScreen from '../screens/BrokerManagementScreen';
 import BrokerProfileScreen from '../screens/BrokerProfileScreen';
+import BrokerRequestScreen from '../screens/BrokerRequestScreen';
+import TripDetailsScreen from '../screens/TripDetailsScreen';
 import TrackingScreen from '../screens/TrackingScreen';
 import MapViewScreen from '../screens/MapViewScreen';
 
@@ -63,7 +65,7 @@ const TabNavigator = ({ route }: any) => {
         component={BrokerHomeScreen}
         initialParams={{ subscriptionStatus }}
       />
-      <Tab.Screen name="Management" component={BrokerManagementScreen} />
+      <Tab.Screen name="Management" component={BrokerManagementScreen} initialParams={{ activeTab: 'requests' }} />
       <Tab.Screen name="Profile" component={BrokerProfileScreen} />
     </Tab.Navigator>
   );
@@ -73,6 +75,9 @@ export default function BrokerTabNavigator({ route }: any) {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={TabNavigator} initialParams={route.params} />
+      <Stack.Screen name="BrokerRequestScreen" component={BrokerRequestScreen} />
+      <Stack.Screen name="BrokerManagementScreen" component={BrokerManagementScreen} />
+      <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
       <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
       <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
       <Stack.Screen name="SubscriptionScreen" component={require('../screens/SubscriptionScreen').default} />

@@ -230,6 +230,13 @@ class GoogleMapsService {
    */
   async reverseGeocode(location: Location): Promise<string> {
     try {
+      // Validate coordinates before making API call
+      if (!location.latitude || !location.longitude || 
+          isNaN(location.latitude) || isNaN(location.longitude) ||
+          location.latitude === 0 || location.longitude === 0) {
+        throw new Error('Invalid coordinates provided for reverse geocoding');
+      }
+
       const params = {
         latlng: `${location.latitude},${location.longitude}`,
         language: 'en',
@@ -306,12 +313,23 @@ class GoogleMapsService {
       }
 
       const url = buildGoogleMapsUrl(GOOGLE_MAPS_ENDPOINTS.PLACES_TEXT_SEARCH, params);
-      // Searching places
+      console.log('🔍 Searching places with URL:', url);
+      console.log('🔍 API Key being used:', url.includes('key=') ? url.split('key=')[1]?.substring(0, 10) + '...' : 'No key found');
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
-
-      // Places API response received
+      console.log('📍 Places API response:', data.status, data.error_message || 'Success');
 
       if (data.status === 'OK' && data.results) {
         return data.results.map((place: any) => ({
@@ -410,11 +428,16 @@ class GoogleMapsService {
       }
 
       const url = buildGoogleMapsUrl(GOOGLE_MAPS_ENDPOINTS.PLACES_AUTOCOMPLETE, params);
+      console.log('🔍 Autocomplete URL:', url);
+      console.log('🔍 API Key being used:', url.includes('key=') ? url.split('key=')[1]?.substring(0, 10) + '...' : 'No key found');
+      
       const response = await fetch(url);
       const data = await response.json();
 
+      console.log('📍 Autocomplete API response:', data.status, data.error_message || 'Success');
+
       if (data.status !== 'OK') {
-        throw new Error(`Places Autocomplete API error: ${data.status}`);
+        throw new Error(`Places Autocomplete API error: ${data.status} - ${data.error_message || 'Unknown error'}`);
       }
 
       return data.predictions.map((prediction: any) => ({

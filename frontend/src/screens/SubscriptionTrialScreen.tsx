@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getAuth } from 'firebase/auth';
 import {
     ActivityIndicator,
     Alert,
@@ -21,6 +22,7 @@ import subscriptionService from '../services/subscriptionService';
 import { handleAuthBackNavigation } from '../utils/navigationUtils';
 // import paymentService from '../services/paymentService';
 import { API_ENDPOINTS } from '../constants/api';
+import { NotificationHelper } from '../services/notificationHelper';
 
 interface SubscriptionTrialScreenProps {
     route: {
@@ -51,95 +53,42 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     const [cvv, setCvv] = useState('');
     const [cardholderName, setCardholderName] = useState('');
     const [activatingTrial, setActivatingTrial] = useState(false);
+    const [trialPlan, setTrialPlan] = useState<any>(null);
     // const [trialActivated, setTrialActivated] = useState(false);
 
     // Get trial duration from subscription status or default to 30 days
     const trialDuration = subscriptionStatus?.daysRemaining || 30;
 
+    // Load trial plan on component mount
+    useEffect(() => {
+        const loadTrialPlan = async () => {
+            try {
+                const token = await (subscriptionService as any).getAuthToken();
+                const plansResponse = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/plans`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (plansResponse.ok) {
+                    const plansData = await plansResponse.json();
+                    const plans = plansData.data || [];
+                    const trialPlan = plans.find((plan: any) => plan.price === 0);
+                    if (trialPlan) {
+                        setTrialPlan(trialPlan);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading trial plan:', error);
+            }
+        };
+
+        loadTrialPlan();
+    }, []);
+
     // Method to create trial plan and subscription following the proper backend flow
-    const createTrialPlanAndSubscription = async (userType: string, duration: number) => {
-        try {
-            const token = await (subscriptionService as any).getAuthToken();
-            
-            // Step 1: Check if user already has a subscription
-            const statusResponse = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/subscriber/status`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (statusResponse.ok) {
-                const statusData = await statusResponse.json();
-                console.log('Current subscription status:', statusData);
-                
-                // If user already has a subscription, don't create another one
-                if (statusData.data && statusData.data.hasActiveSubscription) {
-                    return { 
-                        success: true, 
-                        data: statusData.data,
-                        message: 'User already has an active subscription'
-                    };
-                }
-            }
-
-            // Step 2: Get existing trial plans
-            const plansResponse = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            let trialPlan = null;
-            
-            if (plansResponse.ok) {
-                const plansData = await plansResponse.json();
-                const plans = plansData.data || [];
-                console.log('Existing plans:', plans);
-                
-                // Look for existing trial plan (price = 0)
-                trialPlan = plans.find((plan: any) => plan.price === 0);
-                
-                if (trialPlan) {
-                    console.log('Found existing trial plan:', trialPlan);
-                } else {
-                    throw new Error('No trial plan available. Please contact support.');
-                }
-            } else {
-                throw new Error('Failed to fetch subscription plans.');
-            }
-
-            // Step 3: Create subscription with the trial plan using the subscriber endpoint
-            // For trials (price = 0), we don't need payment processing
-            const subscriptionResponse = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/subscriber/`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    planId: trialPlan.planId,
-                    userType,
-                    autoRenew: false,
-                }),
-            });
-
-            const subscriptionData = await subscriptionResponse.json();
-
-            if (!subscriptionResponse.ok) {
-                throw new Error(subscriptionData.message || 'Failed to create trial subscription');
-            }
-
-            console.log('Trial subscription created successfully:', subscriptionData);
-            return { success: true, data: subscriptionData };
-        } catch (error) {
-            console.error('Error creating trial plan and subscription:', error);
-            return { success: false, message: (error as Error).message };
-        }
-    };
+    // NOTE: This is no longer used - we use subscriptionService.activateTrial() instead
 
 
     const handleActivateTrial = async () => {
@@ -152,38 +101,92 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
 
         setActivatingTrial(true);
         try {
-            // For trial activation, we'll create a trial plan and subscription
-            // The backend will handle the payment verification for $1 test charge
-            console.log('Creating trial plan and subscription...');
-
-            // Create the trial plan and subscription using the proper backend flow
-            const result = await createTrialPlanAndSubscription(userType, trialDuration);
+            // Use the same simple approach as transporters
+            console.log('Activating trial using subscription service...');
+            
+            const result = await subscriptionService.activateTrial(userType as 'transporter' | 'broker');
             
             if (result.success) {
-                // setTrialActivated(true);
-                Alert.alert(
-                    'Trial Activated! 🎉',
-                    `Your ${trialDuration}-day free trial has been activated! No payment was charged. You can now access all premium features.`,
-                    [
-                        {
-                            text: 'Continue',
-                            onPress: () => {
-                                if (userType === 'transporter') {
-                                    navigation.navigate('TransporterTabs');
-                                } else if (userType === 'broker') {
-                                    // Navigate to payment confirmation for brokers
-                                    navigation.navigate('PaymentConfirmation', {
-                                        userType: 'broker',
-                                        subscriptionType: 'trial',
-                                        trialDuration: trialDuration
-                                    });
-                                } else {
-                                    navigation.navigate('MainTabs');
+                // Check if user already had a subscription
+                if (result.existingSubscription) {
+                    console.log('User already has a subscription, navigating to appropriate screen');
+                    
+                    // Navigate directly to the appropriate dashboard based on subscription status
+                    const subscriptionData = result.data;
+                    
+                    if (subscriptionData.isExpired) {
+                        // Navigate to subscription expired screen
+                        navigation.navigate('SubscriptionExpired', {
+                            userType: userType,
+                            subscriptionStatus: subscriptionData
+                        });
+                    } else if (subscriptionData.isTrialActive) {
+                        // Navigate to trial confirmation screen
+                        navigation.navigate('PaymentConfirmation', {
+                            userType: userType,
+                            subscriptionType: 'trial',
+                            trialDuration: subscriptionData.daysRemaining || 30,
+                            planName: subscriptionData.planName || 'Trial Plan',
+                            planId: subscriptionData.planId || 'jw8V6swPDphqifQ9YVTr',
+                            amount: subscriptionData.amount || 0
+                        });
+                    } else {
+                        // Navigate to appropriate dashboard
+                        if (userType === 'transporter') {
+                            navigation.navigate('TransporterTabs');
+                        } else if (userType === 'broker') {
+                            navigation.navigate('BrokerTabs');
+                        } else {
+                            navigation.navigate('MainTabs');
+                        }
+                    }
+                } else {
+                    // New trial activation
+                    // Send trial activation notification
+                    try {
+                        // NotificationHelper and getAuth are already imported at the top
+                        const auth = getAuth();
+                        const user = auth.currentUser;
+                        
+                        if (user) {
+                            await NotificationHelper.sendSubscriptionNotification('activated', {
+                                userId: user.uid,
+                                role: userType,
+                                subscriptionType: 'trial',
+                                trialDuration
+                            });
+                        }
+                    } catch (notificationError) {
+                        console.warn('Failed to send trial activation notification:', notificationError);
+                    }
+                    
+                    Alert.alert(
+                        'Trial Activated! 🎉',
+                        `Your ${trialDuration}-day free trial has been activated! No payment was charged. You can now access all premium features.`,
+                        [
+                            {
+                                text: 'Continue',
+                                onPress: () => {
+                                    if (userType === 'transporter') {
+                                        navigation.navigate('TransporterTabs');
+                                    } else if (userType === 'broker') {
+                                        // Navigate to payment confirmation for brokers
+                                        navigation.navigate('PaymentConfirmation', {
+                                            userType: 'broker',
+                                            subscriptionType: 'trial',
+                                            trialDuration: trialDuration,
+                                            planName: trialPlan?.name || 'Trial Plan',
+                                            planId: trialPlan?.planId || 'jw8V6swPDphqifQ9YVTr',
+                                            amount: trialPlan?.price || 0
+                                        });
+                                    } else {
+                                        navigation.navigate('MainTabs');
+                                    }
                                 }
                             }
-                        }
-                    ]
-                );
+                        ]
+                    );
+                }
             } else {
                 Alert.alert('Error', result.message || 'Failed to activate trial. Please try again.');
             }

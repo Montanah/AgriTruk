@@ -110,6 +110,12 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     // API request details
 
     // Making fetch request
+    console.log('🌐 Making API request to:', `${API_BASE}${endpoint}`);
+    console.log('📝 Request options:', {
+      method: options.method || 'GET',
+      headers: headers,
+      bodyLength: options.body ? options.body.length : 0
+    });
 
     const res = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
@@ -117,10 +123,11 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     });
 
     // API response details
-    // Response received
-
+    console.log('📡 Response status:', res.status, res.statusText);
+    console.log('📡 Response headers:', Object.fromEntries(res.headers.entries()));
+    
     const data = await res.json();
-    // Response data received
+    console.log('📄 Response data:', data);
 
     if (!res.ok) {
       console.error('API Error Response:', {

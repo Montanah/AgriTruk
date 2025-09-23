@@ -4,14 +4,14 @@ export default {
     slug: "TRUKapp",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/images/icon-gradient.png",
+    icon: "./assets/images/icon.png",
     scheme: "trukapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: false,
     ios: {
       bundleIdentifier: "com.truk.trukapp",
       supportsTablet: true,
-      icon: "./assets/images/ios-icon-1024-gradient.png",
+      icon: "./assets/images/ios-icon-1024.png",
       config: {
         googleMapsApiKey: "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"
       },
@@ -22,10 +22,10 @@ export default {
     },
     android: {
       package: "com.truk.trukapp",
-      icon: "./assets/images/android-icon-512-gradient.png",
+      icon: "./assets/images/android-icon-512.png",
       adaptiveIcon: {
-        foregroundImage: "./assets/images/adaptive-icon-foreground-gradient.png",
-        backgroundColor: "#1a1a1a"
+        foregroundImage: "./assets/images/adaptive-icon-foreground.png",
+        backgroundColor: "#ffffff"
       },
       edgeToEdgeEnabled: true,
       config: {
@@ -59,13 +59,13 @@ export default {
     },
     web: {
       bundler: "metro",
-      favicon: "./assets/images/favicon-gradient.png"
+      favicon: "./assets/images/favicon.png"
     },
     plugins: [
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/splash-icon-gradient.png",
+          image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff"
@@ -103,6 +103,11 @@ export default {
       EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: "agritruk-d543b.firebasestorage.app",
       EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "86814869135",
       EXPO_PUBLIC_FIREBASE_APP_ID: "1:86814869135:web:49d6806e9b9917eb6e92fa",
+      // Cloudinary configuration
+      EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME: "trukapp",
+      EXPO_PUBLIC_CLOUDINARY_PRESET: "trukapp_unsigned",
+      EXPO_PUBLIC_CLOUDINARY_API_KEY: "your_cloudinary_api_key_here",
+      EXPO_PUBLIC_CLOUDINARY_API_SECRET: "your_cloudinary_api_secret_here",
     },
     owner: "truk"
   }

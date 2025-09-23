@@ -250,9 +250,37 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         try {
             setIsSearching(true);
             setHasError(false);
+            
+            // Test network connectivity first
+            try {
+                const testResponse = await fetch('https://www.google.com', { method: 'HEAD' });
+                if (!testResponse.ok) {
+                    throw new Error('Network test failed');
+                }
+            } catch {
+                console.log('⚠️ Network connectivity test failed, proceeding anyway...');
+            }
 
-            const places = await googleMapsService.searchPlaces(query);
-            setSearchResults(places);
+            // Retry mechanism for network issues
+            let places;
+            let retryCount = 0;
+            const maxRetries = 2;
+            
+            while (retryCount <= maxRetries) {
+                try {
+                    places = await googleMapsService.searchPlaces(query);
+                    break; // Success, exit retry loop
+                } catch (retryError: any) {
+                    retryCount++;
+                    if (retryCount > maxRetries || !retryError.message?.includes('Network request failed')) {
+                        throw retryError; // Re-throw if max retries reached or not a network error
+                    }
+                    console.log(`🔄 Retrying search (attempt ${retryCount}/${maxRetries + 1})...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Wait before retry
+                }
+            }
+            
+            setSearchResults(places || []);
         } catch (error: any) {
             console.error('Error searching places:', error);
             setHasError(true);
@@ -282,10 +310,16 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
                 clearSearchResults();
                 setHasError(false);
                 return;
+            } else if (error.message?.includes('Network request failed') || error.message?.includes('TypeError: Network req')) {
+                Alert.alert(
+                    'Network Error',
+                    'Unable to connect to location services. Please check your internet connection and try again.',
+                    [{ text: 'OK' }]
+                );
             } else {
                 Alert.alert(
                     'Search Error',
-                    'Unable to search for locations. Please try again or enter the address manually.',
+                    `Unable to search for locations. Please try again or enter the address manually.\n\nError: ${error.message || 'Unknown error'}`,
                     [{ text: 'OK' }]
                 );
             }

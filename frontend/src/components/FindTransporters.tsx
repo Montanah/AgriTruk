@@ -1,12 +1,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { useTransporters } from '../hooks/UseTransporters';
 import { googleMapsService } from '../services/googleMapsService';
+// import { instantRequestService } from '../services/enhancedInstantRequestService'; // Not needed - using direct API call
 
 // Props: requests (array or single), distance, onSelect (optional override), accent color
 export type FindTransportersProps = {
@@ -224,45 +225,121 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
       // For instant requests, also submit to backend
       if (base.requestType === 'instant' || base.bookingMode === 'instant') {
         try {
-          const instantBookingData = {
-            bookingType: base.type === 'agriTRUK' ? 'Agri' : 'Cargo',
-            bookingMode: 'instant',
-            fromLocation: base.fromLocation,
-            toLocation: base.toLocation,
+          // Format locations for backend
+          const formatLocation = (location: any) => {
+            if (typeof location === 'string') {
+              return {
+                address: location,
+                latitude: 0,
+                longitude: 0
+              };
+            } else if (location && typeof location === 'object') {
+              return {
+                address: location.address || location.name || 'Unknown location',
+                latitude: location.latitude || location.lat || 0,
+                longitude: location.longitude || location.lng || 0
+              };
+            } else {
+              return {
+                address: 'Unknown location',
+                latitude: 0,
+                longitude: 0
+              };
+            }
+          };
+
+          const instantRequestData = {
+            // Core booking fields
+            type: base.type === 'agriTRUK' ? 'Agri' : 'Cargo',
+            fromLocation: formatLocation(base.fromLocation),
+            toLocation: formatLocation(base.toLocation),
             productType: base.productType,
+            weight: parseFloat(base.weight) || 0,
             weightKg: parseFloat(base.weight) || 0,
             pickUpDate: new Date().toISOString(),
+            urgency: base.urgency || 'High',
             urgencyLevel: base.urgency || 'High',
+            isPriority: base.isPriority || false,
             priority: base.isPriority || false,
+            
+            // Cargo specifications
+            isPerishable: base.isPerishable || false,
             perishable: base.isPerishable || false,
             needsRefrigeration: base.isPerishable || false,
             humidityControl: base.isPerishable || false,
+            humidyControl: base.isPerishable || false,
+            
+            // Special cargo and insurance
+            isSpecialCargo: base.isSpecialCargo || false,
             specialCargo: base.isSpecialCargo ? base.specialCargoSpecs : [],
+            specialCargoSpecs: base.specialCargoSpecs || [],
+            insureGoods: base.insureGoods || false,
             insured: base.insureGoods || false,
+            insuranceValue: base.insuranceValue ? parseFloat(base.insuranceValue) : 0,
             value: base.insuranceValue ? parseFloat(base.insuranceValue) : 0,
+            
+            // Additional information
+            additional: base.additional || '',
             additionalNotes: base.additional || '',
+            specialRequest: base.specialRequest || '',
+            
+            // Dimensions and costs
+            lengthCm: base.lengthCm || 0,
+            widthCm: base.widthCm || 0,
+            heightCm: base.heightCm || 0,
+            tolls: base.tolls || 0,
+            fuelSurchargePct: base.fuelSurchargePct || 0,
+            waitMinutes: base.waitMinutes || 0,
+            nightSurcharge: base.nightSurcharge || false,
+            
+            // Booking metadata
+            consolidated: false,
             status: 'pending',
             createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            transporterId: t.id,
-            estimatedCost: t.estimatedCost || 0,
-            distance: calculatedDistance || distance,
-            deliveryInstructions: '',
-            specialRequirements: '',
+            bookingMode: 'instant',
+            selectedTransporterId: t.id,
+            matchedTransporterId: t.id,
+            
+            // Recurrence (always false for instant bookings)
+            recurrence: {
+              isRecurring: false,
+              frequency: null,
+              timeFrame: null,
+              duration: null,
+              startDate: null,
+              endDate: null,
+              interval: 1,
+              occurences: [],
+              baseBookingId: null
+            }
           };
 
-          // Submit instant booking to backend
-          const { apiRequest } = await import('../utils/api');
-          await apiRequest('/bookings', {
+          console.log('🚀 Creating instant request for transporter:', t.name);
+          
+          // Submit instant request using the regular booking endpoint with instant mode
+          const { apiRequest } = require('../utils/api');
+          const response = await apiRequest('/bookings', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(instantBookingData)
+            body: JSON.stringify(instantRequestData)
           });
+          
+          if (response.bookingId || response.id) {
+            console.log('✅ Instant request created successfully:', response.bookingId || response.id);
+            // Add request ID to payload
+            payload.requestId = response.bookingId || response.id;
+            payload.isInstantRequest = true;
+          } else {
+            console.warn('⚠️ Instant request creation failed:', response.message);
+            throw new Error(response.message || 'Failed to create instant request');
+          }
         } catch (error) {
           // If backend submission fails, continue with local flow
-          console.error('Failed to submit instant booking to backend:', error);
+          console.error('Failed to submit instant request to backend:', error);
+          Alert.alert(
+            'Request Warning',
+            'Instant request created locally but may not be visible to transporters. Please try again.',
+            [{ text: 'OK' }]
+          );
         }
       }
 

@@ -1,4 +1,5 @@
 import { API_ENDPOINTS } from '../constants/api';
+import { getAuth } from 'firebase/auth';
 
 export interface SubscriptionPlan {
   id: string;
@@ -61,7 +62,7 @@ class SubscriptionService {
     }
 
     try {
-      const { getAuth } = await import('firebase/auth');
+      // getAuth is already imported at the top
       const auth = getAuth();
       const user = auth.currentUser;
 
@@ -412,11 +413,30 @@ class SubscriptionService {
    */
   async activateTrial(
     userType: 'transporter' | 'broker',
-  ): Promise<{ success: boolean; data?: any; message?: string }> {
+  ): Promise<{ success: boolean; data?: any; message?: string; existingSubscription?: boolean }> {
     try {
       const token = await this.getAuthToken();
 
-      // First, get available subscription plans to find the trial plan
+      // First, check if user already has a subscription
+      console.log('Checking existing subscription status...');
+      try {
+        const existingStatus = await this.getSubscriptionStatus();
+        console.log('Existing subscription status:', existingStatus);
+        
+        if (existingStatus.hasActiveSubscription) {
+          console.log('User already has an active subscription, returning current status');
+          return { 
+            success: true, 
+            data: existingStatus, 
+            existingSubscription: true,
+            message: 'User already has an active subscription'
+          };
+        }
+      } catch (statusError) {
+        console.log('No existing subscription found, proceeding with trial activation');
+      }
+
+      // Get available subscription plans to find the trial plan
       const plansResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS, {
         method: 'GET',
         headers: {
@@ -430,9 +450,16 @@ class SubscriptionService {
       }
 
       const plansData = await plansResponse.json();
-      const trialPlan = plansData.subscriptions?.find((plan: any) => plan.price === 0 || plan.name.toLowerCase().includes('trial'));
+      console.log('Plans response data:', plansData);
+      
+      const plans = plansData.data || plansData.subscriptions || [];
+      console.log('Available plans:', plans);
+      
+      const trialPlan = plans.find((plan: any) => plan.price === 0 || plan.name.toLowerCase().includes('trial'));
+      console.log('Found trial plan:', trialPlan);
 
       if (!trialPlan) {
+        console.error('No trial plan found. Available plans:', plans.map((p: any) => ({ name: p.name, price: p.price })));
         throw new Error('No trial plan available. Please contact support.');
       }
 
@@ -453,10 +480,26 @@ class SubscriptionService {
       const data = await response.json();
 
       if (!response.ok) {
+        // If subscriber already exists, check their current status
+        if (data.message && data.message.includes('already exists')) {
+          console.log('Subscriber already exists, fetching current status...');
+          try {
+            const currentStatus = await this.getSubscriptionStatus();
+            return { 
+              success: true, 
+              data: currentStatus, 
+              existingSubscription: true,
+              message: 'User already has a subscription'
+            };
+          } catch (statusError) {
+            console.error('Failed to get existing subscription status:', statusError);
+            throw new Error('Subscriber already exists but unable to fetch current status');
+          }
+        }
         throw new Error(data.message || 'Failed to activate trial');
       }
 
-      return { success: true, data };
+      return { success: true, data, existingSubscription: false };
     } catch (error) {
       console.error('Error activating trial:', error);
       return { success: false, message: (error as Error).message };

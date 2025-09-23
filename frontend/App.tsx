@@ -13,6 +13,7 @@ import PhoneOTPScreen from './src/screens/auth/PhoneOTPScreen';
 import SignupScreen from './src/screens/auth/SignupScreen';
 import SignupSelectionScreen from './src/screens/auth/SignupSelectionScreen';
 import TransporterCompletionScreen from './src/screens/auth/TransporterCompletionScreen';
+import VerifyIdentificationDocumentScreen from './src/screens/VerifyIdentificationDocumentScreen';
 import BookingConfirmationScreen from './src/screens/BookingConfirmationScreen';
 import ConsolidationScreen from './src/screens/business/ConsolidationScreen';
 import ServiceRequestScreen from './src/screens/ServiceRequestScreen';
@@ -33,6 +34,7 @@ import { NotificationProvider } from './src/components/Notification/Notification
 import NotificationManager from './src/components/Notification/NotificationManager';
 import { ConsolidationProvider } from './src/context/ConsolidationContext';
 import colors from './src/constants/colors';
+import fonts from './src/constants/fonts';
 import { auth, db } from './src/firebaseConfig';
 
 const Stack = createStackNavigator();
@@ -215,6 +217,19 @@ export default function App() {
             setIsVerified(isUserVerified);
             setRole(data.role || null);
             setUserData(data); // Store user data for routing decisions
+            
+            // Send login success notification
+            try {
+              const { NotificationHelper } = require('./src/services/notificationHelper');
+              await NotificationHelper.sendAuthNotification('login', {
+                userId: firebaseUser.uid,
+                role: data.role,
+                email: data.email,
+                lastLogin: new Date().toISOString()
+              });
+            } catch (notificationError) {
+              console.warn('Failed to send login success notification:', notificationError);
+            }
             
             // User data processed
 
@@ -502,92 +517,64 @@ export default function App() {
       // Check broker verification and subscription status
       console.log('App.tsx: Verified broker detected - checking verification and subscription status');
       
-      // Check if broker has completed ID verification
-      const isBrokerVerified = userData?.verificationStatus === 'approved';
-      const hasBrokerProfile = userData?.idDocument;
-      
-      if (!hasBrokerProfile || !isBrokerVerified) {
-        // Broker needs to complete ID verification
-        initialRouteName = 'VerifyIdentificationDocument';
+      // Check if broker has active subscription
+      if (subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isExpired) {
+        // Broker has active subscription - go directly to dashboard
+        console.log('App.tsx: Broker has active subscription - routing to dashboard');
+        initialRouteName = 'BrokerTabs';
         screens = (
           <>
-            <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
             <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
+            <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
+            <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+            <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+            <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
+            <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          </>
+        );
+      } else if (subscriptionStatus?.isExpired) {
+        // Broker has expired subscription - go to expiry screen
+        console.log('App.tsx: Broker has expired subscription - routing to expiry screen');
+        initialRouteName = 'SubscriptionExpired';
+        screens = (
+          <>
+            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
+            <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+            <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+            <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+            <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
             <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
             <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
           </>
         );
       } else {
-        // Broker is verified - check subscription status
-        if (subscriptionStatus?.needsTrialActivation || 
-            !subscriptionStatus || 
-            (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
-          // No active subscription - route to trial activation
-          initialRouteName = 'SubscriptionTrial';
-          screens = (
-            <>
-              <Stack.Screen
-                name="SubscriptionTrial"
-                component={SubscriptionTrialScreen as any}
-                initialParams={{
-                  userType: 'broker',
-                  subscriptionStatus: subscriptionStatus
-                }}
-              />
-              <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
-              <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
-              <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
-              <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
-              <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
-            </>
-          );
-        } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'expired') {
-          // Subscription expired - route to expired screen
-          initialRouteName = 'SubscriptionExpired';
-          screens = (
-            <>
-              <Stack.Screen
-                name="SubscriptionExpired"
-                component={SubscriptionExpiredScreen as any}
-                initialParams={{
-                  userType: 'broker',
-                  userId: user.uid,
-                  expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
-                }}
-              />
-              <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
-              <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
-              <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
-              <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
-              <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
-            </>
-          );
-        } else {
-          // Has active subscription - route to dashboard
-          initialRouteName = 'BrokerTabs';
-          screens = (
-            <>
-              <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
-              <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
-              <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
-              <Stack.Screen name="BrokerRequestScreen" component={require('./src/screens/BrokerRequestScreen').default} />
-              <Stack.Screen name="BrokerNetworkScreen" component={require('./src/screens/BrokerNetworkScreen').default} />
-              <Stack.Screen name="BrokerRequestsScreen" component={require('./src/screens/BrokerRequestsScreen').default} />
-              <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
-              <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
-              <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
-              <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
-              <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
-              <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
-              <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
-              <Stack.Screen name="SubscriptionManagement" component={require('./src/screens/SubscriptionManagementScreen').default} />
-              <Stack.Screen name="ContactCustomer" component={require('./src/screens/ContactCustomerScreen').default} />
-              <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-              <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
-            </>
-          );
-        }
+        // Broker needs verification or trial activation
+        console.log('App.tsx: Broker needs verification or trial activation - routing to verification screen');
+        initialRouteName = 'VerifyIdentificationDocument';
+        screens = (
+          <>
+            <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
+            <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+            <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+            <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            <Stack.Screen name="PaymentConfirmation" component={require('./src/screens/PaymentConfirmationScreen').default} />
+            <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          </>
+        );
       }
     } else if (role === 'transporter') {
       // For transporters, check profile completion, approval status, and subscription status
@@ -763,7 +750,7 @@ export default function App() {
           <Stack.Screen name="MainTabs" component={MainTabNavigator} />
           <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
           <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
-          <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+          <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
         </>
       );
     }
@@ -775,7 +762,7 @@ export default function App() {
         <>
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
-          <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+          <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
           <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
           <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
           <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
@@ -853,7 +840,7 @@ export default function App() {
             <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
             <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
             <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
-            <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+            <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />

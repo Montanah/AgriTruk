@@ -20,7 +20,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
-import { cleanLocationDisplay } from '../utils/locationDisplay';
+import { cleanLocationDisplay } from '../utils/locationUtils';
 import { chatService } from '../services/chatService';
 import { enhancedNotificationService } from '../services/enhancedNotificationService';
 

@@ -30,7 +30,15 @@ interface PaymentConfirmationScreenProps {
 }
 
 const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ navigation, route }) => {
-  const { userType, subscriptionType, trialDuration, expiredDate, amount, planName } = route.params;
+  const params = route?.params || {};
+  const { 
+    userType = 'broker', 
+    subscriptionType = 'trial', 
+    trialDuration = 30, 
+    expiredDate, 
+    amount = 0, 
+    planName = 'Trial Plan' 
+  } = params;
   const [processing, setProcessing] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
@@ -43,6 +51,19 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
     return () => clearTimeout(timer);
   }, []);
 
+  // Safety check to ensure all required values are defined
+  if (!userType || !subscriptionType) {
+    console.warn('PaymentConfirmationScreen: Missing required params', { userType, subscriptionType });
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.statusCard}>
+          <Text style={styles.title}>Loading...</Text>
+          <Text style={styles.description}>Please wait while we load your information.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const handleConfirmPayment = async () => {
     setProcessing(true);
     
@@ -51,6 +72,26 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
       await new Promise(resolve => setTimeout(resolve, 3000));
       
       setConfirmed(true);
+      
+      // Send payment confirmation notification
+      try {
+        const { NotificationHelper } = require('../services/notificationHelper');
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        
+        if (user) {
+          await NotificationHelper.sendPaymentNotification('received', {
+            userId: user.uid,
+            role: userType,
+            amount,
+            subscriptionType,
+            planName
+          });
+        }
+      } catch (notificationError) {
+        console.warn('Failed to send payment confirmation notification:', notificationError);
+      }
       
       // Show success message
       Alert.alert(
@@ -170,7 +211,7 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
             <View style={styles.processingContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.processingText}>
-                {subscriptionType === 'trial' ? 'Activating trial...' : 'Processing payment...'}
+                {subscriptionType === 'trial' ? 'Activating trial...' : subscriptionType ? 'Processing payment...' : 'Processing...'}
               </Text>
             </View>
           )}
@@ -183,7 +224,7 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
                 color={colors.success}
               />
               <Text style={styles.successText}>
-                {subscriptionType === 'trial' ? 'Trial activated successfully!' : 'Payment processed successfully!'}
+                {subscriptionType === 'trial' ? 'Trial activated successfully!' : subscriptionType ? 'Payment processed successfully!' : 'Processed successfully!'}
               </Text>
             </View>
           )}
@@ -195,7 +236,7 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>User Type:</Text>
-            <Text style={styles.detailValue}>{userType.charAt(0).toUpperCase() + userType.slice(1)}</Text>
+            <Text style={styles.detailValue}>{userType ? userType.charAt(0).toUpperCase() + userType.slice(1) : 'Unknown'}</Text>
           </View>
           
           <View style={styles.detailRow}>
@@ -203,14 +244,15 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
             <Text style={styles.detailValue}>
               {subscriptionType === 'trial' ? 'Free Trial' : 
                subscriptionType === 'renewal' ? 'Renewal' : 
-               subscriptionType === 'upgrade' ? 'Upgrade' : 'Subscription'}
+               subscriptionType === 'upgrade' ? 'Upgrade' : 
+               subscriptionType ? 'Subscription' : 'Unknown'}
             </Text>
           </View>
           
           {trialDuration && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Trial Duration:</Text>
-              <Text style={styles.detailValue}>{trialDuration} days</Text>
+              <Text style={styles.detailValue}>{trialDuration || 30} days</Text>
             </View>
           )}
           
@@ -242,7 +284,7 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
               color={colors.success}
             />
             <Text style={styles.featureText}>
-              {subscriptionType === 'trial' ? 'Access to all premium features' : 'Full access to all features'}
+              {subscriptionType === 'trial' ? 'Access to all premium features' : subscriptionType ? 'Full access to all features' : 'Access to all features'}
             </Text>
           </View>
           
@@ -253,7 +295,7 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
               color={colors.success}
             />
             <Text style={styles.featureText}>
-              {userType === 'broker' ? 'Client management tools' : 'Job management tools'}
+              {userType === 'broker' ? 'Client management tools' : userType === 'transporter' ? 'Job management tools' : 'Management tools'}
             </Text>
           </View>
           
@@ -296,6 +338,11 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
                 navigation.reset({
                   index: 0,
                   routes: [{ name: 'TransporterTabs' }]
+                });
+              } else {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs' }]
                 });
               }
             }}

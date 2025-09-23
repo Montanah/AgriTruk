@@ -252,6 +252,18 @@ const SignupScreen = () => {
         
         // Backend registration complete - verification codes are automatically sent by backend
         console.log('User registered successfully, verification codes sent by backend');
+        
+        // Send welcome notification
+        try {
+          const { NotificationHelper } = require('../../services/notificationHelper');
+          await NotificationHelper.sendAuthNotification('signup', {
+            userId: userCredential.user.uid,
+            role,
+            email
+          });
+        } catch (notificationError) {
+          console.warn('Failed to send welcome notification:', notificationError);
+        }
 
         // Navigate to verification screen immediately based on preferred method
         if (signupMethod === 'phone') {

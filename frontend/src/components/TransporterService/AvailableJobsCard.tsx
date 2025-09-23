@@ -17,7 +17,7 @@ import spacing from '../../constants/spacing';
 import { API_ENDPOINTS } from '../../constants/api';
 import { convertCoordinatesToPlaceName, formatLocationForDisplay } from '../../utils/locationUtils';
 import { useLocationName } from '../../hooks/useLocationName';
-import { cleanLocationDisplay } from '../../utils/locationDisplay';
+import { cleanLocationDisplay } from '../../utils/locationUtils';
 import { chatService } from '../../services/chatService';
 import { enhancedNotificationService } from '../../services/enhancedNotificationService';
 import LocationDisplay from '../common/LocationDisplay';
@@ -107,6 +107,12 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                 console.log('Parsed jobs:', jobs);
                 
                 if (Array.isArray(jobs)) {
+                    // Debug urgency levels
+                    jobs.forEach((job, index) => {
+                        console.log(`Job ${index} full data:`, job);
+                        console.log(`Job ${index} urgency level:`, job.urgencyLevel, typeof job.urgencyLevel);
+                        console.log(`Job ${index} urgency:`, job.urgency, typeof job.urgency);
+                    });
                     setJobs(jobs);
                 } else {
                     console.error('Jobs data is not an array:', jobs);
@@ -281,7 +287,9 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
     };
 
     const getUrgencyColor = (urgency: string) => {
-        switch (urgency) {
+        const urgencyLower = urgency?.toLowerCase();
+        console.log('Urgency level:', urgency, 'Lowercase:', urgencyLower);
+        switch (urgencyLower) {
             case 'high': return colors.error;
             case 'medium': return colors.warning;
             case 'low': return colors.success;
@@ -289,8 +297,19 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
         }
     };
 
+    const getUrgencyBackgroundColor = (urgency: string) => {
+        const urgencyLower = urgency?.toLowerCase();
+        switch (urgencyLower) {
+            case 'high': return colors.error + '15';
+            case 'medium': return colors.warning + '15';
+            case 'low': return colors.success + '15';
+            default: return 'rgba(0,0,0,0.05)';
+        }
+    };
+
     const getUrgencyIcon = (urgency: string) => {
-        switch (urgency) {
+        const urgencyLower = urgency?.toLowerCase();
+        switch (urgencyLower) {
             case 'high': return 'alert-circle';
             case 'medium': return 'clock';
             case 'low': return 'check-circle';
@@ -314,13 +333,14 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
     // Helper function to format location for display
     const formatLocationForDisplay = (location: any): string => {
         if (typeof location === 'string') {
-            return location;
+            return cleanLocationDisplay(location);
         }
         if (location?.address) {
-            return location.address;
+            return cleanLocationDisplay(location.address);
         }
         if (location?.latitude && location?.longitude && 
             typeof location.latitude === 'number' && typeof location.longitude === 'number') {
+            // Return coordinates as fallback - will be converted by LocationDisplay component
             return `Location (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`;
         }
         return 'Unknown location';
@@ -331,14 +351,17 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
             <View style={styles.jobHeader}>
                 <View style={styles.jobInfo}>
                     <Text style={styles.jobType}>{item.productType}</Text>
-                    <View style={styles.urgencyBadge}>
+                    <View style={[styles.urgencyBadge, { 
+                        backgroundColor: getUrgencyBackgroundColor(item.urgencyLevel || item.urgency),
+                        borderColor: getUrgencyColor(item.urgencyLevel || item.urgency) + '30'
+                    }]}>
                         <MaterialCommunityIcons
-                            name={getUrgencyIcon(item.urgencyLevel)}
+                            name={getUrgencyIcon(item.urgencyLevel || item.urgency)}
                             size={12}
-                            color={getUrgencyColor(item.urgencyLevel)}
+                            color={getUrgencyColor(item.urgencyLevel || item.urgency)}
                         />
-                        <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgencyLevel) }]}>
-                            {item.urgencyLevel?.toUpperCase() || 'NORMAL'}
+                        <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgencyLevel || item.urgency) }]}>
+                            {(item.urgencyLevel || item.urgency)?.toUpperCase() || 'NORMAL'}
                         </Text>
                     </View>
                 </View>
@@ -588,6 +611,14 @@ const styles = StyleSheet.create({
         marginBottom: spacing.md,
         borderWidth: 1,
         borderColor: colors.border,
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     jobHeader: {
         flexDirection: 'row',
@@ -607,11 +638,19 @@ const styles = StyleSheet.create({
     urgencyBadge: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.05)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.1)',
     },
     urgencyText: {
         fontSize: fonts.size.xs,
-        fontWeight: '600',
+        fontWeight: '700',
         marginLeft: 4,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     jobPrice: {
         fontSize: fonts.size.lg,
@@ -697,6 +736,14 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         minWidth: 70,
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 3,
     },
     rejectButton: {
         backgroundColor: colors.error + '20',
@@ -706,15 +753,17 @@ const styles = StyleSheet.create({
     rejectButtonText: {
         color: colors.error,
         fontSize: fonts.size.sm,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     acceptButton: {
         backgroundColor: colors.primary,
+        shadowColor: colors.primary,
+        shadowOpacity: 0.3,
     },
     acceptButtonText: {
         color: colors.white,
         fontSize: fonts.size.sm,
-        fontWeight: '600',
+        fontWeight: '700',
     },
 });
 

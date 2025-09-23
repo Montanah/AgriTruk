@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
+import { cleanLocationDisplay } from '../utils/locationUtils';
 
 interface Booking {
   id: string;
@@ -169,7 +170,7 @@ const BookingListScreen = () => {
   const handleBookingPress = (booking: Booking) => {
     Alert.alert(
       'Booking Details',
-      `From: ${booking.pickupLocation}\nTo: ${booking.deliveryLocation}\nCargo: ${booking.cargoDetails}\nTransporter: ${booking.transporterName}\nCost: ${booking.estimatedCost}`,
+      `From: ${cleanLocationDisplay(booking.pickupLocation)}\nTo: ${cleanLocationDisplay(booking.deliveryLocation)}\nCargo: ${booking.cargoDetails}\nTransporter: ${booking.transporterName}\nCost: ${booking.estimatedCost}`,
       [{ text: 'OK' }]
     );
   };
@@ -183,11 +184,11 @@ const BookingListScreen = () => {
         <View style={styles.locationInfo}>
           <View style={styles.locationRow}>
             <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-            <Text style={styles.locationText}>{item.pickupLocation}</Text>
+            <Text style={styles.locationText}>{cleanLocationDisplay(item.pickupLocation)}</Text>
           </View>
           <View style={styles.locationRow}>
             <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
-            <Text style={styles.locationText}>{item.deliveryLocation}</Text>
+            <Text style={styles.locationText}>{cleanLocationDisplay(item.deliveryLocation)}</Text>
           </View>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: statusColors[item.status] + '20' }]}>

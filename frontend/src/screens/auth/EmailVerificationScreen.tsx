@@ -182,6 +182,18 @@ const EmailVerificationScreen = ({ navigation, route }) => {
         console.error('Error verifying user status:', verifyError);
       }
 
+      // Send email verification success notification
+      try {
+        const { NotificationHelper } = require('../../services/notificationHelper');
+        await NotificationHelper.sendAuthNotification('verification', {
+          userId: user.uid,
+          role,
+          verificationType: 'email'
+        });
+      } catch (notificationError) {
+        console.warn('Failed to send email verification notification:', notificationError);
+      }
+
       // Show success animation briefly, then navigate directly
       setTimeout(() => {
         // Email verification complete - navigating to appropriate screen for role

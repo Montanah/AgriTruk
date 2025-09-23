@@ -1420,6 +1420,20 @@ export default function TransporterCompletionScreen() {
         
         if (isSuccess) {
           console.log('✅ Individual transporter created successfully:', data);
+          // Send profile submission notification
+          try {
+            const { NotificationHelper } = require('../../services/notificationHelper');
+            await NotificationHelper.sendProfileNotification('submitted', {
+              userId: user.uid,
+              role: 'transporter',
+              transporterType,
+              vehicleType: vehicleType || 'N/A',
+              registration: registration || 'N/A'
+            });
+          } catch (notificationError) {
+            console.warn('Failed to send profile submission notification:', notificationError);
+          }
+
           // Success: navigate to processing screen
           navigation.reset({
             index: 0,
@@ -1541,6 +1555,20 @@ export default function TransporterCompletionScreen() {
             console.warn('Failed to update transporter with company details, but company was created');
           }
           
+          // Send company profile submission notification
+          try {
+            const { NotificationHelper } = require('../../services/notificationHelper');
+            await NotificationHelper.sendProfileNotification('submitted', {
+              userId: user.uid,
+              role: 'transporter',
+              transporterType,
+              companyName: companyName || 'N/A',
+              companyReg: companyReg || 'N/A'
+            });
+          } catch (notificationError) {
+            console.warn('Failed to send company profile submission notification:', notificationError);
+          }
+
           // Company created and transporter updated; navigate to processing screen
           navigation.navigate('TransporterProcessingScreen', { transporterType });
           return true;

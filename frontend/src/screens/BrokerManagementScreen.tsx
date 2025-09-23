@@ -44,7 +44,7 @@ interface Client {
 // Mock data removed - now using real API calls
 
 const BrokerManagementScreen = ({ navigation, route }: any) => {
-    const [activeTab, setActiveTab] = useState('requests');
+    const [activeTab, setActiveTab] = useState(route?.params?.activeTab || 'requests');
     const [requests, setRequests] = useState<RequestItem[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
@@ -53,7 +53,9 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
     useEffect(() => {
+        console.log('BrokerManagementScreen route params:', route.params);
         if (route.params?.activeTab) {
+            console.log('Setting active tab to:', route.params.activeTab);
             setActiveTab(route.params.activeTab);
         }
         if (route.params?.selectedClient) {
@@ -157,10 +159,47 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
         setShowConsolidationModal(true);
     };
 
-    const confirmConsolidation = () => {
-        Alert.alert('Success', 'Requests consolidated successfully!');
-        setSelectedRequests([]);
-        setShowConsolidationModal(false);
+    const confirmConsolidation = async () => {
+        try {
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const token = await user.getIdToken();
+            console.log('Consolidating requests:', selectedRequests);
+            console.log('API endpoint:', `${API_ENDPOINTS.BROKERS}/requests/consolidate`);
+            
+            const response = await fetch(`${API_ENDPOINTS.BROKERS}/requests/consolidate`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    requestIds: selectedRequests,
+                }),
+            });
+            
+            console.log('Consolidation response status:', response.status);
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Requests consolidated successfully:', data);
+                Alert.alert('Success', 'Requests consolidated successfully!');
+                setSelectedRequests([]);
+                setShowConsolidationModal(false);
+                // Refresh requests list
+                await loadRequests();
+            } else {
+                const errorData = await response.json();
+                console.error('Consolidation failed:', errorData);
+                Alert.alert('Error', errorData.message || 'Failed to consolidate requests');
+            }
+        } catch (error) {
+            console.error('Error consolidating requests:', error);
+            Alert.alert('Error', 'Failed to consolidate requests. Please try again.');
+        }
     };
 
     const getStatusColor = (status: string) => {
@@ -223,13 +262,13 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
 
             <View style={styles.routeInfo}>
                 <LocationDisplay 
-                    location={item.fromLocation} 
+                    location={item.fromLocation || 'Unknown location'} 
                     style={styles.routeText}
                     iconColor={colors.primary}
                 />
                 <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 <LocationDisplay 
-                    location={item.toLocation} 
+                    location={item.toLocation || 'Unknown location'} 
                     style={styles.routeText}
                     iconColor={colors.success}
                     iconName="map-marker-check"
@@ -400,34 +439,81 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 );
 
             case 'consolidation':
+                const pendingRequests = requests.filter(r => r.status === 'pending');
                 return (
                     <View style={styles.tabContent}>
                         <View style={styles.sectionHeader}>
                             <Text style={styles.sectionTitle}>Consolidation</Text>
-                            {selectedRequests.length > 0 && (
-                                <TouchableOpacity
-                                    style={styles.consolidateButton}
-                                    onPress={handleConsolidate}
-                                >
-                                    <MaterialCommunityIcons name="layers" size={20} color={colors.white} />
-                                    <Text style={styles.consolidateButtonText}>
-                                        Consolidate ({selectedRequests.length})
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
+                            <View style={styles.headerActions}>
+                                {pendingRequests.length > 0 && (
+                                    <View style={styles.selectionActions}>
+                                        <TouchableOpacity
+                                            style={styles.selectionButton}
+                                            onPress={() => setSelectedRequests(pendingRequests.map(r => r.id))}
+                                        >
+                                            <MaterialCommunityIcons name="select-all" size={16} color={colors.primary} />
+                                            <Text style={styles.selectionButtonText}>Select All</Text>
+                                        </TouchableOpacity>
+                                        {selectedRequests.length > 0 && (
+                                            <TouchableOpacity
+                                                style={styles.selectionButton}
+                                                onPress={() => setSelectedRequests([])}
+                                            >
+                                                <MaterialCommunityIcons name="close-circle" size={16} color={colors.error} />
+                                                <Text style={[styles.selectionButtonText, { color: colors.error }]}>Clear</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                )}
+                                {selectedRequests.length > 0 && (
+                                    <TouchableOpacity
+                                        style={styles.consolidateButton}
+                                        onPress={handleConsolidate}
+                                    >
+                                        <MaterialCommunityIcons name="layers" size={20} color={colors.white} />
+                                        <Text style={styles.consolidateButtonText}>
+                                            Consolidate ({selectedRequests.length})
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                         </View>
 
-                        <Text style={styles.consolidationInfo}>
-                            Select multiple requests to consolidate them into a single transport request for cost savings.
-                        </Text>
+                        <View style={styles.consolidationInfoCard}>
+                            <MaterialCommunityIcons name="information" size={20} color={colors.primary} />
+                            <Text style={styles.consolidationInfo}>
+                                Select multiple requests to consolidate them into a single transport request for cost savings.
+                            </Text>
+                        </View>
 
-                        <FlatList
-                            data={requests.filter(r => r.status === 'pending')}
-                            renderItem={renderRequestItem}
-                            keyExtractor={(item) => item.id}
-                            showsVerticalScrollIndicator={false}
-                            scrollEnabled={false}
-                        />
+                        {selectedRequests.length > 0 && (
+                            <View style={styles.selectedRequestsCard}>
+                                <Text style={styles.selectedRequestsTitle}>
+                                    Selected Requests ({selectedRequests.length})
+                                </Text>
+                                <Text style={styles.selectedRequestsSubtitle}>
+                                    Tap "Consolidate" to merge these requests
+                                </Text>
+                            </View>
+                        )}
+
+                        {pendingRequests.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <MaterialCommunityIcons name="package-variant" size={48} color={colors.text.light} />
+                                <Text style={styles.emptyStateTitle}>No Pending Requests</Text>
+                                <Text style={styles.emptyStateText}>
+                                    There are no pending requests available for consolidation.
+                                </Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={pendingRequests}
+                                renderItem={renderRequestItem}
+                                keyExtractor={(item) => item.id}
+                                showsVerticalScrollIndicator={false}
+                                scrollEnabled={false}
+                            />
+                        )}
                     </View>
                 );
 
@@ -495,6 +581,8 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
         }
     };
 
+    console.log('BrokerManagementScreen render - activeTab:', activeTab);
+    
     return (
         <SafeAreaView style={styles.container}>
             {/* Header */}
@@ -661,15 +749,25 @@ const styles = StyleSheet.create({
         backgroundColor: colors.white,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
+        paddingVertical: spacing.sm,
+        elevation: 2,
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        minHeight: 60, // Ensure minimum height
+        zIndex: 1, // Ensure it's above other content
     },
     tab: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
         marginHorizontal: spacing.xs,
         borderRadius: 20,
         gap: spacing.xs,
+        minWidth: 100,
+        justifyContent: 'center',
     },
     activeTab: {
         backgroundColor: colors.primary,
@@ -727,6 +825,87 @@ const styles = StyleSheet.create({
         color: colors.white,
         fontSize: fonts.size.sm,
         fontWeight: '600',
+    },
+    consolidationInfoCard: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        backgroundColor: colors.primary + '10',
+        padding: spacing.md,
+        borderRadius: 8,
+        marginBottom: spacing.md,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.primary,
+    },
+    consolidationInfo: {
+        flex: 1,
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginLeft: spacing.sm,
+        lineHeight: 20,
+    },
+    selectedRequestsCard: {
+        backgroundColor: colors.success + '10',
+        padding: spacing.md,
+        borderRadius: 8,
+        marginBottom: spacing.md,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.success,
+    },
+    selectedRequestsTitle: {
+        fontSize: fonts.size.md,
+        fontWeight: '600',
+        color: colors.success,
+        marginBottom: spacing.xs,
+    },
+    selectedRequestsSubtitle: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: spacing.xl * 2,
+    },
+    emptyStateTitle: {
+        fontSize: fonts.size.lg,
+        fontWeight: '600',
+        color: colors.text.primary,
+        marginTop: spacing.md,
+        marginBottom: spacing.sm,
+    },
+    emptyStateText: {
+        fontSize: fonts.size.md,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        paddingHorizontal: spacing.lg,
+        lineHeight: 22,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    selectionActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+    },
+    selectionButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: 16,
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.border,
+        gap: spacing.xs,
+    },
+    selectionButtonText: {
+        fontSize: fonts.size.xs,
+        fontWeight: '600',
+        color: colors.primary,
     },
     addClientButton: {
         flexDirection: 'row',

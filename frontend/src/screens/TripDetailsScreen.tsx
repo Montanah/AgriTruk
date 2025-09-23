@@ -311,13 +311,13 @@ const TripDetailsScreen = () => {
         {/* Route Information */}
         <View style={[styles.tripInfoRow, { marginBottom: 4 }]}>
           <LocationDisplay 
-            location={booking?.pickupLocation || trip?.from || '--'} 
+            location={booking?.pickupLocation || trip?.from || 'Unknown location'} 
             iconName="map-marker-alt"
             iconColor={colors.primary}
             style={styles.tripInfoText}
           />
           <LocationDisplay 
-            location={booking?.toLocation || '--'} 
+            location={booking?.toLocation || 'Unknown location'} 
             iconName="flag-checkered"
             iconColor={colors.secondary}
             style={[styles.tripInfoText, { marginLeft: 12 }]}

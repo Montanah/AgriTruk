@@ -1,7 +1,8 @@
 import React from 'react';
 import { Text, ActivityIndicator, View, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import useLocationDisplay from '../../hooks/useLocationDisplay';
+import useLocationObjectDisplay from '../../hooks/useLocationObjectDisplay';
+import { cleanLocationDisplay } from '../../utils/locationUtils';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
@@ -25,15 +26,25 @@ const LocationDisplay: React.FC<LocationDisplayProps> = ({
   iconSize = 16,
   showLoading = true,
 }) => {
-  // Convert location object to string if needed
-  const locationString = typeof location === 'string' 
-    ? location 
-    : location?.address || (location?.latitude && location?.longitude && 
-        typeof location.latitude === 'number' && typeof location.longitude === 'number'
-        ? `Location (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`
-        : 'Unknown location');
-  
-  const { displayLocation, isLoading, error } = useLocationDisplay(locationString);
+  // Handle undefined/null location
+  if (!location) {
+    return (
+      <View style={styles.container}>
+        {showIcon && (
+          <MaterialCommunityIcons 
+            name={iconName} 
+            size={iconSize} 
+            color={iconColor} 
+            style={styles.icon}
+          />
+        )}
+        <Text style={[styles.locationText, style]}>Unknown location</Text>
+      </View>
+    );
+  }
+
+  // Use the new hook that handles both strings and objects
+  const { displayLocation, isLoading, error } = useLocationObjectDisplay(location);
 
   return (
     <View style={styles.container}>
@@ -53,7 +64,7 @@ const LocationDisplay: React.FC<LocationDisplayProps> = ({
           </View>
         ) : (
           <Text style={[styles.locationText, style]}>
-            {error ? location : displayLocation}
+            {displayLocation || 'Location not available'}
           </Text>
         )}
       </View>

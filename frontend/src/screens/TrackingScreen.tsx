@@ -13,7 +13,7 @@ import {
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
+import { formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
 // Mock data removed - now using real API calls
 
@@ -167,7 +167,7 @@ const TrackingScreen = () => {
             // Generate mock tracking data based on booking information
             const trackingData = generateMockTrackingData(booking);
             setTrackingData(trackingData);
-        } catch (error) {
+        } catch {
             // Handle error silently
         } finally {
             setLoading(false);
@@ -331,7 +331,7 @@ const TrackingScreen = () => {
                             <View style={styles.routeText}>
                                 <Text style={styles.routeLabel}>Pickup</Text>
                                 <LocationDisplay 
-                                    location={trackingData.fromLocation} 
+                                    location={trackingData.fromLocation || 'Unknown location'} 
                                     style={styles.routeValue}
                                     showIcon={false}
                                 />
@@ -343,7 +343,7 @@ const TrackingScreen = () => {
                             <View style={styles.routeText}>
                                 <Text style={styles.routeLabel}>Delivery</Text>
                                 <LocationDisplay 
-                                    location={trackingData.toLocation} 
+                                    location={trackingData.toLocation || 'Unknown location'} 
                                     style={styles.routeValue}
                                     showIcon={false}
                                 />

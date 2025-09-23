@@ -1,601 +1,317 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TRUK App Icon Preview</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRUK App Icon Preview - Professional White Background</title>
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
-        padding: 20px;
-      }
-
-      .container {
-        max-width: 1200px;
-        margin: 0 auto;
-      }
-
-      .header {
-        text-align: center;
-        color: white;
-        margin-bottom: 40px;
-      }
-
-      .header h1 {
-        font-size: 2.5rem;
-        margin-bottom: 10px;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-      }
-
-      .header p {
-        font-size: 1.2rem;
-        opacity: 0.9;
-      }
-
-      .preview-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 30px;
-        margin-bottom: 40px;
-      }
-
-      .phone-mockup {
-        background: #1a1a1a;
-        border-radius: 25px;
-        padding: 20px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-        position: relative;
-      }
-
-      .phone-mockup::before {
-        content: '';
-        position: absolute;
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 60px;
-        height: 4px;
-        background: #333;
-        border-radius: 2px;
-      }
-
-      .phone-screen {
-        background: #000;
-        border-radius: 20px;
-        padding: 15px;
-        min-height: 400px;
-        position: relative;
-      }
-
-      .status-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        color: white;
-        font-size: 14px;
-        margin-bottom: 20px;
-      }
-
-      .status-bar .time {
-        font-weight: bold;
-      }
-
-      .status-bar .icons {
-        display: flex;
-        gap: 5px;
-      }
-
-      .home-screen {
-        text-align: center;
-        padding: 20px 0;
-      }
-
-      .app-icon {
-        width: 80px;
-        height: 80px;
-        border-radius: 20px;
-        margin: 0 auto 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        position: relative;
-        overflow: hidden;
-        border: 2px solid #333;
-      }
-
-      .app-icon.brand-theme {
-        background: #0f2b04;
-        border-color: #0a1d02;
-      }
-
-      .app-icon.light-theme {
-        background: #fff;
-        border-color: #e5e7eb;
-      }
-
-      .app-icon.surface-theme {
-        background: #eaf4ea;
-        border-color: #27ae60;
-      }
-
-      .app-icon.secondary-theme {
-        background: #27ae60;
-        border-color: #0f2b04;
-      }
-
-      .app-icon.accent-theme {
-        background: #0a1d02;
-        border-color: #27ae60;
-      }
-
-      .app-icon::before {
-        content: 'TRUK';
-        font-family: 'Arial Black', sans-serif;
-        font-size: 14px;
-        font-weight: bold;
-        letter-spacing: 1px;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-      }
-
-      .app-icon.dark-theme::before {
-        color: #f5f5dc;
-      }
-
-      .app-icon.light-theme::before {
-        color: #1f2937;
-      }
-
-      .app-icon.primary-theme::before {
-        color: #f5f5dc;
-      }
-
-      .app-icon.gradient-theme::before {
-        color: #f5f5dc;
-      }
-
-      .app-name {
-        color: white;
-        font-size: 18px;
-        font-weight: 600;
-        margin-bottom: 10px;
-      }
-
-      .app-category {
-        color: #888;
-        font-size: 14px;
-      }
-
-      .icon-sizes {
-        background: white;
-        border-radius: 20px;
-        padding: 30px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-      }
-
-      .icon-sizes h3 {
-        color: #333;
-        margin-bottom: 20px;
-        text-align: center;
-        font-size: 1.5rem;
-      }
-
-      .size-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 20px;
-      }
-
-      .size-item {
-        text-align: center;
-        padding: 15px;
-        border: 2px solid #f0f0f0;
-        border-radius: 15px;
-        transition: all 0.3s ease;
-      }
-
-      .size-item:hover {
-        border-color: #2563eb;
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(37, 99, 235, 0.2);
-      }
-
-      .size-icon {
-        width: 60px;
-        height: 60px;
-        background: #000;
-        border-radius: 15px;
-        margin: 0 auto 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 2px solid #333;
-      }
-
-      .size-icon::before {
-        content: 'TRUK';
-        font-family: 'Arial Black', sans-serif;
-        font-size: 12px;
-        font-weight: bold;
-        color: #f5f5dc;
-        letter-spacing: 0.5px;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-      }
-
-      .size-label {
-        font-size: 12px;
-        color: #666;
-        margin-bottom: 5px;
-      }
-
-      .size-dimensions {
-        font-size: 14px;
-        font-weight: 600;
-        color: #333;
-      }
-
-      .features {
-        background: white;
-        border-radius: 20px;
-        padding: 30px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-      }
-
-      .features h3 {
-        color: #333;
-        margin-bottom: 20px;
-        text-align: center;
-        font-size: 1.5rem;
-      }
-
-      .feature-list {
-        list-style: none;
-      }
-
-      .feature-list li {
-        padding: 12px 0;
-        border-bottom: 1px solid #f0f0f0;
-        color: #555;
-        font-size: 16px;
-      }
-
-      .feature-list li:last-child {
-        border-bottom: none;
-      }
-
-      .feature-list li::before {
-        content: '✅';
-        margin-right: 10px;
-      }
-
-      .cta {
-        text-align: center;
-        margin-top: 40px;
-      }
-
-      .cta-button {
-        background: #2563eb;
-        color: white;
-        padding: 15px 30px;
-        border-radius: 25px;
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 18px;
-        display: inline-block;
-        transition: all 0.3s ease;
-        box-shadow: 0 5px 15px rgba(37, 99, 235, 0.3);
-      }
-
-      .cta-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
-      }
-
-      /* Theme Comparison Styles */
-      .theme-comparison {
-        background: white;
-        border-radius: 20px;
-        padding: 30px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        margin-bottom: 30px;
-      }
-
-      .theme-comparison h3 {
-        color: #333;
-        margin-bottom: 20px;
-        text-align: center;
-        font-size: 1.5rem;
-      }
-
-      .theme-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-      }
-
-      .theme-item {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        padding: 20px;
-        border: 2px solid #f0f0f0;
-        border-radius: 15px;
-        transition: all 0.3s ease;
-      }
-
-      .theme-item:hover {
-        border-color: #2563eb;
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(37, 99, 235, 0.2);
-      }
-
-      .theme-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
-
-      .theme-icon::before {
-        content: 'TRUK';
-        font-family: 'Arial Black', sans-serif;
-        font-size: 10px;
-        font-weight: bold;
-        letter-spacing: 0.5px;
-      }
-
-      .theme-icon.brand-theme {
-        background: #0f2b04;
-        border: 2px solid #0a1d02;
-      }
-
-      .theme-icon.light-theme {
-        background: #fff;
-        border: 2px solid #e5e7eb;
-      }
-
-      .theme-icon.surface-theme {
-        background: #eaf4ea;
-        border: 2px solid #27ae60;
-      }
-
-      .theme-icon.secondary-theme {
-        background: #27ae60;
-        border: 2px solid #0f2b04;
-      }
-
-      .theme-icon.accent-theme {
-        background: #0a1d02;
-        border: 2px solid #27ae60;
-      }
-
-      .theme-icon.brand-theme::before,
-      .theme-icon.surface-theme::before,
-      .theme-icon.secondary-theme::before,
-      .theme-icon.accent-theme::before {
-        color: #f5f5dc;
-      }
-
-      .theme-icon.light-theme::before {
-        color: #1f2937;
-      }
-
-      .theme-info {
-        flex: 1;
-      }
-
-      .theme-info h4 {
-        color: #333;
-        font-size: 1.1rem;
-        margin-bottom: 5px;
-        font-weight: 600;
-      }
-
-      .theme-info p {
-        color: #666;
-        font-size: 0.9rem;
-        margin-bottom: 8px;
-        line-height: 1.4;
-      }
-
-      .theme-tag {
-        background: #2563eb;
-        color: white;
-        padding: 4px 8px;
-        border-radius: 12px;
-        font-size: 0.7rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-
-      @media (max-width: 768px) {
-        .preview-grid {
-          grid-template-columns: 1fr;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
         }
-
-        .header h1 {
-          font-size: 2rem;
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
         }
-      }
+        
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 1.2em;
+        }
+        
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .icon-variant {
+            text-align: center;
+            padding: 20px;
+            border-radius: 15px;
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .icon-variant:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border-color: #4299e1;
+        }
+        
+        .icon-variant h3 {
+            margin: 15px 0 10px 0;
+            color: #2d3748;
+            font-size: 1.3em;
+        }
+        
+        .icon-variant p {
+            margin: 0;
+            color: #718096;
+            font-size: 0.9em;
+        }
+        
+        .icon-preview {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+        }
+        
+        .white-bg { background: white; }
+        .blue-bg { background: #1a73e8; }
+        .green-bg { background: #22c55e; }
+        .purple-bg { background: #a855f7; }
+        .gray-bg { background: #6b7280; }
+        .light-bg { background: #f8fafc; }
+        
+        .device-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .device {
+            background: #2d3748;
+            border-radius: 25px;
+            padding: 20px;
+            text-align: center;
+            color: white;
+        }
+        
+        .device h3 {
+            margin: 0 0 20px 0;
+            font-size: 1.4em;
+        }
+        
+        .device-icons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .device-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .features {
+            background: #f7fafc;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 40px;
+        }
+        
+        .features h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            background: #4299e1;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2em;
+        }
+        
+        .feature-text {
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .cta {
+            text-align: center;
+            margin-top: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #4299e1, #667eea);
+            border-radius: 15px;
+            color: white;
+        }
+        
+        .cta h2 {
+            margin: 0 0 15px 0;
+            font-size: 2em;
+        }
+        
+        .cta p {
+            margin: 0 0 25px 0;
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .btn {
+            background: white;
+            color: #4299e1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div class="container">
-      <div class="header">
-        <h1>🚛 TRUK App Icon Preview</h1>
-        <p>See how your branded app icon will appear on devices</p>
-      </div>
-
-      <div class="preview-grid">
-        <!-- TRUK Brand Theme Mockup -->
-        <div class="phone-mockup">
-          <div class="phone-screen">
-            <div class="status-bar">
-              <span class="time">9:41</span>
-              <div class="icons">
-                <span>📶</span>
-                <span>📶</span>
-                <span>🔋</span>
-              </div>
+        <h1>🚛 TRUK App Icons</h1>
+        <p class="subtitle">Professional White Background Design for iOS & Android</p>
+        
+        <div class="icon-grid">
+            <div class="icon-variant">
+                <div class="icon-preview white-bg">🚛</div>
+                <h3>White Background</h3>
+                <p>Clean, modern, professional look</p>
             </div>
-            <div class="home-screen">
-              <div class="app-icon brand-theme"></div>
-              <div class="app-name">TRUKapp</div>
-              <div class="app-category">TRUK Brand</div>
+            
+            <div class="icon-variant">
+                <div class="icon-preview blue-bg">🚛</div>
+                <h3>Primary Blue</h3>
+                <p>Trustworthy, corporate feel</p>
             </div>
-          </div>
+            
+            <div class="icon-variant">
+                <div class="icon-preview green-bg">🚛</div>
+                <h3>Secondary Green</h3>
+                <p>Fresh, growth-oriented</p>
+            </div>
+            
+            <div class="icon-variant">
+                <div class="icon-preview purple-bg">🚛</div>
+                <h3>Accent Purple</h3>
+                <p>Creative, innovative</p>
+            </div>
+            
+            <div class="icon-variant">
+                <div class="icon-preview gray-bg">🚛</div>
+                <h3>Surface Gray</h3>
+                <p>Neutral, versatile</p>
+            </div>
+            
+            <div class="icon-variant">
+                <div class="icon-preview light-bg">🚛</div>
+                <h3>Light Gray</h3>
+                <p>Subtle, elegant</p>
+            </div>
         </div>
-
-        <!-- Light Theme Mockup -->
-        <div class="phone-mockup">
-          <div class="phone-screen">
-            <div class="status-bar">
-              <span class="time">9:41</span>
-              <div class="icons">
-                <span>📶</span>
-                <span>📶</span>
-                <span>🔋</span>
-              </div>
+        
+        <div class="device-preview">
+            <div class="device">
+                <h3>📱 iOS Devices</h3>
+                <div class="device-icons">
+                    <div class="device-icon">🚛</div>
+                    <div class="device-icon">🚛</div>
+                    <div class="device-icon">🚛</div>
+                    <div class="device-icon">🚛</div>
+                </div>
+                <p style="margin-top: 15px; opacity: 0.8;">Optimized for all iOS screen sizes</p>
             </div>
-            <div class="home-screen">
-              <div class="app-icon light-theme"></div>
-              <div class="app-name">TRUKapp</div>
-              <div class="app-category">Light Theme</div>
+            
+            <div class="device">
+                <h3>🤖 Android Devices</h3>
+                <div class="device-icons">
+                    <div class="device-icon">🚛</div>
+                    <div class="device-icon">🚛</div>
+                    <div class="device-icon">🚛</div>
+                    <div class="device-icon">🚛</div>
+                </div>
+                <p style="margin-top: 15px; opacity: 0.8;">Adaptive icons with white background</p>
             </div>
-          </div>
         </div>
-
-        <!-- Surface Theme Mockup -->
-        <div class="phone-mockup">
-          <div class="phone-screen">
-            <div class="status-bar">
-              <span class="time">9:41</span>
-              <div class="icons">
-                <span>📶</span>
-                <span>📶</span>
-                <span>🔋</span>
-              </div>
+        
+        <div class="features">
+            <h2>✨ Professional Design Features</h2>
+            <div class="features-grid">
+                <div class="feature">
+                    <div class="feature-icon">🎨</div>
+                    <div class="feature-text">Clean white background for modern appearance</div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">📐</div>
+                    <div class="feature-text">High-quality scaling for all device sizes</div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🌈</div>
+                    <div class="feature-text">Multiple color variants for different themes</div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <div class="feature-text">Optimized for both iOS and Android</div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔍</div>
+                    <div class="feature-text">Crisp, professional appearance on all devices</div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🚀</div>
+                    <div class="feature-text">Ready for App Store and Play Store submission</div>
+                </div>
             </div>
-            <div class="home-screen">
-              <div class="app-icon surface-theme"></div>
-              <div class="app-name">TRUKapp</div>
-              <div class="app-category">Surface Theme</div>
-            </div>
-          </div>
         </div>
-      </div>
-
-      <!-- Theme Comparison Section -->
-      <div class="theme-comparison">
-        <h3>🎨 TRUK Icon Theme Comparison</h3>
-        <div class="theme-grid">
-          <div class="theme-item">
-            <div class="theme-icon brand-theme"></div>
-            <div class="theme-info">
-              <h4>TRUK Brand Theme</h4>
-              <p>Your main dark green (#0F2B04) with dark green truck and cream TRUK text</p>
-              <span class="theme-tag">Default</span>
-            </div>
-          </div>
-          <div class="theme-item">
-            <div class="theme-icon light-theme"></div>
-            <div class="theme-info">
-              <h4>Light Theme</h4>
-              <p>White background with dark green truck and dark TRUK text</p>
-              <span class="theme-tag">Light Mode</span>
-            </div>
-          </div>
-          <div class="theme-item">
-            <div class="theme-icon surface-theme"></div>
-            <div class="theme-info">
-              <h4>Surface Theme</h4>
-              <p>Light green surface (#EAF4EA) with dark green truck and cream TRUK text</p>
-              <span class="theme-tag">Branded</span>
-            </div>
-          </div>
-          <div class="theme-item">
-            <div class="theme-icon secondary-theme"></div>
-            <div class="theme-info">
-              <h4>Secondary Theme</h4>
-              <p>Bright green (#27AE60) with dark green truck and cream TRUK text</p>
-              <span class="theme-tag">Accent</span>
-            </div>
-          </div>
+        
+        <div class="cta">
+            <h2>Ready to Build?</h2>
+            <p>Your professional TRUK app icons are ready for deployment</p>
+            <a href="#" class="btn">Build App Now</a>
         </div>
-      </div>
-
-      <div class="icon-sizes">
-        <h3>📱 Icon Sizes Generated</h3>
-        <div class="size-grid">
-          <div class="size-item">
-            <div class="size-icon"></div>
-            <div class="size-label">Main Icon</div>
-            <div class="size-dimensions">1024×1024</div>
-          </div>
-          <div class="size-item">
-            <div class="size-icon" style="width: 40px; height: 40px"></div>
-            <div class="size-label">iOS Home</div>
-            <div class="size-dimensions">180×180</div>
-          </div>
-          <div class="size-item">
-            <div class="size-icon" style="width: 40px; height: 40px"></div>
-            <div class="size-label">Android Home</div>
-            <div class="size-dimensions">512×512</div>
-          </div>
-          <div class="size-item">
-            <div class="size-icon" style="width: 40px; height: 40px"></div>
-            <div class="size-label">Adaptive</div>
-            <div class="size-dimensions">108×108</div>
-          </div>
-          <div class="size-item">
-            <div class="size-icon" style="width: 40px; height: 40px"></div>
-            <div class="size-label">Splash</div>
-            <div class="size-dimensions">200×200</div>
-          </div>
-          <div class="size-item">
-            <div class="size-icon" style="width: 40px; height: 40px"></div>
-            <div class="size-label">Favicon</div>
-            <div class="size-dimensions">32×32</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="features">
-        <h3>✨ Icon Features</h3>
-        <ul class="feature-list">
-          <li><strong>Authentic TRUK Branding:</strong> Using your actual colors from colors.ts</li>
-          <li>
-            <strong>Multiple Themes:</strong> Brand, Light, Surface, Secondary, and Accent versions
-          </li>
-          <li><strong>Properly Cropped:</strong> Removed tagline and road elements</li>
-          <li>
-            <strong>Your Brand Colors:</strong> #0F2B04 (main), #27AE60 (secondary), #EAF4EA
-            (surface)
-          </li>
-          <li><strong>Perfect Visibility:</strong> Clear at all sizes from 20x20 to 1024x1024</li>
-          <li>
-            <strong>Your Real Logo:</strong> Using actual TRUK Logo.png (not generic placeholders)
-          </li>
-          <li><strong>Store Compliant:</strong> Meets all App Store and Play Store requirements</li>
-          <li><strong>Multi-Platform:</strong> Optimized for iOS, Android, and Web</li>
-        </ul>
-      </div>
-
-      <div class="cta">
-        <a href="#" class="cta-button">🚀 Build Your App with New Icons</a>
-      </div>
     </div>
-  </body>
+</body>
 </html>

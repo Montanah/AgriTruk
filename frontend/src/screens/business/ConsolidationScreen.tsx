@@ -49,7 +49,10 @@ const ConsolidationScreen = ({ navigation }: any) => {
       setSelectedInstantRequests(selectedRequests);
       setShowTransporters(true);
     } else {
-      navigation.navigate('BookingConfirmation', { requests: selectedRequests });
+      navigation.navigate('BookingConfirmation', { 
+        requests: selectedRequests, 
+        mode: 'business' 
+      });
     }
     setSelectedIds([]);
   };

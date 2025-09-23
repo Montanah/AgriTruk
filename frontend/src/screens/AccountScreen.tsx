@@ -474,17 +474,19 @@ const AccountScreen = () => {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Account</Text>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => setEditing(!editing)}
-        >
-          <MaterialCommunityIcons
-            name={editing ? "close" : "pencil"}
-            size={24}
-            color={editing ? colors.error : colors.primary}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Account</Text>
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => setEditing(!editing)}
+          >
+            <MaterialCommunityIcons
+              name={editing ? "close" : "pencil"}
+              size={24}
+              color={editing ? colors.error : colors.white}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -1091,6 +1093,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    backgroundColor: colors.primary,
     paddingTop: 0, // Remove all top padding to extend to top
     paddingBottom: 20,
     paddingHorizontal: spacing.md,
@@ -1101,6 +1104,7 @@ const styles = StyleSheet.create({
     // Extend to top of screen
     position: 'relative',
     top: 0,
+    minHeight: 80, // Ensure minimum height for header
   },
   headerContent: {
     flexDirection: 'row',

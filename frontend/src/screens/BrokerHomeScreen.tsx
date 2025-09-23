@@ -116,7 +116,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
         }
     };
 
-    const handleAddClient = () => {
+    const handleAddClient = async () => {
         if (!newClient.name || !newClient.phone || !newClient.location) {
             Alert.alert('Error', 'Please fill in all required fields');
             return;
@@ -127,19 +127,67 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
             return;
         }
 
-        const client: Client = {
-            id: `C${Date.now()}`,
-            ...newClient,
-            totalRequests: 0,
-            activeRequests: 0,
-            lastRequest: 'Never',
-            isVerified: false,
-        };
+        try {
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
 
-        setClients([...clients, client]);
-        setNewClient({ name: '', company: '', phone: '', email: '', clientType: 'individual', location: '', businessType: '', occupation: '' });
-        setShowAddClientModal(false);
-        Alert.alert('Success', 'Client added successfully!');
+            const token = await user.getIdToken();
+            console.log('Creating client with data:', {
+                name: newClient.name,
+                email: newClient.email,
+                phone: newClient.phone,
+                type: newClient.clientType,
+                region: newClient.location,
+                location: newClient.location,
+                company: newClient.company || null,
+                businessType: newClient.businessType || null,
+                occupation: newClient.occupation || null,
+            });
+            console.log('API endpoint:', `${API_ENDPOINTS.BROKERS}/clients`);
+            
+            const response = await fetch(`${API_ENDPOINTS.BROKERS}/clients`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: newClient.name,
+                    email: newClient.email,
+                    phone: newClient.phone,
+                    type: newClient.clientType,
+                    region: newClient.location,
+                    location: newClient.location, // Send both region and location for compatibility
+                    company: newClient.company || null,
+                    businessType: newClient.businessType || null,
+                    occupation: newClient.occupation || null,
+                }),
+            });
+            
+            console.log('Client creation response status:', response.status);
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Client created successfully:', data);
+                
+                // Refresh clients list
+                await fetchClients();
+                
+                // Reset form
+                setNewClient({ name: '', company: '', phone: '', email: '', clientType: 'individual', location: '', businessType: '', occupation: '' });
+                setShowAddClientModal(false);
+                Alert.alert('Success', 'Client added successfully!');
+            } else {
+                const errorData = await response.json();
+                console.error('Client creation failed:', errorData);
+                Alert.alert('Error', errorData.message || 'Failed to add client');
+            }
+        } catch (error) {
+            console.error('Error adding client:', error);
+            Alert.alert('Error', 'Failed to add client. Please try again.');
+        }
     };
 
     const handleClientPress = (client: Client) => {
@@ -281,7 +329,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
                         <TouchableOpacity
                             style={styles.quickActionCard}
-                            onPress={() => navigation.navigate('BrokerManagementScreen', { activeTab: 'consolidation' })}
+                            onPress={() => navigation.navigate('Management', { activeTab: 'consolidation' })}
                         >
                             <MaterialCommunityIcons name="layers" size={32} color={colors.success} />
                             <Text style={styles.quickActionTitle}>Consolidate</Text>
@@ -400,9 +448,9 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                             </TouchableOpacity>
                         </View>
 
-                        <FormKeyboardWrapper 
+                        <ScrollView 
                             style={styles.modalScrollContent} 
-                            keyboardVerticalOffset={0}
+                            showsVerticalScrollIndicator={false}
                         >
                             <View style={styles.inputGroup}>
                                 <Text style={styles.inputLabel}>Client Type *</Text>
@@ -539,7 +587,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                                     placeholderTextColor={colors.text.light}
                                 />
                             </View>
-                        </FormKeyboardWrapper>
+                        </ScrollView>
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity
@@ -1214,8 +1262,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     modalScrollContent: {
-        flexGrow: 1,
-        paddingBottom: spacing.xl, // Add padding to the bottom of the scrollable content
+        maxHeight: 400,
+        paddingBottom: spacing.xl,
     },
 });
 

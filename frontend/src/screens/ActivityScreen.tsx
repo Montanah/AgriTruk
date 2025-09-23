@@ -20,6 +20,8 @@ import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 import { getAuth } from 'firebase/auth';
 import LocationDisplay from '../components/common/LocationDisplay';
+import { getDistanceBetweenLocations } from '../utils/locationUtils';
+import { processLocationData } from '../utils/locationProcessor';
 
 interface RequestItem {
   id: string;
@@ -29,6 +31,17 @@ interface RequestItem {
   toLocation: string | { latitude: number; longitude: number; address?: string };
   productType: string;
   weight: string;
+  cargoDetails: string;
+  vehicleType: string;
+  estimatedCost: string | number;
+  distance: string;
+  estimatedDuration: string;
+  specialRequirements: string[];
+  needsRefrigeration: boolean;
+  isPerishable: boolean;
+  isInsured: boolean;
+  priority: boolean;
+  urgencyLevel: string;
   createdAt: string;
   transporter: {
     name: string;
@@ -80,27 +93,86 @@ const ActivityScreen = () => {
       if (response.bookings && Array.isArray(response.bookings)) {
         
         // Transform backend booking data to frontend format
-        const transformedBookings = response.bookings.map((booking: any) => ({
-          id: booking.bookingId || booking.id || `booking_${Date.now()}`,
-          type: booking.bookingMode === 'instant' ? 'instant' : 'booking',
-          status: booking.status || 'pending',
-          fromLocation: booking.fromLocationAddress || booking.fromLocation || booking.from,
-          toLocation: booking.toLocationAddress || booking.toLocation || booking.to,
-          productType: booking.productType || 'Unknown',
-          weight: booking.weightKg ? `${booking.weightKg}kg` : 'Unknown',
-          createdAt: booking.createdAt || booking.pickUpDate || new Date().toISOString(),
-          transporter: booking.transporterId ? {
-            name: booking.transporterName || 'Unknown Transporter',
-            phone: booking.transporterPhone || 'N/A',
-            profilePhoto: booking.transporterPhoto,
-            photo: booking.transporterPhoto,
-            rating: booking.transporterRating || 0,
-            experience: booking.transporterExperience || 'N/A',
-            availability: booking.transporterAvailability || 'N/A',
-            tripsCompleted: booking.transporterTripsCompleted || 0,
-            status: booking.transporterStatus || 'unknown'
-          } : null
-        }));
+        const transformedBookings = response.bookings.map((booking: any) => {
+          console.log('Processing booking:', booking.id || booking.bookingId, 'Cost data:', {
+            cost: booking.cost,
+            estimatedCost: booking.estimatedCost,
+            costBreakdown: booking.costBreakdown
+          });
+          console.log('Distance data:', {
+            actualDistance: booking.actualDistance,
+            fromLocation: booking.fromLocation,
+            toLocation: booking.toLocation
+          });
+          
+          // Calculate distance if not provided by backend
+          let calculatedDistance = booking.actualDistance;
+          if (!calculatedDistance && booking.fromLocation && booking.toLocation) {
+            try {
+              const fromLoc = typeof booking.fromLocation === 'string' 
+                ? JSON.parse(booking.fromLocation) 
+                : booking.fromLocation;
+              const toLoc = typeof booking.toLocation === 'string' 
+                ? JSON.parse(booking.toLocation) 
+                : booking.toLocation;
+              
+              if (fromLoc.latitude && fromLoc.longitude && toLoc.latitude && toLoc.longitude) {
+                calculatedDistance = getDistanceBetweenLocations(fromLoc, toLoc);
+                console.log('Calculated distance on frontend:', calculatedDistance);
+              }
+            } catch (error) {
+              console.log('Error calculating distance:', error);
+            }
+          }
+          
+          // Calculate total cost from costBreakdown if available
+          let totalCost = booking.cost || booking.estimatedCost;
+          if (booking.costBreakdown && typeof booking.costBreakdown === 'object') {
+            const breakdown = booking.costBreakdown;
+            totalCost = breakdown.baseFare + breakdown.distanceCost + breakdown.weightCost + 
+                       breakdown.urgencySurcharge + breakdown.perishableSurcharge + 
+                       breakdown.refrigerationSurcharge + breakdown.humiditySurcharge + 
+                       breakdown.insuranceFee + breakdown.priorityFee + breakdown.waitTimeFee + 
+                       breakdown.tollFee + breakdown.nightSurcharge + breakdown.fuelSurcharge;
+          }
+          
+          // Process location data consistently
+          const fromLocation = processLocationData(booking.fromLocation || booking.from);
+          const toLocation = processLocationData(booking.toLocation || booking.to);
+          
+          return {
+            id: booking.bookingId || booking.id || `booking_${Date.now()}`,
+            type: booking.bookingMode === 'instant' ? 'instant' : 'booking',
+            status: booking.status || 'pending',
+            fromLocation: fromLocation,
+            toLocation: toLocation,
+            productType: booking.productType || booking.cargoDetails || 'Unknown',
+            weight: booking.weightKg ? `${booking.weightKg}kg` : (booking.weight ? `${booking.weight}kg` : 'Unknown'),
+            cargoDetails: booking.cargoDetails || booking.productType || 'Unknown',
+            vehicleType: booking.vehicleType || 'Any',
+            estimatedCost: totalCost || 'TBD',
+            distance: calculatedDistance && typeof calculatedDistance === 'number' ? `${calculatedDistance.toFixed(1)}km` : 'Calculating...',
+            estimatedDuration: booking.estimatedDuration || 'TBD',
+            specialRequirements: booking.specialCargo || [],
+            needsRefrigeration: booking.needsRefrigeration || false,
+            isPerishable: booking.perishable || false,
+            isInsured: booking.insured || false,
+            priority: booking.priority || false,
+            urgencyLevel: booking.urgencyLevel || 'normal',
+            createdAt: booking.createdAt || booking.pickUpDate || new Date().toISOString(),
+            transporter: booking.transporterId ? {
+              name: booking.transporterName || 'Unknown Transporter',
+              phone: booking.transporterPhone || 'N/A',
+              profilePhoto: booking.transporterPhoto,
+              photo: booking.transporterPhoto,
+              rating: booking.transporterRating || 0,
+              experience: booking.transporterExperience || 'N/A',
+              availability: booking.transporterAvailability || 'N/A',
+              tripsCompleted: booking.transporterTripsCompleted || 0,
+              status: booking.transporterStatus || 'unknown'
+            } : null
+          };
+        });
 
         setRequests(transformedBookings);
       } else {
@@ -147,6 +219,26 @@ const ActivityScreen = () => {
     }
   };
 
+  const getUrgencyColor = (urgency: string) => {
+    const urgencyLower = urgency?.toLowerCase();
+    switch (urgencyLower) {
+      case 'high': return colors.error;
+      case 'medium': return colors.warning;
+      case 'low': return colors.success;
+      default: return colors.text.secondary;
+    }
+  };
+
+  const getUrgencyIcon = (urgency: string) => {
+    const urgencyLower = urgency?.toLowerCase();
+    switch (urgencyLower) {
+      case 'high': return 'alert-circle';
+      case 'medium': return 'clock';
+      case 'low': return 'check-circle';
+      default: return 'circle';
+    }
+  };
+
   const handleTrackRequest = (request: RequestItem) => {
     if (request.type === 'instant') {
       navigation.navigate('TripDetailsScreen', {
@@ -169,15 +261,26 @@ const ActivityScreen = () => {
   };
 
   const renderRequestItem = ({ item }: { item: RequestItem }) => (
-    <View style={styles.requestCard}>
+    <TouchableOpacity style={styles.requestCard} onPress={() => handleTrackRequest(item)}>
+      {/* Header with ID and Status */}
       <View style={styles.requestHeader}>
         <View style={styles.requestId}>
           <Text style={styles.requestIdText}>#{item.id}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: item.type === 'instant' ? colors.warning + '15' : colors.primary + '15' }]}>
+            <MaterialCommunityIcons 
+              name={item.type === 'instant' ? 'lightning-bolt' : 'calendar-clock'} 
+              size={12} 
+              color={item.type === 'instant' ? colors.warning : colors.primary} 
+            />
+            <Text style={[styles.typeText, { color: item.type === 'instant' ? colors.warning : colors.primary }]}>
+              {item.type.toUpperCase()}
+            </Text>
+          </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20', borderColor: getStatusColor(item.status) + '40' }]}>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '15', borderColor: getStatusColor(item.status) + '30' }]}>
           <MaterialCommunityIcons
             name={getStatusIcon(item.status)}
-            size={16}
+            size={14}
             color={getStatusColor(item.status)}
           />
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
@@ -186,83 +289,170 @@ const ActivityScreen = () => {
         </View>
       </View>
 
-      <View style={styles.requestDetails}>
-        <View style={styles.routeInfo}>
-          <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
-          <View style={styles.routeText}>
-            <Text style={styles.routeLabel}>Route</Text>
-            <View style={styles.routeContainer}>
-              <LocationDisplay 
-                location={item.fromLocation} 
-                iconColor={colors.primary}
-                style={styles.routeValue}
-              />
-              <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} style={styles.routeArrow} />
-              <LocationDisplay 
-                location={item.toLocation} 
-                iconColor={colors.secondary}
-                style={styles.routeValue}
-              />
-            </View>
+      {/* Route Information */}
+      <View style={styles.routeSection}>
+        <View style={styles.routeHeader}>
+          <MaterialCommunityIcons name="map-marker-path" size={18} color={colors.primary} />
+          <Text style={styles.sectionTitle}>Route</Text>
+        </View>
+        <View style={styles.routeContainer}>
+          <View style={styles.locationItem}>
+            <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+            <LocationDisplay 
+              location={item.fromLocation || 'Unknown location'} 
+              iconColor={colors.primary}
+              style={styles.locationText}
+              showIcon={false}
+            />
+          </View>
+          <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} style={styles.routeArrow} />
+          <View style={styles.locationItem}>
+            <MaterialCommunityIcons name="flag-checkered" size={16} color={colors.secondary} />
+            <LocationDisplay 
+              location={item.toLocation || 'Unknown location'} 
+              iconColor={colors.secondary}
+              style={styles.locationText}
+              showIcon={false}
+            />
           </View>
         </View>
+      </View>
 
-        <View style={styles.productInfo}>
-          <MaterialCommunityIcons name="package-variant" size={20} color={colors.secondary} />
-          <View style={styles.productText}>
-            <Text style={styles.productLabel}>Product</Text>
-            <Text style={styles.productValue}>
-              {item.productType}
+      {/* Cargo Details */}
+      <View style={styles.cargoSection}>
+        <View style={styles.cargoHeader}>
+          <MaterialCommunityIcons name="package-variant" size={18} color={colors.secondary} />
+          <Text style={styles.sectionTitle}>Cargo Details</Text>
+        </View>
+        <View style={styles.cargoGrid}>
+          <View style={styles.cargoItem}>
+            <MaterialCommunityIcons name="package" size={20} color={colors.primary} />
+            <Text style={styles.cargoLabel}>Product</Text>
+            <Text style={styles.cargoValue}>{item.cargoDetails}</Text>
+          </View>
+          <View style={styles.cargoItem}>
+            <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.primary} />
+            <Text style={styles.cargoLabel}>Weight</Text>
+            <Text style={styles.cargoValue}>{item.weight}</Text>
+          </View>
+          <View style={styles.cargoItem}>
+            <MaterialCommunityIcons name="truck" size={20} color={colors.primary} />
+            <Text style={styles.cargoLabel}>Vehicle</Text>
+            <Text style={styles.cargoValue}>{item.vehicleType}</Text>
+          </View>
+          <View style={styles.cargoItem}>
+            <MaterialCommunityIcons name="currency-usd" size={20} color={colors.primary} />
+            <Text style={styles.cargoLabel}>Cost</Text>
+            <Text style={styles.cargoValue}>
+              {item.estimatedCost === 'TBD' || item.estimatedCost === 'Unknown' ? 'TBD' : 
+               `KSh ${typeof item.estimatedCost === 'number' ? item.estimatedCost.toLocaleString() : item.estimatedCost}`}
             </Text>
           </View>
         </View>
+      </View>
 
-        <View style={styles.weightInfo}>
-          <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.tertiary} />
-          <View style={styles.weightText}>
-            <Text style={styles.weightLabel}>Weight</Text>
-            <Text style={styles.weightValue}>{item.weight}</Text>
+      {/* Special Requirements */}
+      {(item.needsRefrigeration || item.isPerishable || item.isInsured || item.priority || item.specialRequirements.length > 0) && (
+        <View style={styles.requirementsSection}>
+          <View style={styles.requirementsHeader}>
+            <MaterialCommunityIcons name="alert-circle" size={18} color={colors.warning} />
+            <Text style={styles.sectionTitle}>Special Requirements</Text>
           </View>
-        </View>
-
-        {item.transporter && (
-          <View style={styles.transporterInfo}>
-            <View style={styles.transporterHeader}>
-              <MaterialCommunityIcons name="account-tie" size={20} color={colors.success} />
-              <Text style={styles.transporterLabel}>Transporter Details</Text>
-            </View>
-            <View style={styles.transporterDetails}>
-              <View style={styles.transporterProfile}>
-                <Image
-                  source={{ uri: item.transporter?.profilePhoto || item.transporter?.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_SMALL }}
-                  style={styles.transporterPhoto}
-                />
-                <View style={styles.transporterBasic}>
-                  <Text style={styles.transporterName}>{item.transporter.name}</Text>
-                  <View style={styles.transporterRating}>
-                    <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 2 }} />
-                    <Text style={styles.ratingText}>{item.transporter?.rating || 'N/A'}</Text>
-                    <Text style={styles.tripsText}> • {item.transporter?.tripsCompleted || 0} trips</Text>
-                  </View>
-                </View>
+          <View style={styles.requirementsList}>
+            {item.needsRefrigeration && (
+              <View style={styles.requirementTag}>
+                <MaterialCommunityIcons name="snowflake" size={14} color={colors.primary} />
+                <Text style={styles.requirementText}>Refrigeration</Text>
               </View>
-              <View style={styles.transporterMeta}>
-                <Text style={styles.transporterMetaText}>
-                  {item.transporter?.experience || 'N/A'} • {item.transporter?.availability || 'N/A'}
+            )}
+            {item.isPerishable && (
+              <View style={styles.requirementTag}>
+                <MaterialCommunityIcons name="clock-fast" size={14} color={colors.warning} />
+                <Text style={styles.requirementText}>Perishable</Text>
+              </View>
+            )}
+            {item.isInsured && (
+              <View style={styles.requirementTag}>
+                <MaterialCommunityIcons name="shield-check" size={14} color={colors.success} />
+                <Text style={styles.requirementText}>Insured</Text>
+              </View>
+            )}
+            {item.priority && (
+              <View style={styles.requirementTag}>
+                <MaterialCommunityIcons name="star" size={14} color={colors.tertiary} />
+                <Text style={styles.requirementText}>Priority</Text>
+              </View>
+            )}
+            {item.urgencyLevel && item.urgencyLevel !== 'normal' && (
+              <View style={[styles.requirementTag, { backgroundColor: getUrgencyColor(item.urgencyLevel) + '20' }]}>
+                <MaterialCommunityIcons name={getUrgencyIcon(item.urgencyLevel)} size={14} color={getUrgencyColor(item.urgencyLevel)} />
+                <Text style={[styles.requirementText, { color: getUrgencyColor(item.urgencyLevel) }]}>
+                  {item.urgencyLevel.toUpperCase()}
                 </Text>
               </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* Trip Details */}
+      <View style={styles.tripDetailsSection}>
+        <View style={styles.tripDetailsGrid}>
+          <View style={styles.tripDetailItem}>
+            <MaterialCommunityIcons name="map-marker-distance" size={16} color={colors.text.secondary} />
+            <Text style={styles.tripDetailLabel}>Distance</Text>
+            <Text style={styles.tripDetailValue}>{item.distance}</Text>
+          </View>
+          <View style={styles.tripDetailItem}>
+            <MaterialCommunityIcons name="clock-outline" size={16} color={colors.text.secondary} />
+            <Text style={styles.tripDetailLabel}>Duration</Text>
+            <Text style={styles.tripDetailValue}>{item.estimatedDuration}</Text>
+          </View>
+          <View style={styles.tripDetailItem}>
+            <MaterialCommunityIcons name="calendar" size={16} color={colors.text.secondary} />
+            <Text style={styles.tripDetailLabel}>Created</Text>
+            <Text style={styles.tripDetailValue}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+          </View>
+        </View>
+      </View>
+
+      {item.transporter && (
+        <View style={styles.transporterInfo}>
+          <View style={styles.transporterHeader}>
+            <MaterialCommunityIcons name="account-tie" size={20} color={colors.success} />
+            <Text style={styles.transporterLabel}>Transporter Details</Text>
+          </View>
+          <View style={styles.transporterDetails}>
+            <View style={styles.transporterProfile}>
+              <Image
+                source={{ uri: item.transporter?.profilePhoto || item.transporter?.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_SMALL }}
+                style={styles.transporterPhoto}
+              />
+              <View style={styles.transporterBasic}>
+                <Text style={styles.transporterName}>{item.transporter.name}</Text>
+                <View style={styles.transporterRating}>
+                  <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 2 }} />
+                  <Text style={styles.ratingText}>{item.transporter?.rating || 'N/A'}</Text>
+                  <Text style={styles.tripsText}> • {item.transporter?.tripsCompleted || 0} trips</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.transporterMeta}>
+              <Text style={styles.transporterMetaText}>
+                {item.transporter?.experience || 'N/A'} • {item.transporter?.availability || 'N/A'}
+              </Text>
             </View>
           </View>
-        )}
-
-        <View style={styles.requestMeta}>
-          <Text style={styles.requestDate}>
-            Created: {new Date(item.createdAt).toLocaleDateString()}
-          </Text>
-          <Text style={styles.requestType}>
-            {item.type.charAt(0).toUpperCase() + item.type.slice(1)} Request
-          </Text>
         </View>
+      )}
+
+      <View style={styles.requestMeta}>
+        <Text style={styles.requestDate}>
+          Created: {new Date(item.createdAt).toLocaleDateString()}
+        </Text>
+        <Text style={styles.requestType}>
+          {item.type.charAt(0).toUpperCase() + item.type.slice(1)} Request
+        </Text>
       </View>
 
       <View style={styles.requestActions}>
@@ -292,7 +482,7 @@ const ActivityScreen = () => {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) {
@@ -505,10 +695,12 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    borderRadius: 16,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderWidth: 1,
+    maxWidth: '45%',
+    flexShrink: 1,
   },
   statusText: {
     fontSize: fonts.size.xs,
@@ -602,22 +794,29 @@ const styles = StyleSheet.create({
   },
   requestCard: {
     backgroundColor: colors.white,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: spacing.lg,
     marginBottom: spacing.md,
+    marginHorizontal: spacing.sm,
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.text.light + '10',
     borderLeftWidth: 4,
     borderLeftColor: colors.primary,
   },
   requestHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.text.light + '10',
+    flexWrap: 'wrap',
   },
   requestId: {
     flexDirection: 'row',
@@ -890,6 +1089,141 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fonts.size.md,
     fontWeight: '600',
+  },
+  // New improved card styles
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+    marginLeft: spacing.sm,
+    borderWidth: 1,
+  },
+  typeText: {
+    fontSize: fonts.size.xs,
+    fontWeight: '600',
+    marginLeft: spacing.xs,
+  },
+  routeSection: {
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  routeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+  },
+  locationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  locationText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  cargoSection: {
+    marginBottom: spacing.sm,
+  },
+  cargoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  cargoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  cargoItem: {
+    width: '48%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: 12,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.text.light + '20',
+  },
+  cargoLabel: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  cargoValue: {
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    color: colors.text.primary,
+    textAlign: 'center',
+  },
+  requirementsSection: {
+    marginBottom: spacing.sm,
+  },
+  requirementsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  requirementsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  requirementTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.text.light + '30',
+  },
+  requirementText: {
+    fontSize: fonts.size.xs,
+    fontWeight: '500',
+    marginLeft: spacing.xs,
+  },
+  tripDetailsSection: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  tripDetailsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  tripDetailItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  tripDetailLabel: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  tripDetailValue: {
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
 });
 

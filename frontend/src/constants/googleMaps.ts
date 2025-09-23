@@ -1,9 +1,12 @@
 // Environment variable will be accessed via process.env
+import Constants from 'expo-constants';
 
 // Google Maps API Configuration
 export const GOOGLE_MAPS_CONFIG = {
-  // Replace with your actual API key from Google Cloud Console
-  API_KEY: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY_HERE',
+  // Get API key from app config or environment variable
+  API_KEY: Constants.expoConfig?.extra?.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 
+           process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 
+           'AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4',
 
   // Default map settings
   DEFAULT_REGION: {
@@ -54,16 +57,24 @@ export const GOOGLE_MAPS_ENDPOINTS = {
 
 // Helper function to get API key
 export const getGoogleMapsApiKey = () => {
-  // In production, you should store this securely
-  // For now, we'll use an environment variable or the config
-  const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_CONFIG.API_KEY;
+  // Try multiple sources for the API key
+  let apiKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 
+               process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 
+               GOOGLE_MAPS_CONFIG.API_KEY;
+
+  // Fallback to hardcoded key if environment variables aren't working
+  if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY_HERE') {
+    console.warn('⚠️ Environment variables not working, using hardcoded API key');
+    apiKey = 'AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4';
+  }
 
   // Better debugging
   if (apiKey && apiKey !== 'YOUR_GOOGLE_MAPS_API_KEY_HERE') {
-    // Google Maps API Key loaded
-    // API Key preview
+    console.log('✅ Google Maps API Key loaded:', apiKey.substring(0, 10) + '...');
   } else {
-    // Google Maps API Key missing or invalid
+    console.error('❌ Google Maps API Key missing or invalid:', apiKey);
+    console.log('Constants.expoConfig?.extra?.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY:', Constants.expoConfig?.extra?.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
+    console.log('process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY:', process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
   }
 
   return apiKey;

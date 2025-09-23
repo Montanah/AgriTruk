@@ -140,8 +140,8 @@ const BusinessProfileScreen = ({ navigation }: any) => {
       const user = auth.currentUser;
 
       if (user) {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('../../firebaseConfig');
+        const { doc, getDoc } = require('firebase/firestore');
+        const { db } = require('../../firebaseConfig');
 
         const userDoc = await getDoc(doc(db, 'users', user.uid));
 
@@ -201,8 +201,8 @@ const BusinessProfileScreen = ({ navigation }: any) => {
       }
 
       // Update Firestore with the new profile data
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('../../firebaseConfig');
+      const { doc, updateDoc } = require('firebase/firestore');
+      const { db } = require('../../firebaseConfig');
       
       const updateData: any = {
         businessName: editData.businessName,
