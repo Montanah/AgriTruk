@@ -25,7 +25,7 @@ const Admin = {
   },
   async get(adminId) {
     const doc = await db.collection('admins').doc(adminId).get();
-    if (!doc.exists) throw new Error('Admin not found');
+    if (!doc.exists) return null;
     return doc.data();
   },
   async update(adminId, updates) {

@@ -998,9 +998,9 @@ router.put('/:adminId', requireSuperAdmin, AdminController.updateAdmin);
 /**
  * @swagger
  * /api/admin/{adminId}:
- *   delete:
+ *   patch:
  *     tags: [Admin Management]
- *     summary: Delete an admin (Super Admin only)
+ *     summary: Deactivate an admin (Super Admin only)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -1013,7 +1013,7 @@ router.put('/:adminId', requireSuperAdmin, AdminController.updateAdmin);
  *       200:
  *         description: Admin deleted
  */
-router.delete('/:adminId', requireSuperAdmin, AdminController.deleteAdmin);
+router.patch('/:adminId', requireSuperAdmin, AdminController.deleteAdmin);
 
 /**
  * @swagger
@@ -1051,13 +1051,20 @@ router.delete("/delete_user/:uid", requireSuperAdmin, authController.deleteUser)
 
 /**
  * @swagger
- * /api/admin/delete-account/{uid}:
+ * /api/admin/delete-account/{userId}:
  *   delete:
  *     summary: Delete user account
  *     description: Delete the authenticated user's Firebase Auth account and Firestore profile.
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The user ID of the account to delete
  *     responses:
  *       200:
  *         description: User account deleted successfully
@@ -1160,5 +1167,28 @@ router.post('/reports', authenticateToken, requireRole('admin'), authorize(['vie
  *         description: Action marked as resolved
  */
 router.patch('/actions/:actionId/resolve', authenticateToken, requireRole('admin'), markAsResolved);
+
+/**
+ * @swagger
+ * /api/admin/delete/{adminId}:
+ *   delete:
+ *     summary: Hard delete an admin
+ *     tags: [Admin Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: adminId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Admin hard deleted
+ *       500:
+ *         description: Server error
+ */
+// router.patch('/:adminId', requireSuperAdmin, AdminController.deleteAdmin);
+router.delete('/delete/:adminId', requireSuperAdmin, AdminController.hardDelete);
 
 module.exports = router;

@@ -646,7 +646,8 @@ exports.verifyToken = async (req, res) => {
 
 exports.deleteAccount = async (req, res) => {
     try {
-        const uid = req.user.uid;
+        const {uid} = req.params;
+        console.log(req.params);
 
         // Delete user from Firebase Auth
         await admin.auth().deleteUser(uid);
@@ -655,7 +656,7 @@ exports.deleteAccount = async (req, res) => {
         await User.delete(uid);
 
         // Log the account deletion activity
-        await logActivity(uid, 'account_deletion', req);
+        await logAdminActivity(uid, 'account_deletion', req);
 
         await Notification.create({
             type: "Account Deletion",

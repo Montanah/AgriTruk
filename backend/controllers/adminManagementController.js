@@ -1,7 +1,5 @@
 const Admin = require('../models/Admin');
 const admin = require('../config/firebase');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const Permission = require('../models/Permission');
 const sendEmail = require('../utils/sendEmail');
 const { generateRandomPassword } = require('./companyController');
@@ -19,97 +17,7 @@ const AdminManagementController = {
     }
     return password;
   },
-  // Admin Login
-  // async login(req, res) {
-  //   try {
-  //     const { email, password, firebaseToken } = req.body;
-  //     console.log(req.body);
-
-  //     if (!email || (!password && !firebaseToken)) {
-  //       return res.status(400).json({
-  //         success: false,
-  //         message: 'Email and password or Firebase token required'
-  //       });
-  //     }
-
-  //     let decodedToken;
-
-  //     // Verify Firebase token if provided
-  //     if (firebaseToken) {
-  //       try {
-  //         decodedToken = await admin.auth().verifyIdToken(firebaseToken);
-  //       } catch (error) {
-  //         return res.status(401).json({
-  //           success: false,
-  //           message: 'Invalid Firebase token'
-  //         });
-  //       }
-  //     }
-
-  //     // Get admin by email or userId
-  //     const adminQuery = await admin.firestore()
-  //       .collection('admins')
-  //       .where('email', '==', email)
-  //       .where('status', '==', 'active')
-  //       .get();
-
-  //     if (adminQuery.empty) {
-  //       return res.status(401).json({
-  //         success: false,
-  //         message: 'Invalid credentials'
-  //       });
-  //     }
-
-  //     const adminDoc = adminQuery.docs[0];
-  //     const adminData = adminDoc.data();
-
-  //     // If using Firebase token, verify the userId matches
-  //     if (firebaseToken && decodedToken.uid !== adminData.userId) {
-  //       return res.status(401).json({
-  //         success: false,
-  //         message: 'Invalid credentials'
-  //       });
-  //     }
-
-  //     // Update last login
-  //     await Admin.update(adminData.adminId, {
-  //       lastLogin: admin.firestore.Timestamp.now()
-  //     });
-
-  //     // Generate JWT token
-  //     const token = jwt.sign(
-  //       { 
-  //         adminId: adminData.adminId,
-  //         userId: adminData.userId,
-  //         email: adminData.email,
-  //         permissions: adminData.permissions
-  //       },
-  //       process.env.JWT_SECRET,
-  //       { expiresIn: '24h' }
-  //     );
-
-  //     res.json({
-  //       success: true,
-  //       message: 'Login successful',
-  //       data: {
-  //         admin: {
-  //           adminId: adminData.adminId,
-  //           name: adminData.name,
-  //           email: adminData.email,
-  //           permissions: adminData.permissions
-  //         },
-  //         token
-  //       }
-  //     });
-
-  //   } catch (error) {
-  //     console.error('Login error:', error);
-  //     res.status(500).json({
-  //       success: false,
-  //       message: 'Internal server error'
-  //     });
-  //   }
-  // },
+  
   async login(req, res) {
     try {
       const { firebaseToken } = req.body;
@@ -325,7 +233,7 @@ const AdminManagementController = {
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate(),
         updatedAt: doc.data().updatedAt?.toDate(),
-        lastLogin: doc.data().lastLogin?.toDate()
+        // lastLogin: doc.data().lastLogin?.toDate()
       }));
 
       // Search filter
@@ -621,7 +529,32 @@ const AdminManagementController = {
       console.error('Get notified error:', error);
       res.status(500).json({ success: false, message: 'Failed to update notified' });
     }
+  },
+
+  async hardDelete(req, res) {
+    try {
+      const { adminId } = req.params;
+      const adminRecord = await Admin.get(adminId);
+      if (!adminRecord) {
+        return res.status(404).json({ success: false, message: 'Admin not found' });
+      }
+
+      const firebaseUid = adminRecord.userId;
+
+      await Admin.hardDelete(adminId);
+      // delete user from firebase
+      if (firebaseUid) {
+        await admin.auth().deleteUser(firebaseUid);
+      }
+
+      res.json({ success: true, message: 'Admin deleted successfully' });
+    } catch (error) {
+      console.error('Hard delete admin error:', error);
+      res.status(500).json({ success: false, message: 'Failed to delete admin' });
+    }
   }
 };
+
+
 
 module.exports = AdminManagementController;
