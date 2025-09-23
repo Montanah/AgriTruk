@@ -657,7 +657,8 @@ exports.reviewBroker = async (req, res) => {
       const updateData ={
         status: 'approved',
         approvedBy: adminId,
-        idExpiryDate: idExpiryDate || null
+        idExpiryDate: idExpiryDate || null,
+        idVerified: true  // Set ID as verified when broker is approved
       }
      // console.log("up", updateData)
       await Broker.update(brokerId, updateData);
