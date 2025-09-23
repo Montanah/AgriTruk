@@ -22,49 +22,19 @@ const { requireSelfOrSuperAdmin } = require('../middlewares/adminAuth');
  *       scheme: bearer
  *       bearerFormat: JWT
  *   schemas:
- *     User:
+ *     ActivityLog:
  *       type: object
  *       properties:
- *         uid:
+ *         action:
  *           type: string
- *         email:
+ *           description: Description of the action performed
+ *         device:
  *           type: string
- *           nullable: true
- *         phone:
+ *         createdAt:
  *           type: string
- *           nullable: true
- *         role:
- *           type: string
- *           enum: [user, farmer, transporter, admin]
- *         name:
- *           type: string
- *           nullable: true
- *         location:
- *           type: string
- *           nullable: true
- *         userType:
- *           type: string
- *           nullable: true
- *         languagePreference:
- *           type: string
- *           nullable: true
- *         profilePhotoUrl:
- *           type: string
- *           nullable: true
- *         isVerified:
- *           type: boolean
- *         fcmToken:
- *           type: string
- *           nullable: true
- *     Error:
- *       type: object
- *       properties:
- *         code:
- *           type: string
- *         message:
- *           type: string
+ *           format: date-time
+ *           description: Timestamp of the action
  */
-
 /**
  * @swagger
  * /api/activity:
