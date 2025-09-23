@@ -373,7 +373,7 @@ router.delete('/:brokerId', authenticateToken, requireRole('admin'), authorize([
  * /api/brokers/{brokerId}/review:
  *   patch:
  *     summary: Review a broker (admin only)
- *     tags: [Admin]
+ *     tags: [Admin Actions]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -391,7 +391,7 @@ router.delete('/:brokerId', authenticateToken, requireRole('admin'), authorize([
  *             properties:
  *               action:
  *                 type: string
- *                 enum: [approve, reject]
+ *                 enum: [approve, reject, suspend, unsuspend, deactivate]
  *                 description: Action to take on the broker (approve or reject)
  *               reason:
  *                 type: string

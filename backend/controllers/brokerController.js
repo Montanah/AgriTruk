@@ -14,6 +14,7 @@ const Action = require('../models/Action');
 const { generateEmailTemplate } = require('../services/documentExpiryCronService');
 const { getBrokerTemplate, getRejectTemplate, adminNotification } = require('../utils/sendMailTemplate');
 const { get } = require('../models/Alert');
+const { app } = require('firebase-admin');
 
 exports.createBroker = async (req, res) => {
   try {
@@ -620,15 +621,16 @@ exports.reviewBroker = async (req, res) => {
   try {
     const { brokerId } = req.params;
     const adminId = req.user.uid;
-    const {action, reason, idExpiryDate} = req.body;
+    const { action, reason, idExpiryDate } = req.body;
 
     const broker = await Broker.get(brokerId);
     if (!broker) {
       return res.status(404).json({ success: false, message: 'Broker not found' });
     }
 
-    if (action !== 'approve' && action !== 'reject') {
-      return res.status(400).json({ success: false, message: 'Invalid action, use approve or reject' });
+    const validActions = ['approve', 'reject', 'suspend', 'unsuspend', 'deactivate'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({ success: false, message: `Invalid action. Use one of: ${validActions.join(', ')}` });
     }
 
     const user = await User.get(broker.userId);
@@ -636,60 +638,114 @@ exports.reviewBroker = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    // ---------------- REJECT ----------------
     if (action === 'reject') {
-      const updateData ={
+      const updateData = {
         status: 'rejected',
         rejectionReason: reason || 'Not specified',
+        idVerified: false,
         approvedBy: adminId
-      }
-      
+      };
       await Broker.update(brokerId, updateData);
+
+      await logAdminActivity(adminId, 'reject_broker', req);
 
       await sendEmail({
         to: user.email,
         subject: 'Broker Account Rejected',
         html: getRejectTemplate('Broker Account Rejected', `Your broker account has been rejected. Reason: ${reason}`, user),
         text: `Your broker account has been rejected. Reason: ${reason}`
-      })
-      await logAdminActivity(req.user.uid, 'reject_broker', req);
-      res.status(200).json({
-        success: true,
-        message: 'Broker rejected successfully',
       });
-      return;
+
+      return res.status(200).json({ success: true, message: 'Broker rejected successfully' });
     }
 
+    // ---------------- APPROVE ----------------
     if (action === 'approve') {
-      const updateData ={
+      const updateData = {
         status: 'approved',
         approvedBy: adminId,
         idExpiryDate: idExpiryDate || null,
-        idVerified: true  // Set ID as verified when broker is approved
-      }
-     // console.log("up", updateData)
+        idVerified: true
+      };
       await Broker.update(brokerId, updateData);
-      await logAdminActivity(req.user.uid, 'approve_broker', req);
+      await logAdminActivity(adminId, 'approve_broker', req);
 
       await sendEmail({
-          to: user.email,
-          subject: 'Broker Account Approved',
-          html: getBrokerTemplate(user),
-          text: 'Your broker account has been approved. Welcome to Truk!'
-        });
-      res.status(200).json({
-        success: true,
-        message: 'Broker approved successfully',
+        to: user.email,
+        subject: 'Broker Account Approved',
+        html: getBrokerTemplate(user),
+        text: 'Your broker account has been approved. Welcome to Truk!'
       });
-      return;
+
+      return res.status(200).json({ success: true, message: 'Broker approved successfully' });
     }
 
-    res.status(400).json({
-      
-    })
+    // ---------------- SUSPEND ----------------
+    if (action === 'suspend') {
+      const updateData = {
+        status: 'suspended',
+        suspendedBy: adminId,
+        suspensionReason: reason || 'Not specified'
+      };
+      await Broker.update(brokerId, updateData);
+      await logAdminActivity(adminId, 'suspend_broker', req);
+
+      await sendEmail({
+        to: user.email,
+        subject: 'Broker Account Suspended',
+        html: getBrokerTemplate(user),
+        text: `Your broker account has been suspended. Reason: ${reason}`
+      });
+
+      return res.status(200).json({ success: true, message: 'Broker suspended successfully' });
+    }
+
+    // ---------------- UNSUSPEND ----------------
+    if (action === 'unsuspend') {
+      const updateData = {
+        status: 'approved',
+        suspendedBy: null,
+        approvedBy: adminId
+      };
+      await Broker.update(brokerId, updateData);
+      await logAdminActivity(adminId, 'unsuspend_broker', req);
+
+      await sendEmail({
+        to: user.email,
+        subject: 'Broker Account Unsuspended',
+        html: getBrokerTemplate(user),
+        text: 'Your broker account has been unsuspended. Welcome back to Truk!'
+      });
+
+      return res.status(200).json({ success: true, message: 'Broker unsuspended successfully' });
+    }
+
+    // ---------------- DEACTIVATE ----------------
+    if (action === 'deactivate') {
+      const updateData = {
+        status: 'deactivated',
+        accountStatus: false,
+        deactivatedBy: adminId,
+        deactivationReason: reason || 'Not specified'
+      };
+      await Broker.update(brokerId, updateData);
+      await logAdminActivity(adminId, 'deactivate_broker', req);
+
+      await sendEmail({
+        to: user.email,
+        subject: 'Broker Account Deactivated',
+        html: getRejectTemplate('Broker Account Deactivated', `Your broker account has been deactivated. Reason: ${reason}`, user),
+        text: `Your broker account has been deactivated. Reason: ${reason}`
+      });
+
+      return res.status(200).json({ success: true, message: 'Broker deactivated successfully' });
+    }
+
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: `Error reviewing broker: ${error.message}`,
+      message: `Error reviewing broker: ${error.message}`
     });
   }
 };
