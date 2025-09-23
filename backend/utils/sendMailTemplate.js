@@ -163,3 +163,17 @@ exports.getRejectTemplate = function (subject,  message, userData) {
   `;
 };
 
+exports.adminNotification = function( subject, message, userData) {
+  return `
+  <div style="max-width: 500px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border-radius: 10px; border: 1px solid #ddd;">
+      <div style="text-align: center;">
+        <img src="https://res.cloudinary.com/trukapp/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="Truk Logo" style="width: 60px; margin-bottom: 20px;" />
+        <h2 style="color: #28a745;">${subject}</h2>
+        <p style="font-size: 16px;">Hello Admin</p>
+        <p style="font-size: 16px;">${message}</p>
+        <p style="font-size: 16px;">${userData}</p>
+        <p style="margin-top: 30px; font-size: 13px; color: #999;">All rights reserved &copy; ${new Date().getFullYear()} Truk</p>
+      </div>
+    </div>
+  `
+}

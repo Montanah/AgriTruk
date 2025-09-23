@@ -107,6 +107,12 @@ exports.createCompany = async (req, res) => {
       message: `A new company has been created. Company ID: ${company.id}`,
     });
 
+    await sendEmail({
+        to: "support@trukafrica.com",
+        subject: 'New Company Needs Review',
+        html: adminNotification('Company Needs Review', `A new company needs review. Company ID: ${company.id}`),
+      });
+
     res.status(201).json({ 
       message: 'Company created successfully', 
       data: formatTimestamps(company) 

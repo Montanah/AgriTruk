@@ -265,6 +265,18 @@ exports.createBooking = async (req, res) => {
       userId: user,
       userType: "user",
     });
+
+    await Action.create({
+      type: "booking_new",
+      entityId: booking.bookingId,
+      priority: "low",
+      metadata: {
+        bookingId: booking.bookingId,
+        userId: user
+      },
+      status: "New Bookings Alert",
+      message: 'New Booking has been created',
+    });
     // console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
 
     if (bookingMode === 'instant') {
@@ -802,6 +814,18 @@ exports.updateBooking = async (req, res) => {
 
     // Log activity
     await logActivity(req.user.uid, 'update_booking', req);
+
+    await Action.create({
+      type: "booking_update",
+      entityId: bookingId,
+      priority: "low",
+      metadata: {
+        bookingId: bookingId,
+        userId: req.user.uid
+      },
+      status: "Booking Updated",
+      message: 'Booking updated successfully',
+    });
 
     return res.status(200).json({
       success: true,

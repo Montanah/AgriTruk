@@ -6,6 +6,7 @@ const { logAdminActivity, logActivity } = require('../utils/activityLogger');
 const Users = require('../models/User');
 const { processMpesaPayment, processCardPayment } = require('../services/pay');
 const { formatTimestamps } = require('../utils/formatData');
+const Action = require('../models/Action');
 
 exports.manageSubscription = async (req, res) => {
   try {
@@ -237,6 +238,18 @@ exports.createSubscriber = async (req, res) => {
     const subscriber = await Subscribers.create(subData);
     await logActivity(userId, 'create_subscriber', req);
     // await logAdminActivity(req.user.uid, 'create_subscriber', req);
+    await Action.create({
+      type: "subscriber",
+      entityId: userId,
+      priority: "low",
+      metadata: {
+        userId: userId,
+        subscriberId: subscriber.subscriberId
+      },
+      status: "New",
+      message: 'New subscriber created',
+    });
+
     res.status(201).json({ success: true, message: 'Subscriber created', data: formatTimestamps(subscriber), user: formatTimestamps(user), plan: formatTimestamps(plan) });
   } catch (error) {
     console.error('Subscriber error:', error);
