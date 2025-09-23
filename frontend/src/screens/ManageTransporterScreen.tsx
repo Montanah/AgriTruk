@@ -383,6 +383,34 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   }, [transporterType]);
 
+  // Load location name for initial location (currentLocation or lastKnownLocation)
+  useEffect(() => {
+    const loadInitialLocationName = async () => {
+      const location = currentLocation || individualProfile?.lastKnownLocation;
+      if (location && !locationName) {
+        const lat = location.latitude || location.lat;
+        const lng = location.longitude || location.lng;
+        
+        if (typeof lat === 'number' && typeof lng === 'number' && lat !== 0 && lng !== 0) {
+          setLocationNameLoading(true);
+          try {
+            const placeName = await getShortLocationName({
+              latitude: lat,
+              longitude: lng
+            });
+            setLocationName(placeName);
+          } catch (error) {
+            console.error('Error loading initial location name:', error);
+          } finally {
+            setLocationNameLoading(false);
+          }
+        }
+      }
+    };
+
+    loadInitialLocationName();
+  }, [currentLocation, individualProfile?.lastKnownLocation, locationName]);
+
   React.useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -1844,7 +1872,7 @@ export default function ManageTransporterScreen({ route }: any) {
             </Text>
             {!locationName && (currentLocation || individualProfile?.lastKnownLocation) && (
               <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
-                Note: Location names require a valid Google Maps API key. Coordinates are shown as fallback.
+                Note: Converting coordinates to location name... Tap refresh if needed.
               </Text>
             )}
             {(currentLocation || individualProfile?.lastKnownLocation) && (
@@ -1864,8 +1892,9 @@ export default function ManageTransporterScreen({ route }: any) {
                         if (location) {
                           const lat = location.latitude || location.lat;
                           const lng = location.longitude || location.lng;
-                          if (typeof lat === 'number' && typeof lng === 'number') {
-                            return `Near ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                          if (typeof lat === 'number' && typeof lng === 'number' && lat !== 0 && lng !== 0) {
+                            // Show a more user-friendly fallback
+                            return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
                           }
                         }
                         return 'Location not available';
