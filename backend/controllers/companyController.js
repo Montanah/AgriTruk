@@ -75,6 +75,47 @@ exports.createCompany = async (req, res) => {
 
     const userData = await User.get(userId); 
 
+    // Check if transporter record exists, if not create a minimal one for company
+    let transporterExists = false;
+    try {
+      const existingTransporter = await Transporter.get(userId);
+      transporterExists = true;
+    } catch (error) {
+      console.log('No existing transporter found, creating minimal transporter record for company');
+      transporterExists = false;
+    }
+
+    if (!transporterExists) {
+      // Create minimal transporter record for company
+      const minimalTransporterData = {
+        transporterId: userId,
+        userId: userId,
+        transporterType: 'company',
+        displayName: userData?.name || 'Company Transporter',
+        phoneNumber: userData?.phone,
+        email: userData?.email,
+        driverProfileImage: logoUrl, // Use company logo as profile image
+        acceptingBooking: false,
+        status: 'pending',
+        rejectionReason: null,
+        totalTrips: 0,
+        rating: 0,
+        currentRoute: [],
+        lastKnownLocation: null,
+        notificationPreferences: { method: 'both' },
+        // Company-specific fields
+        companyName: name,
+        companyReg: registration,
+        companyContact: contact,
+        companyLogo: logoUrl,
+        companyEmail: userData?.email,
+        companyAddress: '',
+      };
+      
+      await Transporter.create(minimalTransporterData);
+      console.log('Created minimal transporter record for company user');
+    }
+
     const companyData = {
       name,
       registration,
