@@ -280,7 +280,7 @@ const TransporterServiceScreen = () => {
           // console.log('Job rejected:', job);
         }}
         onViewAll={() => {
-          navigation.navigate('JobManagementScreen');
+          navigation.navigate('AllAvailableJobsScreen');
         }}
       />
 

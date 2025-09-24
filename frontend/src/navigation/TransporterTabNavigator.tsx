@@ -16,6 +16,7 @@ import TransporterServiceScreen from '../screens/TransporterServiceScreen';
 import TripDetailsScreen from '../screens/TripDetailsScreen';
 import JobManagementScreen from '../screens/JobManagementScreen';
 import RouteLoadsScreen from '../screens/RouteLoadsScreen';
+import AllAvailableJobsScreen from '../screens/AllAvailableJobsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -24,6 +25,7 @@ const HomeStack = ({ transporterType }) => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="TransporterService" component={TransporterServiceScreen} initialParams={{ transporterType }} />
     <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
+    <Stack.Screen name="AllAvailableJobsScreen" component={AllAvailableJobsScreen} />
     <Stack.Screen name="RouteLoadsScreen" component={RouteLoadsScreen} />
     <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
     <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
