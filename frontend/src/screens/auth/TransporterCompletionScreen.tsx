@@ -1503,14 +1503,32 @@ export default function TransporterCompletionScreen() {
         }
       } else {
         // Company submission - create FormData for multipart/form-data request
+        // TEMPORARY WORKAROUND: Use transporter API format for company creation
         const formData = new FormData();
-        formData.append('name', companyName);
-        formData.append('registration', companyReg);
-        formData.append('contact', companyContact);
         
-        // Add logo file if available
+        // Company-specific fields (mapped to transporter fields)
+        formData.append('transporterType', 'company');
+        formData.append('companyName', companyName);
+        formData.append('companyReg', companyReg);
+        formData.append('companyContact', companyContact);
+        
+        // Required transporter fields (using company data)
+        formData.append('vehicleType', 'truck'); // Default for company
+        formData.append('vehicleRegistration', companyReg); // Use company reg as vehicle reg
+        formData.append('vehicleMake', 'Company Vehicle');
+        formData.append('vehicleModel', 'Company Model');
+        formData.append('vehicleColor', 'White');
+        formData.append('vehicleYear', '2024');
+        formData.append('vehicleCapacity', '10');
+        formData.append('driveType', '4WD');
+        formData.append('bodyType', 'closed');
+        formData.append('vehicleFeatures', '');
+        formData.append('humidityControl', 'false');
+        formData.append('refrigerated', 'false');
+        
+        // Add logo file as profile photo
         if (profilePhoto && profilePhoto.uri) {
-          formData.append('logo', {
+          formData.append('profilePhoto', {
             uri: profilePhoto.uri,
             type: profilePhoto.type || 'image/jpeg',
             name: 'company-logo.jpg',
