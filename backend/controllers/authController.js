@@ -407,7 +407,7 @@ exports.forgotPassword = async (req, res) => {
     if (email) {
       user = await admin.auth().getUserByEmail(email);
     } else if (phone) {
-      // Try multiple phone number formats to find the user
+      // First try to find user by phone number in Firebase Auth
       const phoneFormats = [
         phone, // Original format
         formatPhoneNumberAuth(phone), // +254 format
@@ -419,16 +419,61 @@ exports.forgotPassword = async (req, res) => {
       // Remove duplicates
       const uniqueFormats = [...new Set(phoneFormats)];
       
+      console.log('Phone lookup - trying formats:', uniqueFormats);
+      
       for (const phoneFormat of uniqueFormats) {
         try {
+          console.log(`Trying phone format: ${phoneFormat}`);
           user = await admin.auth().getUserByPhoneNumber(phoneFormat);
+          console.log(`Found user with phone format: ${phoneFormat}`, user.uid);
           if (user) break; // Found user, exit loop
         } catch (error) {
+          console.log(`Phone format ${phoneFormat} failed:`, error.message);
           // Continue to next format if this one fails
           continue;
         }
       }
+      
+      // If phone lookup failed, try to find user in Firestore and link phone
+      if (!user) {
+        console.log('Firebase Auth phone lookup failed, trying Firestore lookup');
+        try {
+          const usersSnapshot = await admin.firestore()
+            .collection('users')
+            .where('phone', '==', phone)
+            .limit(1)
+            .get();
+          
+          if (!usersSnapshot.empty) {
+            const userDoc = usersSnapshot.docs[0];
+            const userData = userDoc.data();
+            console.log('Found user in Firestore:', userData.uid, 'email:', userData.email);
+            
+            // Get the Firebase Auth user by UID
+            try {
+              user = await admin.auth().getUser(userData.uid);
+              console.log('Successfully retrieved Firebase Auth user by UID');
+              
+              // Link the phone number to the existing user
+              try {
+                await admin.auth().updateUser(user.uid, {
+                  phoneNumber: formatPhoneNumberAuth(phone)
+                });
+                console.log('Successfully linked phone number to user');
+              } catch (linkError) {
+                console.log('Failed to link phone number:', linkError.message);
+                // Continue anyway - we can still send SMS
+              }
+            } catch (authError) {
+              console.log('Firebase Auth user not found by UID:', authError.message);
+            }
+          }
+        } catch (firestoreError) {
+          console.log('Firestore lookup error:', firestoreError.message);
+        }
+      }
     }
+
 
     if (!user) {
       return res.status(404).json({
