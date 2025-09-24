@@ -1,0 +1,17 @@
+export const PRODUCT_SUGGESTIONS: string[] = [
+  'Maize',
+  'Fruits',
+  'Beans',
+  'Wheat',
+  'Rice',
+  'Vegetables',
+  'Coffee',
+  'Tea',
+  'Livestock',
+  'Machinery',
+  'Electronics',
+  'Furniture',
+  'Clothing',
+  'Chemicals',
+  'Other',
+];

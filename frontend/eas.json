@@ -1,0 +1,101 @@
+{
+  "cli": {
+    "version": ">= 16.13.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://agritruk.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAXJfJ7Vc5AavATttxs50DKHaW-OMV5L2A",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "agritruk-d543b.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "agritruk-d543b",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "agritruk-d543b.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "86814869135",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa",
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://agritruk.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAXJfJ7Vc5AavATttxs50DKHaW-OMV5L2A",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "agritruk-d543b.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "agritruk-d543b",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "agritruk-d543b.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "86814869135",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa",
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "buildConfiguration": "Release",
+        "distribution": "store"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://agritruk.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAXJfJ7Vc5AavATttxs50DKHaW-OMV5L2A",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "agritruk-d543b.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "agritruk-d543b",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "agritruk-d543b.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "86814869135",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa",
+      }
+    },
+    "testing": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "ios": {
+        "buildConfiguration": "Release",
+        "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://agritruk.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAXJfJ7Vc5AavATttxs50DKHaW-OMV5L2A",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "agritruk-d543b.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "agritruk-d543b",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "agritruk-d543b.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "86814869135",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa",
+      }
+    },
+    "appstore": {
+      "ios": {
+        "buildConfiguration": "Release",
+        "distribution": "store"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://agritruk.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAXJfJ7Vc5AavATttxs50DKHaW-OMV5L2A",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "agritruk-d543b.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "agritruk-d543b",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "agritruk-d543b.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "86814869135",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa",
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

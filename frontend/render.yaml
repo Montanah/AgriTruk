@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: agritruk-frontend
+    env: node
+    plan: free
+    buildCommand: npm install && npx expo export --platform web
+    startCommand: npx serve dist
+    envVars:
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /
