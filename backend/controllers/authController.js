@@ -407,8 +407,27 @@ exports.forgotPassword = async (req, res) => {
     if (email) {
       user = await admin.auth().getUserByEmail(email);
     } else if (phone) {
-      const formatPhone = formatPhoneNumberAuth(phone);
-      user = await admin.auth().getUserByPhoneNumber(formatPhone);
+      // Try multiple phone number formats to find the user
+      const phoneFormats = [
+        phone, // Original format
+        formatPhoneNumberAuth(phone), // +254 format
+        phone.replace(/^\+/, ''), // Without + prefix
+        phone.replace(/^0/, '+254'), // Convert 0 to +254
+        phone.replace(/^0/, '254'), // Convert 0 to 254
+      ];
+      
+      // Remove duplicates
+      const uniqueFormats = [...new Set(phoneFormats)];
+      
+      for (const phoneFormat of uniqueFormats) {
+        try {
+          user = await admin.auth().getUserByPhoneNumber(phoneFormat);
+          if (user) break; // Found user, exit loop
+        } catch (error) {
+          // Continue to next format if this one fails
+          continue;
+        }
+      }
     }
 
     if (!user) {
