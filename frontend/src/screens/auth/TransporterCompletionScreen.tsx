@@ -1535,6 +1535,15 @@ export default function TransporterCompletionScreen() {
         
         // Try using apiRequest with FormData
         try {
+          console.log('Making request to:', `${API_ENDPOINTS.COMPANIES}`);
+          console.log('Request headers:', {
+            'Authorization': `Bearer ${token.substring(0, 20)}...`,
+          });
+          
+          // Add timeout to the request
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+          
           const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
             method: 'POST',
             headers: {
@@ -1542,7 +1551,10 @@ export default function TransporterCompletionScreen() {
               // Don't set Content-Type - let fetch set it with boundary for FormData
             },
             body: formData,
+            signal: controller.signal,
           });
+          
+          clearTimeout(timeoutId);
           
           console.log('Company creation response:', res.status, res.statusText);
           
@@ -1580,8 +1592,12 @@ export default function TransporterCompletionScreen() {
           
           let errorMsg = 'Failed to create company. Please try again.';
           
-          if (error.message) {
-            if (error.message.includes('400')) {
+          if (error.name === 'AbortError') {
+            errorMsg = 'Request timed out. Please check your internet connection and try again.';
+          } else if (error.message) {
+            if (error.message.includes('Network request failed')) {
+              errorMsg = 'Network error. Please check your internet connection and try again.';
+            } else if (error.message.includes('400')) {
               errorMsg = 'Please check your company information and try again.';
             } else if (error.message.includes('409')) {
               errorMsg = 'A company with this name or registration already exists.';
