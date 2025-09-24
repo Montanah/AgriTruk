@@ -1531,29 +1531,8 @@ export default function TransporterCompletionScreen() {
           const companyData = await res.json();
           console.log('Company created successfully:', companyData);
           
-          // Continue with transporter update
-          const transporterPayload = {
-            transporterType: 'company',
-            companyName,
-            companyReg,
-            companyContact,
-            companyLogo: companyData.logo || '',
-            companyEmail: user.email || undefined,
-            companyAddress: '',
-          };
-          
-          const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(transporterPayload),
-          });
-          
-          if (!transporterRes.ok) {
-            console.warn('Failed to update transporter with company details, but company was created');
-          }
+          // Transporter record is now created automatically in the backend
+          // No need to update transporter separately
           
           // Send company profile submission notification
           try {
