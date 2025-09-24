@@ -1,20 +1,9 @@
 # Backend folder - keep for reference only, never commit
 
-# Build scripts and backups (local development only)
+# Build scripts and documentation (local development only)
 *.sh
-create-eas-project.sh
-setup-new-eas-project.sh
-build-apk.sh
-build-ios.sh
-build-all.sh
-build-local.sh
-build-aab.sh
-quick-build.sh
-setup-build.sh
-start-dev.sh
-dev-android.sh
-dev-ios.sh
-setup-eas.sh
+*.md
+!README.md
 frontend/app.config.js.backup
 frontend/app.json.backup
 
@@ -44,6 +33,13 @@ frontend/app-icon_*.png
 frontend/dist/
 frontend/build/
 frontend/web-build/
+frontend/android/
+frontend/ios/
+build-outputs/
+*.apk
+*.ipa
+*.aab
+TRUKapp-release.*
 
 # Logs
 *.log
