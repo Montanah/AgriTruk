@@ -485,11 +485,20 @@ exports.forgotPassword = async (req, res) => {
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
     const resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes expiry
 
+    console.log('Storing reset token:', {
+      userId: user.uid,
+      verificationCode,
+      resetTokenExpiry,
+      expiryDate: new Date(resetTokenExpiry).toISOString()
+    });
+
     // Store reset token and expiry in database
     await User.update(user.uid, {
       resetToken: verificationCode,
       resetTokenExpiry: resetTokenExpiry
     });
+
+    console.log('Reset token stored successfully for user:', user.uid);
 
     if (email) {
       const userData = await User.get(user.uid);
@@ -529,6 +538,8 @@ exports.verifyPasswordResetCode = async (req, res) => {
   try {
     const { code, userId } = req.body;
 
+    console.log('Verify password reset code - received:', { code, userId });
+
     if (!code || !userId) {
       return res.status(400).json({
         code: 'ERR_INVALID_INPUT',
@@ -538,19 +549,30 @@ exports.verifyPasswordResetCode = async (req, res) => {
 
     const user = await User.get(userId);
     if (!user) {
+      console.log('User not found for userId:', userId);
       return res.status(404).json({
         code: 'ERR_USER_NOT_FOUND',
         message: 'User not found'
       });
     }
 
+    console.log('User found:', {
+      uid: user.uid,
+      resetToken: user.resetToken,
+      resetTokenExpiry: user.resetTokenExpiry,
+      currentTime: Date.now(),
+      tokenMatches: user.resetToken === code,
+      tokenNotExpired: user.resetTokenExpiry > Date.now()
+    });
+
     if (user.resetToken === code && user.resetTokenExpiry > Date.now()) {
-      
+      console.log('Password reset code is valid');
       res.status(200).json({
         message: 'Password reset code is valid',
         userId: userId
       });
     } else {
+      console.log('Invalid or expired password reset code');
       res.status(400).json({
         code: 'ERR_INVALID_CODE',
         message: 'Invalid or expired password reset code'
