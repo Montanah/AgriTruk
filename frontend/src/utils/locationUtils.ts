@@ -11,9 +11,9 @@ export interface Location {
 // Cache for location names to avoid repeated API calls
 const locationNameCache = new Map<string, string>();
 
-// Kenyan locations lookup table for common places
-const kenyanLocations: { [key: string]: string } = {
-  // Major cities
+// Location lookup table for common places (Kenya and US)
+const locationLookup: { [key: string]: string } = {
+  // Kenyan locations
   '-1.2921,36.8219': 'Nairobi, Kenya',
   '-4.0435,39.6682': 'Mombasa, Kenya',
   '-0.0917,34.7680': 'Kisumu, Kenya',
@@ -39,6 +39,18 @@ const kenyanLocations: { [key: string]: string } = {
   '-1.0667,34.4667': 'Migori, Kenya',
   '-0.6833,34.7667': 'Kisii, Kenya',
   '-0.5667,34.9500': 'Nyamira, Kenya',
+  
+  // US locations (for testing/development)
+  '37.4244,-122.0861': 'Mountain View, CA, USA', // Google HQ area
+  '37.7749,-122.4194': 'San Francisco, CA, USA',
+  '37.4419,-122.1430': 'Palo Alto, CA, USA',
+  '40.7128,-74.0060': 'New York, NY, USA',
+  '34.0522,-118.2437': 'Los Angeles, CA, USA',
+  '41.8781,-87.6298': 'Chicago, IL, USA',
+  '29.7604,-95.3698': 'Houston, TX, USA',
+  '33.4484,-112.0740': 'Phoenix, AZ, USA',
+  '39.9526,-75.1652': 'Philadelphia, PA, USA',
+  '32.7767,-96.7970': 'Dallas, TX, USA',
 };
 
 /**
@@ -61,18 +73,18 @@ export const convertCoordinatesToPlaceName = async (latitude: number, longitude:
       return locationNameCache.get(cacheKey)!;
     }
 
-    // Check lookup table for common Kenyan locations
+    // Check lookup table for common locations
     const coordKey = `${latitude.toFixed(4)},${longitude.toFixed(4)}`;
     console.log('🔍 Checking coordinates:', coordKey, 'in lookup table');
-    if (kenyanLocations[coordKey]) {
-      console.log('✅ Found in lookup table:', kenyanLocations[coordKey]);
-      locationNameCache.set(cacheKey, kenyanLocations[coordKey]);
-      return kenyanLocations[coordKey];
+    if (locationLookup[coordKey]) {
+      console.log('✅ Found in lookup table:', locationLookup[coordKey]);
+      locationNameCache.set(cacheKey, locationLookup[coordKey]);
+      return locationLookup[coordKey];
     }
 
     // Use Google Maps Geocoding API for other locations
     try {
-      const placeName = await googleMapsService.reverseGeocode(latitude, longitude);
+      const placeName = await googleMapsService.reverseGeocode({ latitude, longitude });
       if (placeName) {
         locationNameCache.set(cacheKey, placeName);
         return placeName;
@@ -126,9 +138,9 @@ export const cleanLocationDisplay = (location: string | Location | any): string 
     
     // Check lookup table for common Kenyan locations
     const coordKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-    if (kenyanLocations[coordKey]) {
-      locationNameCache.set(cacheKey, kenyanLocations[coordKey]);
-      return kenyanLocations[coordKey];
+    if (locationLookup[coordKey]) {
+      locationNameCache.set(cacheKey, locationLookup[coordKey]);
+      return locationLookup[coordKey];
     }
     
     // Return coordinates if not found in lookup table
@@ -149,9 +161,9 @@ export const cleanLocationDisplay = (location: string | Location | any): string 
     
     // Check lookup table for common Kenyan locations
     const coordKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-    if (kenyanLocations[coordKey]) {
-      locationNameCache.set(cacheKey, kenyanLocations[coordKey]);
-      return kenyanLocations[coordKey];
+    if (locationLookup[coordKey]) {
+      locationNameCache.set(cacheKey, locationLookup[coordKey]);
+      return locationLookup[coordKey];
     }
     
     // Return coordinates if not found in lookup table
