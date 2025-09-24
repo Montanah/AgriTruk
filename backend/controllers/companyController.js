@@ -1,6 +1,7 @@
 const Company = require('../models/Company');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const sendEmail = require("../utils/sendEmail");
+const { adminNotification } = require('../utils/sendMailTemplate');
 const Notification = require('../models/Notification');
 const Transporter = require('../models/Transporter');
 const Vehicle = require('../models/Vehicle');

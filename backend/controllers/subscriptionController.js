@@ -454,7 +454,7 @@ exports.getSubcriberStatus = async (req, res) => {
 async function checkTrialEligibility(userId) {
   try {
     // Check if user has ever had any subscription
-    const hasPreviousSubscriptions = await Subscribers.hasAnySubcription(userId);
+    const hasPreviousSubscriptions = await Subscribers.hasAnySubscription(userId);
     
     // Check if user has already used a trial
     const hasUsedTrialBefore = await hasUsedTrial(userId);
