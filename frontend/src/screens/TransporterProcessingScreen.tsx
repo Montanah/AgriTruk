@@ -44,33 +44,64 @@ export default function TransporterProcessingScreen({ route }) {
       const status = await subscriptionService.getSubscriptionStatus();
       setSubscriptionStatus(status);
       
+      console.log('Transporter subscription status:', status);
+      
       // If user needs trial activation, redirect to trial screen
-      if (status.needsTrialActivation) {
-        navigation.navigate('SubscriptionTrialScreen', { 
-          userType: transporterType,
-          subscriptionStatus: status 
+      if (status.needsTrialActivation || 
+          !status || 
+          (!status.hasActiveSubscription && !status.isTrialActive && status.subscriptionStatus === 'none')) {
+        console.log('Transporter needs trial activation, redirecting to trial screen');
+        navigation.reset({
+          index: 0,
+          routes: [{
+            name: 'SubscriptionTrialScreen',
+            params: {
+              userType: transporterType,
+              subscriptionStatus: status
+            }
+          }]
         });
         return;
       }
       
       // If subscription has expired, redirect to expiry screen
       if (status.subscriptionStatus === 'expired' || status.trialUsed) {
-        navigation.navigate('SubscriptionExpiredScreen', { 
-          userType: transporterType,
-          userId: 'current_user', // Will be replaced with actual user ID
-          expiredDate: new Date().toISOString()
+        console.log('Transporter subscription expired, redirecting to expired screen');
+        navigation.reset({
+          index: 0,
+          routes: [{
+            name: 'SubscriptionExpiredScreen',
+            params: {
+              userType: transporterType,
+              userId: 'current_user', // Will be replaced with actual user ID
+              expiredDate: new Date().toISOString()
+            }
+          }]
         });
         return;
       }
       
       // If trial is active but expiring soon (less than 3 days), show warning
       if (status.isTrialActive && status.daysRemaining <= 3) {
-        // You could show a warning modal here
         console.log(`Trial expiring in ${status.daysRemaining} days`);
+        // You could show a warning modal here
       }
+      
+      console.log('Transporter has active subscription, proceeding to dashboard');
       
     } catch (error) {
       console.error('Error checking subscription status:', error);
+      // On error, assume user needs trial activation
+      navigation.reset({
+        index: 0,
+        routes: [{
+          name: 'SubscriptionTrialScreen',
+          params: {
+            userType: transporterType,
+            subscriptionStatus: { needsTrialActivation: true }
+          }
+        }]
+      });
     } finally {
       setCheckingSubscription(false);
     }
@@ -395,17 +426,23 @@ export default function TransporterProcessingScreen({ route }) {
                 
                 // If approved, check subscription status before navigating
                 if (status === 'approved') {
+                  // Check subscription status and let it handle navigation
                   await checkSubscriptionStatus();
                   
-                  // If no subscription issues, navigate to dashboard
+                  // Only navigate to dashboard if subscription check didn't redirect elsewhere
+                  // The checkSubscriptionStatus function will handle navigation to trial/expired screens
+                  // If it returns without redirecting, then user has active subscription
                   setTimeout(() => {
-                    navigation.reset({
-                      index: 0,
-                      routes: [
-                        { name: 'TransporterTabs', params: { transporterType: (data.transporter && data.transporter.transporterType) || transporterType } },
-                      ],
-                    });
-                  }, 1200);
+                    // Double-check that we're still on this screen (not redirected by subscription check)
+                    if (navigation.getState().routes[navigation.getState().index].name === 'TransporterProcessingScreen') {
+                      navigation.reset({
+                        index: 0,
+                        routes: [
+                          { name: 'TransporterTabs', params: { transporterType: (data.transporter && data.transporter.transporterType) || transporterType } },
+                        ],
+                      });
+                    }
+                  }, 2000); // Increased timeout to allow subscription check to complete
                 }
               } catch (fetchError) {
                 clearTimeout(timeoutId);
