@@ -1506,29 +1506,16 @@ export default function TransporterCompletionScreen() {
         // TEMPORARY WORKAROUND: Use transporter API format for company creation
         const formData = new FormData();
         
-        // Company-specific fields (mapped to transporter fields)
-        formData.append('transporterType', 'company');
-        formData.append('companyName', companyName);
-        formData.append('companyReg', companyReg);
-        formData.append('companyContact', companyContact);
+        // Company-specific fields (using correct backend field names)
+        formData.append('name', companyName);
+        formData.append('registration', companyReg);
+        formData.append('contact', companyContact);
         
-        // Required transporter fields (using company data)
-        formData.append('vehicleType', 'truck'); // Default for company
-        formData.append('vehicleRegistration', companyReg); // Use company reg as vehicle reg
-        formData.append('vehicleMake', 'Company Vehicle');
-        formData.append('vehicleModel', 'Company Model');
-        formData.append('vehicleColor', 'White');
-        formData.append('vehicleYear', '2024');
-        formData.append('vehicleCapacity', '10');
-        formData.append('driveType', '4WD');
-        formData.append('bodyType', 'closed');
-        formData.append('vehicleFeatures', '');
-        formData.append('humidityControl', 'false');
-        formData.append('refrigerated', 'false');
+        // No additional fields needed for company creation
         
-        // Add logo file as profile photo
+        // Add logo file (backend expects 'logo' field name)
         if (profilePhoto && profilePhoto.uri) {
-          formData.append('profilePhoto', {
+          formData.append('logo', {
             uri: profilePhoto.uri,
             type: profilePhoto.type || 'image/jpeg',
             name: 'company-logo.jpg',
