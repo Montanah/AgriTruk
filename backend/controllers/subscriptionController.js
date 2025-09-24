@@ -450,6 +450,23 @@ exports.getSubcriberStatus = async (req, res) => {
   }
 };
 
+// Helper function to check if user has used trial before
+async function hasUsedTrial(userId) {
+  try {
+    const subscriber = await Subscribers.getByUserId(userId);
+    if (!subscriber) {
+      return false;
+    }
+    return subscriber.some(async (sub) => {
+      const plan = await SubscriptionPlans.getSubscriptionPlan(sub.planId);
+      return plan && plan.price === 0;
+    });
+  } catch (error) {
+    console.error('Error checking trial usage:', error);
+    return false;
+  }
+}
+
 // Helper function to check trial eligibility
 async function checkTrialEligibility(userId) {
   try {
@@ -467,22 +484,6 @@ async function checkTrialEligibility(userId) {
     return false;
   }
 }
-
-async function hasUsedTrial(userId) {
-  try {
-    const subscriber = await Subscribers.getByUserId(userId);
-    if (!subscriber) {
-      return false;
-    }
-    return subscriber.some(async (sub) => {
-      const plan = await SubscriptionPlans.getSubscriptionPlan(sub.planId);
-      return plan && plan.price === 0;
-    });
-  } catch (error) {
-    console.error('Error checking trial usage:', error);
-    return false;
-  }
-};
 
 
 exports.changePlan = async (req, res) => {
