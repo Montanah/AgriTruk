@@ -1,5 +1,4 @@
 # Backend folder - keep for reference only, never commit
-backend/
 
 # Build scripts and backups (local development only)
 *.sh
