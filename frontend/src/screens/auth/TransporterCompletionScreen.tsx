@@ -515,10 +515,21 @@ export default function TransporterCompletionScreen() {
   const validatePhone = (phone: string): boolean => {
     if (!phone) return false;
     const cleanPhone = phone.replace(/\s/g, '');
-    // Accept various phone number formats: 01, 07, 011, etc.
-    // Remove leading 0 and check if it's 9-10 digits
-    const withoutLeadingZero = cleanPhone.startsWith('0') ? cleanPhone.slice(1) : cleanPhone;
-    return /^[0-9]{9,10}$/.test(withoutLeadingZero);
+    
+    // Handle international format (+254...)
+    if (cleanPhone.startsWith('+254')) {
+      const withoutCountryCode = cleanPhone.slice(4); // Remove +254
+      return /^[0-9]{9}$/.test(withoutCountryCode);
+    }
+    
+    // Handle local format (07... or 01...)
+    if (cleanPhone.startsWith('0')) {
+      const withoutLeadingZero = cleanPhone.slice(1);
+      return /^[0-9]{9}$/.test(withoutLeadingZero);
+    }
+    
+    // Handle format without leading 0 (7... or 1...)
+    return /^[0-9]{9}$/.test(cleanPhone);
   };
 
   const isValid = () => {
@@ -533,13 +544,26 @@ export default function TransporterCompletionScreen() {
         vehiclePhotos.length > 0
       );
     } else {
-      return (
+      const valid = (
         companyName &&
         companyReg &&
         companyContact &&
         validatePhone(companyContact) &&
         profilePhoto
       );
+      
+      // Debug company validation
+      console.log('Company validation check:', {
+        companyName: !!companyName,
+        companyReg: !!companyReg,
+        companyContact: !!companyContact,
+        phoneValid: validatePhone(companyContact),
+        profilePhoto: !!profilePhoto,
+        companyContactValue: companyContact,
+        isValid: valid
+      });
+      
+      return valid;
     }
   };
 
