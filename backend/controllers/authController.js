@@ -807,7 +807,7 @@ exports.resendPhoneCode = async (req, res) => {
 
 exports.deactivateAccount = async (req, res) => {
   try {
-    const uid = req.user.uid;
+    const {uid} = req.params;
     await User.update(uid, { status: 'inactive' });
 
     await logActivity(req.user.uid, 'account_deactivation', req);

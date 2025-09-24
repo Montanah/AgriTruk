@@ -1094,6 +1094,12 @@ router.delete("/delete-account/:uid", requireSuperAdmin, authController.deleteAc
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: uid
+ *         required: true
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
  *         description: User profile deleted successfully
