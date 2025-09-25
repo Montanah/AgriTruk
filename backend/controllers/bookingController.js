@@ -841,3 +841,252 @@ exports.updateBooking = async (req, res) => {
     });
   }
 };
+
+// Accept a booking request
+exports.acceptBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { transporterId, vehicleId } = req.body;
+    const userId = req.user.uid;
+
+    // Validate transporter ID matches authenticated user
+    if (transporterId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only accept bookings for yourself'
+      });
+    }
+
+    // Get booking details
+    const booking = await Booking.getById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if booking is already accepted
+    if (booking.status === 'accepted') {
+      return res.status(409).json({
+        success: false,
+        message: 'Booking already accepted'
+      });
+    }
+
+    // Check if booking is still available
+    if (booking.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking is no longer available'
+      });
+    }
+
+    // Update booking status
+    const updates = {
+      status: 'accepted',
+      transporterId: transporterId,
+      vehicleId: vehicleId || null,
+      acceptedAt: admin.firestore.Timestamp.now(),
+      updatedAt: admin.firestore.Timestamp.now()
+    };
+
+    await Booking.update(bookingId, updates);
+
+    // Get transporter details for notification
+    const transporter = await Transporter.get(transporterId);
+    
+    // Create detailed notification for client
+    await Notification.create({
+      userId: booking.userId,
+      type: 'booking_accepted',
+      title: 'Booking Accepted! 🎉',
+      message: `Your booking from ${booking.fromLocation} to ${booking.toLocation} has been accepted by ${transporter?.name || 'a transporter'}`,
+      data: {
+        bookingId: bookingId,
+        transporterId: transporterId,
+        transporterName: transporter?.name,
+        transporterPhone: transporter?.phone,
+        fromLocation: booking.fromLocation,
+        toLocation: booking.toLocation,
+        productType: booking.productType,
+        estimatedCost: booking.cost,
+        chatRoomId: `booking_${bookingId}_${transporterId}_${booking.userId}`
+      },
+      priority: 'high',
+      actionRequired: false
+    });
+
+    // Also create notification for transporter
+    await Notification.create({
+      userId: transporterId,
+      type: 'booking_accepted_confirmation',
+      title: 'Booking Accepted Successfully! ✅',
+      message: `You have accepted the booking from ${booking.fromLocation} to ${booking.toLocation}`,
+      data: {
+        bookingId: bookingId,
+        clientId: booking.userId,
+        fromLocation: booking.fromLocation,
+        toLocation: booking.toLocation,
+        productType: booking.productType,
+        estimatedCost: booking.cost
+      },
+      priority: 'medium',
+      actionRequired: false
+    });
+
+    // Log activity
+    await logActivity(userId, 'accept_booking', req);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Booking accepted successfully',
+      booking: { ...booking, ...updates }
+    });
+
+  } catch (error) {
+    console.error('Accept booking error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to accept booking'
+    });
+  }
+};
+
+// Reject a booking request
+exports.rejectBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { transporterId, reason } = req.body;
+    const userId = req.user.uid;
+
+    // Validate transporter ID matches authenticated user
+    if (transporterId !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only reject bookings for yourself'
+      });
+    }
+
+    // Get booking details
+    const booking = await Booking.getById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Update booking status
+    const updates = {
+      status: 'rejected',
+      rejectedBy: transporterId,
+      rejectionReason: reason || 'No reason provided',
+      rejectedAt: admin.firestore.Timestamp.now(),
+      updatedAt: admin.firestore.Timestamp.now()
+    };
+
+    await Booking.update(bookingId, updates);
+
+    // Create notification for client
+    await Notification.create({
+      userId: booking.userId,
+      type: 'booking_rejected',
+      title: 'Booking Rejected',
+      message: `Your booking was rejected by a transporter`,
+      data: {
+        bookingId: bookingId,
+        transporterId: transporterId,
+        reason: reason
+      },
+      priority: 'medium'
+    });
+
+    // Log activity
+    await logActivity(userId, 'reject_booking', req);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Booking rejected successfully'
+    });
+
+  } catch (error) {
+    console.error('Reject booking error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reject booking'
+    });
+  }
+};
+
+// Get real-time booking status with transporter details
+exports.getBookingStatus = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const userId = req.user.uid;
+
+    // Get booking details
+    const booking = await Booking.getById(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if user has access to this booking
+    const hasAccess = booking.userId === userId || booking.transporterId === userId;
+    if (!hasAccess) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied to this booking'
+      });
+    }
+
+    // Get transporter details if booking is accepted
+    let transporterDetails = null;
+    if (booking.transporterId) {
+      transporterDetails = await Transporter.get(booking.transporterId);
+    }
+
+    // Get recent notifications for this booking
+    const notifications = await Notification.getByBooking(bookingId);
+
+    // Calculate estimated delivery time if in progress
+    let estimatedDelivery = null;
+    if (booking.status === 'in_progress' && booking.startedAt) {
+      const startTime = booking.startedAt.toDate();
+      const estimatedDuration = booking.estimatedDuration || '2 hours';
+      const durationHours = parseInt(estimatedDuration.split(' ')[0]) || 2;
+      estimatedDelivery = new Date(startTime.getTime() + (durationHours * 60 * 60 * 1000));
+    }
+
+    const statusData = {
+      booking: {
+        ...booking,
+        transporter: transporterDetails ? {
+          id: transporterDetails.id,
+          name: transporterDetails.name,
+          phone: transporterDetails.phone,
+          rating: transporterDetails.rating,
+          profilePhoto: transporterDetails.profilePhoto
+        } : null,
+        estimatedDelivery: estimatedDelivery?.toISOString(),
+        recentNotifications: notifications.slice(0, 5) // Last 5 notifications
+      }
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: 'Booking status retrieved successfully',
+      data: statusData
+    });
+
+  } catch (error) {
+    console.error('Get booking status error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get booking status'
+    });
+  }
+};

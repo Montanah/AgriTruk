@@ -461,4 +461,144 @@ router.get('/transporter/:transporterId', authenticateToken, requireRole(['trans
  */
 router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'broker', 'shipper', 'transporter', 'business']), authorize(['manage_bookings', 'super_admin']), bookingController.updateBooking);
 
+/**
+ * @swagger
+ * /api/bookings/{bookingId}/accept:
+ *   post:
+ *     summary: Accept a booking request
+ *     description: Allows a transporter to accept a booking request
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking to accept
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - transporterId
+ *             properties:
+ *               transporterId:
+ *                 type: string
+ *                 description: ID of the transporter accepting the booking
+ *               vehicleId:
+ *                 type: string
+ *                 description: ID of the vehicle to be used (optional)
+ *     responses:
+ *       200:
+ *         description: Booking accepted successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+ *       409:
+ *         description: Booking already accepted
+ */
+router.post('/:bookingId/accept', authenticateToken, requireRole('transporter'), bookingController.acceptBooking);
+
+/**
+ * @swagger
+ * /api/bookings/{bookingId}/reject:
+ *   post:
+ *     summary: Reject a booking request
+ *     description: Allows a transporter to reject a booking request
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking to reject
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - transporterId
+ *             properties:
+ *               transporterId:
+ *                 type: string
+ *                 description: ID of the transporter rejecting the booking
+ *               reason:
+ *                 type: string
+ *                 description: Reason for rejection (optional)
+ *     responses:
+ *       200:
+ *         description: Booking rejected successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+ */
+router.post('/:bookingId/reject', authenticateToken, requireRole('transporter'), bookingController.rejectBooking);
+
+/**
+ * @swagger
+ * /api/bookings/client/{userId}:
+ *   get:
+ *     summary: Get bookings for a specific client
+ *     description: Allows clients (shipper, business, broker) to view their bookings
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the client
+ *     responses:
+ *       200:
+ *         description: Client bookings retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/client/:userId', authenticateToken, requireRole(['shipper', 'business', 'broker']), bookingController.getBookingsByUserId);
+
+/**
+ * @swagger
+ * /api/bookings/{bookingId}/status:
+ *   get:
+ *     summary: Get real-time booking status
+ *     description: Get current status and updates for a specific booking
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking
+ *     responses:
+ *       200:
+ *         description: Booking status retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+ */
+router.get('/:bookingId/status', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingStatus);
+
 module.exports = router;
