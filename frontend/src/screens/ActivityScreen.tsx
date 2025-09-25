@@ -20,8 +20,9 @@ import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 import { getAuth } from 'firebase/auth';
 import LocationDisplay from '../components/common/LocationDisplay';
-import { getDistanceBetweenLocations } from '../utils/locationUtils';
+import { getDistanceBetweenLocations, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
 import { processLocationData } from '../utils/locationProcessor';
+import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/bookingIdGenerator';
 
 interface RequestItem {
   id: string;
@@ -265,7 +266,7 @@ const ActivityScreen = () => {
       {/* Header with ID and Status */}
       <View style={styles.requestHeader}>
         <View style={styles.requestId}>
-          <Text style={styles.requestIdText}>#{item.id}</Text>
+          <Text style={styles.requestIdText}>#{getDisplayBookingId(item)}</Text>
           <View style={[styles.typeBadge, { backgroundColor: item.type === 'instant' ? colors.warning + '15' : colors.primary + '15' }]}>
             <MaterialCommunityIcons 
               name={item.type === 'instant' ? 'lightning-bolt' : 'calendar-clock'} 
@@ -298,22 +299,16 @@ const ActivityScreen = () => {
         <View style={styles.routeContainer}>
           <View style={styles.locationItem}>
             <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-            <LocationDisplay 
-              location={item.fromLocation || 'Unknown location'} 
-              iconColor={colors.primary}
-              style={styles.locationText}
-              showIcon={false}
-            />
+            <Text style={styles.locationText}>
+              {cleanLocationDisplay(item.fromLocation || 'Unknown location')}
+            </Text>
           </View>
           <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} style={styles.routeArrow} />
           <View style={styles.locationItem}>
             <MaterialCommunityIcons name="flag-checkered" size={16} color={colors.secondary} />
-            <LocationDisplay 
-              location={item.toLocation || 'Unknown location'} 
-              iconColor={colors.secondary}
-              style={styles.locationText}
-              showIcon={false}
-            />
+            <Text style={styles.locationText}>
+              {cleanLocationDisplay(item.toLocation || 'Unknown location')}
+            </Text>
           </View>
         </View>
       </View>

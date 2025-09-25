@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
+import { getDisplayBookingId, generateBookingId } from '../../utils/bookingIdGenerator';
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,6 +23,7 @@ interface SuccessBookingModalProps {
   visible: boolean;
   onClose: () => void;
   bookingId: string;
+  booking?: any; // Booking data for generating user-friendly ID
   isConsolidated?: boolean;
   onViewBooking?: () => void;
   onContinue?: () => void;
@@ -31,6 +33,7 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
   visible,
   onClose,
   bookingId,
+  booking,
   isConsolidated = false,
   onViewBooking,
   onContinue,
@@ -189,12 +192,15 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
                 <Text style={styles.bookingIdLabel}>Booking ID</Text>
               </View>
               <View style={styles.bookingIdValueContainer}>
-                <Text style={styles.bookingIdValue}>{bookingId}</Text>
+                <Text style={styles.bookingIdValue}>
+                  {booking ? getDisplayBookingId(booking, bookingId) : bookingId}
+                </Text>
                 <TouchableOpacity
                   style={styles.copyButton}
                   onPress={() => {
                     // Copy to clipboard functionality would go here
-                    Alert.alert('Copied', 'Booking ID copied to clipboard');
+                    const displayId = booking ? getDisplayBookingId(booking, bookingId) : bookingId;
+                    Alert.alert('Copied', `Booking ID ${displayId} copied to clipboard`);
                   }}
                 >
                   <MaterialCommunityIcons

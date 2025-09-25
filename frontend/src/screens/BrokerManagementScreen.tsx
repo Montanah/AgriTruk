@@ -6,8 +6,9 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
-import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
+import { getReadableLocationName, formatRoute, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
+import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/bookingIdGenerator';
 
 interface RequestItem {
     id: string;
@@ -255,24 +256,31 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 </View>
             </View>
 
+            {/* Booking ID */}
+            <View style={styles.bookingIdContainer}>
+                <Text style={styles.bookingIdLabel}>ID:</Text>
+                <Text style={styles.bookingIdValue}>{getDisplayBookingId(item)}</Text>
+            </View>
+
             <View style={styles.clientInfo}>
                 <Text style={styles.clientName}>{item.clientName}</Text>
                 <Text style={styles.clientCompany}>{item.clientCompany}</Text>
             </View>
 
             <View style={styles.routeInfo}>
-                <LocationDisplay 
-                    location={item.fromLocation || 'Unknown location'} 
-                    style={styles.routeText}
-                    iconColor={colors.primary}
-                />
+                <View style={styles.routeItem}>
+                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                    <Text style={styles.routeText}>
+                        {cleanLocationDisplay(item.fromLocation || 'Unknown location')}
+                    </Text>
+                </View>
                 <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
-                <LocationDisplay 
-                    location={item.toLocation || 'Unknown location'} 
-                    style={styles.routeText}
-                    iconColor={colors.success}
-                    iconName="map-marker-check"
-                />
+                <View style={styles.routeItem}>
+                    <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
+                    <Text style={styles.routeText}>
+                        {cleanLocationDisplay(item.toLocation || 'Unknown location')}
+                    </Text>
+                </View>
             </View>
 
             <View style={styles.cargoInfo}>
@@ -974,6 +982,24 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: spacing.md,
     },
+    bookingIdContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+        padding: spacing.xs,
+        backgroundColor: colors.background,
+        borderRadius: 6,
+    },
+    bookingIdLabel: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginRight: spacing.xs,
+    },
+    bookingIdValue: {
+        fontSize: fonts.size.sm,
+        fontWeight: fonts.weight.bold,
+        color: colors.primary,
+    },
     requestType: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1021,8 +1047,8 @@ const styles = StyleSheet.create({
     routeItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: spacing.xs,
         flex: 1,
+        gap: spacing.xs,
     },
     routeText: {
         fontSize: fonts.size.sm,

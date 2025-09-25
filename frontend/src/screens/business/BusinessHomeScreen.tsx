@@ -11,6 +11,8 @@ import Spacer from '../../components/common/Spacer';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import { db } from '../../firebaseConfig';
+import { getDisplayBookingId } from '../../utils/bookingIdGenerator';
+import { cleanLocationDisplay } from '../../utils/locationUtils';
 
 interface BusinessData {
   name: string;
@@ -249,8 +251,10 @@ const BusinessHomeScreen = ({ navigation }: any) => {
                 {recentBookings.map((b) => (
                   <TouchableOpacity key={b.id} style={styles.bookingRow} activeOpacity={0.8}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.bookingId}>{b.id}</Text>
-                      <Text style={styles.bookingRoute}>{b.from} → {b.to}</Text>
+                      <Text style={styles.bookingId}>{getDisplayBookingId(b)}</Text>
+                      <Text style={styles.bookingRoute}>
+                        {cleanLocationDisplay(b.from)} → {cleanLocationDisplay(b.to)}
+                      </Text>
                       <Text style={styles.bookingType}>{b.type}</Text>
                     </View>
                     <View style={styles.bookingStatusWrap}>
