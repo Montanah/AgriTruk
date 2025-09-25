@@ -11,7 +11,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts, spacing } from '../constants';
 import { apiRequest } from '../utils/api';
-import { getReadableLocationName } from '../utils/locationUtils';
+import { getReadableLocationName, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
+import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 
 interface BookingTrackerProps {
   bookingId: string;
@@ -186,19 +187,25 @@ const ClientBookingTracker: React.FC<BookingTrackerProps> = ({
 
       {/* Status Message */}
       <Text style={styles.statusMessage}>{getStatusMessage(booking.status)}</Text>
+      
+      {/* Booking ID */}
+      <View style={styles.bookingIdContainer}>
+        <Text style={styles.bookingIdLabel}>Booking ID:</Text>
+        <Text style={styles.bookingIdValue}>{getDisplayBookingId(booking)}</Text>
+      </View>
 
       {/* Route Information */}
       <View style={styles.routeContainer}>
         <View style={styles.routeItem}>
           <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
           <Text style={styles.routeText}>
-            From: {getReadableLocationName(booking.fromLocation)}
+            From: {cleanLocationDisplay(booking.fromLocation)}
           </Text>
         </View>
         <View style={styles.routeItem}>
           <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
           <Text style={styles.routeText}>
-            To: {getReadableLocationName(booking.toLocation)}
+            To: {cleanLocationDisplay(booking.toLocation)}
           </Text>
         </View>
       </View>
@@ -352,6 +359,24 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     color: colors.text,
     marginBottom: spacing.md,
+  },
+  bookingIdContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    padding: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+  },
+  bookingIdLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text,
+    marginRight: spacing.sm,
+  },
+  bookingIdValue: {
+    fontSize: fonts.size.sm,
+    fontWeight: fonts.weight.bold,
+    color: colors.primary,
   },
   routeContainer: {
     marginBottom: spacing.md,

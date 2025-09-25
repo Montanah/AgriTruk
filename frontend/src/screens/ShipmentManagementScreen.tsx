@@ -17,7 +17,8 @@ import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
 import LocationDisplay from '../components/common/LocationDisplay';
 import { chatService } from '../services/chatService';
 import { apiRequest } from '../utils/api';
-import { getReadableLocationName } from '../utils/locationUtils';
+import { getReadableLocationName, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
+import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 
 const { width, height } = Dimensions.get('window');
 
@@ -271,6 +272,7 @@ const ShipmentManagementScreen = () => {
           <Text style={styles.headerSubtitle}>
             {isInstant ? 'Instant Request' : 'Scheduled Booking'}
           </Text>
+          <Text style={styles.bookingIdText}>ID: {getDisplayBookingId(booking)}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking?.status) }]}>
           <MaterialCommunityIcons 
@@ -305,14 +307,14 @@ const ShipmentManagementScreen = () => {
                 id: 'pickup',
                 coordinate: routeCoordinates[1],
                 title: 'Pickup Location',
-                description: getReadableLocationName(booking?.fromLocation),
+                description: cleanLocationDisplay(booking?.fromLocation),
                 pinColor: colors.warning,
               },
               {
                 id: 'destination',
                 coordinate: routeCoordinates[2],
                 title: 'Destination',
-                description: getReadableLocationName(booking?.toLocation),
+                description: cleanLocationDisplay(booking?.toLocation),
                 pinColor: colors.success,
               }
             ] : [])
@@ -474,6 +476,12 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.sm,
     color: colors.white,
     opacity: 0.8,
+  },
+  bookingIdText: {
+    fontSize: fonts.size.xs,
+    color: colors.white,
+    opacity: 0.7,
+    fontWeight: fonts.weight.medium,
   },
   statusBadge: {
     flexDirection: 'row',

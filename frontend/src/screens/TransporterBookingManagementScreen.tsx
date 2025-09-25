@@ -20,7 +20,8 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
-import { cleanLocationDisplay } from '../utils/locationUtils';
+import { cleanLocationDisplay, getReadableLocationName, formatRoute, getReadableLocationNameSync } from '../utils/locationUtils';
+import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 import { chatService } from '../services/chatService';
 import { enhancedNotificationService } from '../services/enhancedNotificationService';
 
@@ -617,7 +618,7 @@ const TransporterBookingManagementScreen = () => {
         <View style={styles.jobCard}>
             <View style={styles.jobHeader}>
                 <View style={styles.jobInfo}>
-                    <Text style={styles.jobId}>#{item.id}</Text>
+                    <Text style={styles.jobId}>#{getDisplayBookingId(item)}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getJobStatusColor(item.status) + '20' }]}>
                         <Text style={[styles.statusText, { color: getJobStatusColor(item.status) }]}>
                             {item.status?.toUpperCase() || 'PENDING'}
@@ -675,7 +676,7 @@ const TransporterBookingManagementScreen = () => {
         <View style={styles.loadCard}>
             <View style={styles.loadHeader}>
                 <View style={styles.loadInfo}>
-                    <Text style={styles.loadId}>#{item.id}</Text>
+                    <Text style={styles.loadId}>#{getDisplayBookingId(item)}</Text>
                     <View style={[styles.urgencyBadge, { backgroundColor: getUrgencyColor(item.urgency) + '20' }]}>
                         <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency) }]}>
                             {item.urgency?.toUpperCase() || 'MEDIUM'}
@@ -743,7 +744,7 @@ const TransporterBookingManagementScreen = () => {
         <View style={styles.completedJobCard}>
             <View style={styles.jobHeader}>
                 <View style={styles.jobInfo}>
-                    <Text style={styles.jobId}>#{item.id}</Text>
+                    <Text style={styles.jobId}>#{getDisplayBookingId(item)}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
                         <Text style={[styles.statusText, { color: colors.success }]}>COMPLETED</Text>
                     </View>
@@ -826,7 +827,7 @@ const TransporterBookingManagementScreen = () => {
                         </Text>
                     </View>
                 </View>
-                <Text style={styles.requestId}>#{item.id}</Text>
+                <Text style={styles.requestId}>#{getDisplayBookingId(item)}</Text>
             </View>
 
             {/* Route information */}
@@ -1051,7 +1052,7 @@ const TransporterBookingManagementScreen = () => {
                         </Text>
                     </View>
                 </View>
-                <Text style={styles.requestId}>#{item.id}</Text>
+                <Text style={styles.requestId}>#{getDisplayBookingId(item)}</Text>
             </View>
 
             {/* Current Route Information */}

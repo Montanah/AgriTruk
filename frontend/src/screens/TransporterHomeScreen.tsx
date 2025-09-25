@@ -12,6 +12,8 @@ import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
 import { testBackendConnectivity, testTerminalLogging } from '../utils/api';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import { getReadableLocationName, formatRoute, getReadableLocationNameSync, cleanLocationDisplay } from '../utils/locationUtils';
+import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 
 export default function TransporterHomeScreen() {
   const navigation = useNavigation();
@@ -582,16 +584,17 @@ export default function TransporterHomeScreen() {
             renderItem={({ item }) => (
               <View style={styles.requestItem}>
                 <TouchableOpacity style={{ flex: 1 }} onPress={() => openRequestModal(item)}>
-                  <Text style={styles.label}>From: <Text style={styles.value}>{item.from}</Text></Text>
-                  <Text style={styles.label}>To: <Text style={styles.value}>{item.to}</Text></Text>
-                  <Text style={styles.label}>Product: <Text style={styles.value}>{item.product}</Text></Text>
-                  <Text style={styles.label}>Weight: <Text style={styles.value}>{item.weight} kg</Text></Text>
-                  <Text style={styles.label}>ETA: <Text style={styles.value}>{item.eta}</Text></Text>
-                  <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {item.price?.toLocaleString()}</Text></Text>
+                  <Text style={styles.label}>Booking ID: <Text style={[styles.value, { fontWeight: 'bold', color: colors.primary }]}>{getDisplayBookingId(item)}</Text></Text>
+                  <Text style={styles.label}>From: <Text style={styles.value}>{cleanLocationDisplay(item.fromLocation || item.from)}</Text></Text>
+                  <Text style={styles.label}>To: <Text style={styles.value}>{cleanLocationDisplay(item.toLocation || item.to)}</Text></Text>
+                  <Text style={styles.label}>Product: <Text style={styles.value}>{item.productType || item.product}</Text></Text>
+                  <Text style={styles.label}>Weight: <Text style={styles.value}>{item.weightKg || item.weight} kg</Text></Text>
+                  <Text style={styles.label}>ETA: <Text style={styles.value}>{item.estimatedDuration || item.eta}</Text></Text>
+                  <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {(item.cost || item.price)?.toLocaleString()}</Text></Text>
                   <Text style={styles.label}>Customer: <Text style={styles.value}>{item.customer}</Text></Text>
                   <Text style={styles.label}>Contact: <Text style={styles.value}>{item.contact}</Text></Text>
-                  {item.special && item.special.length > 0 && (
-                    <Text style={styles.label}>Special: <Text style={styles.value}>{item.special.join(', ')}</Text></Text>
+                  {item.specialCargo && item.specialCargo.length > 0 && (
+                    <Text style={styles.label}>Special: <Text style={styles.value}>{item.specialCargo.join(', ')}</Text></Text>
                   )}
                   <Text style={styles.label}>Status: <Text style={[styles.value, item.status === 'Rejected' ? { color: colors.error } : { color: colors.secondary }]}>{item.status}</Text></Text>
                 </TouchableOpacity>
@@ -620,12 +623,13 @@ export default function TransporterHomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.sectionTitle}>Request Details</Text>
-            <Text style={styles.label}>From: <Text style={styles.value}>{selectedRequest.from}</Text></Text>
-            <Text style={styles.label}>To: <Text style={styles.value}>{selectedRequest.to}</Text></Text>
-            <Text style={styles.label}>Product: <Text style={styles.value}>{selectedRequest.product}</Text></Text>
-            <Text style={styles.label}>Weight: <Text style={styles.value}>{selectedRequest.weight} kg</Text></Text>
-            <Text style={styles.label}>ETA: <Text style={styles.value}>{selectedRequest.eta}</Text></Text>
-            <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {selectedRequest.price?.toLocaleString()}</Text></Text>
+            <Text style={styles.label}>Booking ID: <Text style={[styles.value, { fontWeight: 'bold', color: colors.primary }]}>{getDisplayBookingId(selectedRequest)}</Text></Text>
+            <Text style={styles.label}>From: <Text style={styles.value}>{cleanLocationDisplay(selectedRequest.fromLocation || selectedRequest.from)}</Text></Text>
+            <Text style={styles.label}>To: <Text style={styles.value}>{cleanLocationDisplay(selectedRequest.toLocation || selectedRequest.to)}</Text></Text>
+            <Text style={styles.label}>Product: <Text style={styles.value}>{selectedRequest.productType || selectedRequest.product}</Text></Text>
+            <Text style={styles.label}>Weight: <Text style={styles.value}>{selectedRequest.weightKg || selectedRequest.weight} kg</Text></Text>
+            <Text style={styles.label}>ETA: <Text style={styles.value}>{selectedRequest.estimatedDuration || selectedRequest.eta}</Text></Text>
+            <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {(selectedRequest.cost || selectedRequest.price)?.toLocaleString()}</Text></Text>
             <Text style={styles.label}>Customer: <Text style={styles.value}>{selectedRequest.customer}</Text></Text>
             <Text style={styles.label}>Contact: <Text style={styles.value}>{selectedRequest.contact}</Text></Text>
             {selectedRequest.special && selectedRequest.special.length > 0 && (
