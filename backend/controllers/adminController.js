@@ -626,8 +626,10 @@ exports.reviewTransporter = async (req, res) => {
         await sendEmail({
           to: transporter.email,
           subject: 'Transporter Approved',
+          html: getRejectTemplate("Transporter Approved", `<br> <br> Your transporter account has been approved. <br> <br> Thank you for using our services. <br> <br> Best regards, <br>  ${process.env.APP_NAME}`, transporter),
           text: 'Your transporter account has been approved. Welcome to Truk!'
         });
+
 
         const formattedPhone = formatPhoneNumber(transporter.phoneNumber);
         const smsMessage = 'Your Truk documents have been approved. Welcome aboard!';
@@ -666,6 +668,7 @@ exports.reviewTransporter = async (req, res) => {
         await sendEmail({
           to: transporter.email,
           subject: 'Transporter Approved',
+          html: getRejectTemplate("Transporter Approved", `<br> <br> Your transporter account has been approved. <br> <br> Thank you for using our services. <br> <br> Best regards, <br>  ${process.env.APP_NAME}`, transporter),
           text: 'Your transporter account has been approved. Welcome to Truk!'
         });
 
@@ -707,9 +710,10 @@ exports.reviewTransporter = async (req, res) => {
         };
         await Transporter.update(transporterId, updates);
 
-        await sendEmail({
+         await sendEmail({
           to: transporter.email,
           subject: 'Transporter Approved',
+          html: getRejectTemplate("Transporter Approved", `<br> <br> Your transporter account has been approved. <br> <br> Thank you for using our services. <br> <br> Best regards, <br>  ${process.env.APP_NAME}`, transporter),
           text: 'Your transporter account has been approved. Welcome to Truk!'
         });
 
