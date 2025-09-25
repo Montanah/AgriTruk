@@ -269,6 +269,10 @@ export default function TransporterHomeScreen() {
                     transporterId: user.uid,
                   }),
                 });
+                
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
                 if (response.ok) {
                   const result = await response.json();
@@ -309,9 +313,18 @@ export default function TransporterHomeScreen() {
                     );
                   }
                 } else {
-                  const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                  let errorData;
+                  try {
+                    const responseText = await response.text();
+                    console.log('Raw response text:', responseText);
+                    errorData = JSON.parse(responseText);
+                  } catch (parseError) {
+                    console.error('Failed to parse response:', parseError);
+                    errorData = { message: 'Failed to parse server response' };
+                  }
+                  
                   console.error('Failed to accept job:', response.status, response.statusText, errorData);
-                  console.error('Response headers:', response.headers);
+                  console.error('Response headers:', Object.fromEntries(response.headers.entries()));
                   Alert.alert(
                     'Error', 
                     `Failed to accept job: ${errorData.message || errorData.code || 'Unknown error'}`,
