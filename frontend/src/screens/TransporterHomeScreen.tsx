@@ -250,8 +250,14 @@ export default function TransporterHomeScreen() {
                 const token = await user.getIdToken();
                 const jobId = req.bookingId || req.id;
                 
+                // Ensure we have a valid job ID
+                if (!jobId) {
+                  throw new Error('No valid job ID found');
+                }
+                
                 console.log('Making API call to:', `${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`);
                 console.log('Request body:', { transporterId: user.uid });
+                console.log('Job data:', { bookingId: req.bookingId, id: req.id, jobId });
                 
                 const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`, {
                   method: 'POST',
@@ -304,10 +310,11 @@ export default function TransporterHomeScreen() {
                   }
                 } else {
                   const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-                  console.error('Failed to accept job:', response.status, errorData);
+                  console.error('Failed to accept job:', response.status, response.statusText, errorData);
+                  console.error('Response headers:', response.headers);
                   Alert.alert(
                     'Error', 
-                    `Failed to accept job: ${errorData.message || 'Unknown error'}`,
+                    `Failed to accept job: ${errorData.message || errorData.code || 'Unknown error'}`,
                     [{ text: 'OK' }]
                   );
                 }
