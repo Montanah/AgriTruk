@@ -226,10 +226,107 @@ export default function TransporterHomeScreen() {
     fetchCurrentTrip();
   }, []);
 
-  const handleAccept = (req) => {
-    setCurrentTrip({ ...req, status: 'On Transit' });
-    setRequests((prev) => prev.filter((r) => r.id !== req.id));
-    setShowModal(false);
+  const handleAccept = async (req) => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        Alert.alert('Error', 'Please log in to accept jobs');
+        return;
+      }
+
+      // Show confirmation dialog
+      Alert.alert(
+        'Accept Job',
+        `Are you sure you want to accept this ${req.productType || 'job'} for KES ${req.cost?.toLocaleString() || '0'}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Accept', 
+            onPress: async () => {
+              try {
+                const token = await user.getIdToken();
+                const jobId = req.bookingId || req.id;
+                
+                console.log('Making API call to:', `${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`);
+                console.log('Request body:', { transporterId: user.uid });
+                
+                const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    transporterId: user.uid,
+                  }),
+                });
+
+                if (response.ok) {
+                  const result = await response.json();
+                  setCurrentTrip({ ...req, status: 'accepted' });
+                  setRequests((prev) => prev.filter((r) => r.id !== req.id));
+                  setShowModal(false);
+                  
+                  // Check if it's an instant request or booking
+                  if (req.type === 'instant' || req.type === 'instant-request') {
+                    Alert.alert(
+                      'Request Accepted! 🎉',
+                      'You can now manage this shipment directly.',
+                      [
+                        {
+                          text: 'Manage Shipment',
+                          onPress: () => {
+                            (navigation as any).navigate('ShipmentManagementScreen', {
+                              booking: { ...req, status: 'accepted' },
+                              isInstant: true,
+                              transporterId: user.uid
+                            });
+                          }
+                        }
+                      ]
+                    );
+                  } else {
+                    Alert.alert(
+                      'Booking Accepted! 🎉',
+                      'You can now manage this booking from your management screen.',
+                      [
+                        {
+                          text: 'View in Management',
+                          onPress: () => {
+                            (navigation as any).navigate('TransporterBookingManagement');
+                          }
+                        }
+                      ]
+                    );
+                  }
+                } else {
+                  const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                  console.error('Failed to accept job:', response.status, errorData);
+                  Alert.alert(
+                    'Error', 
+                    `Failed to accept job: ${errorData.message || 'Unknown error'}`,
+                    [{ text: 'OK' }]
+                  );
+                }
+              } catch (error) {
+                console.error('Error accepting job:', error);
+                Alert.alert(
+                  'Error', 
+                  'Network error. Please check your connection and try again.',
+                  [{ text: 'OK' }]
+                );
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error accepting job:', error);
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+    }
   };
 
   const handleReject = (req) => {

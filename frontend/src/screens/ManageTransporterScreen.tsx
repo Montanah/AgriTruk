@@ -12,6 +12,7 @@ import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
 import { convertCoordinatesToPlaceName, getShortLocationName } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
 import { auth } from '../firebaseConfig';
 import Toast, { ToastProps } from '../components/common/Toast';
 import ModernToggle from '../components/common/ModernToggle';
@@ -118,8 +119,8 @@ export default function ManageTransporterScreen({ route }: any) {
   const [locationSpeed, setLocationSpeed] = useState<number | null>(null);
   const [locationHeading, setLocationHeading] = useState<number | null>(null);
   const [locationAltitude, setLocationAltitude] = useState<number | null>(null);
-  const [locationName, setLocationName] = useState<string | null>(null);
-  const [locationNameLoading, setLocationNameLoading] = useState<boolean>(false);
+  // Use the location display hook for better coordinate-to-name conversion
+  const currentLocationForDisplay = currentLocation || individualProfile?.lastKnownLocation;
   
   // Modal states
   const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
@@ -351,22 +352,7 @@ export default function ManageTransporterScreen({ route }: any) {
               // Update location in backend
               await updateLocationInBackend(location);
               
-              // Convert coordinates to place name
-              if (location.latitude && location.longitude) {
-                setLocationNameLoading(true);
-                try {
-                  const placeName = await getShortLocationName({
-                    latitude: location.latitude,
-                    longitude: location.longitude
-                  });
-                  setLocationName(placeName);
-                } catch (error) {
-                  console.error('Error converting coordinates to place name:', error);
-                  setLocationName(null);
-                } finally {
-                  setLocationNameLoading(false);
-                }
-              }
+              // Location coordinates are now automatically converted to place names by LocationDisplay component
             });
 
           // Check if location tracking should be active
@@ -383,33 +369,7 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   }, [transporterType]);
 
-  // Load location name for initial location (currentLocation or lastKnownLocation)
-  useEffect(() => {
-    const loadInitialLocationName = async () => {
-      const location = currentLocation || individualProfile?.lastKnownLocation;
-      if (location && !locationName) {
-        const lat = location.latitude || location.lat;
-        const lng = location.longitude || location.lng;
-        
-        if (typeof lat === 'number' && typeof lng === 'number' && lat !== 0 && lng !== 0) {
-          setLocationNameLoading(true);
-          try {
-            const placeName = await getShortLocationName({
-              latitude: lat,
-              longitude: lng
-            });
-            setLocationName(placeName);
-          } catch (error) {
-            console.error('Error loading initial location name:', error);
-          } finally {
-            setLocationNameLoading(false);
-          }
-        }
-      }
-    };
-
-    loadInitialLocationName();
-  }, [currentLocation, individualProfile?.lastKnownLocation, locationName]);
+  // Location name conversion is now handled automatically by LocationDisplay component
 
   React.useEffect(() => {
     const fetchProfile = async () => {
@@ -1870,62 +1830,15 @@ export default function ManageTransporterScreen({ route }: any) {
                 : 'Enable location tracking to receive nearby job requests and share your location with clients.'
               }
             </Text>
-            {!locationName && (currentLocation || individualProfile?.lastKnownLocation) && (
-              <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
-                Note: Converting coordinates to location name... Tap refresh if needed.
-              </Text>
-            )}
             {(currentLocation || individualProfile?.lastKnownLocation) && (
               <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12, marginTop: 8 }}>
                 <Text style={{ color: colors.text.secondary, fontSize: 12, marginBottom: 4 }}>Last Updated Location:</Text>
-                {locationNameLoading ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={{ color: colors.text.secondary, fontSize: 14 }}>Loading location name...</Text>
-                  </View>
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold', flex: 1 }}>
-                      {locationName || (() => {
-                        // Use current location if available, otherwise fall back to lastKnownLocation from backend
-                        const location = currentLocation || individualProfile?.lastKnownLocation;
-                        if (location) {
-                          const lat = location.latitude || location.lat;
-                          const lng = location.longitude || location.lng;
-                          if (typeof lat === 'number' && typeof lng === 'number' && lat !== 0 && lng !== 0) {
-                            // Show a more user-friendly fallback
-                            return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-                          }
-                        }
-                        return 'Location not available';
-                      })()}
-                    </Text>
-                    {!locationName && (currentLocation || individualProfile?.lastKnownLocation) && (
-                      <TouchableOpacity 
-                        onPress={async () => {
-                          const location = currentLocation || individualProfile?.lastKnownLocation;
-                          if (location) {
-                            setLocationNameLoading(true);
-                            try {
-                              const placeName = await getShortLocationName({
-                                latitude: location.latitude || location.lat,
-                                longitude: location.longitude || location.lng
-                              });
-                              setLocationName(placeName);
-                            } catch (error) {
-                              console.error('Error converting coordinates to place name:', error);
-                            } finally {
-                              setLocationNameLoading(false);
-                            }
-                          }
-                        }}
-                        style={{ padding: 4 }}
-                      >
-                        <MaterialCommunityIcons name="refresh" size={16} color={colors.primary} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
+                <LocationDisplay 
+                  location={currentLocationForDisplay}
+                  style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}
+                  showIcon={false}
+                  showLoading={true}
+                />
                 <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 4 }}>
                   Updated: {(() => {
                     const location = currentLocation || individualProfile?.lastKnownLocation;
