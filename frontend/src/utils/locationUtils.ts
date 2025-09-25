@@ -116,6 +116,11 @@ export async function reverseGeocode(lat: number, lng: number): Promise<Location
  * This is a placeholder - in production, integrate with a geocoding service
  */
 async function getPlaceNameFromCoordinates(lat: number, lng: number): Promise<string> {
+  // Check for invalid coordinates
+  if (lat === 0 && lng === 0) {
+    return 'Unknown Location';
+  }
+
   // Known locations in Kenya for demo purposes
   const knownLocations = [
     { lat: -1.2921, lng: 36.8219, name: 'Nairobi' },
@@ -126,6 +131,7 @@ async function getPlaceNameFromCoordinates(lat: number, lng: number): Promise<st
     { lat: -0.4167, lng: 36.9500, name: 'Nyeri' },
     { lat: -0.5167, lng: 35.2833, name: 'Kericho' },
     { lat: -1.1667, lng: 36.8333, name: 'Thika' },
+    { lat: -1.2622, lng: 36.8059, name: 'Nairobi Area' },
   ];
 
   // Check if coordinates match known locations (with some tolerance)
@@ -198,6 +204,10 @@ export function getReadableLocationNameSync(location: any): string {
     // Check if it's a coordinate string
     const coords = parseCoordinateString(location);
     if (coords) {
+      // Check for invalid coordinates
+      if (coords.lat === 0 && coords.lng === 0) {
+        return 'Unknown Location';
+      }
       const cacheKey = getCacheKey(coords.lat, coords.lng);
       const cached = locationCache.get(cacheKey);
       return cached?.formattedAddress || location;
@@ -211,6 +221,10 @@ export function getReadableLocationNameSync(location: any): string {
     if (location.address && typeof location.address === 'string') {
       const coords = parseCoordinateString(location.address);
       if (coords) {
+        // Check for invalid coordinates
+        if (coords.lat === 0 && coords.lng === 0) {
+          return 'Unknown Location';
+        }
         const cacheKey = getCacheKey(coords.lat, coords.lng);
         const cached = locationCache.get(cacheKey);
         return cached?.formattedAddress || location.address;
@@ -219,7 +233,11 @@ export function getReadableLocationNameSync(location: any): string {
     }
 
     // Check for coordinates
-    if (location.latitude && location.longitude) {
+    if (location.latitude !== undefined && location.longitude !== undefined) {
+      // Check for invalid coordinates
+      if (location.latitude === 0 && location.longitude === 0) {
+        return 'Unknown Location';
+      }
       const cacheKey = getCacheKey(location.latitude, location.longitude);
       const cached = locationCache.get(cacheKey);
       return cached?.formattedAddress || `Location (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`;
