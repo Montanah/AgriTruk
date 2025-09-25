@@ -54,6 +54,12 @@ const TransporterBookingManagementScreen = () => {
         waypoints?: Array<{ name: string; coordinates: { lat: number; lng: number } }>;
     } | null>(null);
     
+    // Current location for route-based filtering
+    const [currentLocation, setCurrentLocation] = useState<{
+        latitude: number;
+        longitude: number;
+    } | null>(null);
+    
     // Enhanced filtering states
     const [sortBy, setSortBy] = useState<'distance' | 'price' | 'urgency' | 'pickup_time'>('distance');
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -188,6 +194,7 @@ const TransporterBookingManagementScreen = () => {
         };
 
         fetchData();
+        getCurrentLocation();
     }, []);
 
     // Function to check if transporter can handle a request
@@ -312,10 +319,11 @@ const TransporterBookingManagementScreen = () => {
 
     const filteredRouteLoads = useMemo(() => {
         if (!currentTransporter) return [];
-        return allRouteLoads.filter(load => {
+        const transporterFiltered = allRouteLoads.filter(load => {
             return canTransporterHandleRequest(currentTransporter, load);
         });
-    }, [allRouteLoads, currentTransporter]);
+        return filterRouteLoadsByLocation(transporterFiltered);
+    }, [allRouteLoads, currentTransporter, currentLocation]);
 
     // Show loading state AFTER all hooks
     if (loading) {
@@ -366,8 +374,71 @@ const TransporterBookingManagementScreen = () => {
         return reasons;
     };
 
+    const getCurrentLocation = async () => {
+        try {
+            const { getCurrentPositionAsync, requestForegroundPermissionsAsync } = require('expo-location');
+            
+            const { status } = await requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                console.log('Location permission denied');
+                return;
+            }
+
+            const location = await getCurrentPositionAsync({});
+            setCurrentLocation({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+            });
+        } catch (error) {
+            console.error('Error getting location:', error);
+        }
+    };
+
+    const filterRouteLoadsByLocation = (loads: any[]) => {
+        if (!currentLocation) return loads;
+        
+        return loads.filter(load => {
+            // Check if the load's route is along the transporter's current route
+            const loadFromCoords = getCoordinatesFromLocation(load.fromLocation);
+            const loadToCoords = getCoordinatesFromLocation(load.toLocation);
+            
+            if (!loadFromCoords || !loadToCoords) return false;
+            
+            // Calculate distance from current location to pickup point
+            const distanceToPickup = calculateDistance(currentLocation, loadFromCoords);
+            
+            // Only show loads within 50km of current location
+            return distanceToPickup <= 50;
+        });
+    };
+
+    const getCoordinatesFromLocation = (locationString: string) => {
+        // This would typically use a geocoding service
+        // For now, return mock coordinates based on location string
+        if (locationString.toLowerCase().includes('nairobi')) {
+            return { latitude: -1.2921, longitude: 36.8219 };
+        } else if (locationString.toLowerCase().includes('mombasa')) {
+            return { latitude: -4.0435, longitude: 39.6682 };
+        } else if (locationString.toLowerCase().includes('kisumu')) {
+            return { latitude: -0.0917, longitude: 34.7680 };
+        }
+        return null;
+    };
+
+    const calculateDistance = (point1: any, point2: any) => {
+        const R = 6371; // Earth's radius in km
+        const dLat = (point2.latitude - point1.latitude) * Math.PI / 180;
+        const dLon = (point2.longitude - point1.longitude) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(point1.latitude * Math.PI / 180) * Math.cos(point2.latitude * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    };
+
     const onRefresh = async () => {
         setRefreshing(true);
+        await getCurrentLocation();
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 1000));
         setRefreshing(false);
@@ -425,7 +496,7 @@ const TransporterBookingManagementScreen = () => {
                                 text: 'Start Chat',
                                 onPress: () => {
                                     // Navigate to chat screen
-                                    navigation.navigate('ChatScreen', {
+                                    (navigation as any).navigate('ChatScreen', {
                                         roomId: chatRoom.id,
                                         bookingId: request.id,
                                         transporterName: 'You', // This should come from user profile
@@ -453,7 +524,7 @@ const TransporterBookingManagementScreen = () => {
                                 text: 'Start Chat',
                                 onPress: () => {
                                     // Navigate to chat screen
-                                    navigation.navigate('ChatScreen', {
+                                    (navigation as any).navigate('ChatScreen', {
                                         roomId: chatRoom.id,
                                         bookingId: request.id,
                                         transporterName: 'You', // This should come from user profile

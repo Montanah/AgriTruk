@@ -4,6 +4,19 @@
 *.sh
 *.md
 !README.md
+create-eas-project.sh
+setup-new-eas-project.sh
+build-apk.sh
+build-ios.sh
+build-all.sh
+build-local.sh
+build-aab.sh
+quick-build.sh
+setup-build.sh
+start-dev.sh
+dev-android.sh
+dev-ios.sh
+setup-eas.sh
 frontend/app.config.js.backup
 frontend/app.json.backup
 

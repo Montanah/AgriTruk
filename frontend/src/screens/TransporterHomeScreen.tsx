@@ -265,15 +265,43 @@ export default function TransporterHomeScreen() {
                 });
 
                 if (response.ok) {
-                  setCurrentTrip({ ...req, status: 'On Transit' });
+                  const result = await response.json();
+                  setCurrentTrip({ ...req, status: 'accepted' });
                   setRequests((prev) => prev.filter((r) => r.id !== req.id));
                   setShowModal(false);
                   
-                  Alert.alert(
-                    'Success!', 
-                    'Job accepted successfully. You will be notified when the client confirms.',
-                    [{ text: 'OK' }]
-                  );
+                  // Check if it's an instant request or booking
+                  if (req.type === 'instant' || req.type === 'instant-request') {
+                    Alert.alert(
+                      'Request Accepted! 🎉',
+                      'You can now manage this shipment directly.',
+                      [
+                        {
+                          text: 'Manage Shipment',
+                          onPress: () => {
+                            (navigation as any).navigate('ShipmentManagementScreen', {
+                              booking: { ...req, status: 'accepted' },
+                              isInstant: true,
+                              transporterId: user.uid
+                            });
+                          }
+                        }
+                      ]
+                    );
+                  } else {
+                    Alert.alert(
+                      'Booking Accepted! 🎉',
+                      'You can now manage this booking from your management screen.',
+                      [
+                        {
+                          text: 'View in Management',
+                          onPress: () => {
+                            (navigation as any).navigate('TransporterBookingManagement');
+                          }
+                        }
+                      ]
+                    );
+                  }
                 } else {
                   const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
                   console.error('Failed to accept job:', response.status, errorData);
