@@ -43,6 +43,20 @@ const Notification = {
     await db.collection('notifications').doc(notificationId).update(updated);
     return updated;
   },
+
+  async getByBooking(bookingId) {
+    const snapshot = await db
+      .collection('notifications')
+      .where('data.bookingId', '==', bookingId)
+      .orderBy('createdAt', 'desc')
+      .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async delete(notificationId) {
+    await db.collection('notifications').doc(notificationId).delete();
+    return { success: true };
+  },
 };
 
 module.exports = Notification;
