@@ -260,6 +260,8 @@ export default function TransporterHomeScreen() {
                 console.log('Making API call to:', `${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`);
                 console.log('Request body:', { transporterId: user.uid });
                 console.log('Job data:', { bookingId: req.bookingId, id: req.id, jobId });
+                console.log('User token length:', token.length);
+                console.log('User UID:', user.uid);
                 
                 const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`, {
                   method: 'POST',
@@ -319,14 +321,28 @@ export default function TransporterHomeScreen() {
                   try {
                     const responseText = await response.text();
                     console.log('Raw response text:', responseText);
-                    errorData = JSON.parse(responseText);
+                    console.log('Response status:', response.status);
+                    console.log('Response statusText:', response.statusText);
+                    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                    
+                    if (responseText) {
+                      errorData = JSON.parse(responseText);
+                    } else {
+                      errorData = { message: 'Empty response from server' };
+                    }
                   } catch (parseError) {
                     console.error('Failed to parse response:', parseError);
                     errorData = { message: 'Failed to parse server response' };
                   }
                   
-                  console.error('Failed to accept job:', response.status, response.statusText, errorData);
-                  console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+                  console.error('Failed to accept job - Full error details:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorData: errorData,
+                    jobId: jobId,
+                    transporterId: user.uid
+                  });
+                  
                   Alert.alert(
                     'Error', 
                     `Failed to accept job: ${errorData.message || errorData.code || 'Unknown error'}`,
