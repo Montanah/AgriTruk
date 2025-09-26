@@ -1,4 +1,4 @@
-import { getReadableLocationName as originalGetReadableLocationName } from './locationUtils';
+// Removed self-import to fix require cycle warning
 
 /**
  * Enhanced location utilities with reverse geocoding
@@ -342,4 +342,4 @@ export function cleanLocationDisplay(location: any): string {
 }
 
 // Re-export original function for backward compatibility
-export { originalGetReadableLocationName };
+// Removed export of originalGetReadableLocationName to fix require cycle
