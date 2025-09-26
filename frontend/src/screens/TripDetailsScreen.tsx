@@ -2,12 +2,12 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Image, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { notificationService } from '../../services/notificationService';
+import { notificationService } from '../services/notificationService';
 import NotificationBell from '../components/Notification/NotificationBell';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
 import ChatModal from '../components/Chat/ChatModal';
-import { enhancedRatingService } from '../../services/enhancedRatingService';
+import { enhancedRatingService } from '../services/enhancedRatingService';
 import colors from '../constants/colors';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';

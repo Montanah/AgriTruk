@@ -12,13 +12,13 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { colors, fonts, spacing } from '../../constants';
-import ExpoCompatibleMap from '../../components/common/ExpoCompatibleMap';
-import LocationDisplay from '../../components/common/LocationDisplay';
-import { chatService } from '../../services/chatService';
-import { apiRequest } from '../../utils/api';
-import { getReadableLocationName, cleanLocationDisplay, getReadableLocationNameSync } from '../../utils/locationUtils';
-import { getDisplayBookingId, getBookingType } from '../../utils/bookingIdGenerator';
+import { colors, fonts, spacing } from '../constants';
+import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
+import LocationDisplay from '../components/common/LocationDisplay';
+import { chatService } from '../services/chatService';
+import { apiRequest } from '../utils/api';
+import { getReadableLocationName, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
+import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 
 const { width, height } = Dimensions.get('window');
 
@@ -147,7 +147,7 @@ const ShipmentManagementScreen = () => {
         };
       } else if (typeof location === 'string') {
         // Use Google Maps geocoding service
-        const { googleMapsService } = require('../../utils/googleMapsService');
+        const { googleMapsService } = require('../utils/googleMapsService');
         const coords = await googleMapsService.geocodeAddress(location);
         return {
           latitude: coords.latitude,

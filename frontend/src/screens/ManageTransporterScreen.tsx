@@ -5,7 +5,7 @@ import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
-import { notificationService } from '../../services/notificationService';
+import { notificationService } from '../services/notificationService';
 import SubscriptionStatusCard from '../components/common/SubscriptionStatusCard';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
