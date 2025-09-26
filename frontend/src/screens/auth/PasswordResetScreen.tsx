@@ -20,6 +20,33 @@ import { API_ENDPOINTS } from '../../constants/api';
 import { handleNetworkError, retryWithBackoff, checkNetworkConnectivity, showNetworkErrorAlert } from '../../utils/networkUtils';
 import { handleAuthBackNavigation } from '../../utils/navigationUtils';
 
+// Helper function to detect if user doesn't exist
+const isUserNotFoundError = (errorData: any): boolean => {
+  if (!errorData) return false;
+  
+  const message = errorData.message?.toLowerCase() || '';
+  const code = errorData.code?.toLowerCase() || '';
+  
+  return (
+    message.includes('not found') ||
+    message.includes('does not exist') ||
+    message.includes('user not found') ||
+    message.includes('no user record') ||
+    message.includes('user does not exist') ||
+    message.includes('there is no user record') ||
+    message.includes('auth/user-not-found') ||
+    code === 'user_not_found' ||
+    code === 'auth/user-not-found' ||
+    code === 'user-not-found'
+  );
+};
+
+// Helper function to check if error is user not found
+const isUserNotFoundErrorMessage = (errorMessage: string): boolean => {
+  const message = errorMessage.toLowerCase();
+  return message.includes('no account found') || message.includes('account not found');
+};
+
 interface PasswordResetScreenProps {
   navigation: any;
   route?: {
@@ -138,8 +165,42 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
         setUserId(data.userId);
         setStep('code');
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to send password reset code');
+        let errorMessage = 'Failed to send password reset code';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+          
+          // Provide more specific error messages
+          if (response.status === 400) {
+            if (isUserNotFoundError(errorData)) {
+              errorMessage = 'No account found with this email address. Please check your email or create a new account.';
+            } else if (errorData.message?.includes('required')) {
+              errorMessage = 'Please enter a valid email address.';
+            } else if (errorData.message?.includes('invalid email')) {
+              errorMessage = 'Please enter a valid email address format.';
+            } else {
+              errorMessage = 'Invalid request. Please check your email address and try again.';
+            }
+          } else if (response.status === 404) {
+            errorMessage = 'Account not found. Please check your email address or create a new account.';
+          } else if (response.status === 422) {
+            errorMessage = 'No account found with this email address. Please check your email or create a new account.';
+          } else if (response.status === 429) {
+            errorMessage = 'Too many requests. Please wait a few minutes before trying again.';
+          } else if (response.status === 500) {
+            errorMessage = 'Server error. Please try again later or contact support.';
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, use status-based messages
+          if (response.status === 400) {
+            errorMessage = 'Invalid request. Please check your email address.';
+          } else if (response.status === 404) {
+            errorMessage = 'Account not found. Please check your email address.';
+          } else if (response.status === 500) {
+            errorMessage = 'Server error. Please try again later.';
+          }
+        }
+        throw new Error(errorMessage);
       }
     } catch (error: any) {
       console.error('Password reset email error:', error);
@@ -223,9 +284,45 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
         setUserId(data.userId);
         setStep('code');
       } else {
-        const errorData = await response.json();
-        console.log('Password reset error data:', errorData);
-        throw new Error(errorData.message || 'Failed to send password reset code');
+        let errorMessage = 'Failed to send password reset code';
+        try {
+          const errorData = await response.json();
+          console.log('Password reset error data:', errorData);
+          errorMessage = errorData.message || errorMessage;
+          
+          // Provide more specific error messages for phone
+          if (response.status === 400) {
+            if (isUserNotFoundError(errorData)) {
+              errorMessage = 'No account found with this phone number. Please check your phone number or create a new account.';
+            } else if (errorData.message?.includes('required')) {
+              errorMessage = 'Please enter a valid phone number.';
+            } else if (errorData.message?.includes('invalid') || errorData.message?.includes('format')) {
+              errorMessage = 'Invalid phone number format. Please check your phone number.';
+            } else if (errorData.message?.includes('phone number')) {
+              errorMessage = 'Invalid phone number. Please check your phone number and try again.';
+            } else {
+              errorMessage = 'Invalid request. Please check your phone number and try again.';
+            }
+          } else if (response.status === 404) {
+            errorMessage = 'Account not found. Please check your phone number or create a new account.';
+          } else if (response.status === 422) {
+            errorMessage = 'No account found with this phone number. Please check your phone number or create a new account.';
+          } else if (response.status === 429) {
+            errorMessage = 'Too many requests. Please wait a few minutes before trying again.';
+          } else if (response.status === 500) {
+            errorMessage = 'Server error. Please try again later or contact support.';
+          }
+        } catch (parseError) {
+          // If we can't parse the error response, use status-based messages
+          if (response.status === 400) {
+            errorMessage = 'Invalid request. Please check your phone number.';
+          } else if (response.status === 404) {
+            errorMessage = 'Account not found. Please check your phone number.';
+          } else if (response.status === 500) {
+            errorMessage = 'Server error. Please try again later.';
+          }
+        }
+        throw new Error(errorMessage);
       }
     } catch (error: any) {
       console.error('Password reset SMS error:', error);
@@ -499,7 +596,24 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
           />
         </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            {isUserNotFoundErrorMessage(error) && (
+              <View style={styles.helpContainer}>
+                <Text style={styles.helpText}>
+                  Don't have an account?{' '}
+                  <Text 
+                    style={styles.linkText}
+                    onPress={() => navigation.navigate('SignUp')}
+                  >
+                    Create one here
+                  </Text>
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : null}
 
         <Button
           title="Send Code"
@@ -559,7 +673,24 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
           </View>
         </View>
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            {isUserNotFoundErrorMessage(error) && (
+              <View style={styles.helpContainer}>
+                <Text style={styles.helpText}>
+                  Don't have an account?{' '}
+                  <Text 
+                    style={styles.linkText}
+                    onPress={() => navigation.navigate('SignUp')}
+                  >
+                    Create one here
+                  </Text>
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : null}
 
         <Button
           title="Send Code"
@@ -943,6 +1074,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.sm,
     lineHeight: 20,
+  },
+  errorContainer: {
+    marginTop: spacing.sm,
+  },
+  helpContainer: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  helpText: {
+    fontSize: 14,
+    fontFamily: fonts.family.regular,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  linkText: {
+    color: colors.primary,
+    fontFamily: fonts.family.semiBold,
+    textDecorationLine: 'underline',
   },
 });
 

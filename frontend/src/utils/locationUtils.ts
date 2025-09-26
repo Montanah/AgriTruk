@@ -113,29 +113,54 @@ export async function reverseGeocode(lat: number, lng: number): Promise<Location
 
 /**
  * Get place name from coordinates
- * This is a placeholder - in production, integrate with a geocoding service
+ * Enhanced with more comprehensive location mapping
  */
 async function getPlaceNameFromCoordinates(lat: number, lng: number): Promise<string> {
   // Check for invalid coordinates
-  if (lat === 0 && lng === 0) {
+  if (lat === 0 && lng === 0 || isNaN(lat) || isNaN(lng)) {
     return 'Unknown Location';
   }
 
-  // Known locations in Kenya for demo purposes
+  // Comprehensive known locations in Kenya
   const knownLocations = [
+    // Nairobi and surrounding areas
     { lat: -1.2921, lng: 36.8219, name: 'Nairobi' },
-    { lat: -0.0917, lng: 34.768, name: 'Kisumu' },
-    { lat: -4.0437, lng: 39.6682, name: 'Mombasa' },
-    { lat: 0.0236, lng: 37.9062, name: 'Nakuru' },
+    { lat: -1.2622, lng: 36.8059, name: 'Nairobi Area' },
+    { lat: -1.1667, lng: 36.8333, name: 'Thika' },
     { lat: -1.0333, lng: 37.0833, name: 'Machakos' },
+    { lat: -1.3000, lng: 36.8000, name: 'Nairobi CBD' },
+    { lat: -1.3500, lng: 36.7500, name: 'Westlands' },
+    { lat: -1.2500, lng: 36.8500, name: 'Eastleigh' },
+    
+    // Coastal region
+    { lat: -4.0437, lng: 39.6682, name: 'Mombasa' },
+    { lat: -4.0000, lng: 39.6000, name: 'Mombasa Area' },
+    { lat: -3.2000, lng: 40.1000, name: 'Malindi' },
+    { lat: -3.4000, lng: 39.9000, name: 'Kilifi' },
+    
+    // Western Kenya
+    { lat: -0.0917, lng: 34.768, name: 'Kisumu' },
+    { lat: -0.1000, lng: 34.8000, name: 'Kisumu Area' },
+    { lat: 0.0236, lng: 37.9062, name: 'Nakuru' },
+    { lat: 0.0000, lng: 37.9000, name: 'Nakuru Area' },
     { lat: -0.4167, lng: 36.9500, name: 'Nyeri' },
     { lat: -0.5167, lng: 35.2833, name: 'Kericho' },
-    { lat: -1.1667, lng: 36.8333, name: 'Thika' },
-    { lat: -1.2622, lng: 36.8059, name: 'Nairobi Area' },
+    { lat: 0.1000, lng: 35.0000, name: 'Eldoret' },
+    { lat: 0.3000, lng: 36.0000, name: 'Isiolo' },
+    
+    // Central Kenya
+    { lat: -0.3000, lng: 36.1000, name: 'Nanyuki' },
+    { lat: -0.2000, lng: 36.3000, name: 'Meru' },
+    { lat: -0.5000, lng: 36.5000, name: 'Embu' },
+    
+    // Rift Valley
+    { lat: 0.5000, lng: 35.5000, name: 'Kitale' },
+    { lat: 0.8000, lng: 35.2000, name: 'Lodwar' },
+    { lat: -0.8000, lng: 36.2000, name: 'Kitui' },
   ];
 
-  // Check if coordinates match known locations (with some tolerance)
-  const tolerance = 0.1;
+  // Check if coordinates match known locations (with tolerance)
+  const tolerance = 0.15; // Increased tolerance for better matching
   for (const location of knownLocations) {
     if (
       Math.abs(lat - location.lat) < tolerance &&
@@ -143,6 +168,11 @@ async function getPlaceNameFromCoordinates(lat: number, lng: number): Promise<st
     ) {
       return location.name;
     }
+  }
+
+  // If coordinates are in Kenya (rough bounds), return generic location
+  if (lat >= -4.8 && lat <= 5.5 && lng >= 33.9 && lng <= 41.9) {
+    return 'Kenya Location';
   }
 
   // If no known location found, return formatted coordinates
@@ -205,12 +235,12 @@ export function getReadableLocationNameSync(location: any): string {
     const coords = parseCoordinateString(location);
     if (coords) {
       // Check for invalid coordinates
-      if (coords.lat === 0 && coords.lng === 0) {
+      if (coords.lat === 0 && coords.lng === 0 || isNaN(coords.lat) || isNaN(coords.lng)) {
         return 'Unknown Location';
       }
       const cacheKey = getCacheKey(coords.lat, coords.lng);
       const cached = locationCache.get(cacheKey);
-      return cached?.formattedAddress || location;
+      return cached?.formattedAddress || getLocationNameFromCoordsSync(coords.lat, coords.lng);
     }
     return location;
   }
@@ -222,12 +252,12 @@ export function getReadableLocationNameSync(location: any): string {
       const coords = parseCoordinateString(location.address);
       if (coords) {
         // Check for invalid coordinates
-        if (coords.lat === 0 && coords.lng === 0) {
+        if (coords.lat === 0 && coords.lng === 0 || isNaN(coords.lat) || isNaN(coords.lng)) {
           return 'Unknown Location';
         }
         const cacheKey = getCacheKey(coords.lat, coords.lng);
         const cached = locationCache.get(cacheKey);
-        return cached?.formattedAddress || location.address;
+        return cached?.formattedAddress || getLocationNameFromCoordsSync(coords.lat, coords.lng);
       }
       return location.address;
     }
@@ -235,12 +265,12 @@ export function getReadableLocationNameSync(location: any): string {
     // Check for coordinates
     if (location.latitude !== undefined && location.longitude !== undefined) {
       // Check for invalid coordinates
-      if (location.latitude === 0 && location.longitude === 0) {
+      if (location.latitude === 0 && location.longitude === 0 || isNaN(location.latitude) || isNaN(location.longitude)) {
         return 'Unknown Location';
       }
       const cacheKey = getCacheKey(location.latitude, location.longitude);
       const cached = locationCache.get(cacheKey);
-      return cached?.formattedAddress || `Location (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`;
+      return cached?.formattedAddress || getLocationNameFromCoordsSync(location.latitude, location.longitude);
     }
 
     // Check for other address fields
@@ -250,6 +280,48 @@ export function getReadableLocationNameSync(location: any): string {
   }
 
   return 'Unknown Location';
+}
+
+/**
+ * Synchronous location name from coordinates
+ */
+function getLocationNameFromCoordsSync(lat: number, lng: number): string {
+  // Check for invalid coordinates
+  if (lat === 0 && lng === 0 || isNaN(lat) || isNaN(lng)) {
+    return 'Unknown Location';
+  }
+
+  // Known locations in Kenya (same as async version)
+  const knownLocations = [
+    { lat: -1.2921, lng: 36.8219, name: 'Nairobi' },
+    { lat: -1.2622, lng: 36.8059, name: 'Nairobi Area' },
+    { lat: -1.1667, lng: 36.8333, name: 'Thika' },
+    { lat: -1.0333, lng: 37.0833, name: 'Machakos' },
+    { lat: -4.0437, lng: 39.6682, name: 'Mombasa' },
+    { lat: -0.0917, lng: 34.768, name: 'Kisumu' },
+    { lat: 0.0236, lng: 37.9062, name: 'Nakuru' },
+    { lat: -0.4167, lng: 36.9500, name: 'Nyeri' },
+    { lat: -0.5167, lng: 35.2833, name: 'Kericho' },
+  ];
+
+  // Check if coordinates match known locations
+  const tolerance = 0.15;
+  for (const location of knownLocations) {
+    if (
+      Math.abs(lat - location.lat) < tolerance &&
+      Math.abs(lng - location.lng) < tolerance
+    ) {
+      return location.name;
+    }
+  }
+
+  // If coordinates are in Kenya, return generic location
+  if (lat >= -4.8 && lat <= 5.5 && lng >= 33.9 && lng <= 41.9) {
+    return 'Kenya Location';
+  }
+
+  // Return formatted coordinates
+  return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
 }
 
 /**
