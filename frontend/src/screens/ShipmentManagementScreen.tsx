@@ -137,14 +137,24 @@ const ShipmentManagementScreen = () => {
     }
   };
 
-  const getCoordinatesFromLocation = async (locationString: string) => {
+  const getCoordinatesFromLocation = async (location: any) => {
     try {
-      // This would typically use a geocoding service
-      // For now, return mock coordinates
-      return {
-        latitude: -1.2921 + (Math.random() - 0.5) * 0.1,
-        longitude: 36.8219 + (Math.random() - 0.5) * 0.1,
-      };
+      // Handle different location formats
+      if (typeof location === 'object' && location.latitude && location.longitude) {
+        return {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        };
+      } else if (typeof location === 'string') {
+        // Use Google Maps geocoding service
+        const { googleMapsService } = require('../utils/googleMapsService');
+        const coords = await googleMapsService.geocodeAddress(location);
+        return {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        };
+      }
+      return null;
     } catch (error) {
       console.error('Error getting coordinates:', error);
       return null;
@@ -374,16 +384,32 @@ const ShipmentManagementScreen = () => {
         {/* Client Information */}
         {clientInfo && (
           <View style={styles.clientCard}>
-            <Text style={styles.clientTitle}>Client Information</Text>
+            <Text style={styles.clientTitle}>
+              {clientInfo.userType === 'shipper' ? 'Shipper Information' : 
+               clientInfo.userType === 'business' ? 'Business Information' :
+               clientInfo.userType === 'broker' ? 'Broker Information' : 'Client Information'}
+            </Text>
             <View style={styles.clientInfo}>
               <View style={styles.clientRow}>
                 <MaterialCommunityIcons name="account" size={20} color={colors.primary} />
-                <Text style={styles.clientName}>{clientInfo.name || 'Unknown'}</Text>
+                <Text style={styles.clientName}>{clientInfo.name || clientInfo.companyName || 'Unknown'}</Text>
               </View>
               {clientInfo.phone && (
                 <View style={styles.clientRow}>
                   <MaterialCommunityIcons name="phone" size={20} color={colors.secondary} />
                   <Text style={styles.clientPhone}>{clientInfo.phone}</Text>
+                </View>
+              )}
+              {clientInfo.email && (
+                <View style={styles.clientRow}>
+                  <MaterialCommunityIcons name="email" size={20} color={colors.tertiary} />
+                  <Text style={styles.clientEmail}>{clientInfo.email}</Text>
+                </View>
+              )}
+              {clientInfo.userType && (
+                <View style={styles.clientRow}>
+                  <MaterialCommunityIcons name="badge-account" size={20} color={colors.gray} />
+                  <Text style={styles.clientType}>{clientInfo.userType.charAt(0).toUpperCase() + clientInfo.userType.slice(1)}</Text>
                 </View>
               )}
             </View>
@@ -604,6 +630,17 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     color: colors.primary,
     marginLeft: spacing.md,
+  },
+  clientEmail: {
+    fontSize: fonts.size.md,
+    color: colors.tertiary,
+    marginLeft: spacing.md,
+  },
+  clientType: {
+    fontSize: fonts.size.sm,
+    color: colors.gray,
+    marginLeft: spacing.md,
+    fontStyle: 'italic',
   },
   actionContainer: {
     flexDirection: 'row',
