@@ -405,7 +405,13 @@ exports.forgotPassword = async (req, res) => {
    
     let user;
     if (email) {
-      user = await admin.auth().getUserByEmail(email);
+      try {
+        user = await admin.auth().getUserByEmail(email);
+      } catch (error) {
+        console.log('User not found by email:', error.message);
+        // User doesn't exist, user will remain null
+        user = null;
+      }
     } else if (phone) {
       // First try to find user by phone number in Firebase Auth
       const phoneFormats = [
@@ -476,9 +482,13 @@ exports.forgotPassword = async (req, res) => {
 
 
     if (!user) {
+      const errorMessage = email 
+        ? 'No account found with this email address'
+        : 'No account found with this phone number';
+      
       return res.status(404).json({
         code: 'ERR_USER_NOT_FOUND',
-        message: 'User not found'
+        message: errorMessage
       });
     }
 
