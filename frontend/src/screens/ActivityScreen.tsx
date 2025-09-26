@@ -20,8 +20,7 @@ import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 import { getAuth } from 'firebase/auth';
 import LocationDisplay from '../components/common/LocationDisplay';
-import { getDistanceBetweenLocations, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
-import { processLocationData } from '../utils/locationProcessor';
+import { getDistanceBetweenLocations, getLocationNameSync } from '../utils/locationUtils';
 import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/bookingIdGenerator';
 
 interface RequestItem {
@@ -138,8 +137,9 @@ const ActivityScreen = () => {
           }
           
           // Process location data consistently
-          const fromLocation = processLocationData(booking.fromLocation || booking.from);
-          const toLocation = processLocationData(booking.toLocation || booking.to);
+          const fromLocation = booking.fromLocation || booking.from;
+          const toLocation = booking.toLocation || booking.to;
+          
           
           return {
             id: booking.bookingId || booking.id || `booking_${Date.now()}`,
@@ -299,16 +299,22 @@ const ActivityScreen = () => {
         <View style={styles.routeContainer}>
           <View style={styles.locationItem}>
             <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-            <Text style={styles.locationText}>
-              {cleanLocationDisplay(item.fromLocation || 'Unknown location')}
-            </Text>
+            <LocationDisplay 
+              location={item.fromLocation || 'Unknown location'} 
+              style={styles.locationText}
+              showIcon={false}
+              numberOfLines={1}
+            />
           </View>
           <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} style={styles.routeArrow} />
           <View style={styles.locationItem}>
             <MaterialCommunityIcons name="flag-checkered" size={16} color={colors.secondary} />
-            <Text style={styles.locationText}>
-              {cleanLocationDisplay(item.toLocation || 'Unknown location')}
-            </Text>
+            <LocationDisplay 
+              location={item.toLocation || 'Unknown location'} 
+              style={styles.locationText}
+              showIcon={false}
+              numberOfLines={1}
+            />
           </View>
         </View>
       </View>
@@ -1125,6 +1131,7 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginLeft: spacing.sm,
     flex: 1,
+    flexShrink: 1,
   },
   cargoSection: {
     marginBottom: spacing.sm,

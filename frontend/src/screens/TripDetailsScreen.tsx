@@ -11,7 +11,7 @@ import { enhancedRatingService } from '../services/enhancedRatingService';
 import colors from '../constants/colors';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
-import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
+import { getLocationName, formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
 
 interface TripDetailsParams {

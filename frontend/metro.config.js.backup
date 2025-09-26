@@ -1,0 +1,46 @@
+const { getDefaultConfig } = require('expo/metro-config');
+
+const config = getDefaultConfig(__dirname);
+
+// Aggressively block problematic directories to reduce file watchers
+config.resolver.blockList = [
+  // Block Android build directories
+  /node_modules\/.*\/android\/build\/.*/,
+  /node_modules\/.*\/gradle-plugin\/.*/,
+  /node_modules\/.*\/kotlin\/.*/,
+  /node_modules\/.*\/caches-jvm\/.*/,
+  /node_modules\/.*\/compileKotlin\/.*/,
+  /node_modules\/.*\/\.cache\/.*/,
+  /node_modules\/.*\/build\/.*/,
+  
+  // Block specific problematic packages
+  /node_modules\/react-native-maps\/android\/.*/,
+  /node_modules\/react-native-linear-gradient\/android\/.*/,
+  /node_modules\/@react-native\/gradle-plugin\/.*/,
+  /node_modules\/@expo\/cli\/.*/,
+  
+  // Block other build artifacts
+  /\.gradle\/.*/,
+  /\.expo\/.*/,
+  /android\/build\/.*/,
+  /ios\/build\/.*/,
+];
+
+// Only watch essential directories
+config.watchFolders = [
+  __dirname + '/src',
+];
+
+// Reduce workers to minimum
+config.maxWorkers = 1;
+
+// Disable watchman to reduce file watchers
+config.watcher = {
+  additionalExts: ['cjs', 'mjs'],
+  watchman: false,
+};
+
+// Reduce file watching scope
+config.resolver.platforms = ['ios', 'android', 'native', 'web'];
+
+module.exports = config;

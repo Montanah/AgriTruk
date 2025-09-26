@@ -1,73 +1,94 @@
-import React from 'react';
-import { Text, ActivityIndicator, View, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Text, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import useLocationObjectDisplay from '../../hooks/useLocationObjectDisplay';
-import { cleanLocationDisplay } from '../../utils/locationUtils';
+import { getLocationName, getLocationNameSync } from '../../utils/locationDisplay';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
-import spacing from '../../constants/spacing';
 
 interface LocationDisplayProps {
-  location: string | { latitude: number; longitude: number; address?: string };
+  location: any;
   style?: any;
   showIcon?: boolean;
-  iconName?: string;
   iconColor?: string;
-  iconSize?: number;
-  showLoading?: boolean;
+  loadingColor?: string;
+  fallbackToSync?: boolean;
+  numberOfLines?: number;
 }
 
 const LocationDisplay: React.FC<LocationDisplayProps> = ({
   location,
   style,
   showIcon = true,
-  iconName = 'map-marker',
   iconColor = colors.primary,
-  iconSize = 16,
-  showLoading = true,
+  loadingColor = colors.text.secondary,
+  fallbackToSync = true,
+  numberOfLines,
 }) => {
-  // Handle undefined/null location
-  if (!location) {
+  const [locationName, setLocationName] = useState<string>('Unknown Location');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLocationName = async () => {
+      if (!location) {
+        setLocationName('Unknown Location');
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const name = await getLocationName(location);
+        setLocationName(name);
+      } catch (err: any) {
+        console.error('Error getting location name:', err);
+        setError(err.message || 'Failed to get location name');
+        
+        // Fallback to synchronous method if enabled
+        if (fallbackToSync) {
+          setLocationName(getLocationNameSync(location));
+        } else {
+          setLocationName('Unknown Location');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLocationName();
+  }, [location, fallbackToSync]);
+
+  if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, style]}>
         {showIcon && (
           <MaterialCommunityIcons 
-            name={iconName} 
-            size={iconSize} 
-            color={iconColor} 
+            name="map-marker" 
+            size={16} 
+            color={loadingColor} 
             style={styles.icon}
           />
         )}
-        <Text style={[styles.locationText, style]}>Unknown location</Text>
+        <ActivityIndicator size="small" color={loadingColor} style={styles.loader} />
+        <Text style={[styles.text, style, { color: loadingColor }]}>Loading...</Text>
       </View>
     );
   }
 
-  // Use the new hook that handles both strings and objects
-  const { displayLocation, isLoading, error } = useLocationObjectDisplay(location);
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       {showIcon && (
         <MaterialCommunityIcons 
-          name={iconName} 
-          size={iconSize} 
+          name="map-marker" 
+          size={16} 
           color={iconColor} 
           style={styles.icon}
         />
       )}
-      <View style={styles.textContainer}>
-        {isLoading && showLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={[styles.loadingText, style]}>Loading location...</Text>
-          </View>
-        ) : (
-          <Text style={[styles.locationText, style]}>
-            {displayLocation || 'Location not available'}
-          </Text>
-        )}
-      </View>
+      <Text style={[styles.text, style]} numberOfLines={numberOfLines || 2}>
+        {locationName}
+      </Text>
     </View>
   );
 };
@@ -79,26 +100,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   icon: {
-    marginRight: spacing.xs,
+    marginRight: 4,
   },
-  textContainer: {
-    flex: 1,
-  },
-  locationText: {
+  text: {
     fontSize: fonts.size.sm,
-    fontFamily: fonts.family.regular,
     color: colors.text.primary,
     flex: 1,
   },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: fonts.size.sm,
-    fontFamily: fonts.family.regular,
-    color: colors.text.secondary,
-    marginLeft: spacing.xs,
+  loader: {
+    marginRight: 4,
   },
 });
 

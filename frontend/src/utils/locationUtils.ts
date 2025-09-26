@@ -1,8 +1,9 @@
-// Removed self-import to fix require cycle warning
-
 /**
- * Enhanced location utilities with reverse geocoding
+ * Location Utilities - Simple and Clean
+ * Uses the new locationDisplay service for consistent location handling
  */
+
+import { getLocationName, getLocationNameSync, formatRoute, formatRouteSync } from './locationDisplay';
 
 export interface LocationData {
   latitude: number;
@@ -14,14 +15,44 @@ export interface LocationData {
   country?: string;
 }
 
-// Cache for reverse geocoding results
-const locationCache = new Map<string, LocationData>();
+/**
+ * Get readable location name from various input formats
+ * @deprecated Use getLocationName from locationDisplay instead
+ */
+export async function getReadableLocationName(location: any): Promise<string> {
+  return getLocationName(location);
+}
 
 /**
- * Generate cache key for coordinates
+ * Get readable location name synchronously
+ * @deprecated Use getLocationNameSync from locationDisplay instead
  */
-function getCacheKey(lat: number, lng: number): string {
-  return `${lat.toFixed(4)},${lng.toFixed(4)}`;
+export function getReadableLocationNameSync(location: any): string {
+  return getLocationNameSync(location);
+}
+
+/**
+ * Format route from two locations
+ * @deprecated Use formatRoute from locationDisplay instead
+ */
+export async function formatRouteDeprecated(fromLocation: any, toLocation: any): Promise<string> {
+  return formatRoute(fromLocation, toLocation);
+}
+
+/**
+ * Format route synchronously
+ * @deprecated Use formatRouteSync from locationDisplay instead
+ */
+export function formatRouteSyncDeprecated(fromLocation: any, toLocation: any): string {
+  return formatRouteSync(fromLocation, toLocation);
+}
+
+/**
+ * Clean location display - removes "Location (" prefix and ")" suffix
+ * @deprecated Use getLocationNameSync from locationDisplay instead
+ */
+export function cleanLocationDisplay(location: any): string {
+  return getLocationNameSync(location);
 }
 
 /**
@@ -70,276 +101,31 @@ export function parseCoordinateString(coordinateStr: string): { lat: number; lng
 }
 
 /**
- * Reverse geocode coordinates to get place name
- * This is a simplified version - in production, you'd use Google Maps API or similar
+ * Check if string is a coordinate string
  */
-export async function reverseGeocode(lat: number, lng: number): Promise<LocationData | null> {
-  if (!isValidCoordinates(lat, lng)) {
-    return null;
-  }
-
-  const cacheKey = getCacheKey(lat, lng);
-  
-  // Check cache first
-  if (locationCache.has(cacheKey)) {
-    return locationCache.get(cacheKey)!;
-  }
-
-  try {
-    // For now, we'll use a simple approach
-    // In production, you'd integrate with Google Maps Geocoding API or similar
-    const locationData: LocationData = {
-      latitude: lat,
-      longitude: lng,
-      address: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-      formattedAddress: await getPlaceNameFromCoordinates(lat, lng),
-      placeName: await getPlaceNameFromCoordinates(lat, lng),
-    };
-
-    // Cache the result
-    locationCache.set(cacheKey, locationData);
-    
-    return locationData;
-  } catch (error) {
-    console.error('Reverse geocoding failed:', error);
-    return {
-      latitude: lat,
-      longitude: lng,
-      address: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-      formattedAddress: `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-    };
-  }
+export function isCoordinateString(str: string): boolean {
+  if (!str || typeof str !== 'string') return false;
+  const coordPattern = /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/;
+  return coordPattern.test(str.trim());
 }
 
 /**
- * Get place name from coordinates
- * Enhanced with more comprehensive location mapping
+ * Calculate distance between two coordinates using Haversine formula
  */
-async function getPlaceNameFromCoordinates(lat: number, lng: number): Promise<string> {
-  // Check for invalid coordinates
-  if (lat === 0 && lng === 0 || isNaN(lat) || isNaN(lng)) {
-    return 'Unknown Location';
-  }
-
-  // Comprehensive known locations in Kenya
-  const knownLocations = [
-    // Nairobi and surrounding areas
-    { lat: -1.2921, lng: 36.8219, name: 'Nairobi' },
-    { lat: -1.2622, lng: 36.8059, name: 'Nairobi Area' },
-    { lat: -1.1667, lng: 36.8333, name: 'Thika' },
-    { lat: -1.0333, lng: 37.0833, name: 'Machakos' },
-    { lat: -1.3000, lng: 36.8000, name: 'Nairobi CBD' },
-    { lat: -1.3500, lng: 36.7500, name: 'Westlands' },
-    { lat: -1.2500, lng: 36.8500, name: 'Eastleigh' },
-    
-    // Coastal region
-    { lat: -4.0437, lng: 39.6682, name: 'Mombasa' },
-    { lat: -4.0000, lng: 39.6000, name: 'Mombasa Area' },
-    { lat: -3.2000, lng: 40.1000, name: 'Malindi' },
-    { lat: -3.4000, lng: 39.9000, name: 'Kilifi' },
-    
-    // Western Kenya
-    { lat: -0.0917, lng: 34.768, name: 'Kisumu' },
-    { lat: -0.1000, lng: 34.8000, name: 'Kisumu Area' },
-    { lat: 0.0236, lng: 37.9062, name: 'Nakuru' },
-    { lat: 0.0000, lng: 37.9000, name: 'Nakuru Area' },
-    { lat: -0.4167, lng: 36.9500, name: 'Nyeri' },
-    { lat: -0.5167, lng: 35.2833, name: 'Kericho' },
-    { lat: 0.1000, lng: 35.0000, name: 'Eldoret' },
-    { lat: 0.3000, lng: 36.0000, name: 'Isiolo' },
-    
-    // Central Kenya
-    { lat: -0.3000, lng: 36.1000, name: 'Nanyuki' },
-    { lat: -0.2000, lng: 36.3000, name: 'Meru' },
-    { lat: -0.5000, lng: 36.5000, name: 'Embu' },
-    
-    // Rift Valley
-    { lat: 0.5000, lng: 35.5000, name: 'Kitale' },
-    { lat: 0.8000, lng: 35.2000, name: 'Lodwar' },
-    { lat: -0.8000, lng: 36.2000, name: 'Kitui' },
-  ];
-
-  // Check if coordinates match known locations (with tolerance)
-  const tolerance = 0.15; // Increased tolerance for better matching
-  for (const location of knownLocations) {
-    if (
-      Math.abs(lat - location.lat) < tolerance &&
-      Math.abs(lng - location.lng) < tolerance
-    ) {
-      return location.name;
-    }
-  }
-
-  // If coordinates are in Kenya (rough bounds), return generic location
-  if (lat >= -4.8 && lat <= 5.5 && lng >= 33.9 && lng <= 41.9) {
-    return 'Kenya Location';
-  }
-
-  // If no known location found, return formatted coordinates
-  return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+export function getDistanceBetweenLocations(
+  location1: { latitude: number; longitude: number },
+  location2: { latitude: number; longitude: number }
+): number {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (location2.latitude - location1.latitude) * Math.PI / 180;
+  const dLon = (location2.longitude - location1.longitude) * Math.PI / 180;
+  const a =
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(location1.latitude * Math.PI / 180) * Math.cos(location2.latitude * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distance in kilometers
 }
 
-/**
- * Enhanced function to get readable location name
- */
-export async function getReadableLocationName(location: any): Promise<string> {
-  if (!location) return 'Unknown Location';
-
-  // If it's already a readable string, return it
-  if (typeof location === 'string') {
-    // Check if it's a coordinate string
-    const coords = parseCoordinateString(location);
-    if (coords) {
-      const locationData = await reverseGeocode(coords.lat, coords.lng);
-      return locationData?.formattedAddress || location;
-    }
-    return location;
-  }
-
-  // If it's an object with coordinates
-  if (typeof location === 'object') {
-    // Check for address first
-    if (location.address && typeof location.address === 'string') {
-      const coords = parseCoordinateString(location.address);
-      if (coords) {
-        const locationData = await reverseGeocode(coords.lat, coords.lng);
-        return locationData?.formattedAddress || location.address;
-      }
-      return location.address;
-    }
-
-    // Check for coordinates
-    if (location.latitude && location.longitude) {
-      const locationData = await reverseGeocode(location.latitude, location.longitude);
-      return locationData?.formattedAddress || `Location (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`;
-    }
-
-    // Check for other address fields
-    if (location.formattedAddress) return location.formattedAddress;
-    if (location.placeName) return location.placeName;
-    if (location.city) return location.city;
-  }
-
-  return 'Unknown Location';
-}
-
-/**
- * Synchronous version for immediate display (uses cache)
- */
-export function getReadableLocationNameSync(location: any): string {
-  if (!location) return 'Unknown Location';
-
-  // If it's already a readable string, return it
-  if (typeof location === 'string') {
-    // Check if it's a coordinate string
-    const coords = parseCoordinateString(location);
-    if (coords) {
-      // Check for invalid coordinates
-      if (coords.lat === 0 && coords.lng === 0 || isNaN(coords.lat) || isNaN(coords.lng)) {
-        return 'Unknown Location';
-      }
-      const cacheKey = getCacheKey(coords.lat, coords.lng);
-      const cached = locationCache.get(cacheKey);
-      return cached?.formattedAddress || getLocationNameFromCoordsSync(coords.lat, coords.lng);
-    }
-    return location;
-  }
-
-  // If it's an object with coordinates
-  if (typeof location === 'object') {
-    // Check for address first
-    if (location.address && typeof location.address === 'string') {
-      const coords = parseCoordinateString(location.address);
-      if (coords) {
-        // Check for invalid coordinates
-        if (coords.lat === 0 && coords.lng === 0 || isNaN(coords.lat) || isNaN(coords.lng)) {
-          return 'Unknown Location';
-        }
-        const cacheKey = getCacheKey(coords.lat, coords.lng);
-        const cached = locationCache.get(cacheKey);
-        return cached?.formattedAddress || getLocationNameFromCoordsSync(coords.lat, coords.lng);
-      }
-      return location.address;
-    }
-
-    // Check for coordinates
-    if (location.latitude !== undefined && location.longitude !== undefined) {
-      // Check for invalid coordinates
-      if (location.latitude === 0 && location.longitude === 0 || isNaN(location.latitude) || isNaN(location.longitude)) {
-        return 'Unknown Location';
-      }
-      const cacheKey = getCacheKey(location.latitude, location.longitude);
-      const cached = locationCache.get(cacheKey);
-      return cached?.formattedAddress || getLocationNameFromCoordsSync(location.latitude, location.longitude);
-    }
-
-    // Check for other address fields
-    if (location.formattedAddress) return location.formattedAddress;
-    if (location.placeName) return location.placeName;
-    if (location.city) return location.city;
-  }
-
-  return 'Unknown Location';
-}
-
-/**
- * Synchronous location name from coordinates
- */
-function getLocationNameFromCoordsSync(lat: number, lng: number): string {
-  // Check for invalid coordinates
-  if (lat === 0 && lng === 0 || isNaN(lat) || isNaN(lng)) {
-    return 'Unknown Location';
-  }
-
-  // Known locations in Kenya (same as async version)
-  const knownLocations = [
-    { lat: -1.2921, lng: 36.8219, name: 'Nairobi' },
-    { lat: -1.2622, lng: 36.8059, name: 'Nairobi Area' },
-    { lat: -1.1667, lng: 36.8333, name: 'Thika' },
-    { lat: -1.0333, lng: 37.0833, name: 'Machakos' },
-    { lat: -4.0437, lng: 39.6682, name: 'Mombasa' },
-    { lat: -0.0917, lng: 34.768, name: 'Kisumu' },
-    { lat: 0.0236, lng: 37.9062, name: 'Nakuru' },
-    { lat: -0.4167, lng: 36.9500, name: 'Nyeri' },
-    { lat: -0.5167, lng: 35.2833, name: 'Kericho' },
-  ];
-
-  // Check if coordinates match known locations
-  const tolerance = 0.15;
-  for (const location of knownLocations) {
-    if (
-      Math.abs(lat - location.lat) < tolerance &&
-      Math.abs(lng - location.lng) < tolerance
-    ) {
-      return location.name;
-    }
-  }
-
-  // If coordinates are in Kenya, return generic location
-  if (lat >= -4.8 && lat <= 5.5 && lng >= 33.9 && lng <= 41.9) {
-    return 'Kenya Location';
-  }
-
-  // Return formatted coordinates
-  return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-}
-
-/**
- * Format route for display
- */
-export function formatRoute(fromLocation: any, toLocation: any): string {
-  const from = getReadableLocationNameSync(fromLocation);
-  const to = getReadableLocationNameSync(toLocation);
-  return `${from} → ${to}`;
-}
-
-/**
- * Clean location display (remove "Location (" prefix if present)
- */
-export function cleanLocationDisplay(location: any): string {
-  const locationStr = getReadableLocationNameSync(location);
-  return locationStr.replace(/^Location\s*\([^)]+\)\s*/, '');
-}
-
-// Re-export original function for backward compatibility
-// Removed export of originalGetReadableLocationName to fix require cycle
+// Re-export the main functions for convenience
+export { getLocationName, getLocationNameSync, formatRoute, formatRouteSync };

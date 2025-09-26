@@ -1530,6 +1530,16 @@ export default function TransporterCompletionScreen() {
           hasLogo: !!(profilePhoto && profilePhoto.uri)
         });
         
+        // Validate required fields before sending
+        if (!companyName || !companyReg || !companyContact) {
+          const missingFields = [];
+          if (!companyName) missingFields.push('Company Name');
+          if (!companyReg) missingFields.push('Registration Number');
+          if (!companyContact) missingFields.push('Contact');
+          
+          throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+        }
+        
         // Log each FormData entry individually
         console.log('Company FormData entries:');
         for (let [key, value] of formData.entries()) {
@@ -1566,7 +1576,22 @@ export default function TransporterCompletionScreen() {
           if (!res.ok) {
             const errorText = await res.text();
             console.error('Company creation error response:', errorText);
-            throw new Error(`Company creation failed: ${res.status} - ${errorText}`);
+            
+            let errorMessage = 'Company creation failed. Please try again.';
+            
+            try {
+              const errorData = JSON.parse(errorText);
+              if (errorData.message) {
+                errorMessage = errorData.message;
+              } else if (errorData.errors && Array.isArray(errorData.errors)) {
+                errorMessage = errorData.errors.map((err: any) => err.msg || err.message).join(', ');
+              }
+            } catch (parseError) {
+              console.error('Failed to parse error response:', parseError);
+              errorMessage = `Server error (${res.status}): ${errorText}`;
+            }
+            
+            throw new Error(errorMessage);
           }
           
           const companyData = await res.json();

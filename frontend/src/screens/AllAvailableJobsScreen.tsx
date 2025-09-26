@@ -121,9 +121,21 @@ const AllAvailableJobsScreen = () => {
           });
         });
         
-        console.log(`Filtered ${rawJobs.length} jobs to ${uniqueJobs.length} unique jobs`);
-        setJobs(uniqueJobs);
-        applyFilter(uniqueJobs, filter);
+        // Filter out jobs that are not available for acceptance
+        const availableJobs = uniqueJobs.filter((job: any) => {
+          // Only show jobs that are pending and not already accepted
+          const isPending = job.status === 'pending';
+          const notAccepted = !job.acceptedAt || job.acceptedAt === null;
+          const notAssigned = !job.transporterId || job.transporterId === null;
+          
+          console.log(`AllAvailableJobsScreen - Job ${job.bookingId || job.id} - Status: ${job.status}, AcceptedAt: ${job.acceptedAt}, TransporterId: ${job.transporterId}, Available: ${isPending && notAccepted && notAssigned}`);
+          
+          return isPending && notAccepted && notAssigned;
+        });
+        
+        console.log(`Filtered ${rawJobs.length} jobs to ${uniqueJobs.length} unique jobs, ${availableJobs.length} available for acceptance`);
+        setJobs(availableJobs);
+        applyFilter(availableJobs, filter);
       } else {
         const errorText = await response.text();
         console.error('Failed to fetch available jobs:', response.status, errorText);
@@ -207,11 +219,45 @@ const AllAvailableJobsScreen = () => {
                     [{ text: 'OK' }]
                   );
                 } else {
-                  const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-                  console.error('Failed to accept job:', response.status, errorData);
+                  let errorData;
+                  try {
+                    const responseText = await response.text();
+                    errorData = responseText ? JSON.parse(responseText) : { message: 'Empty response from server' };
+                  } catch (parseError) {
+                    console.error('Failed to parse response:', parseError);
+                    errorData = { message: 'Failed to parse server response' };
+                  }
+                  
+                  console.error('Failed to accept job - Full error details:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorData: errorData,
+                    jobId: jobId,
+                    transporterId: user.uid,
+                    apiUrl: `${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`
+                  });
+                  
+                  // Provide more specific error messages based on status code
+                  let errorMessage = 'Unknown error';
+                  if (response.status === 401) {
+                    errorMessage = 'Authentication failed. Please log in again.';
+                  } else if (response.status === 403) {
+                    errorMessage = 'Access denied. You may not have permission to accept this job.';
+                  } else if (response.status === 404) {
+                    errorMessage = 'Job not found. It may have been removed or already accepted.';
+                  } else if (response.status === 409) {
+                    errorMessage = 'This job has already been accepted by another transporter.';
+                  } else if (response.status === 400) {
+                    errorMessage = errorData.message || 'Invalid request. Please check your input.';
+                  } else if (response.status >= 500) {
+                    errorMessage = 'Server error. Please try again later.';
+                  } else {
+                    errorMessage = errorData.message || errorData.code || 'Unknown error';
+                  }
+                  
                   Alert.alert(
                     'Error', 
-                    `Failed to accept job: ${errorData.message || 'Unknown error'}`,
+                    `Failed to accept job: ${errorMessage}`,
                     [{ text: 'OK' }]
                   );
                 }
@@ -353,24 +399,20 @@ const AllAvailableJobsScreen = () => {
       <View style={styles.jobDetails}>
         <View style={styles.locationRow}>
           <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-          <Text style={styles.locationText}>
-            {job.fromLocation?.address || 
-             (job.fromLocation?.latitude && job.fromLocation?.longitude && 
-              typeof job.fromLocation.latitude === 'number' && typeof job.fromLocation.longitude === 'number' ? 
-              `${job.fromLocation.latitude.toFixed(4)}, ${job.fromLocation.longitude.toFixed(4)}` : 
-              'Pickup Location')}
-          </Text>
+          <LocationDisplay 
+            location={job.fromLocation} 
+            style={styles.locationText} 
+            showIcon={false}
+          />
         </View>
         
         <View style={styles.locationRow}>
           <MaterialCommunityIcons name="flag-checkered" size={16} color={colors.secondary} />
-          <Text style={styles.locationText}>
-            {job.toLocation?.address || 
-             (job.toLocation?.latitude && job.toLocation?.longitude && 
-              typeof job.toLocation.latitude === 'number' && typeof job.toLocation.longitude === 'number' ? 
-              `${job.toLocation.latitude.toFixed(4)}, ${job.toLocation.longitude.toFixed(4)}` : 
-              'Delivery Location')}
-          </Text>
+          <LocationDisplay 
+            location={job.toLocation} 
+            style={styles.locationText} 
+            showIcon={false}
+          />
         </View>
 
         <View style={styles.jobInfoRow}>

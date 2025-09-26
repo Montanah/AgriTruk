@@ -20,10 +20,12 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
-import { cleanLocationDisplay, getReadableLocationName, formatRoute, getReadableLocationNameSync } from '../utils/locationUtils';
+import { getLocationName, formatRoute, getLocationNameSync } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
 import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 import { chatService } from '../services/chatService';
 import { enhancedNotificationService } from '../services/enhancedNotificationService';
+import locationService from '../services/locationService';
 
 interface RouteParams {
     transporterType?: 'company' | 'individual' | 'broker';
@@ -38,6 +40,7 @@ const TransporterBookingManagementScreen = () => {
     const [activeTab, setActiveTab] = useState<'accepted' | 'route_loads' | 'history'>('accepted');
     const [jobStatusFilter, setJobStatusFilter] = useState<'all' | 'pending' | 'in_transit' | 'completed'>('all');
     const [refreshing, setRefreshing] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [acceptingId, setAcceptingId] = useState<string | null>(null);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [showLoadDetails, setShowLoadDetails] = useState(false);
@@ -105,7 +108,6 @@ const TransporterBookingManagementScreen = () => {
     const [allRouteLoads, setAllRouteLoads] = useState<any[]>([]);
     const [allBookings, setAllBookings] = useState<any[]>([]);
     const [currentTransporter, setCurrentTransporter] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
 
     // Fetch transporter profile and booking data
     useEffect(() => {
@@ -195,7 +197,52 @@ const TransporterBookingManagementScreen = () => {
         };
 
         fetchData();
-        getCurrentLocation();
+        
+        // Get current location for route-based filtering (optional)
+        const getCurrentLocation = async () => {
+            try {
+                // Check if locationService is available
+                if (!locationService || typeof locationService.getCurrentLocation !== 'function') {
+                    console.warn('LocationService not available, using default location');
+                    setCurrentLocation({
+                        latitude: -1.2921,
+                        longitude: 36.8219,
+                    });
+                    return;
+                }
+
+                const location = await locationService.getCurrentLocation();
+                if (location) {
+                    setCurrentLocation({
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                    });
+                    console.log('Current location set:', location);
+                } else {
+                    console.warn('No location data received, using default location');
+                    setCurrentLocation({
+                        latitude: -1.2921,
+                        longitude: 36.8219,
+                    });
+                }
+            } catch (error) {
+                console.error('Error getting current location:', error);
+                // Set a default location (Nairobi) if location fails
+                setCurrentLocation({
+                    latitude: -1.2921,
+                    longitude: 36.8219,
+                });
+            }
+        };
+        
+        // Call getCurrentLocation asynchronously to not block the main flow
+        getCurrentLocation().catch(error => {
+            console.error('Failed to get current location:', error);
+            setCurrentLocation({
+                latitude: -1.2921,
+                longitude: 36.8219,
+            });
+        });
     }, []);
 
     // Function to check if transporter can handle a request
@@ -465,8 +512,8 @@ const TransporterBookingManagementScreen = () => {
                     {
                         requestId: request.id,
                         transporterName: 'You', // This should come from user profile
-                        pickupLocation: cleanLocationDisplay(request.fromLocation || ''),
-                        deliveryLocation: cleanLocationDisplay(request.toLocation || ''),
+                        pickupLocation: request.fromLocation || 'Unknown Location',
+                        deliveryLocation: request.toLocation || 'Unknown Location',
                     }
                 );
                 
@@ -631,14 +678,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
+                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
+                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
             
@@ -689,14 +736,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
+                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
+                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
             
@@ -755,14 +802,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
+                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
+                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
             
@@ -834,14 +881,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeContainer}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
+                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
+                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
 
@@ -1080,14 +1127,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeContainer}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{item.pickup}</Text>
+                    <LocationDisplay location={item.pickup} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
-                    <Text style={styles.routeText}>{item.dropoff}</Text>
+                    <LocationDisplay location={item.dropoff} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
 

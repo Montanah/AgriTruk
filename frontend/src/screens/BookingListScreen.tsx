@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
-import { cleanLocationDisplay } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
 
 interface Booking {
   id: string;
@@ -184,11 +184,11 @@ const BookingListScreen = () => {
         <View style={styles.locationInfo}>
           <View style={styles.locationRow}>
             <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-            <Text style={styles.locationText}>{cleanLocationDisplay(item.pickupLocation)}</Text>
+            <LocationDisplay location={item.pickupLocation} style={styles.locationText} showIcon={false} />
           </View>
           <View style={styles.locationRow}>
             <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
-            <Text style={styles.locationText}>{cleanLocationDisplay(item.deliveryLocation)}</Text>
+            <LocationDisplay location={item.deliveryLocation} style={styles.locationText} showIcon={false} />
           </View>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: statusColors[item.status] + '20' }]}>

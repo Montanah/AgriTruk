@@ -1,270 +1,248 @@
-// Import the geocoding function
-import { convertCoordinatesToPlaceName } from './locationUtils';
+/**
+ * Simple Location Display Utility
+ * Converts coordinates to readable place names using Google Maps Geocoding API
+ */
 
-// Cache for converted locations to avoid repeated API calls
-const locationNameCache = new Map<string, string>();
+interface LocationData {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  formattedAddress?: string;
+  placeName?: string;
+  city?: string;
+  country?: string;
+}
 
-// Common Kenyan locations lookup table
-const kenyanLocations: { [key: string]: string } = {
-  '-1.2921,36.8219': 'Nairobi, Kenya',
-  '-3.3199,40.0730': 'Mombasa, Kenya',
-  '0.0236,37.9062': 'Nakuru, Kenya',
-  '-0.0917,34.7680': 'Kisumu, Kenya',
-  '0.5167,35.2833': 'Eldoret, Kenya',
-  '-1.0333,37.0833': 'Machakos, Kenya',
-  '-0.3600,36.2800': 'Thika, Kenya',
-  '-0.5167,35.2833': 'Nyeri, Kenya',
-  '0.5167,35.2833': 'Kitale, Kenya',
-  '-0.3667,36.0833': 'Meru, Kenya',
-  '0.2833,34.7667': 'Kakamega, Kenya',
-  '-0.5167,35.2833': 'Kericho, Kenya',
-  '0.5167,35.2833': 'Malindi, Kenya',
-  '-3.3199,40.0730': 'Mombasa, Kenya', // This is actually Mombasa
-  '-1.0333,37.0833': 'Kitui, Kenya',
-  '0.2833,34.7667': 'Bungoma, Kenya',
-  '-0.5167,35.2833': 'Garissa, Kenya',
-  '0.2833,34.7667': 'Busia, Kenya',
-  '-1.0333,37.0833': 'Embu, Kenya',
-  // Add more specific coordinates that might appear
-  '-1.2921,36.8219': 'Nairobi, Kenya',
-  // Fix the coordinate mapping - -3.3199,40.0730 is actually Mombasa, not Watamu
-  // Watamu coordinates are different: approximately -3.4167, 40.0167
-  '-3.4167,40.0167': 'Watamu, Kenya',
-  '-3.3540,40.0139': 'Watamu, Kenya', // More precise Watamu coordinates
-  '-3.3199,40.0730': 'Mombasa, Kenya',
-};
+interface GeocodingResult {
+  formatted_address: string;
+  address_components: Array<{
+    long_name: string;
+    short_name: string;
+    types: string[];
+  }>;
+}
 
-// Async function to convert coordinates to place names
-export const convertLocationToPlaceName = async (location: string): Promise<string> => {
-  if (!location || location === 'undefined' || location === 'null' || typeof location !== 'string') return 'Unknown location';
-  
-  // Check if it's a coordinate string like "Location (-3.3199, 40.0730)" or "Near -3.3199, 40.0730"
-  const coordinateMatch = location.match(/Location\s*\(([-+]?\d+\.?\d*),\s*([-+]?\d+\.?\d*)\)/) ||
-                         location.match(/^Near\s+([-+]?\d+\.?\d*),\s*([-+]?\d+\.?\d*)$/);
-  if (coordinateMatch) {
-    const lat = parseFloat(coordinateMatch[1]);
-    const lng = parseFloat(coordinateMatch[2]);
+class LocationDisplayService {
+  private cache = new Map<string, string>();
+  private pendingRequests = new Map<string, Promise<string>>();
+
+  /**
+   * Get readable location name from various input formats
+   */
+  async getLocationName(location: any): Promise<string> {
+    if (!location) return 'Unknown Location';
+
+    // Handle string input
+    if (typeof location === 'string') {
+      // If it's already a readable string, return it
+      if (!this.isCoordinateString(location)) {
+        return location;
+      }
+      // If it's a coordinate string, parse it
+      const coords = this.parseCoordinateString(location);
+      if (coords) {
+        return this.getLocationNameFromCoords(coords.latitude, coords.longitude);
+      }
+      return location;
+    }
+
+    // Handle object input
+    if (typeof location === 'object') {
+      // If it has coordinates, geocode them first (this takes priority)
+      if (location.latitude && location.longitude) {
+        return this.getLocationNameFromCoords(location.latitude, location.longitude);
+      }
+      
+      // If it already has readable text (not coordinates), use it
+      if (location.address && !this.isCoordinateString(location.address)) return location.address;
+      if (location.formattedAddress && !this.isCoordinateString(location.formattedAddress)) return location.formattedAddress;
+      if (location.placeName) return location.placeName;
+      if (location.city) return location.city;
+      
+      // If address contains coordinates, process them
+      if (location.address && this.isCoordinateString(location.address)) {
+        const coords = this.parseCoordinateString(location.address);
+        if (coords) {
+          return this.getLocationNameFromCoords(coords.latitude, coords.longitude);
+        }
+      }
+    }
+
+    return 'Unknown Location';
+  }
+
+  /**
+   * Get location name from coordinates using Google Maps Geocoding
+   */
+  private async getLocationNameFromCoords(latitude: number, longitude: number): Promise<string> {
+    const cacheKey = `${latitude},${longitude}`;
     
     // Check cache first
-    const cacheKey = `${lat},${lng}`;
-    if (locationNameCache.has(cacheKey)) {
-      return locationNameCache.get(cacheKey)!;
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey)!;
     }
-    
+
+    // Check if request is already pending
+    if (this.pendingRequests.has(cacheKey)) {
+      return this.pendingRequests.get(cacheKey)!;
+    }
+
+    // Create new request
+    const request = this.geocodeCoordinates(latitude, longitude);
+    this.pendingRequests.set(cacheKey, request);
+
     try {
-      // Convert coordinates to place name
-      const placeName = await convertCoordinatesToPlaceName({ latitude: lat, longitude: lng });
-      locationNameCache.set(cacheKey, placeName);
-      return placeName;
+      const result = await request;
+      this.cache.set(cacheKey, result);
+      return result;
     } catch (error) {
-      console.warn('Failed to convert coordinates to place name:', error);
-      // Return a more user-friendly fallback
-      const coordinateString = `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-      locationNameCache.set(cacheKey, coordinateString);
-      return coordinateString;
+      console.error('Geocoding error:', error);
+      return `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+    } finally {
+      this.pendingRequests.delete(cacheKey);
     }
   }
-  
-  // Check if it's just coordinates without "Location" wrapper
-  const simpleCoordinateMatch = location.match(/^([-+]?\d+\.?\d*),\s*([-+]?\d+\.?\d*)$/);
-  if (simpleCoordinateMatch) {
-    const lat = parseFloat(simpleCoordinateMatch[1]);
-    const lng = parseFloat(simpleCoordinateMatch[2]);
-    
-    // Check cache first
-    const cacheKey = `${lat},${lng}`;
-    if (locationNameCache.has(cacheKey)) {
-      return locationNameCache.get(cacheKey)!;
-    }
-    
+
+  /**
+   * Geocode coordinates using Google Maps API
+   */
+  private async geocodeCoordinates(latitude: number, longitude: number): Promise<string> {
     try {
-      // Convert coordinates to place name
-      const placeName = await convertCoordinatesToPlaceName({ latitude: lat, longitude: lng });
-      locationNameCache.set(cacheKey, placeName);
-      return placeName;
+      const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4';
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === 'OK' && data.results.length > 0) {
+        const result = data.results[0] as GeocodingResult;
+        return this.formatAddress(result);
+      }
+
+      return `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
     } catch (error) {
-      console.warn('Failed to convert coordinates to place name:', error);
-      const coordinateString = `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-      locationNameCache.set(cacheKey, coordinateString);
-      return coordinateString;
+      console.error('Geocoding API error:', error);
+      return `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
     }
   }
-  
-  // If it's not coordinates, just clean and return
-  return cleanLocationDisplay(location);
-};
 
-// Utility functions for cleaning up location display
-export const cleanLocationDisplay = (location: string): string => {
-  if (!location || location === 'undefined' || location === 'null' || typeof location !== 'string') return 'Unknown location';
-  
-  // Check if it's a coordinate string like "Location (-3.3199, 40.0730)" or "Near -3.3199, 40.0730"
-  const coordinateMatch = location.match(/Location\s*\(([-+]?\d+\.?\d*),\s*([-+]?\d+\.?\d*)\)/) ||
-                         location.match(/^Near\s+([-+]?\d+\.?\d*),\s*([-+]?\d+\.?\d*)$/);
-  if (coordinateMatch) {
-    const lat = parseFloat(coordinateMatch[1]);
-    const lng = parseFloat(coordinateMatch[2]);
+  /**
+   * Format geocoding result into readable address
+   */
+  private formatAddress(result: GeocodingResult): string {
+    // Try to get a concise, readable address
+    const components = result.address_components;
     
-    // Check cache first
-    const cacheKey = `${lat},${lng}`;
-    if (locationNameCache.has(cacheKey)) {
-      return locationNameCache.get(cacheKey)!;
-    }
-    
-    // Check lookup table for common Kenyan locations
-    const coordKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-    if (kenyanLocations[coordKey]) {
-      locationNameCache.set(cacheKey, kenyanLocations[coordKey]);
-      return kenyanLocations[coordKey];
-    }
-    
-    // Return coordinates if not found in lookup table
-    return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-  }
-  
-  // Check if it's just coordinates without "Location" wrapper
-  const simpleCoordinateMatch = location.match(/^([-+]?\d+\.?\d*),\s*([-+]?\d+\.?\d*)$/);
-  if (simpleCoordinateMatch) {
-    const lat = parseFloat(simpleCoordinateMatch[1]);
-    const lng = parseFloat(simpleCoordinateMatch[2]);
-    
-    // Check cache first
-    const cacheKey = `${lat},${lng}`;
-    if (locationNameCache.has(cacheKey)) {
-      return locationNameCache.get(cacheKey)!;
-    }
-    
-    // Check lookup table for common Kenyan locations
-    const coordKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-    if (kenyanLocations[coordKey]) {
-      locationNameCache.set(cacheKey, kenyanLocations[coordKey]);
-      return kenyanLocations[coordKey];
-    }
-    
-    return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-  }
-  
-  // Remove common prefixes that are not user-friendly
-  const prefixesToRemove = [
-    /^[A-Z0-9+]{6,}\s*,?\s*/, // Remove codes like M3HC+XXW
-    /^Near\s+/, // Remove "Near " prefix
-    /^Location\s*\(/, // Remove "Location (" prefix
-    /^\([^)]+\)\s*/, // Remove coordinate-like prefixes in parentheses
-    /^Unknown\s+location\s*,?\s*/i, // Remove "Unknown location" prefix
-  ];
-  
-  // Handle plus codes specifically - extract meaningful location info
-  const plusCodeMatch = location.match(/^([A-Z0-9+]{6,})\s*,\s*(.+)$/);
-  if (plusCodeMatch) {
-    const [, plusCode, locationInfo] = plusCodeMatch;
-    // Return just the meaningful location part, removing the plus code
-    return cleanLocationDisplay(locationInfo);
-  }
-  
-  let cleaned = location;
-  
-  // Apply all prefix removals
-  prefixesToRemove.forEach(regex => {
-    cleaned = cleaned.replace(regex, '');
-  });
-  
-  // Clean up common location patterns
-  cleaned = cleaned
-    .replace(/,\s*Kenya\s*$/i, '') // Remove trailing ", Kenya"
-    .replace(/,\s*KE\s*$/i, '') // Remove trailing ", KE"
-    .replace(/\s*,\s*$/, '') // Remove trailing commas
-    .trim();
-  
-  // If the result is empty or too short, return a better fallback
-  if (cleaned.length < 3) {
-    // If it was "Unknown location", provide a more helpful message
-    if (location.toLowerCase().includes('unknown')) {
-      return 'Location not specified';
-    }
-    // If it was just coordinates or plus codes, provide a generic message
-    if (location.match(/^[A-Z0-9+]{6,}/) || location.match(/^Location\s*\(/)) {
-      return 'Location details not available';
-    }
-    return location;
-  }
-  
-  return cleaned;
-};
+    // Look for locality, administrative_area_level_1, and country
+    let city = '';
+    let state = '';
+    let country = '';
 
-export const formatLocationForCard = (location: string | { address?: string; latitude?: number; longitude?: number }): string => {
-  if (typeof location === 'string') {
-    return cleanLocationDisplay(location);
+    for (const component of components) {
+      if (component.types.includes('locality')) {
+        city = component.long_name;
+      } else if (component.types.includes('administrative_area_level_1')) {
+        state = component.long_name;
+      } else if (component.types.includes('country')) {
+        country = component.long_name;
+      }
+    }
+
+    // Build readable address
+    if (city && state) {
+      return `${city}, ${state}`;
+    } else if (city) {
+      return city;
+    } else if (state) {
+      return state;
+    } else {
+      return result.formatted_address;
+    }
   }
-  
-  if (location?.address) {
-    return cleanLocationDisplay(location.address);
+
+  /**
+   * Check if string is a coordinate string
+   */
+  private isCoordinateString(str: string): boolean {
+    // Match simple coordinates like "-1.2921, 36.8219"
+    const simpleCoordPattern = /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/;
+    // Match "Location (lat, lng)" format (including truncated with ...)
+    const locationCoordPattern = /^Location\s*\([-+]?\d+\.?\d*,\s*[-+]?\d+\.?\d*[.)]/;
+    return simpleCoordPattern.test(str.trim()) || locationCoordPattern.test(str.trim());
   }
-  
-  if (location?.latitude && location?.longitude) {
-    // For coordinates, try to extract meaningful location info
-    const lat = location.latitude;
-    const lng = location.longitude;
+
+  /**
+   * Parse coordinate string into lat/lng
+   */
+  private parseCoordinateString(str: string): { latitude: number; longitude: number } | null {
+    // Handle "Location (lat, lng)" format (including truncated with ...)
+    const locationMatch = str.match(/Location\s*\(([^,]+),\s*([^.)]+)/);
+    if (locationMatch) {
+      const lat = parseFloat(locationMatch[1]);
+      const lng = parseFloat(locationMatch[2]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
     
-    // Simple fallback - in a real app, you'd use reverse geocoding
-    return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-  }
-  
-  return 'Unknown location';
-};
-
-export const getLocationShortName = (location: string): string => {
-  const cleaned = cleanLocationDisplay(location);
-  
-  // Extract city/town name (usually the last meaningful part)
-  const parts = cleaned.split(',').map(part => part.trim());
-  
-  // Return the last non-empty part (usually the city)
-  for (let i = parts.length - 1; i >= 0; i--) {
-    if (parts[i] && parts[i].length > 2) {
-      return parts[i];
+    // Handle simple "lat, lng" format
+    const coords = str.split(',').map(coord => parseFloat(coord.trim()));
+    if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
+      return { latitude: coords[0], longitude: coords[1] };
     }
+    return null;
   }
-  
-  return cleaned;
-};
 
-// Test the function with common location formats
-export const testLocationCleaning = () => {
-  const testLocations = [
-    'M3HC+XXW, Watamu, Kenya',
-    'PR5C+5Q2, Haile Selassie Ave, Nairobi, Kenya',
-    'Haile Selassie Ave, Nairobi, Kenya',
-    'Near -1.2921, 36.8219',
-    'Near -3.3199, 40.0730',
-    'Location (-1.2921, 36.8219)',
-    'Nairobi',
-    'Kisumu',
-    'Mombasa, Kenya',
-    'Unknown location',
-    'Unknown location, Kenya',
-  ];
-  
-  console.log('Location cleaning test:');
-  testLocations.forEach(loc => {
-    console.log(`"${loc}" -> "${cleanLocationDisplay(loc)}"`);
-  });
-};
+  /**
+   * Synchronous fallback for location display
+   */
+  getLocationNameSync(location: any): string {
+    if (!location) return 'Unknown Location';
 
-// Test the async conversion function
-export const testLocationConversion = async () => {
-  const testLocations = [
-    'Near -1.2921, 36.8219',
-    'Near -3.3199, 40.0730',
-    'Location (-1.2921, 36.8219)',
-  ];
-  
-  console.log('Location conversion test:');
-  for (const loc of testLocations) {
-    try {
-      const result = await convertLocationToPlaceName(loc);
-      console.log(`"${loc}" -> "${result}"`);
-    } catch (error) {
-      console.log(`"${loc}" -> Error: ${error.message}`);
+    if (typeof location === 'string') {
+      if (!this.isCoordinateString(location)) {
+        return location;
+      }
+      return location; // Return coordinate string as fallback
     }
+
+    if (typeof location === 'object') {
+      if (location.address) return location.address;
+      if (location.formattedAddress) return location.formattedAddress;
+      if (location.placeName) return location.placeName;
+      if (location.city) return location.city;
+      if (location.latitude && location.longitude) {
+        return `Location (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`;
+      }
+    }
+
+    return 'Unknown Location';
   }
-};
+
+  /**
+   * Format route from two locations
+   */
+  async formatRoute(fromLocation: any, toLocation: any): Promise<string> {
+    const from = await this.getLocationName(fromLocation);
+    const to = await this.getLocationName(toLocation);
+    return `${from} → ${to}`;
+  }
+
+  /**
+   * Synchronous route formatting
+   */
+  formatRouteSync(fromLocation: any, toLocation: any): string {
+    const from = this.getLocationNameSync(fromLocation);
+    const to = this.getLocationNameSync(toLocation);
+    return `${from} → ${to}`;
+  }
+}
+
+// Export singleton instance
+export const locationDisplay = new LocationDisplayService();
+
+// Export convenience functions
+export const getLocationName = (location: any) => locationDisplay.getLocationName(location);
+export const getLocationNameSync = (location: any) => locationDisplay.getLocationNameSync(location);
+export const formatRoute = (from: any, to: any) => locationDisplay.formatRoute(from, to);
+export const formatRouteSync = (from: any, to: any) => locationDisplay.formatRouteSync(from, to);

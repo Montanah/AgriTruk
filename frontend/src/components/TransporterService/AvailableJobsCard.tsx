@@ -15,9 +15,7 @@ import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
 import { API_ENDPOINTS } from '../../constants/api';
-import { convertCoordinatesToPlaceName, formatLocationForDisplay } from '../../utils/locationUtils';
-import { useLocationName } from '../../hooks/useLocationName';
-import { cleanLocationDisplay } from '../../utils/locationUtils';
+import { getLocationName } from '../../utils/locationUtils';
 import { chatService } from '../../services/chatService';
 import { enhancedNotificationService } from '../../services/enhancedNotificationService';
 import LocationDisplay from '../common/LocationDisplay';
@@ -107,13 +105,28 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                 console.log('Parsed jobs:', jobs);
                 
                 if (Array.isArray(jobs)) {
-                    // Debug urgency levels
-                    jobs.forEach((job, index) => {
-                        console.log(`Job ${index} full data:`, job);
-                        console.log(`Job ${index} urgency level:`, job.urgencyLevel, typeof job.urgencyLevel);
-                        console.log(`Job ${index} urgency:`, job.urgency, typeof job.urgency);
+                    // Filter out jobs that are not available for acceptance
+                    const availableJobs = jobs.filter(job => {
+                        // Only show jobs that are pending and not already accepted
+                        const isPending = job.status === 'pending';
+                        const notAccepted = !job.acceptedAt || job.acceptedAt === null;
+                        const notAssigned = !job.transporterId || job.transporterId === null;
+                        
+                        console.log(`Job ${job.bookingId || job.id} - Status: ${job.status}, AcceptedAt: ${job.acceptedAt}, TransporterId: ${job.transporterId}, Available: ${isPending && notAccepted && notAssigned}`);
+                        
+                        return isPending && notAccepted && notAssigned;
                     });
-                    setJobs(jobs);
+                    
+                    console.log(`Filtered ${availableJobs.length} available jobs from ${jobs.length} total jobs`);
+                    
+                    // Debug urgency levels for available jobs
+                    availableJobs.forEach((job, index) => {
+                        console.log(`Available Job ${index} full data:`, job);
+                        console.log(`Available Job ${index} urgency level:`, job.urgencyLevel, typeof job.urgencyLevel);
+                        console.log(`Available Job ${index} urgency:`, job.urgency, typeof job.urgency);
+                    });
+                    
+                    setJobs(availableJobs);
                 } else {
                     console.error('Jobs data is not an array:', jobs);
                     setJobs([]);
@@ -179,19 +192,31 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
             if (!user) return;
 
             const token = await user.getIdToken();
-            const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/accept`, {
+            const jobId = job.bookingId || job.id;
+            
+            if (!jobId) {
+                throw new Error('No valid job ID found');
+            }
+            
+            console.log('AvailableJobsCard - Accepting job with ID:', jobId);
+            console.log('AvailableJobsCard - Full job object:', job);
+            
+            const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
+                body: JSON.stringify({
+                    transporterId: user.uid,
+                }),
             });
 
             if (response.ok) {
                 // Create chat room for communication
                 try {
                     const chatRoom = await chatService.getOrCreateChatRoom(
-                        job.id,
+                        jobId,
                         user.uid,
                         job.client?.id || 'client-id' // This should come from the job data
                     );
@@ -201,10 +226,10 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                         'booking_accepted',
                         job.client?.id || 'client-id',
                         {
-                            bookingId: job.id,
+                            bookingId: jobId,
                             transporterName: 'You', // This should come from user profile
-                        pickupLocation: formatLocationForDisplay(job.fromLocation),
-                        deliveryLocation: formatLocationForDisplay(job.toLocation),
+                        pickupLocation: job.fromLocation,
+                        deliveryLocation: job.toLocation,
                         }
                     );
 
@@ -216,7 +241,7 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                                 text: 'Continue',
                                 onPress: () => {
                                     // Remove the job from the list
-                                    setJobs(prev => prev.filter(j => j.id !== job.id));
+                                    setJobs(prev => prev.filter(j => (j.bookingId || j.id) !== jobId));
                                     onJobAccepted?.(job);
                                 }
                             },
@@ -234,7 +259,7 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                                         userType: 'transporter'
                                     });
                                     // Remove the job from the list
-                                    setJobs(prev => prev.filter(j => j.id !== job.id));
+                                    setJobs(prev => prev.filter(j => (j.bookingId || j.id) !== jobId));
                                     onJobAccepted?.(job);
                                 }
                             }
@@ -244,11 +269,47 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                     console.error('Error creating chat room:', chatError);
                     Alert.alert('Success', 'Job accepted successfully!');
                     // Remove the job from the list
-                    setJobs(prev => prev.filter(j => j.id !== job.id));
+                    setJobs(prev => prev.filter(j => (j.bookingId || j.id) !== jobId));
                     onJobAccepted?.(job);
                 }
             } else {
-                throw new Error('Failed to accept job');
+                let errorData;
+                try {
+                    const responseText = await response.text();
+                    errorData = responseText ? JSON.parse(responseText) : { message: 'Empty response from server' };
+                } catch (parseError) {
+                    console.error('Failed to parse response:', parseError);
+                    errorData = { message: 'Failed to parse server response' };
+                }
+                
+                console.error('AvailableJobsCard - Failed to accept job:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorData: errorData,
+                    jobId: jobId,
+                    transporterId: user.uid,
+                    apiUrl: `${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`
+                });
+                
+                // Provide more specific error messages based on status code
+                let errorMessage = 'Unknown error';
+                if (response.status === 401) {
+                    errorMessage = 'Authentication failed. Please log in again.';
+                } else if (response.status === 403) {
+                    errorMessage = 'Access denied. You may not have permission to accept this job.';
+                } else if (response.status === 404) {
+                    errorMessage = 'Job not found. It may have been removed or already accepted.';
+                } else if (response.status === 409) {
+                    errorMessage = 'This job has already been accepted by another transporter.';
+                } else if (response.status === 400) {
+                    errorMessage = errorData.message || 'Invalid request. Please check your input.';
+                } else if (response.status >= 500) {
+                    errorMessage = 'Server error. Please try again later.';
+                } else {
+                    errorMessage = errorData.message || errorData.code || 'Unknown error';
+                }
+                
+                throw new Error(errorMessage);
             }
         } catch (err: any) {
             console.error('Error accepting job:', err);
@@ -330,21 +391,6 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
         });
     };
 
-    // Helper function to format location for display
-    const formatLocationForDisplay = (location: any): string => {
-        if (typeof location === 'string') {
-            return cleanLocationDisplay(location);
-        }
-        if (location?.address) {
-            return cleanLocationDisplay(location.address);
-        }
-        if (location?.latitude && location?.longitude && 
-            typeof location.latitude === 'number' && typeof location.longitude === 'number') {
-            // Return coordinates as fallback - will be converted by LocationDisplay component
-            return `Location (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`;
-        }
-        return 'Unknown location';
-    };
 
     const renderJobItem = ({ item }: { item: AvailableJob }) => (
         <View style={styles.jobCard}>
@@ -370,11 +416,11 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
 
             <View style={styles.jobDetails}>
                 <LocationDisplay 
-                    location={formatLocationForDisplay(item.fromLocation)} 
+                    location={item.fromLocation} 
                     iconColor={colors.primary} 
                 />
                 <LocationDisplay 
-                    location={formatLocationForDisplay(item.toLocation)} 
+                    location={item.toLocation} 
                     iconColor={colors.text.secondary}
                     iconName="map-marker-outline"
                 />

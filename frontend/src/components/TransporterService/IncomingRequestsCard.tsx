@@ -12,6 +12,7 @@ import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
 import { API_ENDPOINTS } from '../../constants/api';
+import LocationDisplay from '../common/LocationDisplay';
 
 interface IncomingRequest {
     id: string;
@@ -196,14 +197,14 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
             <View style={styles.routeContainer}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{item.fromLocation}</Text>
+                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
-                    <Text style={styles.routeText}>{item.toLocation}</Text>
+                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
 

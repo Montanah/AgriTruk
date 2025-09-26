@@ -12,7 +12,8 @@ import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
 import { testBackendConnectivity, testTerminalLogging } from '../utils/api';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
-import { getReadableLocationName, formatRoute, getReadableLocationNameSync, cleanLocationDisplay } from '../utils/locationUtils';
+import { getLocationName, formatRoute, getLocationNameSync } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
 import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 
 export default function TransporterHomeScreen() {
@@ -190,7 +191,22 @@ export default function TransporterHomeScreen() {
       
       if (res.ok) {
         const data = await res.json();
-        setRequests(data.requests || []);
+        const rawRequests = data.requests || [];
+        
+        // Filter out requests that are not available for acceptance
+        const availableRequests = rawRequests.filter((request: any) => {
+          // Only show requests that are pending and not already accepted
+          const isPending = request.status === 'pending';
+          const notAccepted = !request.acceptedAt || request.acceptedAt === null;
+          const notAssigned = !request.transporterId || request.transporterId === null;
+          
+          console.log(`TransporterHomeScreen - Request ${request.bookingId || request.id} - Status: ${request.status}, AcceptedAt: ${request.acceptedAt}, TransporterId: ${request.transporterId}, Available: ${isPending && notAccepted && notAssigned}`);
+          
+          return isPending && notAccepted && notAssigned;
+        });
+        
+        console.log(`TransporterHomeScreen - Filtered ${availableRequests.length} available requests from ${rawRequests.length} total requests`);
+        setRequests(availableRequests);
       }
     } catch (error) {
       console.error('Error fetching requests:', error);
@@ -262,6 +278,7 @@ export default function TransporterHomeScreen() {
                 console.log('Job data:', { bookingId: req.bookingId, id: req.id, jobId });
                 console.log('User token length:', token.length);
                 console.log('User UID:', user.uid);
+                console.log('Full request object:', req);
                 
                 const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`, {
                   method: 'POST',
@@ -340,12 +357,31 @@ export default function TransporterHomeScreen() {
                     statusText: response.statusText,
                     errorData: errorData,
                     jobId: jobId,
-                    transporterId: user.uid
+                    transporterId: user.uid,
+                    apiUrl: `${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`
                   });
+                  
+                  // Provide more specific error messages based on status code
+                  let errorMessage = 'Unknown error';
+                  if (response.status === 401) {
+                    errorMessage = 'Authentication failed. Please log in again.';
+                  } else if (response.status === 403) {
+                    errorMessage = 'Access denied. You may not have permission to accept this job.';
+                  } else if (response.status === 404) {
+                    errorMessage = 'Job not found. It may have been removed or already accepted.';
+                  } else if (response.status === 409) {
+                    errorMessage = 'This job has already been accepted by another transporter.';
+                  } else if (response.status === 400) {
+                    errorMessage = errorData.message || 'Invalid request. Please check your input.';
+                  } else if (response.status >= 500) {
+                    errorMessage = 'Server error. Please try again later.';
+                  } else {
+                    errorMessage = errorData.message || errorData.code || 'Unknown error';
+                  }
                   
                   Alert.alert(
                     'Error', 
-                    `Failed to accept job: ${errorData.message || errorData.code || 'Unknown error'}`,
+                    `Failed to accept job: ${errorMessage}`,
                     [{ text: 'OK' }]
                   );
                 }
@@ -601,8 +637,8 @@ export default function TransporterHomeScreen() {
               <View style={styles.requestItem}>
                 <TouchableOpacity style={{ flex: 1 }} onPress={() => openRequestModal(item)}>
                   <Text style={styles.label}>Booking ID: <Text style={[styles.value, { fontWeight: 'bold', color: colors.primary }]}>{getDisplayBookingId(item)}</Text></Text>
-                  <Text style={styles.label}>From: <Text style={styles.value}>{cleanLocationDisplay(item.fromLocation || item.from)}</Text></Text>
-                  <Text style={styles.label}>To: <Text style={styles.value}>{cleanLocationDisplay(item.toLocation || item.to)}</Text></Text>
+                  <Text style={styles.label}>From: <LocationDisplay location={item.fromLocation || item.from} style={styles.value} /></Text>
+                  <Text style={styles.label}>To: <LocationDisplay location={item.toLocation || item.to} style={styles.value} /></Text>
                   <Text style={styles.label}>Product: <Text style={styles.value}>{item.productType || item.product}</Text></Text>
                   <Text style={styles.label}>Weight: <Text style={styles.value}>{item.weightKg || item.weight} kg</Text></Text>
                   <Text style={styles.label}>ETA: <Text style={styles.value}>{item.estimatedDuration || item.eta}</Text></Text>
@@ -640,8 +676,8 @@ export default function TransporterHomeScreen() {
           <View style={styles.modalBox}>
             <Text style={styles.sectionTitle}>Request Details</Text>
             <Text style={styles.label}>Booking ID: <Text style={[styles.value, { fontWeight: 'bold', color: colors.primary }]}>{getDisplayBookingId(selectedRequest)}</Text></Text>
-            <Text style={styles.label}>From: <Text style={styles.value}>{cleanLocationDisplay(selectedRequest.fromLocation || selectedRequest.from)}</Text></Text>
-            <Text style={styles.label}>To: <Text style={styles.value}>{cleanLocationDisplay(selectedRequest.toLocation || selectedRequest.to)}</Text></Text>
+            <Text style={styles.label}>From: <LocationDisplay location={selectedRequest.fromLocation || selectedRequest.from} style={styles.value} /></Text>
+            <Text style={styles.label}>To: <LocationDisplay location={selectedRequest.toLocation || selectedRequest.to} style={styles.value} /></Text>
             <Text style={styles.label}>Product: <Text style={styles.value}>{selectedRequest.productType || selectedRequest.product}</Text></Text>
             <Text style={styles.label}>Weight: <Text style={styles.value}>{selectedRequest.weightKg || selectedRequest.weight} kg</Text></Text>
             <Text style={styles.label}>ETA: <Text style={styles.value}>{selectedRequest.estimatedDuration || selectedRequest.eta}</Text></Text>

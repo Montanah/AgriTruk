@@ -17,7 +17,7 @@ import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
 import LocationDisplay from '../components/common/LocationDisplay';
 import { chatService } from '../services/chatService';
 import { apiRequest } from '../utils/api';
-import { getReadableLocationName, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
+import { getLocationName, formatUnifiedLocationDisplay } from '../utils/locationUtils';
 import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 
 const { width, height } = Dimensions.get('window');
@@ -317,14 +317,14 @@ const ShipmentManagementScreen = () => {
                 id: 'pickup',
                 coordinate: routeCoordinates[1],
                 title: 'Pickup Location',
-                description: cleanLocationDisplay(booking?.fromLocation),
+                description: booking?.fromLocation ? formatUnifiedLocationDisplay(booking.fromLocation) : 'Unknown Location',
                 pinColor: colors.warning,
               },
               {
                 id: 'destination',
                 coordinate: routeCoordinates[2],
                 title: 'Destination',
-                description: cleanLocationDisplay(booking?.toLocation),
+                description: booking?.toLocation ? formatUnifiedLocationDisplay(booking.toLocation) : 'Unknown Location',
                 pinColor: colors.success,
               }
             ] : [])

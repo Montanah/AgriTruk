@@ -12,7 +12,7 @@ import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import { db } from '../../firebaseConfig';
 import { getDisplayBookingId } from '../../utils/bookingIdGenerator';
-import { cleanLocationDisplay } from '../../utils/locationUtils';
+import { getLocationNameSync } from '../../utils/locationUtils';
 
 interface BusinessData {
   name: string;
@@ -253,7 +253,7 @@ const BusinessHomeScreen = ({ navigation }: any) => {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.bookingId}>{getDisplayBookingId(b)}</Text>
                       <Text style={styles.bookingRoute}>
-                        {cleanLocationDisplay(b.from)} → {cleanLocationDisplay(b.to)}
+                        {getLocationNameSync(b.from)} → {getLocationNameSync(b.to)}
                       </Text>
                       <Text style={styles.bookingType}>{b.type}</Text>
                     </View>
