@@ -207,6 +207,16 @@ class GoogleMapsService {
       const response = await fetch(url);
       const data = await response.json();
 
+      if (data.status === 'ZERO_RESULTS') {
+        // Return default Nairobi coordinates for ZERO_RESULTS
+        console.warn(`No results found for address: ${address}, using default Nairobi location`);
+        return {
+          latitude: -1.2921,
+          longitude: 36.8219,
+          address: 'Nairobi, Kenya',
+        };
+      }
+
       if (data.status !== 'OK' || data.results.length === 0) {
         throw new Error(`Geocoding API error: ${data.status}`);
       }
@@ -221,7 +231,12 @@ class GoogleMapsService {
       };
     } catch (error) {
       console.error('Error geocoding address:', error);
-      throw error;
+      // Return default Nairobi coordinates as fallback
+      return {
+        latitude: -1.2921,
+        longitude: 36.8219,
+        address: 'Nairobi, Kenya',
+      };
     }
   }
 

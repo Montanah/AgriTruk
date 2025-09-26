@@ -114,6 +114,8 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
         } catch (error) {
           console.error('Error calculating distances:', error);
           // Fallback to original filtering if distance calculation fails
+          // Set a default distance for cost calculation
+          setCalculatedDistance('50 km');
         }
       }
 
@@ -496,14 +498,6 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
-            {onBackToForm && (
-              <TouchableOpacity 
-                onPress={onBackToForm}
-                style={styles.backButton}
-              >
-                <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
-              </TouchableOpacity>
-            )}
             <View style={styles.headerIconContainer}>
               <MaterialCommunityIcons name="truck-delivery" size={28} color={colors.white} />
             </View>
@@ -608,14 +602,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
-  },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginRight: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   headerContent: {
     flexDirection: 'row',
