@@ -18,7 +18,7 @@ export type FindTransportersProps = {
   onBackToForm?: () => void; // Optional callback for back to form
 };
 
-const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance, accent = colors.primary, onSelect, onBackToForm }) => {
+const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance = '50 km', accent = colors.primary, onSelect, onBackToForm }) => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [filteredTransporters, setFilteredTransporters] = useState<any[]>([]);
@@ -34,8 +34,127 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
 
   const filterTransporters = useCallback(async () => {
     try {
+      console.log('🔍 DEBUG: Starting transporter filtering...');
+      console.log('🔍 DEBUG: Total transporters available:', transporters?.length || 0);
+      console.log('🔍 DEBUG: Request data:', reqs[0]);
+
       let filtered = [...transporters];
 
+      // Filter by availability
+      filtered = filtered.filter(t => t.availability !== false);
+
+      // Filter by vehicle type if specified in request
+      if (reqs[0].type === 'agriTRUK') {
+        filtered = filtered.filter(t =>
+          t.vehicleType === 'truck' ||
+          t.vehicleType === 'pickup' ||
+          t.vehicleType === 'trailer'
+        );
+      } else if (reqs[0].type === 'cargoTRUK') {
+        filtered = filtered.filter(t =>
+          t.vehicleType === 'truck' ||
+          t.vehicleType === 'trailer' ||
+          t.vehicleType === 'container'
+        );
+      }
+
+      // Filter by capacity if weight is specified
+      if (reqs[0].weight) {
+        const weightKg = parseFloat(reqs[0].weight);
+        if (!isNaN(weightKg)) {
+          filtered = filtered.filter(t => {
+            const capacity = parseFloat(t.capacity) || 0;
+            return capacity >= weightKg;
+          });
+        }
+      }
+
+      // Filter by special requirements
+      if (reqs[0].isPerishable) {
+        filtered = filtered.filter(t =>
+          t.refrigerated || t.humidityControl || t.specialFeatures?.includes('temperature_controlled')
+        );
+      }
+
+      if (reqs[0].isSpecialCargo) {
+        filtered = filtered.filter(t =>
+          t.specialFeatures && t.specialFeatures.length > 0
+        );
+      }
+
+      // Calculate real distances for accurate ETA and cost calculation
+      if (reqs[0].fromLocation && reqs[0].toLocation) {
+        try {
+          console.log('🔍 DEBUG: Calculating distance from', reqs[0].fromLocation, 'to', reqs[0].toLocation);
+          
+          let fromCoords, toCoords;
+          
+          // Handle fromLocation - could be object with lat/lng or string
+          if (typeof reqs[0].fromLocation === 'object' && reqs[0].fromLocation.latitude) {
+            fromCoords = reqs[0].fromLocation;
+          } else {
+            fromCoords = await googleMapsService.geocodeAddress(reqs[0].fromLocationAddress || reqs[0].fromLocation);
+          }
+          
+          // Handle toLocation - could be object with lat/lng or string
+          if (typeof reqs[0].toLocation === 'object' && reqs[0].toLocation.latitude) {
+            toCoords = reqs[0].toLocation;
+          } else {
+            toCoords = await googleMapsService.geocodeAddress(reqs[0].toLocationAddress || reqs[0].toLocation);
+          }
+
+          // Calculate route distance
+          const route = await googleMapsService.getDirections(fromCoords, toCoords);
+          setCalculatedDistance(route.distance);
+          console.log('🔍 DEBUG: Calculated distance:', route.distance);
+
+          // Filter transporters by reasonable distance from pickup location
+          // (within 50km of pickup location for efficiency)
+          const nearbyTransporters = filtered.filter(t => {
+            if (t.currentLocation) {
+              const distance = googleMapsService.calculateDistance(
+                fromCoords,
+                { latitude: t.currentLocation.latitude, longitude: t.currentLocation.longitude }
+              );
+              return distance <= 50; // 50km radius
+            }
+            return true; // Include if no location data
+          });
+
+          // Sort by proximity to pickup location
+          nearbyTransporters.sort((a, b) => {
+            if (!a.currentLocation || !b.currentLocation) return 0;
+            const distA = googleMapsService.calculateDistance(fromCoords, a.currentLocation);
+            const distB = googleMapsService.calculateDistance(fromCoords, b.currentLocation);
+            return distA - distB;
+          });
+
+          filtered = nearbyTransporters;
+        } catch (error) {
+          console.error('Error calculating distances:', error);
+          // Set a default distance for cost calculation
+          setCalculatedDistance('50 km');
+        }
+      } else {
+        // Set a default distance for cost calculation
+        setCalculatedDistance('50 km');
+      }
+
+      // Sort by rating and experience
+      filtered.sort((a, b) => {
+        const ratingA = parseFloat(a.rating) || 0;
+        const ratingB = parseFloat(b.rating) || 0;
+        const experienceA = parseInt(a.experience) || 0;
+        const experienceB = parseInt(b.experience) || 0;
+
+        // Weight rating more heavily than experience
+        return (ratingB * 0.7 + experienceB * 0.3) - (ratingA * 0.7 + experienceA * 0.3);
+      });
+
+      console.log('🔍 DEBUG: Final filtered transporters count:', filtered.length);
+      setFilteredTransporters(filtered);
+
+      /* ORIGINAL FILTERING CODE - COMMENTED OUT FOR TESTING
       // Filter by availability
       filtered = filtered.filter(t => t.availability !== false);
 
@@ -118,19 +237,8 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
           setCalculatedDistance('50 km');
         }
       }
+      */
 
-      // Sort by rating and experience
-      filtered.sort((a, b) => {
-        const ratingA = parseFloat(a.rating) || 0;
-        const ratingB = parseFloat(b.rating) || 0;
-        const experienceA = parseInt(a.experience) || 0;
-        const experienceB = parseInt(b.experience) || 0;
-
-        // Weight rating more heavily than experience
-        return (ratingB * 0.7 + experienceB * 0.3) - (ratingA * 0.7 + experienceA * 0.3);
-      });
-
-      setFilteredTransporters(filtered);
     } catch (error) {
       console.error('Error filtering transporters:', error);
       setFilteredTransporters(transporters || []);
@@ -139,11 +247,18 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
 
   useEffect(() => {
     const loadTransporters = async () => {
+      console.log('🔍 DEBUG: useEffect triggered - loading transporters');
+      console.log('🔍 DEBUG: transportersLoading:', transportersLoading);
+      console.log('🔍 DEBUG: transporters data:', transporters);
+      
       setLoading(true);
       setFilteredTransporters([]);
 
       if (transporters && transporters.length > 0) {
+        console.log('🔍 DEBUG: Found transporters, starting filtering...');
         await filterTransporters();
+      } else {
+        console.log('🔍 DEBUG: No transporters available or still loading');
       }
       setLoading(false);
     };
@@ -348,7 +463,19 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
       if (onSelect) {
         onSelect(t, payload);
       } else {
-        (navigation as any).navigate('TripDetailsScreen', isConsolidated ? { requests: reqs, transporter: t, eta: t.est, distance: calculatedDistance || distance } : { booking: payload });
+        // For consolidated requests, go to ShipmentManagementScreen for consolidation management
+        if (isConsolidated) {
+          (navigation as any).navigate('ShipmentManagementScreen', { 
+            requests: reqs, 
+            transporter: t, 
+            eta: t.est, 
+            distance: calculatedDistance || distance,
+            isConsolidated: true
+          });
+        } else {
+          // For single instant requests, go to TripDetailsScreen
+          (navigation as any).navigate('TripDetailsScreen', { booking: payload });
+        }
       }
     } catch (error) {
       console.error('Error in handleSelect:', error);
@@ -356,7 +483,19 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
       if (onSelect) {
         onSelect(t, payload);
       } else {
-        (navigation as any).navigate('TripDetailsScreen', isConsolidated ? { requests: reqs, transporter: t, eta: t.est, distance: calculatedDistance || distance } : { booking: payload });
+        // For consolidated requests, go to ShipmentManagementScreen for consolidation management
+        if (isConsolidated) {
+          (navigation as any).navigate('ShipmentManagementScreen', { 
+            requests: reqs, 
+            transporter: t, 
+            eta: t.est, 
+            distance: calculatedDistance || distance,
+            isConsolidated: true
+          });
+        } else {
+          // For single instant requests, go to TripDetailsScreen
+          (navigation as any).navigate('TripDetailsScreen', { booking: payload });
+        }
       }
     }
   }
@@ -365,10 +504,50 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
     const estAmount = getEstAmount(t, calculatedDistance || distance);
     const displayName = t.name && t.name.length > 18 ? t.name.slice(0, 16) + '…' : t.name;
     const profilePhotoUri = t.profilePhoto || t.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_MEDIUM;
-    const vehiclePhotoUri = t.vehiclePhoto || (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || PLACEHOLDER_IMAGES.VEHICLE_PHOTO_SMALL;
+    
+    console.log('👤 DEBUG: Profile photo for', t.name, ':', {
+      profilePhoto: t.profilePhoto,
+      photo: t.photo,
+      finalUri: profilePhotoUri
+    });
+    const vehiclePhotoUri = t.vehiclePhoto || 
+                           (t.vehiclePhotos && t.vehiclePhotos.length > 0 && t.vehiclePhotos[0]) || 
+                           t.photo || 
+                           PLACEHOLDER_IMAGES.VEHICLE_PHOTO_SMALL;
+    
+    console.log('🚛 DEBUG: Vehicle photo for', t.name, ':', {
+      vehiclePhoto: t.vehiclePhoto,
+      vehiclePhotos: t.vehiclePhotos,
+      vehicleImagesUrl: t.vehicleImagesUrl,
+      photo: t.photo,
+      finalUri: vehiclePhotoUri
+    });
+    
+    // Calculate ETA based on distance and average speed
+    const calculateETA = () => {
+      if (calculatedDistance) {
+        const distanceMatch = calculatedDistance.replace(/,/g, '').match(/([\d.]+)/);
+        if (distanceMatch) {
+          const distanceKm = parseFloat(distanceMatch[1]);
+          const avgSpeed = 60; // km/h average speed
+          const hours = distanceKm / avgSpeed;
+          const minutes = Math.floor((hours % 1) * 60);
+          const hoursInt = Math.floor(hours);
+          
+          if (hoursInt > 0) {
+            return `${hoursInt}h ${minutes}m`;
+          } else {
+            return `${minutes}m`;
+          }
+        }
+      }
+      return 'Calculating...';
+    };
+    
+    const eta = calculateETA();
 
     return (
-      <View key={t.id} style={styles.transporterCard}>
+      <View key={t.transporterId || t.id} style={styles.transporterCard}>
         {/* Transporter Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.profileImageContainer}>
@@ -376,6 +555,10 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
               source={{ uri: profilePhotoUri }}
               style={styles.profileImage}
               resizeMode="cover"
+              defaultSource={PLACEHOLDER_IMAGES.PROFILE_PHOTO_MEDIUM}
+              onError={(error) => {
+                console.log('Profile photo failed to load for:', t.name, 'Error:', error.nativeEvent.error);
+              }}
             />
             <View style={styles.onlineIndicator} />
           </View>
@@ -383,9 +566,18 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
           <View style={styles.profileInfo}>
             <Text style={styles.transporterName}>{displayName}</Text>
             <View style={styles.ratingContainer}>
-              <MaterialCommunityIcons name="star" size={16} color={colors.warning} />
+              <View style={styles.starRating}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <MaterialCommunityIcons
+                    key={star}
+                    name={star <= (t.rating || 0) ? "star" : "star-outline"}
+                    size={14}
+                    color={star <= (t.rating || 0) ? colors.warning : colors.text.light}
+                  />
+                ))}
+              </View>
               <Text style={styles.ratingText}>
-                {t.rating ? `${t.rating}/5` : 'New'}
+                {t.rating ? `${t.rating.toFixed(1)}/5` : 'New'}
               </Text>
               {t.experience && (
                 <>
@@ -417,13 +609,18 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
               source={{ uri: vehiclePhotoUri }}
               style={styles.vehicleImage}
               resizeMode="cover"
+              defaultSource={PLACEHOLDER_IMAGES.VEHICLE_PHOTO_SMALL}
+              onError={(error) => {
+                console.log('Vehicle photo failed to load for:', t.name, 'Error:', error.nativeEvent.error);
+              }}
             />
             <View style={styles.vehicleInfo}>
               <Text style={styles.vehicleTitle}>
-                {t.vehicleMake} {t.vehicleModel}
+                {t.vehicleMake} {t.vehicleType}
               </Text>
               <Text style={styles.vehicleSubtitle}>
-                {t.vehicleYear} • {t.vehicleType}
+                {t.vehicleYear} • {t.bodyType}
+                {t.vehicleColor && ` • ${t.vehicleColor}`}
               </Text>
               <View style={styles.vehicleSpecs}>
                 <View style={styles.specItem}>
@@ -438,6 +635,12 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
                   <MaterialCommunityIcons name="license" size={14} color={colors.text.secondary} />
                   <Text style={styles.specText}>{t.reg || 'N/A'}</Text>
                 </View>
+                {t.vehicleColor && (
+                  <View style={styles.specItem}>
+                    <MaterialCommunityIcons name="palette" size={14} color={colors.text.secondary} />
+                    <Text style={styles.specText}>{t.vehicleColor}</Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -447,13 +650,13 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
             <View style={styles.timingItem}>
               <MaterialCommunityIcons name="clock-outline" size={16} color={colors.primary} />
               <Text style={styles.timingLabel}>ETA</Text>
-              <Text style={styles.timingValue}>{t.est || 'Calculating...'}</Text>
+              <Text style={styles.timingValue}>{eta}</Text>
             </View>
             <View style={styles.timingDivider} />
             <View style={styles.timingItem}>
               <MaterialCommunityIcons name="map-marker-distance" size={16} color={colors.secondary} />
               <Text style={styles.timingLabel}>Distance</Text>
-              <Text style={styles.timingValue}>{calculatedDistance || 'Calculating...'}</Text>
+              <Text style={styles.timingValue}>{calculatedDistance || '50 km'}</Text>
             </View>
           </View>
         </View>
@@ -562,14 +765,16 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance,
           </View>
           <Text style={styles.emptyTitle}>No Transporters Available</Text>
           <Text style={styles.emptySubtitle}>
-            We couldn&apos;t find any transporters matching your requirements at the moment.
+            {transportersLoading ? 'Loading transporters...' : 'We couldn\'t find any transporters matching your requirements at the moment.'}
           </Text>
-          <View style={styles.emptySuggestions}>
-            <Text style={styles.suggestionTitle}>Try:</Text>
-            <Text style={styles.suggestionItem}>• Adjusting your pickup time</Text>
-            <Text style={styles.suggestionItem}>• Expanding your search radius</Text>
-            <Text style={styles.suggestionItem}>• Relaxing special requirements</Text>
-          </View>
+          {!transportersLoading && (
+            <View style={styles.emptySuggestions}>
+              <Text style={styles.suggestionTitle}>Try:</Text>
+              <Text style={styles.suggestionItem}>• Adjusting your pickup time</Text>
+              <Text style={styles.suggestionItem}>• Expanding your search radius</Text>
+              <Text style={styles.suggestionItem}>• Relaxing special requirements</Text>
+            </View>
+          )}
         </View>
       ) : (
         <ScrollView
@@ -865,6 +1070,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
+  starRating: {
+    flexDirection: 'row',
+    marginRight: spacing.xs,
+  },
   ratingText: {
     fontSize: 14,
     color: colors.text.secondary,
@@ -921,8 +1130,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   vehicleImage: {
-    width: 100,
-    height: 75,
+    width: 120,
+    height: 90,
     borderRadius: 12,
     marginRight: spacing.sm,
   },
