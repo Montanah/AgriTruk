@@ -6,7 +6,7 @@ const { body, param, validationResult } = require('express-validator');
 exports.validateCompanyCreation = [
   body('name').notEmpty().withMessage('Company name is required'),
   body('registration').notEmpty().withMessage('Registration number is required').custom(async value => {
-    const snapshot = await db.collection("company").where("companyRegistration", "==", value).get();
+    const snapshot = await db.collection("companies").where("companyRegistration", "==", value).get();
     if (!snapshot.empty) throw new Error('Registration number already exists');
     return true;
   }),
