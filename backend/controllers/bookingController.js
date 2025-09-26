@@ -194,7 +194,9 @@ exports.createBooking = async (req, res) => {
       urgencyLevel: urgencyLevel || 'Low',
       perishable: !!perishable,
       needsRefrigeration: !!needsRefrigeration,
-      humidyControl: !!humidyControl,
+      humidityControl: !!humidityControl,
+      specialCargo: specialCargo || [],
+      bulkness: !!bulkness,
       insured: !!insured,
       value: value || 0,
       tolls: tolls || 0,
@@ -202,8 +204,9 @@ exports.createBooking = async (req, res) => {
       fuelSurchargePct: fuelSurchargePct || 0,
       waitMinutes: waitMinutes || 0,
       nightSurcharge: !!nightSurcharge,
+      vehicleType: vehicleType || 'truck',
     };
-    const { cost, costBreakdown } = calculateTransportCost(bookingDataForCost);
+    const { cost, transporterPayment, costBreakdown, paymentBreakdown } = calculateTransportCost(bookingDataForCost);
     
     // Prepare booking data
     const bookingData = {
@@ -233,7 +236,9 @@ exports.createBooking = async (req, res) => {
       estimatedDuration: formattedDuration,
       routePolyline,
       cost,
+      transporterPayment,
       costBreakdown,
+      paymentBreakdown,
       volumetricWeight,
       lengthCm: lengthCm || 0,
       widthCm: widthCm || 0,

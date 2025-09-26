@@ -8,7 +8,9 @@ function calculateTransportCost(bookingData) {
     urgencyLevel = "Low",
     perishable = false,
     needsRefrigeration = false,
-    humidityControl = false, // Corrected from humidyControl
+    humidityControl = false,
+    specialCargo = [],
+    bulkness = false,
     insured = false,
     value = 0,
     tolls = 0,
@@ -16,6 +18,7 @@ function calculateTransportCost(bookingData) {
     fuelSurchargePct = 0,
     waitMinutes = 0,
     nightSurcharge = false,
+    vehicleType = 'truck',
   } = bookingData;
 
   let cost = 0;
@@ -27,6 +30,8 @@ function calculateTransportCost(bookingData) {
     perishableSurcharge: 0,
     refrigerationSurcharge: 0,
     humiditySurcharge: 0,
+    specialCargoSurcharge: 0,
+    bulknessSurcharge: 0,
     insuranceFee: 0,
     priorityFee: 0,
     waitTimeFee: 0,
@@ -35,12 +40,46 @@ function calculateTransportCost(bookingData) {
     fuelSurcharge: 0,
   };
 
-  // 1. Base fare
-  costBreakdown.baseFare = 500;
+  // Industry standard pricing constants
+  const PRICING = {
+    BASE_FARE: 500,
+    DISTANCE_RATE: 120, // KES per km
+    WEIGHT_RATES: {
+      small: { max: 1000, rate: 10 },    // KES per kg
+      medium: { max: 10000, rate: 8 },   // KES per kg
+      large: { rate: 5 }                 // KES per kg
+    },
+    URGENCY_RATES: {
+      Low: 0,
+      Medium: 0.15,    // 15% surcharge
+      High: 0.30       // 30% surcharge
+    },
+    FEATURE_SURCHARGES: {
+      perishable: 0.10,        // 10% surcharge
+      refrigeration: 0.15,     // 15% surcharge
+      humidityControl: 0.05,   // 5% surcharge
+      specialCargo: 0.20,      // 20% surcharge for special cargo
+      bulkness: 0.25,          // 25% surcharge for bulky items
+    },
+    INSURANCE_RATE: 0.02,      // 2% of goods value
+    PRIORITY_FEE: 2000,        // Fixed priority handling fee
+    WAIT_TIME_RATE: 30,        // KES per minute
+    NIGHT_SURCHARGE: 300,      // Fixed night surcharge
+    FUEL_SURCHARGE_RATE: 0.05, // 5% fuel surcharge
+  };
+
+  // 1. Base fare (varies by vehicle type)
+  const vehicleBaseFares = {
+    truck: 500,
+    van: 300,
+    pickup: 200,
+    motorcycle: 100,
+  };
+  costBreakdown.baseFare = vehicleBaseFares[vehicleType] || PRICING.BASE_FARE;
   cost += costBreakdown.baseFare;
 
-  // 2. Distance-based cost (KES 120/km)
-  costBreakdown.distanceCost = actualDistance * 120;
+  // 2. Distance-based cost
+  costBreakdown.distanceCost = actualDistance * PRICING.DISTANCE_RATE;
   cost += costBreakdown.distanceCost;
 
   // 3. Weight factor (use greater of actual weight or volumetric weight)
@@ -51,75 +90,104 @@ function calculateTransportCost(bookingData) {
   const effectiveWeight = Math.max(weightKg, volumetricWeight);
 
   if (effectiveWeight > 0) {
-    if (effectiveWeight <= 1000) {
-      costBreakdown.weightCost = effectiveWeight * 10; // small cargo
-    } else if (effectiveWeight <= 10000) {
-      costBreakdown.weightCost = effectiveWeight * 8; // medium cargo
+    const weightRates = PRICING.WEIGHT_RATES;
+    if (effectiveWeight <= weightRates.small.max) {
+      costBreakdown.weightCost = effectiveWeight * weightRates.small.rate;
+    } else if (effectiveWeight <= weightRates.medium.max) {
+      costBreakdown.weightCost = effectiveWeight * weightRates.medium.rate;
     } else {
-      costBreakdown.weightCost = effectiveWeight * 5; // large cargo discount rate
+      costBreakdown.weightCost = effectiveWeight * weightRates.large.rate;
     }
   }
   cost += costBreakdown.weightCost;
 
   // 4. Urgency surcharge
-  let tempCost = cost;
-  if (urgencyLevel === "Medium") {
-    costBreakdown.urgencySurcharge = tempCost * 0.15;
-    cost *= 1.15;
-  } else if (urgencyLevel === "High") {
-    costBreakdown.urgencySurcharge = tempCost * 0.3;
-    cost *= 1.3;
+  const urgencyRate = PRICING.URGENCY_RATES[urgencyLevel] || 0;
+  if (urgencyRate > 0) {
+    costBreakdown.urgencySurcharge = cost * urgencyRate;
+    cost += costBreakdown.urgencySurcharge;
   }
 
   // 5. Product-specific surcharges
   if (perishable) {
-    costBreakdown.perishableSurcharge = cost * 0.1;
-    cost *= 1.1;
+    costBreakdown.perishableSurcharge = cost * PRICING.FEATURE_SURCHARGES.perishable;
+    cost += costBreakdown.perishableSurcharge;
   }
+
   if (needsRefrigeration) {
-    costBreakdown.refrigerationSurcharge = cost * 0.15;
-    cost *= 1.15;
+    costBreakdown.refrigerationSurcharge = cost * PRICING.FEATURE_SURCHARGES.refrigeration;
+    cost += costBreakdown.refrigerationSurcharge;
   }
+
   if (humidityControl) {
-    costBreakdown.humiditySurcharge = cost * 0.05;
-    cost *= 1.05;
+    costBreakdown.humiditySurcharge = cost * PRICING.FEATURE_SURCHARGES.humidityControl;
+    cost += costBreakdown.humiditySurcharge;
   }
 
-  // 6. Insurance
+  // 6. Special cargo surcharge
+  if (specialCargo && specialCargo.length > 0) {
+    costBreakdown.specialCargoSurcharge = cost * PRICING.FEATURE_SURCHARGES.specialCargo;
+    cost += costBreakdown.specialCargoSurcharge;
+  }
+
+  // 7. Bulkness surcharge
+  if (bulkness) {
+    costBreakdown.bulknessSurcharge = cost * PRICING.FEATURE_SURCHARGES.bulkness;
+    cost += costBreakdown.bulknessSurcharge;
+  }
+
+  // 8. Insurance (separate from transporter payment)
   if (insured && value > 0) {
-    costBreakdown.insuranceFee = value * 0.02;
-    cost += costBreakdown.insuranceFee;
+    costBreakdown.insuranceFee = value * PRICING.INSURANCE_RATE;
+    // Note: Insurance fee is added to total cost but not paid to transporter
   }
 
-  // 7. Priority handling
+  // 9. Priority handling
   if (priority) {
-    costBreakdown.priorityFee = 2000;
+    costBreakdown.priorityFee = PRICING.PRIORITY_FEE;
     cost += costBreakdown.priorityFee;
   }
 
-  // 8. Wait time fee (KES 30/min)
+  // 10. Wait time fee
   if (waitMinutes > 0) {
-    costBreakdown.waitTimeFee = waitMinutes * 30;
+    costBreakdown.waitTimeFee = waitMinutes * PRICING.WAIT_TIME_RATE;
     cost += costBreakdown.waitTimeFee;
   }
 
-  // 9. Surcharges (tolls, night fees)
+  // 11. Surcharges (tolls, night fees)
   if (nightSurcharge) {
-    costBreakdown.nightSurcharge = 300;
+    costBreakdown.nightSurcharge = PRICING.NIGHT_SURCHARGE;
     cost += costBreakdown.nightSurcharge;
   }
-  costBreakdown.tollFee = tolls;
+  
+  costBreakdown.tollFee = tolls || 0;
   cost += costBreakdown.tollFee;
 
-  // 10. Fuel surcharge
+  // 12. Fuel surcharge
   if (fuelSurchargePct > 0) {
     costBreakdown.fuelSurcharge = cost * fuelSurchargePct;
     cost += costBreakdown.fuelSurcharge;
   }
 
+  // Calculate transporter payment (excludes insurance)
+  const transporterPayment = cost; // Insurance is not paid to transporter
+  const totalCost = cost + (costBreakdown.insuranceFee || 0);
+
   return {
-    cost: Math.round(cost), 
-    costBreakdown,
+    cost: Math.round(totalCost),
+    transporterPayment: Math.round(transporterPayment),
+    costBreakdown: {
+      ...costBreakdown,
+      // Add summary
+      subtotal: Math.round(transporterPayment),
+      insuranceFee: costBreakdown.insuranceFee || 0,
+      total: Math.round(totalCost),
+    },
+    paymentBreakdown: {
+      transporterReceives: Math.round(transporterPayment),
+      companyReceives: costBreakdown.insuranceFee || 0,
+      total: Math.round(totalCost),
+    }
   };
 }
 
