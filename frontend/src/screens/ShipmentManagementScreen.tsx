@@ -147,7 +147,7 @@ const ShipmentManagementScreen = () => {
         };
       } else if (typeof location === 'string') {
         // Use Google Maps geocoding service
-        const { googleMapsService } = require('../utils/googleMapsService');
+        const { googleMapsService } = require('../services/googleMapsService');
         const coords = await googleMapsService.geocodeAddress(location);
         return {
           latitude: coords.latitude,
