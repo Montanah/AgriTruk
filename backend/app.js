@@ -7,16 +7,16 @@ const cronService = require('./services/cronService');
 const { documentExpiryJob } = require('./jobs/documentExpiryJob');
 const { systemAlertsJob, documentExpiryJobAlert } = require('./jobs/systemAlertsJob');
 
-// const transporterRoutes = require('./routes/transportRoutes');
-// const authRoutes = require('./routes/authRoutes');
-// const activityRoutes = require('./routes/activityLog');
-// const bookingRoutes = require('./routes/bookingRoutes');
+const transporterRoutes = require('./routes/transportRoutes');
+const authRoutes = require('./routes/authRoutes');
+const activityRoutes = require('./routes/activityLog');
+const bookingRoutes = require('./routes/bookingRoutes');
 const companyRoutes = require('./routes/companyRoutes_minimal');
-// const disputeRoutes = require('./routes/disputeRoutes');
-// const adminRoutes = require('./routes/adminRoutes');
-// const brokerRoutes = require('./routes/brokerRoutes');
-// const notificationRoutes = require('./routes/notificationRoutes');
-// const chatRoutes = require('./routes/chatRoutes');
+const disputeRoutes = require('./routes/disputeRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const brokerRoutes = require('./routes/brokerRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 // const agriBookingRoutes = require('./routes/agriBookingRoutes');
 // const cargoBookingRoutes = require('./routes/cargoBookingRoutes');
 const subRoutes = require('./routes/subscriptionRoutes');
@@ -50,16 +50,16 @@ app.use(
 
 // Register API routes FIRST
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
-// app.use('/api/transporters', transporterRoutes);
-// app.use('/api/auth', authRoutes);
-// app.use('/api/activity', activityRoutes);
-// app.use('/api/bookings', bookingRoutes);
+app.use('/api/transporters', transporterRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/activity', activityRoutes);
+app.use('/api/bookings', bookingRoutes);
 app.use('/api/companies', companyRoutes);
-// app.use('/api/disputes', disputeRoutes);
-// app.use('/api/admin', adminRoutes);
-// app.use('/api/brokers', brokerRoutes);
-// app.use('/api/notification', notificationRoutes);
-// app.use('/api/chats', chatRoutes);
+app.use('/api/disputes', disputeRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/brokers', brokerRoutes);
+app.use('/api/notification', notificationRoutes);
+app.use('/api/chats', chatRoutes);
 // app.use('/api/agri', agriBookingRoutes);
 // app.use('/api/cargo', cargoBookingRoutes);
 app.use('/api/subscriptions', subRoutes);
@@ -84,6 +84,7 @@ app.get('/api/test', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
+
 
 // Root endpoint
 app.get('/', (req, res) => {
