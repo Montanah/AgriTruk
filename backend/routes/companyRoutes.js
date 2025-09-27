@@ -82,7 +82,7 @@ const uploadAny = upload.any();
  *       500:
  *         description: Internal server error
  */
-router.post('/', authenticateToken, requireRole('transporter'),  upload.single('logo'), validateCompanyCreation, createCompany);
+router.post('/', authenticateToken, requireRole('transporter'), uploadAny, validateCompanyCreation, createCompany);
 
 /**
  * @swagger

@@ -53,24 +53,30 @@ exports.createCompany = async (req, res) => {
 
     let logoUrl = null;
 
-    console.log('Received logo file:', req.file);
+    console.log('Received files:', req.files);
 
-    if (req.file) {
-      console.log('Processing logo file:', req.file.originalname, req.file.mimetype, req.file.path); // Debug file
-      try {
-        logoUrl = await uploadImage(req.file.path);
-        if (logoUrl) {
-          console.log('Logo uploaded successfully:', logoUrl);
-          fs.unlinkSync(req.file.path); 
-        } else {
-          console.error('Failed to upload logo, continuing without logo');
+    if (req.files && req.files.length > 0) {
+      // Find the logo file
+      const logoFile = req.files.find(file => file.fieldname === 'logo');
+      if (logoFile) {
+        console.log('Processing logo file:', logoFile.originalname, logoFile.mimetype, logoFile.path);
+        try {
+          logoUrl = await uploadImage(logoFile.path);
+          if (logoUrl) {
+            console.log('Logo uploaded successfully:', logoUrl);
+            fs.unlinkSync(logoFile.path); 
+          } else {
+            console.error('Failed to upload logo, continuing without logo');
+          }
+        } catch (uploadError) {
+          console.error('Upload error:', uploadError.message);
+          return res.status(500).json({ message: 'Failed to upload logo' });
         }
-      } catch (uploadError) {
-        console.error('Upload error:', uploadError.message);
-        return res.status(500).json({ message: 'Failed to upload logo' });
+      } else {
+        console.log('No logo file found in uploaded files');
       }
     } else {
-      console.log('No logo file received');
+      console.log('No files received');
     }
 
     const userData = await User.get(userId); 
@@ -120,9 +126,13 @@ exports.createCompany = async (req, res) => {
   } catch (err) {
     console.error('Create company error:', err);
 
-    // Clean up file if upload failed and file exists
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+    // Clean up files if upload failed and files exist
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      });
     }
 
     res.status(500).json({ message: 'Failed to create company' });
