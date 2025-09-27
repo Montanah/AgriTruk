@@ -7,11 +7,11 @@ const cronService = require('./services/cronService');
 const { documentExpiryJob } = require('./jobs/documentExpiryJob');
 const { systemAlertsJob, documentExpiryJobAlert } = require('./jobs/systemAlertsJob');
 
-const transporterRoutes = require('./routes/transportRoutes');
+// const transporterRoutes = require('./routes/transportRoutes');
 const authRoutes = require('./routes/authRoutes');
 const activityRoutes = require('./routes/activityLog');
 const bookingRoutes = require('./routes/bookingRoutes');
-const companyRoutes = require('./routes/companyRoutes');
+// const companyRoutes = require('./routes/companyRoutes');
 const disputeRoutes = require('./routes/disputeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const brokerRoutes = require('./routes/brokerRoutes');
