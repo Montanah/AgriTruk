@@ -362,6 +362,42 @@ async getFailedRenewals(sinceDate) {
     return [];
   }
 },
+
+async hasUsedTrial(userId) {
+  try {
+    const subscriber = await this.getByUserId(userId);
+    if (!subscriber) {
+      return false;
+    }
+    
+    // Check if user has ever had a trial subscription
+    const snapshot = await db.collection('subscribers')
+      .where('userId', '==', userId)
+      .get();
+    
+    if (snapshot.empty) {
+      return false;
+    }
+    
+    // Check if any subscription was a trial (price = 0)
+    for (const doc of snapshot.docs) {
+      const subscription = { id: doc.id, ...doc.data() };
+      try {
+        const plan = await SubscriptionPlans.getSubscriptionPlan(subscription.planId);
+        if (plan && plan.price === 0) {
+          return true; // User has used a trial before
+        }
+      } catch (error) {
+        console.error(`Error checking plan for subscription ${subscription.id}:`, error);
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking if user has used trial:', error);
+    return false;
+  }
+},
 };
 
 module.exports = Subscribers;

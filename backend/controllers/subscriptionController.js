@@ -457,11 +457,11 @@ async function checkTrialEligibility(userId) {
     const hasPreviousSubscriptions = await Subscribers.hasAnySubscription(userId);
     
     // Check if user has already used a trial
-    const hasUsedTrial = await hasUsedTrial(userId);
+    const hasUsedTrialBefore = await Subscribers.hasUsedTrial(userId);
     
     // User is eligible for trial if they have no previous subscriptions 
     // and haven't used a trial before
-    return !hasPreviousSubscriptions && !hasUsedTrial;
+    return !hasPreviousSubscriptions && !hasUsedTrialBefore;
   } catch (error) {
     console.error('Error checking trial eligibility:', error);
     return false;
