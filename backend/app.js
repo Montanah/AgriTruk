@@ -86,6 +86,15 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
+
+// Test route to check if API routing is working
+app.get('/api/test', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'API routing is working',
+        timestamp: new Date().toISOString()
+    });
+});
 app.use((req, res) => {
     res.status(404).json({
         success: false,
