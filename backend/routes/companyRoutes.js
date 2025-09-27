@@ -12,14 +12,7 @@ const {
   getCompaniesByTransporter,
   getCompaniesByStatus,
   getCompaniesByTransporterAndStatus,
-  getAllForTransporter,
-  approveCompanyDriver,
-  approveVehicle,
-  rejectCompanyDriver,
-  rejectVehicle,
-  updateDriverProfile,
-  updateVehicleProfile,
-  updateVehicleAssignment, uploadDriverDocuments, uploadLogo, uploadVehicleDocuments
+  getAllForTransporter
 } = require('../controllers/companyController');
 const { authorize } = require("../middlewares/adminAuth");
 const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewares/validationMiddleware');
@@ -648,9 +641,10 @@ router.delete('/companies/:companyId', authenticateToken, requireRole('admin'), 
  *       500:
  *         description: Internal server error
  */
-router.put('/:companyId/updateDriver/:driverId', authenticateToken, requireRole('transporter', 'driver'), uploadAny, updateDriverProfile);
+// TODO: Implement these functions in companyController
+// router.put('/:companyId/updateDriver/:driverId', authenticateToken, requireRole('transporter', 'driver'), uploadAny, updateDriverProfile);
 
-router.put('/:companyId/updateVehicle/:vehicleId', authenticateToken, requireRole('transporter', 'driver'), uploadAny, updateVehicleProfile); 
+// router.put('/:companyId/updateVehicle/:vehicleId', authenticateToken, requireRole('transporter', 'driver'), uploadAny, updateVehicleProfile); 
 
 /**
  * @swagger
@@ -699,7 +693,8 @@ router.put('/:companyId/updateVehicle/:vehicleId', authenticateToken, requireRol
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/vehicleStatus/:vehicleId', authenticateToken, requireRole('transporter'), updateVehicleAssignment);
+// TODO: Implement this function in companyController
+// router.patch('/:companyId/vehicleStatus/:vehicleId', authenticateToken, requireRole('transporter'), updateVehicleAssignment);
 
 /**
  * @swagger
@@ -791,7 +786,8 @@ router.patch('/:companyId/review', authenticateToken, requireRole('admin'), auth
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/upload', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadLogo);
+// TODO: Implement uploadLogo function in companyController
+// router.patch('/:companyId/upload', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadLogo);
 
 /**
  * @swagger
@@ -840,7 +836,8 @@ router.patch('/:companyId/upload', authenticateToken, requireRole(['transporter'
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/vehicle/:vehicleId/upload', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadVehicleDocuments);
+// TODO: Implement uploadVehicleDocuments function in companyController
+// router.patch('/:companyId/vehicle/:vehicleId/upload', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadVehicleDocuments);
 
 /**
  * @swagger
@@ -892,6 +889,7 @@ router.patch('/:companyId/vehicle/:vehicleId/upload', authenticateToken, require
  *         description: Internal server error
  */
 
-router.patch('/:companyId/driver/upload/:driverId', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadDriverDocuments);
+// TODO: Implement uploadDriverDocuments function in companyController
+// router.patch('/:companyId/driver/upload/:driverId', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadDriverDocuments);
   
 module.exports = router;
