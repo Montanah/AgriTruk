@@ -2,6 +2,8 @@ const admin = require("firebase-admin");
 
 // Initialize Firebase Admin with environment variables
 let serviceAccount;
+let firebaseApp;
+
 try {
   // Try to parse service account from environment variable
   if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
@@ -24,6 +26,9 @@ try {
     // Validate required fields
     if (!serviceAccount.private_key || !serviceAccount.client_email || !serviceAccount.project_id) {
       console.error('Missing required Firebase configuration fields');
+      console.error('FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? 'SET' : 'MISSING');
+      console.error('FIREBASE_PRIVATE_KEY:', process.env.FIREBASE_PRIVATE_KEY ? 'SET' : 'MISSING');
+      console.error('FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? 'SET' : 'MISSING');
       throw new Error('Firebase configuration incomplete');
     }
   }
@@ -33,15 +38,34 @@ try {
   serviceAccount = null;
 }
 
-if (serviceAccount) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-} else {
-  // Use default credentials (for local development or if env vars are not set)
-  admin.initializeApp({
-    // This will use GOOGLE_APPLICATION_CREDENTIALS or default service account
-  });
+// Initialize Firebase Admin with proper error handling
+try {
+  if (serviceAccount) {
+    firebaseApp = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log('✅ Firebase Admin initialized with service account');
+  } else {
+    // Use default credentials (for local development or if env vars are not set)
+    firebaseApp = admin.initializeApp({
+      // This will use GOOGLE_APPLICATION_CREDENTIALS or default service account
+    });
+    console.log('✅ Firebase Admin initialized with default credentials');
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Firebase Admin:', error.message);
+  
+  // Try to initialize with minimal configuration
+  try {
+    firebaseApp = admin.initializeApp({
+      projectId: process.env.FIREBASE_PROJECT_ID || "agritruk-d543b"
+    });
+    console.log('✅ Firebase Admin initialized with minimal configuration');
+  } catch (fallbackError) {
+    console.error('❌ Failed to initialize Firebase Admin with fallback:', fallbackError.message);
+    // Don't throw error - let the app continue without Firebase
+    console.log('⚠️  App will continue without Firebase Admin (routes may not work)');
+  }
 }
 
 module.exports = admin;
