@@ -162,7 +162,8 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, valid
  *       500:
  *         description: Internal server error
 */
-router.post('/:companyId/vehicles', authenticateToken, requireRole(['transporter']), uploadAny, CompanyController.createVehicle);
+// TODO: Implement Phase 2 - Vehicle Management
+// router.post('/:companyId/vehicles', authenticateToken, requireRole(['transporter']), uploadAny, CompanyController.createVehicle);
 
 /** 
  * @swagger
@@ -220,7 +221,8 @@ router.post('/:companyId/vehicles', authenticateToken, requireRole(['transporter
  *       500:
  *         description: Internal server error
 */
-router.post('/:companyId/drivers', authenticateToken, requireRole(['transporter']), uploadAny, CompanyController.createDriver);
+// TODO: Implement Phase 2 - Driver Management
+// router.post('/:companyId/drivers', authenticateToken, requireRole(['transporter']), uploadAny, CompanyController.createDriver);
 
 /**
  * @swagger
@@ -246,7 +248,8 @@ router.post('/:companyId/drivers', authenticateToken, requireRole(['transporter'
  *       500:
  *         description: Internal server error
  */
-router.get('/:companyId/vehicles', authenticateToken, requireRole(['transporter']), CompanyController.getAllVehicles);
+// TODO: Implement Phase 2 - Vehicle Management
+// router.get('/:companyId/vehicles', authenticateToken, requireRole(['transporter']), CompanyController.getAllVehicles);
 
 /** 
  * @swagger
@@ -272,7 +275,8 @@ router.get('/:companyId/vehicles', authenticateToken, requireRole(['transporter'
  *       500:
  *         description: Internal server error
 */
-router.get('/:companyId/drivers', authenticateToken, requireRole(['transporter']), CompanyController.getAllDrivers);
+// TODO: Implement Phase 2 - Driver Management
+// router.get('/:companyId/drivers', authenticateToken, requireRole(['transporter']), CompanyController.getAllDrivers);
 
 /** 
  * @swagger
@@ -304,7 +308,8 @@ router.get('/:companyId/drivers', authenticateToken, requireRole(['transporter']
  *       500:
  *         description: Internal server error
 */
-router.get('/:companyId/vehicles/:vehicleId', authenticateToken, requireRole(['transporter']), CompanyController.getVehicle);
+// TODO: Implement Phase 2 - Vehicle Management
+// router.get('/:companyId/vehicles/:vehicleId', authenticateToken, requireRole(['transporter']), CompanyController.getVehicle);
 
 /** 
  * @swagger
@@ -336,7 +341,8 @@ router.get('/:companyId/vehicles/:vehicleId', authenticateToken, requireRole(['t
  *       500:
  *         description: Internal server error
 */
-router.get('/:companyId/drivers/:driverId', authenticateToken, requireRole(['transporter']), CompanyController.getDriver);
+// TODO: Implement Phase 2 - Driver Management
+// router.get('/:companyId/drivers/:driverId', authenticateToken, requireRole(['transporter']), CompanyController.getDriver);
 
 /**
  * @swagger
