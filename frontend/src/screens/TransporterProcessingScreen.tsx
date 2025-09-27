@@ -124,7 +124,7 @@ export default function TransporterProcessingScreen({ route }) {
         
         // Determine endpoint based on transporterType
         const endpoint = transporterType === 'company'
-          ? `${API_ENDPOINTS.COMPANIES}/${user.uid}`
+          ? `${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`
           : `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`;
         
         console.log('Initial fetch from:', endpoint);
@@ -148,27 +148,63 @@ export default function TransporterProcessingScreen({ route }) {
             const data = await res.json();
             console.log('Initial fetch response:', data);
             
-            if (data.transporter && data.transporter.driverProfileImage) {
-              setProfilePhotoUrl(data.transporter.driverProfileImage);
-            }
-            if (data.transporter && data.transporter.status) {
-              setCurrentStatus(data.transporter.status);
-              setStatusMessage(getStatusMessage(data.transporter.status));
-              // If approved, check subscription status before navigating
-              if (data.transporter.status === 'approved') {
-                // Check subscription status first
-                await checkSubscriptionStatus();
+            if (transporterType === 'company') {
+              // Handle companies array response
+              if (Array.isArray(data) && data.length > 0) {
+                const company = data[0]; // Get the first (and should be only) company
+                console.log('Company data:', company);
                 
-                // The navigation will be handled in checkSubscriptionStatus
-                // If no subscription issues, navigate to dashboard
-                setTimeout(() => {
-                  navigation.reset({
-                    index: 0,
-                    routes: [
-                      { name: 'TransporterTabs', params: { transporterType: data.transporter.transporterType || transporterType } },
-                    ],
-                  });
-                }, 1200);
+                if (company.companyLogo) {
+                  setProfilePhotoUrl(company.companyLogo);
+                }
+                if (company.status) {
+                  setCurrentStatus(company.status);
+                  setStatusMessage(getStatusMessage(company.status));
+                  // If approved, check subscription status before navigating
+                  if (company.status === 'approved') {
+                    // Check subscription status first
+                    await checkSubscriptionStatus();
+                    
+                    // The navigation will be handled in checkSubscriptionStatus
+                    // If no subscription issues, navigate to dashboard
+                    setTimeout(() => {
+                      navigation.reset({
+                        index: 0,
+                        routes: [
+                          { name: 'TransporterTabs', params: { transporterType: 'company' } },
+                        ],
+                      });
+                    }, 1200);
+                  }
+                }
+              } else {
+                console.log('No companies found for transporter');
+                setStatusMessage('No company profile found. Please complete your company profile first.');
+              }
+            } else {
+              // Handle individual transporter response
+              if (data.transporter && data.transporter.driverProfileImage) {
+                setProfilePhotoUrl(data.transporter.driverProfileImage);
+              }
+              if (data.transporter && data.transporter.status) {
+                setCurrentStatus(data.transporter.status);
+                setStatusMessage(getStatusMessage(data.transporter.status));
+                // If approved, check subscription status before navigating
+                if (data.transporter.status === 'approved') {
+                  // Check subscription status first
+                  await checkSubscriptionStatus();
+                  
+                  // The navigation will be handled in checkSubscriptionStatus
+                  // If no subscription issues, navigate to dashboard
+                  setTimeout(() => {
+                    navigation.reset({
+                      index: 0,
+                      routes: [
+                        { name: 'TransporterTabs', params: { transporterType: data.transporter.transporterType || transporterType } },
+                      ],
+                    });
+                  }, 1200);
+                }
               }
             }
           } else {
@@ -381,7 +417,7 @@ export default function TransporterProcessingScreen({ route }) {
 
               // Determine endpoint based on transporterType
               const endpoint = transporterType === 'company'
-                ? `${API_ENDPOINTS.COMPANIES}/${user.uid}`
+                ? `${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`
                 : `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`;
               
               console.log('Fetching status from:', endpoint);
@@ -415,9 +451,30 @@ export default function TransporterProcessingScreen({ route }) {
                 const data = await res.json();
                 console.log('Status fetch response:', data);
                 
-                // Update status and message
-                let status = data.status || data.body?.status || (data.transporter && data.transporter.status) || 'unknown';
-                console.log('Extracted status:', status);
+                // Update status and message based on transporter type
+                let status = 'unknown';
+                if (transporterType === 'company') {
+                  // Handle companies array response
+                  if (Array.isArray(data) && data.length > 0) {
+                    const company = data[0]; // Get the first (and should be only) company
+                    status = company.status || 'unknown';
+                    console.log('Company status:', status);
+                    
+                    // Update profile photo if available
+                    if (company.companyLogo) {
+                      setProfilePhotoUrl(company.companyLogo);
+                    }
+                  } else {
+                    console.log('No companies found for transporter');
+                    setStatusMessage('No company profile found. Please complete your company profile first.');
+                    return;
+                  }
+                } else {
+                  // Handle individual transporter response
+                  status = data.status || data.body?.status || (data.transporter && data.transporter.status) || 'unknown';
+                  console.log('Transporter status:', status);
+                }
+                
                 setCurrentStatus(status);
                 setStatusMessage(getStatusMessage(status));
                 
