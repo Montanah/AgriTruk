@@ -48,12 +48,13 @@ app.use(
     })
 );
 
+// Register API routes FIRST
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
-app.use('/api/transporters', transporterRoutes);
+// app.use('/api/transporters', transporterRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/bookings', bookingRoutes);
-app.use('/api/companies', companyRoutes);
+// app.use('/api/companies', companyRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/brokers', brokerRoutes);
@@ -67,18 +68,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/transactions', transRoutes);
 app.use('/api/alerts', alertRoutes);
 
-app.get('/', (req, res) => {
-    res.status(200).send('Welcome to root URL of Server');
-});
-
-app.get('/health/cron', (req, res) => {
-  res.json({
-    status: 'healthy',
-    ...healthMonitor.getStats(),
-    currentTime: Date.now()
-  })
-})
-
+// Health and test endpoints
 app.get('/api/health', (req, res) => {
     res.status(200).json({
         success: true,
@@ -87,7 +77,6 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Test route to check if API routing is working
 app.get('/api/test', (req, res) => {
     res.status(200).json({
         success: true,
@@ -95,6 +84,22 @@ app.get('/api/test', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
+
+// Root endpoint
+app.get('/', (req, res) => {
+    res.status(200).send('Welcome to root URL of Server');
+});
+
+// Health cron endpoint
+app.get('/health/cron', (req, res) => {
+  res.json({
+    status: 'healthy',
+    ...healthMonitor.getStats(),
+    currentTime: Date.now()
+  })
+})
+
+// 404 handler MUST be LAST
 app.use((req, res) => {
     res.status(404).json({
         success: false,
