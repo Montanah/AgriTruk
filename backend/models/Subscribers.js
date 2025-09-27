@@ -110,7 +110,7 @@ const Subscribers = {
     await subscriberRef.update({ currentUsage, updatedAt: admin.firestore.Timestamp.now() });
     return currentUsage;
   },
-  async hasAnySubcription(userId) {
+  async hasAnySubscription(userId) {
     const snapshot = await db.collection('subscribers')
       .where('userId', '==', userId)
       .where('isActive', '==', true)
