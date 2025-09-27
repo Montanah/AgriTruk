@@ -11,7 +11,7 @@ const { systemAlertsJob, documentExpiryJobAlert } = require('./jobs/systemAlerts
 // const authRoutes = require('./routes/authRoutes');
 // const activityRoutes = require('./routes/activityLog');
 // const bookingRoutes = require('./routes/bookingRoutes');
-// const companyRoutes = require('./routes/companyRoutes');
+const companyRoutes = require('./routes/companyRoutes');
 // const disputeRoutes = require('./routes/disputeRoutes');
 // const adminRoutes = require('./routes/adminRoutes');
 // const brokerRoutes = require('./routes/brokerRoutes');
@@ -54,7 +54,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 // app.use('/api/auth', authRoutes);
 // app.use('/api/activity', activityRoutes);
 // app.use('/api/bookings', bookingRoutes);
-// app.use('/api/companies', companyRoutes);
+app.use('/api/companies', companyRoutes);
 // app.use('/api/disputes', disputeRoutes);
 // app.use('/api/admin', adminRoutes);
 // app.use('/api/brokers', brokerRoutes);
