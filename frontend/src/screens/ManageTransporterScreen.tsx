@@ -1,6 +1,7 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -109,6 +110,10 @@ export default function ManageTransporterScreen({ route }: any) {
   const [loadingIndividualProfile, setLoadingIndividualProfile] = useState(true);
   const [individualProfilePhoto, setIndividualProfilePhoto] = useState<any>(null);
   
+  // Company profile states
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [registrationDocument, setRegistrationDocument] = useState<any>(null);
+  
   // Location tracking state
   const [isLocationTracking, setIsLocationTracking] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<any>(null);
@@ -128,19 +133,50 @@ export default function ManageTransporterScreen({ route }: any) {
   const [licenseModalVisible, setLicenseModalVisible] = useState(false);
   const [photoGalleryModalVisible, setPhotoGalleryModalVisible] = useState(false);
 
+  // Fetch company profile data
+  useEffect(() => {
+    const fetchCompanyProfile = async () => {
+      if (transporterType === 'company') {
+        try {
+          const { getAuth } = require('firebase/auth');
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (!user) return;
+
+          const token = await user.getIdToken();
+          const response = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setCompanyProfile(data[0] || data); // Handle both array and object responses
+          }
+        } catch (error) {
+          console.error('Error fetching company profile:', error);
+        }
+      }
+    };
+
+    fetchCompanyProfile();
+  }, [transporterType]);
+
   // Fetch drivers and vehicles data (only for company transporters)
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Only fetch drivers/vehicles for company transporters
-        if (transporterType === 'company') {
-          // Fetch drivers
-          const driversData = await apiRequest('/drivers');
-          setDrivers(driversData || []);
+        if (transporterType === 'company' && companyProfile?.companyId) {
+          // Fetch drivers using company-specific endpoint
+          const driversData = await apiRequest(`/companies/${companyProfile.companyId}/drivers`);
+          setDrivers(driversData?.drivers || []);
 
-          // Fetch vehicles
-          const vehiclesData = await apiRequest('/vehicles');
-          setVehicles(vehiclesData || []);
+          // Fetch vehicles using company-specific endpoint
+          const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
+          setVehicles(vehiclesData?.vehicles || []);
         } else {
           // For individual transporters, set empty arrays
           setDrivers([]);
@@ -174,7 +210,7 @@ export default function ManageTransporterScreen({ route }: any) {
     };
 
     fetchData();
-  }, [transporterType]);
+  }, [transporterType, companyProfile?.companyId]);
 
   // Fetch subscription status
   useEffect(() => {
@@ -507,6 +543,23 @@ export default function ManageTransporterScreen({ route }: any) {
     } catch (error) {
       console.error('Gallery error:', error);
       Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const pickRegistrationDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setRegistrationDocument(result.assets[0]);
+        Alert.alert('Success', 'Registration document selected. You can upload it when editing company details.');
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to select document. Please try again.');
     }
   };
 
@@ -1001,27 +1054,53 @@ export default function ManageTransporterScreen({ route }: any) {
       <>
         <FormKeyboardWrapper style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}>
           <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
-          {/* Profile Section */}
+          {/* Company Profile Section */}
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Profile</Text>
+            <Text style={styles.sectionTitle}>Company Profile</Text>
             <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
-              <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
-              <Text style={styles.actionText}>Edit Profile</Text>
+              <MaterialCommunityIcons name="office-building" size={20} color={colors.secondary} />
+              <Text style={styles.actionText}>Edit Company Details</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={{ alignItems: 'center', marginBottom: 8 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
+            
+            {/* Company Logo */}
+            <TouchableOpacity style={{ alignItems: 'center', marginBottom: 16 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
               {editProfilePhoto ? (
-                <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background }} />
               ) : loadingProfile ? (
                 <ActivityIndicator size="large" color={colors.primary} />
               ) : (
-                <MaterialCommunityIcons name="account-circle" size={80} color={colors.primary} />
+                <View style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background.secondary, alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons name="office-building" size={40} color={colors.primary} />
+                </View>
               )}
-              <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
+              <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontSize: 14, fontFamily: fonts.family.medium }}>Upload Company Logo</Text>
             </TouchableOpacity>
-            <Text style={styles.value}>Name: {editName}</Text>
-            <Text style={styles.value}>Phone: {editPhone}</Text>
-            
-            {/* Company transporters don't control booking acceptance - drivers do */}
+
+            {/* Company Information */}
+            <View style={styles.companyInfo}>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="office-building" size={16} color={colors.text.secondary} />
+                <Text style={styles.companyName}>{companyProfile?.companyName || 'Company Name'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="file-document" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>{companyProfile?.companyRegistration || 'Registration Number'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="phone" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>{companyProfile?.companyContact || 'Contact Number'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="email" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>{companyProfile?.companyEmail || 'Email Address'}</Text>
+              </View>
+            </View>
+
+            {/* Registration Document Upload */}
+            <TouchableOpacity style={[styles.actionBtn, { marginTop: 12, backgroundColor: colors.background.secondary }]} onPress={pickRegistrationDocument}>
+              <MaterialCommunityIcons name="file-upload" size={20} color={colors.primary} />
+              <Text style={[styles.actionText, { color: colors.primary }]}>Upload Registration Document</Text>
+            </TouchableOpacity>
             
             <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
               <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
@@ -1055,17 +1134,19 @@ export default function ManageTransporterScreen({ route }: any) {
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
                 {userProfile?.email || 'No email set'}
               </Text>
-              <TouchableOpacity
-                style={styles.verifyButton}
-                onPress={handleVerifyEmail}
-                disabled={verifyingEmail}
-              >
-                {verifyingEmail ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.verifyButtonText}>Verify Email</Text>
-                )}
-              </TouchableOpacity>
+              {!userProfile?.emailVerified && (
+                <TouchableOpacity
+                  style={styles.verifyButton}
+                  onPress={handleVerifyEmail}
+                  disabled={verifyingEmail}
+                >
+                  {verifyingEmail ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.verifyButtonText}>Verify Email</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={{ marginBottom: 12 }}>
@@ -1091,17 +1172,19 @@ export default function ManageTransporterScreen({ route }: any) {
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
                 {userProfile?.phone || editPhone || 'No phone set'}
               </Text>
-              <TouchableOpacity
-                style={styles.verifyButton}
-                onPress={handleVerifyPhone}
-                disabled={verifyingPhone}
-              >
-                {verifyingPhone ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.verifyButtonText}>Verify Phone</Text>
-                )}
-              </TouchableOpacity>
+              {!userProfile?.phoneVerified && (
+                <TouchableOpacity
+                  style={styles.verifyButton}
+                  onPress={handleVerifyPhone}
+                  disabled={verifyingPhone}
+                >
+                  {verifyingPhone ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           </View>
           {/* Vehicles List */}
@@ -2372,6 +2455,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts.family.bold,
     color: colors.white,
+    marginLeft: 8,
+  },
+  companyInfo: {
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  companyName: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginLeft: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
     marginLeft: 8,
   },
 });

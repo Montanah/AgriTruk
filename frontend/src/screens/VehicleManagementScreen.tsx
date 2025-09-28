@@ -52,8 +52,29 @@ const VehicleManagementScreen = () => {
   const fetchVehicles = async () => {
     try {
       setError(null);
-      const data = await apiRequest('/vehicles');
-      setVehicles(data.vehicles || []);
+      // Get company ID from route params or fetch it
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (companyResponse.ok) {
+        const companyData = await companyResponse.json();
+        const company = companyData[0] || companyData;
+        if (company?.id) {
+          const data = await apiRequest(`/companies/${company.id}/vehicles`);
+          setVehicles(data.vehicles || []);
+        } else {
+          setVehicles([]);
+        }
+      } else {
+        setVehicles([]);
+      }
     } catch (err: any) {
       console.error('Error fetching vehicles:', err);
       setError(err.message || 'Failed to fetch vehicles');

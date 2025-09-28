@@ -162,8 +162,8 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, valid
  *       500:
  *         description: Internal server error
 */
-// TODO: Implement Phase 2 - Vehicle Management
-// router.post('/:companyId/vehicles', authenticateToken, requireRole(['transporter']), uploadAny, CompanyController.createVehicle);
+// Company fleet management endpoints
+router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
 
 /** 
  * @swagger
@@ -221,8 +221,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, valid
  *       500:
  *         description: Internal server error
 */
-// TODO: Implement Phase 2 - Driver Management
-// router.post('/:companyId/drivers', authenticateToken, requireRole(['transporter']), uploadAny, CompanyController.createDriver);
+router.post('/:companyId/drivers', authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/driverController').createDriver);
 
 /**
  * @swagger
@@ -248,8 +247,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, valid
  *       500:
  *         description: Internal server error
  */
-// TODO: Implement Phase 2 - Vehicle Management
-// router.get('/:companyId/vehicles', authenticateToken, requireRole(['transporter']), CompanyController.getAllVehicles);
+router.get('/:companyId/vehicles', authenticateToken, requireRole('transporter'), require('../controllers/vehicleController').getVehicles);
 
 /** 
  * @swagger
@@ -275,8 +273,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, valid
  *       500:
  *         description: Internal server error
 */
-// TODO: Implement Phase 2 - Driver Management
-// router.get('/:companyId/drivers', authenticateToken, requireRole(['transporter']), CompanyController.getAllDrivers);
+router.get('/:companyId/drivers', authenticateToken, requireRole('transporter'), require('../controllers/driverController').getDrivers);
 
 /** 
  * @swagger
