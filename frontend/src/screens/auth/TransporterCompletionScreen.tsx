@@ -256,7 +256,7 @@ export default function TransporterCompletionScreen() {
                   navigation.reset({
                     index: 0,
                     routes: [
-                      { name: 'SubscriptionTrialScreen', params: { 
+                      { name: 'SubscriptionTrial', params: { 
                         userType: 'transporter',
                         subscriptionStatus: subscriptionStatus 
                       } },

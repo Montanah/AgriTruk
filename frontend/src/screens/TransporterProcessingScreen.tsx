@@ -54,7 +54,7 @@ export default function TransporterProcessingScreen({ route }) {
         navigation.reset({
           index: 0,
           routes: [{
-            name: 'SubscriptionTrialScreen',
+            name: 'SubscriptionTrial',
             params: {
               userType: transporterType,
               subscriptionStatus: status
@@ -95,7 +95,7 @@ export default function TransporterProcessingScreen({ route }) {
       navigation.reset({
         index: 0,
         routes: [{
-          name: 'SubscriptionTrialScreen',
+          name: 'SubscriptionTrial',
           params: {
             userType: transporterType,
             subscriptionStatus: { needsTrialActivation: true }
