@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
+import { getAuth } from 'firebase/auth';
 
 interface Job {
   id: string;
@@ -61,7 +62,6 @@ const DriverJobManagementScreen = () => {
 
   const fetchDriverProfile = async () => {
     try {
-      const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
@@ -86,7 +86,6 @@ const DriverJobManagementScreen = () => {
   const fetchJobs = async () => {
     try {
       setError(null);
-      const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
@@ -125,7 +124,6 @@ const DriverJobManagementScreen = () => {
 
   const handleAcceptJob = async (jobId: string) => {
     try {
-      const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
@@ -154,7 +152,6 @@ const DriverJobManagementScreen = () => {
 
   const handleUpdateJobStatus = async (jobId: string, status: string) => {
     try {
-      const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;

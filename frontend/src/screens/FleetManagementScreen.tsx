@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
+import { getAuth } from 'firebase/auth';
 
 const FleetManagementScreen = () => {
   const navigation = useNavigation();
@@ -32,7 +33,6 @@ const FleetManagementScreen = () => {
   const fetchFleetStats = async () => {
     try {
       setLoading(true);
-      const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;

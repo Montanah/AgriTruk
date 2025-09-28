@@ -13,7 +13,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../config/firebase';
+import { auth } from '../../firebaseConfig';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
