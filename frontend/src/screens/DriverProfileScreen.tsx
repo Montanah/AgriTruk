@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   settingsButton: {
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     marginTop: 16,
   },
@@ -342,13 +342,13 @@ const styles = StyleSheet.create({
   },
   driverName: {
     fontSize: 24,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 4,
   },
   driverEmail: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     marginBottom: 12,
   },
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 14,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   section: {
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 12,
   },
@@ -389,14 +389,14 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     marginLeft: 12,
     width: 80,
   },
   infoValue: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
     flex: 1,
   },
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
     marginLeft: 12,
   },
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.error,
     marginLeft: 12,
   },

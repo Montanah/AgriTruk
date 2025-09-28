@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   headerRight: {
@@ -411,19 +411,19 @@ const styles = StyleSheet.create({
   },
   driverName: {
     fontSize: 18,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 4,
   },
   vehicleInfo: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.primary,
     marginBottom: 2,
   },
   companyInfo: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
   },
   tabContainer: {
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
   },
   activeTabText: {
@@ -481,19 +481,19 @@ const styles = StyleSheet.create({
   },
   jobId: {
     fontSize: 14,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.primary,
     marginBottom: 4,
   },
   customerName: {
     fontSize: 16,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 2,
   },
   customerPhone: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
   },
   statusBadge: {
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   jobDetails: {
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
     marginLeft: 8,
     flex: 1,
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 14,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
     marginLeft: 4,
   },
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     marginTop: 16,
   },
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.error,
     textAlign: 'center',
     marginTop: 16,
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   retryText: {
     fontSize: 16,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   emptyContainer: {
@@ -610,14 +610,14 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     textAlign: 'center',
   },

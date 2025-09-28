@@ -2351,14 +2351,14 @@ const styles = StyleSheet.create({
   },
   emptyStateTitle: {
     fontSize: 18,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyStateText: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     textAlign: 'center',
     marginBottom: 20,
@@ -2374,7 +2374,7 @@ const styles = StyleSheet.create({
   },
   emptyStateButtonText: {
     fontSize: 16,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
     marginLeft: 8,
   },

@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   headerRight: {
@@ -261,13 +261,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 24,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 8,
   },
   sectionSubtitle: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
   },
   optionsContainer: {
@@ -299,13 +299,13 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     fontSize: 18,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 4,
   },
   optionSubtitle: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
   },
   quickStats: {
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   statsTitle: {
     fontSize: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 16,
   },
@@ -337,14 +337,14 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 24,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginTop: 8,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     textAlign: 'center',
   },

@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   addButton: {
@@ -293,12 +293,12 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 24,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.primary,
   },
   statLabel: {
     fontSize: 12,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     marginTop: 4,
   },
@@ -324,13 +324,13 @@ const styles = StyleSheet.create({
   },
   vehicleTitle: {
     fontSize: 16,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 4,
   },
   vehicleSubtitle: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
   },
   statusBadge: {
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   vehicleDetails: {
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     marginLeft: 8,
   },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   },
   driverText: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.primary,
     marginLeft: 8,
   },
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.primary,
     marginLeft: 4,
   },
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     marginTop: 16,
   },
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.error,
     textAlign: 'center',
     marginTop: 16,
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   },
   retryText: {
     fontSize: 16,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   emptyContainer: {
@@ -435,14 +435,14 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     textAlign: 'center',
     marginBottom: 24,
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
   },
   addFirstText: {
     fontSize: 16,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
     marginLeft: 8,
   },

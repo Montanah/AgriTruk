@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   headerRight: {
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 12,
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
     marginLeft: 8,
   },
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   },
   updateButtonText: {
     fontSize: 16,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
     marginLeft: 8,
   },
@@ -353,13 +353,13 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     fontSize: 16,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 2,
   },
   optionSubtitle: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
   },
 });

@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   refreshButton: {
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 16,
   },
@@ -415,12 +415,12 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 24,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
   },
   statTitle: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
   },
   actionsGrid: {
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
     marginTop: 8,
   },
@@ -478,13 +478,13 @@ const styles = StyleSheet.create({
   },
   activityMessage: {
     fontSize: 14,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
     marginBottom: 4,
   },
   activityTime: {
     fontSize: 12,
-    fontFamily: fonts.regular,
+    fontFamily: fonts.family.regular,
     color: colors.text.secondary,
   },
   emptyActivity: {
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     marginTop: 12,
   },
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     marginTop: 16,
   },
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
     color: colors.error,
     textAlign: 'center',
     marginTop: 16,
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   },
   retryText: {
     fontSize: 16,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
 });
