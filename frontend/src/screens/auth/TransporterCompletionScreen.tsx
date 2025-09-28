@@ -1222,6 +1222,13 @@ export default function TransporterCompletionScreen() {
           console.log('No profilePhoto or uri found:', { profilePhoto });
         }
         
+        // Debug FormData contents
+        console.log('=== COMPANY FORMDATA DEBUG ===');
+        console.log('FormData entries:');
+        for (let [key, value] of formData.entries()) {
+          console.log(`${key}:`, value);
+        }
+        
         console.log('=== COMPANY SUBMISSION DEBUG ===');
         console.log('Company FormData contents:', {
           name: companyName,
