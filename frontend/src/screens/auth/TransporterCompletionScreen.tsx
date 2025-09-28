@@ -1255,13 +1255,14 @@ export default function TransporterCompletionScreen() {
         try {
           // Add timeout to the request
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
           
           let res;
           let formDataSuccess = false;
           
           try {
             console.log('Attempting FormData request with logo...');
+            console.log('FormData size:', formData.get('logo') ? 'Has logo' : 'No logo');
             res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
               method: 'POST',
               headers: {
@@ -1272,6 +1273,7 @@ export default function TransporterCompletionScreen() {
               signal: controller.signal,
             });
             console.log('FormData request completed with status:', res.status);
+            console.log('FormData response headers:', res.headers);
             
             if (res.ok) {
               formDataSuccess = true;

@@ -12,6 +12,7 @@ const User = require("../models/User");
 const { formatTimestamps } = require('../utils/formatData');
 const Action = require('../models/Action');
 const { uploadDocuments } = require('./transporterController');
+const { adminNotification } = require('../utils/sendMailTemplate');
 
 exports.generateRandomPassword = () => {
   const length = 10;
