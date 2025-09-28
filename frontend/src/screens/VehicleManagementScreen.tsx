@@ -15,6 +15,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
+import { apiRequest } from '../utils/api';
 
 interface Vehicle {
   id: string;
@@ -51,25 +52,8 @@ const VehicleManagementScreen = () => {
   const fetchVehicles = async () => {
     try {
       setError(null);
-      const { getAuth } = require('firebase/auth');
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.VEHICLES}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setVehicles(data.vehicles || []);
-      } else {
-        throw new Error('Failed to fetch vehicles');
-      }
+      const data = await apiRequest('/vehicles');
+      setVehicles(data.vehicles || []);
     } catch (err: any) {
       console.error('Error fetching vehicles:', err);
       setError(err.message || 'Failed to fetch vehicles');
