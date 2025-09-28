@@ -53,27 +53,56 @@ const TransporterServiceScreen = () => {
         const token = await user.getIdToken();
         // console.log('Fetching profiles for user:', user.uid);
         
-        // Fetch both transporter profile and user profile in parallel
-        const [transporterRes, userRes] = await Promise.all([
-          fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          }),
-          fetch(`${API_ENDPOINTS.AUTH}/profile`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          })
-        ]);
+        // Fetch profile based on transporter type
+        let transporterRes, userRes;
+        
+        if (transporterType === 'company') {
+          // For companies, fetch from companies API
+          [transporterRes, userRes] = await Promise.all([
+            fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }),
+            fetch(`${API_ENDPOINTS.AUTH}/profile`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+          ]);
+        } else {
+          // For individual transporters, fetch from transporters API
+          [transporterRes, userRes] = await Promise.all([
+            fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }),
+            fetch(`${API_ENDPOINTS.AUTH}/profile`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+          ]);
+        }
         
         // Handle transporter profile response
         if (transporterRes.ok) {
           const transporterData = await transporterRes.json();
           // console.log('Transporter profile data:', transporterData);
-          setProfile(transporterData);
+          
+          if (transporterType === 'company') {
+            // For companies, the response is an array, take the first company
+            const companyData = transporterData && transporterData.length > 0 ? transporterData[0] : null;
+            setProfile(companyData);
+          } else {
+            // For individual transporters, use the transporter data directly
+            setProfile(transporterData);
+          }
         } else {
           console.error('Failed to fetch transporter profile:', transporterRes.status, transporterRes.statusText);
         }

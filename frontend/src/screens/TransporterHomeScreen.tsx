@@ -110,7 +110,31 @@ export default function TransporterHomeScreen() {
         const token = await user.getIdToken();
         // Fetching transporter profile
 
-        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+        // Determine endpoint based on transporter type
+        // For now, we'll check if it's a company by trying the companies API first
+        let res = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        let isCompany = false;
+        if (res.ok) {
+          const companyData = await res.json();
+          if (companyData && companyData.length > 0) {
+            isCompany = true;
+            // Use company data
+            const data = { transporter: companyData[0] };
+            setProfile(data.transporter);
+            setAcceptingBooking(data.transporter?.acceptingBooking || false);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // If not a company, fetch from transporters API
+        res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
