@@ -87,15 +87,37 @@ const TransporterTabNavigator = () => {
         if (!user) return;
 
         const token = await user.getIdToken();
-        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+        
+        // First try to fetch company data (companies collection)
+        const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         });
 
-        if (res.ok) {
-          const data = await res.json();
+        if (companyRes.ok) {
+          const companyData = await companyRes.json();
+          if (companyData && companyData.length > 0) {
+            // This is a company transporter - they are in companies collection
+            // but should be treated as transporters with type 'company'
+            setTransporterType('company');
+            setLoading(false);
+            return;
+          }
+        }
+
+        // If not a company, fetch from transporters collection
+        const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (transporterRes.ok) {
+          const data = await transporterRes.json();
+          // Individual transporters are in transporters collection
           const type = data.transporter?.transporterType || 'individual';
           setTransporterType(type);
         }
