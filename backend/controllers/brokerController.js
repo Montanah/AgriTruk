@@ -666,7 +666,8 @@ exports.reviewBroker = async (req, res) => {
         status: 'approved',
         approvedBy: adminId,
         idExpiryDate: idExpiryDate || null,
-        idVerified: true
+        idVerified: true,
+        accountStatus: true
       };
       await Broker.update(brokerId, updateData);
       await logAdminActivity(adminId, 'approve_broker', req);

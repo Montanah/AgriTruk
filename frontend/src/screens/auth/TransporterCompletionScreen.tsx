@@ -1270,12 +1270,13 @@ export default function TransporterCompletionScreen() {
             // Continue to JSON fallback
           }
           
+          clearTimeout(timeoutId);
+          
           // If FormData failed, try JSON fallback
           if (!formDataSuccess) {
+            console.log('FormData request failed, trying JSON fallback...');
             throw new Error('FormData request failed, trying JSON fallback');
           }
-          
-          clearTimeout(timeoutId);
           
           if (!res || !res.ok) {
             const errorText = await res?.text() || 'Unknown error';
@@ -1325,7 +1326,7 @@ export default function TransporterCompletionScreen() {
           console.error('Company creation error:', error);
           
           // If FormData fails, try JSON fallback
-          if (error.message && error.message.includes('Network request failed')) {
+          if (error.message && (error.message.includes('Network request failed') || error.message.includes('FormData request failed, trying JSON fallback'))) {
             console.log('FormData failed, trying JSON fallback...');
             try {
               const jsonData = {
@@ -1437,29 +1438,35 @@ export default function TransporterCompletionScreen() {
           
           let errorMsg = 'Failed to create company. Please try again.';
           
-          if (error.name === 'AbortError') {
-            errorMsg = 'Request timed out. Please check your internet connection and try again.';
-          } else if (error.message) {
-            if (error.message.includes('Network request failed')) {
-              errorMsg = 'Network connectivity issue. Please check your internet connection and try again.';
-            } else if (error.message.includes('404')) {
-              errorMsg = 'Company creation service is temporarily unavailable. Please try again later or contact support.';
-            } else if (error.message.includes('400')) {
-              errorMsg = 'Please check your company information and try again.';
-            } else if (error.message.includes('409')) {
-              errorMsg = 'A company with this name or registration already exists.';
-            } else if (error.message.includes('401')) {
-              errorMsg = 'Session expired. Please sign in again.';
-            } else if (error.message.includes('403')) {
-              errorMsg = 'Access denied. Please contact support.';
-            } else if (error.message.includes('500')) {
-              errorMsg = 'Server error. Please try again later.';
-            } else {
-              errorMsg = `Failed to create company: ${error.message}`;
+          // Don't set error message if we're about to try JSON fallback
+          if (!(error.message && (error.message.includes('Network request failed') || error.message.includes('FormData request failed, trying JSON fallback')))) {
+            if (error.name === 'AbortError') {
+              errorMsg = 'Request timed out. Please check your internet connection and try again.';
+            } else if (error.message) {
+              if (error.message.includes('Network request failed')) {
+                errorMsg = 'Network connectivity issue. Please check your internet connection and try again.';
+              } else if (error.message.includes('404')) {
+                errorMsg = 'Company creation service is temporarily unavailable. Please try again later or contact support.';
+              } else if (error.message.includes('400')) {
+                errorMsg = 'Please check your company information and try again.';
+              } else if (error.message.includes('409')) {
+                errorMsg = 'A company with this name or registration already exists.';
+              } else if (error.message.includes('401')) {
+                errorMsg = 'Session expired. Please sign in again.';
+              } else if (error.message.includes('403')) {
+                errorMsg = 'Access denied. Please contact support.';
+              } else if (error.message.includes('500')) {
+                errorMsg = 'Server error. Please try again later.';
+              } else {
+                errorMsg = `Failed to create company: ${error.message}`;
+              }
             }
           }
           
-          setError(errorMsg);
+          // Only set error if JSON fallback also failed or if it's not a fallback case
+          if (!(error.message && (error.message.includes('Network request failed') || error.message.includes('FormData request failed, trying JSON fallback')))) {
+            setError(errorMsg);
+          }
           return false;
         }
       }

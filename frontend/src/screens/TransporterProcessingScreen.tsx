@@ -484,22 +484,11 @@ export default function TransporterProcessingScreen({ route }) {
                 // If approved, check subscription status before navigating
                 if (status === 'approved') {
                   // Check subscription status and let it handle navigation
+                  // The checkSubscriptionStatus function will handle all navigation logic
                   await checkSubscriptionStatus();
                   
-                  // Only navigate to dashboard if subscription check didn't redirect elsewhere
-                  // The checkSubscriptionStatus function will handle navigation to trial/expired screens
-                  // If it returns without redirecting, then user has active subscription
-                  setTimeout(() => {
-                    // Double-check that we're still on this screen (not redirected by subscription check)
-                    if (navigation.getState().routes[navigation.getState().index].name === 'TransporterProcessingScreen') {
-                      navigation.reset({
-                        index: 0,
-                        routes: [
-                          { name: 'TransporterTabs', params: { transporterType: (data.transporter && data.transporter.transporterType) || transporterType } },
-                        ],
-                      });
-                    }
-                  }, 2000); // Increased timeout to allow subscription check to complete
+                  // No additional navigation needed - checkSubscriptionStatus handles everything
+                  // It will redirect to trial screen, expired screen, or dashboard as appropriate
                 }
               } catch (fetchError) {
                 clearTimeout(timeoutId);

@@ -706,6 +706,7 @@ exports.reviewTransporter = async (req, res) => {
         updates = {
           ...updates,
           status: 'approved',
+          accountStatus: true,
           updatedAt: admin.firestore.Timestamp.now(),
         };
         await Transporter.update(transporterId, updates);
