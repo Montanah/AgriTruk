@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
+import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -183,7 +184,7 @@ const TransporterTabNavigator = () => {
         tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontFamily: 'Inter-Medium',
+          fontFamily: fonts.family.medium,
           marginTop: 4,
         },
         tabBarActiveTintColor: colors.secondary,

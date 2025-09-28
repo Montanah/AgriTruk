@@ -40,7 +40,7 @@ const DriverTabNavigator = () => {
         tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontFamily: 'Inter-Medium',
+          fontFamily: fonts.family.medium,
           marginTop: 4,
         },
         tabBarStyle: {
