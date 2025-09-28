@@ -21,8 +21,8 @@ function getExpiryField(docType) {
 const Transporter = {
   async create(transporterData) {
     const transporter = {
-      transporterId: transporterData.userId || db.collection('transporters').doc().id,
-      userId: transporterData.transporterId,
+      transporterId: transporterData.transporterId || db.collection('transporters').doc().id,
+      userId: transporterData.userId,
       transporterType: transporterData.transporterType || 'individual',
       displayName: transporterData.displayName || 'Unnamed Transporter',
       phoneNumber: transporterData.phoneNumber || null,

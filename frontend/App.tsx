@@ -84,9 +84,11 @@ const checkTransporterProfileComplete = (transporterData: any) => {
     }
   }
 
-  // Check if at least one vehicle image is uploaded
-  if (!Array.isArray(transporterData.vehicleImagesUrl) || transporterData.vehicleImagesUrl.length === 0) {
-    return false;
+  // For individual transporters, check if at least one vehicle image is uploaded
+  if (transporterType === 'individual') {
+    if (!Array.isArray(transporterData.vehicleImagesUrl) || transporterData.vehicleImagesUrl.length === 0) {
+      return false;
+    }
   }
 
   // Status must be at least 'pending', 'under_review', or 'approved'
