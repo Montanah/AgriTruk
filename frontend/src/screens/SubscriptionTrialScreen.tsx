@@ -115,18 +115,18 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                             subscriptionStatus: subscriptionData
                         });
                     } else if (subscriptionData.isTrialActive) {
-                        // Navigate to trial confirmation screen
-                        navigation.navigate('PaymentConfirmation', {
-                            userType: userType,
-                            subscriptionType: 'trial',
-                            trialDuration: subscriptionData.daysRemaining || 30,
-                            planName: subscriptionData.planName || 'Trial Plan',
-                            planId: subscriptionData.planId || 'jw8V6swPDphqifQ9YVTr',
-                            amount: subscriptionData.amount || 0
-                        });
+                        // User already has active trial - navigate to appropriate dashboard
+                        if (userType === 'transporter' || userType === 'company') {
+                            // Both individual transporters and companies go to TransporterTabs
+                            navigation.navigate('TransporterTabs');
+                        } else if (userType === 'broker') {
+                            navigation.navigate('BrokerTabs');
+                        } else {
+                            navigation.navigate('MainTabs');
+                        }
                     } else {
                         // Navigate to appropriate dashboard
-                        if (userType === 'transporter') {
+                        if (userType === 'transporter' || userType === 'company') {
                             navigation.navigate('TransporterTabs');
                         } else if (userType === 'broker') {
                             navigation.navigate('BrokerTabs');
