@@ -101,6 +101,38 @@ const FleetManagementScreen = () => {
       icon: 'account-group',
       color: colors.warning,
       onPress: () => navigation.navigate('DriverManagement')
+    },
+    {
+      id: 'assignments',
+      title: 'Driver Assignments',
+      subtitle: 'Assign drivers to vehicles and manage assignments',
+      icon: 'account-arrow-right',
+      color: colors.success,
+      onPress: () => navigation.navigate('DriverAssignments')
+    },
+    {
+      id: 'analytics',
+      title: 'Fleet Analytics',
+      subtitle: 'View performance metrics and insights',
+      icon: 'chart-line',
+      color: colors.info,
+      onPress: () => navigation.navigate('FleetAnalytics')
+    },
+    {
+      id: 'reports',
+      title: 'Fleet Reports',
+      subtitle: 'Generate and view detailed reports',
+      icon: 'file-document',
+      color: colors.secondary,
+      onPress: () => navigation.navigate('FleetReports')
+    },
+    {
+      id: 'maintenance',
+      title: 'Maintenance',
+      subtitle: 'Track vehicle maintenance and schedules',
+      icon: 'wrench',
+      color: colors.error,
+      onPress: () => navigation.navigate('FleetMaintenance')
     }
   ];
 

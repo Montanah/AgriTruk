@@ -24,6 +24,10 @@ import DriverManagementScreen from '../screens/DriverManagementScreen';
 import CompanyDashboardScreen from '../screens/CompanyDashboardScreen';
 import DriverJobManagementScreen from '../screens/DriverJobManagementScreen';
 import FleetManagementScreen from '../screens/FleetManagementScreen';
+import DriverAssignmentsScreen from '../screens/DriverAssignmentsScreen';
+import FleetAnalyticsScreen from '../screens/FleetAnalyticsScreen';
+import FleetReportsScreen from '../screens/FleetReportsScreen';
+import FleetMaintenanceScreen from '../screens/FleetMaintenanceScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -37,8 +41,10 @@ const HomeStack = ({ transporterType }) => (
         <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
         <Stack.Screen name="DriverManagement" component={DriverManagementScreen} />
         <Stack.Screen name="DriverJobManagement" component={DriverJobManagementScreen} />
-        <Stack.Screen name="FleetAnalytics" component={TransporterServiceScreen} initialParams={{ transporterType }} />
-        <Stack.Screen name="FleetReports" component={TransporterServiceScreen} initialParams={{ transporterType }} />
+        <Stack.Screen name="DriverAssignments" component={DriverAssignmentsScreen} />
+        <Stack.Screen name="FleetAnalytics" component={FleetAnalyticsScreen} />
+        <Stack.Screen name="FleetReports" component={FleetReportsScreen} />
+        <Stack.Screen name="FleetMaintenance" component={FleetMaintenanceScreen} />
       </>
     ) : (
       // Individual transporter screens
@@ -71,8 +77,10 @@ const ManageStack = ({ transporterType }) => (
         <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
         <Stack.Screen name="DriverManagement" component={DriverManagementScreen} />
         <Stack.Screen name="DriverJobManagement" component={DriverJobManagementScreen} />
-        <Stack.Screen name="FleetAnalytics" component={TransporterServiceScreen} initialParams={{ transporterType }} />
-        <Stack.Screen name="FleetReports" component={TransporterServiceScreen} initialParams={{ transporterType }} />
+        <Stack.Screen name="DriverAssignments" component={DriverAssignmentsScreen} />
+        <Stack.Screen name="FleetAnalytics" component={FleetAnalyticsScreen} />
+        <Stack.Screen name="FleetReports" component={FleetReportsScreen} />
+        <Stack.Screen name="FleetMaintenance" component={FleetMaintenanceScreen} />
       </>
     ) : (
       // Individual transporter management screens
@@ -105,6 +113,10 @@ const ProfileStack = ({ transporterType }) => (
     <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
     <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
     <Stack.Screen name="DriverManagement" component={DriverManagementScreen} />
+    <Stack.Screen name="DriverAssignments" component={DriverAssignmentsScreen} />
+    <Stack.Screen name="FleetAnalytics" component={FleetAnalyticsScreen} />
+    <Stack.Screen name="FleetReports" component={FleetReportsScreen} />
+    <Stack.Screen name="FleetMaintenance" component={FleetMaintenanceScreen} />
   </Stack.Navigator>
 );
 
