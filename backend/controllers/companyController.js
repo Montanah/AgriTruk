@@ -250,6 +250,7 @@ exports.approveCompany = async (req, res) => {
     }
 
     const updatedCompany = await Company.approve(companyId);
+    
     const email = updatedCompany?.companyEmail;
     await sendEmail({
       to: email,

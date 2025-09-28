@@ -64,23 +64,12 @@ const checkTransporterProfileComplete = (transporterData: any) => {
     'status'
   ];
 
-  // Required fields for company transporters
+  // Required fields for company transporters (fleet management only)
   const companyRequiredFields = [
-    'driverProfileImage',
-    'driverLicense',
-    'insuranceUrl',
-    'vehicleType',
-    'vehicleRegistration',
-    'vehicleMake',
-    'vehicleColor',
-    'vehicleYear',
-    'bodyType',
-    'driveType',
-    'email',
+    'displayName', // Company name
     'phoneNumber',
-    'status',
-    'companyName',
-    'companyRegistration'
+    'email',
+    'status'
   ];
 
   const transporterType = transporterData.transporterType || 'individual';
