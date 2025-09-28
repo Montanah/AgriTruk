@@ -10,6 +10,7 @@ import SubscriptionStatusCard from '../components/common/SubscriptionStatusCard'
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import colors from '../constants/colors';
+import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 import { convertCoordinatesToPlaceName, getShortLocationName } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
