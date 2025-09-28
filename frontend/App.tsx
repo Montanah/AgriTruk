@@ -277,9 +277,9 @@ export default function App() {
                     data.transporterStatus = company.status || 'pending';
                     data.transporterType = 'company';
                     
-                    // For companies, skip subscription checks during profile completion
-                    // Subscription will be handled after company approval
-                    setSubscriptionStatus(null);
+                    // Check subscription status for company
+                    const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
+                    setSubscriptionStatus(subStatus);
                   } else {
                     // No company found, check for individual transporter
                     const transporterSnap = await getDoc(firestoreDoc(db, 'transporters', firebaseUser.uid));
