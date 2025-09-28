@@ -1106,10 +1106,19 @@ export default function ManageTransporterScreen({ route }: any) {
           {/* Vehicles List */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Vehicles</Text>
-            <TouchableOpacity style={styles.actionBtn} onPress={openAddVehicle}>
-              <Ionicons name="add-circle" size={20} color={colors.primary} />
-              <Text style={styles.actionText}>Add Vehicle</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity style={[styles.actionBtn, { flex: 1, marginRight: 8 }]} onPress={openAddVehicle}>
+                <Ionicons name="add-circle" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Add Vehicle</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, { flex: 1, marginLeft: 8 }]} 
+                onPress={() => navigation.navigate('VehicleManagement')}
+              >
+                <MaterialCommunityIcons name="truck" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Manage Fleet</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Search vehicles..."
@@ -1279,10 +1288,19 @@ export default function ManageTransporterScreen({ route }: any) {
           {/* Drivers List */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Drivers</Text>
-            <TouchableOpacity style={styles.actionBtn} onPress={openRecruitDriver}>
-              <Ionicons name="add-circle" size={20} color={colors.primary} />
-              <Text style={styles.actionText}>Recruit Driver</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity style={[styles.actionBtn, { flex: 1, marginRight: 8 }]} onPress={openRecruitDriver}>
+                <Ionicons name="add-circle" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Recruit Driver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, { flex: 1, marginLeft: 8 }]} 
+                onPress={() => navigation.navigate('DriverManagement')}
+              >
+                <MaterialCommunityIcons name="account-group" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Manage Drivers</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Search drivers..."

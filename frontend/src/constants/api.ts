@@ -11,6 +11,8 @@ export const API_ENDPOINTS = {
   TRANSPORTERS: `${API_BASE_URL}/api/transporters`,
   BROKERS: `${API_BASE_URL}/api/brokers`,
   COMPANIES: `${API_BASE_URL}/api/companies`,
+  VEHICLES: `${API_BASE_URL}/api/vehicles`,
+  DRIVERS: `${API_BASE_URL}/api/drivers`,
   DISPUTES: `${API_BASE_URL}/api/disputes`,
   RATINGS: `${API_BASE_URL}/api/ratings`,
   TRANSACTIONS: `${API_BASE_URL}/api/transactions`,

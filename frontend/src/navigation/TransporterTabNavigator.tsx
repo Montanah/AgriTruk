@@ -18,6 +18,8 @@ import JobManagementScreen from '../screens/JobManagementScreen';
 import RouteLoadsScreen from '../screens/RouteLoadsScreen';
 import AllAvailableJobsScreen from '../screens/AllAvailableJobsScreen';
 import ShipmentManagementScreen from '../screens/ShipmentManagementScreen';
+import VehicleManagementScreen from '../screens/VehicleManagementScreen';
+import DriverManagementScreen from '../screens/DriverManagementScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -67,6 +69,8 @@ const ProfileStack = ({ transporterType }) => (
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
     <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
     <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
+    <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
+    <Stack.Screen name="DriverManagement" component={DriverManagementScreen} />
   </Stack.Navigator>
 );
 
