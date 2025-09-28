@@ -161,7 +161,9 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                             {
                                 text: 'Continue',
                                 onPress: () => {
-                                    if (userType === 'transporter') {
+                                    if (userType === 'transporter' || userType === 'company') {
+                                        // Both individual transporters and companies go to TransporterTabs
+                                        // Companies will see fleet management options
                                         navigation.navigate('TransporterTabs');
                                     } else if (userType === 'broker') {
                                         // Navigate to payment confirmation for brokers
@@ -174,6 +176,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                                             amount: trialPlan?.price || 0
                                         });
                                     } else {
+                                        // Fallback for business users
                                         navigation.navigate('MainTabs');
                                     }
                                 }
