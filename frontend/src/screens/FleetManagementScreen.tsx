@@ -60,7 +60,16 @@ const FleetManagementScreen = () => {
       });
     } catch (err: any) {
       console.error('Error fetching fleet stats:', err);
-      Alert.alert('Error', err.message || 'Failed to fetch fleet statistics');
+      // Don't show alert for 404 errors - just set empty stats
+      if (err.message && err.message.includes('404')) {
+        console.log('Fleet data not available yet - showing empty state');
+      } else {
+        Alert.alert(
+          'Unable to Load Fleet Data', 
+          'We couldn\'t load your fleet statistics. Please check your connection and try again.',
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
       setLoading(false);
     }

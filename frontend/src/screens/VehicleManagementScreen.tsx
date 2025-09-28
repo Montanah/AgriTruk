@@ -174,7 +174,7 @@ const VehicleManagementScreen = () => {
         <Text style={styles.headerTitle}>Fleet Management</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('AddVehicle')}
+          onPress={() => setAddEditModalVisible(true)}
         >
           <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -217,7 +217,7 @@ const VehicleManagementScreen = () => {
             </Text>
             <TouchableOpacity
               style={styles.addFirstButton}
-              onPress={() => navigation.navigate('AddVehicle')}
+              onPress={() => setAddEditModalVisible(true)}
             >
               <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
               <Text style={styles.addFirstText}>Add First Vehicle</Text>

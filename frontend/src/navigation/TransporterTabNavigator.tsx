@@ -186,6 +186,8 @@ const TransporterTabNavigator = () => {
           fontFamily: 'Inter-Medium',
           marginTop: 4,
         },
+        tabBarActiveTintColor: colors.secondary,
+        tabBarInactiveTintColor: colors.white,
         tabBarStyle: {
           position: 'absolute',
           left: 0,

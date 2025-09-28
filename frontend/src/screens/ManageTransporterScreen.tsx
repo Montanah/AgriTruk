@@ -134,11 +134,11 @@ export default function ManageTransporterScreen({ route }: any) {
         // Only fetch drivers/vehicles for company transporters
         if (transporterType === 'company') {
           // Fetch drivers
-          const driversData = await apiRequest('/transporters/drivers');
+          const driversData = await apiRequest('/drivers');
           setDrivers(driversData || []);
 
           // Fetch vehicles
-          const vehiclesData = await apiRequest('/transporters/vehicles');
+          const vehiclesData = await apiRequest('/vehicles');
           setVehicles(vehiclesData || []);
         } else {
           // For individual transporters, set empty arrays
@@ -146,12 +146,17 @@ export default function ManageTransporterScreen({ route }: any) {
           setVehicles([]);
         }
 
-      } catch (error) {
-        console.error('Failed to fetch drivers/vehicles:', error);
-        // Set empty arrays on error
-        setDrivers([]);
-        setVehicles([]);
-      } finally {
+        } catch (error) {
+          console.error('Failed to fetch drivers/vehicles:', error);
+          // Set empty arrays on error and show user-friendly message
+          setDrivers([]);
+          setVehicles([]);
+          Alert.alert(
+            'Unable to Load Fleet Data', 
+            'We couldn\'t load your fleet information. Please check your connection and try again.',
+            [{ text: 'OK' }]
+          );
+        } finally {
         setLoadingDrivers(false);
         setLoadingVehicles(false);
       }
@@ -1126,7 +1131,15 @@ export default function ManageTransporterScreen({ route }: any) {
               onChangeText={setVehicleSearch}
             />
             {vehicles.length === 0 ? (
-              <Text style={styles.value}>No vehicles added.</Text>
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="truck-outline" size={48} color={colors.text.secondary} />
+                <Text style={styles.emptyStateTitle}>No Vehicles Yet</Text>
+                <Text style={styles.emptyStateText}>Start building your fleet by adding your first vehicle.</Text>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={openAddVehicle}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                  <Text style={styles.emptyStateButtonText}>Add Vehicle</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               vehicles.filter(item => {
                 const assignedDriver = drivers.find(d => d.id === item.assignedDriverId);
@@ -1308,7 +1321,15 @@ export default function ManageTransporterScreen({ route }: any) {
               onChangeText={setDriverSearch}
             />
             {drivers.length === 0 ? (
-              <Text style={styles.value}>No drivers added.</Text>
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="account-group-outline" size={48} color={colors.text.secondary} />
+                <Text style={styles.emptyStateTitle}>No Drivers Yet</Text>
+                <Text style={styles.emptyStateText}>Start building your team by recruiting your first driver.</Text>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={openRecruitDriver}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                  <Text style={styles.emptyStateButtonText}>Recruit Driver</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <ScrollView style={{ maxHeight: 340 }}>
                 {drivers.filter(item =>
@@ -2321,5 +2342,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.secondary,
     lineHeight: 18,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontFamily: fonts.bold,
+    color: colors.text.primary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    fontFamily: fonts.medium,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  emptyStateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyStateButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.bold,
+    color: colors.white,
+    marginLeft: 8,
   },
 });
