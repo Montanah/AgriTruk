@@ -101,7 +101,8 @@ const getVehicles = async (req, res) => {
       .get();
 
     if (companyQuery.empty) {
-      return res.status(404).json({ message: 'Company not found' });
+      // Return empty array instead of 404 - company might not have vehicles yet
+      return res.status(200).json({ vehicles: [] });
     }
 
     const companyId = companyQuery.docs[0].id;

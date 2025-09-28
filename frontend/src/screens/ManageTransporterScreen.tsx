@@ -1011,22 +1011,7 @@ export default function ManageTransporterScreen({ route }: any) {
             <Text style={styles.value}>Name: {editName}</Text>
             <Text style={styles.value}>Phone: {editPhone}</Text>
             
-            {/* Accepting Requests Toggle for Company */}
-            <View style={styles.toggleContainer}>
-              <ModernToggle
-                value={acceptingBooking}
-                onValueChange={updateAcceptingBookingStatus}
-                disabled={updatingBookingStatus}
-                loading={updatingBookingStatus}
-                label="Accepting New Requests"
-                description={acceptingBooking 
-                  ? 'You are currently accepting new booking requests' 
-                  : 'You are not accepting new booking requests'
-                }
-                size="medium"
-                variant="success"
-              />
-            </View>
+            {/* Company transporters don't control booking acceptance - drivers do */}
             
             <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
               <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
