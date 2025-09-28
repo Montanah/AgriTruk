@@ -133,6 +133,13 @@ const getVehicles = async (req, res) => {
 
       vehicles.push(vehicleData);
     }
+    
+    // Sort by createdAt descending (newest first)
+    vehicles.sort((a, b) => {
+      const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+      const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+      return bTime - aTime;
+    });
 
     res.json({ vehicles });
 

@@ -193,6 +193,13 @@ const getDrivers = async (req, res) => {
 
       drivers.push(driverData);
     }
+    
+    // Sort by createdAt descending (newest first)
+    drivers.sort((a, b) => {
+      const aTime = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+      const bTime = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+      return bTime - aTime;
+    });
 
     res.json({ drivers });
 
