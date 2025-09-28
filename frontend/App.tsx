@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { ActivityIndicator, LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { API_ENDPOINTS } from './src/config/api';
 import BusinessStackNavigator from './src/navigation/BusinessStackNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
@@ -257,22 +258,51 @@ export default function App() {
             // For transporters, check if they have a profile
             if (data.role === 'transporter') {
               try {
-                // First check if this is a company transporter by looking for company record
-                const companySnap = await getDoc(firestoreDoc(db, 'companies', firebaseUser.uid));
-                const companyData = companySnap.exists() ? companySnap.data() : null;
+                // First check if this is a company transporter by calling the backend API
+                const token = await firebaseUser.getIdToken();
+                const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${firebaseUser.uid}`, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                });
                 
-                if (companyData) {
-                  // This is a company owner - check company profile completion
-                  const isProfileComplete = checkCompanyProfileComplete(companyData);
-                  setProfileCompleted(isProfileComplete);
-                  data.transporterStatus = companyData.status || 'pending';
-                  data.transporterType = 'company';
-                  
-                  // Check subscription status for company
-                  const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
-                  setSubscriptionStatus(subStatus);
+                if (companyResponse.ok) {
+                  const companyData = await companyResponse.json();
+                  if (companyData && companyData.length > 0) {
+                    // This is a company owner - check company profile completion
+                    const company = companyData[0];
+                    const isProfileComplete = checkCompanyProfileComplete(company);
+                    setProfileCompleted(isProfileComplete);
+                    data.transporterStatus = company.status || 'pending';
+                    data.transporterType = 'company';
+                    
+                    // Check subscription status for company
+                    const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
+                    setSubscriptionStatus(subStatus);
+                  } else {
+                    // No company found, check for individual transporter
+                    const transporterSnap = await getDoc(firestoreDoc(db, 'transporters', firebaseUser.uid));
+                    const transporterData = transporterSnap.exists() ? transporterSnap.data() : null;
+                    
+                    if (transporterData) {
+                      const isProfileComplete = checkTransporterProfileComplete(transporterData);
+                      setProfileCompleted(isProfileComplete);
+                      data.transporterStatus = transporterData.status || 'pending';
+                      data.transporterType = 'individual';
+                      
+                      // Check subscription status for individual transporter
+                      const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
+                      setSubscriptionStatus(subStatus);
+                    } else {
+                      // No profile found
+                      setProfileCompleted(false);
+                      data.transporterStatus = 'incomplete';
+                      data.transporterType = 'individual'; // Default to individual
+                    }
+                  }
                 } else {
-                  // This is an individual transporter - check transporter collection
+                  // Company API failed, check for individual transporter
                   const transporterSnap = await getDoc(firestoreDoc(db, 'transporters', firebaseUser.uid));
                   const transporterData = transporterSnap.exists() ? transporterSnap.data() : null;
                   
