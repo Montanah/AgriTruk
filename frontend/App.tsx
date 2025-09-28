@@ -691,7 +691,7 @@ export default function App() {
                 name="SubscriptionTrial"
                 component={SubscriptionTrialScreen as any}
                 initialParams={{
-                  userType: 'transporter',
+                  userType: userData?.transporterType || 'transporter',
                   subscriptionStatus: subscriptionStatus
                 }}
               />
@@ -711,7 +711,7 @@ export default function App() {
                 name="SubscriptionExpired"
                 component={SubscriptionExpiredScreen as any}
                 initialParams={{
-                  userType: 'transporter',
+                  userType: userData?.transporterType || 'transporter',
                   userId: user.uid,
                   expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
                 }}
@@ -977,7 +977,7 @@ export default function App() {
               name="SubscriptionTrial"
               component={SubscriptionTrialScreen as any}
               initialParams={{
-                userType: 'transporter',
+                userType: userData?.transporterType || 'transporter',
                 subscriptionStatus: subscriptionStatus
               }}
             />
@@ -996,7 +996,7 @@ export default function App() {
               name="SubscriptionExpired"
               component={SubscriptionExpiredScreen as any}
               initialParams={{
-                userType: 'transporter',
+                userType: userData?.transporterType || 'transporter',
                 userId: user.uid,
                 expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
               }}
@@ -1016,7 +1016,7 @@ export default function App() {
               name="SubscriptionTrial"
               component={SubscriptionTrialScreen as any}
               initialParams={{
-                userType: 'transporter',
+                userType: userData?.transporterType || 'transporter',
                 subscriptionStatus: null
               }}
             />
