@@ -13,7 +13,9 @@ const {
   approveDriver,
   rejectDriver,
   activateDriver,
-  deactivateDriver
+  deactivateDriver,
+  verifyDriver,
+  getDriverProfile
 } = require('../controllers/driverController');
 
 // Driver management routes for companies
@@ -28,5 +30,9 @@ router.patch('/:id/approve', authenticateToken, requireRole('transporter'), appr
 router.patch('/:id/reject', authenticateToken, requireRole('transporter'), rejectDriver);
 router.patch('/:id/activate', authenticateToken, requireRole('transporter'), activateDriver);
 router.patch('/:id/deactivate', authenticateToken, requireRole('transporter'), deactivateDriver);
+
+// Driver authentication and profile routes
+router.post('/verify', authenticateToken, verifyDriver);
+router.get('/profile', authenticateToken, getDriverProfile);
 
 module.exports = router;

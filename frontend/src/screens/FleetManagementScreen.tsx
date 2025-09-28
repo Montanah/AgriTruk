@@ -7,22 +7,74 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import { API_ENDPOINTS } from '../constants/api';
 
 const FleetManagementScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [fleetStats, setFleetStats] = useState({
+    totalVehicles: 0,
+    activeVehicles: 0,
+    totalDrivers: 0,
+    activeDrivers: 0,
+    assignedDrivers: 0,
+  });
+
+  const fetchFleetStats = async () => {
+    try {
+      setLoading(true);
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+
+      const [vehiclesRes, driversRes] = await Promise.all([
+        fetch(`${API_ENDPOINTS.VEHICLES}`, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        }),
+        fetch(`${API_ENDPOINTS.DRIVERS}`, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        }),
+      ]);
+
+      const vehiclesData = vehiclesRes.ok ? await vehiclesRes.json() : { vehicles: [] };
+      const driversData = driversRes.ok ? await driversRes.json() : { drivers: [] };
+
+      setFleetStats({
+        totalVehicles: vehiclesData.vehicles.length,
+        activeVehicles: vehiclesData.vehicles.filter(v => v.status === 'approved' && !v.assignedDriverId).length,
+        totalDrivers: driversData.drivers.length,
+        activeDrivers: driversData.drivers.filter(d => d.status === 'active').length,
+        assignedDrivers: driversData.drivers.filter(d => d.assignedVehicleId).length,
+      });
+    } catch (err: any) {
+      console.error('Error fetching fleet stats:', err);
+      Alert.alert('Error', err.message || 'Failed to fetch fleet statistics');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate refresh
-    setTimeout(() => setRefreshing(false), 1000);
+    await fetchFleetStats();
+    setRefreshing(false);
   };
+
+  useEffect(() => {
+    fetchFleetStats();
+  }, []);
 
   const fleetOptions = [
     {
@@ -94,7 +146,7 @@ const FleetManagementScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -102,11 +154,17 @@ const FleetManagementScreen = () => {
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Fleet Management</Text>
-        <View style={styles.headerRight} />
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={onRefresh}
+        >
+          <MaterialCommunityIcons name="refresh" size={24} color={colors.white} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -128,27 +186,27 @@ const FleetManagementScreen = () => {
         </View>
 
         <View style={styles.quickStats}>
-          <Text style={styles.statsTitle}>Quick Stats</Text>
+          <Text style={styles.statsTitle}>Fleet Overview</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <MaterialCommunityIcons name="truck" size={24} color={colors.primary} />
-              <Text style={styles.statNumber}>0</Text>
+              <Text style={styles.statNumber}>{fleetStats.totalVehicles}</Text>
               <Text style={styles.statLabel}>Total Vehicles</Text>
             </View>
             <View style={styles.statCard}>
+              <MaterialCommunityIcons name="truck-check" size={24} color={colors.success} />
+              <Text style={styles.statNumber}>{fleetStats.activeVehicles}</Text>
+              <Text style={styles.statLabel}>Available</Text>
+            </View>
+            <View style={styles.statCard}>
               <MaterialCommunityIcons name="account-group" size={24} color={colors.warning} />
-              <Text style={styles.statNumber}>0</Text>
+              <Text style={styles.statNumber}>{fleetStats.totalDrivers}</Text>
               <Text style={styles.statLabel}>Total Drivers</Text>
             </View>
             <View style={styles.statCard}>
-              <MaterialCommunityIcons name="check-circle" size={24} color={colors.success} />
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Active Jobs</Text>
-            </View>
-            <View style={styles.statCard}>
-              <MaterialCommunityIcons name="currency-usd" size={24} color={colors.info} />
-              <Text style={styles.statNumber}>$0</Text>
-              <Text style={styles.statLabel}>This Month</Text>
+              <MaterialCommunityIcons name="account-check" size={24} color={colors.success} />
+              <Text style={styles.statNumber}>{fleetStats.assignedDrivers}</Text>
+              <Text style={styles.statLabel}>Assigned</Text>
             </View>
           </View>
         </View>
@@ -181,6 +239,9 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     width: 40,
+  },
+  refreshButton: {
+    padding: 8,
   },
   content: {
     flex: 1,

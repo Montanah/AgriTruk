@@ -180,30 +180,59 @@ const TransporterTabNavigator = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontFamily: 'Inter-Medium',
+          marginTop: 4,
+        },
         tabBarStyle: {
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: 0,
           borderRadius: 0,
-          height: 56 + insets.bottom,
-          backgroundColor: colors.primaryDark,
-          borderTopWidth: 1,
-          borderTopColor: '#222',
-          shadowColor: 'transparent',
-          elevation: 0,
-          paddingBottom: insets.bottom,
+          height: 70 + insets.bottom,
+          backgroundColor: colors.primary,
+          borderTopWidth: 0,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 8,
+          paddingBottom: insets.bottom + 8,
+          paddingTop: 8,
         },
         tabBarItemStyle: {
           marginTop: 0,
         },
         tabBarIcon: ({ focused }) => {
-          const iconColor = focused ? colors.secondary : '#fff';
+          const iconColor = focused ? colors.secondary : colors.white;
+          
           if (route.name === 'Home') {
+            if (transporterType === 'company') {
+              return (
+                <MaterialCommunityIcons
+                  name={focused ? 'view-dashboard' : 'view-dashboard-outline'}
+                  size={28}
+                  color={iconColor}
+                  style={{ marginBottom: -2 }}
+                />
+              );
+            } else {
+              return (
+                <Ionicons
+                  name={focused ? 'home' : 'home-outline'}
+                  size={28}
+                  color={iconColor}
+                  style={{ marginBottom: -2 }}
+                />
+              );
+            }
+          } else if (route.name === 'Fleet') {
             return (
-              <Ionicons
-                name={focused ? 'home' : 'home-outline'}
+              <MaterialCommunityIcons
+                name={focused ? 'truck' : 'truck-outline'}
                 size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
@@ -212,7 +241,7 @@ const TransporterTabNavigator = () => {
           } else if (route.name === 'Manage') {
             return (
               <MaterialCommunityIcons
-                name="clipboard-list"
+                name={focused ? 'briefcase' : 'briefcase-outline'}
                 size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
@@ -236,27 +265,6 @@ const TransporterTabNavigator = () => {
         name="Home"
         options={{
           title: transporterType === 'company' ? 'Dashboard' : 'Home',
-          tabBarIcon: ({ color: iconColor }) => {
-            if (transporterType === 'company') {
-              return (
-                <MaterialCommunityIcons
-                  name="view-dashboard"
-                  size={28}
-                  color={iconColor}
-                  style={{ marginBottom: -2 }}
-                />
-              );
-            } else {
-              return (
-                <MaterialCommunityIcons
-                  name="home"
-                  size={28}
-                  color={iconColor}
-                  style={{ marginBottom: -2 }}
-                />
-              );
-            }
-          }
         }}
       >
         {() => <HomeStack transporterType={transporterType} />}
@@ -267,14 +275,6 @@ const TransporterTabNavigator = () => {
           name="Fleet"
           options={{
             title: 'Fleet',
-            tabBarIcon: ({ color: iconColor }) => (
-              <MaterialCommunityIcons
-                name="truck"
-                size={28}
-                color={iconColor}
-                style={{ marginBottom: -2 }}
-              />
-            )
           }}
         >
           {() => <ManageStack transporterType={transporterType} />}
@@ -284,14 +284,6 @@ const TransporterTabNavigator = () => {
           name="Manage"
           options={{
             title: 'Manage',
-            tabBarIcon: ({ color: iconColor }) => (
-              <MaterialCommunityIcons
-                name="briefcase"
-                size={28}
-                color={iconColor}
-                style={{ marginBottom: -2 }}
-              />
-            )
           }}
         >
           {() => <ManageStack transporterType={transporterType} />}
@@ -302,14 +294,6 @@ const TransporterTabNavigator = () => {
         name="Profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color: iconColor }) => (
-            <MaterialCommunityIcons
-              name="account"
-              size={28}
-              color={iconColor}
-              style={{ marginBottom: -2 }}
-            />
-          )
         }}
       >
         {() => <ProfileStack transporterType={transporterType} />}

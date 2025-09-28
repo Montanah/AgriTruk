@@ -1,0 +1,113 @@
+import React from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import colors from '../constants/colors';
+import fonts from '../constants/fonts';
+
+// Import driver screens
+import DriverJobManagementScreen from '../screens/DriverJobManagementScreen';
+import DriverProfileScreen from '../screens/DriverProfileScreen';
+import DriverSettingsScreen from '../screens/DriverSettingsScreen';
+
+const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+const JobStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="DriverJobManagement" component={DriverJobManagementScreen} />
+    <Stack.Screen name="TripDetails" component={require('../screens/TripDetailsScreen').default} />
+    <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+    <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
+  </Stack.Navigator>
+);
+
+const ProfileStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="DriverProfile" component={DriverProfileScreen} />
+    <Stack.Screen name="DriverSettings" component={DriverSettingsScreen} />
+  </Stack.Navigator>
+);
+
+const DriverTabNavigator = () => {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontFamily: 'Inter-Medium',
+          marginTop: 4,
+        },
+        tabBarStyle: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: 0,
+          height: 70 + insets.bottom,
+          backgroundColor: colors.primary,
+          borderTopWidth: 0,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 8,
+          paddingBottom: insets.bottom + 8,
+          paddingTop: 8,
+        },
+        tabBarItemStyle: {
+          marginTop: 0,
+        },
+        tabBarIcon: ({ focused }) => {
+          const iconColor = focused ? colors.secondary : colors.white;
+          
+          if (route.name === 'Jobs') {
+            return (
+              <MaterialCommunityIcons
+                name={focused ? 'briefcase' : 'briefcase-outline'}
+                size={28}
+                color={iconColor}
+                style={{ marginBottom: -2 }}
+              />
+            );
+          } else if (route.name === 'Profile') {
+            return (
+              <MaterialCommunityIcons
+                name={focused ? 'account' : 'account-outline'}
+                size={28}
+                color={iconColor}
+                style={{ marginBottom: -2 }}
+              />
+            );
+          }
+        },
+        safeAreaInsets: { bottom: 0 },
+      })}
+    >
+      <Tab.Screen 
+        name="Jobs"
+        options={{
+          title: 'Jobs',
+        }}
+      >
+        {() => <JobStack />}
+      </Tab.Screen>
+      
+      <Tab.Screen 
+        name="Profile"
+        options={{
+          title: 'Profile',
+        }}
+      >
+        {() => <ProfileStack />}
+      </Tab.Screen>
+    </Tab.Navigator>
+  );
+};
+
+export default DriverTabNavigator;

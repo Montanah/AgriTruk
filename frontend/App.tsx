@@ -8,6 +8,7 @@ import { API_ENDPOINTS } from './src/constants/api';
 import BusinessStackNavigator from './src/navigation/BusinessStackNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
+import DriverTabNavigator from './src/navigation/DriverTabNavigator';
 import EmailVerificationScreen from './src/screens/auth/EmailVerificationScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import PhoneOTPScreen from './src/screens/auth/PhoneOTPScreen';
@@ -43,6 +44,35 @@ const Stack = createStackNavigator();
 LogBox.ignoreLogs(['useInsertionEffect must not schedule updates']);
 
 // App initialization
+
+// Helper function to check if user is a driver
+const checkIfDriver = async (userId: string) => {
+  try {
+    const { getAuth } = require('firebase/auth');
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return false;
+
+    const token = await user.getIdToken();
+    const response = await fetch(`${API_ENDPOINTS.DRIVERS}/verify`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data.isDriver || false;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error checking if user is driver:', error);
+    return false;
+  }
+};
 
 // Helper function to check if company profile is complete
 const checkCompanyProfileComplete = (companyData: any) => {
@@ -164,6 +194,7 @@ export default function App() {
   const [loading, setLoading] = React.useState(true);
   const [connectionError, setConnectionError] = React.useState<string | null>(null);
   const [userData, setUserData] = React.useState<any>(null);
+  const [isDriver, setIsDriver] = React.useState<boolean>(false);
 
   // Retry function for connection errors
   const retryConnection = React.useCallback(() => {
@@ -254,6 +285,10 @@ export default function App() {
             }
             
             // User data processed
+
+            // First check if this user is a driver
+            const driverCheck = await checkIfDriver(firebaseUser.uid);
+            setIsDriver(driverCheck);
 
             // For transporters, check if they have a profile
             if (data.role === 'transporter') {
@@ -486,6 +521,7 @@ export default function App() {
         <Stack.Screen name="RatingAnalytics" component={RatingAnalyticsScreen} />
         {/* Temporary: allow navigation for UI testing */}
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+        <Stack.Screen name="DriverTabs" component={DriverTabNavigator} />
         <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
       </>
     );
@@ -514,6 +550,7 @@ export default function App() {
         <Stack.Screen name="Consolidation" component={ConsolidationScreen} />
         <Stack.Screen name="BookingList" component={require('./src/screens/BookingListScreen').default} />
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+        <Stack.Screen name="DriverTabs" component={DriverTabNavigator} />
         <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
       </>
     );
@@ -722,12 +759,18 @@ export default function App() {
             </>
           );
         } else {
-          // Has active subscription - route to dashboard
-          console.log('App.tsx: Has active subscription - routing to dashboard');
-          initialRouteName = 'TransporterTabs';
+          // Has active subscription - check if driver or company/individual transporter
+          if (isDriver) {
+            console.log('App.tsx: Driver detected - routing to driver dashboard');
+            initialRouteName = 'DriverTabs';
+          } else {
+            console.log('App.tsx: Has active subscription - routing to transporter dashboard');
+            initialRouteName = 'TransporterTabs';
+          }
           screens = (
             <>
               <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+              <Stack.Screen name="DriverTabs" component={DriverTabNavigator} />
               <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
               <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
               <Stack.Screen name="RequestForm" component={require('./src/components/common/RequestForm').default} />

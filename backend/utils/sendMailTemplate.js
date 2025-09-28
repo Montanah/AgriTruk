@@ -177,3 +177,48 @@ exports.adminNotification = function( subject, message, userData) {
     </div>
   `
 }
+
+exports.sendDriverWelcomeEmail = async function (data) {
+  const { sendEmail } = require('./sendEmail');
+  
+  const subject = `Welcome to ${data.companyName} - Driver Account Created`;
+  const html = `
+    <div style="max-width: 500px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border-radius: 10px; border: 1px solid #ddd;">
+      <div style="text-align: center;">
+        <img src="https://res.cloudinary.com/trukapp/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="Truk Logo" style="width: 60px; margin-bottom: 20px;" />
+        <h2 style="color: #0F2B04;">Welcome to ${data.companyName}!</h2>
+        <p style="font-size: 16px;">Hello ${data.firstName} ${data.lastName},</p>
+        <p style="font-size: 16px;">Your driver account has been created and you can now access the Truk platform to manage your assigned jobs.</p>
+        
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="color: #0F2B04; margin-top: 0;">Your Login Credentials</h3>
+          <p><strong>Email:</strong> ${data.email}</p>
+          <p><strong>Password:</strong> ${data.defaultPassword}</p>
+          <p style="font-size: 14px; color: #666; margin-top: 10px;">
+            <strong>Important:</strong> Please change your password after your first login for security.
+          </p>
+        </div>
+
+        <a href="${data.loginUrl}" style="display: inline-block; margin: 20px auto; padding: 12px 25px; background-color: #0F2B04; color: white; text-decoration: none; font-size: 16px; border-radius: 5px;">
+          Login to Driver Dashboard
+        </a>
+
+        <div style="margin-top: 30px; text-align: left; font-size: 14px; color: #555;">
+          <h4 style="color: #0F2B04;">What you can do:</h4>
+          <ul>
+            <li>View and accept assigned jobs</li>
+            <li>Update job status in real-time</li>
+            <li>Communicate with customers</li>
+            <li>Manage your driver documents</li>
+            <li>View your assigned vehicle details</li>
+          </ul>
+        </div>
+
+        <p style="margin-top: 30px; font-size: 13px; color: #999;">If you have any questions, please contact your company administrator.</p>
+        <p style="font-size: 13px; color: #999;">All rights reserved &copy; ${new Date().getFullYear()} Truk</p>
+      </div>
+    </div>
+  `;
+
+  return await sendEmail(data.email, subject, html);
+}

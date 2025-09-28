@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
@@ -39,6 +40,7 @@ interface RecentActivity {
 
 const CompanyDashboardScreen = () => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<FleetStats>({
     totalVehicles: 0,
     activeVehicles: 0,
@@ -214,6 +216,7 @@ const CompanyDashboardScreen = () => {
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
