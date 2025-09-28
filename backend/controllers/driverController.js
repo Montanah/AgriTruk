@@ -1,4 +1,5 @@
-const db = require('../config/firebase');
+const admin = require('../config/firebase');
+const db = admin.firestore();
 const { uploadDocuments } = require('./transporterController');
 const { adminNotification } = require('../utils/sendMailTemplate');
 

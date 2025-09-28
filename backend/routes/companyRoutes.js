@@ -789,8 +789,7 @@ router.patch('/:companyId/review', authenticateToken, requireRole('admin'), auth
  *       500:
  *         description: Internal server error
  */
-// TODO: Implement uploadLogo function in companyController
-// router.patch('/:companyId/upload', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadLogo);
+router.patch('/:companyId/upload', authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/companyController').uploadLogo);
 
 /**
  * @swagger
