@@ -11,7 +11,7 @@ const transporterRoutes = require('./routes/transportRoutes');
 const authRoutes = require('./routes/authRoutes');
 const activityRoutes = require('./routes/activityLog');
 const bookingRoutes = require('./routes/bookingRoutes');
-const companyRoutes = require('./routes/companyRoutes_minimal');
+const companyRoutes = require('./routes/companyRoutes');
 const disputeRoutes = require('./routes/disputeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const brokerRoutes = require('./routes/brokerRoutes');
@@ -77,13 +77,6 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-app.get('/api/test', (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: 'API routing is working',
-        timestamp: new Date().toISOString()
-    });
-});
 
 
 // Root endpoint

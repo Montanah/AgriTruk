@@ -13,8 +13,19 @@ import pdf from 'html-pdf';
 import fs from 'fs/promises'
 
 const db = admin.firestore(); 
-// Initialize Stripe
-const stripeKey = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe with error handling
+let stripeKey = null;
+try {
+  if (process.env.STRIPE_SECRET_KEY) {
+    stripeKey = new Stripe(process.env.STRIPE_SECRET_KEY);
+    console.log('✅ Stripe initialized successfully');
+  } else {
+    console.warn('⚠️ STRIPE_SECRET_KEY not found - Stripe functionality disabled');
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Stripe:', error.message);
+  console.warn('⚠️ Stripe functionality disabled');
+}
 
 async function getMpesaToken() {
   const consumerKey = process.env.MPESA_CONSUMER_KEY;
@@ -199,6 +210,9 @@ export async function processMpesaPayment({ phone, amount, accountRef }) {
 
 export async function processCardPayment({ amount, currency = "usd" }) {
   try {
+    if (!stripeKey) {
+      throw new Error('Stripe not initialized - STRIPE_SECRET_KEY missing');
+    }
     const paymentIntent = await stripeKey.paymentIntents.create({
       amount: amount * 100,
       currency,
@@ -219,6 +233,9 @@ export async function stripeCallback(req, res) {
   let event;
 
   try {
+    if (!stripeKey) {
+      return res.status(500).send('Stripe not initialized - STRIPE_SECRET_KEY missing');
+    }
     event = stripeKey.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
     return res.status(400).send(`Webhook error: ${err.message}`);
