@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, requireRole } = require('../middlewares/authMiddleware');
+const { authenticateToken } = require('../middlewares/authMiddleware');
+const { requireRole } = require('../middlewares/requireRole');
 const { uploadAny } = require('../middlewares/uploadMiddleware');
 const { validateVehicleCreation, validateVehicleUpdate } = require('../middlewares/validationMiddleware');
 const {
