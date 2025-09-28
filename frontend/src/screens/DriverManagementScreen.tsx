@@ -241,7 +241,7 @@ const DriverManagementScreen = () => {
         <Text style={styles.headerTitle}>Driver Management</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('RecruitDriver')}
+          onPress={() => setAddEditModalVisible(true)}
         >
           <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -284,7 +284,7 @@ const DriverManagementScreen = () => {
             </Text>
             <TouchableOpacity
               style={styles.addFirstButton}
-              onPress={() => navigation.navigate('RecruitDriver')}
+              onPress={() => setAddEditModalVisible(true)}
             >
               <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
               <Text style={styles.addFirstText}>Recruit First Driver</Text>

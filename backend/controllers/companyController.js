@@ -1210,8 +1210,8 @@ exports.uploadLogo = async (req, res) => {
     if (publicId) { 
       switch (fieldName) { 
         case 'logo': 
-          updateData.logo = publicId; 
-          changedFields.push('logo'); 
+          updateData.companyLogo = publicId; 
+          changedFields.push('companyLogo'); 
         break; 
         default: console.log(`Unknown field name: ${fieldName}`); 
         break;

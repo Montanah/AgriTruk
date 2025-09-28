@@ -1094,6 +1094,10 @@ export default function ManageTransporterScreen({ route }: any) {
                 <MaterialCommunityIcons name="email" size={16} color={colors.text.secondary} />
                 <Text style={styles.infoText}>{companyProfile?.companyEmail || 'Email Address'}</Text>
               </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="map-marker" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>{companyProfile?.companyAddress || 'Company Address'}</Text>
+              </View>
             </View>
 
             {/* Registration Document Upload */}
