@@ -98,33 +98,9 @@ exports.createCompany = async (req, res) => {
     };
     const company = await Company.create(companyData);
     
-    // Create a basic transporter record for the company owner
-    // This is needed for subscription checks and other system functions
-    const Transporter = require('../models/Transporter');
-    const transporterData = {
-      transporterId: req.user.uid,
-      userId: req.user.uid,
-      transporterType: 'company',
-      displayName: userData.name || 'Company Owner',
-      phoneNumber: contact,
-      email: userData.email,
-      acceptingBooking: false,
-      status: 'pending',
-      rejectionReason: null,
-      totalTrips: 0,
-      rating: 0,
-      currentRoute: [],
-      lastKnownLocation: null,
-      notificationPreferences: { method: 'both' },
-    };
-    
-    try {
-      await Transporter.create(transporterData);
-      console.log('Created transporter record for company owner');
-    } catch (transporterError) {
-      console.error('Failed to create transporter record for company owner:', transporterError);
-      // Don't fail the company creation if transporter creation fails
-    }
+    // Company owners are NOT transporters - they are fleet managers
+    // No transporter record needed for company owners
+    console.log('Company created successfully - no transporter record needed for company owners');
     
     await logActivity(req.user.uid, 'create_company', req);
 

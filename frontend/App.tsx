@@ -43,6 +43,36 @@ LogBox.ignoreLogs(['useInsertionEffect must not schedule updates']);
 
 // App initialization
 
+// Helper function to check if company profile is complete
+const checkCompanyProfileComplete = (companyData: any) => {
+  if (!companyData) return false;
+
+  // Required fields for companies (fleet management only)
+  const companyRequiredFields = [
+    'companyName',
+    'companyRegistration', 
+    'companyContact',
+    'companyEmail',
+    'status'
+  ];
+
+  // Check if all required fields are present and not empty
+  for (const field of companyRequiredFields) {
+    if (!companyData[field] ||
+      (typeof companyData[field] === 'string' && companyData[field].trim() === '') ||
+      (Array.isArray(companyData[field]) && companyData[field].length === 0)) {
+      return false;
+    }
+  }
+
+  // Status must be at least 'pending', 'under_review', or 'approved'
+  if (!['pending', 'under_review', 'approved'].includes(companyData.status)) {
+    return false;
+  }
+
+  return true;
+};
+
 // Helper function to check if transporter profile is complete
 const checkTransporterProfileComplete = (transporterData: any) => {
   if (!transporterData) return false;
@@ -224,38 +254,47 @@ export default function App() {
             
             // User data processed
 
-            // For transporters, check if they have a profile in transporters collection
+            // For transporters, check if they have a profile
             if (data.role === 'transporter') {
               try {
-                const transporterSnap = await getDoc(firestoreDoc(db, 'transporters', firebaseUser.uid));
-                const transporterData = transporterSnap.exists() ? transporterSnap.data() : null;
-                if (transporterData) {
-                  const isProfileComplete = checkTransporterProfileComplete(transporterData);
+                // First check if this is a company transporter by looking for company record
+                const companySnap = await getDoc(firestoreDoc(db, 'companies', firebaseUser.uid));
+                const companyData = companySnap.exists() ? companySnap.data() : null;
+                
+                if (companyData) {
+                  // This is a company owner - check company profile completion
+                  const isProfileComplete = checkCompanyProfileComplete(companyData);
                   setProfileCompleted(isProfileComplete);
+                  data.transporterStatus = companyData.status || 'pending';
+                  data.transporterType = 'company';
                   
-                  // Set transporter status for routing logic
-                  data.transporterStatus = transporterData.status || 'pending';
-                  
-                  // isVerified is already set from users collection - don't override it
-                  // Transporter approval status is separate from verification
-                  // Transporter profile found
-
-                  // Check subscription status for all transporters
-                  // Checking transporter subscription status
+                  // Check subscription status for company
                   const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
-                  // Transporter subscription status result
                   setSubscriptionStatus(subStatus);
                 } else {
-                  // Transporter exists in users but no profile yet - this is the key case
-                  setProfileCompleted(false);
-                  data.transporterStatus = 'incomplete'; // Set status for routing
-                  // Don't override isVerified - keep it from users collection
-                  // Transporter user found but no profile in transporters collection
+                  // This is an individual transporter - check transporter collection
+                  const transporterSnap = await getDoc(firestoreDoc(db, 'transporters', firebaseUser.uid));
+                  const transporterData = transporterSnap.exists() ? transporterSnap.data() : null;
+                  
+                  if (transporterData) {
+                    const isProfileComplete = checkTransporterProfileComplete(transporterData);
+                    setProfileCompleted(isProfileComplete);
+                    data.transporterStatus = transporterData.status || 'pending';
+                    data.transporterType = 'individual';
+                    
+                    // Check subscription status for individual transporter
+                    const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
+                    setSubscriptionStatus(subStatus);
+                  } else {
+                    // No profile found
+                    setProfileCompleted(false);
+                    data.transporterStatus = 'incomplete';
+                    data.transporterType = 'individual'; // Default to individual
+                  }
                 }
               } catch (e) {
                 setProfileCompleted(false);
-                data.transporterStatus = 'incomplete'; // Set status for routing
-                // Don't override isVerified in error case - keep it from users collection
+                data.transporterStatus = 'incomplete';
                 console.error('Error checking transporter profile:', e);
               }
             } else if (data.role === 'broker') {
@@ -572,7 +611,8 @@ export default function App() {
       console.log('App.tsx: Verified transporter detected - checking profile, approval, and subscription status');
       
       const transporterStatus = userData?.transporterStatus || 'incomplete';
-      console.log('App.tsx: Transporter status:', transporterStatus);
+      const transporterType = userData?.transporterType || 'individual';
+      console.log('App.tsx: Transporter status:', transporterStatus, 'Type:', transporterType);
       
       if (!profileCompleted) {
         // Profile not completed - go to completion screen
