@@ -1208,11 +1208,18 @@ export default function TransporterCompletionScreen() {
         
         // Add logo file (backend expects 'logo' field name)
         if (profilePhoto && profilePhoto.uri) {
+          console.log('Adding logo to FormData:', {
+            uri: profilePhoto.uri,
+            type: profilePhoto.type || 'image/jpeg',
+            name: 'company-logo.jpg'
+          });
           formData.append('logo', {
             uri: profilePhoto.uri,
             type: profilePhoto.type || 'image/jpeg',
             name: 'company-logo.jpg',
           } as any);
+        } else {
+          console.log('No profilePhoto or uri found:', { profilePhoto });
         }
         
         console.log('=== COMPANY SUBMISSION DEBUG ===');

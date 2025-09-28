@@ -39,8 +39,8 @@ const Transporter = {
       driveType: transporterData.driveType || null,
       bodyType: transporterData.bodyType || null,
       vehicleFeatures: transporterData.vehicleFeatures || null,
-      humidityControl: transporterData.humidityControl, // || false,
-      refrigerated: transporterData.refrigerated, // || false,
+      humidityControl: transporterData.humidityControl || false,
+      refrigerated: transporterData.refrigerated || false,
       // documents
       vehicleImagesUrl: transporterData.vehicleImagesUrl || [],
       driverLicense: transporterData.driverLicense || null,

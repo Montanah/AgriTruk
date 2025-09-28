@@ -21,7 +21,7 @@ const Company = {
 
     };
     await db.collection('companies').doc(companyId).set(company);
-    return company;
+    return { id: companyId, ...company };
   },
 
   async get(companyId) {
