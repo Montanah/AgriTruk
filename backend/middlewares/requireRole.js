@@ -27,7 +27,29 @@ const requireRole = (allowedRoles) => {
           userData = adminData;
           userRole = adminData.role;
         } else {
-          return res.status(404).json({ message: "User profile not found" });
+          // Check if user is a company transporter
+          const companyQuery = await admin.firestore().collection("companies")
+            .where("transporterId", "==", uid)
+            .limit(1)
+            .get();
+          
+          if (!companyQuery.empty) {
+            userData = companyQuery.docs[0].data();
+            userRole = "transporter"; // Company transporters have transporter role
+          } else {
+            // Check if user is an individual transporter
+            const transporterQuery = await admin.firestore().collection("transporters")
+              .where("userId", "==", uid)
+              .limit(1)
+              .get();
+            
+            if (!transporterQuery.empty) {
+              userData = transporterQuery.docs[0].data();
+              userRole = "transporter"; // Individual transporters have transporter role
+            } else {
+              return res.status(404).json({ message: "User profile not found" });
+            }
+          }
         }
       }
 
@@ -63,12 +85,37 @@ const requireAuth = (allowedRoles, requiredPermission = null) => {
 
       const userDoc = await admin.firestore().collection("users").doc(uid).get();
 
-      if (!userDoc.exists) {
-        return res.status(404).json({ message: "User profile not found" });
-      }
+      let userData;
+      let userRole;
 
-      const userData = userDoc.data();
-      const userRole = userData.role || "user";
+      if (userDoc.exists) {
+        userData = userDoc.data();
+        userRole = userData.role || "user";
+      } else {
+        // Check if user is a company transporter
+        const companyQuery = await admin.firestore().collection("companies")
+          .where("transporterId", "==", uid)
+          .limit(1)
+          .get();
+        
+        if (!companyQuery.empty) {
+          userData = companyQuery.docs[0].data();
+          userRole = "transporter";
+        } else {
+          // Check if user is an individual transporter
+          const transporterQuery = await admin.firestore().collection("transporters")
+            .where("userId", "==", uid)
+            .limit(1)
+            .get();
+          
+          if (!transporterQuery.empty) {
+            userData = transporterQuery.docs[0].data();
+            userRole = "transporter";
+          } else {
+            return res.status(404).json({ message: "User profile not found" });
+          }
+        }
+      }
 
       // Check role first
       if (!Array.isArray(allowedRoles)) {

@@ -152,11 +152,21 @@ export default function ManageTransporterScreen({ route }: any) {
           // Set empty arrays on error and show user-friendly message
           setDrivers([]);
           setVehicles([]);
-          Alert.alert(
-            'Unable to Load Fleet Data', 
-            'We couldn\'t load your fleet information. Please check your connection and try again.',
-            [{ text: 'OK' }]
-          );
+          
+          // Show more specific error message
+          const errorMessage = error.message || 'Unknown error occurred';
+          console.log('Error details:', errorMessage);
+          
+          // Don't show alert for 404 errors (company might not have data yet)
+          if (!errorMessage.includes('404') && !errorMessage.includes('not found')) {
+            Alert.alert(
+              'Unable to Load Fleet Data', 
+              `We couldn't load your fleet information: ${errorMessage}`,
+              [{ text: 'OK' }]
+            );
+          } else {
+            console.log('Company has no fleet data yet - this is normal for new companies');
+          }
         } finally {
         setLoadingDrivers(false);
         setLoadingVehicles(false);
