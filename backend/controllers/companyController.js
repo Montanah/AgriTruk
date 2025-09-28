@@ -54,6 +54,9 @@ exports.createCompany = async (req, res) => {
     let logoUrl = null;
 
     console.log('Received files:', req.files);
+    console.log('Request headers:', req.headers);
+    console.log('Request body keys:', Object.keys(req.body || {}));
+    console.log('Content-Type:', req.get('Content-Type'));
 
     if (req.files && req.files.length > 0) {
       // Find the logo file
@@ -137,7 +140,7 @@ exports.createCompany = async (req, res) => {
       priority: 'high',
       metadata: {
         name: company.companyName,
-        registration: company.registration
+        registration: company.companyRegistration
       },
       message: `A new company has been created. Company ID: ${company.id}`,
     });
