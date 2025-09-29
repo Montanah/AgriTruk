@@ -172,6 +172,7 @@ exports.createBooking = async (req, res) => {
     const { actualDistance, estimatedDurationMinutes, formattedDuration, routePolyline, success } = await calculateRoadDistanceAndDuration(
       fromLocation,
       toLocation,
+      'truck', // vehicleType parameter
       google_key,
       weightKg
     );
@@ -194,7 +195,7 @@ exports.createBooking = async (req, res) => {
       urgencyLevel: urgencyLevel || 'Low',
       perishable: !!perishable,
       needsRefrigeration: !!needsRefrigeration,
-      humidityControl: !!humidityControl,
+      humidityControl: !!humidyControl,
       specialCargo: specialCargo || [],
       bulkness: !!bulkness,
       insured: !!insured,
