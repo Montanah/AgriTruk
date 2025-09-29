@@ -6,6 +6,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { apiRequest } from '../utils/api';
+import CustomAlert from '../components/common/CustomAlert';
 import SuccessBookingModal from '../components/common/SuccessBookingModal';
 import { cleanLocationDisplay } from '../utils/locationUtils';
 
@@ -44,6 +45,8 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const [posting, setPosting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [bookingId, setBookingId] = useState('');
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Fallback function to store booking locally when backend is unavailable
   // const storeBookingLocally = async (bookingData: any) => {
@@ -109,36 +112,46 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         const formatLocation = (location: any) => {
           if (typeof location === 'string') {
             // If it's a string, we need to create a basic object
-            // This is a fallback - ideally locations should have coordinates
+            // Use Nairobi coordinates as fallback to avoid validation errors
             return {
               address: location,
-              latitude: 0, // This will cause validation to fail, but it's better than crashing
-              longitude: 0
+              latitude: -1.2921, // Nairobi coordinates as fallback
+              longitude: 36.8219
             };
           } else if (location && typeof location === 'object') {
-            const lat = location.latitude || location.lat || 0;
-            const lng = location.longitude || location.lng || 0;
+            const lat = location.latitude || location.lat;
+            const lng = location.longitude || location.lng;
             
             // If we have coordinates but no address, create a descriptive address
             let address = location.address || location.name;
-            if (!address && lat !== 0 && lng !== 0) {
+            if (!address && lat !== undefined && lng !== undefined) {
               // Use coordinates to create a descriptive address that can be converted to place name
               address = `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
             } else if (!address) {
               address = 'Unknown location';
             }
             
+            // Ensure we have valid coordinates
+            if (lat === undefined || lng === undefined || isNaN(lat) || isNaN(lng)) {
+              // Use Nairobi coordinates as fallback
+              return {
+                address: address || 'Unknown location',
+                latitude: -1.2921,
+                longitude: 36.8219
+              };
+            }
+            
             return {
               address,
-              latitude: lat,
-              longitude: lng
+              latitude: parseFloat(lat),
+              longitude: parseFloat(lng)
             };
           } else {
-            // Fallback for invalid location data
+            // Fallback for invalid location data - use Nairobi coordinates
             return {
               address: 'Unknown location',
-              latitude: 0,
-              longitude: 0
+              latitude: -1.2921,
+              longitude: 36.8219
             };
           }
         };
@@ -169,6 +182,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           
           // Additional information - match database structure
           additionalNotes: req.additionalNotes || req.additional || '',
+          specialRequest: req.specialRequest || req.additional || '',
           
           // Dimensions and costs - match database structure
           lengthCm: req.lengthCm || 0,
@@ -301,32 +315,8 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       
       // Don't fallback to local storage - show error instead
       console.error('❌ Backend booking failed, not using fallback');
-      Alert.alert(
-        'Booking Failed', 
-        `Failed to create booking: ${error.message || 'Server error'}. Please check your details and try again.`,
-        [
-          { 
-            text: 'Go Back to Form', 
-            onPress: () => {
-              // Navigate back to the form for correction
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                // If we can't go back, navigate to the appropriate request screen
-                const targetScreen = mode === 'business' ? 'BusinessRequest' : 'ServiceRequest';
-                navigation.navigate(targetScreen);
-              }
-              setPosting(false);
-            }
-          },
-          { 
-            text: 'Cancel', 
-            onPress: () => {
-              setPosting(false);
-            }
-          }
-        ]
-      );
+      setErrorMessage(`Failed to create booking: ${error.message || 'Server error'}. Please check your details and try again.`);
+      setShowErrorAlert(true);
     } finally {
       clearTimeout(timeoutId);
       setPosting(false);
@@ -448,6 +438,36 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         isConsolidated={isConsolidated}
         onViewBooking={handleViewBooking}
         onContinue={handleContinue}
+      />
+
+      <CustomAlert
+        visible={showErrorAlert}
+        title="Booking Failed"
+        message={errorMessage}
+        buttons={[
+          {
+            text: 'Go Back to Form',
+            onPress: () => {
+              // Navigate back to the form for correction
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                // If we can't go back, navigate to the appropriate request screen
+                const targetScreen = mode === 'business' ? 'BusinessRequest' : 'ServiceRequest';
+                navigation.navigate(targetScreen);
+              }
+              setPosting(false);
+            }
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => {
+              setPosting(false);
+            }
+          }
+        ]}
+        onClose={() => setShowErrorAlert(false)}
       />
     </View>
   );

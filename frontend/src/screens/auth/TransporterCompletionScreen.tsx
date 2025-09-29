@@ -295,7 +295,7 @@ export default function TransporterCompletionScreen() {
   const [insuranceFile, setInsuranceFile] = useState<any>(null); // insurance
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const [logBookFile, setLogBookFile] = useState<any>(null); // can be image or pdf
+  // Logbook file removed as it's not used in current implementation
   const [companyName, setCompanyName] = useState('');
   const [companyReg, setCompanyReg] = useState('');
   const [companyContact, setCompanyContact] = useState('');

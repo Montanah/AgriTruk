@@ -23,6 +23,7 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { auth, db } from '../firebaseConfig';
 import { apiRequest, uploadFile } from '../utils/api';
+import { useCustomAlert } from '../hooks/useCustomAlert';
 
 interface ShipperProfileData {
   name: string;
@@ -50,6 +51,7 @@ type NavigationProp = {
 
 const AccountScreen = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { showAlert, CustomAlertComponent } = useCustomAlert();
   const [profile, setProfile] = useState<ShipperProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -401,7 +403,7 @@ const AccountScreen = () => {
   };
 
   const handleLogout = () => {
-    Alert.alert(
+    showAlert(
       'Logout',
       'Are you sure you want to logout?',
       [
@@ -415,7 +417,7 @@ const AccountScreen = () => {
               // After sign out, App.tsx auth listener will render the Welcome flow.
             } catch (error) {
               console.error('Logout error:', error);
-              Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+              showAlert('Logout Error', 'Failed to logout. Please try again.');
             }
           },
         },
@@ -1083,6 +1085,8 @@ const AccountScreen = () => {
           </View>
         </View>
       </Modal>
+
+      <CustomAlertComponent />
     </SafeAreaView>
   );
 };

@@ -1,6 +1,7 @@
 import { signOut } from 'firebase/auth';
 import { Alert } from 'react-native';
 import { auth } from '../firebaseConfig';
+import CustomAlert from '../components/common/CustomAlert';
 
 /**
  * Common logout function that handles sign out and navigation

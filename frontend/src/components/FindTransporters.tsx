@@ -347,20 +347,32 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance 
             if (typeof location === 'string') {
               return {
                 address: location,
-                latitude: 0,
-                longitude: 0
+                latitude: -1.2921, // Nairobi coordinates as fallback
+                longitude: 36.8219
               };
             } else if (location && typeof location === 'object') {
+              const lat = location.latitude || location.lat;
+              const lng = location.longitude || location.lng;
+              
+              // Ensure we have valid coordinates
+              if (lat === undefined || lng === undefined || isNaN(lat) || isNaN(lng)) {
+                return {
+                  address: location.address || location.name || 'Unknown location',
+                  latitude: -1.2921,
+                  longitude: 36.8219
+                };
+              }
+              
               return {
                 address: location.address || location.name || 'Unknown location',
-                latitude: location.latitude || location.lat || 0,
-                longitude: location.longitude || location.lng || 0
+                latitude: parseFloat(lat),
+                longitude: parseFloat(lng)
               };
             } else {
               return {
                 address: 'Unknown location',
-                latitude: 0,
-                longitude: 0
+                latitude: -1.2921,
+                longitude: 36.8219
               };
             }
           };

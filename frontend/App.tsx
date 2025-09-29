@@ -1169,3 +1169,5 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
+export default App;

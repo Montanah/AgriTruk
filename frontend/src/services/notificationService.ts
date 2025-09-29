@@ -10,11 +10,23 @@ let Device: any = null;
 let Constants: any = null;
 
 try {
-  Notifications = require('expo-notifications');
-  Device = require('expo-device');
-  Constants = require('expo-constants');
+  // Check if expo-notifications is available (it's removed for APK builds)
+  try {
+    require.resolve('expo-notifications');
+    Notifications = require('expo-notifications');
+    Device = require('expo-device');
+    Constants = require('expo-constants');
+  } catch (moduleError) {
+    console.warn('expo-notifications not available in this build environment. Using fallback notification service.');
+    Notifications = null;
+    Device = null;
+    Constants = null;
+  }
 } catch (error) {
   console.warn('Expo modules not available in this environment:', error);
+  Notifications = null;
+  Device = null;
+  Constants = null;
 }
 
 export type NotificationChannel = 'email' | 'sms' | 'in-app' | 'push';

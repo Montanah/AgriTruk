@@ -1,3 +1,5 @@
+const isProduction = process.env.NODE_ENV === 'production' || process.env.EXPO_PUBLIC_BUILD_MODE === 'production';
+
 export default {
   expo: {
     name: "TRUKapp",
@@ -7,7 +9,7 @@ export default {
     icon: "./assets/images/icon.png",
     scheme: "trukapp",
     userInterfaceStyle: "automatic",
-    newArchEnabled: false,
+    newArchEnabled: isProduction,
     ios: {
       bundleIdentifier: "com.truk.trukapp",
       supportsTablet: true,
@@ -38,7 +40,12 @@ export default {
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
       ],
       intentFilters: [
         {
@@ -78,14 +85,8 @@ export default {
           "locationAlwaysAndWhenInUsePermission": "Allow TRUKapp to use your location to show your position on the map and calculate routes."
         }
       ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/notification-icon.png",
-          "color": "#ffffff",
-          "defaultChannel": "default"
-        }
-      ],
+      // expo-notifications removed for APK build compatibility
+      ...(isProduction ? ["expo-crypto"] : []),
       "expo-asset",
       "expo-font",
       "expo-maps",
