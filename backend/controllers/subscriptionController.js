@@ -228,7 +228,7 @@ exports.createSubscriber = async (req, res) => {
 
     const startDate = new Date(Date.now());
     const endDate = new Date(startDate); // Create a new Date object
-    endDate.setMonth(endDate.getMonth() + plan.duration);
+    endDate.setDate(endDate.getDate() + plan.duration); // Add days, not months
     const isActive = true;
     const paymentStatus = 'pending';
     const transactionId = null;
