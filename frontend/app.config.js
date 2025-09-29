@@ -65,34 +65,38 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
-          resizeMode: "contain",
-          backgroundColor: "#ffffff"
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
         }
       ],
       "expo-document-picker",
       [
         "expo-location",
         {
-          locationAlwaysAndWhenInUsePermission: "Allow TRUKapp to use your location to show your position on the map and calculate routes."
+          "locationAlwaysAndWhenInUsePermission": "Allow TRUKapp to use your location to show your position on the map and calculate routes."
         }
       ],
       [
         "expo-notifications",
         {
-          icon: "./assets/images/notification-icon.png",
-          color: "#ffffff",
-          defaultChannel: "default"
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#ffffff",
+          "defaultChannel": "default"
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font",
+      "expo-maps",
+      "expo-web-browser"
     ],
     experiments: {
       typedRoutes: true
     },
     extra: {
       eas: {
-        projectId: "24d1984c-eb71-4672-bace-c6a0ddeb648b"
+        projectId: "8ebb18fb-d991-422e-bfe7-ed62993669e1"
       },
       // Environment variables
       EXPO_PUBLIC_API_URL: "https://agritruk.onrender.com",
@@ -108,9 +112,6 @@ export default {
       EXPO_PUBLIC_CLOUDINARY_PRESET: "trukapp_unsigned",
       EXPO_PUBLIC_CLOUDINARY_API_KEY: "your_cloudinary_api_key_here",
       EXPO_PUBLIC_CLOUDINARY_API_SECRET: "your_cloudinary_api_secret_here",
-    },
-    owner: "truk"
+    }
   }
 };
-
-

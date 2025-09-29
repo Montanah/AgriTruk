@@ -90,11 +90,5 @@
     "experiments": {
       "typedRoutes": true
     },
-    "extra": {
-      "eas": {
-        "projectId": "24d1984c-eb71-4672-bace-c6a0ddeb648b"
-      }
-    },
-    "owner": "truk"
   }
 }

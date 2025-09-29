@@ -1,17 +1,15 @@
-import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useCameraPermissions, useMediaLibraryPermissions } from 'expo-image-picker';
-import { handleImagePicker, requestCameraPermission, requestMediaLibraryPermission } from '../../utils/permissionUtils';
+import { handleImagePicker } from '../../utils/permissionUtils';
 import { getAuth } from 'firebase/auth';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ActivityIndicator,
-  Animated, Easing,
   Image,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -21,54 +19,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FormKeyboardWrapper from '../../components/common/FormKeyboardWrapper';
-// import ImagePickerModal from '../../components/common/ImagePickerModal'; // Removed - using new permission utility
-import { API_ENDPOINTS, API_BASE_URL } from '../../constants/api';
+import { API_ENDPOINTS } from '../../constants/api';
 import VehicleDetailsForm from '../../components/VehicleDetailsForm';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
-import { uploadFile } from '../../utils/api';
 import { useSubscriptionStatus } from '../../hooks/useSubscriptionStatus';
 
-const VEHICLE_TYPES = [
-  {
-    label: 'Truck',
-    value: 'truck',
-    icon: (active: boolean) => (
-      <FontAwesome5 name="truck" size={18} color={active ? colors.white : colors.primary} />
-    ),
-  },
-  {
-    label: 'Van',
-    value: 'van',
-    icon: (active: boolean) => (
-      <MaterialCommunityIcons name="van-utility" size={18} color={active ? colors.white : colors.secondary} />
-    ),
-  },
-  {
-    label: 'Pickup',
-    value: 'pickup',
-    icon: (active: boolean) => (
-      <MaterialCommunityIcons name="car-pickup" size={18} color={active ? colors.white : colors.tertiary} />
-    ),
-  },
-  {
-    label: 'Refrigerated Truck',
-    value: 'refrigerated_truck',
-    icon: (active: boolean) => (
-      <MaterialCommunityIcons name="snowflake" size={18} color={active ? colors.white : colors.success} />
-    ),
-  },
-  {
-    label: 'Other',
-    value: 'other',
-    icon: (active: boolean) => (
-      <Ionicons name="car-outline" size={28} color={active ? colors.white : colors.text.primary} />
-    ),
-  },
-];
+// Vehicle types removed as they're not used in this component
 
 // Helper to check if transporter profile is truly complete
-function isTransporterProfileComplete(transporter) {
+function isTransporterProfileComplete(transporter: any) {
   if (!transporter) return false;
   
   console.log('Checking profile completeness for:', transporter);
@@ -151,7 +111,7 @@ export default function TransporterCompletionScreen() {
     }, 8000); // 8 seconds
     (async () => {
       try {
-        const { getAuth } = require('firebase/auth');
+        const { getAuth } = await import('firebase/auth');
         const auth = getAuth();
         const user = auth.currentUser;
         if (!user) {
@@ -168,7 +128,7 @@ export default function TransporterCompletionScreen() {
               'Content-Type': 'application/json',
             },
           });
-        } catch (fetchErr) {
+        } catch {
           clearTimeout(timeout);
           setCheckingProfile(false);
           setProfileCheckError('Network error: Could not reach backend.');
@@ -180,7 +140,6 @@ export default function TransporterCompletionScreen() {
           setProfileCheckError('No response from backend.');
           return;
         }
-        let shouldNavigate = false;
         if (res.ok) {
           try {
             data = await res.json();
@@ -189,7 +148,7 @@ export default function TransporterCompletionScreen() {
               console.log('Transporter fields:', Object.keys(data.transporter));
               console.log('Profile completeness check:', isTransporterProfileComplete(data.transporter));
             }
-          } catch (e) {
+          } catch {
             data = null;
           }
         } else if (res.status === 404) {
@@ -285,7 +244,7 @@ export default function TransporterCompletionScreen() {
       } catch (err) {
         clearTimeout(timeout);
         setCheckingProfile(false);
-        setProfileCheckError('Unexpected error: ' + (err && err.message ? err.message : String(err)));
+        setProfileCheckError('Unexpected error: ' + (err && (err as any).message ? (err as any).message : String(err)));
       }
       if (!didTimeout) {
         clearTimeout(timeout);
@@ -318,26 +277,13 @@ export default function TransporterCompletionScreen() {
     return () => clearTimeout(fallbackTimer);
   }, [checkingProfile, subscriptionStatus, subscriptionLoading]);
   const [vehicleType, setVehicleType] = useState('');
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [vehicleMake, setVehicleMake] = useState('');
   const [vehicleColor, setVehicleColor] = useState('');
-  const [makeDropdownOpen, setMakeDropdownOpen] = useState(false);
-  const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
   const [maxCapacity, setMaxCapacity] = useState('');
   const [year, setYear] = useState('');
   const [driveType, setDriveType] = useState('');
   const [bodyType, setBodyType] = useState('closed');
   const [vehicleFeatures, setVehicleFeatures] = useState('');
-  const dropdownAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(dropdownAnim, {
-      toValue: dropdownOpen ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [dropdownOpen]);
   const [registration, setRegistration] = useState('');
   const [humidityControl, setHumidityControl] = useState(false);
   const [refrigeration, setRefrigeration] = useState(false);
@@ -383,27 +329,15 @@ export default function TransporterCompletionScreen() {
               if (!companyContact) setCompanyContact(user.phoneNumber || '');
             }
           }
-        } catch (e) { }
+        } catch { }
       })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transporterType]);
 
   // Image picker modal state (keeping for compatibility but not using)
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [onImagePicked, setOnImagePicked] = useState(() => (img) => { });
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = useMediaLibraryPermissions();
-
-  // Image picker helper using modal (deprecated - using new permission utility instead)
-  const pickImage = (onPick) => {
-    setOnImagePicked(() => onPick);
-    setPickerVisible(true);
-  };
-
-  const handleImagePickerSelect = async (image) => {
-    onImagePicked(image);
-  };
 
   const handleAddVehiclePhoto = async () => {
     Alert.alert(
@@ -453,7 +387,7 @@ export default function TransporterCompletionScreen() {
     }
   };
 
-  const handleRemoveVehiclePhoto = (idx) => {
+  const handleRemoveVehiclePhoto = (idx: number) => {
     setVehiclePhotos((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -794,85 +728,7 @@ export default function TransporterCompletionScreen() {
     }
   };
 
-  const handleLogBookFile = async () => {
-    Alert.alert(
-      'Select Document',
-      'Choose how you want to add your logbook',
-      [
-        { text: 'Take Photo', onPress: () => handleLogBookCamera() },
-        { text: 'Choose from Gallery', onPress: () => handleLogBookGallery() },
-        { text: 'Upload PDF', onPress: () => handleLogBookPDF() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
-
-  const handleLogBookCamera = async () => {
-    try {
-      if (!cameraPermission?.granted) {
-        const { status } = await requestCameraPermission();
-        if (status !== 'granted') {
-          setError('Permission to access camera is required!');
-          return;
-        }
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        // No aspect ratio constraint - allows free-form cropping for documents
-        quality: 0.8, // Higher quality for document clarity
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setLogBookFile({
-          ...result.assets[0],
-          name: 'logbook.jpg',
-          mimeType: 'image/jpeg'
-        });
-      }
-    } catch (err) {
-      setError('Failed to open camera.');
-      console.error('Camera error:', err);
-    }
-  };
-
-  const handleLogBookGallery = async () => {
-    try {
-      if (!mediaPermission?.granted) {
-        const { status } = await requestMediaPermission();
-        if (status !== 'granted') {
-          setError('Permission to access media library is required!');
-          return;
-        }
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        // No aspect ratio constraint - allows free-form cropping for documents
-        quality: 0.8, // Higher quality for document clarity
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setLogBookFile({
-          ...result.assets[0],
-          name: 'logbook.jpg',
-          mimeType: 'image/jpeg'
-        });
-      }
-    } catch (err) {
-      setError('Failed to open gallery.');
-      console.error('Gallery error:', err);
-    }
-  };
-
-  const handleLogBookPDF = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf'],
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setLogBookFile(result.assets[0]);
-    }
-  };
+  // Logbook file handlers removed as they're not used in the current implementation
 
   const handleSubmit = async () => {
     console.log('🚀 Submitting transporter profile...');
@@ -1138,7 +994,7 @@ export default function TransporterCompletionScreen() {
           console.log('✅ Individual transporter created successfully:', data);
           // Send profile submission notification
           try {
-            const { NotificationHelper } = require('../../services/notificationHelper');
+            const { NotificationHelper } = await import('../../services/notificationHelper');
             await NotificationHelper.sendProfileNotification('submitted', {
               userId: user.uid,
               role: 'transporter',
@@ -1225,9 +1081,13 @@ export default function TransporterCompletionScreen() {
         // Debug FormData contents
         console.log('=== COMPANY FORMDATA DEBUG ===');
         console.log('FormData entries:');
-        for (let [key, value] of formData.entries()) {
-          console.log(`${key}:`, value);
-        }
+        // Note: FormData.entries() is not available in React Native
+        console.log('FormData prepared with:', {
+          name: companyName,
+          registration: companyReg,
+          contact: companyContact,
+          hasLogo: !!(profilePhoto && profilePhoto.uri)
+        });
         
         console.log('=== COMPANY SUBMISSION DEBUG ===');
         console.log('Company FormData contents:', {
@@ -1323,7 +1183,7 @@ export default function TransporterCompletionScreen() {
           
           // Send company profile submission notification
           try {
-            const { NotificationHelper } = require('../../services/notificationHelper');
+            const { NotificationHelper } = await import('../../services/notificationHelper');
             await NotificationHelper.sendProfileNotification('submitted', {
               userId: user.uid,
               role: 'transporter',
@@ -1397,7 +1257,7 @@ export default function TransporterCompletionScreen() {
                 
                 // Send company profile submission notification
                 try {
-                  const { NotificationHelper } = require('../../services/notificationHelper');
+                  const { NotificationHelper } = await import('../../services/notificationHelper');
                   await NotificationHelper.sendProfileNotification('submitted', {
                     userId: user.uid,
                     role: 'transporter',
@@ -1427,7 +1287,7 @@ export default function TransporterCompletionScreen() {
                   
                   // Send company profile submission notification
                   try {
-                    const { NotificationHelper } = require('../../services/notificationHelper');
+                    const { NotificationHelper } = await import('../../services/notificationHelper');
                     await NotificationHelper.sendProfileNotification('submitted', {
                       userId: user.uid,
                       role: 'transporter',
@@ -2007,7 +1867,7 @@ export default function TransporterCompletionScreen() {
                 if (success) {
                   navigation.navigate('TransporterProcessingScreen', { transporterType });
                 }
-              } catch (e) {
+              } catch {
                 setError('Failed to submit profile. Please try again.');
               } finally {
                 setUploading(false);
