@@ -32,6 +32,35 @@ const ProfileStack = () => (
 
 const DriverTabNavigator = () => {
   const insets = useSafeAreaInsets();
+  const [driverType, setDriverType] = React.useState<'company' | 'individual'>('individual');
+
+  // Check if this is a company driver
+  React.useEffect(() => {
+    const checkDriverType = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const token = await user.getIdToken();
+        const driverResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/driver/${user.uid}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (driverResponse.ok) {
+          const driverData = await driverResponse.json();
+          if (driverData.success && driverData.driver) {
+            setDriverType('company');
+          }
+        }
+      } catch (error) {
+        console.log('Not a company driver, using individual driver flow');
+      }
+    };
+
+    checkDriverType();
+  }, []);
 
   return (
     <Tab.Navigator
@@ -92,7 +121,7 @@ const DriverTabNavigator = () => {
       <Tab.Screen 
         name="Jobs"
         options={{
-          title: 'Jobs',
+          title: driverType === 'company' ? 'My Jobs' : 'Jobs',
         }}
       >
         {() => <JobStack />}
@@ -101,7 +130,7 @@ const DriverTabNavigator = () => {
       <Tab.Screen 
         name="Profile"
         options={{
-          title: 'Profile',
+          title: driverType === 'company' ? 'My Profile' : 'Profile',
         }}
       >
         {() => <ProfileStack />}

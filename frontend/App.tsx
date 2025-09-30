@@ -45,7 +45,7 @@ LogBox.ignoreLogs(['useInsertionEffect must not schedule updates']);
 
 // App initialization
 
-// Helper function to check if user is a driver
+// Helper function to check if user is a driver (company or individual)
 const checkIfDriver = async (userId: string) => {
   try {
     const { getAuth } = require('firebase/auth');
@@ -54,22 +54,50 @@ const checkIfDriver = async (userId: string) => {
     if (!user) return false;
 
     const token = await user.getIdToken();
-    const response = await fetch(`${API_ENDPOINTS.DRIVERS}/verify`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ userId }),
-    });
+    
+    // First check if user is a company driver
+    try {
+      const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/driver/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (response.ok) {
-      const data = await response.json();
-      return data.isDriver || false;
+      if (companyResponse.ok) {
+        const companyData = await companyResponse.json();
+        if (companyData.success && companyData.driver) {
+          return { isDriver: true, driverType: 'company', driverData: companyData.driver };
+        }
+      }
+    } catch (companyError) {
+      console.log('Not a company driver, checking individual transporter...');
     }
+
+    // Check if user is an individual transporter
+    try {
+      const transporterResponse = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (transporterResponse.ok) {
+        const data = await transporterResponse.json();
+        if (data.success && data.transporter) {
+          return { isDriver: true, driverType: 'individual', driverData: data.transporter };
+        }
+      }
+    } catch (transporterError) {
+      console.log('Not an individual transporter either');
+    }
+
     return false;
   } catch (error) {
-    console.error('Error checking if user is driver:', error);
+    console.warn('Could not verify driver status (network error):', error.message);
     return false;
   }
 };
@@ -760,8 +788,9 @@ export default function App() {
           );
         } else {
           // Has active subscription - check if driver or company/individual transporter
-          if (isDriver) {
+          if (isDriver && typeof isDriver === 'object' && isDriver.isDriver) {
             console.log('App.tsx: Driver detected - routing to driver dashboard');
+            console.log('App.tsx: Driver type:', isDriver.driverType);
             initialRouteName = 'DriverTabs';
           } else {
             console.log('App.tsx: Has active subscription - routing to transporter dashboard');

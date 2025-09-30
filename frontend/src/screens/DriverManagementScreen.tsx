@@ -46,6 +46,7 @@ const DriverManagementScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<any>(null);
 
   const fetchDrivers = async () => {
     try {
@@ -65,6 +66,10 @@ const DriverManagementScreen = () => {
         const companyData = await companyResponse.json();
         const company = companyData[0] || companyData;
         if (company?.id) {
+          // Store company info for context
+          setCompanyInfo(company);
+          
+          // Fetch drivers for this company
           const data = await apiRequest(`/companies/${company.id}/drivers`);
           setDrivers(data.drivers || []);
         } else {
@@ -238,10 +243,19 @@ const DriverManagementScreen = () => {
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Driver Management</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Driver Management</Text>
+          {companyInfo && (
+            <Text style={styles.companyName}>{companyInfo.companyName}</Text>
+          )}
+        </View>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setAddEditModalVisible(true)}
+          onPress={() => navigation.navigate('ManageTransporter', { 
+            transporterType: 'company',
+            activeTab: 'drivers',
+            showRecruitModal: true 
+          })}
         >
           <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -284,7 +298,11 @@ const DriverManagementScreen = () => {
             </Text>
             <TouchableOpacity
               style={styles.addFirstButton}
-              onPress={() => setAddEditModalVisible(true)}
+              onPress={() => navigation.navigate('ManageTransporter', { 
+                transporterType: 'company',
+                activeTab: 'drivers',
+                showRecruitModal: true 
+              })}
             >
               <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
               <Text style={styles.addFirstText}>Recruit First Driver</Text>
@@ -328,10 +346,21 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 20,
     fontFamily: fonts.family.bold,
     color: colors.white,
+  },
+  companyName: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.white,
+    opacity: 0.8,
+    marginTop: 2,
   },
   addButton: {
     padding: 8,

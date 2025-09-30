@@ -204,6 +204,25 @@ const LoginScreen = ({ navigation }: any) => {
                     // Use the imported auth instance directly
                     const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
+                    // Check if this is a company driver after successful login
+                    try {
+                      const token = await userCredential.user.getIdToken();
+                      const driverResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/driver/${userCredential.user.uid}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                      });
+                      
+                      if (driverResponse.ok) {
+                        const driverData = await driverResponse.json();
+                        if (driverData.success && driverData.driver) {
+                          // This is a company driver - they should go to driver-specific screens
+                          console.log('Company driver logged in:', driverData.driver);
+                          // The App.tsx will handle routing based on role detection
+                        }
+                      }
+                    } catch (driverCheckError) {
+                      console.log('Not a company driver, proceeding with normal flow');
+                    }
+
                     // Login response details
                     // User details
                   } else {

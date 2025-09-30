@@ -73,6 +73,7 @@ const ManageStack = ({ transporterType }) => (
     {transporterType === 'company' ? (
       // Company fleet management screens
       <>
+        <Stack.Screen name="ManageTransporter" component={require('../screens/ManageTransporterScreen').default} initialParams={{ transporterType }} />
         <Stack.Screen name="FleetManagement" component={FleetManagementScreen} />
         <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
         <Stack.Screen name="DriverManagement" component={DriverManagementScreen} />
@@ -85,6 +86,7 @@ const ManageStack = ({ transporterType }) => (
     ) : (
       // Individual transporter management screens
       <>
+        <Stack.Screen name="ManageTransporter" component={require('../screens/ManageTransporterScreen').default} initialParams={{ transporterType }} />
         <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
         <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
         <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />

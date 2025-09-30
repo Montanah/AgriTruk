@@ -47,7 +47,6 @@ const VehicleManagementScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [addEditModalVisible, setAddEditModalVisible] = useState(false);
 
   const fetchVehicles = async () => {
     try {
@@ -180,7 +179,11 @@ const VehicleManagementScreen = () => {
         <Text style={styles.headerTitle}>Fleet Management</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setAddEditModalVisible(true)}
+          onPress={() => navigation.navigate('ManageTransporter', { 
+            transporterType: 'company',
+            activeTab: 'vehicles',
+            showVehicleModal: true 
+          })}
         >
           <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -223,7 +226,11 @@ const VehicleManagementScreen = () => {
             </Text>
             <TouchableOpacity
               style={styles.addFirstButton}
-              onPress={() => setAddEditModalVisible(true)}
+              onPress={() => navigation.navigate('ManageTransporter', { 
+                transporterType: 'company',
+                activeTab: 'vehicles',
+                showVehicleModal: true 
+              })}
             >
               <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
               <Text style={styles.addFirstText}>Add First Vehicle</Text>

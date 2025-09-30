@@ -17,7 +17,7 @@ import spacing from '../constants/spacing';
 
 const SubscriptionManagementScreen: React.FC = () => {
     const navigation = useNavigation();
-    const [currentPlan] = useState({
+    const [currentPlan, setCurrentPlan] = useState({
         name: 'Professional',
         type: 'transporter',
         status: 'active',
@@ -25,6 +25,55 @@ const SubscriptionManagementScreen: React.FC = () => {
         amount: 5000,
         period: 'monthly'
     });
+    const [companyInfo, setCompanyInfo] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch company and subscription info
+    React.useEffect(() => {
+        const fetchSubscriptionInfo = async () => {
+            try {
+                const { getAuth } = require('firebase/auth');
+                const auth = getAuth();
+                const user = auth.currentUser;
+                if (!user) return;
+
+                const token = await user.getIdToken();
+                
+                // Check if this is a company transporter
+                const companyResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/transporter/${user.uid}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (companyResponse.ok) {
+                    const companyData = await companyResponse.json();
+                    const company = companyData[0] || companyData;
+                    if (company?.id) {
+                        setCompanyInfo(company);
+                        
+                        // Fetch subscription details
+                        const subscriptionResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/${company.id}/subscription`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        
+                        if (subscriptionResponse.ok) {
+                            const subscriptionData = await subscriptionResponse.json();
+                            setCurrentPlan(prev => ({
+                                ...prev,
+                                ...subscriptionData,
+                                type: 'company'
+                            }));
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching subscription info:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchSubscriptionInfo();
+    }, []);
 
     const handleCancelSubscription = () => {
         Alert.alert(
@@ -66,7 +115,12 @@ const SubscriptionManagementScreen: React.FC = () => {
                     >
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Subscription Management</Text>
+                    <View style={styles.headerContent}>
+                        <Text style={styles.headerTitle}>Subscription Management</Text>
+                        {companyInfo && (
+                            <Text style={styles.companyName}>{companyInfo.companyName}</Text>
+                        )}
+                    </View>
                     <View style={styles.headerSpacer} />
                 </View>
             </LinearGradient>
@@ -213,10 +267,20 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         backgroundColor: 'rgba(255,255,255,0.2)',
     },
+    headerContent: {
+        flex: 1,
+        alignItems: 'center',
+    },
     headerTitle: {
         fontSize: fonts.size.lg,
         fontWeight: 'bold',
         color: colors.white,
+    },
+    companyName: {
+        fontSize: fonts.size.sm,
+        color: colors.white,
+        opacity: 0.8,
+        marginTop: 2,
     },
     headerSpacer: {
         width: 44,
