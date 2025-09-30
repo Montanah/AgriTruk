@@ -200,6 +200,7 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
             
             console.log('AvailableJobsCard - Accepting job with ID:', jobId);
             console.log('AvailableJobsCard - Full job object:', job);
+            console.log('AvailableJobsCard - API endpoint:', `${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`);
             
             const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`, {
                 method: 'POST',
@@ -212,6 +213,9 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                 }),
             });
 
+            console.log('AvailableJobsCard - Response status:', response.status);
+            console.log('AvailableJobsCard - Response ok:', response.ok);
+            
             if (response.ok) {
                 // Create chat room for communication
                 try {
@@ -276,6 +280,7 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                 let errorData;
                 try {
                     const responseText = await response.text();
+                    console.log('AvailableJobsCard - Raw error response:', responseText);
                     errorData = responseText ? JSON.parse(responseText) : { message: 'Empty response from server' };
                 } catch (parseError) {
                     console.error('Failed to parse response:', parseError);

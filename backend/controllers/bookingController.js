@@ -914,7 +914,7 @@ exports.acceptBooking = async (req, res) => {
     }
 
     // Get booking details
-    const booking = await Booking.getById(bookingId);
+    const booking = await Booking.get(bookingId);
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -1025,7 +1025,7 @@ exports.rejectBooking = async (req, res) => {
     }
 
     // Get booking details
-    const booking = await Booking.getById(bookingId);
+    const booking = await Booking.get(bookingId);
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -1082,7 +1082,7 @@ exports.getBookingStatus = async (req, res) => {
     const userId = req.user.uid;
 
     // Get booking details
-    const booking = await Booking.getById(bookingId);
+    const booking = await Booking.get(bookingId);
     if (!booking) {
       return res.status(404).json({
         success: false,
