@@ -216,7 +216,7 @@ function calculateTransportCost(bookingData) {
   }
 
   // Calculate transporter payment (excludes insurance)
-  const transporterPayment = cost; // Insurance is not paid to transporter
+  let transporterPayment = cost; // Insurance is not paid to transporter
   const totalCost = cost + (costBreakdown.insuranceFee || 0);
 
   return {
