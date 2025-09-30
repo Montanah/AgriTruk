@@ -260,6 +260,7 @@ exports.createBooking = async (req, res) => {
       bookingMode,
       userId: user,
       weightKg,
+      createdAt: Timestamp.now(), // Explicitly set createdAt
       productType,
       specialRequest,
       perishable: !!perishable,

@@ -91,15 +91,26 @@ async function calculateRoadDistanceAndDuration(fromLocation, toLocation, vehicl
         ? route.legs[0].duration_in_traffic.value / 60
         : route.legs[0].duration.value / 60; // Seconds to minutes
 
+      // Debug logging for distance calculation
+      console.log('Google Maps Distance Calculation:');
+      console.log('From:', fromLocation.address, `(${fromLat}, ${fromLng})`);
+      console.log('To:', toLocation.address, `(${toLat}, ${toLng})`);
+      console.log('Google Maps distance:', distanceKm, 'km');
+      console.log('Route summary:', route.summary);
+
       // Validate distance reasonableness using haversine as reference
-      const haversineDistance = haversineDistance(fromLat, fromLng, toLat, toLng);
-      const distanceRatio = distanceKm / haversineDistance;
+      const haversineDist = haversineDistance(fromLat, fromLng, toLat, toLng);
+      const distanceRatio = distanceKm / haversineDist;
+      console.log('Haversine distance:', haversineDist, 'km');
+      console.log('Distance ratio (road/straight):', distanceRatio.toFixed(2));
 
       // If the road distance is more than 2x the straight-line distance, it might be an error
       let finalDistance = distanceKm;
       if (distanceRatio > 2.0) {
-        console.warn(`Road distance (${distanceKm}km) seems unreasonable vs haversine (${haversineDistance}km), using haversine with 1.3x factor`);
-        finalDistance = haversineDistance * 1.3; // Add 30% for road efficiency
+        console.warn(`Road distance (${distanceKm}km) seems unreasonable vs haversine (${haversineDist}km), using haversine with 1.3x factor`);
+        finalDistance = haversineDist * 1.3; // Add 30% for road efficiency
+      } else {
+        console.log('Using Google Maps distance:', finalDistance, 'km');
       }
 
       // Add loading/unloading time based on cargo weight
