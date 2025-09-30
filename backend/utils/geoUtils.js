@@ -79,10 +79,8 @@ async function calculateRoadDistanceAndDuration(fromLocation, toLocation, vehicl
       origin: { lat: fromLat, lng: fromLng },
       destination: { lat: toLat, lng: toLng },
       travelMode: 'DRIVING',
-      drivingOptions: {
-        departureTime: new Date(), // Real-time traffic
-        trafficModel: 'best_guess', // Optimistic traffic estimate
-      },
+      // Remove drivingOptions as it's causing serialization issues
+      // The API will use default traffic conditions
     };
 
     const response = await client.directions({
