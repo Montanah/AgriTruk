@@ -102,8 +102,6 @@ function calculateTransportCost(bookingData) {
   cost += costBreakdown.weightCost;
 
   // 4. Urgency surcharge
-  console.log('calculateCost - urgencyLevel:', urgencyLevel, 'type:', typeof urgencyLevel);
-  console.log('calculateCost - PRICING.URGENCY_RATES:', PRICING.URGENCY_RATES);
   const urgencyRate = PRICING.URGENCY_RATES[urgencyLevel] || 0;
   if (urgencyRate > 0) {
     costBreakdown.urgencySurcharge = cost * urgencyRate;
