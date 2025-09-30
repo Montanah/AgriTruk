@@ -40,40 +40,40 @@ function calculateTransportCost(bookingData) {
     fuelSurcharge: 0,
   };
 
-  // Industry standard pricing constants
+  // Realistic Kenya market pricing constants (2024)
   const PRICING = {
-    BASE_FARE: 500,
-    DISTANCE_RATE: 120, // KES per km
+    BASE_FARE: 300,            // Reduced from 500 to 300 KES
+    DISTANCE_RATE: 80,         // Reduced from 120 to 80 KES per km (market rate ~212, but we're more competitive)
     WEIGHT_RATES: {
-      small: { max: 1000, rate: 10 },    // KES per kg
-      medium: { max: 10000, rate: 8 },   // KES per kg
-      large: { rate: 5 }                 // KES per kg
+      small: { max: 1000, rate: 5 },     // Reduced from 10 to 5 KES per kg
+      medium: { max: 10000, rate: 4 },   // Reduced from 8 to 4 KES per kg
+      large: { rate: 2.5 }               // Reduced from 5 to 2.5 KES per kg
     },
     URGENCY_RATES: {
       Low: 0,
-      Medium: 0.15,    // 15% surcharge
-      High: 0.30       // 30% surcharge
+      Medium: 0.10,    // Reduced from 15% to 10% surcharge
+      High: 0.20       // Reduced from 30% to 20% surcharge
     },
     FEATURE_SURCHARGES: {
-      perishable: 0.10,        // 10% surcharge
-      refrigeration: 0.15,     // 15% surcharge
-      humidityControl: 0.05,   // 5% surcharge
-      specialCargo: 0.20,      // 20% surcharge for special cargo
-      bulkiness: 0.15,          // 15% surcharge for bulky items
+      perishable: 0.08,        // Reduced from 10% to 8% surcharge
+      refrigeration: 0.12,     // Reduced from 15% to 12% surcharge
+      humidityControl: 0.04,   // Reduced from 5% to 4% surcharge
+      specialCargo: 0.15,      // Reduced from 20% to 15% surcharge
+      bulkiness: 0.10,         // Reduced from 15% to 10% surcharge
     },
-    INSURANCE_RATE: 0.02,      // 2% of goods value
-    PRIORITY_FEE: 2000,        // Fixed priority handling fee
-    WAIT_TIME_RATE: 30,        // KES per minute
-    NIGHT_SURCHARGE: 300,      // Fixed night surcharge
-    FUEL_SURCHARGE_RATE: 0.05, // 5% fuel surcharge
+    INSURANCE_RATE: 0.004,     // 0.4% of goods value (realistic international rate)
+    PRIORITY_FEE: 1000,        // Reduced from 2000 to 1000 KES
+    WAIT_TIME_RATE: 20,        // Reduced from 30 to 20 KES per minute
+    NIGHT_SURCHARGE: 200,      // Reduced from 300 to 200 KES
+    FUEL_SURCHARGE_RATE: 0.03, // Reduced from 5% to 3% fuel surcharge
   };
 
-  // 1. Base fare (varies by vehicle type)
+  // 1. Base fare (varies by vehicle type) - Realistic Kenya rates
   const vehicleBaseFares = {
-    truck: 500,
-    van: 300,
-    pickup: 200,
-    motorcycle: 100,
+    truck: 300,      // Reduced from 500
+    van: 200,        // Reduced from 300
+    pickup: 150,     // Reduced from 200
+    motorcycle: 100, // Kept same
   };
   costBreakdown.baseFare = vehicleBaseFares[vehicleType] || PRICING.BASE_FARE;
   cost += costBreakdown.baseFare;
@@ -133,22 +133,22 @@ function calculateTransportCost(bookingData) {
   // 7. Bulkiness surcharge
   if (bulkiness) {
     // Calculate bulkiness factor based on dimensions and weight
-    let bulkinessFactor = PRICING.FEATURE_SURCHARGES.bulkiness; // Base 15%
+    let bulkinessFactor = PRICING.FEATURE_SURCHARGES.bulkiness; // Base 10%
     
     // If dimensions are provided, calculate a more sophisticated bulkiness factor
     if (lengthCm > 0 && widthCm > 0 && heightCm > 0) {
       const volume = (lengthCm * widthCm * heightCm) / 1000000; // Convert to cubic meters
       const density = effectiveWeight / volume; // kg per cubic meter
       
-      // Adjust bulkiness factor based on density
+      // Adjust bulkiness factor based on density (reduced rates)
       if (density < 100) { // Very light for volume (very bulky)
-        bulkinessFactor = 0.20; // 20% surcharge
+        bulkinessFactor = 0.15; // 15% surcharge (reduced from 20%)
       } else if (density < 200) { // Light for volume (bulky)
-        bulkinessFactor = 0.15; // 15% surcharge
+        bulkinessFactor = 0.12; // 12% surcharge (reduced from 15%)
       } else if (density < 500) { // Moderate density
-        bulkinessFactor = 0.10; // 10% surcharge
+        bulkinessFactor = 0.08; // 8% surcharge (reduced from 10%)
       } else { // Dense items
-        bulkinessFactor = 0.05; // 5% surcharge
+        bulkinessFactor = 0.05; // 5% surcharge (kept same)
       }
     }
     
@@ -158,7 +158,33 @@ function calculateTransportCost(bookingData) {
 
   // 8. Insurance (separate from transporter payment)
   if (insured && value > 0) {
-    costBreakdown.insuranceFee = value * PRICING.INSURANCE_RATE;
+    // Calculate insurance rate based on cargo type and risk factors
+    let insuranceRate = PRICING.INSURANCE_RATE; // Base 0.4%
+    
+    // Adjust rate based on cargo characteristics
+    if (perishable) {
+      insuranceRate = 0.006; // 0.6% for perishable goods
+    }
+    
+    if (specialCargo && specialCargo.length > 0) {
+      // Check for high-risk special cargo
+      const highRiskCargo = ['hazardous', 'fragile', 'highValue', 'livestockAnimals'];
+      const hasHighRisk = specialCargo.some(cargo => 
+        highRiskCargo.some(risk => cargo.toLowerCase().includes(risk.toLowerCase()))
+      );
+      
+      if (hasHighRisk) {
+        insuranceRate = 0.012; // 1.2% for high-risk special cargo
+      } else {
+        insuranceRate = 0.008; // 0.8% for standard special cargo
+      }
+    }
+    
+    // Calculate insured value (goods value + freight cost + 10% margin)
+    const freightCost = cost; // Current calculated freight cost
+    const insuredValue = value + freightCost + (value * 0.1); // Add 10% margin
+    
+    costBreakdown.insuranceFee = insuredValue * insuranceRate;
     // Note: Insurance fee is added to total cost but not paid to transporter
   }
 
