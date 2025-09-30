@@ -1,3 +1,4 @@
+const admin = require('firebase-admin');
 const { Timestamp } = require('firebase-admin/firestore');
 const { scheduleRecurringBookings } = require('../services/bookingService');
 const Booking = require('../models/Booking');
