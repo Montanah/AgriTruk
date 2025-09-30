@@ -15,7 +15,7 @@ import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
 import { API_ENDPOINTS } from '../../constants/api';
-import { getLocationName } from '../../utils/locationUtils';
+import { getLocationName, formatLocationForDisplay } from '../../utils/locationUtils';
 import { chatService } from '../../services/chatService';
 import { enhancedNotificationService } from '../../services/enhancedNotificationService';
 import LocationDisplay from '../common/LocationDisplay';
@@ -217,6 +217,10 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
             console.log('AvailableJobsCard - Response ok:', response.ok);
             
             if (response.ok) {
+                const result = await response.json();
+                console.log('AvailableJobsCard - Job accepted successfully:', result);
+                console.log('AvailableJobsCard - Job ID:', jobId, 'Transporter ID:', user.uid);
+                
                 // Create chat room for communication
                 try {
                     const chatRoom = await chatService.getOrCreateChatRoom(
@@ -231,9 +235,12 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                         job.userId, // This is the client ID
                         {
                             bookingId: jobId,
-                            transporterName: 'You', // This should come from user profile
-                        pickupLocation: job.fromLocation,
-                        deliveryLocation: job.toLocation,
+                            transporterName: user.displayName || 'Transporter',
+                            pickupLocation: formatLocationForDisplay(job.fromLocation),
+                            deliveryLocation: formatLocationForDisplay(job.toLocation),
+                            productType: job.productType,
+                            weight: job.weightKg ? `${job.weightKg}kg` : 'N/A',
+                            cost: job.cost ? `KES ${job.cost.toLocaleString()}` : 'N/A',
                         }
                     );
 

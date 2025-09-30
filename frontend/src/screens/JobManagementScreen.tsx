@@ -17,6 +17,7 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { formatLocationForDisplay } from '../utils/locationUtils';
+import { enhancedNotificationService } from '../services/enhancedNotificationService';
 
 interface Job {
     id: string;
@@ -53,10 +54,19 @@ interface Job {
         detour: string;
     };
     vehicleType?: string;
-    bodyType: string;
-    capacity: string;
-    pickupDate: string;
-    deliveryDate: string;
+    vehicle?: {
+        id: string;
+        type: string;
+        reg: string;
+        bodyType: string;
+        model: string;
+        capacity: string;
+    };
+    bodyType?: string;
+    capacity?: string;
+    pickupDate?: string;
+    pickUpDate?: string;
+    deliveryDate?: string;
     actualPickupDate?: string;
     actualDeliveryDate?: string;
     notes?: string;
@@ -118,6 +128,14 @@ const JobManagementScreen = () => {
                 // Ensure we have an array of jobs
                 const jobsArray = data.bookings || data.jobs || [];
                 console.log('JobManagementScreen - Jobs array:', jobsArray);
+                
+                // Log the first job to see what data we're getting
+                if (jobsArray.length > 0) {
+                    console.log('JobManagementScreen - First job data:', jobsArray[0]);
+                    console.log('JobManagementScreen - First job client:', jobsArray[0].client);
+                    console.log('JobManagementScreen - First job vehicle:', jobsArray[0].vehicle);
+                }
+                
                 setJobs(jobsArray);
             } else {
                 const errorText = await response.text();
@@ -227,6 +245,12 @@ const JobManagementScreen = () => {
             const user = auth.currentUser;
             if (!user) return;
 
+            // Find the job to get client information
+            const job = jobs.find(j => j.id === jobId);
+            if (!job) {
+                throw new Error('Job not found');
+            }
+
             const token = await user.getIdToken();
             const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/status`, {
                 method: 'PATCH',
@@ -238,6 +262,46 @@ const JobManagementScreen = () => {
             });
 
             if (response.ok) {
+                // Send notification to client based on status change
+                if (job.client?.id || job.userId) {
+                    const clientId = job.client?.id || job.userId;
+                    const transporterName = user.displayName || 'Transporter';
+                    
+                    let notificationType: string;
+                    let notificationData: any = {
+                        bookingId: jobId,
+                        transporterName,
+                        pickupLocation: formatLocationForDisplay(job.fromLocation),
+                        deliveryLocation: formatLocationForDisplay(job.toLocation),
+                        productType: job.productType,
+                    };
+
+                    switch (newStatus) {
+                        case 'ongoing':
+                            notificationType = 'trip_started';
+                            break;
+                        case 'completed':
+                            notificationType = 'trip_completed';
+                            break;
+                        case 'cancelled':
+                            notificationType = 'booking_cancelled';
+                            break;
+                        default:
+                            notificationType = 'booking_updated';
+                    }
+
+                    try {
+                        await enhancedNotificationService.sendNotification(
+                            notificationType as any,
+                            clientId,
+                            notificationData
+                        );
+                    } catch (notificationError) {
+                        console.error('Error sending notification:', notificationError);
+                        // Don't fail the status update if notification fails
+                    }
+                }
+
                 Alert.alert('Success', 'Job status updated successfully!');
                 // Update the job in the local state
                 setJobs(prev => prev.map(job => 
@@ -276,8 +340,14 @@ const JobManagementScreen = () => {
         return `KES ${amount.toLocaleString()}`;
     };
 
-    const formatDate = (dateString: string) => {
+    const formatDate = (dateString: string | undefined) => {
+        if (!dateString) return 'Not set';
+        
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            return 'Invalid Date';
+        }
+        
         return date.toLocaleDateString('en-KE', {
             day: '2-digit',
             month: 'short',
@@ -353,8 +423,14 @@ const JobManagementScreen = () => {
                 </View>
                 <View style={styles.specItem}>
                     <MaterialCommunityIcons name="truck" size={14} color={colors.text.secondary} />
-                    <Text style={styles.specText}>{item.vehicleType || 'N/A'}</Text>
+                    <Text style={styles.specText}>{item.vehicle?.type || item.vehicleType || 'N/A'}</Text>
                 </View>
+                {item.vehicle?.reg && (
+                    <View style={styles.specItem}>
+                        <MaterialCommunityIcons name="card-text" size={14} color={colors.text.secondary} />
+                        <Text style={styles.specText}>{item.vehicle.reg}</Text>
+                    </View>
+                )}
             </View>
 
             <View style={styles.jobFooter}>
@@ -397,8 +473,8 @@ const JobManagementScreen = () => {
             </View>
 
             <View style={styles.jobDates}>
-                <Text style={styles.dateLabel}>Pickup: {formatDate(item.pickupDate)}</Text>
-                <Text style={styles.dateLabel}>Delivery: {formatDate(item.deliveryDate)}</Text>
+                <Text style={styles.dateLabel}>Pickup: {formatDate(item.pickUpDate || item.pickupDate)}</Text>
+                <Text style={styles.dateLabel}>Delivery: {formatDate(item.deliveryDate || item.createdAt)}</Text>
                 {item.actualPickupDate && (
                     <Text style={styles.actualDateLabel}>Actual Pickup: {formatDate(item.actualPickupDate)}</Text>
                 )}

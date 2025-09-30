@@ -134,5 +134,23 @@ export { getLocationName, getLocationNameSync, formatRoute, formatRouteSync };
  * Format location for display - convenience function
  */
 export function formatLocationForDisplay(location: any): string {
+  if (!location) return 'Unknown Location';
+  
+  // If it's already a readable string, return it
+  if (typeof location === 'string') {
+    return location;
+  }
+  
+  // If it's an object with an address field, use that
+  if (typeof location === 'object' && location.address) {
+    return location.address;
+  }
+  
+  // If it's an object with coordinates, try to get a readable name
+  if (typeof location === 'object' && location.latitude && location.longitude) {
+    return getLocationNameSync(location);
+  }
+  
+  // Fallback to the original function
   return getLocationNameSync(location);
 }
