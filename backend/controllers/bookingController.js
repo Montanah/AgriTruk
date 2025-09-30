@@ -59,7 +59,8 @@ exports.createBooking = async (req, res) => {
       tolls = 0, 
       fuelSurchargePct = 0, 
       waitMinutes = 0, 
-      nightSurcharge = false, 
+      nightSurcharge = false,
+      vehicleType = 'truck', 
     } = req.body;
 
     const user = req.user?.uid || null;
