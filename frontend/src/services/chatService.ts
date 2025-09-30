@@ -47,23 +47,38 @@ class ChatService {
   // Get or create a chat room for a booking
   async getOrCreateChatRoom(bookingId: string, transporterId: string, clientId: string): Promise<ChatRoom> {
     try {
-      const response = await fetch(`${this.baseUrl}/rooms`, {
+      // Get Firebase auth token
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      const token = await user.getIdToken();
+
+      const response = await fetch(`${this.baseUrl}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          bookingId,
-          transporterId,
-          clientId,
+          participant1Id: transporterId,
+          participant1Type: 'transporter',
+          participant2Id: clientId,
+          participant2Type: 'client',
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create chat room');
+        const errorData = await response.json();
+        throw new Error(`Failed to create chat room: ${errorData.message || 'Unknown error'}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      return result.data;
     } catch (error) {
       console.error('Error creating chat room:', error);
       throw error;

@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo, useState } from 'react';
+import { getAuth } from 'firebase/auth';
 import {
     ActivityIndicator,
     Alert,
@@ -499,16 +500,20 @@ const TransporterBookingManagementScreen = () => {
 
             // Create chat room for communication
             try {
+                const auth = getAuth();
+                const user = auth.currentUser;
+                if (!user) throw new Error('User not authenticated');
+                
                 const chatRoom = await chatService.getOrCreateChatRoom(
                     request.id,
-                    'transporter-id', // This should come from auth context
-                    request.client?.id || 'client-id'
+                    user.uid, // Use actual transporter ID from auth
+                    request.userId || request.client?.id // Use actual client ID
                 );
 
                 // Send notification to client about request acceptance
                 await enhancedNotificationService.sendNotification(
                     'instant_request_accepted',
-                    request.client?.id || 'client-id',
+                    request.userId || request.client?.id, // Use actual client ID
                     {
                         requestId: request.id,
                         transporterName: 'You', // This should come from user profile

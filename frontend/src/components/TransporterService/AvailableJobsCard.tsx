@@ -222,13 +222,13 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                     const chatRoom = await chatService.getOrCreateChatRoom(
                         jobId,
                         user.uid,
-                        job.client?.id || 'client-id' // This should come from the job data
+                        job.userId // This is the client ID from the job data
                     );
                     
                     // Send notification to client
                     await enhancedNotificationService.sendNotification(
                         'booking_accepted',
-                        job.client?.id || 'client-id',
+                        job.userId, // This is the client ID
                         {
                             bookingId: jobId,
                             transporterName: 'You', // This should come from user profile
