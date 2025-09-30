@@ -10,7 +10,7 @@ function calculateTransportCost(bookingData) {
     needsRefrigeration = false,
     humidityControl = false,
     specialCargo = [],
-    bulkness = false,
+    bulkiness = false,
     insured = false,
     value = 0,
     tolls = 0,
@@ -31,7 +31,7 @@ function calculateTransportCost(bookingData) {
     refrigerationSurcharge: 0,
     humiditySurcharge: 0,
     specialCargoSurcharge: 0,
-    bulknessSurcharge: 0,
+    bulkinessSurcharge: 0,
     insuranceFee: 0,
     priorityFee: 0,
     waitTimeFee: 0,
@@ -59,7 +59,7 @@ function calculateTransportCost(bookingData) {
       refrigeration: 0.15,     // 15% surcharge
       humidityControl: 0.05,   // 5% surcharge
       specialCargo: 0.20,      // 20% surcharge for special cargo
-      bulkness: 0.25,          // 25% surcharge for bulky items
+      bulkiness: 0.15,          // 15% surcharge for bulky items
     },
     INSURANCE_RATE: 0.02,      // 2% of goods value
     PRIORITY_FEE: 2000,        // Fixed priority handling fee
@@ -130,10 +130,30 @@ function calculateTransportCost(bookingData) {
     cost += costBreakdown.specialCargoSurcharge;
   }
 
-  // 7. Bulkness surcharge
-  if (bulkness) {
-    costBreakdown.bulknessSurcharge = cost * PRICING.FEATURE_SURCHARGES.bulkness;
-    cost += costBreakdown.bulknessSurcharge;
+  // 7. Bulkiness surcharge
+  if (bulkiness) {
+    // Calculate bulkiness factor based on dimensions and weight
+    let bulkinessFactor = PRICING.FEATURE_SURCHARGES.bulkiness; // Base 15%
+    
+    // If dimensions are provided, calculate a more sophisticated bulkiness factor
+    if (lengthCm > 0 && widthCm > 0 && heightCm > 0) {
+      const volume = (lengthCm * widthCm * heightCm) / 1000000; // Convert to cubic meters
+      const density = effectiveWeight / volume; // kg per cubic meter
+      
+      // Adjust bulkiness factor based on density
+      if (density < 100) { // Very light for volume (very bulky)
+        bulkinessFactor = 0.20; // 20% surcharge
+      } else if (density < 200) { // Light for volume (bulky)
+        bulkinessFactor = 0.15; // 15% surcharge
+      } else if (density < 500) { // Moderate density
+        bulkinessFactor = 0.10; // 10% surcharge
+      } else { // Dense items
+        bulkinessFactor = 0.05; // 5% surcharge
+      }
+    }
+    
+    costBreakdown.bulkinessSurcharge = cost * bulkinessFactor;
+    cost += costBreakdown.bulkinessSurcharge;
   }
 
   // 8. Insurance (separate from transporter payment)
