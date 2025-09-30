@@ -627,8 +627,8 @@ exports.getFleetStatus = async (req, res) => {
     
     // Process each transporter to determine status
     const fleetStatus = transporters.map(transporter => {
-      const booking = bookingMap[transporter.transporterId];
-      const user = userMap[transporter.userId];
+      const booking = transporter.transporterId ? bookingMap[transporter.transporterId] : null;
+      const user = transporter.userId ? userMap[transporter.userId] : null;
       
       return {
         transporterId: transporter.transporterId,
@@ -829,7 +829,7 @@ exports.updateBooking = async (req, res) => {
         waitMinutes,
         nightSurcharge: bookingData.nightSurcharge,
       };
-      const { cost, costBreakdown} =calculateTransportCost(costCalculationData);
+      const { cost, costBreakdown } = calculateTransportCost(costCalculationData);
       
       updates.cost = cost;
       updates.costBreakdown = costBreakdown;
