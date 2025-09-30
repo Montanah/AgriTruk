@@ -22,6 +22,8 @@ interface Job {
     id: string;
     bookingId?: string;
     type?: string;
+    bookingType?: string;
+    bookingMode?: 'instant' | 'booking';
     fromLocation: string;
     toLocation: string;
     productType: string;
@@ -60,7 +62,7 @@ interface Job {
     notes?: string;
 }
 
-type JobStatus = 'all' | 'accepted' | 'ongoing' | 'completed' | 'cancelled';
+type JobStatus = 'all' | 'accepted' | 'ongoing' | 'completed' | 'cancelled' | 'active' | 'route-loads';
 
 const JobManagementScreen = () => {
     const navigation = useNavigation();
@@ -84,6 +86,8 @@ const JobManagementScreen = () => {
 
     const statusFilters: { key: JobStatus; label: string; count: number }[] = [
         { key: 'all', label: 'All', count: jobs.length },
+        { key: 'active', label: 'Active Jobs', count: jobs.filter(j => j.status === 'accepted' || j.status === 'ongoing').length },
+        { key: 'route-loads', label: 'Route Loads', count: jobs.filter(j => j.status === 'ongoing').length },
         { key: 'accepted', label: 'Accepted', count: jobs.filter(j => j.status === 'accepted').length },
         { key: 'ongoing', label: 'Ongoing', count: jobs.filter(j => j.status === 'ongoing').length },
         { key: 'completed', label: 'Completed', count: jobs.filter(j => j.status === 'completed').length },
@@ -144,7 +148,13 @@ const JobManagementScreen = () => {
         
         // Status filter
         if (filters.status !== 'all') {
-            filtered = filtered.filter(job => job.status === filters.status);
+            if (filters.status === 'active') {
+                filtered = filtered.filter(job => job.status === 'accepted' || job.status === 'ongoing');
+            } else if (filters.status === 'route-loads') {
+                filtered = filtered.filter(job => job.status === 'ongoing');
+            } else {
+                filtered = filtered.filter(job => job.status === filters.status);
+            }
         }
         
         // Location filters
@@ -298,7 +308,15 @@ const JobManagementScreen = () => {
         <View style={styles.jobCard}>
             <View style={styles.jobHeader}>
                 <View style={styles.jobInfo}>
-                    <Text style={styles.jobType}>{item.type}</Text>
+                    <View style={styles.jobTypeRow}>
+                        <Text style={styles.jobType}>{item.bookingType || item.type}</Text>
+                        {item.bookingMode === 'instant' && (
+                            <View style={styles.instantBadge}>
+                                <MaterialCommunityIcons name="lightning-bolt" size={12} color={colors.warning} />
+                                <Text style={styles.instantText}>INSTANT</Text>
+                            </View>
+                        )}
+                    </View>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
                         <MaterialCommunityIcons
                             name={getStatusIcon(item.status)}
@@ -1057,6 +1075,25 @@ const styles = StyleSheet.create({
         color: colors.primary,
         fontWeight: '600',
         marginBottom: 2,
+    },
+    jobTypeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+    },
+    instantBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.warning + '20',
+        paddingHorizontal: spacing.xs,
+        paddingVertical: 2,
+        borderRadius: 4,
+        gap: 2,
+    },
+    instantText: {
+        fontSize: fonts.size.xs,
+        color: colors.warning,
+        fontWeight: '600',
     },
 });
 

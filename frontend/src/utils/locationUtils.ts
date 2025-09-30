@@ -129,3 +129,10 @@ export function getDistanceBetweenLocations(
 
 // Re-export the main functions for convenience
 export { getLocationName, getLocationNameSync, formatRoute, formatRouteSync };
+
+/**
+ * Format location for display - convenience function
+ */
+export function formatLocationForDisplay(location: any): string {
+  return getLocationNameSync(location);
+}
