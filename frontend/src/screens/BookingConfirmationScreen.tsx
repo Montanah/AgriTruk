@@ -226,10 +226,30 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       console.log('📊 Payload count:', payload.length);
       console.log('📋 First payload keys:', Object.keys(payload[0] || {}));
       
+      // Test API connectivity first
+      try {
+        console.log('🔍 Testing API connectivity...');
+        const healthCheck = await fetch('https://agritruk.onrender.com/api/health');
+        const healthData = await healthCheck.json();
+        console.log('✅ API Health Check:', healthData);
+      } catch (healthError) {
+        console.error('❌ API Health Check Failed:', healthError);
+      }
+      
       while (retryCount < maxRetries) {
         try {
           console.log(`🔄 Attempt ${retryCount + 1}/${maxRetries}`);
           console.log('📤 Sending booking data to backend:', JSON.stringify(payload[0], null, 2));
+          console.log('🔍 Payload validation:', {
+            hasFromLocation: !!payload[0]?.fromLocation,
+            hasToLocation: !!payload[0]?.toLocation,
+            fromLocationKeys: payload[0]?.fromLocation ? Object.keys(payload[0].fromLocation) : 'N/A',
+            toLocationKeys: payload[0]?.toLocation ? Object.keys(payload[0].toLocation) : 'N/A',
+            weightKg: payload[0]?.weightKg,
+            productType: payload[0]?.productType,
+            bookingType: payload[0]?.bookingType,
+            bookingMode: payload[0]?.bookingMode
+          });
           
           // Attempting booking submission
           response = await apiRequest('/bookings', {
@@ -245,8 +265,10 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           console.error('Error details:', {
             message: error.message,
             status: error.status,
-            response: error.response
+            response: error.response,
+            stack: error.stack
           });
+          console.error('Full error object:', JSON.stringify(error, null, 2));
           
           if (retryCount >= maxRetries) {
             throw error; // Re-throw if all retries failed
