@@ -46,8 +46,6 @@ exports.createBooking = async (req, res) => {
       insured,
       priority,
       recurrence,
-      fromLocation,
-      toLocation,
       pickUpDate,
       additionalNotes,
       specialCargo = [], 
@@ -62,6 +60,10 @@ exports.createBooking = async (req, res) => {
       nightSurcharge = false,
       vehicleType = 'truck', 
     } = req.body;
+
+    // Extract location variables separately to allow reassignment
+    let fromLocation = req.body.fromLocation;
+    let toLocation = req.body.toLocation;
 
     const user = req.user?.uid || null;
 
