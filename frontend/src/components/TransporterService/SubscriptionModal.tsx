@@ -14,11 +14,6 @@ import { transporterPlans } from '../../constants/subscriptionPlans';
 const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe, userType = 'transporter', isUpgrade = false, visible = true }) => {
   const navigation = useNavigation();
   
-  console.log('SubscriptionModal rendered with visible:', visible);
-
-  useEffect(() => {
-    console.log('SubscriptionModal visible prop changed to:', visible);
-  }, [visible]);
 
   // Use proper subscription plans from constants
   const plans = transporterPlans;

@@ -1,0 +1,20 @@
+TRUKAPP APK for Testing
+=======================
+
+File: TRUKapp-20250930_151934.apk
+Size: 89M
+Date: Tue Sep 30 03:19:34 PM EAT 2025
+
+Installation:
+1. Enable "Install from Unknown Sources" on Android device
+2. Transfer this APK file to your Android device
+3. Open the APK file and install
+
+Notes:
+- This is a production build for testing
+- Contains all latest features and fixes
+- Safe to install on test devices
+
+Build Environment:
+- Node.js: v22.16.0
+- Build Date: Tue Sep 30 03:19:34 PM EAT 2025

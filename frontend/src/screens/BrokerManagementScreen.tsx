@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
@@ -54,9 +55,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
     useEffect(() => {
-        console.log('BrokerManagementScreen route params:', route.params);
         if (route.params?.activeTab) {
-            console.log('Setting active tab to:', route.params.activeTab);
             setActiveTab(route.params.activeTab);
         }
         if (route.params?.selectedClient) {
@@ -69,6 +68,14 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
         loadRequests();
         loadClients();
     }, []);
+
+    // Refresh data when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            loadRequests();
+            loadClients();
+        }, [])
+    );
 
     const loadRequests = async () => {
         try {
@@ -114,7 +121,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             
             if (res.ok) {
                 const data = await res.json();
-                setClients(data.clients || []);
+                setClients(data.data || []);
             }
         } catch (error) {
             console.error('Error loading clients:', error);
@@ -168,8 +175,6 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             if (!user) return;
 
             const token = await user.getIdToken();
-            console.log('Consolidating requests:', selectedRequests);
-            console.log('API endpoint:', `${API_ENDPOINTS.BROKERS}/requests/consolidate`);
             
             const response = await fetch(`${API_ENDPOINTS.BROKERS}/requests/consolidate`, {
                 method: 'POST',
@@ -182,11 +187,8 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 }),
             });
             
-            console.log('Consolidation response status:', response.status);
-
             if (response.ok) {
                 const data = await response.json();
-                console.log('Requests consolidated successfully:', data);
                 Alert.alert('Success', 'Requests consolidated successfully!');
                 setSelectedRequests([]);
                 setShowConsolidationModal(false);
@@ -574,13 +576,21 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                             </TouchableOpacity>
                         </View>
 
-                        <FlatList
-                            data={clients}
-                            renderItem={renderClientItem}
-                            keyExtractor={(item) => item.id}
-                            showsVerticalScrollIndicator={false}
-                            scrollEnabled={false}
-                        />
+                        {clients.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <MaterialCommunityIcons name="account-group" size={48} color={colors.text.secondary} />
+                                <Text style={styles.emptyStateText}>No clients found</Text>
+                                <Text style={styles.emptyStateSubtext}>Add your first client to get started</Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={clients}
+                                renderItem={renderClientItem}
+                                keyExtractor={(item) => item.id}
+                                showsVerticalScrollIndicator={false}
+                                scrollEnabled={false}
+                            />
+                        )}
                     </View>
                 );
 
@@ -589,7 +599,6 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
         }
     };
 
-    console.log('BrokerManagementScreen render - activeTab:', activeTab);
     
     return (
         <SafeAreaView style={styles.container}>
@@ -1285,6 +1294,26 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         fontWeight: '600',
         color: colors.white,
+    },
+
+    // Empty State Styles
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: spacing.xxl,
+    },
+    emptyStateText: {
+        fontSize: fonts.size.lg,
+        fontWeight: '600',
+        color: colors.text.primary,
+        marginTop: spacing.md,
+        marginBottom: spacing.xs,
+    },
+    emptyStateSubtext: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
     },
 });
 

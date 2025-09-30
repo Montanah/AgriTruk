@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
@@ -50,6 +50,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
     const [showAddClientModal, setShowAddClientModal] = useState(false);
     const [showClientDetailsModal, setShowClientDetailsModal] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
     const [newClient, setNewClient] = useState({
         name: '',
         company: '',
@@ -64,9 +65,6 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
     // Use the centralized subscription hook
     const { subscriptionStatus, loadingSubscription } = useSubscriptionStatus();
     
-    // Debug stats
-    console.log('Current stats:', stats);
-    console.log('Current clients:', clients);
 
     useEffect(() => {
         fetchBrokerStats();
@@ -98,10 +96,8 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
             if (res.ok) {
                 const data = await res.json();
-                console.log('Broker stats response:', data);
                 setStats(data.stats || stats);
             } else {
-                console.log('Broker stats endpoint not available (404), calculating from clients data');
                 // If stats endpoint doesn't exist, we'll calculate stats from clients data
                 // This will be handled in fetchClients
             }
@@ -127,13 +123,11 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
             if (res.ok) {
                 const data = await res.json();
-                console.log('Clients response:', data);
                 const clientsData = data.data || data.clients || [];
                 setClients(clientsData);
                 
                 // Calculate and update stats from clients data
                 const clientCount = clientsData.length;
-                console.log('Calculated client count:', clientCount);
                 
                 setStats(prevStats => {
                     const newStats = {
@@ -146,7 +140,6 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                         pendingRequests: 0,
                         consolidationOpportunities: 0,
                     };
-                    console.log('Updating stats with:', newStats);
                     return newStats;
                 });
             } else {
@@ -175,18 +168,6 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
             if (!user) return;
 
             const token = await user.getIdToken();
-            console.log('Creating client with data:', {
-                name: newClient.name,
-                email: newClient.email,
-                phone: newClient.phone,
-                type: newClient.clientType,
-                region: newClient.location,
-                location: newClient.location,
-                company: newClient.company || null,
-                businessType: newClient.businessType || null,
-                occupation: newClient.occupation || null,
-            });
-            console.log('API endpoint:', `${API_ENDPOINTS.BROKERS}/clients`);
             
             const response = await fetch(`${API_ENDPOINTS.BROKERS}/clients`, {
                 method: 'POST',
@@ -207,11 +188,8 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                 }),
             });
             
-            console.log('Client creation response status:', response.status);
-
             if (response.ok) {
                 const data = await response.json();
-                console.log('Client created successfully:', data);
                 
                 // Refresh clients list and stats
                 await fetchClients();
@@ -237,7 +215,35 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
         setShowClientDetailsModal(true);
     };
 
+    const refreshStats = async () => {
+        await fetchBrokerStats();
+        await fetchClients();
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await fetchBrokerStats();
+            await fetchClients();
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     const handleNewRequest = (client?: Client) => {
+        if (!client) {
+            // For brokers, always require client selection
+            Alert.alert(
+                'Select Client',
+                'Please select a client to make a request on their behalf.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Select Client', onPress: () => navigation.navigate('BrokerManagementScreen', { activeTab: 'clients' }) }
+                ]
+            );
+            return;
+        }
+        
         navigation.navigate('BrokerRequestScreen', {
             clientId: client?.id,
             selectedClient: client || null
@@ -324,6 +330,14 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
             <FormKeyboardWrapper 
                 style={styles.content} 
                 keyboardVerticalOffset={0}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[colors.primary]}
+                        tintColor={colors.primary}
+                    />
+                }
             >
                 {/* Earnings Overview */}
                 <View style={styles.earningsSection}>

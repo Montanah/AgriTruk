@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   ViewStyle,
@@ -17,6 +18,7 @@ interface FormKeyboardWrapperProps {
   contentContainerStyle?: ViewStyle;
   keyboardVerticalOffset?: number;
   enableDismissOnTap?: boolean;
+  refreshControl?: React.ReactElement<RefreshControl>;
 }
 
 const FormKeyboardWrapper: React.FC<FormKeyboardWrapperProps> = ({
@@ -25,6 +27,7 @@ const FormKeyboardWrapper: React.FC<FormKeyboardWrapperProps> = ({
   contentContainerStyle,
   keyboardVerticalOffset = 0,
   enableDismissOnTap = true,
+  refreshControl,
 }) => {
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -64,6 +67,7 @@ const FormKeyboardWrapper: React.FC<FormKeyboardWrapperProps> = ({
           bounces={false}
           onContentSizeChange={handleContentSizeChange}
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          refreshControl={refreshControl}
         >
           {children}
         </ScrollView>
