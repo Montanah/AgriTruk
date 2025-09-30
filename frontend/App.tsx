@@ -5,6 +5,7 @@ import React from 'react';
 import { ActivityIndicator, LogBox, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { API_ENDPOINTS } from './src/constants/api';
+import colors from './src/constants/colors';
 import BusinessStackNavigator from './src/navigation/BusinessStackNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import TransporterTabNavigator from './src/navigation/TransporterTabNavigator';
@@ -35,7 +36,6 @@ import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
 import { NotificationProvider } from './src/components/Notification/NotificationContext';
 import NotificationManager from './src/components/Notification/NotificationManager';
 import { ConsolidationProvider } from './src/context/ConsolidationContext';
-import colors from './src/constants/colors';
 import fonts from './src/constants/fonts';
 import { auth, db } from './src/firebaseConfig';
 
@@ -537,7 +537,21 @@ export default function App() {
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
         <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
-        <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+        <Stack.Screen 
+          name="VerifyIdentificationDocument" 
+          component={require('./src/screens/VerifyIdentificationDocumentScreen').default}
+          options={{
+            title: 'Broker Verification',
+            headerShown: true,
+            headerStyle: {
+              backgroundColor: colors.primary,
+            },
+            headerTintColor: colors.white,
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
         <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
         <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
@@ -570,7 +584,21 @@ export default function App() {
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
         <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
-        <Stack.Screen name="VerifyIdentificationDocument" component={require('./src/screens/VerifyIdentificationDocumentScreen').default} />
+        <Stack.Screen 
+          name="VerifyIdentificationDocument" 
+          component={require('./src/screens/VerifyIdentificationDocumentScreen').default}
+          options={{
+            title: 'Broker Verification',
+            headerShown: true,
+            headerStyle: {
+              backgroundColor: colors.primary,
+            },
+            headerTintColor: colors.white,
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        />
         <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
         <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />

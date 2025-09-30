@@ -9,7 +9,7 @@ export default {
     icon: "./assets/images/icon.png",
     scheme: "trukapp",
     userInterfaceStyle: "automatic",
-    newArchEnabled: isProduction,
+    newArchEnabled: false, // Disabled for development client compatibility
     ios: {
       bundleIdentifier: "com.truk.trukapp",
       supportsTablet: true,
@@ -86,7 +86,7 @@ export default {
         }
       ],
       // expo-notifications removed for APK build compatibility
-      ...(isProduction ? ["expo-crypto"] : []),
+      // expo-crypto removed due to compatibility issues
       "expo-asset",
       "expo-font",
       "expo-maps",
@@ -97,7 +97,7 @@ export default {
     },
     extra: {
       eas: {
-        projectId: "8ebb18fb-d991-422e-bfe7-ed62993669e1"
+        projectId: "24d1984c-eb71-4672-bace-c6a0ddeb648b"
       },
       // Environment variables
       EXPO_PUBLIC_API_URL: "https://agritruk.onrender.com",

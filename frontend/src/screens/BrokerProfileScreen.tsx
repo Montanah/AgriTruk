@@ -473,7 +473,7 @@ export default function BrokerProfileScreen() {
 
         <TouchableOpacity
           style={styles.quickActionCard}
-          onPress={() => navigation.navigate('BrokerHomeScreen')}
+          onPress={() => navigation.navigate('Home')}
         >
           <MaterialCommunityIcons name="home" size={32} color={colors.warning} />
           <Text style={styles.quickActionTitle}>Dashboard</Text>

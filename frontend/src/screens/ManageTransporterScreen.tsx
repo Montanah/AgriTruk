@@ -7,8 +7,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
 import { notificationService } from '../services/notificationService';
-import SubscriptionStatusCard from '../components/common/SubscriptionStatusCard';
-import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
+import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
+import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
@@ -27,10 +27,8 @@ export default function ManageTransporterScreen({ route }: any) {
   const navigation = useNavigation<any>();
 
   // Modal state and profile state for individual
-  const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState('monthly');
-  const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
-  const [loadingSubscription, setLoadingSubscription] = useState(false);
+  // Use the subscription hook for better subscription management
+  const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
   const [drivers, setDrivers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
@@ -51,9 +49,7 @@ export default function ManageTransporterScreen({ route }: any) {
 
       if (result.success) {
         Alert.alert('Success', 'Payment processed successfully!');
-        // Refresh subscription status
-        const status = await subscriptionService.getSubscriptionStatus();
-        setSubscriptionStatus(status);
+        // Subscription status will be automatically refreshed by the hook
       } else {
         Alert.alert('Payment Failed', result.message || 'Failed to process payment.');
       }
@@ -63,24 +59,13 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   };
 
-  const handleSubscribe = (planData: any) => {
-    // Navigate directly to PaymentScreen within the current stack
-    navigation.navigate('PaymentScreen', {
-      plan: planData,
-      userType: 'transporter',
-      billingPeriod: 'monthly',
-      isUpgrade: true
-    });
-  };
 
   const handleActivateTrial = async () => {
     try {
       const result = await subscriptionService.activateTrial('transporter');
       if (result.success) {
         Alert.alert('Trial Activated!', 'Your free trial has been activated successfully.');
-        // Refresh subscription status
-        const status = await subscriptionService.getSubscriptionStatus();
-        setSubscriptionStatus(status);
+        // Subscription status will be automatically refreshed by the hook
       } else {
         Alert.alert('Activation Failed', result.message || 'Failed to activate trial.');
       }
@@ -212,22 +197,7 @@ export default function ManageTransporterScreen({ route }: any) {
     fetchData();
   }, [transporterType, companyProfile?.companyId]);
 
-  // Fetch subscription status
-  useEffect(() => {
-    const fetchSubscriptionStatus = async () => {
-      try {
-        setLoadingSubscription(true);
-        const status = await subscriptionService.getSubscriptionStatus();
-        setSubscriptionStatus(status);
-      } catch (error) {
-        console.error('Error fetching subscription status:', error);
-      } finally {
-        setLoadingSubscription(false);
-      }
-    };
-
-    fetchSubscriptionStatus();
-  }, []);
+  // Subscription status is now managed by the useSubscriptionStatus hook
 
   // Fetch user profile for verification status
   useEffect(() => {
@@ -673,16 +643,240 @@ export default function ManageTransporterScreen({ route }: any) {
 
   // Modularized image/file pickers for recruitment
   const pickDriverPhoto = async (setFn: (value: any) => void) => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setFn(result.assets[0]);
+    Alert.alert(
+      'Select Profile Photo',
+      'Choose how you want to add the driver\'s profile photo',
+      [
+        { text: 'Take Photo', onPress: () => pickDriverPhotoFromCamera(setFn) },
+        { text: 'Choose from Gallery', onPress: () => pickDriverPhotoFromGallery(setFn) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickDriverPhotoFromCamera = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'profile_photo.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickDriverPhotoFromGallery = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'profile_photo.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
   };
   const pickDriverIdDoc = async (setFn: (value: any) => void) => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setFn(result.assets[0]);
+    Alert.alert(
+      'Select ID Document',
+      'Choose how you want to add your ID document',
+      [
+        { text: 'Take Photo', onPress: () => pickDriverIdDocFromCamera(setFn) },
+        { text: 'Choose from Gallery', onPress: () => pickDriverIdDocFromGallery(setFn) },
+        { text: 'Upload PDF', onPress: () => pickDriverIdDocFromPDF(setFn) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
+
+  const pickDriverIdDocFromCamera = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'id_document.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickDriverIdDocFromGallery = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'id_document.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const pickDriverIdDocFromPDF = async (setFn: (value: any) => void) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: result.assets[0].name || 'id_document.pdf',
+          mimeType: 'application/pdf'
+        });
+      }
+    } catch (error) {
+      console.error('PDF picker error:', error);
+      Alert.alert('Error', 'Failed to select PDF');
+    }
+  };
+
   const pickDriverLicense = async (setFn: (value: any) => void) => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setFn(result.assets[0]);
+    Alert.alert(
+      'Select Driver\'s License',
+      'Choose how you want to add your driver\'s license',
+      [
+        { text: 'Take Photo', onPress: () => pickDriverLicenseFromCamera(setFn) },
+        { text: 'Choose from Gallery', onPress: () => pickDriverLicenseFromGallery(setFn) },
+        { text: 'Upload PDF', onPress: () => pickDriverLicenseFromPDF(setFn) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickDriverLicenseFromCamera = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'driver_license.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickDriverLicenseFromGallery = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'driver_license.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const pickDriverLicenseFromPDF = async (setFn: (value: any) => void) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: result.assets[0].name || 'driver_license.pdf',
+          mimeType: 'application/pdf'
+        });
+      }
+    } catch (error) {
+      console.error('PDF picker error:', error);
+      Alert.alert('Error', 'Failed to select PDF');
+    }
   };
 
   // Vehicle modal state and fields
@@ -1312,6 +1506,35 @@ export default function ManageTransporterScreen({ route }: any) {
               )}
             </View>
           </View>
+
+          {/* Subscription Section */}
+          <View style={styles.card}>
+            <EnhancedSubscriptionStatusCard
+              subscriptionStatus={subscriptionStatus || {
+                hasActiveSubscription: true,
+                isTrialActive: false,
+                needsTrialActivation: false,
+                currentPlan: {
+                  name: 'Premium Plan',
+                  price: 5000,
+                  features: ['unlimited_vehicles', 'unlimited_drivers', 'analytics']
+                },
+                daysRemaining: 15,
+                subscriptionStatus: 'active'
+              }}
+              onManagePress={() => {
+                console.log('Manage button pressed!');
+                navigation.navigate('SubscriptionManagement');
+              }}
+              onRenewPress={handlePayment}
+              onUpgradePress={() => navigation.navigate('SubscriptionManagement')}
+              showUpgradeOptions={true}
+              animated={true}
+              onActivateTrial={handleActivateTrial}
+              loading={subscriptionLoading}
+            />
+          </View>
+
           {/* Vehicles List */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Vehicles</Text>
@@ -2354,31 +2577,8 @@ export default function ManageTransporterScreen({ route }: any) {
               </ScrollView>
             </View>
           </Modal>
-          {/* Subscription Section */}
-          <SubscriptionStatusCard
-            subscriptionStatus={subscriptionStatus || {
-              hasActiveSubscription: false,
-              isTrialActive: false,
-              needsTrialActivation: true,
-              currentPlan: null,
-              daysRemaining: 0,
-              subscriptionStatus: 'none'
-            }}
-            onManagePress={() => setSubscriptionModalVisible(true)}
-            onRenewPress={handlePayment}
-            onActivateTrial={handleActivateTrial}
-            loading={loadingSubscription}
-          />
-          {/* Subscription Plans Modal */}
-          {subscriptionModalVisible && (
-            <SubscriptionModal
-              selectedPlan={selectedPlan}
-              setSelectedPlan={setSelectedPlan}
-              onClose={() => setSubscriptionModalVisible(false)}
-              onSubscribe={handleSubscribe}
-            />
-          )}
         </FormKeyboardWrapper>
+        
         {/* Edit Profile Modal (always rendered) */}
         <Modal
           visible={editModal}

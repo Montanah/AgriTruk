@@ -213,7 +213,8 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             routes: [{ name: 'VerifyIdentificationDocument' }]
           });
         } else if (role === 'transporter') {
-          // Navigating transporter to TransporterCompletionScreen
+          // For transporters, we need to check if they are individual or company type
+          // This will be handled by the TransporterCompletionScreen itself
           console.log('Phone verification complete - navigating transporter to TransporterCompletionScreen');
           navigation.reset({
             index: 0,

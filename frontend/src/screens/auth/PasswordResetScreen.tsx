@@ -5,6 +5,9 @@ import React, { useState } from 'react';
 import {
   Alert,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -71,24 +74,6 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [userId, setUserId] = useState<string>('');
-
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const slideAnim = React.useRef(new Animated.Value(50)).current;
-
-  React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fadeAnim, slideAnim]);
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -497,7 +482,7 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
   };
 
   const renderMethodSelection = () => (
-    <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+    <View style={styles.container}>
       <LinearGradient
         colors={[colors.primary, colors.primaryDark]}
         style={styles.header}
@@ -548,11 +533,11 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
           </TouchableOpacity>
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 
   const renderEmailForm = () => (
-    <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+    <View style={styles.container}>
       <LinearGradient
         colors={[colors.primary, colors.primaryDark]}
         style={styles.header}
@@ -622,11 +607,11 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
           style={styles.button}
         />
       </View>
-    </Animated.View>
+    </View>
   );
 
   const renderPhoneForm = () => (
-    <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+    <View style={styles.container}>
       <LinearGradient
         colors={[colors.primary, colors.primaryDark]}
         style={styles.header}
@@ -699,11 +684,11 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
           style={styles.button}
         />
       </View>
-    </Animated.View>
+    </View>
   );
 
   const renderCodeForm = () => (
-    <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+    <View style={styles.container}>
       <LinearGradient
         colors={[colors.primary, colors.primaryDark]}
         style={styles.header}
@@ -755,11 +740,11 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
           <Text style={styles.resendText}>Didn&apos;t receive the code? Resend</Text>
         </TouchableOpacity>
       </View>
-    </Animated.View>
+    </View>
   );
 
   const renderNewPasswordForm = () => (
-    <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+    <View style={styles.container}>
       <LinearGradient
         colors={[colors.primary, colors.primaryDark]}
         style={styles.header}
@@ -860,17 +845,30 @@ const PasswordResetScreen: React.FC<PasswordResetScreenProps> = ({ navigation, r
           style={styles.button}
         />
       </View>
-    </Animated.View>
+    </View>
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      {step === 'method' && renderMethodSelection()}
-      {step === 'email' && renderEmailForm()}
-      {step === 'phone' && renderPhoneForm()}
-      {step === 'code' && renderCodeForm()}
-      {step === 'new-password' && renderNewPasswordForm()}
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === 'method' && renderMethodSelection()}
+          {step === 'email' && renderEmailForm()}
+          {step === 'phone' && renderPhoneForm()}
+          {step === 'code' && renderCodeForm()}
+          {step === 'new-password' && renderNewPasswordForm()}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -879,6 +877,15 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   container: {
     flex: 1,

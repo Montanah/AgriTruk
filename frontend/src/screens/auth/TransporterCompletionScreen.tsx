@@ -121,53 +121,84 @@ export default function TransporterCompletionScreen() {
         }
         const token = await user.getIdToken();
         let res, data = null;
+        let transporterType = 'individual';
+        
+        // First check if user is a company transporter
         try {
-          res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+          const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
           });
-        } catch {
-          clearTimeout(timeout);
-          setCheckingProfile(false);
-          setProfileCheckError('Network error: Could not reach backend.');
-          return;
-        }
-        if (!res) {
-          clearTimeout(timeout);
-          setCheckingProfile(false);
-          setProfileCheckError('No response from backend.');
-          return;
-        }
-        if (res.ok) {
-          try {
-            data = await res.json();
-            console.log('Transporter profile data:', data);
-            if (data.transporter) {
-              console.log('Transporter fields:', Object.keys(data.transporter));
-              console.log('Profile completeness check:', isTransporterProfileComplete(data.transporter));
+          
+          if (companyRes.ok) {
+            const companyData = await companyRes.json();
+            if (companyData && companyData.length > 0) {
+              // This is a company transporter
+              transporterType = 'company';
+              data = { transporter: companyData[0] };
+              res = companyRes;
+              console.log('Company transporter profile data:', data);
+              setTransporterType('company');
             }
-          } catch {
-            data = null;
           }
-        } else if (res.status === 404) {
-          // Transporter profile doesn't exist yet - this is expected for new transporters
-          clearTimeout(timeout);
-          setCheckingProfile(false);
-          setProfileCheckError(''); // Clear any error - this is normal for new transporters
-          return;
-        } else {
-          // Show backend error if available
-          let errMsg = 'Profile check failed.';
+        } catch (error) {
+          console.log('Not a company transporter, checking individual transporters...');
+        }
+        
+        // If not a company transporter, check individual transporters
+        if (!data) {
           try {
-            const errData = await res.json();
-            if (errData && errData.message) errMsg = errData.message;
-          } catch { }
-          clearTimeout(timeout);
-          setCheckingProfile(false);
-          setProfileCheckError(errMsg + ` (HTTP ${res.status})`);
-          return;
+            res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+          } catch {
+            clearTimeout(timeout);
+            setCheckingProfile(false);
+            setProfileCheckError('Network error: Could not reach backend.');
+            return;
+          }
+          
+          if (!res) {
+            clearTimeout(timeout);
+            setCheckingProfile(false);
+            setProfileCheckError('No response from backend.');
+            return;
+          }
+          
+          if (res.ok) {
+            try {
+              data = await res.json();
+              console.log('Individual transporter profile data:', data);
+              if (data.transporter) {
+                console.log('Transporter fields:', Object.keys(data.transporter));
+                console.log('Profile completeness check:', isTransporterProfileComplete(data.transporter));
+              }
+            } catch {
+              data = null;
+            }
+          } else if (res.status === 404) {
+            // Neither company nor individual transporter profile exists - this is expected for new transporters
+            clearTimeout(timeout);
+            setCheckingProfile(false);
+            setProfileCheckError(''); // Clear any error - this is normal for new transporters
+            return;
+          } else {
+            // Show backend error if available
+            let errMsg = 'Profile check failed.';
+            try {
+              const errData = await res.json();
+              if (errData && errData.message) errMsg = errData.message;
+            } catch { }
+            clearTimeout(timeout);
+            setCheckingProfile(false);
+            setProfileCheckError(errMsg + ` (HTTP ${res.status})`);
+            return;
+          }
         }
         // Decide navigation based on profile completeness and status
         if (
@@ -195,7 +226,7 @@ export default function TransporterCompletionScreen() {
                   navigation.reset({
                     index: 0,
                     routes: [
-                      { name: 'TransporterTabs', params: { transporterType: data.transporter.transporterType || 'individual' } },
+                      { name: 'TransporterTabs', params: { transporterType: transporterType } },
                     ],
                   });
                 } else if (subscriptionStatus.subscriptionStatus === 'expired') {
@@ -233,7 +264,7 @@ export default function TransporterCompletionScreen() {
               navigation.reset({
                 index: 0,
                 routes: [
-                  { name: 'TransporterProcessingScreen', params: { transporterType: data.transporter.transporterType || 'individual' } },
+                  { name: 'TransporterProcessingScreen', params: { transporterType: transporterType } },
                 ],
               });
               return;

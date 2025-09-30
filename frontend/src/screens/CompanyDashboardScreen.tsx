@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
+import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
+import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 
 interface FleetStats {
   totalVehicles: number;
@@ -57,6 +59,9 @@ const CompanyDashboardScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Use the subscription hook for better subscription management
+  const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
 
   const fetchDashboardData = async () => {
     try {
@@ -68,7 +73,7 @@ const CompanyDashboardScreen = () => {
 
       const token = await user.getIdToken();
 
-      // Fetch fleet stats and recent activity
+      // Fetch fleet stats, recent activity, and subscription status
       const [vehiclesRes, driversRes, jobsRes, activityRes] = await Promise.all([
         fetch(`${API_ENDPOINTS.VEHICLES}`, {
           headers: {
@@ -93,7 +98,7 @@ const CompanyDashboardScreen = () => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-        })
+        }),
       ]);
 
       // Process vehicles data
@@ -137,6 +142,7 @@ const CompanyDashboardScreen = () => {
         const activityData = await activityRes.json();
         setRecentActivity(activityData.activities || []);
       }
+
 
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
@@ -226,6 +232,28 @@ const CompanyDashboardScreen = () => {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Subscription Status - Read Only */}
+        <View style={styles.section}>
+          <EnhancedSubscriptionStatusCard
+            subscriptionStatus={subscriptionStatus || {
+              hasActiveSubscription: true,
+              isTrialActive: false,
+              currentPlan: {
+                name: 'Premium Plan',
+                price: 5000,
+                features: ['unlimited_vehicles', 'unlimited_drivers', 'analytics']
+              },
+              daysRemaining: 15,
+              subscriptionStatus: 'active'
+            }}
+            onManagePress={undefined}
+            onRenewPress={undefined}
+            onUpgradePress={undefined}
+            showUpgradeOptions={false}
+            animated={true}
+          />
+        </View>
+
         {/* Fleet Overview */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fleet Overview</Text>

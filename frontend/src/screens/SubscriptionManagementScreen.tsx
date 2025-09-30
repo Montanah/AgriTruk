@@ -14,19 +14,32 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import subscriptionService from '../services/subscriptionService';
+import { transporterPlans } from '../constants/subscriptionPlans';
 
 const SubscriptionManagementScreen: React.FC = () => {
     const navigation = useNavigation();
-    const [currentPlan, setCurrentPlan] = useState({
+    const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
+    const [companyInfo, setCompanyInfo] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    
+    // Get current plan from subscription status or fallback to Professional plan
+    const currentPlan = subscriptionStatus?.currentPlan ? {
+        name: subscriptionStatus.currentPlan.name,
+        type: 'transporter',
+        status: subscriptionStatus.subscriptionStatus,
+        nextBilling: '2024-07-15', // This should come from the API
+        amount: subscriptionStatus.currentPlan.price,
+        period: 'monthly'
+    } : {
         name: 'Professional',
         type: 'transporter',
         status: 'active',
         nextBilling: '2024-07-15',
         amount: 5000,
         period: 'monthly'
-    });
-    const [companyInfo, setCompanyInfo] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    };
 
     // Fetch company and subscription info
     React.useEffect(() => {
@@ -93,10 +106,8 @@ const SubscriptionManagementScreen: React.FC = () => {
     };
 
     const handleUpgradePlan = () => {
-        // Show the subscription modal for upgrade
-        // This would typically be handled by the parent component
-        // For now, we'll navigate to the subscription screen
-        navigation.navigate('SubscriptionScreen', {
+        // Navigate to subscription plans screen
+        navigation.navigate('SubscriptionPlans', {
             userType: currentPlan.type as 'transporter' | 'broker',
             isUpgrade: true
         });
@@ -182,26 +193,22 @@ const SubscriptionManagementScreen: React.FC = () => {
                 <View style={styles.featuresCard}>
                     <Text style={styles.sectionTitle}>Your Plan Features</Text>
                     <View style={styles.featuresList}>
-                        <View style={styles.featureItem}>
-                            <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-                            <Text style={styles.featureText}>Unlimited job requests</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-                            <Text style={styles.featureText}>Advanced route optimization</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-                            <Text style={styles.featureText}>Priority customer support</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-                            <Text style={styles.featureText}>Real-time tracking</Text>
-                        </View>
-                        <View style={styles.featureItem}>
-                            <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-                            <Text style={styles.featureText}>Advanced analytics & insights</Text>
-                        </View>
+                        {subscriptionStatus?.currentPlan?.features ? (
+                            subscriptionStatus.currentPlan.features.map((feature, index) => (
+                                <View key={index} style={styles.featureItem}>
+                                    <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+                                    <Text style={styles.featureText}>{feature}</Text>
+                                </View>
+                            ))
+                        ) : (
+                            // Fallback to Professional plan features
+                            transporterPlans.find(p => p.name === 'Professional')?.features.map((feature, index) => (
+                                <View key={index} style={styles.featureItem}>
+                                    <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+                                    <Text style={styles.featureText}>{feature}</Text>
+                                </View>
+                            ))
+                        )}
                     </View>
                 </View>
 

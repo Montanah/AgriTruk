@@ -2,6 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
@@ -62,11 +63,23 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
     
     // Use the centralized subscription hook
     const { subscriptionStatus, loadingSubscription } = useSubscriptionStatus();
+    
+    // Debug stats
+    console.log('Current stats:', stats);
+    console.log('Current clients:', clients);
 
     useEffect(() => {
         fetchBrokerStats();
         fetchClients();
     }, []);
+
+    // Refresh data when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchBrokerStats();
+            fetchClients();
+        }, [])
+    );
 
     const fetchBrokerStats = async () => {
         try {
@@ -85,7 +98,12 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
             if (res.ok) {
                 const data = await res.json();
+                console.log('Broker stats response:', data);
                 setStats(data.stats || stats);
+            } else {
+                console.log('Broker stats endpoint not available (404), calculating from clients data');
+                // If stats endpoint doesn't exist, we'll calculate stats from clients data
+                // This will be handled in fetchClients
             }
         } catch (error) {
             console.error('Error fetching broker stats:', error);
@@ -109,7 +127,30 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
             if (res.ok) {
                 const data = await res.json();
-                setClients(data.clients || []);
+                console.log('Clients response:', data);
+                const clientsData = data.data || data.clients || [];
+                setClients(clientsData);
+                
+                // Calculate and update stats from clients data
+                const clientCount = clientsData.length;
+                console.log('Calculated client count:', clientCount);
+                
+                setStats(prevStats => {
+                    const newStats = {
+                        ...prevStats,
+                        totalClients: clientCount,
+                        // Set other stats to 0 for now since we don't have the data
+                        activeRequests: 0,
+                        completedTrips: 0,
+                        monthlyEarnings: 0,
+                        pendingRequests: 0,
+                        consolidationOpportunities: 0,
+                    };
+                    console.log('Updating stats with:', newStats);
+                    return newStats;
+                });
+            } else {
+                console.error('Failed to fetch clients:', res.status, res.statusText);
             }
         } catch (error) {
             console.error('Error fetching clients:', error);
@@ -172,8 +213,9 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                 const data = await response.json();
                 console.log('Client created successfully:', data);
                 
-                // Refresh clients list
+                // Refresh clients list and stats
                 await fetchClients();
+                await fetchBrokerStats();
                 
                 // Reset form
                 setNewClient({ name: '', company: '', phone: '', email: '', clientType: 'individual', location: '', businessType: '', occupation: '' });

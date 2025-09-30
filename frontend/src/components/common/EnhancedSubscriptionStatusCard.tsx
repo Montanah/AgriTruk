@@ -130,6 +130,14 @@ const EnhancedSubscriptionStatusCard: React.FC<EnhancedSubscriptionStatusCardPro
 
   const getActionButtons = () => {
     const buttons = [];
+    
+    console.log('EnhancedSubscriptionStatusCard - Debug Info:', {
+      statusText: formatted.statusText,
+      hasActiveSubscription: subscriptionStatus.hasActiveSubscription,
+      isTrialActive: subscriptionStatus.isTrialActive,
+      onManagePress: !!onManagePress,
+      currentPlan: subscriptionStatus.currentPlan
+    });
 
     if (subscriptionStatus.needsTrialActivation && onActivateTrial) {
       buttons.push({
@@ -149,7 +157,8 @@ const EnhancedSubscriptionStatusCard: React.FC<EnhancedSubscriptionStatusCardPro
       });
     }
 
-    if (formatted.statusText === 'Active' && onManagePress) {
+    if ((formatted.statusText === 'Active' || formatted.statusText === 'Trial Active') && onManagePress) {
+      console.log('Adding Manage button!');
       buttons.push({
         text: 'Manage',
         onPress: onManagePress,

@@ -60,6 +60,7 @@ const HomeStack = ({ transporterType }) => (
         <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
         <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
         <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+        <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
         <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
         <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
         <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
@@ -68,12 +69,11 @@ const HomeStack = ({ transporterType }) => (
   </Stack.Navigator>
 );
 
-const ManageStack = ({ transporterType }) => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+const FleetStack = ({ transporterType }) => (
+  <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="FleetManagement">
     {transporterType === 'company' ? (
-      // Company fleet management screens
+      // Company fleet management screens - Fleet tab
       <>
-        <Stack.Screen name="ManageTransporter" component={require('../screens/ManageTransporterScreen').default} initialParams={{ transporterType }} />
         <Stack.Screen name="FleetManagement" component={FleetManagementScreen} />
         <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
         <Stack.Screen name="DriverManagement" component={DriverManagementScreen} />
@@ -82,6 +82,65 @@ const ManageStack = ({ transporterType }) => (
         <Stack.Screen name="FleetAnalytics" component={FleetAnalyticsScreen} />
         <Stack.Screen name="FleetReports" component={FleetReportsScreen} />
         <Stack.Screen name="FleetMaintenance" component={FleetMaintenanceScreen} />
+        <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
+        <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
+        <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
+        <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+        <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+        <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+        <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
+        <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
+        <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
+        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+        <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+        <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+      </>
+    ) : (
+      // Individual transporter management screens
+      <>
+        <Stack.Screen name="FleetManagement" component={FleetManagementScreen} />
+        <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
+        <Stack.Screen name="DriverManagement" component={DriverManagementScreen} />
+        <Stack.Screen name="DriverJobManagement" component={DriverJobManagementScreen} />
+        <Stack.Screen name="DriverAssignments" component={DriverAssignmentsScreen} />
+        <Stack.Screen name="FleetAnalytics" component={FleetAnalyticsScreen} />
+        <Stack.Screen name="FleetReports" component={FleetReportsScreen} />
+        <Stack.Screen name="FleetMaintenance" component={FleetMaintenanceScreen} />
+        <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
+        <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
+        <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
+        <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+        <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+        <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+        <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
+        <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
+        <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
+        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+        <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+        <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+      </>
+    )}
+  </Stack.Navigator>
+);
+
+const ManageStack = ({ transporterType }) => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    {transporterType === 'company' ? (
+      // Company management screens - Manage tab (profile, settings, etc.)
+      <>
+        <Stack.Screen name="ManageTransporter" component={require('../screens/ManageTransporterScreen').default} initialParams={{ transporterType }} />
+        <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
+        <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
+        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+        <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+        <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+        <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
+        <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
+        <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+        <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+        <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+        <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
+        <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
       </>
     ) : (
       // Individual transporter management screens
@@ -95,6 +154,7 @@ const ManageStack = ({ transporterType }) => (
         <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
         <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
         <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+        <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
         <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
         <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
         <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
@@ -105,20 +165,41 @@ const ManageStack = ({ transporterType }) => (
 
 const ProfileStack = ({ transporterType }) => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="TransporterProfile" component={TransporterProfileScreen} initialParams={{ transporterType }} />
-    <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
-    <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
-    <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
-    <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
-    <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
-    <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
-    <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
-    <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
-    <Stack.Screen name="DriverManagement" component={DriverManagementScreen} />
-    <Stack.Screen name="DriverAssignments" component={DriverAssignmentsScreen} />
-    <Stack.Screen name="FleetAnalytics" component={FleetAnalyticsScreen} />
-    <Stack.Screen name="FleetReports" component={FleetReportsScreen} />
-    <Stack.Screen name="FleetMaintenance" component={FleetMaintenanceScreen} />
+    {transporterType === 'company' ? (
+      // Company profile with subscription management
+      <>
+        <Stack.Screen name="ManageTransporter" component={require('../screens/ManageTransporterScreen').default} initialParams={{ transporterType }} />
+        <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
+        <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
+        <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
+        <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+        <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+        <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+        <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
+        <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
+        <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
+        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+        <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+        <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+      </>
+    ) : (
+      // Individual transporter profile
+      <>
+        <Stack.Screen name="TransporterProfile" component={TransporterProfileScreen} initialParams={{ transporterType }} />
+        <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
+        <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
+        <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
+        <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
+        <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+        <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+        <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
+        <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
+        <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
+        <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+        <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
+        <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+      </>
+    )}
   </Stack.Navigator>
 );
 
@@ -255,15 +336,6 @@ const TransporterTabNavigator = () => {
                 style={{ marginBottom: -2 }}
               />
             );
-          } else if (route.name === 'Manage') {
-            return (
-              <MaterialCommunityIcons
-                name={focused ? 'briefcase' : 'briefcase-outline'}
-                size={28}
-                color={iconColor}
-                style={{ marginBottom: -2 }}
-              />
-            );
           } else if (route.name === 'Profile') {
             return (
               <MaterialCommunityIcons
@@ -287,25 +359,14 @@ const TransporterTabNavigator = () => {
         {() => <HomeStack transporterType={transporterType} />}
       </Tab.Screen>
       
-      {transporterType === 'company' ? (
-        <Tab.Screen 
-          name="Fleet"
-          options={{
-            title: 'Fleet',
-          }}
-        >
-          {() => <ManageStack transporterType={transporterType} />}
-        </Tab.Screen>
-      ) : (
-        <Tab.Screen 
-          name="Manage"
-          options={{
-            title: 'Manage',
-          }}
-        >
-          {() => <ManageStack transporterType={transporterType} />}
-        </Tab.Screen>
-      )}
+      <Tab.Screen 
+        name="Fleet"
+        options={{
+          title: 'Fleet',
+        }}
+      >
+        {() => <FleetStack transporterType={transporterType} />}
+      </Tab.Screen>
       
       <Tab.Screen 
         name="Profile"

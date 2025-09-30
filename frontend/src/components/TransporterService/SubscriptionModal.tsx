@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Modal,
   StyleSheet,
@@ -9,16 +9,19 @@ import {
   View,
 } from 'react-native';
 import colors from '../../constants/colors';
+import { transporterPlans } from '../../constants/subscriptionPlans';
 
-const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe, userType = 'transporter', isUpgrade = false }) => {
+const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe, userType = 'transporter', isUpgrade = false, visible = true }) => {
   const navigation = useNavigation();
+  
+  console.log('SubscriptionModal rendered with visible:', visible);
 
-  // Original plans as they were
-  const originalPlans = [
-    { key: 'monthly', label: 'Monthly', price: 199, features: ['Billed every month', 'Cancel anytime', 'Full access to features'] },
-    { key: 'quarterly', label: 'Quarterly', price: 499, features: ['Save Ksh 98', 'Billed every 3 months', 'Priority support'] },
-    { key: 'annual', label: 'Annual', price: 1599, features: ['Save Ksh 789', 'Billed yearly', 'Best value', 'Premium support'] },
-  ];
+  useEffect(() => {
+    console.log('SubscriptionModal visible prop changed to:', visible);
+  }, [visible]);
+
+  // Use proper subscription plans from constants
+  const plans = transporterPlans;
 
   const handleSubscribe = () => {
     if (!selectedPlan) {
@@ -26,13 +29,20 @@ const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe
       return;
     }
 
+    // Find the selected plan from the proper plans
+    const selectedPlanData = plans.find(p => p.id === selectedPlan);
+    if (!selectedPlanData) {
+      console.error('Selected plan not found:', selectedPlan);
+      return;
+    }
+
     // Create a plan object that matches the expected format
     const planData = {
-      id: selectedPlan,
-      name: originalPlans.find(p => p.key === selectedPlan)?.label || 'Plan',
-      price: originalPlans.find(p => p.key === selectedPlan)?.price || 0,
-      period: 'monthly' as const,
-      features: originalPlans.find(p => p.key === selectedPlan)?.features || []
+      id: selectedPlanData.id,
+      name: selectedPlanData.name,
+      price: selectedPlanData.price,
+      period: selectedPlanData.period,
+      features: selectedPlanData.features
     };
 
     onClose();
@@ -44,14 +54,14 @@ const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe
       navigation.navigate('PaymentScreen', {
         plan: planData,
         userType,
-        billingPeriod: 'monthly',
+        billingPeriod: selectedPlanData.period,
         isUpgrade
       });
     }
   };
 
   return (
-    <Modal transparent animationType="slide" visible>
+    <Modal transparent animationType="slide" visible={visible}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           <Text style={styles.title}>
@@ -62,27 +72,33 @@ const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe
           </Text>
 
           <View style={styles.plansContainer}>
-            {originalPlans.map((plan) => {
-              const isSelected = selectedPlan === plan.key;
+            {plans.map((plan) => {
+              const isSelected = selectedPlan === plan.id;
               return (
                 <TouchableOpacity
-                  key={plan.key}
+                  key={plan.id}
                   style={[
                     styles.planCard,
                     isSelected && styles.planCardSelected,
+                    plan.popular && styles.popularPlan,
                     { borderColor: isSelected ? colors.secondary : colors.surface, shadowColor: isSelected ? colors.secondary : colors.black },
                   ]}
                   activeOpacity={0.92}
-                  onPress={() => setSelectedPlan(plan.key)}
+                  onPress={() => setSelectedPlan(plan.id)}
                 >
+                  {plan.popular && (
+                    <View style={styles.popularBadge}>
+                      <Text style={styles.popularText}>Most Popular</Text>
+                    </View>
+                  )}
                   <View style={styles.planHeader}>
-                    <Text style={[styles.planLabel, { color: isSelected ? colors.secondary : colors.primary }]}>{plan.label}</Text>
+                    <Text style={[styles.planLabel, { color: isSelected ? colors.secondary : colors.primary }]}>{plan.name}</Text>
                     {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.secondary} style={{ marginLeft: 6 }} />}
                   </View>
                   <Text style={[styles.planPrice, { color: isSelected ? colors.secondary : colors.text.primary }]}>
-                    Ksh {plan.price}
+                    KES {plan.price.toLocaleString()}
                     <Text style={{ color: colors.text.secondary, fontSize: 14 }}>
-                      / {plan.key === 'monthly' ? 'month' : plan.key === 'quarterly' ? '3 months' : 'year'}
+                      / {plan.period}
                     </Text>
                   </Text>
                   <View style={styles.featureList}>
@@ -171,6 +187,27 @@ const styles = StyleSheet.create({
     shadowColor: colors.secondary,
     shadowOpacity: 0.18,
     elevation: 6,
+  },
+  popularPlan: {
+    borderColor: colors.primary,
+    position: 'relative',
+  },
+  popularBadge: {
+    position: 'absolute',
+    top: -12,
+    left: '50%',
+    marginLeft: -50,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 20,
+    zIndex: 1,
+  },
+  popularText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   planHeader: {
     flexDirection: 'row',

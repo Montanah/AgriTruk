@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { transporterPlans, brokerPlans } from '../constants/subscriptionPlans';
 
 interface SubscriptionScreenProps {
     route: {
@@ -28,12 +29,8 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
     const navigation = useNavigation();
     const { userType } = route.params;
 
-    // Your original subscription plans
-    const originalPlans = [
-        { key: 'monthly', label: 'Monthly', price: 199, features: ['Billed every month', 'Cancel anytime', 'Full access to features'] },
-        { key: 'quarterly', label: 'Quarterly', price: 499, features: ['Save Ksh 98', 'Billed every 3 months', 'Priority support'] },
-        { key: 'annual', label: 'Annual', price: 1599, features: ['Save Ksh 789', 'Billed yearly', 'Best value', 'Premium support'] },
-    ];
+    // Use proper subscription plans based on user type
+    const plans = userType === 'broker' ? brokerPlans : transporterPlans;
 
     const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -48,22 +45,25 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
             return;
         }
 
-        const selectedPlanData = originalPlans.find(p => p.key === selectedPlan);
-        if (!selectedPlanData) return;
+        const selectedPlanData = plans.find(p => p.id === selectedPlan);
+        if (!selectedPlanData) {
+            Alert.alert('Error', 'Selected plan not found.');
+            return;
+        }
 
         // Create a plan object that matches the expected format
         const planData = {
-            id: selectedPlan,
-            name: selectedPlanData.label,
+            id: selectedPlanData.id,
+            name: selectedPlanData.name,
             price: selectedPlanData.price,
-            period: selectedPlan as 'monthly' | 'quarterly' | 'annual',
+            period: selectedPlanData.period,
             features: selectedPlanData.features
         };
 
         navigation.navigate('PaymentScreen', {
             plan: planData,
             userType,
-            billingPeriod: selectedPlan
+            billingPeriod: selectedPlanData.period
         });
     };
 
@@ -96,27 +96,33 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
                         Flexible plans for every business. Select the best fit for you.
                     </Text>
 
-                    {originalPlans.map((plan) => {
-                        const isSelected = selectedPlan === plan.key;
+                    {plans.map((plan) => {
+                        const isSelected = selectedPlan === plan.id;
                         return (
                             <TouchableOpacity
-                                key={plan.key}
+                                key={plan.id}
                                 style={[
                                     styles.planCard,
                                     isSelected && styles.planCardSelected,
+                                    plan.popular && styles.popularPlan,
                                     { borderColor: isSelected ? colors.secondary : colors.surface, shadowColor: isSelected ? colors.secondary : colors.black },
                                 ]}
                                 activeOpacity={0.92}
-                                onPress={() => handlePlanSelect(plan.key)}
+                                onPress={() => handlePlanSelect(plan.id)}
                             >
+                                {plan.popular && (
+                                    <View style={styles.popularBadge}>
+                                        <Text style={styles.popularText}>Most Popular</Text>
+                                    </View>
+                                )}
                                 <View style={styles.planHeader}>
-                                    <Text style={[styles.planLabel, { color: isSelected ? colors.secondary : colors.primary }]}>{plan.label}</Text>
+                                    <Text style={[styles.planLabel, { color: isSelected ? colors.secondary : colors.primary }]}>{plan.name}</Text>
                                     {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.secondary} style={{ marginLeft: 6 }} />}
                                 </View>
                                 <Text style={[styles.planPrice, { color: isSelected ? colors.secondary : colors.text.primary }]}>
-                                    Ksh {plan.price}
+                                    KES {plan.price.toLocaleString()}
                                     <Text style={{ color: colors.text.secondary, fontSize: 14 }}>
-                                        / {plan.key === 'monthly' ? 'month' : plan.key === 'quarterly' ? '3 months' : 'year'}
+                                        / {plan.period}
                                     </Text>
                                 </Text>
                                 <View style={styles.featureList}>
@@ -138,33 +144,33 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
                         <Text style={styles.sectionTitle}>Plan Summary</Text>
                         <View style={styles.summaryCard}>
                             {(() => {
-                                const selectedPlanData = originalPlans.find(p => p.key === selectedPlan);
+                                const selectedPlanData = plans.find(p => p.id === selectedPlan);
                                 if (!selectedPlanData) return null;
 
                                 return (
                                     <>
                                         <View style={styles.summaryRow}>
                                             <Text style={styles.summaryLabel}>Selected Plan:</Text>
-                                            <Text style={styles.summaryValue}>{selectedPlanData.label}</Text>
+                                            <Text style={styles.summaryValue}>{selectedPlanData.name}</Text>
                                         </View>
                                         <View style={styles.summaryRow}>
                                             <Text style={styles.summaryLabel}>Billing Period:</Text>
                                             <Text style={styles.summaryValue}>
-                                                {selectedPlan === 'monthly' ? 'Monthly' : selectedPlan === 'quarterly' ? 'Quarterly' : 'Annual'}
+                                                {selectedPlanData.period === 'monthly' ? 'Monthly' : selectedPlanData.period === 'yearly' ? 'Yearly' : selectedPlanData.period}
                                             </Text>
                                         </View>
                                         <View style={styles.summaryRow}>
                                             <Text style={styles.summaryLabel}>Price:</Text>
                                             <Text style={styles.summaryValue}>
-                                                Ksh {selectedPlanData.price.toLocaleString()}
-                                                / {selectedPlan === 'monthly' ? 'month' : selectedPlan === 'quarterly' ? '3 months' : 'year'}
+                                                KES {selectedPlanData.price.toLocaleString()}
+                                                / {selectedPlanData.period}
                                             </Text>
                                         </View>
-                                        {(selectedPlan === 'quarterly' || selectedPlan === 'annual') && (
+                                        {selectedPlanData.discount && (
                                             <View style={styles.summaryRow}>
                                                 <Text style={styles.summaryLabel}>Savings:</Text>
                                                 <Text style={[styles.summaryValue, { color: colors.success }]}>
-                                                    {selectedPlan === 'quarterly' ? 'Ksh 98' : 'Ksh 789'}
+                                                    {selectedPlanData.discount}% OFF
                                                 </Text>
                                             </View>
                                         )}
@@ -391,6 +397,27 @@ const styles = StyleSheet.create({
         borderColor: colors.secondary,
         shadowColor: colors.secondary,
         shadowOpacity: 0.2,
+    },
+    popularPlan: {
+        borderColor: colors.primary,
+        position: 'relative',
+    },
+    popularBadge: {
+        position: 'absolute',
+        top: -12,
+        left: '50%',
+        marginLeft: -60,
+        backgroundColor: colors.primary,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs,
+        borderRadius: 20,
+        zIndex: 1,
+    },
+    popularText: {
+        color: colors.white,
+        fontSize: fonts.size.sm,
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
     planHeader: {
         flexDirection: 'row',

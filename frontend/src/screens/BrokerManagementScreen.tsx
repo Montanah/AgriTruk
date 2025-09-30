@@ -567,7 +567,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                             <Text style={styles.sectionTitle}>Client Management</Text>
                             <TouchableOpacity
                                 style={styles.addClientButton}
-                                onPress={() => navigation.navigate('BrokerHomeScreen')}
+                                onPress={() => navigation.navigate('Home')}
                             >
                                 <MaterialCommunityIcons name="account-plus" size={20} color={colors.white} />
                                 <Text style={styles.addClientButtonText}>Add Client</Text>
