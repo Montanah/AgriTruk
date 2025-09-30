@@ -17,6 +17,7 @@ import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import { transporterPlans } from '../constants/subscriptionPlans';
 
 interface FleetStats {
   totalVehicles: number;
@@ -238,11 +239,7 @@ const CompanyDashboardScreen = () => {
             subscriptionStatus={subscriptionStatus || {
               hasActiveSubscription: true,
               isTrialActive: false,
-              currentPlan: {
-                name: 'Premium Plan',
-                price: 5000,
-                features: ['unlimited_vehicles', 'unlimited_drivers', 'analytics']
-              },
+              currentPlan: transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1],
               daysRemaining: 15,
               subscriptionStatus: 'active'
             }}

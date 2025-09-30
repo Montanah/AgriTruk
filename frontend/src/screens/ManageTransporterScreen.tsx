@@ -20,6 +20,7 @@ import Toast, { ToastProps } from '../components/common/Toast';
 import ModernToggle from '../components/common/ModernToggle';
 import locationService from '../services/locationService';
 import subscriptionService from '../services/subscriptionService';
+import { transporterPlans } from '../constants/subscriptionPlans';
 import { apiRequest, uploadFile } from '../utils/api';
 
 export default function ManageTransporterScreen({ route }: any) {
@@ -1514,11 +1515,7 @@ export default function ManageTransporterScreen({ route }: any) {
                 hasActiveSubscription: true,
                 isTrialActive: false,
                 needsTrialActivation: false,
-                currentPlan: {
-                  name: 'Premium Plan',
-                  price: 5000,
-                  features: ['unlimited_vehicles', 'unlimited_drivers', 'analytics']
-                },
+                currentPlan: transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1],
                 daysRemaining: 15,
                 subscriptionStatus: 'active'
               }}
@@ -2301,6 +2298,30 @@ export default function ManageTransporterScreen({ route }: any) {
                 <Text style={styles.allVerifiedText}>All contact methods verified!</Text>
               </View>
             )}
+          </View>
+
+          {/* Subscription Section */}
+          <View style={styles.card}>
+            <EnhancedSubscriptionStatusCard
+              subscriptionStatus={subscriptionStatus || {
+                hasActiveSubscription: true,
+                isTrialActive: false,
+                needsTrialActivation: false,
+                currentPlan: transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1],
+                daysRemaining: 15,
+                subscriptionStatus: 'active'
+              }}
+              onManagePress={() => {
+                console.log('Manage button pressed!');
+                navigation.navigate('SubscriptionManagement');
+              }}
+              onRenewPress={handlePayment}
+              onUpgradePress={() => navigation.navigate('SubscriptionManagement')}
+              showUpgradeOptions={true}
+              animated={true}
+              onActivateTrial={handleActivateTrial}
+              loading={subscriptionLoading}
+            />
           </View>
 
           {/* Location Tracking Section */}

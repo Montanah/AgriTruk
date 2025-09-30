@@ -24,21 +24,23 @@ const SubscriptionManagementScreen: React.FC = () => {
     const [companyInfo, setCompanyInfo] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     
-    // Get current plan from subscription status or fallback to Professional plan
+    // Get current plan from subscription status or fallback to Professional plan from constants
+    const professionalPlan = transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1]; // Fallback to second plan if not found
+    
     const currentPlan = subscriptionStatus?.currentPlan ? {
         name: subscriptionStatus.currentPlan.name,
         type: 'transporter',
         status: subscriptionStatus.subscriptionStatus,
         nextBilling: '2024-07-15', // This should come from the API
         amount: subscriptionStatus.currentPlan.price,
-        period: 'monthly'
+        period: subscriptionStatus.currentPlan.period || 'monthly'
     } : {
-        name: 'Professional',
+        name: professionalPlan.name,
         type: 'transporter',
         status: 'active',
         nextBilling: '2024-07-15',
-        amount: 5000,
-        period: 'monthly'
+        amount: professionalPlan.price,
+        period: professionalPlan.period
     };
 
     // Fetch company and subscription info

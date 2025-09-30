@@ -13,6 +13,7 @@ import spacing from '../constants/spacing';
 import { auth, db } from '../firebaseConfig';
 import { apiRequest, uploadFile } from '../utils/api';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import { brokerPlans } from '../constants/subscriptionPlans';
 
 interface SubscriptionPlan {
   id: string;
@@ -31,30 +32,7 @@ interface PaymentMethod {
   isDefault: boolean;
 }
 
-const subscriptionPlans: SubscriptionPlan[] = [
-  {
-    id: 'basic',
-    name: 'Basic Plan',
-    price: 199,
-    billingPeriod: 'monthly',
-    features: ['Up to 50 requests/month', 'Basic analytics', 'Email support', 'Standard response time']
-  },
-  {
-    id: 'pro',
-    name: 'Pro Plan',
-    price: 499,
-    billingPeriod: 'monthly',
-    features: ['Up to 200 requests/month', 'Advanced analytics', 'Priority support', 'Faster response time', 'Consolidation tools'],
-    isPopular: true
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise Plan',
-    price: 1599,
-    billingPeriod: 'monthly',
-    features: ['Unlimited requests', 'Premium analytics', '24/7 support', 'Instant response time', 'Advanced consolidation', 'Custom integrations']
-  }
-];
+const subscriptionPlans: SubscriptionPlan[] = brokerPlans;
 
 // Removed mockPaymentMethods - now using dynamic data from user profile
 
