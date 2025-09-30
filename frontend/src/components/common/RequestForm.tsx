@@ -1,7 +1,7 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
@@ -14,6 +14,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import * as Location from 'expo-location';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../../constants/colors';
@@ -24,6 +25,7 @@ import { useConsolidations } from '../../context/ConsolidationContext';
 import FindTransporters from '../FindTransporters';
 import CompactLocationSection from './CompactLocationSection';
 import ProductTypeInput from './ProductTypeInput';
+import { generateRequestReadableId, generateConsolidationReadableId } from '../../utils/idUtils';
 
 const SERVICES = [
     {
@@ -116,6 +118,10 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     const [showTransporters, setShowTransporters] = useState(false);
     const [justAdded, setJustAdded] = useState(false);
 
+    // Location state
+    const [isGettingLocation, setIsGettingLocation] = useState(false);
+    const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+
     // Special requirements
     const [isPerishable, setIsPerishable] = useState(false);
     const [perishableSpecs, setPerishableSpecs] = useState<string[]>([]);
@@ -165,9 +171,96 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
         return true;
     };
 
+    // Get current location
+    const getCurrentLocation = async () => {
+        try {
+            setIsGettingLocation(true);
+            
+            // Request location permission
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert(
+                    'Location Permission Required',
+                    'Please enable location access to automatically set your pickup location.',
+                    [{ text: 'OK' }]
+                );
+                setLocationPermissionGranted(false);
+                return;
+            }
+            
+            setLocationPermissionGranted(true);
+            
+            // Get current position
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+                timeout: 10000,
+                maximumAge: 300000, // 5 minutes
+            });
+            
+            const { latitude, longitude } = location.coords;
+            
+            // Reverse geocode to get address
+            const addressResponse = await Location.reverseGeocodeAsync({
+                latitude,
+                longitude,
+            });
+            
+            if (addressResponse.length > 0) {
+                const address = addressResponse[0];
+                
+                // Create a shorter, more concise address
+                let shortAddress = '';
+                if (address.street) {
+                    // Use just the street name if available
+                    shortAddress = address.street;
+                } else if (address.city) {
+                    // Use city if no street
+                    shortAddress = address.city;
+                } else if (address.region) {
+                    // Use region if no city
+                    shortAddress = address.region;
+                } else {
+                    // Fallback to coordinates
+                    shortAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+                }
+                
+                // Set the location data
+                setFromLocation(shortAddress);
+                setFromLocationCoords({ latitude, longitude });
+                setFromLocationAddress(shortAddress);
+                
+                console.log('📍 Current location set:', shortAddress);
+            } else {
+                // Fallback if reverse geocoding fails
+                setFromLocation('Current Location');
+                setFromLocationCoords({ latitude, longitude });
+                setFromLocationAddress('Current Location');
+            }
+            
+        } catch (error) {
+            console.error('Error getting current location:', error);
+            Alert.alert(
+                'Location Error',
+                'Could not get your current location. Please enter your pickup location manually.',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setIsGettingLocation(false);
+        }
+    };
+
+    // Get current location on component mount
+    useEffect(() => {
+        getCurrentLocation();
+    }, []);
+
     const createRequestData = () => {
+        // Generate readable ID for display purposes
+        const bookingType = activeTab === 'agriTRUK' ? 'Agri' : 'Cargo';
+        const readableId = generateRequestReadableId(bookingType, requestType);
+        
         return {
-            id: Date.now().toString(),
+            id: readableId,
             // Map frontend fields to backend booking format
             bookingType: activeTab === 'agriTRUK' ? 'Agri' : 'Cargo',
             bookingMode: requestType, // 'instant' or 'booking'
@@ -182,7 +275,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             priority: isPriority,
             perishable: isPerishable,
             needsRefrigeration: isPerishable,
-            humidityControl: isPerishable,
+            humidyControl: isPerishable,
             specialCargo: isSpecialCargo ? specialCargoSpecs.map(key => CARGO_SPECIALS.find(spec => spec.key === key)?.label || key) : [],
             insured: insureGoods,
             value: insuranceValue ? parseFloat(insuranceValue) : 0,
@@ -235,8 +328,12 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     };
 
     const createConsolidationData = () => {
+        // Generate readable ID for consolidation
+        const bookingType = activeTab === 'agriTRUK' ? 'Agri' : 'Cargo';
+        const readableId = generateConsolidationReadableId(bookingType);
+        
         return {
-            id: Date.now().toString(),
+            id: readableId,
             // Use string locations for consolidation context
             fromLocation,
             toLocation,
@@ -546,14 +643,39 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                 key={service.key}
                                 style={[
                                     styles.tab,
-                                    activeTab === service.key && { backgroundColor: service.accent + '20' }
+                                    activeTab === service.key && { 
+                                        backgroundColor: service.accent,
+                                        borderColor: service.accent,
+                                        borderWidth: 2,
+                                        shadowColor: service.accent,
+                                        shadowOffset: { width: 0, height: 2 },
+                                        shadowOpacity: 0.3,
+                                        shadowRadius: 4,
+                                        elevation: 4,
+                                    }
                                 ]}
                                 onPress={() => setActiveTab(service.key)}
                             >
-                                <View style={styles.tabIcon}>{service.icon}</View>
+                                <View style={styles.tabIcon}>
+                                    {activeTab === service.key ? (
+                                        // White icon for active tab
+                                        service.key === 'agriTRUK' ? (
+                                            <FontAwesome5 name="tractor" size={22} color={colors.white} />
+                                        ) : (
+                                            <MaterialCommunityIcons name="truck" size={22} color={colors.white} />
+                                        )
+                                    ) : (
+                                        // Colored icon for inactive tab
+                                        service.icon
+                                    )}
+                                </View>
                                 <Text style={[
                                     styles.tabLabel,
-                                    activeTab === service.key && { color: service.accent, fontWeight: 'bold' }
+                                    activeTab === service.key && { 
+                                        color: colors.white, 
+                                        fontWeight: '700',
+                                        fontSize: fonts.size.md
+                                    }
                                 ]}>
                                     {service.label}
                                 </Text>
@@ -566,18 +688,22 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                         <TouchableOpacity
                             style={[
                                 styles.requestTypeTab,
-                                requestType === 'instant' && { backgroundColor: accent, borderColor: accent }
+                                requestType === 'instant' && { 
+                                    backgroundColor: accent + '15', 
+                                    borderColor: accent,
+                                    borderWidth: 1
+                                }
                             ]}
                             onPress={() => setRequestType('instant')}
                         >
                             <MaterialCommunityIcons
                                 name="lightning-bolt"
-                                size={20}
-                                color={requestType === 'instant' ? colors.white : accent}
+                                size={18}
+                                color={requestType === 'instant' ? accent : colors.text.secondary}
                             />
                             <Text style={[
                                 styles.requestTypeText,
-                                requestType === 'instant' && { color: colors.white, fontWeight: 'bold' }
+                                requestType === 'instant' && { color: accent, fontWeight: '600' }
                             ]}>
                                 Instant
                             </Text>
@@ -585,18 +711,22 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                         <TouchableOpacity
                             style={[
                                 styles.requestTypeTab,
-                                requestType === 'booking' && { backgroundColor: accent, borderColor: accent }
+                                requestType === 'booking' && { 
+                                    backgroundColor: accent + '15', 
+                                    borderColor: accent,
+                                    borderWidth: 1
+                                }
                             ]}
                             onPress={() => setRequestType('booking')}
                         >
                             <MaterialCommunityIcons
                                 name="calendar-clock"
-                                size={20}
-                                color={requestType === 'booking' ? colors.white : accent}
+                                size={18}
+                                color={requestType === 'booking' ? accent : colors.text.secondary}
                             />
                             <Text style={[
                                 styles.requestTypeText,
-                                requestType === 'booking' && { color: colors.white, fontWeight: 'bold' }
+                                requestType === 'booking' && { color: accent, fontWeight: '600' }
                             ]}>
                                 Booking
                             </Text>
@@ -607,7 +737,27 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                     <View style={styles.formCard}>
                         {/* Pickup Location */}
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Location Details *</Text>
+                            <View style={styles.locationHeader}>
+                                <Text style={styles.fieldLabel}>Location Details *</Text>
+                                <TouchableOpacity
+                                    style={styles.locationButton}
+                                    onPress={getCurrentLocation}
+                                    disabled={isGettingLocation}
+                                >
+                                    <Ionicons 
+                                        name={isGettingLocation ? "refresh" : "location"} 
+                                        size={14} 
+                                        color={colors.primary} 
+                                    />
+                                    <Text 
+                                        style={styles.locationButtonText}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        {isGettingLocation ? '...' : '📍'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
                             <CompactLocationSection
                                 pickupLocation={fromLocation}
                                 deliveryLocation={toLocation}
@@ -637,6 +787,18 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                 }}
                                 showTitle={false}
                             />
+                            {fromLocation && fromLocationCoords && (
+                                <View style={styles.locationIndicator}>
+                                    <Ionicons name="checkmark-circle" size={12} color={colors.success} />
+                                    <Text 
+                                        style={styles.locationIndicatorText}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        Current location set
+                                    </Text>
+                                </View>
+                            )}
                         </View>
 
                         {/* Product Details */}
@@ -1107,6 +1269,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         marginVertical: spacing.lg,
         gap: spacing.sm,
+        paddingHorizontal: spacing.xs,
     },
     tab: {
         flex: 1,
@@ -1117,57 +1280,100 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.lg,
         borderRadius: 12,
         backgroundColor: colors.surface,
+        borderWidth: 2,
+        borderColor: colors.border,
     },
     tabIcon: {
         marginRight: spacing.sm,
     },
     tabLabel: {
-        fontSize: fonts.size.md,
+        fontSize: fonts.size.sm,
         fontWeight: '600',
-        color: colors.text.secondary,
+        color: colors.text.primary,
     },
     requestTypeContainer: {
         flexDirection: 'row',
-        marginBottom: spacing.lg,
-        gap: spacing.sm,
+        marginBottom: spacing.md,
+        gap: spacing.xs,
     },
     requestTypeTab: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: spacing.md,
-        paddingHorizontal: spacing.lg,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: colors.text.light,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.border,
         backgroundColor: colors.surface,
     },
     requestTypeText: {
-        fontSize: fonts.size.md,
-        fontWeight: '600',
+        fontSize: fonts.size.sm,
+        fontWeight: '500',
         color: colors.text.secondary,
-        marginLeft: spacing.sm,
+        marginLeft: spacing.xs,
     },
     formCard: {
         backgroundColor: colors.white,
-        borderRadius: 16,
+        borderRadius: 12,
         padding: spacing.lg,
-        marginBottom: spacing.lg,
+        marginBottom: spacing.md,
         shadowColor: colors.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     fieldGroup: {
-        marginBottom: spacing.lg,
+        marginBottom: spacing.md,
     },
     fieldLabel: {
         fontSize: fonts.size.md,
         fontWeight: '600',
         color: colors.text.primary,
         marginBottom: spacing.sm,
+    },
+    locationHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    locationButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 4,
+        backgroundColor: colors.background,
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: colors.border,
+        maxWidth: 80,
+        flexShrink: 1,
+    },
+    locationButtonText: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        marginLeft: 4,
+        fontWeight: '400',
+        flexShrink: 1,
+    },
+    locationIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        opacity: 0.7,
+        flex: 1,
+    },
+    locationIndicatorText: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        marginLeft: 4,
+        fontWeight: '400',
+        flexShrink: 1,
+        flex: 1,
     },
     input: {
         borderWidth: 1,

@@ -75,6 +75,11 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
 
   // Handler for posting booking(s)
   const handlePostBooking = async () => {
+    console.log('🚀 STARTING BOOKING SUBMISSION');
+    console.log('🚀 STARTING BOOKING SUBMISSION - TEST LOG');
+    console.warn('🚀 STARTING BOOKING SUBMISSION - WARN LOG');
+    console.error('🚀 STARTING BOOKING SUBMISSION - ERROR LOG');
+    Alert.alert('Debug', 'Booking submission started - check console logs');
     setPosting(true);
     
     // Add timeout to prevent infinite posting state
@@ -173,7 +178,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           // Cargo specifications - match database structure
           perishable: req.perishable || req.isPerishable || false,
           needsRefrigeration: req.needsRefrigeration || req.isPerishable || false,
-          humidyControl: req.humidityControl || req.isPerishable || false, // Note: backend expects 'humidyControl'
+          humidyControl: req.humidyControl || req.isPerishable || false, // Note: backend expects 'humidyControl'
           
           // Special cargo and insurance - match database structure
           specialCargo: req.specialCargo || (req.isSpecialCargo ? (req.specialCargoSpecs || []) : []),
@@ -270,6 +275,12 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           });
           console.error('Full error object:', JSON.stringify(error, null, 2));
           
+          // Additional logging for debugging
+          console.error('🚨 BOOKING ERROR - Attempt:', retryCount);
+          console.error('🚨 Error type:', typeof error);
+          console.error('🚨 Error constructor:', error.constructor.name);
+          console.error('🚨 Error keys:', Object.keys(error));
+          
           if (retryCount >= maxRetries) {
             throw error; // Re-throw if all retries failed
           }
@@ -285,8 +296,9 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       console.log('✅ Booking posted successfully:', response);
       console.log('📋 Response structure:', JSON.stringify(response, null, 2));
       
-      // Extract booking ID from response - check multiple possible field names
+      // Extract booking ID from response - prioritize readable ID from backend
       const extractedBookingId = String(
+        response?.readableId ||  // New readable ID from backend
         response?.bookingId || 
         response?.id || 
         response?.data?.bookingId || 
@@ -296,6 +308,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       );
       console.log('✅ Booking created successfully with ID:', extractedBookingId);
       console.log('🔍 Booking ID extraction details:', {
+        'response.readableId': response?.readableId,
         'response.bookingId': response?.bookingId,
         'response.id': response?.id,
         'response.data?.bookingId': response?.data?.bookingId,
@@ -329,6 +342,11 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       // Booking confirmation error
 
       console.error('Failed to post booking:', error);
+      console.error('🚨 FINAL BOOKING ERROR:', error);
+      console.error('🚨 Error message:', error.message);
+      console.error('🚨 Error type:', typeof error);
+      console.error('🚨 Error constructor:', error.constructor.name);
+      console.error('🚨 Error stack:', error.stack);
       
       // Check if it's a 500 error (server error)
       if (error.message?.includes('Failed to create booking')) {

@@ -14,6 +14,22 @@ const calculateTransportCost = require('../utils/calculateCost');
 require('dotenv').config();
 
 const google_key = process.env.GOOGLE_MAPS_API_KEY;
+
+// Generate readable ID for display purposes
+const generateReadableId = (bookingType, bookingMode, isConsolidated = false) => {
+  const now = new Date();
+  const year = now.getFullYear().toString().slice(-2);
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  const hour = now.getHours().toString().padStart(2, '0');
+  const minute = now.getMinutes().toString().padStart(2, '0');
+  
+  const type = bookingType === 'Agri' ? 'AGR' : 'CRG';
+  const mode = isConsolidated ? 'CONS' : (bookingMode === 'instant' ? 'INST' : 'BOOK');
+  
+  return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
+};
+
 exports.createBooking = async (req, res) => {
   try {
     const {
@@ -36,6 +52,7 @@ exports.createBooking = async (req, res) => {
       additionalNotes,
       specialCargo = [], 
       consolidated,
+      bulkiness,
       lengthCm, 
       widthCm,
       heightCm,
@@ -197,7 +214,7 @@ exports.createBooking = async (req, res) => {
       needsRefrigeration: !!needsRefrigeration,
       humidityControl: !!humidyControl,
       specialCargo: specialCargo || [],
-      bulkness: !!bulkness,
+      bulkiness: !!bulkiness,
       insured: !!insured,
       value: value || 0,
       tolls: tolls || 0,
@@ -286,12 +303,16 @@ exports.createBooking = async (req, res) => {
     });
     // console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
 
+    // Generate readable ID for display
+    const readableId = generateReadableId(bookingType, bookingMode);
+    
     if (bookingMode === 'instant') {
       const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
       return res.status(201).json({
         success: true,
         message: `${bookingType}TRUK booking created successfully`,
         booking: formatTimestamps(booking),
+        readableId: readableId,
         matchedTransporter
       });
     } else {
@@ -300,6 +321,7 @@ exports.createBooking = async (req, res) => {
         success: true,
         message: `${bookingType}TRUK booking created successfully`,
         booking: formatTimestamps(booking),
+        readableId: readableId,
       });
     }
   } catch (error) {

@@ -395,7 +395,6 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance 
             isPerishable: base.isPerishable || false,
             perishable: base.isPerishable || false,
             needsRefrigeration: base.isPerishable || false,
-            humidityControl: base.isPerishable || false,
             humidyControl: base.isPerishable || false,
             
             // Special cargo and insurance

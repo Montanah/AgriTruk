@@ -762,10 +762,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: spacing.sm,
     },
     inputWithCurrentLocation: {
-        paddingLeft: 60,
+        paddingLeft: 50,
     },
     inputWithCurrentLocationCompact: {
-        paddingLeft: 50,
+        paddingLeft: 40,
     },
     currentLocationButton: {
         position: 'absolute',

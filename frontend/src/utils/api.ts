@@ -64,6 +64,7 @@ export async function apiRequestWithRetry(endpoint: string, options: any = {}, m
 // Cloudinary uploads are handled by the backend
 
 export async function apiRequest(endpoint: string, options: any = {}) {
+  console.log('🔥 API REQUEST CALLED:', endpoint);
   try {
     // Clear visual separator for terminal
     // Starting API request
@@ -116,6 +117,11 @@ export async function apiRequest(endpoint: string, options: any = {}) {
       headers: headers,
       bodyLength: options.body ? options.body.length : 0
     });
+    
+    // Log the actual request body for debugging
+    if (options.body) {
+      console.log('📦 Request body:', options.body);
+    }
 
     const res = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
@@ -154,6 +160,10 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     return data;
   } catch (error: any) {
     // API error details
+    console.error('🚨 API Request Error:', error);
+    console.error('🚨 Error message:', error.message);
+    console.error('🚨 Error status:', error.status);
+    console.error('🚨 Full error object:', JSON.stringify(error, null, 2));
 
     // Provide better error messages
     if (error.message?.includes('Network request failed') || error.message?.includes('fetch')) {
@@ -169,9 +179,8 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     } else if (error.message?.includes('Backend server is currently unavailable')) {
       throw error; // Re-throw our custom message
     } else {
-      throw new Error(
-        'Server error: Unable to process your request. Your data will be saved locally.',
-      );
+      // Preserve the original error message instead of masking it
+      throw error;
     }
   }
 }
