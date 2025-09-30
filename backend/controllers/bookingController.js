@@ -80,44 +80,68 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
-    // Validate fromLocation and toLocation
-    const validateLocation = (location, fieldName) => {
+    // Validate and geocode locations if needed
+    const validateAndGeocodeLocation = async (location, fieldName) => {
       // Check if location is an object
       if (!location || typeof location !== 'object') {
         throw new Error(`${fieldName} must be an object`);
       }
 
-      // Define required fields
-      const requiredFields = ['address', 'latitude', 'longitude'];
-      const providedFields = Object.keys(location);
-
-      // Check for missing required fields
-      const missingFields = requiredFields.filter(field => !(field in location) || location[field] === undefined || location[field] === null);
-      if (missingFields.length > 0) {
-        throw new Error(`${fieldName} is missing required fields: ${missingFields.join(', ')}`);
+      // Check if address exists
+      if (!location.address || typeof location.address !== 'string' || location.address.trim() === '') {
+        throw new Error(`${fieldName}.address is required and must be a non-empty string`);
       }
 
-      // Check for extra fields
-      const extraFields = providedFields.filter(field => !requiredFields.includes(field));
-      if (extraFields.length > 0) {
-        throw new Error(`${fieldName} contains invalid fields: ${extraFields.join(', ')}`);
+      // If we have valid coordinates, use them
+      if (location.latitude !== undefined && location.latitude !== null && 
+          location.longitude !== undefined && location.longitude !== null &&
+          typeof location.latitude === 'number' && !isNaN(location.latitude) &&
+          typeof location.longitude === 'number' && !isNaN(location.longitude)) {
+        return location;
       }
 
-      // Validate field types
-      if (typeof location.address !== 'string' || location.address.trim() === '') {
-        throw new Error(`${fieldName}.address must be a non-empty string`);
+      // If no valid coordinates, geocode the address
+      if (!google_key) {
+        throw new Error('Google Maps API key is required for geocoding');
       }
-      if (typeof location.latitude !== 'number' || isNaN(location.latitude)) {
-        throw new Error(`${fieldName}.latitude must be a valid number`);
-      }
-      if (typeof location.longitude !== 'number' || isNaN(location.longitude)) {
-        throw new Error(`${fieldName}.longitude must be a valid number`);
+
+      try {
+        const { Client } = require('@googlemaps/google-maps-services-js');
+        const client = new Client({});
+        
+        const geocodeResponse = await client.geocode({
+          params: {
+            address: location.address,
+            key: google_key,
+          },
+        });
+
+        if (geocodeResponse.data.results && geocodeResponse.data.results.length > 0) {
+          const result = geocodeResponse.data.results[0];
+          const coords = result.geometry.location;
+          
+          return {
+            address: location.address,
+            latitude: coords.lat,
+            longitude: coords.lng
+          };
+        } else {
+          throw new Error(`Could not geocode address: ${location.address}`);
+        }
+      } catch (geocodeError) {
+        console.error(`Geocoding error for ${fieldName}:`, geocodeError);
+        throw new Error(`Could not geocode ${fieldName} address: ${location.address}`);
       }
     };
 
     try {
-      validateLocation(fromLocation, 'fromLocation');
-      validateLocation(toLocation, 'toLocation');
+      // Geocode locations if needed
+      const geocodedFromLocation = await validateAndGeocodeLocation(fromLocation, 'fromLocation');
+      const geocodedToLocation = await validateAndGeocodeLocation(toLocation, 'toLocation');
+      
+      // Update the location variables with geocoded data
+      fromLocation = geocodedFromLocation;
+      toLocation = geocodedToLocation;
     } catch (error) {
       return res.status(400).json({ message: error.message });
     }

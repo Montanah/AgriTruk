@@ -66,7 +66,7 @@ const TrackingScreen = () => {
 
     const generateMockTrackingData = (booking: any): TrackingData => {
         const now = new Date();
-        const pickupDate = new Date(booking.pickUpDate || booking.createdAt || now);
+        const pickupDate = new Date(booking.pickUpDate || now);
         const deliveryDate = new Date(pickupDate.getTime() + (2 * 24 * 60 * 60 * 1000)); // 2 days later
         
         const status = booking.status || 'pending';
@@ -258,7 +258,7 @@ const TrackingScreen = () => {
                         <View style={styles.bookingIdContainer}>
                             <Text style={styles.bookingId}>#{trackingData.bookingId}</Text>
                             <Text style={styles.bookingDate}>
-                                Created: {new Date(trackingData.bookingId ? booking.createdAt || new Date() : new Date()).toLocaleDateString()}
+                                Created: {new Date(booking.createdAt || new Date()).toLocaleDateString()}
                             </Text>
                         </View>
                         <View style={[styles.statusBadge, { 
@@ -296,7 +296,7 @@ const TrackingScreen = () => {
                             <MaterialCommunityIcons name="calendar-clock" size={16} color={colors.text.secondary} />
                             <Text style={styles.detailLabel}>Pickup Date:</Text>
                             <Text style={styles.detailValue}>
-                                {new Date(booking.pickUpDate || booking.createdAt || new Date()).toLocaleDateString()}
+                                {new Date(booking.pickUpDate || new Date()).toLocaleDateString()}
                             </Text>
                         </View>
                         <View style={styles.detailRow}>

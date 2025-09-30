@@ -111,12 +111,12 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         // Ensure locations are in the correct format for backend
         const formatLocation = (location: any) => {
           if (typeof location === 'string') {
-            // If it's a string, we need to create a basic object
-            // Use Nairobi coordinates as fallback to avoid validation errors
+            // If it's a string, preserve the address and use coordinates from geocoding
+            // Don't fallback to Nairobi - let the backend handle geocoding
             return {
               address: location,
-              latitude: -1.2921, // Nairobi coordinates as fallback
-              longitude: 36.8219
+              latitude: null, // Let backend geocode this
+              longitude: null
             };
           } else if (location && typeof location === 'object') {
             const lat = location.latitude || location.lat;
@@ -131,27 +131,27 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
               address = 'Unknown location';
             }
             
-            // Ensure we have valid coordinates
-            if (lat === undefined || lng === undefined || isNaN(lat) || isNaN(lng)) {
-              // Use Nairobi coordinates as fallback
+            // If we have valid coordinates, use them; otherwise let backend geocode
+            if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
+              return {
+                address,
+                latitude: parseFloat(lat),
+                longitude: parseFloat(lng)
+              };
+            } else {
+              // No valid coordinates - let backend geocode the address
               return {
                 address: address || 'Unknown location',
-                latitude: -1.2921,
-                longitude: 36.8219
+                latitude: null,
+                longitude: null
               };
             }
-            
-            return {
-              address,
-              latitude: parseFloat(lat),
-              longitude: parseFloat(lng)
-            };
           } else {
-            // Fallback for invalid location data - use Nairobi coordinates
+            // Fallback for invalid location data - let backend handle it
             return {
               address: 'Unknown location',
-              latitude: -1.2921,
-              longitude: 36.8219
+              latitude: null,
+              longitude: null
             };
           }
         };

@@ -160,7 +160,7 @@ const ActivityScreen = () => {
             isInsured: booking.insured || false,
             priority: booking.priority || false,
             urgencyLevel: booking.urgencyLevel || 'normal',
-            createdAt: booking.createdAt || booking.pickUpDate || new Date().toISOString(),
+            createdAt: booking.createdAt || new Date().toISOString(),
             transporter: booking.transporterId ? {
               name: booking.transporterName || 'Unknown Transporter',
               phone: booking.transporterPhone || 'N/A',
