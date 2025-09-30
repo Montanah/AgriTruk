@@ -20,34 +20,37 @@ import { formatLocationForDisplay } from '../utils/locationUtils';
 
 interface Job {
     id: string;
-    type: string;
+    bookingId?: string;
+    type?: string;
     fromLocation: string;
     toLocation: string;
     productType: string;
-    weight: string;
+    weight?: string;
+    weightKg?: number;
     createdAt: string;
-    status: 'accepted' | 'ongoing' | 'completed' | 'cancelled';
-    estimatedValue: number;
-    specialRequirements: string[];
-    client: {
+    status: 'accepted' | 'ongoing' | 'completed' | 'cancelled' | 'pending';
+    estimatedValue?: number;
+    cost?: number;
+    specialRequirements?: string[];
+    client?: {
         name: string;
         phone: string;
         email: string;
         rating: number;
         completedOrders: number;
     };
-    pricing: {
+    pricing?: {
         basePrice: number;
         urgencyBonus: number;
         specialHandling: number;
         total: number;
     };
-    route: {
+    route?: {
         distance: string;
         estimatedTime: string;
         detour: string;
     };
-    vehicleType: string;
+    vehicleType?: string;
     bodyType: string;
     capacity: string;
     pickupDate: string;
@@ -105,9 +108,17 @@ const JobManagementScreen = () => {
 
             if (response.ok) {
                 const data = await response.json();
-                setJobs(data.bookings || []);
+                console.log('JobManagementScreen - API Response:', data);
+                console.log('JobManagementScreen - Bookings count:', data.bookings?.length || 0);
+                
+                // Ensure we have an array of jobs
+                const jobsArray = data.bookings || data.jobs || [];
+                console.log('JobManagementScreen - Jobs array:', jobsArray);
+                setJobs(jobsArray);
             } else {
-                throw new Error('Failed to fetch jobs');
+                const errorText = await response.text();
+                console.log('JobManagementScreen - API Error:', response.status, response.statusText, errorText);
+                throw new Error(`Failed to fetch jobs: ${response.status} ${response.statusText}`);
             }
         } catch (err: any) {
             console.error('Error fetching jobs:', err);
@@ -299,7 +310,7 @@ const JobManagementScreen = () => {
                         </Text>
                     </View>
                 </View>
-                <Text style={styles.jobPrice}>{formatCurrency(item.pricing.total)}</Text>
+                <Text style={styles.jobPrice}>{formatCurrency(item.cost || item.pricing?.total || item.estimatedValue || 0)}</Text>
             </View>
 
             <View style={styles.jobDetails}>
@@ -320,22 +331,22 @@ const JobManagementScreen = () => {
                 </View>
                 <View style={styles.specItem}>
                     <MaterialCommunityIcons name="weight" size={14} color={colors.text.secondary} />
-                    <Text style={styles.specText}>{item.weight}</Text>
+                    <Text style={styles.specText}>{item.weight || item.weightKg ? `${item.weightKg}kg` : 'N/A'}</Text>
                 </View>
                 <View style={styles.specItem}>
                     <MaterialCommunityIcons name="truck" size={14} color={colors.text.secondary} />
-                    <Text style={styles.specText}>{item.vehicleType}</Text>
+                    <Text style={styles.specText}>{item.vehicleType || 'N/A'}</Text>
                 </View>
             </View>
 
             <View style={styles.jobFooter}>
                 <View style={styles.clientInfo}>
-                    <Text style={styles.clientName}>{item.client.name}</Text>
-                    <Text style={styles.clientContact}>{item.client.phone}</Text>
+                    <Text style={styles.clientName}>{item.client?.name || 'Unknown Client'}</Text>
+                    <Text style={styles.clientContact}>{item.client?.phone || 'No phone'}</Text>
                     <View style={styles.ratingRow}>
                         <MaterialCommunityIcons name="star" size={12} color={colors.warning} />
-                        <Text style={styles.ratingText}>{item.client.rating.toFixed(1)}</Text>
-                        <Text style={styles.ordersText}>({item.client.completedOrders} orders)</Text>
+                        <Text style={styles.ratingText}>{item.client?.rating?.toFixed(1) || '0.0'}</Text>
+                        <Text style={styles.ordersText}>({item.client?.completedOrders || 0} orders)</Text>
                     </View>
                 </View>
                 <View style={styles.actionButtons}>
