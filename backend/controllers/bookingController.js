@@ -951,7 +951,12 @@ exports.acceptBooking = async (req, res) => {
     await Booking.update(bookingId, updates);
 
     // Get transporter details for notification
-    const transporter = await Transporter.get(transporterId);
+    let transporter = null;
+    try {
+      transporter = await Transporter.get(transporterId);
+    } catch (error) {
+      console.log('Transporter not found for notifications, continuing without transporter details:', error.message);
+    }
     
     // Create detailed notification for client
     await Notification.create({
