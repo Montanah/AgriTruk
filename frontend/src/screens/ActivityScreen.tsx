@@ -20,7 +20,8 @@ import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 import { getAuth } from 'firebase/auth';
 import LocationDisplay from '../components/common/LocationDisplay';
-import { getDistanceBetweenLocations, getLocationNameSync } from '../utils/locationUtils';
+import { getLocationNameSync } from '../utils/locationUtils';
+import { calculateRoadDistanceWithFallback } from '../utils/distanceUtils';
 import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/bookingIdGenerator';
 
 interface RequestItem {
@@ -93,7 +94,7 @@ const ActivityScreen = () => {
       if (response.bookings && Array.isArray(response.bookings)) {
         
         // Transform backend booking data to frontend format
-        const transformedBookings = response.bookings.map((booking: any) => {
+        const transformedBookings = await Promise.all(response.bookings.map(async (booking: any) => {
           console.log('Processing booking:', booking.id || booking.bookingId, 'Cost data:', {
             cost: booking.cost,
             estimatedCost: booking.estimatedCost,
@@ -107,6 +108,8 @@ const ActivityScreen = () => {
           
           // Calculate distance if not provided by backend
           let calculatedDistance = booking.actualDistance;
+          let calculatedDistanceFormatted = calculatedDistance ? `${calculatedDistance} km` : 'Calculating...';
+          
           if (!calculatedDistance && booking.fromLocation && booking.toLocation) {
             try {
               const fromLoc = typeof booking.fromLocation === 'string' 
@@ -117,8 +120,15 @@ const ActivityScreen = () => {
                 : booking.toLocation;
               
               if (fromLoc.latitude && fromLoc.longitude && toLoc.latitude && toLoc.longitude) {
-                calculatedDistance = getDistanceBetweenLocations(fromLoc, toLoc);
-                console.log('Calculated distance on frontend:', calculatedDistance);
+                // Use accurate road distance calculation (same as RequestForm)
+                const distanceResult = await calculateRoadDistanceWithFallback(fromLoc, toLoc);
+                if (distanceResult.success) {
+                  calculatedDistance = distanceResult.distanceKm;
+                  calculatedDistanceFormatted = distanceResult.distance;
+                  console.log('Calculated accurate road distance:', calculatedDistance, 'km');
+                } else {
+                  console.log('Error calculating road distance:', distanceResult.error);
+                }
               }
             } catch (error) {
               console.log('Error calculating distance:', error);
@@ -152,7 +162,7 @@ const ActivityScreen = () => {
             cargoDetails: booking.cargoDetails || booking.productType || 'Unknown',
             vehicleType: booking.vehicleType || 'Any',
             estimatedCost: totalCost || 'TBD',
-            distance: calculatedDistance && typeof calculatedDistance === 'number' ? `${calculatedDistance.toFixed(1)}km` : 'Calculating...',
+            distance: calculatedDistanceFormatted,
             estimatedDuration: booking.estimatedDuration || 'TBD',
             specialRequirements: booking.specialCargo || [],
             needsRefrigeration: booking.needsRefrigeration || false,
@@ -173,7 +183,7 @@ const ActivityScreen = () => {
               status: booking.transporterStatus || 'unknown'
             } : null
           };
-        });
+        }));
 
         setRequests(transformedBookings);
       } else {
