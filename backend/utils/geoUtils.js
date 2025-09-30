@@ -84,12 +84,16 @@ async function calculateRoadDistanceAndDuration(fromLocation, toLocation, vehicl
     };
 
     const response = await client.directions({
-      params: request,
-      key: apiKey,
+      params: {
+        ...request,
+        key: apiKey, // Ensure API key is in params
+      },
       timeout: 10000, // 10 seconds timeout
     });
 
     if (response.data.status !== 'OK') {
+      console.warn(`Google Maps API error: ${response.data.error_message || response.data.status}`);
+      // Don't throw error, fall back to haversine calculation
       throw new Error(`Google Maps API error: ${response.data.error_message || response.data.status}`);
     }
 

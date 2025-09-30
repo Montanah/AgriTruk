@@ -245,6 +245,11 @@ export function getBookingTypeAndMode(booking: any): {
  * @returns Display-ready booking ID
  */
 export function getDisplayBookingId(booking: any, userFriendlyId?: string): string {
+  // Prioritize readableId from backend response
+  if (booking?.readableId) {
+    return booking.readableId;
+  }
+  
   if (userFriendlyId) {
     return userFriendlyId;
   }

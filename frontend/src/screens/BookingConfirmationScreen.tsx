@@ -75,11 +75,6 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
 
   // Handler for posting booking(s)
   const handlePostBooking = async () => {
-    console.log('🚀 STARTING BOOKING SUBMISSION');
-    console.log('🚀 STARTING BOOKING SUBMISSION - TEST LOG');
-    console.warn('🚀 STARTING BOOKING SUBMISSION - WARN LOG');
-    console.error('🚀 STARTING BOOKING SUBMISSION - ERROR LOG');
-    Alert.alert('Debug', 'Booking submission started - check console logs');
     setPosting(true);
     
     // Add timeout to prevent infinite posting state
@@ -227,34 +222,10 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       let retryCount = 0;
       const maxRetries = 3;
       
-      console.log('🚀 Starting booking submission process...');
-      console.log('📊 Payload count:', payload.length);
-      console.log('📋 First payload keys:', Object.keys(payload[0] || {}));
       
-      // Test API connectivity first
-      try {
-        console.log('🔍 Testing API connectivity...');
-        const healthCheck = await fetch('https://agritruk.onrender.com/api/health');
-        const healthData = await healthCheck.json();
-        console.log('✅ API Health Check:', healthData);
-      } catch (healthError) {
-        console.error('❌ API Health Check Failed:', healthError);
-      }
       
       while (retryCount < maxRetries) {
         try {
-          console.log(`🔄 Attempt ${retryCount + 1}/${maxRetries}`);
-          console.log('📤 Sending booking data to backend:', JSON.stringify(payload[0], null, 2));
-          console.log('🔍 Payload validation:', {
-            hasFromLocation: !!payload[0]?.fromLocation,
-            hasToLocation: !!payload[0]?.toLocation,
-            fromLocationKeys: payload[0]?.fromLocation ? Object.keys(payload[0].fromLocation) : 'N/A',
-            toLocationKeys: payload[0]?.toLocation ? Object.keys(payload[0].toLocation) : 'N/A',
-            weightKg: payload[0]?.weightKg,
-            productType: payload[0]?.productType,
-            bookingType: payload[0]?.bookingType,
-            bookingMode: payload[0]?.bookingMode
-          });
           
           // Attempting booking submission
           response = await apiRequest('/bookings', {
@@ -262,24 +233,9 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
             body: JSON.stringify(payload[0])
           });
           
-          console.log('✅ Backend response:', response);
           break; // Success, exit retry loop
         } catch (error: any) {
           retryCount++;
-          console.error(`❌ Booking attempt ${retryCount} failed:`, error);
-          console.error('Error details:', {
-            message: error.message,
-            status: error.status,
-            response: error.response,
-            stack: error.stack
-          });
-          console.error('Full error object:', JSON.stringify(error, null, 2));
-          
-          // Additional logging for debugging
-          console.error('🚨 BOOKING ERROR - Attempt:', retryCount);
-          console.error('🚨 Error type:', typeof error);
-          console.error('🚨 Error constructor:', error.constructor.name);
-          console.error('🚨 Error keys:', Object.keys(error));
           
           if (retryCount >= maxRetries) {
             throw error; // Re-throw if all retries failed
@@ -287,14 +243,11 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           
           // Wait before retry (exponential backoff)
           const waitTime = Math.pow(2, retryCount) * 1000; // 2s, 4s, 8s
-          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
 
       // Booking posted successfully
-      console.log('✅ Booking posted successfully:', response);
-      console.log('📋 Response structure:', JSON.stringify(response, null, 2));
       
       // Extract booking ID from response - prioritize readable ID from backend
       const extractedBookingId = String(
@@ -338,23 +291,10 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       } catch (notificationError) {
         console.warn('Failed to send booking creation notification:', notificationError);
       }
-    } catch (error: any) {
-      // Booking confirmation error
-
-      console.error('Failed to post booking:', error);
-      console.error('🚨 FINAL BOOKING ERROR:', error);
-      console.error('🚨 Error message:', error.message);
-      console.error('🚨 Error type:', typeof error);
-      console.error('🚨 Error constructor:', error.constructor.name);
-      console.error('🚨 Error stack:', error.stack);
-      
-      // Check if it's a 500 error (server error)
-      if (error.message?.includes('Failed to create booking')) {
-        // Backend returned 500 error - this might be a data validation issue
-      }
+        } catch (error: any) {
+          // Booking confirmation error
       
       // Don't fallback to local storage - show error instead
-      console.error('❌ Backend booking failed, not using fallback');
       setErrorMessage(`Failed to create booking: ${error.message || 'Server error'}. Please check your details and try again.`);
       setShowErrorAlert(true);
     } finally {
