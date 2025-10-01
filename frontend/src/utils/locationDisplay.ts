@@ -111,14 +111,22 @@ class LocationDisplayService {
       const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4';
       const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`;
       
+      console.log('Geocoding coordinates:', latitude, longitude);
+      console.log('Geocoding URL:', url);
+      
       const response = await fetch(url);
       const data = await response.json();
 
+      console.log('Geocoding response:', data);
+
       if (data.status === 'OK' && data.results.length > 0) {
         const result = data.results[0] as GeocodingResult;
-        return this.formatAddress(result);
+        const formatted = this.formatAddress(result);
+        console.log('Formatted address:', formatted);
+        return formatted;
       }
 
+      console.log('Geocoding failed, status:', data.status);
       return `Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
     } catch (error) {
       console.error('Geocoding API error:', error);

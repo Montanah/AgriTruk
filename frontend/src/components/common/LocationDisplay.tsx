@@ -35,9 +35,31 @@ const LocationDisplay: React.FC<LocationDisplayProps> = ({
         return;
       }
 
-      // If location has an address field, use it directly
+      console.log('LocationDisplay - Processing location:', location);
+
+      // If location has an address field, check if it's a coordinate string
       if (location.address) {
-        setLocationName(location.address);
+        console.log('LocationDisplay - Address found:', location.address);
+        // Check if it's a coordinate string like "Location (-1.0707, 34.4753)"
+        if (location.address.startsWith('Location (')) {
+          console.log('LocationDisplay - Detected coordinate string, will geocode');
+          setIsLoading(true);
+          setError(null);
+          try {
+            const name = await getLocationName(location);
+            console.log('LocationDisplay - Geocoded result:', name);
+            setLocationName(name);
+          } catch (err: any) {
+            console.error('LocationDisplay - Geocoding error:', err);
+            setError(err.message || 'Failed to get location name');
+            setLocationName(getLocationNameSync(location));
+          } finally {
+            setIsLoading(false);
+          }
+        } else {
+          console.log('LocationDisplay - Using address directly:', location.address);
+          setLocationName(location.address);
+        }
         return;
       }
 
