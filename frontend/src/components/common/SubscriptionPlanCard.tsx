@@ -9,7 +9,7 @@ export interface SubscriptionPlan {
     id: string;
     name: string;
     price: number;
-    period: 'monthly' | 'yearly';
+    period: 'monthly' | 'quarterly' | 'annual' | 'yearly';
     features: string[];
     popular?: boolean;
     discount?: number;
@@ -27,7 +27,9 @@ const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
     onSelect
 }) => {
     const originalPrice = plan.discount ? plan.price / (1 - plan.discount / 100) : plan.price;
-    const periodText = plan.period === 'monthly' ? 'month' : 'year';
+    const periodText = plan.period === 'monthly' ? 'month' : 
+                      plan.period === 'quarterly' ? 'quarter' : 
+                      plan.period === 'annual' ? 'year' : 'year';
 
     return (
         <TouchableOpacity
@@ -95,17 +97,18 @@ const SubscriptionPlanCard: React.FC<SubscriptionPlanCardProps> = ({
 const styles = StyleSheet.create({
     container: {
         backgroundColor: colors.white,
-        borderRadius: 16,
-        padding: spacing.lg,
-        marginBottom: spacing.md,
+        borderRadius: 20,
+        padding: 28,
+        marginBottom: 16,
         borderWidth: 2,
         borderColor: colors.text.light,
         shadowColor: colors.black,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        elevation: 8,
         position: 'relative',
+        minHeight: 200,
     },
     popular: {
         borderColor: colors.primary,
@@ -128,13 +131,13 @@ const styles = StyleSheet.create({
     },
     header: {
         alignItems: 'center',
-        marginBottom: spacing.lg,
+        marginBottom: 20,
     },
     name: {
-        fontSize: fonts.size.lg,
+        fontSize: 22,
         fontWeight: 'bold',
         color: colors.text.primary,
-        marginBottom: spacing.sm,
+        marginBottom: 12,
     },
     priceContainer: {
         flexDirection: 'row',
@@ -142,20 +145,20 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     price: {
-        fontSize: fonts.size.xl,
+        fontSize: 28,
         fontWeight: 'bold',
         color: colors.text.primary,
     },
     originalPrice: {
-        fontSize: fonts.size.md,
+        fontSize: 18,
         color: colors.text.light,
         textDecorationLine: 'line-through',
-        marginRight: spacing.sm,
+        marginRight: 8,
     },
     period: {
-        fontSize: fonts.size.md,
+        fontSize: 18,
         color: colors.text.secondary,
-        marginLeft: spacing.xs,
+        marginLeft: 4,
     },
     discountBadge: {
         backgroundColor: colors.success,
@@ -170,18 +173,19 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     features: {
-        marginBottom: spacing.lg,
+        marginBottom: 20,
     },
     featureRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: spacing.sm,
+        marginBottom: 12,
     },
     featureText: {
-        fontSize: fonts.size.md,
+        fontSize: 16,
         color: colors.text.primary,
-        marginLeft: spacing.sm,
+        marginLeft: 12,
         flex: 1,
+        lineHeight: 22,
     },
     checkContainer: {
         alignItems: 'center',

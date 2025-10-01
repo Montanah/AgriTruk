@@ -1521,7 +1521,7 @@ export default function ManageTransporterScreen({ route }: any) {
               }}
               onManagePress={() => {
                 console.log('Manage button pressed!');
-                navigation.navigate('SubscriptionManagement');
+                navigation.navigate('SubscriptionManagement', { userType: transporterType === 'company' ? 'company' : 'transporter' });
               }}
               onRenewPress={handlePayment}
               onUpgradePress={() => navigation.navigate('SubscriptionManagement')}
@@ -2313,7 +2313,7 @@ export default function ManageTransporterScreen({ route }: any) {
               }}
               onManagePress={() => {
                 console.log('Manage button pressed!');
-                navigation.navigate('SubscriptionManagement');
+                navigation.navigate('SubscriptionManagement', { userType: transporterType === 'company' ? 'company' : 'transporter' });
               }}
               onRenewPress={handlePayment}
               onUpgradePress={() => navigation.navigate('SubscriptionManagement')}

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const BrokerController = require('../controllers/brokerController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
+const loadUserProfile = require('../middlewares/loadUserProfile');
 const { requireRole } = require('../middlewares/requireRole');
 const { authorize } = require("../middlewares/adminAuth");
 const multer = require('multer');
@@ -343,6 +344,89 @@ router.post('/requests/consolidate', authenticateToken, requireRole(['broker', '
  *         description: Server error
  */
 router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broker', 'admin']), BrokerController.getRequestsByClient);
+
+/**
+ * @swagger
+ * /api/brokers/requests:
+ *   get:
+ *     summary: Get all requests for a broker
+ *     tags: [Broker]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All broker requests retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 requests:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       400:
+ *         description: Broker ID not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/requests', authenticateToken, loadUserProfile, requireRole('broker'), BrokerController.getAllBrokerRequests);
+
+/**
+ * @swagger
+ * /api/brokers/clients-with-requests:
+ *   get:
+ *     summary: Get all clients with their request statistics
+ *     tags: [Broker]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Clients with request statistics retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       company:
+ *                         type: string
+ *                       totalRequests:
+ *                         type: number
+ *                       activeRequests:
+ *                         type: number
+ *                       instantRequests:
+ *                         type: number
+ *                       bookingRequests:
+ *                         type: number
+ *                       lastRequest:
+ *                         type: string
+ *                       latestRequestStatus:
+ *                         type: string
+ *                       latestRequestType:
+ *                         type: string
+ *       400:
+ *         description: Broker ID not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/clients-with-requests', authenticateToken, loadUserProfile, requireRole('broker'), BrokerController.getClientsWithRequests);
 
 /**
  * @swagger

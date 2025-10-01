@@ -51,6 +51,8 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
     const [showClientDetailsModal, setShowClientDetailsModal] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [brokerName, setBrokerName] = useState('');
+    const [profilePhoto, setProfilePhoto] = useState<any>(null);
     const [newClient, setNewClient] = useState({
         name: '',
         company: '',
@@ -69,6 +71,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
     useEffect(() => {
         fetchBrokerStats();
         fetchClients();
+        loadBrokerProfile();
     }, []);
 
     // Refresh data when screen comes into focus
@@ -147,6 +150,29 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
             }
         } catch (error) {
             console.error('Error fetching clients:', error);
+        }
+    };
+
+    const loadBrokerProfile = async () => {
+        try {
+            const { getAuth } = require('firebase/auth');
+            const { doc, getDoc } = require('firebase/firestore');
+            const { db } = require('../firebaseConfig');
+            
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                setBrokerName(userData.name || user.displayName || 'Broker');
+                if (userData.profilePhoto) {
+                    setProfilePhoto({ uri: userData.profilePhoto });
+                }
+            }
+        } catch (error) {
+            console.error('Error loading broker profile:', error);
         }
     };
 
@@ -310,9 +336,22 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <View>
-                    <Text style={styles.greeting}>Welcome back,</Text>
-                    <Text style={styles.brokerName}>Broker</Text>
+                <View style={styles.headerUserInfo}>
+                    <View style={styles.profileImageContainer}>
+                        {profilePhoto ? (
+                            <Image source={{ uri: profilePhoto.uri }} style={styles.profileImage} />
+                        ) : (
+                            <View style={styles.profileImagePlaceholder}>
+                                <Text style={styles.profileImageText}>
+                                    {brokerName ? brokerName.charAt(0).toUpperCase() : 'B'}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                    <View>
+                        <Text style={styles.greeting}>Welcome back,</Text>
+                        <Text style={styles.brokerName}>{brokerName || 'Broker'}</Text>
+                    </View>
                 </View>
                 <View style={styles.headerActions}>
                     <TouchableOpacity style={styles.notificationButton}>
@@ -343,7 +382,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                 <View style={styles.earningsSection}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Monthly Earnings</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('BrokerProfileScreen')}>
+                        <TouchableOpacity onPress={() => navigation.navigate('SubscriptionManagement', { userType: 'broker' })}>
                             <Text style={styles.viewAllText}>View Details</Text>
                         </TouchableOpacity>
                     </View>
@@ -478,7 +517,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                         
                         <TouchableOpacity
                             style={styles.manageButton}
-                            onPress={() => navigation.navigate('BrokerProfileScreen')}
+                            onPress={() => navigation.navigate('SubscriptionManagement', { userType: 'broker' })}
                         >
                             <Text style={styles.manageButtonText}>
                                 {subscriptionStatus?.needsTrialActivation ? 'Activate Trial' : 'Manage'}
@@ -793,6 +832,32 @@ const styles = StyleSheet.create({
         backgroundColor: colors.white,
         borderBottomWidth: 1,
         borderBottomColor: colors.border,
+    },
+    headerUserInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    profileImageContainer: {
+        marginRight: spacing.md,
+    },
+    profileImage: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+    },
+    profileImagePlaceholder: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    profileImageText: {
+        color: colors.white,
+        fontSize: 18,
+        fontWeight: 'bold',
     },
     greeting: {
         fontSize: fonts.size.sm,

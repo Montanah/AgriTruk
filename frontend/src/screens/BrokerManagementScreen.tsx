@@ -39,8 +39,13 @@ interface Client {
     email: string;
     totalRequests: number;
     activeRequests: number;
+    instantRequests: number;
+    bookingRequests: number;
     lastRequest: string;
+    latestRequestStatus?: string;
+    latestRequestType?: string;
     isVerified: boolean;
+    requests?: RequestItem[];
 }
 
 // Mock data removed - now using real API calls
@@ -95,7 +100,14 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             
             if (res.ok) {
                 const data = await res.json();
-                setRequests(data.requests || []);
+                console.log('Broker requests API response:', data);
+                setRequests(data.requests || data.data || []);
+                // Reload clients to update active request counts
+                await loadClients();
+            } else {
+                console.error('Failed to fetch broker requests:', res.status, res.statusText);
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Error details:', errorData);
             }
         } catch (error) {
             console.error('Error loading requests:', error);
@@ -112,7 +124,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             if (!user) return;
             
             const token = await user.getIdToken();
-            const res = await fetch(`${API_ENDPOINTS.BROKERS}/clients`, {
+            const res = await fetch(`${API_ENDPOINTS.BROKERS}/clients-with-requests`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
@@ -121,7 +133,12 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             
             if (res.ok) {
                 const data = await res.json();
+                console.log('Clients with requests API response:', data);
                 setClients(data.data || []);
+            } else {
+                console.error('Failed to fetch clients with requests:', res.status, res.statusText);
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Error details:', errorData);
             }
         } catch (error) {
             console.error('Error loading clients:', error);
@@ -149,6 +166,38 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             booking: request,
             userType: 'broker',
         });
+    };
+
+    const handleContactTransporter = (request: RequestItem) => {
+        if (!request.transporter) {
+            Alert.alert('No Transporter', 'No transporter assigned to this request yet.');
+            return;
+        }
+
+        Alert.alert(
+            'Contact Transporter',
+            `Contact ${request.transporter.name}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                    text: 'Call', 
+                    onPress: () => {
+                        // TODO: Implement phone call functionality
+                        Alert.alert('Call', `Calling ${request.transporter?.phone}...`);
+                    }
+                },
+                { 
+                    text: 'Chat', 
+                    onPress: () => {
+                        navigation.navigate('ChatScreen', {
+                            transporter: request.transporter,
+                            requestId: request.id,
+                            userType: 'broker'
+                        });
+                    }
+                }
+            ]
+        );
     };
 
     const handleRequestSelection = (requestId: string) => {
@@ -313,6 +362,26 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 </View>
             )}
 
+            {/* Transporter Information */}
+            {item.transporter && (
+                <View style={styles.transporterInfo}>
+                    <View style={styles.transporterHeader}>
+                        <MaterialCommunityIcons name="truck" size={16} color={colors.primary} />
+                        <Text style={styles.transporterLabel}>Assigned Transporter:</Text>
+                    </View>
+                    <View style={styles.transporterDetails}>
+                        <Text style={styles.transporterName}>{item.transporter.name}</Text>
+                        <Text style={styles.transporterPhone}>{item.transporter.phone}</Text>
+                        {item.transporter.rating && (
+                            <View style={styles.ratingContainer}>
+                                <MaterialCommunityIcons name="star" size={14} color={colors.warning} />
+                                <Text style={styles.ratingText}>{item.transporter.rating}</Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            )}
+
             <View style={styles.requestActions}>
                 <TouchableOpacity
                     style={styles.actionButton}
@@ -327,8 +396,18 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                     onPress={() => handleViewMap(item)}
                 >
                     <MaterialCommunityIcons name="map" size={16} color={colors.secondary} />
-                    <Text style={[styles.actionButtonText, { color: colors.secondary }]}>View Map</Text>
+                    <Text style={[styles.actionButtonText, { color: colors.secondary }]}>Map</Text>
                 </TouchableOpacity>
+
+                {item.transporter && (
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.chatButton]}
+                        onPress={() => handleContactTransporter(item)}
+                    >
+                        <MaterialCommunityIcons name="message" size={16} color={colors.success} />
+                        <Text style={[styles.actionButtonText, { color: colors.success }]}>Chat</Text>
+                    </TouchableOpacity>
+                )}
 
                 {activeTab === 'consolidation' && (
                     <TouchableOpacity
@@ -357,10 +436,19 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
         </View>
     );
 
+    const handleClientPress = (client: Client) => {
+        setSelectedClient(client);
+        // If client has requests, show them in a modal or navigate to client requests
+        if (client.requests && client.requests.length > 0) {
+            // You can add navigation to client requests screen here
+            console.log('Client requests:', client.requests);
+        }
+    };
+
     const renderClientItem = ({ item }: { item: Client }) => (
         <TouchableOpacity
             style={styles.clientCard}
-            onPress={() => setSelectedClient(item)}
+            onPress={() => handleClientPress(item)}
         >
             <View style={styles.clientHeader}>
                 <View style={styles.clientAvatar}>
@@ -380,8 +468,21 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 </View>
 
                 <View style={styles.clientStats}>
-                    <Text style={styles.clientRequests}>{item.activeRequests} active</Text>
-                    <Text style={styles.clientTotal}>{item.totalRequests} total</Text>
+                    <View style={styles.clientStatsRow}>
+                        <Text style={styles.clientRequests}>{item.activeRequests} active</Text>
+                        <Text style={styles.clientTotal}>{item.totalRequests} total</Text>
+                    </View>
+                    <View style={styles.clientStatsRow}>
+                        <Text style={styles.clientInstant}>{item.instantRequests} instant</Text>
+                        <Text style={styles.clientBooking}>{item.bookingRequests} booking</Text>
+                    </View>
+                    {item.latestRequestStatus && (
+                        <View style={styles.latestRequestInfo}>
+                            <Text style={styles.latestRequestText}>
+                                Latest: {item.latestRequestType} - {item.latestRequestStatus}
+                            </Text>
+                        </View>
+                    )}
                 </View>
             </View>
 
@@ -1098,6 +1199,111 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: colors.primary,
     },
+    // Transporter Information Styles
+    transporterInfo: {
+        marginBottom: spacing.md,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        backgroundColor: colors.surface,
+        borderRadius: 8,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.primary,
+    },
+    transporterHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    transporterLabel: {
+        fontSize: fonts.size.sm,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginLeft: spacing.xs,
+    },
+    transporterDetails: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    transporterName: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.text.primary,
+    },
+    transporterPhone: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+    },
+    ratingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    ratingText: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        marginLeft: 2,
+    },
+    chatButton: {
+        backgroundColor: colors.success + '10',
+        borderColor: colors.success,
+    },
+    // Consolidation Tab Styles
+    consolidationTabs: {
+        flexDirection: 'row',
+        marginBottom: spacing.lg,
+        backgroundColor: colors.surface,
+        borderRadius: 8,
+        padding: 4,
+    },
+    consolidationTab: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: 6,
+    },
+    activeConsolidationTab: {
+        backgroundColor: colors.primary,
+    },
+    consolidationTabText: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        marginLeft: spacing.xs,
+    },
+    activeConsolidationTabText: {
+        color: colors.white,
+    },
+    // Enhanced Selection Actions
+    selectionActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.lg,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        backgroundColor: colors.surface,
+        borderRadius: 8,
+    },
+    selectionInfo: {
+        flex: 1,
+    },
+    selectionCount: {
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+    },
+    selectionSubtext: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        marginTop: 2,
+    },
+    selectionButtons: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
     requestActions: {
         flexDirection: 'row',
         gap: spacing.sm,
@@ -1187,15 +1393,42 @@ const styles = StyleSheet.create({
     },
     clientStats: {
         alignItems: 'flex-end',
+        flex: 1,
+    },
+    clientStatsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 2,
     },
     clientRequests: {
         fontSize: fonts.size.sm,
         color: colors.primary,
         fontWeight: '600',
+        marginRight: spacing.sm,
     },
     clientTotal: {
         fontSize: fonts.size.xs,
         color: colors.text.light,
+    },
+    clientInstant: {
+        fontSize: fonts.size.xs,
+        color: colors.warning,
+        marginRight: spacing.sm,
+    },
+    clientBooking: {
+        fontSize: fonts.size.xs,
+        color: colors.secondary,
+    },
+    latestRequestInfo: {
+        marginTop: spacing.xs,
+        paddingTop: spacing.xs,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    latestRequestText: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        fontStyle: 'italic',
     },
     clientContact: {
         flexDirection: 'row',

@@ -19,7 +19,7 @@ import subscriptionService from '../services/subscriptionService';
 import { transporterPlans, brokerPlans, trialPlan } from '../constants/subscriptionPlans';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
 
-const SubscriptionManagementScreen: React.FC = () => {
+const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
     const navigation = useNavigation();
     const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
     const [companyInfo, setCompanyInfo] = useState<any>(null);
@@ -27,11 +27,14 @@ const SubscriptionManagementScreen: React.FC = () => {
     
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-    const [userType, setUserType] = useState<'transporter' | 'broker' | 'company'>('transporter');
     
-    // Determine user type and get appropriate plans
+    // Get user type from route params or determine from context
     const getUserType = () => {
-        // Check if user is a broker
+        // First check if userType is passed as a route parameter
+        if (route?.params?.userType) {
+            return route.params.userType;
+        }
+        // Check if user is a broker based on subscription status
         if (subscriptionStatus?.currentPlan?.userType === 'broker') {
             return 'broker';
         }
@@ -48,9 +51,7 @@ const SubscriptionManagementScreen: React.FC = () => {
     
     // Debug logging
     console.log('SubscriptionManagementScreen - currentUserType:', currentUserType);
-    console.log('SubscriptionManagementScreen - availablePlans:', availablePlans);
-    console.log('SubscriptionManagementScreen - subscriptionStatus:', subscriptionStatus);
-    console.log('SubscriptionManagementScreen - companyInfo:', companyInfo);
+    console.log('SubscriptionManagementScreen - availablePlans length:', availablePlans?.length);
     
     // Determine current plan based on subscription status
     const getCurrentPlan = () => {

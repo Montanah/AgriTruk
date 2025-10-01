@@ -379,6 +379,123 @@ exports.getRequestsByClient = async (req, res) => {
   }
 };
 
+exports.getAllBrokerRequests = async (req, res) => {
+  try {
+    // Get broker ID from user profile
+    const brokerId = req.user.profile?.brokerId;
+    if (!brokerId) {
+      return res.status(400).json({ success: false, message: 'Broker ID not found in user profile' });
+    }
+
+    // Get all clients for this broker
+    const clients = await Client.getClients(brokerId);
+    const clientIds = clients.map(client => client.id);
+
+    // Get all requests for all clients
+    const allRequests = [];
+    for (const clientId of clientIds) {
+      const clientRequests = await Request.getByClient(clientId);
+      // Add client information to each request
+      const client = clients.find(c => c.id === clientId);
+      const requestsWithClient = clientRequests.map(request => ({
+        ...request,
+        clientName: client.name,
+        clientCompany: client.company,
+        clientPhone: client.phone,
+        clientEmail: client.email
+      }));
+      allRequests.push(...requestsWithClient);
+    }
+
+    await logActivity(req.user.uid, 'get_all_broker_requests', req);
+    const notificationData = {
+      userId: req.user.uid,
+      userType: 'broker',
+      type: 'get_all_broker_requests',
+      message: 'All broker requests retrieved successfully',
+    };
+    await Notification.create(notificationData);
+
+    res.status(200).json({
+      success: true,
+      message: 'All broker requests retrieved successfully',
+      requests: allRequests,
+    });
+  } catch (error) {
+    console.error('Error getting all broker requests:', error);
+    res.status(500).json({
+      success: false,
+      message: `Error getting broker requests: ${error.message}`,
+    });
+  }
+};
+
+exports.getClientsWithRequests = async (req, res) => {
+  try {
+    // Get broker ID from user profile
+    const brokerId = req.user.profile?.brokerId;
+    if (!brokerId) {
+      return res.status(400).json({ success: false, message: 'Broker ID not found in user profile' });
+    }
+
+    // Get all clients for this broker
+    const clients = await Client.getClients(brokerId);
+    
+    // Get requests for each client and add request statistics
+    const clientsWithRequests = await Promise.all(
+      clients.map(async (client) => {
+        const clientRequests = await Request.getByClient(client.id);
+        
+        // Calculate request statistics
+        const totalRequests = clientRequests.length;
+        const activeRequests = clientRequests.filter(req => 
+          ['pending', 'confirmed', 'in_transit'].includes(req.status)
+        ).length;
+        const instantRequests = clientRequests.filter(req => req.type === 'instant').length;
+        const bookingRequests = clientRequests.filter(req => req.type === 'booking').length;
+        
+        // Get latest request
+        const latestRequest = clientRequests.length > 0 
+          ? clientRequests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]
+          : null;
+
+        return {
+          ...client,
+          totalRequests,
+          activeRequests,
+          instantRequests,
+          bookingRequests,
+          lastRequest: latestRequest ? latestRequest.createdAt : null,
+          latestRequestStatus: latestRequest ? latestRequest.status : null,
+          latestRequestType: latestRequest ? latestRequest.type : null,
+          requests: clientRequests // Include full request details if needed
+        };
+      })
+    );
+
+    await logActivity(req.user.uid, 'get_clients_with_requests', req);
+    const notificationData = {
+      userId: req.user.uid,
+      userType: 'broker',
+      type: 'get_clients_with_requests',
+      message: 'Clients with requests retrieved successfully',
+    };
+    await Notification.create(notificationData);
+
+    res.status(200).json({
+      success: true,
+      message: 'Clients with requests retrieved successfully',
+      data: clientsWithRequests,
+    });
+  } catch (error) {
+    console.error('Error getting clients with requests:', error);
+    res.status(500).json({
+      success: false,
+      message: `Error getting clients with requests: ${error.message}`,
+    });
+  }
+};
+
 exports.getAllBrokers = async (req, res) => {
   try {
     const brokers = await Broker.getAll();

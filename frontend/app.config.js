@@ -1,6 +1,6 @@
 const isProduction = process.env.NODE_ENV === 'production' || process.env.EXPO_PUBLIC_BUILD_MODE === 'production';
 
-export default {
+module.exports = {
   expo: {
     name: "TRUKapp",
     slug: "TRUKapp",
@@ -9,7 +9,7 @@ export default {
     icon: "./assets/images/icon.png",
     scheme: "trukapp",
     userInterfaceStyle: "automatic",
-    newArchEnabled: false, // Disabled for development client compatibility
+    newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.truk.trukapp",
       supportsTablet: true,
@@ -85,8 +85,6 @@ export default {
           "locationAlwaysAndWhenInUsePermission": "Allow TRUKapp to use your location to show your position on the map and calculate routes."
         }
       ],
-      // expo-notifications removed for APK build compatibility
-      // expo-crypto removed due to compatibility issues
       "expo-asset",
       "expo-font",
       "expo-maps",

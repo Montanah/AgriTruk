@@ -40,7 +40,7 @@ const PaymentSuccessScreen: React.FC<PaymentSuccessScreenProps> = ({ route }) =>
 
     const handleViewSubscription = () => {
         // Navigate to subscription management screen
-        navigation.navigate('SubscriptionManagement');
+        navigation.navigate('SubscriptionManagement', { userType });
     };
 
     return (

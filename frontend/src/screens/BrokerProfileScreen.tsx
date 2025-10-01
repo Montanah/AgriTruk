@@ -288,6 +288,100 @@ export default function BrokerProfileScreen() {
     setShowPaymentModal(true);
   };
 
+  const handleEditPaymentMethod = (method: PaymentMethod) => {
+    Alert.alert(
+      'Edit Payment Method',
+      `Edit ${method.name} payment method?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Edit', 
+          onPress: () => {
+            // TODO: Implement edit payment method functionality
+            Alert.alert('Coming Soon', 'Edit payment method functionality will be available soon!');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDeletePaymentMethod = async (methodId: string) => {
+    Alert.alert(
+      'Delete Payment Method',
+      'Are you sure you want to delete this payment method?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Remove from local state
+              setPaymentMethods(prev => prev.filter(method => method.id !== methodId));
+              
+              // If it was the default, set another as default
+              const remainingMethods = paymentMethods.filter(method => method.id !== methodId);
+              if (remainingMethods.length > 0) {
+                const newDefault = remainingMethods[0];
+                setPaymentMethods(prev => 
+                  prev.map(method => 
+                    method.id === newDefault.id 
+                      ? { ...method, isDefault: true }
+                      : method
+                  )
+                );
+              }
+              
+              Alert.alert('Success', 'Payment method deleted successfully');
+            } catch (error) {
+              console.error('Error deleting payment method:', error);
+              Alert.alert('Error', 'Failed to delete payment method');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleAddMpesaPayment = () => {
+    Alert.prompt(
+      'Add M-PESA Payment Method',
+      'Enter your M-PESA phone number:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Add', 
+          onPress: (phoneNumber) => {
+            if (phoneNumber && phoneNumber.trim()) {
+              const newMethod: PaymentMethod = {
+                id: `mpesa-${Date.now()}`,
+                type: 'mpesa',
+                name: 'M-PESA',
+                details: phoneNumber.trim(),
+                isDefault: paymentMethods.length === 0
+              };
+              
+              setPaymentMethods(prev => [...prev, newMethod]);
+              Alert.alert('Success', 'M-PESA payment method added successfully');
+            }
+          }
+        }
+      ],
+      'plain-text',
+      phone || '+254'
+    );
+  };
+
+  const handleAddCardPayment = () => {
+    Alert.alert(
+      'Add Card Payment',
+      'Card payment functionality will be available soon! For now, you can use M-PESA for payments.',
+      [
+        { text: 'OK', onPress: () => handleAddMpesaPayment() }
+      ]
+    );
+  };
+
   const handleSubscribe = (plan: SubscriptionPlan) => {
     setCurrentPlan(plan);
     setShowSubscriptionModal(true);
@@ -424,7 +518,7 @@ export default function BrokerProfileScreen() {
       <View style={styles.quickActionsGrid}>
         <TouchableOpacity
           style={styles.quickActionCard}
-          onPress={() => setShowSubscriptionModal(true)}
+          onPress={() => navigation.navigate('SubscriptionManagement', { userType: 'broker' })}
         >
           <MaterialCommunityIcons name="star-circle" size={32} color={colors.primary} />
           <Text style={styles.quickActionTitle}>Subscription</Text>
@@ -442,7 +536,7 @@ export default function BrokerProfileScreen() {
 
         <TouchableOpacity
           style={styles.quickActionCard}
-          onPress={() => Alert.alert('Security', 'Security settings coming soon!')}
+          onPress={() => setShowProfileModal(true)}
         >
           <MaterialCommunityIcons name="shield-check" size={32} color={colors.tertiary} />
           <Text style={styles.quickActionTitle}>Security</Text>
@@ -451,11 +545,11 @@ export default function BrokerProfileScreen() {
 
         <TouchableOpacity
           style={styles.quickActionCard}
-          onPress={() => navigation.navigate('Home')}
+          onPress={() => navigation.navigate('BrokerManagementScreen', { activeTab: 'requests' })}
         >
-          <MaterialCommunityIcons name="home" size={32} color={colors.warning} />
-          <Text style={styles.quickActionTitle}>Dashboard</Text>
-          <Text style={styles.quickActionSubtitle}>Go to home</Text>
+          <MaterialCommunityIcons name="clipboard-list" size={32} color={colors.warning} />
+          <Text style={styles.quickActionTitle}>Requests</Text>
+          <Text style={styles.quickActionSubtitle}>Manage requests</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -791,7 +885,7 @@ export default function BrokerProfileScreen() {
         </View>
       </Modal>
 
-      {/* Payment Methods Modal */}
+      {/* Enhanced Payment Methods Modal */}
       <Modal
         visible={showPaymentModal}
         animationType="slide"
@@ -807,17 +901,66 @@ export default function BrokerProfileScreen() {
               </TouchableOpacity>
             </View>
 
+            <ScrollView style={styles.paymentMethodsList} showsVerticalScrollIndicator={false}>
+              {paymentMethods.length > 0 ? (
+                paymentMethods.map((method) => (
+                  <View key={method.id} style={styles.paymentMethodItem}>
+                    <View style={styles.paymentMethodInfo}>
+                      <MaterialCommunityIcons
+                        name={method.type === 'mpesa' ? 'cellphone' : 'credit-card'}
+                        size={24}
+                        color={colors.primary}
+                      />
+                      <View style={styles.paymentMethodDetails}>
+                        <Text style={styles.paymentMethodName}>{method.name}</Text>
+                        <Text style={styles.paymentMethodDetails}>{method.details}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.paymentMethodActions}>
+                      {method.isDefault && (
+                        <View style={styles.defaultBadge}>
+                          <Text style={styles.defaultBadgeText}>Default</Text>
+                        </View>
+                      )}
+                      <TouchableOpacity 
+                        style={styles.editPaymentButton}
+                        onPress={() => handleEditPaymentMethod(method)}
+                      >
+                        <MaterialCommunityIcons name="pencil" size={16} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.deletePaymentButton}
+                        onPress={() => handleDeletePaymentMethod(method.id)}
+                      >
+                        <MaterialCommunityIcons name="delete" size={16} color={colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons name="credit-card-off" size={48} color={colors.text.light} />
+                  <Text style={styles.emptyStateTitle}>No Payment Methods</Text>
+                  <Text style={styles.emptyStateSubtitle}>Add a payment method to get started</Text>
+                </View>
+              )}
+            </ScrollView>
+
             <View style={styles.paymentOptions}>
-              <TouchableOpacity style={styles.paymentOption}>
-                <MaterialCommunityIcons name="cellphone" size={32} color={colors.primary} />
-                <Text style={styles.paymentOptionText}>MPESA</Text>
-                <Text style={styles.paymentOptionSubtext}>Mobile Money</Text>
+              <TouchableOpacity 
+                style={styles.addPaymentOption}
+                onPress={() => handleAddMpesaPayment()}
+              >
+                <MaterialCommunityIcons name="cellphone-plus" size={24} color={colors.primary} />
+                <Text style={styles.addPaymentOptionText}>Add M-PESA</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.paymentOption}>
-                <MaterialCommunityIcons name="credit-card" size={32} color={colors.secondary} />
-                <Text style={styles.paymentOptionText}>Card Payment</Text>
-                <Text style={styles.paymentOptionSubtext}>Credit/Debit Card</Text>
+              <TouchableOpacity 
+                style={styles.addPaymentOption}
+                onPress={() => handleAddCardPayment()}
+              >
+                <MaterialCommunityIcons name="credit-card-plus" size={24} color={colors.secondary} />
+                <Text style={styles.addPaymentOptionText}>Add Card</Text>
               </TouchableOpacity>
             </View>
 
@@ -826,7 +969,7 @@ export default function BrokerProfileScreen() {
                 style={styles.cancelButton}
                 onPress={() => setShowPaymentModal(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1417,5 +1560,81 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: spacing.xs,
+  },
+  // Enhanced Payment Methods Modal Styles
+  paymentMethodsList: {
+    maxHeight: 300,
+    marginBottom: spacing.md,
+  },
+  paymentMethodItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+  },
+  paymentMethodInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  paymentMethodDetails: {
+    marginLeft: spacing.sm,
+    flex: 1,
+  },
+  paymentMethodName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 2,
+  },
+  paymentMethodActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  editPaymentButton: {
+    padding: spacing.sm,
+    marginLeft: spacing.sm,
+  },
+  deletePaymentButton: {
+    padding: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text.secondary,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  emptyStateSubtitle: {
+    fontSize: 14,
+    color: colors.text.light,
+    textAlign: 'center',
+  },
+  addPaymentOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    borderStyle: 'dashed',
+  },
+  addPaymentOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
   },
 });
