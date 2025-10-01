@@ -35,6 +35,18 @@ const LocationDisplay: React.FC<LocationDisplayProps> = ({
         return;
       }
 
+      // If location has an address field, use it directly
+      if (location.address) {
+        setLocationName(location.address);
+        return;
+      }
+
+      // If it's already a string, use it
+      if (typeof location === 'string') {
+        setLocationName(location);
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
 

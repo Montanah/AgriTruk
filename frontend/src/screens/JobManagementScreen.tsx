@@ -134,9 +134,40 @@ const JobManagementScreen = () => {
                     console.log('JobManagementScreen - First job data:', jobsArray[0]);
                     console.log('JobManagementScreen - First job client:', jobsArray[0].client);
                     console.log('JobManagementScreen - First job vehicle:', jobsArray[0].vehicle);
+                    console.log('JobManagementScreen - First job fromLocation:', jobsArray[0].fromLocation);
+                    console.log('JobManagementScreen - First job toLocation:', jobsArray[0].toLocation);
                 }
                 
-                setJobs(jobsArray);
+                // If backend doesn't provide client data, try to fetch it
+                const enrichedJobs = await Promise.all(jobsArray.map(async (job) => {
+                    if (!job.client && job.userId) {
+                        try {
+                            const clientResponse = await fetch(`${API_ENDPOINTS.USERS}/${job.userId}`, {
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'application/json',
+                                },
+                            });
+                            
+                            if (clientResponse.ok) {
+                                const clientData = await clientResponse.json();
+                                job.client = {
+                                    id: clientData.uid,
+                                    name: clientData.name || 'Unknown Client',
+                                    phone: clientData.phone || 'No phone',
+                                    email: clientData.email || 'No email',
+                                    rating: clientData.rating || 0,
+                                    completedOrders: clientData.completedOrders || 0,
+                                };
+                            }
+                        } catch (error) {
+                            console.error('Error fetching client data:', error);
+                        }
+                    }
+                    return job;
+                }));
+                
+                setJobs(enrichedJobs);
             } else {
                 const errorText = await response.text();
                 console.log('JobManagementScreen - API Error:', response.status, response.statusText, errorText);
@@ -404,11 +435,21 @@ const JobManagementScreen = () => {
             <View style={styles.jobDetails}>
                 <View style={styles.locationRow}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.locationText}>{formatLocationForDisplay(item.fromLocation)}</Text>
+                    <Text style={styles.locationText}>
+                    {item.fromLocation?.address || 
+                     (item.fromLocation?.latitude && item.fromLocation?.longitude ? 
+                      `Location (${item.fromLocation.latitude.toFixed(4)}, ${item.fromLocation.longitude.toFixed(4)})` : 
+                      formatLocationForDisplay(item.fromLocation))}
+                </Text>
                 </View>
                 <View style={styles.locationRow}>
                     <MaterialCommunityIcons name="map-marker-outline" size={16} color={colors.text.secondary} />
-                    <Text style={styles.locationText}>{formatLocationForDisplay(item.toLocation)}</Text>
+                    <Text style={styles.locationText}>
+                        {item.toLocation?.address || 
+                         (item.toLocation?.latitude && item.toLocation?.longitude ? 
+                          `Location (${item.toLocation.latitude.toFixed(4)}, ${item.toLocation.longitude.toFixed(4)})` : 
+                          formatLocationForDisplay(item.toLocation))}
+                    </Text>
                 </View>
             </View>
 
@@ -463,8 +504,12 @@ const JobManagementScreen = () => {
                     <TouchableOpacity
                         style={[styles.actionButton, styles.detailsButton]}
                         onPress={() => {
-                            // Navigate to job details
-                            navigation.navigate('JobDetailsScreen', { jobId: item.id });
+                            // Navigate to trip details
+                            navigation.navigate('TripDetailsScreen', { 
+                                jobId: item.id,
+                                bookingId: item.bookingId || item.id,
+                                job: item
+                            });
                         }}
                     >
                         <Text style={styles.detailsButtonText}>Details</Text>
