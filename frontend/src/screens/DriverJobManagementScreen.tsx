@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,18 +11,18 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { getAuth } from 'firebase/auth';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
-import { getAuth } from 'firebase/auth';
 
 interface Job {
   id: string;
   bookingId: string;
   customerName: string;
   customerPhone: string;
-  pickupLocation: string;
-  deliveryLocation: string;
+  fromLocation: any;
+  toLocation: any;
   pickupTime: string;
   deliveryTime: string;
   status: 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
@@ -31,6 +31,32 @@ interface Job {
   vehicleRegistration: string;
   createdAt: string;
   updatedAt: string;
+  productType?: string;
+  weight?: number;
+  specialRequirements?: string[];
+  client?: {
+    name: string;
+    phone: string;
+    rating: number;
+  };
+}
+
+interface RouteLoad {
+  id: string;
+  pickup: string;
+  dropoff: string;
+  detourKm: number;
+  weight: number;
+  price: number;
+  description?: string;
+  urgency: 'high' | 'medium' | 'low';
+  specialRequirements: string[];
+  clientRating: number;
+  estimatedValue: number;
+  route: {
+    distance: string;
+    estimatedTime: string;
+  };
 }
 
 interface DriverProfile {
@@ -58,7 +84,10 @@ const DriverJobManagementScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState<'available' | 'my_jobs'>('available');
+  const [selectedTab, setSelectedTab] = useState<'available' | 'my_jobs' | 'route_loads'>('available');
+  const [currentTrip, setCurrentTrip] = useState<Job | null>(null);
+  const [routeLoads, setRouteLoads] = useState<RouteLoad[]>([]);
+  const [selectedLoads, setSelectedLoads] = useState<RouteLoad[]>([]);
 
   const fetchDriverProfile = async () => {
     try {
@@ -83,7 +112,7 @@ const DriverJobManagementScreen = () => {
     }
   };
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     try {
       setError(null);
       const auth = getAuth();
@@ -91,9 +120,24 @@ const DriverJobManagementScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const endpoint = selectedTab === 'available' 
-        ? `${API_ENDPOINTS.BOOKINGS}/available`
-        : `${API_ENDPOINTS.BOOKINGS}/driver-jobs`;
+      let endpoint = '';
+
+      switch (selectedTab) {
+        case 'available':
+          endpoint = `${API_ENDPOINTS.BOOKINGS}/available`;
+          break;
+        case 'my_jobs':
+          endpoint = `${API_ENDPOINTS.BOOKINGS}/driver-jobs`;
+          break;
+        case 'route_loads':
+          if (currentTrip) {
+            endpoint = `${API_ENDPOINTS.TRANSPORTERS}/trips/${currentTrip.id}/available-loads`;
+          } else {
+            setJobs([]);
+            return;
+          }
+          break;
+      }
 
       const response = await fetch(endpoint, {
         headers: {
@@ -104,7 +148,11 @@ const DriverJobManagementScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setJobs(data.jobs || []);
+        if (selectedTab === 'route_loads') {
+          setRouteLoads(data || []);
+        } else {
+          setJobs(data.jobs || []);
+        }
       } else {
         throw new Error('Failed to fetch jobs');
       }
@@ -114,22 +162,49 @@ const DriverJobManagementScreen = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedTab, currentTrip]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchJobs();
-    setRefreshing(false);
-  };
-
-  const handleAcceptJob = async (jobId: string) => {
+  const fetchCurrentTrip = async () => {
     try {
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`, {
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/driver/active-trip`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentTrip(data.trip);
+      }
+    } catch (err) {
+      console.error('Error fetching current trip:', err);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchDriverProfile(),
+      fetchJobs(),
+      fetchCurrentTrip()
+    ]);
+    setRefreshing(false);
+  };
+
+  const handleAcceptJob = async (job: Job) => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/accept`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -138,54 +213,95 @@ const DriverJobManagementScreen = () => {
       });
 
       if (response.ok) {
-        Alert.alert('Success', 'Job accepted successfully');
-        fetchJobs(); // Refresh the list
+        Alert.alert('Success', 'Job accepted successfully!');
+        fetchJobs();
+        fetchCurrentTrip();
       } else {
-        const errorData = await response.json();
-        Alert.alert('Error', errorData.message || 'Failed to accept job');
+        throw new Error('Failed to accept job');
       }
     } catch (err: any) {
       console.error('Error accepting job:', err);
-      Alert.alert('Error', 'Failed to accept job');
+      Alert.alert('Error', err.message || 'Failed to accept job');
     }
   };
 
-  const handleUpdateJobStatus = async (jobId: string, status: string) => {
+  const handleStartTrip = async (job: Job) => {
     try {
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/status`, {
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/update`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: 'in_progress' })
       });
 
       if (response.ok) {
-        Alert.alert('Success', 'Job status updated successfully');
-        fetchJobs(); // Refresh the list
+        Alert.alert('Success', 'Trip started successfully!');
+        fetchJobs();
+        fetchCurrentTrip();
       } else {
-        const errorData = await response.json();
-        Alert.alert('Error', errorData.message || 'Failed to update job status');
+        throw new Error('Failed to start trip');
       }
     } catch (err: any) {
-      console.error('Error updating job status:', err);
-      Alert.alert('Error', 'Failed to update job status');
+      console.error('Error starting trip:', err);
+      Alert.alert('Error', err.message || 'Failed to start trip');
     }
   };
 
+  const handleCompleteTrip = async (job: Job) => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/update`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'completed' })
+      });
+
+      if (response.ok) {
+        Alert.alert('Success', 'Trip completed successfully!');
+        fetchJobs();
+        fetchCurrentTrip();
+      } else {
+        throw new Error('Failed to complete trip');
+      }
+    } catch (err: any) {
+      console.error('Error completing trip:', err);
+      Alert.alert('Error', err.message || 'Failed to complete trip');
+    }
+  };
+
+
+  const toggleLoadSelection = (load: RouteLoad) => {
+    setSelectedLoads(prev => 
+      prev.find(l => l.id === load.id) 
+        ? prev.filter(l => l.id !== load.id)
+        : [...prev, load]
+    );
+  };
+
+
+
   useEffect(() => {
     fetchDriverProfile();
+    fetchCurrentTrip();
   }, []);
 
   useEffect(() => {
     fetchJobs();
-  }, [selectedTab]);
+  }, [fetchJobs]);
 
   const renderJob = ({ item }: { item: Job }) => (
     <View style={styles.jobCard}>
@@ -212,13 +328,15 @@ const DriverJobManagementScreen = () => {
       </View>
 
       <View style={styles.jobDetails}>
-        <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-          <Text style={styles.detailText}>From: {item.pickupLocation}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
-          <Text style={styles.detailText}>To: {item.deliveryLocation}</Text>
+        <View style={styles.routeInfo}>
+          <View style={styles.detailRow}>
+            <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+            <Text style={styles.detailText}>From: {item.fromLocation?.address || 'Pickup Location'}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
+            <Text style={styles.detailText}>To: {item.toLocation?.address || 'Delivery Location'}</Text>
+          </View>
         </View>
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="clock" size={16} color={colors.text.secondary} />
@@ -233,46 +351,99 @@ const DriverJobManagementScreen = () => {
       </View>
 
       <View style={styles.jobActions}>
-        {selectedTab === 'available' && item.status === 'pending' && (
+        {item.status === 'pending' && (
           <TouchableOpacity
             style={styles.acceptButton}
-            onPress={() => handleAcceptJob(item.id)}
+            onPress={() => handleAcceptJob(item)}
           >
             <MaterialCommunityIcons name="check" size={16} color={colors.white} />
-            <Text style={styles.actionText}>Accept Job</Text>
+            <Text style={styles.actionText}>Accept</Text>
           </TouchableOpacity>
         )}
         
-        {selectedTab === 'my_jobs' && item.status === 'accepted' && (
+        {item.status === 'accepted' && (
           <TouchableOpacity
             style={styles.startButton}
-            onPress={() => handleUpdateJobStatus(item.id, 'in_progress')}
+            onPress={() => handleStartTrip(item)}
           >
             <MaterialCommunityIcons name="play" size={16} color={colors.white} />
-            <Text style={styles.actionText}>Start Job</Text>
+            <Text style={styles.actionText}>Start Trip</Text>
           </TouchableOpacity>
         )}
 
-        {selectedTab === 'my_jobs' && item.status === 'in_progress' && (
+        {item.status === 'in_progress' && (
           <TouchableOpacity
             style={styles.completeButton}
-            onPress={() => handleUpdateJobStatus(item.id, 'completed')}
+            onPress={() => handleCompleteTrip(item)}
           >
             <MaterialCommunityIcons name="check-circle" size={16} color={colors.white} />
-            <Text style={styles.actionText}>Complete Job</Text>
+            <Text style={styles.actionText}>Complete</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
-          style={styles.contactButton}
-          onPress={() => navigation.navigate('ContactCustomer', { job: item })}
+          style={styles.detailsButton}
+          onPress={() => (navigation as any).navigate('TransporterJobDetailsScreen', { 
+            jobId: item.id,
+            bookingId: item.bookingId,
+            job: item
+          })}
         >
-          <MaterialCommunityIcons name="phone" size={16} color={colors.primary} />
-          <Text style={[styles.actionText, { color: colors.primary }]}>Contact</Text>
+          <Text style={styles.detailsButtonText}>Details</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
+
+  const renderRouteLoadItem = ({ item }: { item: RouteLoad }) => (
+    <TouchableOpacity 
+      style={[
+        styles.loadCard,
+        selectedLoads.find(l => l.id === item.id) && styles.selectedLoadCard
+      ]}
+      onPress={() => toggleLoadSelection(item)}
+    >
+      <View style={styles.loadHeader}>
+        <View style={styles.loadInfo}>
+          <Text style={styles.loadId}>Load #{item.id.slice(-6)}</Text>
+          <View style={[styles.urgencyBadge, { backgroundColor: getUrgencyColor(item.urgency) + '20' }]}>
+            <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency) }]}>
+              {item.urgency.toUpperCase()}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.loadPrice}>KES {item.price.toLocaleString()}</Text>
+      </View>
+
+      <View style={styles.loadRoute}>
+        <Text style={styles.loadPickup}>{item.pickup}</Text>
+        <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
+        <Text style={styles.loadDropoff}>{item.dropoff}</Text>
+      </View>
+
+      <View style={styles.loadDetails}>
+        <Text style={styles.loadWeight}>{item.weight} kg</Text>
+        <Text style={styles.loadDetour}>+{item.detourKm}km detour</Text>
+        <Text style={styles.loadTime}>{item.route.estimatedTime}</Text>
+      </View>
+
+      {selectedLoads.find(l => l.id === item.id) && (
+        <View style={styles.selectedIndicator}>
+          <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
+
+  const getUrgencyColor = (urgency: string) => {
+    switch (urgency) {
+      case 'high': return colors.error;
+      case 'medium': return colors.warning;
+      case 'low': return colors.success;
+      default: return colors.text.secondary;
+    }
+  };
 
   if (loading) {
     return (
@@ -328,6 +499,19 @@ const DriverJobManagementScreen = () => {
             My Jobs
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, selectedTab === 'route_loads' && styles.activeTab]}
+          onPress={() => setSelectedTab('route_loads')}
+          disabled={!currentTrip}
+        >
+          <Text style={[
+            styles.tabText, 
+            selectedTab === 'route_loads' && styles.activeTabText,
+            !currentTrip && styles.disabledTab
+          ]}>
+            Route Loads
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
@@ -339,19 +523,42 @@ const DriverJobManagementScreen = () => {
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        ) : jobs.length === 0 ? (
+        ) : (selectedTab === 'route_loads' ? routeLoads.length === 0 : jobs.length === 0) ? (
           <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="briefcase-outline" size={64} color={colors.text.secondary} />
+            <MaterialCommunityIcons 
+              name={selectedTab === 'route_loads' ? 'package-variant' : 'briefcase-outline'} 
+              size={64} 
+              color={colors.text.secondary} 
+            />
             <Text style={styles.emptyTitle}>
-              {selectedTab === 'available' ? 'No Available Jobs' : 'No Jobs Assigned'}
+              {selectedTab === 'available' ? 'No Available Jobs' : 
+               selectedTab === 'my_jobs' ? 'No Jobs Assigned' : 
+               'No Loads Available Along Route'}
             </Text>
             <Text style={styles.emptySubtitle}>
               {selectedTab === 'available' 
                 ? 'Check back later for new job opportunities'
-                : 'You don\'t have any assigned jobs at the moment'
+                : selectedTab === 'my_jobs'
+                ? 'You don\'t have any assigned jobs at the moment'
+                : 'No loads available along your current route'
               }
             </Text>
           </View>
+        ) : selectedTab === 'route_loads' ? (
+          <FlatList
+            data={routeLoads}
+            renderItem={renderRouteLoadItem}
+            keyExtractor={(item) => item.id}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+              />
+            }
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
+          />
         ) : (
           <FlatList
             data={jobs}
@@ -623,6 +830,130 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingBottom: 20,
+  },
+  // New styles for enhanced functionality
+  routeInfo: {
+    marginBottom: 12,
+  },
+  locationText: {
+    fontSize: 14,
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  paymentAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  productType: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: 4,
+  },
+  weight: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  detailsButton: {
+    backgroundColor: colors.background,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  detailsButtonText: {
+    color: colors.text.primary,
+    fontWeight: 'bold',
+  },
+  // Route loads styles
+  loadCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedLoadCard: {
+    borderColor: colors.success,
+    backgroundColor: colors.success + '10',
+  },
+  loadHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  loadInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadId: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginRight: 8,
+  },
+  urgencyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  urgencyText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  loadPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  loadRoute: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  loadPickup: {
+    fontSize: 14,
+    color: colors.text.primary,
+    flex: 1,
+  },
+  loadDropoff: {
+    fontSize: 14,
+    color: colors.text.primary,
+    flex: 1,
+    textAlign: 'right',
+  },
+  loadDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  loadWeight: {
+    fontSize: 12,
+    color: colors.text.secondary,
+  },
+  loadDetour: {
+    fontSize: 12,
+    color: colors.text.secondary,
+  },
+  loadTime: {
+    fontSize: 12,
+    color: colors.text.secondary,
+  },
+  selectedIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  disabledTab: {
+    color: colors.text.secondary,
+    opacity: 0.5,
   },
 });
 

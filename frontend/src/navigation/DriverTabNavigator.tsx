@@ -7,6 +7,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 
 // Import driver screens
+import DriverHomeScreen from '../screens/DriverHomeScreen';
 import DriverJobManagementScreen from '../screens/DriverJobManagementScreen';
 import DriverProfileScreen from '../screens/DriverProfileScreen';
 import DriverSettingsScreen from '../screens/DriverSettingsScreen';
@@ -14,10 +15,23 @@ import DriverSettingsScreen from '../screens/DriverSettingsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
+const HomeStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="DriverHome" component={DriverHomeScreen} />
+    <Stack.Screen name="TransporterJobDetailsScreen" component={require('../screens/TransporterJobDetailsScreen').default} />
+    <Stack.Screen name="TripDetailsScreen" component={require('../screens/TripDetailsScreen').default} />
+    <Stack.Screen name="RouteLoadsScreen" component={require('../screens/RouteLoadsScreen').default} />
+    <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
+    <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
+  </Stack.Navigator>
+);
+
 const JobStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="DriverJobManagement" component={DriverJobManagementScreen} />
-    <Stack.Screen name="TripDetails" component={require('../screens/TripDetailsScreen').default} />
+    <Stack.Screen name="TransporterJobDetailsScreen" component={require('../screens/TransporterJobDetailsScreen').default} />
+    <Stack.Screen name="TripDetailsScreen" component={require('../screens/TripDetailsScreen').default} />
+    <Stack.Screen name="RouteLoadsScreen" component={require('../screens/RouteLoadsScreen').default} />
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
     <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
   </Stack.Navigator>
@@ -95,7 +109,16 @@ const DriverTabNavigator = () => {
         tabBarIcon: ({ focused }) => {
           const iconColor = focused ? colors.secondary : colors.white;
           
-          if (route.name === 'Jobs') {
+          if (route.name === 'Home') {
+            return (
+              <MaterialCommunityIcons
+                name={focused ? 'home' : 'home-outline'}
+                size={28}
+                color={iconColor}
+                style={{ marginBottom: -2 }}
+              />
+            );
+          } else if (route.name === 'Jobs') {
             return (
               <MaterialCommunityIcons
                 name={focused ? 'briefcase' : 'briefcase-outline'}
@@ -119,9 +142,18 @@ const DriverTabNavigator = () => {
       })}
     >
       <Tab.Screen 
+        name="Home"
+        options={{
+          title: 'Dashboard',
+        }}
+      >
+        {() => <HomeStack />}
+      </Tab.Screen>
+      
+      <Tab.Screen 
         name="Jobs"
         options={{
-          title: driverType === 'company' ? 'My Jobs' : 'Jobs',
+          title: 'My Jobs',
         }}
       >
         {() => <JobStack />}
@@ -130,7 +162,7 @@ const DriverTabNavigator = () => {
       <Tab.Screen 
         name="Profile"
         options={{
-          title: driverType === 'company' ? 'My Profile' : 'Profile',
+          title: 'My Profile',
         }}
       >
         {() => <ProfileStack />}
