@@ -5,19 +5,23 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  RefreshControl,
-  ActivityIndicator,
-  Alert,
   Image,
+  Alert,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getAuth } from 'firebase/auth';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
-import { auth } from '../firebaseConfig';
-import { getAuth, signOut } from 'firebase/auth';
+import { PLACEHOLDER_IMAGES } from '../constants/images';
 
 interface DriverProfile {
   id: string;
@@ -25,35 +29,57 @@ interface DriverProfile {
   lastName: string;
   email: string;
   phone: string;
-  profileImage: string;
   driverLicense: string;
   driverLicenseExpiryDate: string;
   idNumber: string;
   idExpiryDate: string;
-  status: string;
-  assignedVehicle: {
+  profileImage: string;
+  status: 'pending' | 'approved' | 'rejected' | 'active' | 'inactive';
+  assignedVehicle?: {
     id: string;
     make: string;
     model: string;
     registration: string;
+    type: string;
+    capacity: string;
   };
   company: {
     id: string;
     name: string;
-    contact: string;
   };
-  createdAt: string;
+  documents?: {
+    driverLicense?: {
+      url: string;
+      expiryDate: string;
+      status: 'pending' | 'approved' | 'rejected';
+    };
+    idDocument?: {
+      url: string;
+      expiryDate: string;
+      status: 'pending' | 'approved' | 'rejected';
+    };
+  };
 }
 
 const DriverProfileScreen = () => {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
-  const [profile, setProfile] = useState<DriverProfile | null>(null);
+  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<'driverLicense' | 'idDocument' | null>(null);
 
-  const fetchProfile = async () => {
+  useEffect(() => {
+    fetchDriverProfile();
+  }, []);
+
+  const fetchDriverProfile = async () => {
     try {
+      setLoading(true);
+      setError(null);
+
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
@@ -68,13 +94,13 @@ const DriverProfileScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setProfile(data.driver);
+        setDriverProfile(data.driver);
       } else {
-        throw new Error('Failed to fetch profile');
+        throw new Error('Failed to fetch driver profile');
       }
     } catch (err: any) {
-      console.error('Error fetching profile:', err);
-      Alert.alert('Error', err.message || 'Failed to load profile');
+      console.error('Error fetching driver profile:', err);
+      setError(err.message || 'Failed to load profile');
     } finally {
       setLoading(false);
     }
@@ -82,34 +108,136 @@ const DriverProfileScreen = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchProfile();
+    await fetchDriverProfile();
     setRefreshing(false);
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await signOut(auth);
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
-          },
-        },
-      ]
-    );
+  const handleDocumentUpload = (documentType: 'driverLicense' | 'idDocument') => {
+    setSelectedDocument(documentType);
+    setShowDocumentModal(true);
   };
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const pickDocument = async (source: 'camera' | 'gallery' | 'pdf') => {
+    try {
+      setUploading(true);
+      let result;
+
+      if (source === 'pdf') {
+        result = await DocumentPicker.getDocumentAsync({
+          type: 'application/pdf',
+          copyToCacheDirectory: true,
+        });
+      } else {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Permission Required', 'Please grant permission to access your media library.');
+          return;
+        }
+
+        if (source === 'camera') {
+          const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+          if (!cameraPermission.granted) {
+            Alert.alert('Permission Required', 'Please grant permission to access your camera.');
+            return;
+          }
+          result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+          });
+        } else {
+          result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.8,
+          });
+        }
+      }
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        await uploadDocument(selectedDocument!, result.assets[0]);
+      }
+    } catch (err) {
+      console.error('Error picking document:', err);
+      Alert.alert('Error', 'Failed to pick document. Please try again.');
+    } finally {
+      setUploading(false);
+      setShowDocumentModal(false);
+      setSelectedDocument(null);
+    }
+  };
+
+  const uploadDocument = async (documentType: 'driverLicense' | 'idDocument', asset: any) => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const formData = new FormData();
+      
+      formData.append('document', {
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        name: asset.fileName || `${documentType}.jpg`,
+      } as any);
+      formData.append('documentType', documentType);
+
+      const response = await fetch(`${API_ENDPOINTS.DRIVERS}/upload-document`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        Alert.alert('Success', 'Document uploaded successfully. It will be reviewed by your company.');
+        fetchDriverProfile();
+      } else {
+        throw new Error('Failed to upload document');
+      }
+    } catch (err: any) {
+      console.error('Error uploading document:', err);
+      Alert.alert('Error', err.message || 'Failed to upload document');
+    }
+  };
+
+  const getDocumentStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return colors.success;
+      case 'pending': return colors.warning;
+      case 'rejected': return colors.error;
+      default: return colors.text.secondary;
+    }
+  };
+
+  const getDocumentStatusIcon = (status: string) => {
+    switch (status) {
+      case 'approved': return 'check-circle';
+      case 'pending': return 'clock-outline';
+      case 'rejected': return 'close-circle';
+      default: return 'help-circle';
+    }
+  };
+
+  const isDocumentExpiring = (expiryDate: string) => {
+    if (!expiryDate) return false;
+    const expiry = new Date(expiryDate);
+    const now = new Date();
+    const daysUntilExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+  };
+
+  const isDocumentExpired = (expiryDate: string) => {
+    if (!expiryDate) return false;
+    const expiry = new Date(expiryDate);
+    const now = new Date();
+    return expiry.getTime() < now.getTime();
+  };
 
   if (loading) {
     return (
@@ -120,160 +248,250 @@ const DriverProfileScreen = () => {
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-        <Text style={styles.headerTitle}>Driver Profile</Text>
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={() => navigation.navigate('DriverSettings')}
-        >
-          <MaterialCommunityIcons name="cog" size={24} color={colors.white} />
+  if (error || !driverProfile) {
+    return (
+      <View style={styles.errorContainer}>
+        <MaterialCommunityIcons name="alert-circle" size={64} color={colors.error} />
+        <Text style={styles.errorText}>{error || 'Failed to load profile'}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchDriverProfile}>
+          <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
+  return (
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      {/* Profile Header */}
+      <View style={styles.profileHeader}>
+        <View style={styles.avatarContainer}>
+          <Image 
+            source={{ 
+              uri: driverProfile.profileImage || PLACEHOLDER_IMAGES.USER 
+            }} 
+            style={styles.avatar} 
           />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {profile && (
-          <>
-            {/* Profile Header */}
-            <View style={styles.profileHeader}>
-              <View style={styles.avatarContainer}>
-                {profile.profileImage ? (
-                  <Image source={{ uri: profile.profileImage }} style={styles.avatar} />
-                ) : (
-                  <MaterialCommunityIcons name="account" size={60} color={colors.primary} />
-                )}
-              </View>
-              <Text style={styles.driverName}>
-                {profile.firstName} {profile.lastName}
-              </Text>
-              <Text style={styles.driverEmail}>{profile.email}</Text>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>
-                  {profile.status.charAt(0).toUpperCase() + profile.status.slice(1)}
+        </View>
+        <Text style={styles.driverName}>
+          {driverProfile.firstName} {driverProfile.lastName}
+        </Text>
+        <Text style={styles.driverEmail}>{driverProfile.email}</Text>
+        <Text style={styles.driverPhone}>{driverProfile.phone}</Text>
+        
+        <View style={[styles.statusBadge, { backgroundColor: getDocumentStatusColor(driverProfile.status) + '20' }]}>
+          <MaterialCommunityIcons 
+            name={getDocumentStatusIcon(driverProfile.status)} 
+            size={16} 
+            color={getDocumentStatusColor(driverProfile.status)} 
+          />
+          <Text style={[styles.statusText, { color: getDocumentStatusColor(driverProfile.status) }]}>
+            {driverProfile.status.toUpperCase()}
+          </Text>
+        </View>
+      </View>
+
+      {/* Company Information */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Company Information</Text>
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="office-building" size={20} color={colors.primary} />
+            <Text style={styles.infoLabel}>Company:</Text>
+            <Text style={styles.infoValue}>{driverProfile.company.name}</Text>
+          </View>
+          {driverProfile.assignedVehicle && (
+            <>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="truck" size={20} color={colors.secondary} />
+                <Text style={styles.infoLabel}>Vehicle:</Text>
+                <Text style={styles.infoValue}>
+                  {driverProfile.assignedVehicle.make} {driverProfile.assignedVehicle.model}
                 </Text>
               </View>
-            </View>
-
-            {/* Company Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Company Information</Text>
-              <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="office-building" size={20} color={colors.primary} />
-                  <Text style={styles.infoLabel}>Company:</Text>
-                  <Text style={styles.infoValue}>{profile.company.name}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="phone" size={20} color={colors.primary} />
-                  <Text style={styles.infoLabel}>Contact:</Text>
-                  <Text style={styles.infoValue}>{profile.company.contact}</Text>
-                </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="identifier" size={20} color={colors.tertiary} />
+                <Text style={styles.infoLabel}>Registration:</Text>
+                <Text style={styles.infoValue}>{driverProfile.assignedVehicle.registration}</Text>
               </View>
-            </View>
+            </>
+          )}
+        </View>
+      </View>
 
-            {/* Vehicle Information */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Assigned Vehicle</Text>
-              <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="truck" size={20} color={colors.primary} />
-                  <Text style={styles.infoLabel}>Vehicle:</Text>
-                  <Text style={styles.infoValue}>
-                    {profile.assignedVehicle.make} {profile.assignedVehicle.model}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="card-account-details" size={20} color={colors.primary} />
-                  <Text style={styles.infoLabel}>Registration:</Text>
-                  <Text style={styles.infoValue}>{profile.assignedVehicle.registration}</Text>
-                </View>
+      {/* Document Management */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Document Management</Text>
+        <Text style={styles.sectionSubtitle}>
+          Manage your personal documents. Vehicle management is handled by your company.
+        </Text>
+
+        {/* Driver License */}
+        <View style={styles.documentCard}>
+          <View style={styles.documentHeader}>
+            <MaterialCommunityIcons name="card-account-details" size={24} color={colors.primary} />
+            <Text style={styles.documentTitle}>Driver License</Text>
+            {driverProfile.documents?.driverLicense && (
+              <View style={[styles.documentStatus, { backgroundColor: getDocumentStatusColor(driverProfile.documents.driverLicense.status) + '20' }]}>
+                <MaterialCommunityIcons 
+                  name={getDocumentStatusIcon(driverProfile.documents.driverLicense.status)} 
+                  size={16} 
+                  color={getDocumentStatusColor(driverProfile.documents.driverLicense.status)} 
+                />
+                <Text style={[styles.documentStatusText, { color: getDocumentStatusColor(driverProfile.documents.driverLicense.status) }]}>
+                  {driverProfile.documents.driverLicense.status.toUpperCase()}
+                </Text>
               </View>
-            </View>
+            )}
+          </View>
+          
+          <View style={styles.documentInfo}>
+            <Text style={styles.documentNumber}>License: {driverProfile.driverLicense}</Text>
+            <Text style={styles.documentExpiry}>
+              Expires: {driverProfile.driverLicenseExpiryDate ? 
+                new Date(driverProfile.driverLicenseExpiryDate).toLocaleDateString() : 'N/A'
+              }
+            </Text>
+            {(isDocumentExpiring(driverProfile.driverLicenseExpiryDate) || isDocumentExpired(driverProfile.driverLicenseExpiryDate)) && (
+              <Text style={[styles.expiryWarning, { 
+                color: isDocumentExpired(driverProfile.driverLicenseExpiryDate) ? colors.error : colors.warning 
+              }]}>
+                {isDocumentExpired(driverProfile.driverLicenseExpiryDate) ? 'EXPIRED' : 'EXPIRING SOON'}
+              </Text>
+            )}
+          </View>
 
-            {/* Driver Documents */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Driver Documents</Text>
-              <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="card-account-details" size={20} color={colors.primary} />
-                  <Text style={styles.infoLabel}>License:</Text>
-                  <Text style={styles.infoValue}>{profile.driverLicense}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} />
-                  <Text style={styles.infoLabel}>Expires:</Text>
-                  <Text style={[
-                    styles.infoValue,
-                    new Date(profile.driverLicenseExpiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
-                      ? styles.expiringText 
-                      : null
-                  ]}>
-                    {new Date(profile.driverLicenseExpiryDate).toLocaleDateString()}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="id-card" size={20} color={colors.primary} />
-                  <Text style={styles.infoLabel}>ID Number:</Text>
-                  <Text style={styles.infoValue}>{profile.idNumber}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} />
-                  <Text style={styles.infoLabel}>ID Expires:</Text>
-                  <Text style={[
-                    styles.infoValue,
-                    new Date(profile.idExpiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
-                      ? styles.expiringText 
-                      : null
-                  ]}>
-                    {new Date(profile.idExpiryDate).toLocaleDateString()}
-                  </Text>
-                </View>
+          <TouchableOpacity 
+            style={styles.uploadButton}
+            onPress={() => handleDocumentUpload('driverLicense')}
+          >
+            <MaterialCommunityIcons name="upload" size={20} color={colors.primary} />
+            <Text style={styles.uploadButtonText}>Upload/Update License</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ID Document */}
+        <View style={styles.documentCard}>
+          <View style={styles.documentHeader}>
+            <MaterialCommunityIcons name="card-account-details-outline" size={24} color={colors.secondary} />
+            <Text style={styles.documentTitle}>ID Document</Text>
+            {driverProfile.documents?.idDocument && (
+              <View style={[styles.documentStatus, { backgroundColor: getDocumentStatusColor(driverProfile.documents.idDocument.status) + '20' }]}>
+                <MaterialCommunityIcons 
+                  name={getDocumentStatusIcon(driverProfile.documents.idDocument.status)} 
+                  size={16} 
+                  color={getDocumentStatusColor(driverProfile.documents.idDocument.status)} 
+                />
+                <Text style={[styles.documentStatusText, { color: getDocumentStatusColor(driverProfile.documents.idDocument.status) }]}>
+                  {driverProfile.documents.idDocument.status.toUpperCase()}
+                </Text>
               </View>
-            </View>
+            )}
+          </View>
+          
+          <View style={styles.documentInfo}>
+            <Text style={styles.documentNumber}>ID: {driverProfile.idNumber}</Text>
+            <Text style={styles.documentExpiry}>
+              Expires: {driverProfile.idExpiryDate ? 
+                new Date(driverProfile.idExpiryDate).toLocaleDateString() : 'N/A'
+              }
+            </Text>
+            {(isDocumentExpiring(driverProfile.idExpiryDate) || isDocumentExpired(driverProfile.idExpiryDate)) && (
+              <Text style={[styles.expiryWarning, { 
+                color: isDocumentExpired(driverProfile.idExpiryDate) ? colors.error : colors.warning 
+              }]}>
+                {isDocumentExpired(driverProfile.idExpiryDate) ? 'EXPIRED' : 'EXPIRING SOON'}
+              </Text>
+            )}
+          </View>
 
-            {/* Action Buttons */}
-            <View style={styles.actionsSection}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => navigation.navigate('UpdateDriverDocuments')}
+          <TouchableOpacity 
+            style={styles.uploadButton}
+            onPress={() => handleDocumentUpload('idDocument')}
+          >
+            <MaterialCommunityIcons name="upload" size={20} color={colors.secondary} />
+            <Text style={styles.uploadButtonText}>Upload/Update ID</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Subscription Info */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Subscription</Text>
+        <View style={styles.subscriptionCard}>
+          <MaterialCommunityIcons name="crown" size={24} color={colors.warning} />
+          <View style={styles.subscriptionInfo}>
+            <Text style={styles.subscriptionTitle}>Company Managed</Text>
+            <Text style={styles.subscriptionText}>
+              Your subscription is managed by {driverProfile.company.name}. 
+              Contact your company administrator for subscription changes.
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Document Upload Modal */}
+      <Modal visible={showDocumentModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              Upload {selectedDocument === 'driverLicense' ? 'Driver License' : 'ID Document'}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              Choose how you want to upload the document:
+            </Text>
+            
+            <View style={styles.uploadOptions}>
+              <TouchableOpacity 
+                style={styles.uploadOption}
+                onPress={() => pickDocument('camera')}
+                disabled={uploading}
               >
-                <MaterialCommunityIcons name="file-document-edit" size={20} color={colors.primary} />
-                <Text style={styles.actionText}>Update Documents</Text>
+                <MaterialCommunityIcons name="camera" size={32} color={colors.primary} />
+                <Text style={styles.uploadOptionText}>Take Photo</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => navigation.navigate('ChangePassword')}
+              <TouchableOpacity 
+                style={styles.uploadOption}
+                onPress={() => pickDocument('gallery')}
+                disabled={uploading}
               >
-                <MaterialCommunityIcons name="lock-reset" size={20} color={colors.primary} />
-                <Text style={styles.actionText}>Change Password</Text>
+                <MaterialCommunityIcons name="image" size={32} color={colors.secondary} />
+                <Text style={styles.uploadOptionText}>Choose from Gallery</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.uploadOption}
+                onPress={() => pickDocument('pdf')}
+                disabled={uploading}
+              >
+                <MaterialCommunityIcons name="file-pdf-box" size={32} color={colors.tertiary} />
+                <Text style={styles.uploadOptionText}>Upload PDF</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Logout Button */}
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
+            {uploading && (
+              <View style={styles.uploadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.uploadingText}>Uploading document...</Text>
+              </View>
+            )}
+
+            <TouchableOpacity 
+              style={styles.cancelButton}
+              onPress={() => setShowDocumentModal(false)}
+              disabled={uploading}
             >
-              <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
-              <Text style={styles.logoutText}>Logout</Text>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
-    </View>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
   );
 };
 
@@ -282,26 +500,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: fonts.family.bold,
-    color: colors.white,
-  },
-  settingsButton: {
-    padding: 8,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -309,78 +507,101 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   loadingText: {
-    fontSize: 16,
-    fontFamily: fonts.family.medium,
-    color: colors.text.secondary,
     marginTop: 16,
+    fontSize: 16,
+    color: colors.text.primary,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.error,
+    textAlign: 'center',
+    marginVertical: 16,
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
   },
   profileHeader: {
-    alignItems: 'center',
     backgroundColor: colors.white,
-    borderRadius: 16,
+    alignItems: 'center',
     padding: 24,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
   },
   avatarContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 16,
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   driverName: {
     fontSize: 24,
-    fontFamily: fonts.family.bold,
+    fontWeight: 'bold',
     color: colors.text.primary,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   driverEmail: {
     fontSize: 16,
-    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
-    marginBottom: 12,
+    marginBottom: 4,
+  },
+  driverPhone: {
+    fontSize: 16,
+    color: colors.text.secondary,
+    marginBottom: 16,
   },
   statusBadge: {
-    backgroundColor: colors.success,
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 16,
   },
   statusText: {
-    fontSize: 14,
-    fontFamily: fonts.family.bold,
-    color: colors.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: fonts.family.bold,
+    fontWeight: 'bold',
     color: colors.text.primary,
-    marginBottom: 12,
+    marginBottom: 8,
+    marginHorizontal: 16,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: 16,
+    marginHorizontal: 16,
   },
   infoCard: {
     backgroundColor: colors.white,
+    marginHorizontal: 16,
     borderRadius: 12,
     padding: 16,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
   },
   infoRow: {
     flexDirection: 'row',
@@ -389,61 +610,176 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    fontFamily: fonts.family.medium,
     color: colors.text.secondary,
-    marginLeft: 12,
-    width: 80,
+    marginLeft: 8,
+    minWidth: 80,
   },
   infoValue: {
     fontSize: 14,
-    fontFamily: fonts.family.medium,
     color: colors.text.primary,
     flex: 1,
   },
-  expiringText: {
-    color: colors.warning,
-  },
-  actionsSection: {
-    marginBottom: 20,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  documentCard: {
     backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
+    marginHorizontal: 16,
     marginBottom: 12,
+    borderRadius: 12,
+    padding: 16,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
   },
-  actionText: {
+  documentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  documentTitle: {
     fontSize: 16,
-    fontFamily: fonts.family.medium,
+    fontWeight: 'bold',
     color: colors.text.primary,
-    marginLeft: 12,
+    marginLeft: 8,
+    flex: 1,
   },
-  logoutButton: {
+  documentStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  documentStatusText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  documentInfo: {
+    marginBottom: 12,
+  },
+  documentNumber: {
+    fontSize: 14,
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  documentExpiry: {
+    fontSize: 14,
+    color: colors.text.secondary,
+  },
+  expiryWarning: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  uploadButtonText: {
+    fontSize: 14,
+    color: colors.primary,
+    marginLeft: 8,
+    fontWeight: 'bold',
+  },
+  subscriptionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.white,
+    marginHorizontal: 16,
     borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
-    borderColor: colors.error,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
   },
-  logoutText: {
-    fontSize: 16,
-    fontFamily: fonts.family.medium,
-    color: colors.error,
+  subscriptionInfo: {
+    flex: 1,
     marginLeft: 12,
+  },
+  subscriptionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  subscriptionText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  uploadOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 24,
+  },
+  uploadOption: {
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    minWidth: 80,
+  },
+  uploadOptionText: {
+    fontSize: 12,
+    color: colors.text.primary,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  uploadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  uploadingText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginLeft: 8,
+  },
+  cancelButton: {
+    backgroundColor: colors.background,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: colors.text.primary,
+    fontWeight: 'bold',
   },
 });
 

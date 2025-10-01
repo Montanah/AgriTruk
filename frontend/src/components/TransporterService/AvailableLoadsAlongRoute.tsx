@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
@@ -42,7 +42,7 @@ const AvailableLoadsAlongRoute: React.FC<Props> = ({ tripId, onLoadAccepted, onV
       try {
         setLoading(true);
         setError(null);
-        const data = await apiRequest(`/transporters/trips/${tripId}/available-loads`);
+        const data = await apiRequest(`/bookings/transporters/route-loads`);
         if (Array.isArray(data)) {
           setLoads(data.slice(0, 3)); // Show only first 3 loads
         } else {
@@ -221,8 +221,8 @@ const AvailableLoadsAlongRoute: React.FC<Props> = ({ tripId, onLoadAccepted, onV
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <MaterialCommunityIcons name="map-marker-path" size={24} color={colors.primary} />
-          <Text style={styles.title}>Available Loads Along Your Route</Text>
+          <MaterialCommunityIcons name="truck-delivery" size={20} color={colors.primary} />
+          <Text style={styles.title}>Route Loads</Text>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{loads.length}</Text>
           </View>
@@ -235,14 +235,21 @@ const AvailableLoadsAlongRoute: React.FC<Props> = ({ tripId, onLoadAccepted, onV
         )}
       </View>
 
-      <FlatList
-        data={loads}
-        keyExtractor={item => item.id}
-        renderItem={renderLoadItem}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-      />
+      {loads.length === 0 ? (
+        <View style={styles.emptyState}>
+          <MaterialCommunityIcons name="truck-delivery-outline" size={32} color={colors.text.light} />
+          <Text style={styles.emptyText}>No loads available along your route</Text>
+        </View>
+      ) : (
+        <View style={styles.listContainer}>
+          {loads.map((item, index) => (
+            <View key={item.id}>
+              {renderLoadItem({ item })}
+              {index < loads.length - 1 && <View style={styles.separator} />}
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 };
@@ -297,6 +304,17 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingBottom: spacing.xl * 2,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
+  },
+  emptyText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.light,
+    marginTop: spacing.sm,
+    textAlign: 'center',
   },
   loadCard: {
     backgroundColor: colors.surface,

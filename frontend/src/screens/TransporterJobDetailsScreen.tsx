@@ -245,7 +245,11 @@ const TransporterJobDetailsScreen = () => {
         <View style={styles.headerRight} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Status Card */}
         <View style={styles.statusCard}>
           <View style={styles.statusHeader}>
@@ -284,17 +288,21 @@ const TransporterJobDetailsScreen = () => {
           <View style={styles.infoRow}>
             <MaterialCommunityIcons name="package-variant" size={20} color={colors.text.secondary} />
             <Text style={styles.infoLabel}>Product:</Text>
-            <Text style={styles.infoValue}>{job.productType || 'N/A'}</Text>
+            <Text style={styles.infoValue}>{job.productType || 'Not specified'}</Text>
           </View>
           <View style={styles.infoRow}>
             <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.text.secondary} />
             <Text style={styles.infoLabel}>Weight:</Text>
-            <Text style={styles.infoValue}>{job.weight || job.weightKg ? `${job.weightKg}kg` : 'N/A'}</Text>
+            <Text style={styles.infoValue}>
+              {job.weight || job.weightKg ? `${job.weightKg || job.weight}kg` : 'Not specified'}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <MaterialCommunityIcons name="currency-usd" size={20} color={colors.text.secondary} />
             <Text style={styles.infoLabel}>Value:</Text>
-            <Text style={styles.infoValue}>KES {job.cost || job.estimatedValue || 0}</Text>
+            <Text style={styles.infoValue}>
+              {job.cost || job.estimatedValue ? `KES ${(job.cost || job.estimatedValue).toLocaleString()}` : 'Not specified'}
+            </Text>
           </View>
           {job.specialRequirements && job.specialRequirements.length > 0 && (
             <View style={styles.infoRow}>
@@ -315,12 +323,12 @@ const TransporterJobDetailsScreen = () => {
                 style={styles.clientAvatar} 
               />
               <View style={styles.clientDetails}>
-                <Text style={styles.clientName}>{job.client.name || 'Unknown Client'}</Text>
-                <Text style={styles.clientPhone}>{job.client.phone || 'No phone'}</Text>
+                <Text style={styles.clientName}>{job.client.name || 'Client Name'}</Text>
+                <Text style={styles.clientPhone}>{job.client.phone || 'Contact not available'}</Text>
                 <View style={styles.clientRating}>
                   <MaterialCommunityIcons name="star" size={16} color={colors.secondary} />
-                  <Text style={styles.ratingText}>{job.client.rating || 'N/A'}</Text>
-                  <Text style={styles.ordersText}>({job.client.completedOrders || 0} orders)</Text>
+                  <Text style={styles.ratingText}>{job.client.rating?.toFixed(1) || '0.0'}</Text>
+                  <Text style={styles.ordersText}>({job.client.completedOrders || 0} completed orders)</Text>
                 </View>
               </View>
             </View>
@@ -553,11 +561,14 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  scrollContent: {
+    paddingBottom: 100, // Add bottom padding to prevent content from being masked by navigation
+  },
   statusCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 20,
+    marginBottom: 20,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -581,8 +592,8 @@ const styles = StyleSheet.create({
   routeCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 20,
+    marginBottom: 20,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -605,8 +616,8 @@ const styles = StyleSheet.create({
   infoCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 20,
+    marginBottom: 20,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -632,8 +643,8 @@ const styles = StyleSheet.create({
   clientCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 20,
+    marginBottom: 20,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -681,8 +692,8 @@ const styles = StyleSheet.create({
   mapCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    padding: 20,
+    marginBottom: 20,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
