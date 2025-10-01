@@ -136,12 +136,23 @@ const JobManagementScreen = () => {
                     console.log('JobManagementScreen - First job vehicle:', jobsArray[0].vehicle);
                     console.log('JobManagementScreen - First job fromLocation:', jobsArray[0].fromLocation);
                     console.log('JobManagementScreen - First job toLocation:', jobsArray[0].toLocation);
+                    console.log('JobManagementScreen - First job pickUpDate:', jobsArray[0].pickUpDate);
+                    console.log('JobManagementScreen - First job deliveryDate:', jobsArray[0].deliveryDate);
+                    console.log('JobManagementScreen - First job createdAt:', jobsArray[0].createdAt);
+                    console.log('JobManagementScreen - First job updatedAt:', jobsArray[0].updatedAt);
                 }
                 
                 // If backend doesn't provide client data, try to fetch it
                 const enrichedJobs = await Promise.all(jobsArray.map(async (job) => {
+                    console.log(`JobManagementScreen - Processing job ${job.id}:`, {
+                        hasClient: !!job.client,
+                        userId: job.userId,
+                        clientData: job.client
+                    });
+                    
                     if (!job.client && job.userId) {
                         try {
+                            console.log(`JobManagementScreen - Fetching client data for userId: ${job.userId}`);
                             const clientResponse = await fetch(`${API_ENDPOINTS.USERS}/${job.userId}`, {
                                 headers: {
                                     'Authorization': `Bearer ${token}`,
@@ -149,8 +160,11 @@ const JobManagementScreen = () => {
                                 },
                             });
                             
+                            console.log(`JobManagementScreen - Client response status: ${clientResponse.status}`);
+                            
                             if (clientResponse.ok) {
                                 const clientData = await clientResponse.json();
+                                console.log(`JobManagementScreen - Client data received:`, clientData);
                                 job.client = {
                                     id: clientData.uid,
                                     name: clientData.name || 'Unknown Client',
@@ -159,10 +173,17 @@ const JobManagementScreen = () => {
                                     rating: clientData.rating || 0,
                                     completedOrders: clientData.completedOrders || 0,
                                 };
+                                console.log(`JobManagementScreen - Client data set:`, job.client);
+                            } else {
+                                console.log(`JobManagementScreen - Failed to fetch client data: ${clientResponse.status}`);
                             }
                         } catch (error) {
-                            console.error('Error fetching client data:', error);
+                            console.error('JobManagementScreen - Error fetching client data:', error);
                         }
+                    } else if (job.client) {
+                        console.log(`JobManagementScreen - Job already has client data:`, job.client);
+                    } else {
+                        console.log(`JobManagementScreen - No userId available for job:`, job.id);
                     }
                     return job;
                 }));
@@ -437,18 +458,20 @@ const JobManagementScreen = () => {
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
                     <Text style={styles.locationText}>
                     {item.fromLocation?.address || 
-                     (item.fromLocation?.latitude && item.fromLocation?.longitude ? 
-                      `Location (${item.fromLocation.latitude.toFixed(4)}, ${item.fromLocation.longitude.toFixed(4)})` : 
-                      formatLocationForDisplay(item.fromLocation))}
+                     (typeof item.fromLocation === 'string' ? item.fromLocation : 
+                      (item.fromLocation?.latitude && item.fromLocation?.longitude ? 
+                       `Location (${item.fromLocation.latitude.toFixed(4)}, ${item.fromLocation.longitude.toFixed(4)})` : 
+                       'Unknown Location'))}
                 </Text>
                 </View>
                 <View style={styles.locationRow}>
                     <MaterialCommunityIcons name="map-marker-outline" size={16} color={colors.text.secondary} />
                     <Text style={styles.locationText}>
                         {item.toLocation?.address || 
-                         (item.toLocation?.latitude && item.toLocation?.longitude ? 
-                          `Location (${item.toLocation.latitude.toFixed(4)}, ${item.toLocation.longitude.toFixed(4)})` : 
-                          formatLocationForDisplay(item.toLocation))}
+                         (typeof item.toLocation === 'string' ? item.toLocation : 
+                          (item.toLocation?.latitude && item.toLocation?.longitude ? 
+                           `Location (${item.toLocation.latitude.toFixed(4)}, ${item.toLocation.longitude.toFixed(4)})` : 
+                           'Unknown Location'))}
                     </Text>
                 </View>
             </View>
@@ -518,8 +541,12 @@ const JobManagementScreen = () => {
             </View>
 
             <View style={styles.jobDates}>
-                <Text style={styles.dateLabel}>Pickup: {formatDate(item.pickUpDate || item.pickupDate)}</Text>
-                <Text style={styles.dateLabel}>Delivery: {formatDate(item.deliveryDate || item.createdAt)}</Text>
+                <Text style={styles.dateLabel}>
+                    Pickup: {formatDate(item.pickUpDate || item.pickupDate || item.createdAt)}
+                </Text>
+                <Text style={styles.dateLabel}>
+                    Created: {formatDate(item.createdAt)}
+                </Text>
                 {item.actualPickupDate && (
                     <Text style={styles.actualDateLabel}>Actual Pickup: {formatDate(item.actualPickupDate)}</Text>
                 )}
