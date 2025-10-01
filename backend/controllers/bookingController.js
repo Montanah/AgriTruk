@@ -475,12 +475,82 @@ exports.getBookingsByTransporterId = async (req, res) => {
     if (!transporterId) {
       return res.status(400).json({ message: 'Transporter ID is required' });
     }
+    
     const bookings = await Booking.getBookingsForTransporter(transporterId);
+    
+    // Populate client and vehicle information for each booking
+    const enrichedBookings = await Promise.all(bookings.map(async (booking) => {
+      const enrichedBooking = { ...booking };
+      
+      // Populate client information
+      if (booking.userId) {
+        try {
+          const client = await User.get(booking.userId);
+          if (client) {
+            enrichedBooking.client = {
+              id: client.uid,
+              name: client.name || 'Unknown Client',
+              phone: client.phone || 'No phone',
+              email: client.email || 'No email',
+              rating: client.rating || 0,
+              completedOrders: client.completedOrders || 0,
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching client for booking:', booking.id, error);
+          enrichedBooking.client = {
+            id: booking.userId,
+            name: 'Unknown Client',
+            phone: 'No phone',
+            email: 'No email',
+            rating: 0,
+            completedOrders: 0,
+          };
+        }
+      }
+      
+      // Populate vehicle information
+      if (booking.vehicleId) {
+        try {
+          // First, we need to find which company owns this vehicle
+          // For now, we'll try to get the transporter's company ID
+          const transporter = await Transporter.get(transporterId);
+          if (transporter && transporter.companyId) {
+            const Vehicle = require('../models/Vehicle');
+            const vehicle = await Vehicle.get(transporter.companyId, booking.vehicleId);
+            if (vehicle) {
+              enrichedBooking.vehicle = {
+                id: vehicle.vehicleId,
+                type: vehicle.type || 'N/A',
+                reg: vehicle.reg || 'N/A',
+                bodyType: vehicle.bodyType || 'N/A',
+                model: vehicle.model || 'N/A',
+                capacity: vehicle.capacity || 'N/A',
+              };
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching vehicle for booking:', booking.id, error);
+          enrichedBooking.vehicle = {
+            id: booking.vehicleId,
+            type: 'N/A',
+            reg: 'N/A',
+            bodyType: 'N/A',
+            model: 'N/A',
+            capacity: 'N/A',
+          };
+        }
+      }
+      
+      return enrichedBooking;
+    }));
+    
     // await logAdminActivity(req.user.uid, 'get_bookings_by_transporter_id', req);
     res.status(200).json({
       message: 'Bookings retrieved successfully', 
-      bookings: formatTimestamps(bookings), 
-      count: bookings});
+      bookings: formatTimestamps(enrichedBookings), 
+      count: enrichedBookings
+    });
   } catch (err) {
     console.error('Get bookings by transporter ID error:', err);
     res.status(500).json({ message: 'Failed to fetch bookings' });

@@ -81,7 +81,7 @@ const HomeStack = ({ transporterType }) => (
 );
 
 const ManageStack = ({ transporterType }) => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={transporterType === 'company' ? 'FleetManagement' : 'JobManagement'}>
     {transporterType === 'company' ? (
       // Company fleet management screens
       <>
@@ -106,8 +106,9 @@ const ManageStack = ({ transporterType }) => (
         <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
       </>
     ) : (
-      // Individual transporter management screens - bookings management
+      // Individual transporter management screens - job management
       <>
+        <Stack.Screen name="JobManagement" component={JobManagementScreen} initialParams={{ transporterType }} />
         <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
         <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
         <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
@@ -126,7 +127,7 @@ const ManageStack = ({ transporterType }) => (
 );
 
 const ProfileStack = ({ transporterType }) => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
+  <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="TransporterProfile">
     <Stack.Screen name="TransporterProfile" component={TransporterProfileScreen} initialParams={{ transporterType }} />
     <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
     <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />

@@ -409,6 +409,22 @@ const JobManagementScreen = () => {
         });
     };
 
+    const calculateEstimatedDelivery = (job: Job) => {
+        const pickupDate = job.pickUpDate || job.pickupDate || job.createdAt;
+        if (!pickupDate) return job.createdAt;
+
+        const pickup = new Date(pickupDate);
+        if (isNaN(pickup.getTime())) return job.createdAt;
+
+        // Add estimated duration (in hours) to pickup date
+        // Default to 24 hours if no duration is provided
+        const estimatedHours = job.estimatedDuration ? 
+            parseFloat(job.estimatedDuration.toString().replace(/[^\d.]/g, '')) || 24 : 24;
+        
+        const deliveryDate = new Date(pickup.getTime() + (estimatedHours * 60 * 60 * 1000));
+        return deliveryDate.toISOString();
+    };
+
     const renderStatusFilter = ({ item }: { item: { key: JobStatus; label: string; count: number } }) => (
         <TouchableOpacity
             style={[
@@ -457,21 +473,13 @@ const JobManagementScreen = () => {
                 <View style={styles.locationRow}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
                     <Text style={styles.locationText}>
-                    {item.fromLocation?.address || 
-                     (typeof item.fromLocation === 'string' ? item.fromLocation : 
-                      (item.fromLocation?.latitude && item.fromLocation?.longitude ? 
-                       `Location (${item.fromLocation.latitude.toFixed(4)}, ${item.fromLocation.longitude.toFixed(4)})` : 
-                       'Unknown Location'))}
+                    {formatLocationForDisplay(item.fromLocation)}
                 </Text>
                 </View>
                 <View style={styles.locationRow}>
                     <MaterialCommunityIcons name="map-marker-outline" size={16} color={colors.text.secondary} />
                     <Text style={styles.locationText}>
-                        {item.toLocation?.address || 
-                         (typeof item.toLocation === 'string' ? item.toLocation : 
-                          (item.toLocation?.latitude && item.toLocation?.longitude ? 
-                           `Location (${item.toLocation.latitude.toFixed(4)}, ${item.toLocation.longitude.toFixed(4)})` : 
-                           'Unknown Location'))}
+                        {formatLocationForDisplay(item.toLocation)}
                     </Text>
                 </View>
             </View>
@@ -545,7 +553,7 @@ const JobManagementScreen = () => {
                     Pickup: {formatDate(item.pickUpDate || item.pickupDate || item.createdAt)}
                 </Text>
                 <Text style={styles.dateLabel}>
-                    Created: {formatDate(item.createdAt)}
+                    Est. Delivery: {formatDate(calculateEstimatedDelivery(item))}
                 </Text>
                 {item.actualPickupDate && (
                     <Text style={styles.actualDateLabel}>Actual Pickup: {formatDate(item.actualPickupDate)}</Text>
