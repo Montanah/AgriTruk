@@ -110,6 +110,7 @@ const ManageStack = ({ transporterType }) => (
       <>
         <Stack.Screen name="JobManagement" component={JobManagementScreen} initialParams={{ transporterType }} />
         <Stack.Screen name="TransporterBookingManagement" component={TransporterBookingManagementScreen} initialParams={{ transporterType }} />
+        <Stack.Screen name="TransporterJobDetailsScreen" component={require('../screens/TransporterJobDetailsScreen').default} />
         <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
         <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
         <Stack.Screen name="TrackingScreen" component={TrackingScreen} />

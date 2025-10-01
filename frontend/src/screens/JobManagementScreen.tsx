@@ -16,8 +16,8 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
-import { formatLocationForDisplay } from '../utils/locationUtils';
 import { enhancedNotificationService } from '../services/enhancedNotificationService';
+import LocationDisplay from '../components/common/LocationDisplay';
 
 interface Job {
     id: string;
@@ -409,21 +409,6 @@ const JobManagementScreen = () => {
         });
     };
 
-    const calculateEstimatedDelivery = (job: Job) => {
-        const pickupDate = job.pickUpDate || job.pickupDate || job.createdAt;
-        if (!pickupDate) return job.createdAt;
-
-        const pickup = new Date(pickupDate);
-        if (isNaN(pickup.getTime())) return job.createdAt;
-
-        // Add estimated duration (in hours) to pickup date
-        // Default to 24 hours if no duration is provided
-        const estimatedHours = job.estimatedDuration ? 
-            parseFloat(job.estimatedDuration.toString().replace(/[^\d.]/g, '')) || 24 : 24;
-        
-        const deliveryDate = new Date(pickup.getTime() + (estimatedHours * 60 * 60 * 1000));
-        return deliveryDate.toISOString();
-    };
 
     const renderStatusFilter = ({ item }: { item: { key: JobStatus; label: string; count: number } }) => (
         <TouchableOpacity
@@ -470,18 +455,15 @@ const JobManagementScreen = () => {
             </View>
 
             <View style={styles.jobDetails}>
-                <View style={styles.locationRow}>
-                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.locationText}>
-                    {formatLocationForDisplay(item.fromLocation)}
-                </Text>
-                </View>
-                <View style={styles.locationRow}>
-                    <MaterialCommunityIcons name="map-marker-outline" size={16} color={colors.text.secondary} />
-                    <Text style={styles.locationText}>
-                        {formatLocationForDisplay(item.toLocation)}
-                    </Text>
-                </View>
+                <LocationDisplay 
+                    location={item.fromLocation} 
+                    iconColor={colors.primary} 
+                />
+                <LocationDisplay 
+                    location={item.toLocation} 
+                    iconColor={colors.text.secondary}
+                    iconName="map-marker-outline"
+                />
             </View>
 
             <View style={styles.jobSpecs}>
@@ -535,11 +517,12 @@ const JobManagementScreen = () => {
                     <TouchableOpacity
                         style={[styles.actionButton, styles.detailsButton]}
                         onPress={() => {
-                            // Navigate to trip details
-                            navigation.navigate('TripDetailsScreen', { 
+                            // Navigate to transporter job details (for transporters)
+                            navigation.navigate('TransporterJobDetailsScreen', { 
                                 jobId: item.id,
                                 bookingId: item.bookingId || item.id,
-                                job: item
+                                job: item,
+                                transporterType: 'individual' // or get from params
                             });
                         }}
                     >
@@ -551,9 +534,6 @@ const JobManagementScreen = () => {
             <View style={styles.jobDates}>
                 <Text style={styles.dateLabel}>
                     Pickup: {formatDate(item.pickUpDate || item.pickupDate || item.createdAt)}
-                </Text>
-                <Text style={styles.dateLabel}>
-                    Est. Delivery: {formatDate(calculateEstimatedDelivery(item))}
                 </Text>
                 {item.actualPickupDate && (
                     <Text style={styles.actualDateLabel}>Actual Pickup: {formatDate(item.actualPickupDate)}</Text>

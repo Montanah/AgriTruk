@@ -23,6 +23,8 @@ interface TripDetailsParams {
   vehicle?: any;
   bookingId?: string;
   tripId?: string;
+  jobId?: string;
+  job?: any;
   userType?: 'shipper' | 'broker' | 'business' | 'transporter';
   eta?: string;
   distance?: string;
@@ -40,6 +42,118 @@ const TripDetailsScreen = () => {
 
   // Get user type from params or determine from navigation context
   const userType = params.userType || 'shipper';
+
+  // State for real booking data
+  const [realBooking, setRealBooking] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [transporterLocation, setTransporterLocation] = useState<any>(null);
+  const [routeDeviation, setRouteDeviation] = useState<boolean>(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+
+  // Fetch real booking data when job is provided
+  useEffect(() => {
+    const fetchBookingData = async () => {
+      if (!params.job && !params.bookingId) return;
+      
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const token = await user.getIdToken();
+        const bookingId = params.bookingId || params.job?.bookingId;
+        
+        if (bookingId) {
+          const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/bookings/${bookingId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (response.ok) {
+            const bookingData = await response.json();
+            setRealBooking(bookingData);
+            console.log('Fetched real booking data:', bookingData);
+          } else {
+            console.error('Failed to fetch booking data:', response.status);
+            setError('Failed to fetch booking details');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching booking data:', err);
+        setError('Error loading booking details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookingData();
+  }, [params.job, params.bookingId]);
+
+  // Real-time tracking for clients
+  useEffect(() => {
+    if (!realBooking || !['started', 'in_progress'].includes(realBooking.status)) return;
+
+    const trackingInterval = setInterval(() => {
+      // Fetch updated location data
+      fetchBookingData();
+    }, 30000); // Update every 30 seconds
+
+    return () => clearInterval(trackingInterval);
+  }, [realBooking?.status]);
+
+  // Route deviation detection
+  useEffect(() => {
+    if (!transporterLocation || !realBooking) return;
+
+    const checkRouteDeviation = () => {
+      // Simple route deviation check - in production, this would use a proper routing service
+      const expectedRoute = {
+        from: realBooking.fromLocation,
+        to: realBooking.toLocation
+      };
+      
+      // Calculate if transporter is significantly off the expected route
+      // This is a simplified check - in production, use Google Maps Roads API or similar
+      const deviationThreshold = 0.01; // ~1km
+      const currentLat = transporterLocation.latitude;
+      const currentLng = transporterLocation.longitude;
+      
+      // Check if transporter is moving away from the route
+      const fromLat = expectedRoute.from?.latitude || 0;
+      const fromLng = expectedRoute.from?.longitude || 0;
+      const toLat = expectedRoute.to?.latitude || 0;
+      const toLng = expectedRoute.to?.longitude || 0;
+      
+      const distanceFromStart = Math.sqrt(
+        Math.pow(currentLat - fromLat, 2) + Math.pow(currentLng - fromLng, 2)
+      );
+      const distanceFromEnd = Math.sqrt(
+        Math.pow(currentLat - toLat, 2) + Math.pow(currentLng - toLng, 2)
+      );
+      
+      const isDeviating = distanceFromStart > deviationThreshold && distanceFromEnd > deviationThreshold;
+      
+      if (isDeviating && !routeDeviation) {
+        setRouteDeviation(true);
+        Alert.alert(
+          'Route Deviation Alert',
+          'The transporter appears to be taking an unexpected route. Would you like to contact them?',
+          [
+            { text: 'Later', style: 'cancel' },
+            { text: 'Contact Now', onPress: () => setChatVisible(true) }
+          ]
+        );
+      } else if (!isDeviating && routeDeviation) {
+        setRouteDeviation(false);
+      }
+    };
+
+    checkRouteDeviation();
+  }, [transporterLocation, realBooking, routeDeviation]);
 
   // Determine if trip can be cancelled based on status and user type
   const canCancelTrip = () => {
@@ -151,7 +265,7 @@ const TripDetailsScreen = () => {
   }, [params.bookingId, params.tripId]);
 
   // Use the fetched data or fallback to params
-  const currentBooking = bookingData || booking;
+  const currentBooking = realBooking || bookingData || booking;
   const currentTrip = tripData || trip;
 
   // Determine communication target: assigned driver (for company) or selected transporter
@@ -220,6 +334,30 @@ const TripDetailsScreen = () => {
   // Use trip.id or booking.id as tripId for AvailableLoadsAlongRoute
   const tripId = (trip && trip.id) || (booking && booking.id) || 'TRIP123';
 
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontSize: 16, color: colors.text.primary }}>Loading booking details...</Text>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontSize: 16, color: colors.error, textAlign: 'center', marginBottom: 16 }}>{error}</Text>
+        <TouchableOpacity 
+          style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: colors.white }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingTop: 18, paddingRight: 8 }}>
@@ -254,15 +392,15 @@ const TripDetailsScreen = () => {
               pinColor: colors.secondary,
             }] : []),
             // Transporter location marker (if available)
-            ...(currentTrip && currentTrip.currentLocation ? [{
+            ...(transporterLocation || (currentTrip && currentTrip.currentLocation) ? [{
               id: 'transporter',
               coordinate: {
-                latitude: currentTrip.currentLocation.latitude || -1.2921,
-                longitude: currentTrip.currentLocation.longitude || 36.8219,
+                latitude: transporterLocation?.latitude || currentTrip?.currentLocation?.latitude || -1.2921,
+                longitude: transporterLocation?.longitude || currentTrip?.currentLocation?.longitude || 36.8219,
               },
               title: 'Transporter Location',
-              description: 'Current position',
-              pinColor: colors.success,
+              description: routeDeviation ? '⚠️ Route Deviation Detected' : 'Current position',
+              pinColor: routeDeviation ? colors.warning : colors.success,
             }] : []),
           ]}
           initialRegion={{
@@ -293,7 +431,7 @@ const TripDetailsScreen = () => {
             <MaterialCommunityIcons name="progress-clock" size={16} color={colors.primary} style={{ marginRight: 4 }} />
             <Text style={[styles.statusText, { fontSize: 15 }]}>
               Status: <Text style={{ color: colors.primary }}>
-                {trip && trip.status ? trip.status : 'Pending'}
+                {currentBooking?.status || currentTrip?.status || params.job?.status || 'Pending'}
               </Text>
             </Text>
           </View>
@@ -311,13 +449,13 @@ const TripDetailsScreen = () => {
         {/* Route Information */}
         <View style={[styles.tripInfoRow, { marginBottom: 4 }]}>
           <LocationDisplay 
-            location={booking?.pickupLocation || trip?.from || 'Unknown location'} 
+            location={currentBooking?.fromLocation || booking?.pickupLocation || trip?.from || 'Unknown location'} 
             iconName="map-marker-alt"
             iconColor={colors.primary}
             style={styles.tripInfoText}
           />
           <LocationDisplay 
-            location={booking?.toLocation || 'Unknown location'} 
+            location={currentBooking?.toLocation || booking?.toLocation || 'Unknown location'} 
             iconName="flag-checkered"
             iconColor={colors.secondary}
             style={[styles.tripInfoText, { marginLeft: 12 }]}
@@ -329,29 +467,71 @@ const TripDetailsScreen = () => {
           <Ionicons name="time" size={18} color={colors.secondary} style={{ marginRight: 4 }} />
           <Text style={[styles.tripInfoText, { fontWeight: 'bold', marginRight: 4 }]}>ETA:</Text>
           <Text style={[styles.tripInfoText, { fontWeight: 'bold', color: colors.primary }]}>
-            {params.eta || (booking && booking.eta) || (trip && trip.eta) || '--'}
-            {(params.distance || (booking && booking.distance) || (trip && trip.distance)) ?
-              ` (${params.distance || (booking && booking.distance) || (trip && trip.distance)})` : ''}
+            {currentBooking?.estimatedDuration || params.eta || (booking && booking.eta) || (trip && trip.eta) || '--'}
+            {(currentBooking?.actualDistance || params.distance || (booking && booking.distance) || (trip && trip.distance)) ?
+              ` (${Math.round(currentBooking?.actualDistance || 0)}km)` : ''}
           </Text>
         </View>
 
         {/* Transporter Info */}
         <View style={{ marginBottom: 8, backgroundColor: '#f8fafc', borderRadius: 12, padding: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-            <Image source={{ uri: (selectedTransporter && selectedTransporter.profilePhoto) || (selectedTransporter && selectedTransporter.photo) || commTarget.photo }} style={styles.avatar} />
+            <Image source={{ 
+              uri: (currentBooking?.transporter?.photo) || 
+                   (selectedTransporter && selectedTransporter.profilePhoto) || 
+                   (selectedTransporter && selectedTransporter.photo) || 
+                   commTarget.photo || 
+                   PLACEHOLDER_IMAGES.USER 
+            }} style={styles.avatar} />
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.name}>{(selectedTransporter && selectedTransporter.name) || commTarget.name}</Text>
+              <Text style={styles.name}>
+                {currentBooking?.transporter?.name || 
+                 (selectedTransporter && selectedTransporter.name) || 
+                 commTarget.name || 
+                 'Transporter'}
+              </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                 <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 4 }} />
                 <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 13 }}>
-                  {selectedTransporter?.rating || 'N/A'}
+                  {currentBooking?.transporter?.rating || selectedTransporter?.rating || 'N/A'}
                 </Text>
                 <Text style={{ color: colors.text.secondary, fontSize: 12, marginLeft: 8 }}>
-                  {selectedTransporter?.tripsCompleted || 0} trips
+                  {currentBooking?.transporter?.tripsCompleted || selectedTransporter?.tripsCompleted || 0} trips
                 </Text>
               </View>
             </View>
           </View>
+          
+          {/* Real-time tracking status */}
+          {['started', 'in_progress'].includes(currentBooking?.status) && (
+            <View style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              backgroundColor: routeDeviation ? colors.warning + '20' : colors.success + '20',
+              padding: 8,
+              borderRadius: 8,
+              marginTop: 8
+            }}>
+              <MaterialCommunityIcons 
+                name={routeDeviation ? "alert-circle" : "map-marker"} 
+                size={16} 
+                color={routeDeviation ? colors.warning : colors.success} 
+              />
+              <Text style={{ 
+                color: routeDeviation ? colors.warning : colors.success, 
+                fontSize: 12, 
+                marginLeft: 4,
+                fontWeight: 'bold'
+              }}>
+                {routeDeviation ? 'Route Deviation Detected' : 'Live Tracking Active'}
+              </Text>
+              {lastUpdateTime && (
+                <Text style={{ color: colors.text.secondary, fontSize: 10, marginLeft: 'auto' }}>
+                  Updated {Math.floor((Date.now() - lastUpdateTime.getTime()) / 60000)}m ago
+                </Text>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Action Buttons */}
@@ -382,7 +562,7 @@ const TripDetailsScreen = () => {
             <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
               <Ionicons name="call" size={22} color={colors.secondary} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${(selectedTransporter && selectedTransporter.phone) || commTarget.phone}`)}>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${currentBooking?.client?.phone || (selectedTransporter && selectedTransporter.phone) || commTarget.phone}`)}>
               <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
             </TouchableOpacity>
             {isInstant && (
