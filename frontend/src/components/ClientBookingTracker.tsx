@@ -12,7 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, fonts, spacing } from '../constants';
 import { apiRequest } from '../utils/api';
 import { getReadableLocationName, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
-import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
+import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/unifiedIdSystem';
 
 interface BookingTrackerProps {
   bookingId: string;

@@ -9,7 +9,7 @@ import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { getReadableLocationName, formatRoute, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
-import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/bookingIdGenerator';
+import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/unifiedIdSystem';
 
 interface RequestItem {
     id: string;

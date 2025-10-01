@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
-import { getDisplayBookingId, generateBookingId } from '../../utils/bookingIdGenerator';
+import { getDisplayBookingId, generateBookingId } from '../../utils/unifiedIdSystem';
 
 const { width, height } = Dimensions.get('window');
 

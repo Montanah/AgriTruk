@@ -30,6 +30,7 @@ const JobStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="DriverJobManagement" component={DriverJobManagementScreen} />
     <Stack.Screen name="TransporterJobDetailsScreen" component={require('../screens/TransporterJobDetailsScreen').default} />
+    <Stack.Screen name="TripNavigationScreen" component={require('../screens/TripNavigationScreen').default} />
     <Stack.Screen name="TripDetailsScreen" component={require('../screens/TripDetailsScreen').default} />
     <Stack.Screen name="RouteLoadsScreen" component={require('../screens/RouteLoadsScreen').default} />
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />

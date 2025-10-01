@@ -8,6 +8,7 @@ import FindTransporters from '../../components/FindTransporters';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import { useConsolidations } from '../../context/ConsolidationContext';
+import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
 
 const ConsolidationScreen = ({ navigation }: any) => {
   const { consolidations, removeConsolidation, clearConsolidations } = useConsolidations();
@@ -67,7 +68,7 @@ const ConsolidationScreen = ({ navigation }: any) => {
       >
         <Card style={[styles.itemCard, selected && styles.selectedCard]}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.itemId}>Request ID: {item.id}</Text>
+            <Text style={styles.itemId}>Request ID: {getDisplayBookingId(item)}</Text>
             <Text style={styles.itemRoute}>{item.fromLocation} → {item.toLocation}</Text>
             <Text style={styles.itemMeta}>{item.productType} | {item.weight}kg | {item.requestType === 'instant' ? 'Instant' : 'Booking'}</Text>
           </View>

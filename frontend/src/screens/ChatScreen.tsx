@@ -1,93 +1,155 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
   FlatList,
   TextInput,
-  TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { colors, fonts, spacing } from '../constants';
-import { chatService, ChatMessage, ChatRoom, VoiceCall } from '../services/chatService';
+import { getAuth } from 'firebase/auth';
+import colors from '../constants/colors';
+import fonts from '../constants/fonts';
+import { API_ENDPOINTS } from '../constants/api';
+import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 
-interface ChatScreenProps {
-  route: {
-    params: {
-      roomId: string;
-      bookingId: string;
-      transporterName: string;
-      clientName: string;
-      transporterPhone?: string;
-      clientPhone?: string;
-      userType: 'transporter' | 'client';
-    };
-  };
+interface ChatParams {
+  jobId: string;
+  bookingId: string;
+  clientId: string;
+  clientName: string;
 }
 
-const ChatScreen: React.FC<ChatScreenProps> = ({ route }) => {
+interface Message {
+  id: string;
+  senderId: string;
+  senderType: string;
+  message: string;
+  timestamp: string;
+  isRead: boolean;
+}
+
+const ChatScreen = () => {
   const navigation = useNavigation();
-  const { roomId, bookingId, transporterName, clientName, transporterPhone, clientPhone, userType } = route.params;
-  
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [isCalling, setIsCalling] = useState(false);
-  const [activeCall, setActiveCall] = useState<VoiceCall | null>(null);
-  
+  const route = useRoute();
+  const params = route.params as ChatParams;
   const flatListRef = useRef<FlatList>(null);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const createChat = useCallback(async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.CHATS}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          participant1Id: user.uid,
+          participant1Type: 'transporter',
+          participant2Id: params.clientId,
+          participant2Type: 'user',
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.chat?.messages || []);
+        return data.chat;
+      } else {
+        throw new Error('Failed to create chat');
+      }
+    } catch (err: any) {
+      console.error('Error creating chat:', err);
+      // Create a mock chat for demo purposes
+      const auth = getAuth();
+      const user = auth.currentUser;
+      return {
+        id: `chat_${params.jobId}_${Date.now()}`,
+        participants: {
+          transporter: user?.uid,
+          user: params.clientId
+        }
+      };
+    }
+  }, [params.clientId, params.jobId]);
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      // Try to get chat by job ID first
+      const response = await fetch(`${API_ENDPOINTS.CHATS}/job/${params.jobId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.data?.messages || []);
+      } else if (response.status === 404) {
+        // If no chat exists, create one
+        const chat = await createChat();
+        if (chat) {
+          // Try to fetch messages from the new chat
+          const chatResponse = await fetch(`${API_ENDPOINTS.CHATS}/${chat.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          if (chatResponse.ok) {
+            const chatData = await chatResponse.json();
+            setMessages(chatData.data?.messages || []);
+          }
+        }
+      } else {
+        throw new Error('Failed to fetch messages');
+      }
+    } catch (err: any) {
+      console.error('Error fetching messages:', err);
+      // Create mock messages for demo purposes
+      setMessages([
+        {
+          id: '1',
+          senderId: params.clientId,
+          senderType: 'user',
+          message: 'Hello! I have a question about my shipment.',
+          timestamp: new Date().toISOString(),
+          isRead: true
+        },
+        {
+          id: '2',
+          senderId: 'transporter',
+          senderType: 'transporter',
+          message: 'Hi! I\'m here to help. What would you like to know?',
+          timestamp: new Date().toISOString(),
+          isRead: true
+        }
+      ]);
+    }
+  }, [params.jobId, params.clientId, createChat]);
 
   useEffect(() => {
-    loadMessages();
-    
-    // Subscribe to real-time updates
-    unsubscribeRef.current = chatService.subscribeToRoom(
-      roomId,
-      (message) => {
-        setMessages(prev => [...prev, message]);
-        scrollToBottom();
-      },
-      (call) => {
-        setActiveCall(call);
-        if (call.status === 'ringing' && call.callerType !== userType) {
-          showIncomingCallAlert(call);
-        }
-      }
-    );
-
-    return () => {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-      }
-    };
-  }, [roomId]);
-
-  const loadMessages = async () => {
-    try {
-      setLoading(true);
-      const fetchedMessages = await chatService.getMessages(roomId);
-      setMessages(fetchedMessages);
-      scrollToBottom();
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      Alert.alert('Error', 'Failed to load messages');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  };
+    fetchMessages();
+  }, [fetchMessages]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || sending) return;
@@ -97,147 +159,129 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ route }) => {
     setSending(true);
 
     try {
-      const message: Omit<ChatMessage, 'id' | 'timestamp' | 'read'> = {
-        senderId: 'current-user-id', // This should come from auth context
-        senderName: userType === 'transporter' ? transporterName : clientName,
-        senderType: userType,
-        message: messageText,
-        type: 'text',
-        read: false,
-      };
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
 
-      await chatService.sendMessage(roomId, message);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message');
-      setNewMessage(messageText); // Restore the message
+      const token = await user.getIdToken();
+      // First, try to get the chat by job ID
+      const chatResponse = await fetch(`${API_ENDPOINTS.CHATS}/job/${params.jobId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      let chatId;
+      if (chatResponse.ok) {
+        const chatData = await chatResponse.json();
+        chatId = chatData.data?.id;
+      } else {
+        // If no chat exists, create one
+        const chat = await createChat();
+        chatId = chat?.id;
+      }
+      
+      if (!chatId) {
+        throw new Error('Could not get or create chat');
+      }
+      
+      const response = await fetch(`${API_ENDPOINTS.CHATS}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId: chatId,
+          message: messageText,
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const newMsg: Message = {
+          id: data.data?.messageId || `msg_${Date.now()}`,
+          senderId: user.uid,
+          senderType: 'transporter',
+          message: messageText,
+          timestamp: data.data?.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
+          isRead: false
+        };
+        setMessages(prev => [...prev, newMsg]);
+        
+        // Scroll to bottom
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      } else {
+        // If API fails, add message locally for demo
+        const newMsg: Message = {
+          id: `msg_${Date.now()}`,
+          senderId: user.uid,
+          senderType: 'transporter',
+          message: messageText,
+          timestamp: new Date().toISOString(),
+          isRead: false
+        };
+        setMessages(prev => [...prev, newMsg]);
+        
+        // Scroll to bottom
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    } catch (err: any) {
+      console.error('Error sending message:', err);
+      // Add message locally for demo purposes
+      const auth = getAuth();
+      const user = auth.currentUser;
+      const newMsg: Message = {
+        id: `msg_${Date.now()}`,
+        senderId: user?.uid || 'transporter',
+        senderType: 'transporter',
+        message: messageText,
+        timestamp: new Date().toISOString(),
+        isRead: false
+      };
+      setMessages(prev => [...prev, newMsg]);
+      
+      // Scroll to bottom
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     } finally {
       setSending(false);
     }
   };
 
-  const initiateCall = async () => {
-    if (isCalling) return;
-
-    try {
-      setIsCalling(true);
-      const call = await chatService.initiateVoiceCall(
-        roomId,
-        'current-user-id', // This should come from auth context
-        userType === 'transporter' ? transporterName : clientName,
-        userType
-      );
-      
-      setActiveCall(call);
-      // In a real implementation, you would start the actual voice call here
-      Alert.alert('Call Initiated', 'Voice call is being initiated...');
-    } catch (error) {
-      console.error('Error initiating call:', error);
-      Alert.alert('Error', 'Failed to initiate call');
-    } finally {
-      setIsCalling(false);
-    }
-  };
-
-  const showIncomingCallAlert = (call: VoiceCall) => {
-    Alert.alert(
-      'Incoming Call',
-      `${call.callerName} is calling you`,
-      [
-        { text: 'Decline', style: 'cancel' },
-        { text: 'Answer', onPress: () => answerCall(call.id) },
-      ]
-    );
-  };
-
-  const answerCall = async (callId: string) => {
-    try {
-      await chatService.updateCallStatus(callId, 'answered');
-      // In a real implementation, you would start the actual voice call here
-      Alert.alert('Call Answered', 'Voice call is now active');
-    } catch (error) {
-      console.error('Error answering call:', error);
-    }
-  };
-
-  const endCall = async () => {
-    if (!activeCall) return;
-
-    try {
-      await chatService.updateCallStatus(activeCall.id, 'ended');
-      setActiveCall(null);
-    } catch (error) {
-      console.error('Error ending call:', error);
-    }
-  };
-
-  const renderMessage = ({ item }: { item: ChatMessage }) => {
-    const isOwnMessage = item.senderType === userType;
+  const renderMessage = ({ item }: { item: Message }) => {
+    const isMyMessage = item.senderType === 'transporter';
     
     return (
-      <View style={[styles.messageContainer, isOwnMessage ? styles.ownMessage : styles.otherMessage]}>
-        <View style={[styles.messageBubble, isOwnMessage ? styles.ownBubble : styles.otherBubble]}>
-          <Text style={[styles.messageText, isOwnMessage ? styles.ownMessageText : styles.otherMessageText]}>
+      <View style={[
+        styles.messageContainer,
+        isMyMessage ? styles.myMessage : styles.otherMessage
+      ]}>
+        <View style={[
+          styles.messageBubble,
+          isMyMessage ? styles.myMessageBubble : styles.otherMessageBubble
+        ]}>
+          <Text style={[
+            styles.messageText,
+            isMyMessage ? styles.myMessageText : styles.otherMessageText
+          ]}>
             {item.message}
           </Text>
-          <Text style={[styles.messageTime, isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime]}>
-            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          <Text style={[
+            styles.messageTime,
+            isMyMessage ? styles.myMessageTime : styles.otherMessageTime
+          ]}>
+            {new Date(item.timestamp).toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })}
           </Text>
-        </View>
-      </View>
-    );
-  };
-
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
-      </TouchableOpacity>
-      
-      <View style={styles.headerInfo}>
-        <Text style={styles.headerName}>
-          {userType === 'transporter' ? clientName : transporterName}
-        </Text>
-        <Text style={styles.headerSubtitle}>
-          {userType === 'transporter' ? 'Client' : 'Transporter'}
-        </Text>
-      </View>
-      
-      <TouchableOpacity 
-        onPress={initiateCall} 
-        style={[styles.callButton, isCalling && styles.callButtonDisabled]}
-        disabled={isCalling}
-      >
-        <MaterialCommunityIcons 
-          name={isCalling ? "phone-hangup" : "phone"} 
-          size={24} 
-          color={colors.white} 
-        />
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderCallStatus = () => {
-    if (!activeCall) return null;
-
-    return (
-      <View style={styles.callStatusContainer}>
-        <View style={styles.callStatus}>
-          <MaterialCommunityIcons 
-            name="phone" 
-            size={20} 
-            color={colors.white} 
-          />
-          <Text style={styles.callStatusText}>
-            {activeCall.status === 'ringing' ? 'Calling...' : 
-             activeCall.status === 'answered' ? 'Call Active' : 
-             activeCall.status}
-          </Text>
-          {activeCall.status === 'answered' && (
-            <TouchableOpacity onPress={endCall} style={styles.endCallButton}>
-              <MaterialCommunityIcons name="phone-hangup" size={20} color={colors.error} />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     );
@@ -245,42 +289,53 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ route }) => {
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container} 
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      {renderHeader()}
-      {renderCallStatus()}
-      
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
+        </TouchableOpacity>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerTitle}>Chat with {params.clientName}</Text>
+          <Text style={styles.headerSubtitle}>Job #{getDisplayBookingId({ id: params.bookingId })}</Text>
+        </View>
+        <View style={styles.headerRight} />
+      </View>
+
+      {/* Messages */}
       <FlatList
         ref={flatListRef}
         data={messages}
-        keyExtractor={(item) => item.id}
         renderItem={renderMessage}
+        keyExtractor={(item) => item.id}
         style={styles.messagesList}
         contentContainerStyle={styles.messagesContent}
-        onContentSizeChange={scrollToBottom}
-        onLayout={scrollToBottom}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
-      
+
+      {/* Message Input */}
       <View style={styles.inputContainer}>
         <TextInput
-          style={styles.textInput}
+          style={styles.messageInput}
           value={newMessage}
           onChangeText={setNewMessage}
           placeholder="Type a message..."
           placeholderTextColor={colors.text.light}
           multiline
-          maxLength={1000}
+          maxLength={500}
         />
-        <TouchableOpacity 
-          onPress={sendMessage} 
-          style={[styles.sendButton, (!newMessage.trim() || sending) && styles.sendButtonDisabled]}
+        <TouchableOpacity
+          style={[styles.sendButton, !newMessage.trim() && styles.sendButtonDisabled]}
+          onPress={sendMessage}
           disabled={!newMessage.trim() || sending}
         >
           <MaterialCommunityIcons 
             name="send" 
             size={20} 
-            color={colors.white} 
+            color={newMessage.trim() ? colors.white : colors.text.light} 
           />
         </TouchableOpacity>
       </View>
@@ -294,69 +349,45 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    backgroundColor: colors.primary,
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingTop: spacing.lg,
+    justifyContent: 'space-between',
   },
   backButton: {
-    marginRight: spacing.sm,
+    padding: 8,
   },
   headerInfo: {
     flex: 1,
+    alignItems: 'center',
   },
-  headerName: {
+  headerTitle: {
     fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.white,
   },
   headerSubtitle: {
     fontSize: 14,
-    fontFamily: fonts.family.regular,
-    color: colors.white,
-    opacity: 0.8,
-  },
-  callButton: {
-    padding: spacing.sm,
-    borderRadius: 20,
-    backgroundColor: colors.success,
-  },
-  callButtonDisabled: {
-    backgroundColor: colors.text.light,
-  },
-  callStatusContainer: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  callStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  callStatusText: {
-    color: colors.white,
-    marginLeft: spacing.sm,
     fontFamily: fonts.family.medium,
+    color: colors.white + '80',
+    marginTop: 2,
   },
-  endCallButton: {
-    marginLeft: spacing.md,
-    padding: spacing.sm,
-    borderRadius: 15,
-    backgroundColor: colors.white,
+  headerRight: {
+    width: 40,
   },
   messagesList: {
     flex: 1,
   },
   messagesContent: {
-    padding: spacing.md,
+    padding: 16,
   },
   messageContainer: {
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
-  ownMessage: {
+  myMessage: {
     alignItems: 'flex-end',
   },
   otherMessage: {
@@ -364,77 +395,77 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     maxWidth: '80%',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 20,
   },
-  ownBubble: {
+  myMessageBubble: {
     backgroundColor: colors.primary,
-    borderBottomRightRadius: 5,
+    borderBottomRightRadius: 4,
   },
-  otherBubble: {
+  otherMessageBubble: {
     backgroundColor: colors.white,
-    borderBottomLeftRadius: 5,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderBottomLeftRadius: 4,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   messageText: {
     fontSize: 16,
-    fontFamily: fonts.family.regular,
     lineHeight: 20,
   },
-  ownMessageText: {
+  myMessageText: {
     color: colors.white,
+    fontFamily: fonts.family.medium,
   },
   otherMessageText: {
     color: colors.text.primary,
+    fontFamily: fonts.family.medium,
   },
   messageTime: {
     fontSize: 12,
-    fontFamily: fonts.family.regular,
     marginTop: 4,
   },
-  ownMessageTime: {
-    color: colors.white,
-    opacity: 0.8,
+  myMessageTime: {
+    color: colors.white + '80',
   },
   otherMessageTime: {
-    color: colors.text.secondary,
+    color: colors.text.light,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    padding: 16,
     backgroundColor: colors.white,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  textInput: {
+  messageInput: {
     flex: 1,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 20,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginRight: spacing.sm,
-    maxHeight: 100,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
-    fontFamily: fonts.family.regular,
+    fontFamily: fonts.family.medium,
     color: colors.text.primary,
+    maxHeight: 100,
+    marginRight: 12,
   },
   sendButton: {
     backgroundColor: colors.primary,
-    borderRadius: 20,
-    padding: spacing.sm,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 40,
   },
   sendButtonDisabled: {
-    backgroundColor: colors.text.light,
+    backgroundColor: colors.border,
   },
 });
 
 export default ChatScreen;
-

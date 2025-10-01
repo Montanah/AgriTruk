@@ -117,6 +117,42 @@ exports.getChats = async (req, res) => {
   }
 };
 
+exports.getChatByJob = async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const participantId = req.user.uid;
+    const participantType = req.user.role || 'user';
+    
+    if (!jobId) {
+      return res.status(400).json({ success: false, message: 'Job ID is required' });
+    }
+    
+    // Get all chats for the user
+    const chats = await Chat.getChatsByParticipant(participantId, participantType);
+    
+    // For now, return the first chat or create a new one
+    // In a real implementation, you might want to store jobId in the chat document
+    if (chats.length > 0) {
+      const chat = await Chat.getChat(chats[0].id);
+      res.status(200).json({
+        success: true,
+        message: 'Chat retrieved successfully',
+        data: chat,
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: 'No chat found for this job',
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: `Error retrieving chat by job: ${error.message}`,
+    });
+  }
+};
+
 // Helper function (implement based on your models)
 async function getUserData(userId, userType) {
   switch (userType) {

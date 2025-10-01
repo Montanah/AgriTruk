@@ -1,8 +1,9 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { FlatList, Image, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { notificationService } from '../services/notificationService';
+import { enhancedNotificationService } from '../services/enhancedNotificationService';
 import NotificationBell from '../components/Notification/NotificationBell';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
@@ -13,6 +14,7 @@ import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 import { getLocationName, formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
+import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 
 interface TripDetailsParams {
   requests?: any[];
@@ -95,14 +97,39 @@ const TripDetailsScreen = () => {
 
   // Real-time tracking for clients
   useEffect(() => {
-    if (!realBooking || !['started', 'in_progress'].includes(realBooking.status)) return;
+    if (!realBooking || !['started', 'in_progress', 'accepted', 'ongoing'].includes(realBooking.status)) return;
 
-    const trackingInterval = setInterval(() => {
+    const trackingInterval = setInterval(async () => {
       // Fetch updated location data
-      fetchBookingData();
+      await fetchBookingData();
+      
+      // Send location update notification
+      if (realBooking?.transporterId) {
+        try {
+          await enhancedNotificationService.sendNotification(
+            'location_update',
+            realBooking.userId,
+            {
+              bookingId: realBooking.id,
+              transporterName: realBooking.transporterName || 'Transporter',
+              currentLocation: transporterLocation,
+              estimatedArrival: '15 minutes'
+            }
+          );
+        } catch (error) {
+          console.error('Error sending location update notification:', error);
+        }
+      }
     }, 30000); // Update every 30 seconds
 
     return () => clearInterval(trackingInterval);
+  }, [realBooking?.status, realBooking?.transporterId, realBooking?.userId]);
+
+  // Monitor status changes and send notifications
+  useEffect(() => {
+    if (realBooking?.status) {
+      sendStatusNotification(realBooking.status, realBooking);
+    }
   }, [realBooking?.status]);
 
   // Route deviation detection
@@ -223,7 +250,6 @@ const TripDetailsScreen = () => {
   // State for real data
   const [bookingData, setBookingData] = useState(booking);
   const [tripData, setTripData] = useState(trip);
-  const [loading, setLoading] = useState(true);
 
   // Fetch booking and trip data if not provided
   useEffect(() => {
@@ -300,6 +326,64 @@ const TripDetailsScreen = () => {
   const [callVisible, setCallVisible] = useState(false);
   const [hasRated, setHasRated] = useState(false);
   const [existingRating, setExistingRating] = useState(null);
+
+  // Send status change notifications
+  const sendStatusNotification = async (status: string, booking: any) => {
+    if (!booking?.userId) return;
+
+    try {
+      let notificationType: any = null;
+      let customData: any = {};
+
+      switch (status) {
+        case 'accepted':
+          notificationType = 'booking_accepted';
+          customData = {
+            bookingId: booking.id,
+            transporterName: booking.transporterName || 'Transporter',
+            pickupLocation: booking.fromLocation?.address || 'Pickup Location',
+            deliveryLocation: booking.toLocation?.address || 'Delivery Location',
+            estimatedPickup: booking.pickUpDate || 'TBD'
+          };
+          break;
+        case 'in_progress':
+        case 'started':
+          notificationType = 'trip_started';
+          customData = {
+            bookingId: booking.id,
+            transporterName: booking.transporterName || 'Transporter',
+            currentLocation: transporterLocation?.address || 'En Route'
+          };
+          break;
+        case 'completed':
+          notificationType = 'trip_completed';
+          customData = {
+            bookingId: booking.id,
+            transporterName: booking.transporterName || 'Transporter',
+            deliveryLocation: booking.toLocation?.address || 'Delivery Location'
+          };
+          break;
+        case 'cancelled':
+          notificationType = 'booking_cancelled';
+          customData = {
+            bookingId: booking.id,
+            transporterName: booking.transporterName || 'Transporter',
+            cancellationReason: booking.cancellationReason || 'No reason provided'
+          };
+          break;
+      }
+
+      if (notificationType) {
+        await enhancedNotificationService.sendNotification(
+          notificationType,
+          booking.userId,
+          customData
+        );
+      }
+    } catch (error) {
+      console.error('Error sending status notification:', error);
+    }
+  };
 
   // Mock users for notification demo
   const customer = { id: 'C001', name: 'Green Agri Co.', email: 'info@greenagri.com', phone: '+254712345678' };
@@ -421,12 +505,12 @@ const TripDetailsScreen = () => {
       <View style={[styles.bottomCard, { marginBottom: 24 }]}>
         {/* Trip Reference and Status */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          {booking && booking.reference && (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <MaterialCommunityIcons name="identifier" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
-              <Text style={{ color: colors.text.secondary, fontWeight: 'bold', fontSize: 13 }}>Ref: {booking.reference}</Text>
-            </View>
-          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <MaterialCommunityIcons name="identifier" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
+            <Text style={{ color: colors.text.secondary, fontWeight: 'bold', fontSize: 13 }}>
+              Job: {getDisplayBookingId(currentBooking || booking || {})}
+            </Text>
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <MaterialCommunityIcons name="progress-clock" size={16} color={colors.primary} style={{ marginRight: 4 }} />
             <Text style={[styles.statusText, { fontSize: 15 }]}>

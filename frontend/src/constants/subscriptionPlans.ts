@@ -1,13 +1,31 @@
 import { SubscriptionPlan } from '../components/common/SubscriptionPlanCard';
 
+// Trial Plan - Free 30-day trial
+export const trialPlan: SubscriptionPlan = {
+  id: 'trial-plan',
+  name: 'Free Trial',
+  price: 0,
+  period: 'monthly',
+  features: [
+    '30-day free trial',
+    'Full access to all features',
+    'Unlimited job requests',
+    'Advanced route optimization',
+    'Real-time tracking',
+    'Priority customer support',
+    'Advanced analytics & insights',
+    'No commitment required',
+  ],
+};
+
 export const transporterPlans: SubscriptionPlan[] = [
   {
-    id: 'transporter-basic',
-    name: 'Basic',
-    price: 2500,
+    id: 'transporter-starter',
+    name: 'Starter',
+    price: 199,
     period: 'monthly',
     features: [
-      'Up to 50 job requests per month',
+      'Up to 20 job requests per month',
       'Basic route optimization',
       'Standard customer support',
       'Mobile app access',
@@ -15,11 +33,25 @@ export const transporterPlans: SubscriptionPlan[] = [
     ],
   },
   {
-    id: 'transporter-pro',
+    id: 'transporter-professional',
     name: 'Professional',
-    price: 5000,
+    price: 499,
     period: 'monthly',
     popular: true,
+    features: [
+      'Up to 100 job requests per month',
+      'Advanced route optimization',
+      'Priority customer support',
+      'Real-time tracking',
+      'Advanced analytics & insights',
+      'Bulk booking discounts',
+    ],
+  },
+  {
+    id: 'transporter-enterprise',
+    name: 'Enterprise',
+    price: 1599,
+    period: 'monthly',
     features: [
       'Unlimited job requests',
       'Advanced route optimization',
@@ -28,19 +60,9 @@ export const transporterPlans: SubscriptionPlan[] = [
       'Advanced analytics & insights',
       'Bulk booking discounts',
       'Insurance coverage',
-    ],
-  },
-  {
-    id: 'transporter-enterprise',
-    name: 'Enterprise',
-    price: 12000,
-    period: 'monthly',
-    features: [
-      'Everything in Professional',
       'Fleet management tools',
       'Custom integrations',
       'Dedicated account manager',
-      'White-label solutions',
       'API access',
       'Advanced reporting',
     ],
@@ -51,10 +73,10 @@ export const brokerPlans: SubscriptionPlan[] = [
   {
     id: 'broker-starter',
     name: 'Starter',
-    price: 5000,
+    price: 199,
     period: 'monthly',
     features: [
-      'Up to 100 client requests per month',
+      'Up to 50 client requests per month',
       'Basic consolidation tools',
       'Standard customer support',
       'Mobile app access',
@@ -64,11 +86,11 @@ export const brokerPlans: SubscriptionPlan[] = [
   {
     id: 'broker-professional',
     name: 'Professional',
-    price: 10000,
+    price: 499,
     period: 'monthly',
     popular: true,
     features: [
-      'Unlimited client requests',
+      'Up to 200 client requests per month',
       'Advanced consolidation tools',
       'Priority customer support',
       'Real-time tracking for all shipments',
@@ -80,10 +102,16 @@ export const brokerPlans: SubscriptionPlan[] = [
   {
     id: 'broker-enterprise',
     name: 'Enterprise',
-    price: 25000,
+    price: 1599,
     period: 'monthly',
     features: [
-      'Everything in Professional',
+      'Unlimited client requests',
+      'Advanced consolidation tools',
+      'Priority customer support',
+      'Real-time tracking for all shipments',
+      'Advanced analytics & insights',
+      'Commission tracking',
+      'Client management tools',
       'Multi-client dashboard',
       'Custom integrations',
       'Dedicated account manager',

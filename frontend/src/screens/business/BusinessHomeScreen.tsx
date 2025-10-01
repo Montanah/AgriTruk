@@ -11,7 +11,7 @@ import Spacer from '../../components/common/Spacer';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import { db } from '../../firebaseConfig';
-import { getDisplayBookingId } from '../../utils/bookingIdGenerator';
+import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
 import { getLocationNameSync } from '../../utils/locationUtils';
 
 interface BusinessData {

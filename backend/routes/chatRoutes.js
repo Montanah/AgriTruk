@@ -115,4 +115,28 @@ router.get('/:chatId', authenticateToken, requireRole(['broker', 'user', 'transp
  */
 router.get('/', authenticateToken, requireRole(['broker', 'user', 'transporter']), ChatController.getChats);
 
+/**
+ * @swagger
+ * /api/chats/job/{jobId}:
+ *   get:
+ *     summary: Get chat by job ID
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Chat retrieved successfully
+ *       404:
+ *         description: No chat found for this job
+ *       500:
+ *         description: Server error
+ */
+router.get('/job/:jobId', authenticateToken, requireRole(['broker', 'user', 'transporter']), ChatController.getChatByJob);
+
 module.exports = router;

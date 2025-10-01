@@ -22,7 +22,7 @@ import { getAuth } from 'firebase/auth';
 import LocationDisplay from '../components/common/LocationDisplay';
 import { getLocationNameSync } from '../utils/locationUtils';
 import { calculateRoadDistanceWithFallback } from '../utils/distanceUtils';
-import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/bookingIdGenerator';
+import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/unifiedIdSystem';
 
 interface RequestItem {
   id: string;

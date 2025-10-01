@@ -16,7 +16,8 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 import subscriptionService from '../services/subscriptionService';
-import { transporterPlans } from '../constants/subscriptionPlans';
+import { transporterPlans, brokerPlans, trialPlan } from '../constants/subscriptionPlans';
+import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
 
 const SubscriptionManagementScreen: React.FC = () => {
     const navigation = useNavigation();
@@ -24,24 +25,73 @@ const SubscriptionManagementScreen: React.FC = () => {
     const [companyInfo, setCompanyInfo] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     
-    // Get current plan from subscription status or fallback to Professional plan from constants
-    const professionalPlan = transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1]; // Fallback to second plan if not found
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+    const [userType, setUserType] = useState<'transporter' | 'broker' | 'company'>('transporter');
     
-    const currentPlan = subscriptionStatus?.currentPlan ? {
-        name: subscriptionStatus.currentPlan.name,
-        type: 'transporter',
-        status: subscriptionStatus.subscriptionStatus,
-        nextBilling: '2024-07-15', // This should come from the API
-        amount: subscriptionStatus.currentPlan.price,
-        period: subscriptionStatus.currentPlan.period || 'monthly'
-    } : {
-        name: professionalPlan.name,
-        type: 'transporter',
-        status: 'active',
-        nextBilling: '2024-07-15',
-        amount: professionalPlan.price,
-        period: professionalPlan.period
+    // Determine user type and get appropriate plans
+    const getUserType = () => {
+        // Check if user is a broker
+        if (subscriptionStatus?.currentPlan?.userType === 'broker') {
+            return 'broker';
+        }
+        // Check if user is a company transporter
+        if (companyInfo?.id) {
+            return 'company';
+        }
+        // Default to individual transporter
+        return 'transporter';
     };
+    
+    const currentUserType = getUserType();
+    const availablePlans = currentUserType === 'broker' ? brokerPlans : transporterPlans;
+    
+    // Debug logging
+    console.log('SubscriptionManagementScreen - currentUserType:', currentUserType);
+    console.log('SubscriptionManagementScreen - availablePlans:', availablePlans);
+    console.log('SubscriptionManagementScreen - subscriptionStatus:', subscriptionStatus);
+    console.log('SubscriptionManagementScreen - companyInfo:', companyInfo);
+    
+    // Determine current plan based on subscription status
+    const getCurrentPlan = () => {
+        if (subscriptionStatus?.isTrialActive) {
+            return {
+                name: 'Free Trial',
+                type: currentUserType,
+                status: 'trial',
+                nextBilling: subscriptionStatus.daysRemaining ? 
+                    `${subscriptionStatus.daysRemaining} days remaining` : 'N/A',
+                amount: 0,
+                period: 'trial',
+                features: trialPlan.features
+            };
+        } else if (subscriptionStatus?.currentPlan) {
+            return {
+                name: subscriptionStatus.currentPlan.name || 'Professional Plan',
+                type: currentUserType,
+                status: subscriptionStatus.subscriptionStatus || 'active',
+                nextBilling: subscriptionStatus.subscription?.endDate ? 
+                    new Date(subscriptionStatus.subscription.endDate).toLocaleDateString() : 
+                    'N/A',
+                amount: subscriptionStatus.currentPlan.price || 499,
+                period: subscriptionStatus.currentPlan.period || 'monthly',
+                features: subscriptionStatus.currentPlan.features || []
+            };
+        } else {
+            // No active subscription
+            return {
+                name: 'No Active Plan',
+                type: currentUserType,
+                status: 'inactive',
+                nextBilling: 'N/A',
+                amount: 0,
+                period: 'none',
+                features: []
+            };
+        }
+    };
+    
+    const currentPlan = getCurrentPlan();
 
     // Fetch company and subscription info
     React.useEffect(() => {
@@ -108,10 +158,17 @@ const SubscriptionManagementScreen: React.FC = () => {
     };
 
     const handleUpgradePlan = () => {
-        // Navigate to subscription plans screen
-        navigation.navigate('SubscriptionPlans', {
-            userType: currentPlan.type as 'transporter' | 'broker',
-            isUpgrade: true
+        console.log('Opening subscription modal for user type:', currentUserType);
+        console.log('Available plans:', availablePlans);
+        setShowSubscriptionModal(true);
+    };
+
+    const handleSubscribe = (planData: any) => {
+        navigation.navigate('PaymentScreen', {
+            plan: planData,
+            userType: currentUserType,
+            billingPeriod: planData.period,
+            isUpgrade: currentPlan.status !== 'inactive'
         });
     };
 
@@ -138,7 +195,11 @@ const SubscriptionManagementScreen: React.FC = () => {
                 </View>
             </LinearGradient>
 
-            <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                style={styles.scrollView} 
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
                 {/* Current Plan Card */}
                 <View style={styles.currentPlanCard}>
                     <View style={styles.planHeader}>
@@ -146,11 +207,21 @@ const SubscriptionManagementScreen: React.FC = () => {
                         <View style={styles.planInfo}>
                             <Text style={styles.planName}>{currentPlan.name} Plan</Text>
                             <Text style={styles.planType}>
-                                {currentPlan.type === 'transporter' ? 'Transporter' : 'Broker'} Account
+                                {currentPlan.type === 'broker' ? 'Broker' : 
+                                 currentPlan.type === 'company' ? 'Company' : 'Transporter'} Account
                             </Text>
                         </View>
-                        <View style={styles.statusBadge}>
-                            <Text style={styles.statusText}>Active</Text>
+                        <View style={[
+                            styles.statusBadge,
+                            { backgroundColor: currentPlan.status === 'trial' ? colors.success : 
+                                             currentPlan.status === 'active' ? colors.primary : 
+                                             colors.error }
+                        ]}>
+                            <Text style={styles.statusText}>
+                                {currentPlan.status === 'trial' ? 'Trial' :
+                                 currentPlan.status === 'active' ? 'Active' :
+                                 currentPlan.status === 'inactive' ? 'Inactive' : 'Unknown'}
+                            </Text>
                         </View>
                     </View>
 
@@ -162,7 +233,9 @@ const SubscriptionManagementScreen: React.FC = () => {
                         <View style={styles.detailRow}>
                             <Text style={styles.detailLabel}>Billing Period:</Text>
                             <Text style={styles.detailValue}>
-                                {currentPlan.period === 'monthly' ? 'Monthly' : 'Yearly'}
+                                {currentPlan.period === 'trial' ? 'Trial' :
+                                 currentPlan.period === 'monthly' ? 'Monthly' : 
+                                 currentPlan.period === 'yearly' ? 'Yearly' : 'N/A'}
                             </Text>
                         </View>
                         <View style={styles.detailRow}>
@@ -195,21 +268,15 @@ const SubscriptionManagementScreen: React.FC = () => {
                 <View style={styles.featuresCard}>
                     <Text style={styles.sectionTitle}>Your Plan Features</Text>
                     <View style={styles.featuresList}>
-                        {subscriptionStatus?.currentPlan?.features ? (
-                            subscriptionStatus.currentPlan.features.map((feature, index) => (
+                        {currentPlan.features && currentPlan.features.length > 0 ? (
+                            currentPlan.features.map((feature, index) => (
                                 <View key={index} style={styles.featureItem}>
                                     <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
                                     <Text style={styles.featureText}>{feature}</Text>
                                 </View>
                             ))
                         ) : (
-                            // Fallback to Professional plan features
-                            transporterPlans.find(p => p.name === 'Professional')?.features.map((feature, index) => (
-                                <View key={index} style={styles.featureItem}>
-                                    <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-                                    <Text style={styles.featureText}>{feature}</Text>
-                                </View>
-                            ))
+                            <Text style={styles.noFeaturesText}>No features available for this plan</Text>
                         )}
                     </View>
                 </View>
@@ -219,24 +286,9 @@ const SubscriptionManagementScreen: React.FC = () => {
                     <Text style={styles.sectionTitle}>Billing History</Text>
                     <View style={styles.billingItem}>
                         <View style={styles.billingInfo}>
-                            <Text style={styles.billingDate}>June 15, 2024</Text>
-                            <Text style={styles.billingDescription}>{currentPlan.name} Plan - Monthly</Text>
+                            <Text style={styles.billingDate}>No billing history available</Text>
+                            <Text style={styles.billingDescription}>Billing history will appear here once payments are processed</Text>
                         </View>
-                        <Text style={styles.billingAmount}>KES {currentPlan.amount.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.billingItem}>
-                        <View style={styles.billingInfo}>
-                            <Text style={styles.billingDate}>May 15, 2024</Text>
-                            <Text style={styles.billingDescription}>{currentPlan.name} Plan - Monthly</Text>
-                        </View>
-                        <Text style={styles.billingAmount}>KES {currentPlan.amount.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.billingItem}>
-                        <View style={styles.billingInfo}>
-                            <Text style={styles.billingDate}>April 15, 2024</Text>
-                            <Text style={styles.billingDescription}>{currentPlan.name} Plan - Monthly</Text>
-                        </View>
-                        <Text style={styles.billingAmount}>KES {currentPlan.amount.toLocaleString()}</Text>
                     </View>
                 </View>
 
@@ -252,6 +304,17 @@ const SubscriptionManagementScreen: React.FC = () => {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
+
+            {/* Subscription Modal */}
+            <SubscriptionModal
+                selectedPlan={selectedPlan}
+                setSelectedPlan={setSelectedPlan}
+                onClose={() => setShowSubscriptionModal(false)}
+                onSubscribe={handleSubscribe}
+                userType={currentUserType}
+                isUpgrade={currentPlan.status !== 'inactive'}
+                visible={showSubscriptionModal}
+            />
         </SafeAreaView>
     );
 };
@@ -297,6 +360,9 @@ const styles = StyleSheet.create({
     scrollView: {
         flex: 1,
         paddingHorizontal: spacing.lg,
+    },
+    scrollContent: {
+        paddingBottom: spacing.xl * 2, // Extra padding to prevent button cutoff
     },
     currentPlanCard: {
         backgroundColor: colors.white,
@@ -492,6 +558,13 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.md,
         fontWeight: '600',
         marginLeft: spacing.sm,
+    },
+    noFeaturesText: {
+        color: colors.text.secondary,
+        fontSize: fonts.size.md,
+        fontStyle: 'italic',
+        textAlign: 'center',
+        paddingVertical: spacing.lg,
     },
 });
 

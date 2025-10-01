@@ -5,6 +5,7 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Linking,
     RefreshControl,
     StyleSheet,
     Text,
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { enhancedNotificationService } from '../services/enhancedNotificationService';
@@ -388,6 +390,110 @@ const JobManagementScreen = () => {
         }
     };
 
+    const cancelJob = async (job: Job, reason: string) => {
+        try {
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const token = await user.getIdToken();
+            const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/update`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    status: 'cancelled',
+                    cancellationReason: reason,
+                    cancelledAt: new Date().toISOString()
+                })
+            });
+
+            if (response.ok) {
+                // Send notification to client
+                if (job.client?.id || job.userId) {
+                    const clientId = job.client?.id || job.userId;
+                    const transporterName = user.displayName || 'Transporter';
+                    
+                    try {
+                        await enhancedNotificationService.sendNotification(
+                            'booking_cancelled',
+                            clientId,
+                            {
+                                bookingId: job.id,
+                                transporterName,
+                                cancellationReason: reason,
+                                pickupLocation: formatLocationForDisplay(job.fromLocation),
+                                deliveryLocation: formatLocationForDisplay(job.toLocation),
+                                productType: job.productType,
+                            }
+                        );
+                    } catch (notificationError) {
+                        console.error('Error sending cancellation notification:', notificationError);
+                    }
+                }
+
+                Alert.alert('Success', 'Job cancelled successfully!');
+                fetchJobs();
+            } else {
+                throw new Error('Failed to cancel job');
+            }
+        } catch (err: any) {
+            console.error('Error cancelling job:', err);
+            Alert.alert('Error', err.message || 'Failed to cancel job');
+        }
+    };
+
+    const showCancelModal = (job: Job) => {
+        Alert.prompt(
+            'Cancel Job',
+            'Please provide a reason for cancellation:',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                    text: 'Confirm', 
+                    onPress: (reason) => {
+                        if (reason && reason.trim()) {
+                            cancelJob(job, reason.trim());
+                        } else {
+                            Alert.alert('Error', 'Please provide a cancellation reason');
+                        }
+                    }
+                }
+            ],
+            'plain-text'
+        );
+    };
+
+    const handleCall = (phoneNumber: string) => {
+        const phoneUrl = `tel:${phoneNumber}`;
+        Linking.openURL(phoneUrl).catch(err => {
+            console.error('Error opening phone app:', err);
+            Alert.alert('Error', 'Unable to open phone app');
+        });
+    };
+
+    const handleChat = (job: Job) => {
+        // Navigate to chat screen or open chat modal
+        (navigation as any).navigate('ChatScreen', { 
+            jobId: job.id,
+            bookingId: job.bookingId,
+            clientId: job.client?.id || job.userId,
+            clientName: job.client?.name || job.customerName
+        });
+    };
+
+    const handleStartTrip = (job: Job) => {
+        // Navigate to trip navigation screen
+        (navigation as any).navigate('TripNavigationScreen', { 
+            jobId: job.id,
+            bookingId: job.bookingId,
+            job: job
+        });
+    };
+
     const formatCurrency = (amount: number) => {
         return `KES ${amount.toLocaleString()}`;
     };
@@ -429,10 +535,11 @@ const JobManagementScreen = () => {
 
     const renderJobItem = ({ item }: { item: Job }) => (
         <View style={styles.jobCard}>
+            {/* Header with Job Type, Status, and Price */}
             <View style={styles.jobHeader}>
                 <View style={styles.jobInfo}>
                     <View style={styles.jobTypeRow}>
-                        <Text style={styles.jobType}>{item.bookingType || item.type}</Text>
+                        <Text style={styles.jobType}>{item.bookingType || item.type || 'Booking'}</Text>
                         {item.bookingMode === 'instant' && (
                             <View style={styles.instantBadge}>
                                 <MaterialCommunityIcons name="lightning-bolt" size={12} color={colors.warning} />
@@ -454,56 +561,81 @@ const JobManagementScreen = () => {
                 <Text style={styles.jobPrice}>{formatCurrency(item.cost || item.pricing?.total || item.estimatedValue || 0)}</Text>
             </View>
 
-            <View style={styles.jobDetails}>
-                <LocationDisplay 
-                    location={item.fromLocation} 
-                    iconColor={colors.primary} 
-                />
-                <LocationDisplay 
-                    location={item.toLocation} 
-                    iconColor={colors.text.secondary}
-                    iconName="map-marker-outline"
-                />
+            {/* Job ID */}
+            <View style={styles.jobIdSection}>
+                <MaterialCommunityIcons name="identifier" size={16} color={colors.primary} />
+                <Text style={styles.jobIdLabel}>Job ID:</Text>
+                <Text style={styles.jobIdValue}>{getDisplayBookingId(item)}</Text>
             </View>
 
-            <View style={styles.jobSpecs}>
-                <View style={styles.specItem}>
-                    <MaterialCommunityIcons name="package-variant" size={14} color={colors.text.secondary} />
-                    <Text style={styles.specText}>{item.productType}</Text>
+            {/* Route Information */}
+            <View style={styles.routeSection}>
+                <Text style={styles.sectionTitle}>Route</Text>
+                <View style={styles.routeContainer}>
+                    <LocationDisplay 
+                        location={item.fromLocation} 
+                        iconColor={colors.primary} 
+                    />
+                    <LocationDisplay 
+                        location={item.toLocation} 
+                        iconColor={colors.text.secondary}
+                        iconName="map-marker-outline"
+                    />
                 </View>
-                <View style={styles.specItem}>
-                    <MaterialCommunityIcons name="weight" size={14} color={colors.text.secondary} />
-                    <Text style={styles.specText}>{item.weight || item.weightKg ? `${item.weightKg}kg` : 'N/A'}</Text>
-                </View>
-                <View style={styles.specItem}>
-                    <MaterialCommunityIcons name="truck" size={14} color={colors.text.secondary} />
-                    <Text style={styles.specText}>{item.vehicle?.type || item.vehicleType || 'N/A'}</Text>
-                </View>
-                {item.vehicle?.reg && (
-                    <View style={styles.specItem}>
-                        <MaterialCommunityIcons name="card-text" size={14} color={colors.text.secondary} />
-                        <Text style={styles.specText}>{item.vehicle.reg}</Text>
-                    </View>
-                )}
             </View>
 
-            <View style={styles.jobFooter}>
-                <View style={styles.clientInfo}>
-                    <Text style={styles.clientName}>{item.client?.name || 'Unknown Client'}</Text>
-                    <Text style={styles.clientContact}>{item.client?.phone || 'No phone'}</Text>
-                    <View style={styles.ratingRow}>
-                        <MaterialCommunityIcons name="star" size={12} color={colors.warning} />
-                        <Text style={styles.ratingText}>{item.client?.rating?.toFixed(1) || '0.0'}</Text>
-                        <Text style={styles.ordersText}>({item.client?.completedOrders || 0} orders)</Text>
+            {/* Job Information */}
+            <View style={styles.infoSection}>
+                <Text style={styles.sectionTitle}>Job Information</Text>
+                <View style={styles.infoGrid}>
+                    <View style={styles.infoItem}>
+                        <MaterialCommunityIcons name="package-variant" size={16} color={colors.text.secondary} />
+                        <Text style={styles.infoLabel}>Product:</Text>
+                        <Text style={styles.infoValue}>{item.productType || 'Not specified'}</Text>
+                    </View>
+                    <View style={styles.infoItem}>
+                        <MaterialCommunityIcons name="weight" size={16} color={colors.text.secondary} />
+                        <Text style={styles.infoLabel}>Weight:</Text>
+                        <Text style={styles.infoValue}>
+                            {item.weight || item.weightKg ? `${item.weightKg || item.weight}kg` : 'Not specified'}
+                        </Text>
+                    </View>
+                    <View style={styles.infoItem}>
+                        <MaterialCommunityIcons name="currency-usd" size={16} color={colors.text.secondary} />
+                        <Text style={styles.infoLabel}>Value:</Text>
+                        <Text style={styles.infoValue}>
+                            {formatCurrency(item.cost || item.pricing?.total || item.estimatedValue || 0)}
+                        </Text>
                     </View>
                 </View>
+            </View>
+
+            {/* Client Information */}
+            <View style={styles.clientSection}>
+                <Text style={styles.sectionTitle}>Client Details</Text>
+                <View style={styles.clientCard}>
+                    <View style={styles.clientHeader}>
+                        <Text style={styles.clientName}>{item.client?.name || 'Client Name'}</Text>
+                        <View style={styles.ratingContainer}>
+                            <MaterialCommunityIcons name="star" size={14} color={colors.warning} />
+                            <Text style={styles.ratingText}>{item.client?.rating?.toFixed(1) || '0.0'}</Text>
+                        </View>
+                    </View>
+                    <Text style={styles.clientContact}>{item.client?.phone || 'Contact not available'}</Text>
+                    <Text style={styles.clientOrders}>({item.client?.completedOrders || 0} completed orders)</Text>
+                </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.actionSection}>
                 <View style={styles.actionButtons}>
                     {item.status === 'accepted' && (
                         <TouchableOpacity
                             style={[styles.actionButton, styles.startButton]}
-                            onPress={() => updateJobStatus(item.id, 'ongoing')}
+                            onPress={() => handleStartTrip(item)}
                         >
-                            <Text style={styles.startButtonText}>Start</Text>
+                            <MaterialCommunityIcons name="play" size={16} color={colors.white} />
+                            <Text style={styles.startButtonText}>Start Trip</Text>
                         </TouchableOpacity>
                     )}
                     {item.status === 'ongoing' && (
@@ -511,36 +643,50 @@ const JobManagementScreen = () => {
                             style={[styles.actionButton, styles.completeButton]}
                             onPress={() => updateJobStatus(item.id, 'completed')}
                         >
+                            <MaterialCommunityIcons name="check" size={16} color={colors.white} />
                             <Text style={styles.completeButtonText}>Complete</Text>
                         </TouchableOpacity>
                     )}
-                    <TouchableOpacity
-                        style={[styles.actionButton, styles.detailsButton]}
-                        onPress={() => {
-                            // Navigate to transporter job details (for transporters)
-                            navigation.navigate('TransporterJobDetailsScreen', { 
-                                jobId: item.id,
-                                bookingId: item.bookingId || item.id,
-                                job: item,
-                                transporterType: 'individual' // or get from params
-                            });
-                        }}
-                    >
-                        <Text style={styles.detailsButtonText}>Details</Text>
-                    </TouchableOpacity>
+                    
+                    {/* Communication Buttons Row */}
+                    <View style={styles.communicationRow}>
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.chatButton]}
+                            onPress={() => handleChat(item)}
+                        >
+                            <MaterialCommunityIcons name="message-text" size={16} color={colors.primary} />
+                            <Text style={styles.chatButtonText}>Chat</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.callButton]}
+                            onPress={() => handleCall(item.client?.phone || '')}
+                        >
+                            <MaterialCommunityIcons name="phone" size={16} color={colors.success} />
+                            <Text style={styles.callButtonText}>Call</Text>
+                        </TouchableOpacity>
+                    </View>
+                    
+                    {/* Cancel Button Row */}
+                    {(item.status === 'accepted' || item.status === 'ongoing') && (
+                        <View style={styles.cancelRow}>
+                            <TouchableOpacity
+                                style={[styles.actionButton, styles.cancelButton]}
+                                onPress={() => showCancelModal(item)}
+                            >
+                                <MaterialCommunityIcons name="close-circle" size={16} color={colors.error} />
+                                <Text style={styles.cancelButtonText}>Cancel Job</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
             </View>
 
-            <View style={styles.jobDates}>
+            {/* Pickup Date */}
+            <View style={styles.dateSection}>
                 <Text style={styles.dateLabel}>
                     Pickup: {formatDate(item.pickUpDate || item.pickupDate || item.createdAt)}
                 </Text>
-                {item.actualPickupDate && (
-                    <Text style={styles.actualDateLabel}>Actual Pickup: {formatDate(item.actualPickupDate)}</Text>
-                )}
-                {item.actualDeliveryDate && (
-                    <Text style={styles.actualDateLabel}>Actual Delivery: {formatDate(item.actualDeliveryDate)}</Text>
-                )}
             </View>
         </View>
     );
@@ -779,7 +925,7 @@ const JobManagementScreen = () => {
                             colors={[colors.primary]}
                         />
                     }
-                    contentContainerStyle={styles.jobsList}
+                    contentContainerStyle={[styles.jobsList, { paddingBottom: 100 }]}
                 />
             )}
         </View>
@@ -1051,6 +1197,93 @@ const styles = StyleSheet.create({
     jobsList: {
         padding: spacing.lg,
     },
+    // New section styles
+    routeSection: {
+        marginBottom: spacing.md,
+    },
+    sectionTitle: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.text.primary,
+        marginBottom: spacing.sm,
+    },
+    routeContainer: {
+        backgroundColor: colors.background,
+        borderRadius: 8,
+        padding: spacing.md,
+        gap: spacing.sm,
+    },
+    infoSection: {
+        marginBottom: spacing.md,
+    },
+    infoGrid: {
+        backgroundColor: colors.background,
+        borderRadius: 8,
+        padding: spacing.md,
+    },
+    infoItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    infoLabel: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginLeft: spacing.sm,
+        marginRight: spacing.sm,
+        minWidth: 60,
+    },
+    infoValue: {
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
+        fontWeight: '500',
+        flex: 1,
+    },
+    clientSection: {
+        marginBottom: spacing.md,
+    },
+    clientCard: {
+        backgroundColor: colors.background,
+        borderRadius: 8,
+        padding: spacing.md,
+    },
+    clientHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    clientName: {
+        fontSize: fonts.size.md,
+        fontWeight: '600',
+        color: colors.text.primary,
+    },
+    ratingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    ratingText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginLeft: spacing.xs,
+    },
+    clientContact: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginBottom: spacing.xs,
+    },
+    clientOrders: {
+        fontSize: fonts.size.xs,
+        color: colors.text.light,
+    },
+    actionSection: {
+        marginBottom: spacing.md,
+    },
+    dateSection: {
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+        paddingTop: spacing.sm,
+    },
     jobCard: {
         backgroundColor: colors.white,
         borderRadius: 12,
@@ -1160,31 +1393,36 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
     actionButtons: {
-        flexDirection: 'row',
-        gap: spacing.sm,
+        flexDirection: 'column',
+        gap: spacing.xs,
     },
     actionButton: {
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs,
-        borderRadius: 6,
-        minWidth: 60,
+        flexDirection: 'row',
         alignItems: 'center',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: 8,
+        justifyContent: 'center',
+        minWidth: 100,
+        marginRight: spacing.sm,
     },
     startButton: {
         backgroundColor: colors.primary,
     },
     startButtonText: {
         color: colors.white,
-        fontSize: fonts.size.xs,
+        fontSize: fonts.size.sm,
         fontWeight: '600',
+        marginLeft: spacing.xs,
     },
     completeButton: {
         backgroundColor: colors.success,
     },
     completeButtonText: {
         color: colors.white,
-        fontSize: fonts.size.xs,
+        fontSize: fonts.size.sm,
         fontWeight: '600',
+        marginLeft: spacing.xs,
     },
     detailsButton: {
         backgroundColor: colors.background,
@@ -1192,9 +1430,54 @@ const styles = StyleSheet.create({
         borderColor: colors.border,
     },
     detailsButtonText: {
-        color: colors.text.primary,
-        fontSize: fonts.size.xs,
+        color: colors.primary,
+        fontSize: fonts.size.sm,
         fontWeight: '600',
+        marginLeft: spacing.xs,
+    },
+    communicationRow: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginTop: spacing.sm,
+    },
+    cancelRow: {
+        marginTop: spacing.sm,
+    },
+    chatButton: {
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.primary,
+        flex: 1,
+    },
+    chatButtonText: {
+        color: colors.primary,
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        marginLeft: spacing.xs,
+    },
+    callButton: {
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.success,
+        flex: 1,
+    },
+    callButtonText: {
+        color: colors.success,
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        marginLeft: spacing.xs,
+    },
+    cancelButton: {
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.error,
+        width: '100%',
+    },
+    cancelButtonText: {
+        color: colors.error,
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        marginLeft: spacing.xs,
     },
     jobDates: {
         borderTopWidth: 1,
@@ -1230,6 +1513,27 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.xs,
         color: colors.warning,
         fontWeight: '600',
+    },
+    jobIdSection: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.background,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: 8,
+        marginBottom: spacing.sm,
+        gap: spacing.xs,
+    },
+    jobIdLabel: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        fontWeight: '500',
+    },
+    jobIdValue: {
+        fontSize: fonts.size.sm,
+        color: colors.primary,
+        fontWeight: 'bold',
+        fontFamily: 'monospace',
     },
 });
 

@@ -18,7 +18,7 @@ import LocationDisplay from '../components/common/LocationDisplay';
 import { chatService } from '../services/chatService';
 import { apiRequest } from '../utils/api';
 import { getLocationName, formatUnifiedLocationDisplay } from '../utils/locationUtils';
-import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
+import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/unifiedIdSystem';
 
 const { width, height } = Dimensions.get('window');
 

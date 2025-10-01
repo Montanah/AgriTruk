@@ -9,6 +9,8 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Modal,
+    Linking,
 } from 'react-native';
 import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
 import colors from '../constants/colors';
@@ -16,6 +18,8 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
+import ChatModal from '../components/Chat/ChatModal';
+import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 
 const { width, height } = Dimensions.get('window');
 
@@ -30,6 +34,17 @@ const MapViewScreen = () => {
     const [isTracking, setIsTracking] = useState(false);
     const [transporterLocation, setTransporterLocation] = useState(null);
     const [locationInterval, setLocationInterval] = useState(null);
+    const [chatVisible, setChatVisible] = useState(false);
+    const [callVisible, setCallVisible] = useState(false);
+
+    // Get transporter info for communication
+    const transporter = booking?.transporter;
+    const commTarget = transporter ? {
+        id: transporter.id || 'transporter-id',
+        name: transporter.name || 'Transporter',
+        phone: transporter.phone || '+254700000000',
+        role: 'Transporter'
+    } : null;
 
     useEffect(() => {
         initializeMap();
@@ -336,6 +351,16 @@ const MapViewScreen = () => {
 
                 <View style={styles.trackingDetails}>
                     <View style={styles.detailRow}>
+                        <MaterialCommunityIcons name="identifier" size={20} color={colors.primary} />
+                        <View style={styles.detailText}>
+                            <Text style={styles.detailLabel}>Job ID</Text>
+                            <Text style={styles.detailValue}>
+                                {getDisplayBookingId(booking)}
+                            </Text>
+                        </View>
+                    </View>
+
+                    <View style={styles.detailRow}>
                         <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
                         <View style={styles.detailText}>
                             <Text style={styles.detailLabel}>Route</Text>
@@ -415,7 +440,72 @@ const MapViewScreen = () => {
                         <Text style={styles.secondaryButtonText}>View Timeline</Text>
                     </TouchableOpacity>
                 </View>
+
+                {/* Communication Buttons */}
+                {commTarget && (
+                    <View style={styles.communicationButtons}>
+                        <TouchableOpacity 
+                            style={styles.communicationButton}
+                            onPress={() => setChatVisible(true)}
+                        >
+                            <MaterialCommunityIcons name="message-text" size={20} color={colors.primary} />
+                            <Text style={styles.communicationButtonText}>Chat with Transporter</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={styles.communicationButton}
+                            onPress={() => setCallVisible(true)}
+                        >
+                            <MaterialCommunityIcons name="phone" size={20} color={colors.success} />
+                            <Text style={styles.communicationButtonText}>Call Transporter</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
+
+            {/* Chat Modal */}
+            {commTarget && (
+                <ChatModal
+                    visible={chatVisible}
+                    onClose={() => setChatVisible(false)}
+                    participantIds={[commTarget.id]}
+                    onChatCreated={(chatRoom) => {
+                        // Chat created
+                    }}
+                />
+            )}
+
+            {/* Call Modal */}
+            <Modal visible={callVisible} animationType="fade" transparent>
+                <View style={styles.modalBg}>
+                    <View style={styles.callModal}>
+                        <MaterialCommunityIcons name="call" size={48} color={colors.secondary} style={{ marginBottom: 12 }} />
+                        <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
+                            Calling {commTarget?.role || 'Transporter'}...
+                        </Text>
+                        <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>
+                            {commTarget?.name || 'Transporter'} ({commTarget?.phone || 'N/A'})
+                        </Text>
+                        <TouchableOpacity 
+                            style={styles.cancelBtn} 
+                            onPress={() => setCallVisible(false)}
+                        >
+                            <Text style={styles.cancelText}>End Call</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.callBtn} 
+                            onPress={() => {
+                                if (commTarget?.phone) {
+                                    Linking.openURL(`tel:${commTarget.phone}`);
+                                }
+                                setCallVisible(false);
+                            }}
+                        >
+                            <Text style={styles.callText}>Call Now</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -581,6 +671,69 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.md,
         fontWeight: 'bold',
         marginLeft: spacing.sm,
+    },
+    communicationButtons: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginTop: spacing.md,
+    },
+    communicationButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.primary,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: 8,
+    },
+    communicationButtonText: {
+        color: colors.primary,
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        marginLeft: spacing.xs,
+    },
+    modalBg: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    callModal: {
+        backgroundColor: colors.white,
+        borderRadius: 12,
+        padding: spacing.xl,
+        alignItems: 'center',
+        minWidth: 280,
+    },
+    cancelBtn: {
+        backgroundColor: colors.error,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.lg,
+        borderRadius: 8,
+        marginBottom: spacing.sm,
+        width: '100%',
+    },
+    cancelText: {
+        color: colors.white,
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    callBtn: {
+        backgroundColor: colors.success,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.lg,
+        borderRadius: 8,
+        width: '100%',
+    },
+    callText: {
+        color: colors.white,
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
 });
 

@@ -8,12 +8,14 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { getAuth } from 'firebase/auth';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 import { API_ENDPOINTS } from '../constants/api';
 
 interface Job {
@@ -35,6 +37,7 @@ interface Job {
   weight?: number;
   specialRequirements?: string[];
   client?: {
+    id?: string;
     name: string;
     phone: string;
     rating: number;
@@ -245,6 +248,12 @@ const DriverJobManagementScreen = () => {
         Alert.alert('Success', 'Trip started successfully!');
         fetchJobs();
         fetchCurrentTrip();
+        // Navigate to trip navigation screen
+        (navigation as any).navigate('TripNavigationScreen', { 
+          jobId: job.id,
+          bookingId: job.bookingId,
+          job: job
+        });
       } else {
         throw new Error('Failed to start trip');
       }
@@ -282,6 +291,79 @@ const DriverJobManagementScreen = () => {
       Alert.alert('Error', err.message || 'Failed to complete trip');
     }
   };
+
+  const cancelJob = async (job: Job, reason: string) => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/update`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          status: 'cancelled',
+          cancellationReason: reason,
+          cancelledAt: new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        Alert.alert('Success', 'Job cancelled successfully!');
+        fetchJobs();
+        fetchCurrentTrip();
+      } else {
+        throw new Error('Failed to cancel job');
+      }
+    } catch (err: any) {
+      console.error('Error cancelling job:', err);
+      Alert.alert('Error', err.message || 'Failed to cancel job');
+    }
+  };
+
+  const showCancelModal = (job: Job) => {
+    Alert.prompt(
+      'Cancel Job',
+      'Please provide a reason for cancellation:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Confirm', 
+          onPress: (reason) => {
+            if (reason && reason.trim()) {
+              cancelJob(job, reason.trim());
+            } else {
+              Alert.alert('Error', 'Please provide a cancellation reason');
+            }
+          }
+        }
+      ],
+      'plain-text'
+    );
+  };
+
+  const handleCall = (phoneNumber: string) => {
+    const phoneUrl = `tel:${phoneNumber}`;
+    Linking.openURL(phoneUrl).catch(err => {
+      console.error('Error opening phone app:', err);
+      Alert.alert('Error', 'Unable to open phone app');
+    });
+  };
+
+  const handleChat = (job: Job) => {
+    // Navigate to chat screen or open chat modal
+    (navigation as any).navigate('ChatScreen', { 
+      jobId: job.id,
+      bookingId: job.bookingId,
+      clientId: job.client?.id || job.customerPhone,
+      clientName: job.client?.name || job.customerName
+    });
+  };
+
 
 
   const toggleLoadSelection = (load: RouteLoad) => {
@@ -325,6 +407,13 @@ const DriverJobManagementScreen = () => {
             {item.status.replace('_', ' ').toUpperCase()}
           </Text>
         </View>
+      </View>
+
+      {/* Job ID */}
+      <View style={styles.jobIdSection}>
+        <MaterialCommunityIcons name="identifier" size={16} color={colors.primary} />
+        <Text style={styles.jobIdLabel}>Job ID:</Text>
+        <Text style={styles.jobIdValue}>{getDisplayBookingId(item)}</Text>
       </View>
 
       <View style={styles.jobDetails}>
@@ -381,16 +470,37 @@ const DriverJobManagementScreen = () => {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity
-          style={styles.detailsButton}
-          onPress={() => (navigation as any).navigate('TransporterJobDetailsScreen', { 
-            jobId: item.id,
-            bookingId: item.bookingId,
-            job: item
-          })}
-        >
-          <Text style={styles.detailsButtonText}>Details</Text>
-        </TouchableOpacity>
+        {/* Communication Buttons Row */}
+        <View style={styles.communicationRow}>
+          <TouchableOpacity
+            style={styles.chatButton}
+            onPress={() => handleChat(item)}
+          >
+            <MaterialCommunityIcons name="message-text" size={16} color={colors.primary} />
+            <Text style={styles.chatButtonText}>Chat</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.callButton}
+            onPress={() => handleCall(item.customerPhone || item.client?.phone || '')}
+          >
+            <MaterialCommunityIcons name="phone" size={16} color={colors.success} />
+            <Text style={styles.callButtonText}>Call</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Cancel Button Row */}
+        {(item.status === 'accepted' || item.status === 'in_progress') && (
+          <View style={styles.cancelRow}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => showCancelModal(item)}
+            >
+              <MaterialCommunityIcons name="close-circle" size={16} color={colors.error} />
+              <Text style={styles.cancelButtonText}>Cancel Job</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -729,8 +839,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   jobActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: 'column',
+    gap: 8,
   },
   acceptButton: {
     flexDirection: 'row',
@@ -866,6 +976,65 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     fontWeight: 'bold',
   },
+  communicationRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  cancelRow: {
+    marginTop: 8,
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+  },
+  chatButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  callButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.success,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flex: 1,
+  },
+  callButtonText: {
+    color: colors.success,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.error,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    width: '100%',
+  },
+  cancelButtonText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
   // Route loads styles
   loadCard: {
     backgroundColor: colors.white,
@@ -954,6 +1123,27 @@ const styles = StyleSheet.create({
   disabledTab: {
     color: colors.text.secondary,
     opacity: 0.5,
+  },
+  jobIdSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  jobIdLabel: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  jobIdValue: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontFamily: 'monospace',
   },
 });
 

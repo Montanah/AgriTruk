@@ -3,20 +3,25 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useEffect } from 'react';
 import {
   Modal,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import colors from '../../constants/colors';
-import { transporterPlans } from '../../constants/subscriptionPlans';
+import { transporterPlans, brokerPlans } from '../../constants/subscriptionPlans';
 
 const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe, userType = 'transporter', isUpgrade = false, visible = true }) => {
   const navigation = useNavigation();
   
 
-  // Use proper subscription plans from constants
-  const plans = transporterPlans;
+  // Use proper subscription plans based on user type
+  const plans = userType === 'broker' ? brokerPlans : transporterPlans;
+  
+  console.log('SubscriptionModal - userType:', userType);
+  console.log('SubscriptionModal - plans:', plans);
+  console.log('SubscriptionModal - visible:', visible);
 
   const handleSubscribe = () => {
     if (!selectedPlan) {
@@ -66,48 +71,54 @@ const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe
             {isUpgrade ? 'Select a plan to upgrade to' : 'Flexible plans for every business. Select the best fit for you.'}
           </Text>
 
-          <View style={styles.plansContainer}>
-            {plans.map((plan) => {
-              const isSelected = selectedPlan === plan.id;
-              return (
-                <TouchableOpacity
-                  key={plan.id}
-                  style={[
-                    styles.planCard,
-                    isSelected && styles.planCardSelected,
-                    plan.popular && styles.popularPlan,
-                    { borderColor: isSelected ? colors.secondary : colors.surface, shadowColor: isSelected ? colors.secondary : colors.black },
-                  ]}
-                  activeOpacity={0.92}
-                  onPress={() => setSelectedPlan(plan.id)}
-                >
-                  {plan.popular && (
-                    <View style={styles.popularBadge}>
-                      <Text style={styles.popularText}>Most Popular</Text>
-                    </View>
-                  )}
-                  <View style={styles.planHeader}>
-                    <Text style={[styles.planLabel, { color: isSelected ? colors.secondary : colors.primary }]}>{plan.name}</Text>
-                    {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.secondary} style={{ marginLeft: 6 }} />}
-                  </View>
-                  <Text style={[styles.planPrice, { color: isSelected ? colors.secondary : colors.text.primary }]}>
-                    KES {plan.price.toLocaleString()}
-                    <Text style={{ color: colors.text.secondary, fontSize: 14 }}>
-                      / {plan.period}
-                    </Text>
-                  </Text>
-                  <View style={styles.featureList}>
-                    {plan.features.map((feature, i) => (
-                      <View key={i} style={styles.featureRow}>
-                        <Ionicons name="checkmark" size={16} color={isSelected ? colors.secondary : colors.primary} style={{ marginRight: 6 }} />
-                        <Text style={[styles.featureText, { color: isSelected ? colors.secondary : colors.text.secondary }]}>{feature}</Text>
+          <ScrollView 
+            style={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <View style={styles.plansContainer}>
+              {plans.map((plan) => {
+                const isSelected = selectedPlan === plan.id;
+                return (
+                  <TouchableOpacity
+                    key={plan.id}
+                    style={[
+                      styles.planCard,
+                      isSelected && styles.planCardSelected,
+                      plan.popular && styles.popularPlan,
+                      { borderColor: isSelected ? colors.secondary : colors.surface, shadowColor: isSelected ? colors.secondary : colors.black },
+                    ]}
+                    activeOpacity={0.92}
+                    onPress={() => setSelectedPlan(plan.id)}
+                  >
+                    {plan.popular && (
+                      <View style={styles.popularBadge}>
+                        <Text style={styles.popularText}>Most Popular</Text>
                       </View>
-                    ))}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    )}
+                    <View style={styles.planHeader}>
+                      <Text style={[styles.planLabel, { color: isSelected ? colors.secondary : colors.primary }]}>{plan.name}</Text>
+                      {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.secondary} style={{ marginLeft: 6 }} />}
+                    </View>
+                    <Text style={[styles.planPrice, { color: isSelected ? colors.secondary : colors.text.primary }]}>
+                      KES {plan.price.toLocaleString()}
+                      <Text style={{ color: colors.text.secondary, fontSize: 14 }}>
+                        / {plan.period}
+                      </Text>
+                    </Text>
+                    <View style={styles.featureList}>
+                      {plan.features.map((feature, i) => (
+                        <View key={i} style={styles.featureRow}>
+                          <Ionicons name="checkmark" size={16} color={isSelected ? colors.secondary : colors.primary} style={{ marginRight: 6 }} />
+                          <Text style={[styles.featureText, { color: isSelected ? colors.secondary : colors.text.secondary }]}>{feature}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
 
           <View style={styles.actions}>
             <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
@@ -140,6 +151,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '90%',
+    maxHeight: '85%',
     backgroundColor: colors.white,
     borderRadius: 18,
     padding: 24,
@@ -147,6 +159,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.10,
     shadowRadius: 16,
     elevation: 8,
+  },
+  scrollContainer: {
+    flex: 1,
+    maxHeight: 400,
+  },
+  scrollContent: {
+    paddingBottom: 10,
   },
   plansContainer: {
     marginVertical: 10,

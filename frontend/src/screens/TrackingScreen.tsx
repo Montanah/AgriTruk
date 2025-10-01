@@ -9,12 +9,16 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Modal,
+    Linking,
 } from 'react-native';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
+import { getDisplayBookingId } from '../utils/unifiedIdSystem';
+import ChatModal from '../components/Chat/ChatModal';
 // Mock data removed - now using real API calls
 
 interface TrackingData {
@@ -63,6 +67,17 @@ const TrackingScreen = () => {
     const { booking, isConsolidated, consolidatedRequests } = (route.params as RouteParams) || {};
     const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [chatVisible, setChatVisible] = useState(false);
+    const [callVisible, setCallVisible] = useState(false);
+
+    // Get transporter info for communication
+    const transporter = booking?.transporter || trackingData?.transporter;
+    const commTarget = transporter ? {
+        id: transporter.id || 'transporter-id',
+        name: transporter.name || 'Transporter',
+        phone: transporter.phone || '+254700000000',
+        role: 'Transporter'
+    } : null;
 
     const generateMockTrackingData = (booking: any): TrackingData => {
         const now = new Date();
@@ -256,7 +271,7 @@ const TrackingScreen = () => {
                     </View>
                     <View style={styles.bookingInfo}>
                         <View style={styles.bookingIdContainer}>
-                            <Text style={styles.bookingId}>#{trackingData.bookingId}</Text>
+                            <Text style={styles.bookingId}>#{getDisplayBookingId(booking)}</Text>
                             <Text style={styles.bookingDate}>
                                 Created: {new Date(booking.createdAt || new Date()).toLocaleDateString()}
                             </Text>
@@ -375,6 +390,25 @@ const TrackingScreen = () => {
                                 <Text style={styles.transporterLabel}>Vehicle:</Text>
                                 <Text style={styles.transporterValue}>{trackingData.transporter.vehicle}</Text>
                             </View>
+                            
+                            {/* Communication Buttons */}
+                            <View style={styles.communicationButtons}>
+                                <TouchableOpacity 
+                                    style={styles.communicationButton}
+                                    onPress={() => setChatVisible(true)}
+                                >
+                                    <MaterialCommunityIcons name="message-text" size={20} color={colors.primary} />
+                                    <Text style={styles.communicationButtonText}>Chat</Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    style={styles.communicationButton}
+                                    onPress={() => setCallVisible(true)}
+                                >
+                                    <MaterialCommunityIcons name="phone" size={20} color={colors.success} />
+                                    <Text style={styles.communicationButtonText}>Call</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     ) : (
                         <View style={styles.noTransporterInfo}>
@@ -445,6 +479,50 @@ const TrackingScreen = () => {
                     </View>
                 )}
             </ScrollView>
+
+            {/* Chat Modal */}
+            {commTarget && (
+                <ChatModal
+                    visible={chatVisible}
+                    onClose={() => setChatVisible(false)}
+                    participantIds={[commTarget.id]}
+                    onChatCreated={(chatRoom) => {
+                        // Chat created
+                    }}
+                />
+            )}
+
+            {/* Call Modal */}
+            <Modal visible={callVisible} animationType="fade" transparent>
+                <View style={styles.modalBg}>
+                    <View style={styles.callModal}>
+                        <MaterialCommunityIcons name="call" size={48} color={colors.secondary} style={{ marginBottom: 12 }} />
+                        <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
+                            Calling {commTarget?.role || 'Transporter'}...
+                        </Text>
+                        <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>
+                            {commTarget?.name || 'Transporter'} ({commTarget?.phone || 'N/A'})
+                        </Text>
+                        <TouchableOpacity 
+                            style={styles.cancelBtn} 
+                            onPress={() => setCallVisible(false)}
+                        >
+                            <Text style={styles.cancelText}>End Call</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.callBtn} 
+                            onPress={() => {
+                                if (commTarget?.phone) {
+                                    Linking.openURL(`tel:${commTarget.phone}`);
+                                }
+                                setCallVisible(false);
+                            }}
+                        >
+                            <Text style={styles.callText}>Call Now</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -747,6 +825,72 @@ const styles = StyleSheet.create({
     consolidatedItemText: {
         fontSize: fonts.size.sm,
         color: colors.text.primary,
+    },
+    communicationButtons: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginTop: spacing.md,
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    communicationButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.background,
+        borderWidth: 1,
+        borderColor: colors.primary,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: 8,
+    },
+    communicationButtonText: {
+        color: colors.primary,
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        marginLeft: spacing.xs,
+    },
+    modalBg: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    callModal: {
+        backgroundColor: colors.white,
+        borderRadius: 12,
+        padding: spacing.xl,
+        alignItems: 'center',
+        minWidth: 280,
+    },
+    cancelBtn: {
+        backgroundColor: colors.error,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.lg,
+        borderRadius: 8,
+        marginBottom: spacing.sm,
+        width: '100%',
+    },
+    cancelText: {
+        color: colors.white,
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    callBtn: {
+        backgroundColor: colors.success,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.lg,
+        borderRadius: 8,
+        width: '100%',
+    },
+    callText: {
+        color: colors.white,
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
 });
 

@@ -8,6 +8,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
+import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
 import { PLACEHOLDER_IMAGES } from '../../constants/images';
 import { apiRequest } from '../../utils/api';
 import { getReadableLocationName, formatRoute } from '../../utils/locationUtils';
@@ -146,7 +147,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
     <Card style={styles.requestCard}>
       <View style={styles.requestHeader}>
         <View style={styles.requestId}>
-          <Text style={styles.requestIdText}>#{item.id}</Text>
+          <Text style={styles.requestIdText}>#{getDisplayBookingId(item)}</Text>
           {item.isConsolidated && (
             <View style={styles.consolidatedBadge}>
               <MaterialCommunityIcons name="layers" size={12} color={colors.white} />
