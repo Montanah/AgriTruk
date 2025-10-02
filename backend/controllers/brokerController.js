@@ -475,14 +475,17 @@ exports.getRequestsByClient = async (req, res) => {
 
 exports.getAllBrokerRequests = async (req, res) => {
   try {
-    // Get broker ID from user profile
-    const brokerId = req.user.profile?.brokerId;
-    if (!brokerId) {
-      return res.status(400).json({ success: false, message: 'Broker ID not found in user profile' });
+    // Get broker by user ID
+    console.log('getAllBrokerRequests: Looking for broker with userId:', req.user.uid);
+    const broker = await Broker.getByUserId(req.user.uid);
+    console.log('getAllBrokerRequests: Broker lookup result:', broker);
+    if (!broker) {
+      console.log('getAllBrokerRequests: No broker found for userId:', req.user.uid);
+      return res.status(404).json({ success: false, message: 'Error retrieving broker: Broker not found' });
     }
 
     // Get all clients for this broker
-    const clients = await Client.getClients(brokerId);
+    const clients = await Client.getClients(broker.id);
     const clientIds = clients.map(client => client.id);
 
     // Get all requests for all clients
@@ -526,14 +529,17 @@ exports.getAllBrokerRequests = async (req, res) => {
 
 exports.getClientsWithRequests = async (req, res) => {
   try {
-    // Get broker ID from user profile
-    const brokerId = req.user.profile?.brokerId;
-    if (!brokerId) {
-      return res.status(400).json({ success: false, message: 'Broker ID not found in user profile' });
+    // Get broker by user ID
+    console.log('getClientsWithRequests: Looking for broker with userId:', req.user.uid);
+    const broker = await Broker.getByUserId(req.user.uid);
+    console.log('getClientsWithRequests: Broker lookup result:', broker);
+    if (!broker) {
+      console.log('getClientsWithRequests: No broker found for userId:', req.user.uid);
+      return res.status(404).json({ success: false, message: 'Error retrieving broker: Broker not found' });
     }
 
     // Get all clients for this broker
-    const clients = await Client.getClients(brokerId);
+    const clients = await Client.getClients(broker.id);
     
     // Get requests for each client and add request statistics
     const clientsWithRequests = await Promise.all(

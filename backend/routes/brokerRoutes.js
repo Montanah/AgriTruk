@@ -398,7 +398,7 @@ router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broke
  *       500:
  *         description: Server error
  */
-router.get('/requests', authenticateToken, loadUserProfile, requireRole('broker'), BrokerController.getAllBrokerRequests);
+router.get('/requests', authenticateToken, requireRole('broker'), BrokerController.getAllBrokerRequests);
 
 /**
  * @swagger
@@ -450,7 +450,7 @@ router.get('/requests', authenticateToken, loadUserProfile, requireRole('broker'
  *       500:
  *         description: Server error
  */
-router.get('/clients-with-requests', authenticateToken, loadUserProfile, requireRole('broker'), BrokerController.getClientsWithRequests);
+router.get('/clients-with-requests', authenticateToken, requireRole('broker'), BrokerController.getClientsWithRequests);
 
 /**
  * @swagger
