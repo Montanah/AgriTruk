@@ -1724,7 +1724,7 @@ export default function ManageTransporterScreen({ route }: any) {
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.actionBtn, { flex: 1, marginLeft: 8 }]} 
-                onPress={() => navigation.navigate('VehicleManagement')}
+                onPress={() => navigation.navigate('Fleet', { screen: 'VehicleManagement' })}
               >
                 <MaterialCommunityIcons name="truck" size={20} color={colors.primary} />
                 <Text style={styles.actionText}>Manage Fleet</Text>

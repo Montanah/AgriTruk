@@ -260,7 +260,7 @@ const CompanyDashboardScreen = () => {
               stats.totalVehicles,
               'truck',
               colors.primary,
-              () => navigation.navigate('VehicleManagement')
+              () => navigation.navigate('Fleet', { screen: 'VehicleManagement' })
             )}
             {renderStatCard(
               'Active Vehicles',
@@ -321,28 +321,49 @@ const CompanyDashboardScreen = () => {
           <View style={styles.actionsGrid}>
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => navigation.navigate('VehicleManagement')}
+              onPress={() => {
+                // Navigate to Fleet tab and then to VehicleManagement screen
+                navigation.navigate('Fleet', { 
+                  screen: 'VehicleManagement',
+                  params: { showVehicleModal: true }
+                });
+              }}
             >
               <MaterialCommunityIcons name="truck-plus" size={32} color={colors.primary} />
               <Text style={styles.actionText}>Add Vehicle</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => navigation.navigate('DriverManagement')}
+              onPress={() => {
+                // Navigate to Fleet tab and then to DriverManagement screen
+                navigation.navigate('Fleet', { 
+                  screen: 'DriverManagement'
+                });
+              }}
             >
               <MaterialCommunityIcons name="account-plus" size={32} color={colors.primary} />
               <Text style={styles.actionText}>Recruit Driver</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => navigation.navigate('FleetAnalytics')}
+              onPress={() => {
+                // Navigate to Fleet tab and then to FleetAnalytics screen
+                navigation.navigate('Fleet', { 
+                  screen: 'FleetAnalytics'
+                });
+              }}
             >
               <MaterialCommunityIcons name="chart-line" size={32} color={colors.primary} />
               <Text style={styles.actionText}>Analytics</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => navigation.navigate('FleetReports')}
+              onPress={() => {
+                // Navigate to Fleet tab and then to FleetReports screen
+                navigation.navigate('Fleet', { 
+                  screen: 'FleetReports'
+                });
+              }}
             >
               <MaterialCommunityIcons name="file-document" size={32} color={colors.primary} />
               <Text style={styles.actionText}>Reports</Text>
