@@ -404,44 +404,10 @@ router.post('/requests/consolidate', authenticateToken, requireRole(['broker', '
  *         description: Server error
  */
 
-// Syntax check route to verify parsing works up to this point
-router.get('/syntax-check', (req, res) => {
-  console.log('🧪 SYNTAX CHECK ROUTE HIT - File parsing works up to this point');
-  res.json({ success: true, message: 'Syntax check passed', location: 'before-requests-route' });
-});
+// Temporary debug routes removed - issue was route ordering, not middleware
 
-// Super simple test route with NO middleware to isolate the issue
-router.get('/no-middleware-test', (req, res) => {
-  console.log('🧪 NO MIDDLEWARE TEST ROUTE HIT - This should work without any middleware!');
-  res.json({ success: true, message: 'No middleware route working!', timestamp: new Date().toISOString() });
-});
-
-// Debug middleware specifically for /requests route
-router.get('/requests', 
-  (req, res, next) => {
-    console.log('🔍 STEP 1: Entering /requests route handler');
-    next();
-  },
-  authenticateToken,
-  (req, res, next) => {
-    console.log('🔍 STEP 2: After authenticateToken middleware');
-    next();
-  },
-  requireRole('broker'),
-  (req, res, next) => {
-    console.log('🔍 STEP 3: After requireRole middleware');
-    next();
-  },
-  (req, res) => {
-    console.log('🔍🔍🔍 STEP 4: FINAL HANDLER - INLINE BROKER REQUESTS ROUTE HIT - URL:', req.originalUrl);
-    res.json({ 
-      success: true, 
-      message: 'Inline route working - controller reference was the issue!',
-      requests: [],
-      timestamp: new Date().toISOString() 
-    });
-  }
-);
+// Get all requests for a broker - FIXED: Now properly matches after moving /:brokerId route
+router.get('/requests', authenticateToken, requireRole('broker'), BrokerController.getAllBrokerRequests);
 
 /**
  * @swagger
@@ -518,16 +484,8 @@ router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broke
  *       500:
  *         description: Server error
  */
-// Test route with inline handler to isolate controller reference issue
-router.get('/clients-with-requests', authenticateToken, requireRole('broker'), (req, res) => {
-  console.log('🔍🔍🔍 INLINE BROKER CLIENTS ROUTE HIT - URL:', req.originalUrl);
-  res.json({ 
-    success: true, 
-    message: 'Inline route working - controller reference was the issue!',
-    data: [],
-    timestamp: new Date().toISOString() 
-  });
-});
+// Get all clients with their request statistics - FIXED: Now properly matches after moving /:brokerId route
+router.get('/clients-with-requests', authenticateToken, requireRole('broker'), BrokerController.getClientsWithRequests);
 
 /**
  * @swagger
