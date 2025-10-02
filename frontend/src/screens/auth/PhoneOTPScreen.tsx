@@ -14,8 +14,8 @@ import { db } from '../../firebaseConfig';
 import { handleVerificationBackNavigation } from '../../utils/navigationUtils';
 
 
-// For Android SMS Retriever
-import SmsRetriever from 'react-native-sms-retriever';
+// Note: SMS auto-read functionality requires native modules not available in Expo managed workflow
+// For production, consider using Expo dev client or bare workflow for SMS auto-read
 
 const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) => {
   const [otp, setOtp] = useState('');
@@ -38,35 +38,8 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
   const buttonAnim = useRef(new Animated.Value(1)).current;
   const successAnim = useRef(new Animated.Value(0)).current;
 
-  // Attempt SMS autofill/auto-read (Android only)
-  useEffect(() => {
-    // Request SMS read permission and start SMS Retriever for auto-fill (Android only)
-    async function setupSmsRetriever() {
-      if (Platform.OS === 'android' && SmsRetriever) {
-        try {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.RECEIVE_SMS,
-            {
-              title: 'SMS Permission',
-              message: 'Allow TRUKAPP to read your SMS for OTP auto-fill.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            },
-          );
-          if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-            await SmsRetriever.startSmsRetriever();
-            SmsRetriever.addSmsListener((event: any) => {
-              const codeMatch = event.message.match(/\d{4,6}/);
-              if (codeMatch) setOtp(codeMatch[0]);
-              SmsRetriever.removeSmsListener();
-            });
-          }
-        } catch { }
-      }
-    }
-    setupSmsRetriever();
-  }, []);
+  // Note: SMS auto-read would be implemented here in a bare React Native or Expo dev client setup
+  // For now, users will need to manually enter the OTP code
 
   // Fetch user data if not provided via route params
   useEffect(() => {
