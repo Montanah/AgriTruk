@@ -158,7 +158,15 @@ const FleetManagementScreen = () => {
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            try {
+              navigation.goBack();
+            } catch (error) {
+              // Fallback navigation if goBack fails
+              navigation.navigate('CompanyDashboard');
+            }
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -166,6 +174,7 @@ const FleetManagementScreen = () => {
         <TouchableOpacity
           style={styles.refreshButton}
           onPress={onRefresh}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialCommunityIcons name="refresh" size={24} color={colors.white} />
         </TouchableOpacity>

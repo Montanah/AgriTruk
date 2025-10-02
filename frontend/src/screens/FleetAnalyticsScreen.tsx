@@ -142,17 +142,33 @@ const FleetAnalyticsScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => {
+            try {
+              navigation.goBack();
+            } catch (error) {
+              // Fallback navigation if goBack fails
+              navigation.navigate('FleetManagement');
+            }
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Fleet Analytics</Text>
-        <TouchableOpacity onPress={onRefresh}>
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={onRefresh}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <MaterialCommunityIcons name="refresh" size={24} color={colors.white} />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -353,14 +369,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: colors.primary,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
     fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.white,
+    flex: 1,
+    textAlign: 'center',
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100, // Extra padding for bottom navigation
   },
   section: {
     padding: 20,

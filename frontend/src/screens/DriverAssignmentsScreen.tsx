@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
+  ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -161,15 +162,27 @@ const DriverAssignmentsScreen = () => {
 
   const renderVehicle = ({ item }: { item: Vehicle }) => (
     <View style={styles.vehicleCard}>
-      <View style={styles.vehicleInfo}>
-        <Text style={styles.vehicleTitle}>{item.make} {item.model}</Text>
-        <Text style={styles.vehicleSubtitle}>Registration: {item.registration}</Text>
-        <Text style={styles.vehicleStatus}>Status: {item.status}</Text>
+      <View style={styles.vehicleHeader}>
+        <View style={styles.vehicleIconContainer}>
+          <MaterialCommunityIcons name="truck" size={24} color={colors.primary} />
+        </View>
+        <View style={styles.vehicleInfo}>
+          <Text style={styles.vehicleTitle}>{item.make} {item.model}</Text>
+          <Text style={styles.vehicleSubtitle}>{item.registration}</Text>
+          <View style={styles.statusContainer}>
+            <View style={[styles.statusBadge, { backgroundColor: item.status === 'approved' ? colors.success : colors.warning }]}>
+              <Text style={styles.statusText}>{item.status}</Text>
+            </View>
+          </View>
+        </View>
       </View>
       
       {item.assignedDriver ? (
         <View style={styles.assignedDriver}>
-          <Text style={styles.assignedDriverTitle}>Assigned Driver:</Text>
+          <View style={styles.assignedDriverHeader}>
+            <MaterialCommunityIcons name="account-check" size={20} color={colors.success} />
+            <Text style={styles.assignedDriverTitle}>Assigned Driver</Text>
+          </View>
           <Text style={styles.assignedDriverName}>{item.assignedDriver.name}</Text>
           <Text style={styles.assignedDriverPhone}>{item.assignedDriver.phone}</Text>
           <TouchableOpacity
@@ -203,16 +216,29 @@ const DriverAssignmentsScreen = () => {
       ]}
       onPress={() => setSelectedDriver(item)}
     >
-      <View style={styles.driverInfo}>
-        <Text style={styles.driverName}>{item.firstName} {item.lastName}</Text>
-        <Text style={styles.driverPhone}>{item.phone}</Text>
-        <Text style={styles.driverStatus}>Status: {item.status}</Text>
-        {item.assignedVehicle && (
-          <Text style={styles.assignedVehicle}>
-            Currently assigned to: {item.assignedVehicle.make} {item.assignedVehicle.model}
-          </Text>
-        )}
+      <View style={styles.driverHeader}>
+        <View style={styles.driverAvatar}>
+          <MaterialCommunityIcons name="account" size={24} color={colors.primary} />
+        </View>
+        <View style={styles.driverInfo}>
+          <Text style={styles.driverName}>{item.firstName} {item.lastName}</Text>
+          <Text style={styles.driverPhone}>{item.phone}</Text>
+          <View style={styles.driverStatusContainer}>
+            <View style={[styles.statusBadge, { backgroundColor: item.status === 'active' ? colors.success : colors.warning }]}>
+              <Text style={styles.statusText}>{item.status}</Text>
+            </View>
+          </View>
+        </View>
       </View>
+      
+      {item.assignedVehicle && (
+        <View style={styles.assignedVehicleInfo}>
+          <MaterialCommunityIcons name="truck" size={16} color={colors.text.secondary} />
+          <Text style={styles.assignedVehicleText}>
+            Assigned to: {item.assignedVehicle.make} {item.assignedVehicle.model}
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 
@@ -228,31 +254,121 @@ const DriverAssignmentsScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Driver Assignments</Text>
-        <TouchableOpacity onPress={onRefresh}>
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={onRefresh}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <MaterialCommunityIcons name="refresh" size={24} color={colors.white} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        <Text style={styles.sectionTitle}>Vehicles</Text>
-        <FlatList
-          data={vehicles}
-          renderItem={renderVehicle}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+          />
+        }
+      >
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="truck" size={24} color={colors.primary} />
+            <Text style={styles.statNumber}>{vehicles.length}</Text>
+            <Text style={styles.statLabel}>Total Vehicles</Text>
+          </View>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="account-group" size={24} color={colors.secondary} />
+            <Text style={styles.statNumber}>{drivers.length}</Text>
+            <Text style={styles.statLabel}>Total Drivers</Text>
+          </View>
+          <View style={styles.statCard}>
+            <MaterialCommunityIcons name="account-check" size={24} color={colors.success} />
+            <Text style={styles.statNumber}>{vehicles.filter(v => v.assignedDriverId).length}</Text>
+            <Text style={styles.statLabel}>Assigned</Text>
+          </View>
+        </View>
+
+        {/* Vehicles Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Vehicles</Text>
+            <Text style={styles.sectionSubtitle}>Manage driver assignments for your fleet</Text>
+          </View>
+          
+          {vehicles.length === 0 ? (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="truck-outline" size={64} color={colors.text.light} />
+              <Text style={styles.emptyTitle}>No Vehicles Available</Text>
+              <Text style={styles.emptySubtitle}>
+                Add vehicles to your fleet to start assigning drivers
+              </Text>
+              <TouchableOpacity 
+                style={styles.emptyActionButton}
+                onPress={() => navigation.navigate('VehicleManagement')}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                <Text style={styles.emptyActionText}>Add Vehicles</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.vehiclesListContainer}>
+              {vehicles.map((vehicle) => (
+                <View key={vehicle.id}>
+                  {renderVehicle({ item: vehicle })}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Drivers Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Available Drivers</Text>
+            <Text style={styles.sectionSubtitle}>Drivers ready for assignment</Text>
+          </View>
+          
+          {drivers.length === 0 ? (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="account-outline" size={64} color={colors.text.light} />
+              <Text style={styles.emptyTitle}>No Drivers Available</Text>
+              <Text style={styles.emptySubtitle}>
+                Recruit drivers to start assigning them to vehicles
+              </Text>
+              <TouchableOpacity 
+                style={styles.emptyActionButton}
+                onPress={() => navigation.navigate('DriverManagement')}
+              >
+                <MaterialCommunityIcons name="account-plus" size={20} color={colors.white} />
+                <Text style={styles.emptyActionText}>Recruit Drivers</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={drivers.filter(d => d.status === 'active')}
+              renderItem={renderDriver}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.driversListContainer}
             />
-          }
-          showsVerticalScrollIndicator={false}
-        />
-      </View>
+          )}
+        </View>
+      </ScrollView>
 
       <Modal
         visible={assignModalVisible}
@@ -333,38 +449,157 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: colors.primary,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   headerTitle: {
     fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.white,
+    flex: 1,
+    textAlign: 'center',
   },
   content: {
     flex: 1,
-    padding: 20,
+    backgroundColor: colors.background.secondary,
   },
-  sectionTitle: {
-    fontSize: 20,
+  scrollContent: {
+    paddingBottom: 100, // Extra padding for bottom navigation
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: colors.white,
+    marginBottom: 8,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+  },
+  statNumber: {
+    fontSize: 24,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  section: {
+    backgroundColor: colors.white,
+    marginBottom: 8,
+    paddingVertical: 16,
+  },
+  sectionHeader: {
+    paddingHorizontal: 20,
     marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+  },
+  listContainer: {
+    paddingHorizontal: 20,
+  },
+  vehiclesListContainer: {
+    paddingHorizontal: 20,
+  },
+  driversListContainer: {
+    paddingHorizontal: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  emptyActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+  emptyActionText: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    marginLeft: 8,
   },
   vehicleCard: {
     backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  vehicleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  vehicleIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
   },
   vehicleInfo: {
-    marginBottom: 12,
+    flex: 1,
   },
   vehicleTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
     marginBottom: 4,
@@ -373,65 +608,155 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fonts.family.medium,
     color: colors.text.secondary,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  vehicleStatus: {
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
     fontSize: 12,
-    fontFamily: fonts.family.medium,
-    color: colors.success,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    textTransform: 'capitalize',
   },
   assignedDriver: {
     backgroundColor: colors.background.secondary,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.success,
+  },
+  assignedDriverHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   assignedDriverTitle: {
     fontSize: 14,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
-    marginBottom: 4,
+    marginLeft: 8,
   },
   assignedDriverName: {
-    fontSize: 14,
-    fontFamily: fonts.family.medium,
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
     color: colors.text.primary,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   assignedDriverPhone: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: fonts.family.medium,
     color: colors.text.secondary,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   assignButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary + '20',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   assignButtonText: {
-    fontSize: 12,
-    fontFamily: fonts.family.medium,
-    color: colors.primary,
-    marginLeft: 4,
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    marginLeft: 8,
   },
   unassignButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.error + '20',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    justifyContent: 'center',
+    backgroundColor: colors.error,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 8,
-    alignSelf: 'flex-start',
   },
   unassignButtonText: {
     fontSize: 12,
-    fontFamily: fonts.family.medium,
-    color: colors.error,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
     marginLeft: 4,
+  },
+  driverCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 16,
+    marginRight: 12,
+    width: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  selectedDriverCard: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+    backgroundColor: colors.background.secondary,
+  },
+  driverHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  driverAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  driverInfo: {
+    flex: 1,
+  },
+  driverName: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  driverPhone: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginBottom: 8,
+  },
+  driverStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  assignedVehicleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.secondary,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  assignedVehicleText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginLeft: 4,
+    flex: 1,
   },
   modalOverlay: {
     flex: 1,

@@ -587,7 +587,15 @@ const DriverManagementScreen = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            try {
+              navigation.goBack();
+            } catch (error) {
+              // Fallback navigation if goBack fails
+              navigation.navigate('FleetManagement');
+            }
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
