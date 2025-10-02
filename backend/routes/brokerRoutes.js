@@ -426,6 +426,12 @@ router.post('/requests/consolidate', authenticateToken, requireRole(['broker', '
  *         description: Server error
  */
 
+// Syntax check route to verify parsing works up to this point
+router.get('/syntax-check', (req, res) => {
+  console.log('🧪 SYNTAX CHECK ROUTE HIT - File parsing works up to this point');
+  res.json({ success: true, message: 'Syntax check passed', location: 'before-requests-route' });
+});
+
 // Test route with inline handler to isolate controller reference issue
 router.get('/requests', authenticateToken, requireRole('broker'), (req, res) => {
   console.log('🔍🔍🔍 INLINE BROKER REQUESTS ROUTE HIT - URL:', req.originalUrl);
