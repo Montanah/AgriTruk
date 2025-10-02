@@ -1196,6 +1196,10 @@ exports.updateVehicleProfile = async (req, res) => {
 
 exports.uploadLogo = async (req, res) => {
   try {
+    console.log('🔥 uploadLogo called for companyId:', req.params.companyId);
+    console.log('🔥 req.files:', req.files);
+    console.log('🔥 req.file:', req.file);
+    
     const companyId = req.params.companyId;
     // check if company exists
     const company = await Company.get(companyId);
@@ -1205,47 +1209,73 @@ exports.uploadLogo = async (req, res) => {
         message: 'Company not found',
       });
     }
-   let updateData = {}; 
-   
-   // Track if sensitive docs changed 
-   let sensitiveDocsChanged = false; 
-   let changedFields = [] 
-
-   const uploadTasks = Object.values(req.files).map(async file => { 
-    const fieldName = file.fieldname; 
-    const publicId = await uploadImage(file.path); 
-    if (publicId) { 
-      switch (fieldName) { 
-        case 'logo': 
-          updateData.companyLogo = publicId; 
-          changedFields.push('companyLogo'); 
-        break; 
-        default: console.log(`Unknown field name: ${fieldName}`); 
-        break;
-       } 
-      } 
+    
+    let updateData = {}; 
+    
+    // Handle single file upload (req.file) or multiple files (req.files)
+    const files = req.files ? Object.values(req.files) : (req.file ? [req.file] : []);
+    console.log('🔥 Processing files:', files.length);
+    
+    if (files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No files uploaded',
+      });
+    }
+    
+    const uploadTasks = files.map(async file => { 
+      console.log('🔥 Processing file:', file.fieldname, file.originalname);
+      const fieldName = file.fieldname; 
+      const publicId = await uploadImage(file.path); 
+      if (publicId) { 
+        console.log('🔥 Upload successful:', publicId);
+        switch (fieldName) { 
+          case 'logo': 
+            updateData.companyLogo = publicId; 
+            break; 
+          default: 
+            console.log(`Unknown field name: ${fieldName}`); 
+            break;
+        } 
+      } else {
+        console.error('🔥 Upload failed for file:', file.originalname);
+      }
       
-      fs.unlinkSync(file.path);
+      // Clean up temp file
+      try {
+        fs.unlinkSync(file.path);
+      } catch (cleanupError) {
+        console.error('🔥 Error cleaning up file:', cleanupError);
+      }
     });
       
     await Promise.all(uploadTasks); 
-      
-      await Action.create({ 
-        type: 'company_review', 
-        entityId: companyId, 
-        priority: 'high', 
-        metadata: { ...updateData }, 
-        message: `${company.companyName} has ${sensitiveDocsChanged ? 'sensitive' : 'non-sensitive'} documents that need to be approved.`, 
+    
+    if (Object.keys(updateData).length === 0) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload any files',
       });
+    }
+      
+    await Action.create({ 
+      type: 'company_review', 
+      entityId: companyId, 
+      priority: 'high', 
+      metadata: { ...updateData }, 
+      message: `${company.companyName} has updated their logo.`, 
+    });
 
-      await Company.update(companyId, updateData);
+    await Company.update(companyId, updateData);
+    console.log('🔥 Company updated successfully with:', updateData);
 
-      res.status(200).json({
-        success: true,
-        message: 'Logo uploaded successfully',
-        data: updateData
-      })
+    res.status(200).json({
+      success: true,
+      message: 'Logo uploaded successfully',
+      data: updateData
+    });
   } catch (error) {
+    console.error('🔥 uploadLogo error:', error);
     res.status(500).json({
       success: false,
       message: `Error uploading logo: ${error.message}`,

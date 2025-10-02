@@ -477,6 +477,13 @@ export default function ManageTransporterScreen({ route }: any) {
             } as any);
             
             console.log('Uploading company logo to:', `${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`);
+            console.log('FormData contents:', formData);
+            console.log('Asset details:', {
+              uri: asset.uri,
+              type: asset.type,
+              name: 'company-logo.jpg'
+            });
+            
             const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
               method: 'PATCH',
               headers: {
@@ -544,6 +551,13 @@ export default function ManageTransporterScreen({ route }: any) {
             } as any);
             
             console.log('Uploading company logo to:', `${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`);
+            console.log('FormData contents:', formData);
+            console.log('Asset details:', {
+              uri: asset.uri,
+              type: asset.type,
+              name: 'company-logo.jpg'
+            });
+            
             const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
               method: 'PATCH',
               headers: {
