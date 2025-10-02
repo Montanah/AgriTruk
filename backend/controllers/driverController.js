@@ -81,10 +81,13 @@ const createDriver = async (req, res) => {
       });
     } catch (authError) {
       console.error('Error creating Firebase user:', authError);
+      if (authError.code === 'auth/email-already-exists') {
+        return res.status(400).json({ message: 'A user with this email already exists. Please use a different email address.' });
+      }
       return res.status(400).json({ message: 'Failed to create driver account: ' + authError.message });
     }
 
-    // Prepare driver data
+    // Prepare driver data (filter out undefined values)
     const driverData = {
       companyId,
       userId: firebaseUser.uid,
@@ -93,15 +96,21 @@ const createDriver = async (req, res) => {
       email: req.body.email,
       phone: req.body.phone,
       driverLicense: req.body.driverLicenseNumber || req.body.driverLicense || 'DL-' + Date.now(),
-      driverLicenseExpiryDate: req.body.driverLicenseExpiryDate,
       idNumber: req.body.idNumber || 'ID-' + Date.now(),
-      idExpiryDate: req.body.idExpiryDate,
       status: 'pending',
       assignedVehicleId: null,
       isDefaultPassword: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    // Only add optional fields if they have values
+    if (req.body.driverLicenseExpiryDate) {
+      driverData.driverLicenseExpiryDate = req.body.driverLicenseExpiryDate;
+    }
+    if (req.body.idExpiryDate) {
+      driverData.idExpiryDate = req.body.idExpiryDate;
+    }
 
     // Handle file uploads
     if (req.files && req.files.length > 0) {
