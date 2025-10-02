@@ -219,18 +219,27 @@ export default function TransporterCompletionScreen() {
                 console.log('Subscription details:', {
                   hasActiveSubscription: subscriptionStatus.hasActiveSubscription,
                   isTrialActive: subscriptionStatus.isTrialActive,
-                  subscriptionStatus: subscriptionStatus.subscriptionStatus
+                  subscriptionStatus: subscriptionStatus.subscriptionStatus,
+                  needsTrialActivation: subscriptionStatus.needsTrialActivation
                 });
-                // User has active subscription or trial - go to dashboard
+                
+                // Priority 1: User has active subscription or trial - go directly to dashboard
                 if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
+                  console.log('✅ User has active subscription/trial, navigating to dashboard');
+                  clearTimeout(timeout);
                   navigation.reset({
                     index: 0,
                     routes: [
                       { name: 'TransporterTabs', params: { transporterType: transporterType } },
                     ],
                   });
-                } else if (subscriptionStatus.subscriptionStatus === 'expired') {
-                  // Subscription expired - go to expired screen
+                  return;
+                } 
+                
+                // Priority 2: Subscription expired - go to expired screen
+                else if (subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
+                  console.log('⚠️ User subscription expired, navigating to expired screen');
+                  clearTimeout(timeout);
                   navigation.reset({
                     index: 0,
                     routes: [
@@ -241,8 +250,13 @@ export default function TransporterCompletionScreen() {
                       } },
                     ],
                   });
-                } else {
-                  // No subscription or needs trial activation - go to trial screen
+                  return;
+                } 
+                
+                // Priority 3: No subscription or needs trial activation - go to trial screen
+                else {
+                  console.log('🔄 User needs trial activation, navigating to trial screen');
+                  clearTimeout(timeout);
                   navigation.reset({
                     index: 0,
                     routes: [
@@ -252,13 +266,13 @@ export default function TransporterCompletionScreen() {
                       } },
                     ],
                   });
+                  return;
                 }
               } else {
                 // Subscription status not loaded yet, wait for it
-                console.log('Subscription status not loaded yet, waiting...');
+                console.log('⏳ Subscription status not loaded yet, waiting...');
                 return;
               }
-              return;
             } else if (['pending', 'under_review'].includes(data.transporter.status)) {
               clearTimeout(timeout);
               navigation.reset({

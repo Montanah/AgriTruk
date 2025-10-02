@@ -59,6 +59,43 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     // Get trial duration from subscription status or default to 30 days
     const trialDuration = subscriptionStatus?.daysRemaining || 30;
 
+    // Check if user already has active subscription on component mount
+    useEffect(() => {
+        const checkExistingSubscription = async () => {
+            try {
+                const currentStatus = await subscriptionService.getSubscriptionStatus();
+                console.log('Trial screen - checking existing subscription:', {
+                    hasActiveSubscription: currentStatus.hasActiveSubscription,
+                    isTrialActive: currentStatus.isTrialActive,
+                    subscriptionStatus: currentStatus.subscriptionStatus
+                });
+
+                // If user already has active subscription or trial, redirect to dashboard
+                if (currentStatus.hasActiveSubscription || currentStatus.isTrialActive) {
+                    console.log('✅ User already has active subscription/trial, redirecting to dashboard');
+                    
+                    if (userType === 'transporter' || userType === 'company') {
+                        navigation.reset({
+                            index: 0,
+                            routes: [{ name: 'TransporterTabs' }]
+                        });
+                    } else if (userType === 'broker') {
+                        navigation.reset({
+                            index: 0,
+                            routes: [{ name: 'BrokerTabs' }]
+                        });
+                    }
+                    return;
+                }
+            } catch (error) {
+                console.error('Error checking existing subscription:', error);
+                // Continue with trial activation if check fails
+            }
+        };
+
+        checkExistingSubscription();
+    }, [userType, navigation]);
+
     // Load trial plan on component mount
     useEffect(() => {
         const loadTrialPlan = async () => {

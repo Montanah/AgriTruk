@@ -247,40 +247,47 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                 const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
                 console.log('Broker subscription status:', subscriptionStatus);
                 
-                if (subscriptionStatus.hasActiveSubscription) {
-                  // Broker already has a subscription, navigate to appropriate dashboard
-                  if (subscriptionStatus.isExpired) {
-                    navigation.reset({
-                      index: 0,
-                      routes: [{ 
-                        name: 'SubscriptionExpired',
-                        params: {
-                          userType: 'broker',
-                          subscriptionStatus: subscriptionStatus
-                        }
-                      }]
-                    });
-                  } else {
-                    // Navigate to broker dashboard
-                    navigation.reset({
-                      index: 0,
-                      routes: [{ name: 'BrokerTabs' }]
-                    });
-                  }
-                } else {
-                  // No active subscription, navigate to trial activation
+                console.log('Broker verification complete, subscription status:', {
+                  hasActiveSubscription: subscriptionStatus.hasActiveSubscription,
+                  isTrialActive: subscriptionStatus.isTrialActive,
+                  subscriptionStatus: subscriptionStatus.subscriptionStatus,
+                  isExpired: subscriptionStatus.isExpired
+                });
+
+                // Priority 1: User has active subscription or trial - go directly to dashboard
+                if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
+                  console.log('✅ Verified broker has active subscription/trial, navigating to dashboard');
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'BrokerTabs' }]
+                  });
+                } 
+                
+                // Priority 2: Subscription expired - go to expired screen
+                else if (subscriptionStatus.isExpired || subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
+                  console.log('⚠️ Verified broker subscription expired, navigating to expired screen');
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ 
+                      name: 'SubscriptionExpired',
+                      params: {
+                        userType: 'broker',
+                        subscriptionStatus: subscriptionStatus
+                      }
+                    }]
+                  });
+                } 
+                
+                // Priority 3: No subscription or needs trial activation - go to trial screen
+                else {
+                  console.log('🔄 Verified broker needs trial activation, navigating to trial screen');
                   navigation.reset({
                     index: 0,
                     routes: [{ 
                       name: 'SubscriptionTrial',
                       params: {
                         userType: 'broker',
-                        subscriptionStatus: {
-                          needsTrialActivation: true,
-                          hasActiveSubscription: false,
-                          isTrialActive: false,
-                          subscriptionStatus: 'none'
-                        }
+                        subscriptionStatus: subscriptionStatus
                       }
                     }]
                   });

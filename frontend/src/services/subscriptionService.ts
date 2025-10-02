@@ -21,7 +21,7 @@ export interface SubscriptionStatus {
   needsTrialActivation: boolean;
   currentPlan: SubscriptionPlan | null;
   daysRemaining: number;
-  subscriptionStatus: 'active' | 'expired' | 'trial' | 'none';
+  subscriptionStatus: 'active' | 'expired' | 'trial' | 'none' | 'inactive';
   subscription?: any;
   isTrial?: boolean;
   trialDaysRemaining?: number;

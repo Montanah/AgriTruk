@@ -33,23 +33,25 @@ const BrokerSubscriptionChecker: React.FC<BrokerSubscriptionCheckerProps> = ({ o
       // Get subscription status
       const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
       
-      // Determine next step based on subscription status
-      if (subscriptionStatus?.needsTrialActivation || 
-          !subscriptionStatus || 
-          (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
-        // No active subscription - route to trial activation
+      console.log('Broker subscription status check:', {
+        hasActiveSubscription: subscriptionStatus?.hasActiveSubscription,
+        isTrialActive: subscriptionStatus?.isTrialActive,
+        subscriptionStatus: subscriptionStatus?.subscriptionStatus,
+        needsTrialActivation: subscriptionStatus?.needsTrialActivation
+      });
+
+      // Priority 1: User has active subscription or trial - go directly to dashboard
+      if (subscriptionStatus?.hasActiveSubscription || subscriptionStatus?.isTrialActive) {
+        console.log('✅ Broker has active subscription/trial, navigating to dashboard');
         navigation.reset({
           index: 0,
-          routes: [{
-            name: 'SubscriptionTrial',
-            params: {
-              userType: 'broker',
-              subscriptionStatus: subscriptionStatus
-            }
-          }]
+          routes: [{ name: 'BrokerTabs' }]
         });
-      } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'expired') {
-        // Subscription expired - route to expired screen
+      } 
+      
+      // Priority 2: Subscription expired - route to expired screen
+      else if (subscriptionStatus?.subscriptionStatus === 'expired' || subscriptionStatus?.subscriptionStatus === 'inactive') {
+        console.log('⚠️ Broker subscription expired, navigating to expired screen');
         navigation.reset({
           index: 0,
           routes: [{
@@ -61,11 +63,20 @@ const BrokerSubscriptionChecker: React.FC<BrokerSubscriptionCheckerProps> = ({ o
             }
           }]
         });
-      } else {
-        // Has active subscription - route to dashboard
+      } 
+      
+      // Priority 3: No subscription or needs trial activation - route to trial activation
+      else {
+        console.log('🔄 Broker needs trial activation, navigating to trial screen');
         navigation.reset({
           index: 0,
-          routes: [{ name: 'BrokerTabs' }]
+          routes: [{
+            name: 'SubscriptionTrial',
+            params: {
+              userType: 'broker',
+              subscriptionStatus: subscriptionStatus
+            }
+          }]
         });
       }
       

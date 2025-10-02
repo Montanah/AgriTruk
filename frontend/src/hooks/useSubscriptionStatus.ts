@@ -8,7 +8,7 @@ interface SubscriptionStatus {
   needsTrialActivation: boolean;
   currentPlan: any;
   daysRemaining: number;
-  subscriptionStatus: 'active' | 'expired' | 'trial' | 'none';
+  subscriptionStatus: 'active' | 'expired' | 'trial' | 'none' | 'inactive';
   subscription?: any;
 }
 
