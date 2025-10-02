@@ -856,10 +856,7 @@ export default function TransporterCompletionScreen() {
           console.log('No insurance file to add');
         }
         
-        // Note: Backend doesn't handle logbook files, so we skip it
-        if (logBookFile && logBookFile.uri) {
-          console.log('Logbook file selected but backend doesn\'t handle it, skipping');
-        }
+        // Note: Logbook files are not currently required for individual transporters
         
         if (idFile && idFile.uri) {
           console.log('Adding driver ID:', {
@@ -915,7 +912,7 @@ export default function TransporterCompletionScreen() {
           hasProfilePhoto: !!(profilePhoto && profilePhoto.uri),
           hasDlFile: !!(dlFile && dlFile.uri),
           hasInsuranceFile: !!(insuranceFile && insuranceFile.uri),
-          hasLogbookFile: !!(logBookFile && logBookFile.uri),
+          hasLogbookFile: false, // Logbook not currently required
           hasIdFile: !!(idFile && idFile.uri),
           vehiclePhotosCount: vehiclePhotos ? vehiclePhotos.length : 0
         });
@@ -1436,7 +1433,7 @@ export default function TransporterCompletionScreen() {
           hasDlFile: !!(dlFile && dlFile.uri),
           hasInsuranceFile: !!(insuranceFile && insuranceFile.uri),
           hasIdFile: !!(idFile && idFile.uri),
-          hasLogbookFile: !!(logBookFile && logBookFile.uri),
+          hasLogbookFile: false, // Logbook not currently required
           vehiclePhotosCount: vehiclePhotos ? vehiclePhotos.length : 0,
           isDraft: true,
           savedAt: new Date().toISOString()
