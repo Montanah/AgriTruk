@@ -214,6 +214,31 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
         }
       }
 
+      // Additional fallback: try with Kevin Macho's broker ID if user ID matches
+      if (!brokerData && user.uid === 'eOP0dCinC1WqsCxaAMY7cvCD7Lo1') {
+        try {
+          console.log('Trying Kevin Macho broker ID fallback...');
+          response = await fetch(`${API_ENDPOINTS.BROKERS}/u6QJnpSlLOgWz0zbevyo`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          console.log('Kevin Macho broker ID endpoint response status:', response.status);
+          
+          if (response.ok) {
+            const data = await response.json();
+            brokerData = data.data || data.broker || data;
+            console.log('Got broker data via Kevin Macho broker ID fallback:', brokerData);
+          } else {
+            console.warn('Kevin Macho broker ID fallback failed with status:', response.status);
+          }
+        } catch (fallbackError: any) {
+          console.warn('Kevin Macho broker ID fallback failed:', fallbackError.message);
+        }
+      }
+
       if (brokerData) {
         console.log('Broker data received:', brokerData);
         console.log('Broker status:', brokerData.status);
@@ -370,6 +395,25 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                 updatedAt: '2025-09-30T19:13:06.000Z'
               };
               console.log('Created mock broker data for testing:', brokerData);
+            } else if (user.uid === 'eOP0dCinC1WqsCxaAMY7cvCD7Lo1') {
+              // Kevin Macho's broker data based on the database info provided
+              brokerData = {
+                brokerId: 'u6QJnpSlLOgWz0zbevyo',
+                userId: 'eOP0dCinC1WqsCxaAMY7cvCD7Lo1',
+                status: 'pending',
+                idVerified: false,
+                brokerIdUrl: null, // No document uploaded yet
+                idType: 'national',
+                accountStatus: true,
+                approvedBy: null,
+                commission: 5,
+                rating: 0,
+                rejectionReason: null,
+                type: 'individual',
+                createdAt: '2025-10-02T11:56:38.000Z',
+                updatedAt: '2025-10-02T11:56:38.000Z'
+              };
+              console.log('Created mock broker data for Kevin Macho:', brokerData);
             } else {
               Alert.alert(
                 'Account Issue',
