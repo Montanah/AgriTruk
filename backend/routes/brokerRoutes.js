@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+
+console.log('🚀 BROKER ROUTES FILE LOADED - Routes should be available');
 const BrokerController = require('../controllers/brokerController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const loadUserProfile = require('../middlewares/loadUserProfile');
@@ -14,6 +16,12 @@ const uploadAny = upload.any();
 router.get('/test', (req, res) => {
   console.log('🧪 Test route /api/brokers/test hit successfully');
   res.json({ success: true, message: 'Broker routes are working', timestamp: new Date().toISOString() });
+});
+
+// Catch-all debug route to see if ANY requests reach broker router
+router.use('*', (req, res, next) => {
+  console.log('🔍🔍🔍 BROKER ROUTER HIT - Path:', req.originalUrl, 'Method:', req.method, 'Params:', req.params);
+  next();
 });
 
 /**
