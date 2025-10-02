@@ -426,11 +426,16 @@ router.post('/requests/consolidate', authenticateToken, requireRole(['broker', '
  *         description: Server error
  */
 
-// Simplified route definition to test if multi-line syntax is the issue
-router.get('/requests', authenticateToken, requireRole('broker'), (req, res, next) => {
-  console.log('🔍🔍🔍 SIMPLIFIED BROKER REQUESTS ROUTE HIT - URL:', req.originalUrl);
-  next();
-}, BrokerController.getAllBrokerRequests);
+// Test route with inline handler to isolate controller reference issue
+router.get('/requests', authenticateToken, requireRole('broker'), (req, res) => {
+  console.log('🔍🔍🔍 INLINE BROKER REQUESTS ROUTE HIT - URL:', req.originalUrl);
+  res.json({ 
+    success: true, 
+    message: 'Inline route working - controller reference was the issue!',
+    requests: [],
+    timestamp: new Date().toISOString() 
+  });
+});
 
 /**
  * @swagger
@@ -507,11 +512,16 @@ router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broke
  *       500:
  *         description: Server error
  */
-// Simplified route definition to test if multi-line syntax is the issue
-router.get('/clients-with-requests', authenticateToken, requireRole('broker'), (req, res, next) => {
-  console.log('🔍🔍🔍 SIMPLIFIED BROKER CLIENTS ROUTE HIT - URL:', req.originalUrl);
-  next();
-}, BrokerController.getClientsWithRequests);
+// Test route with inline handler to isolate controller reference issue
+router.get('/clients-with-requests', authenticateToken, requireRole('broker'), (req, res) => {
+  console.log('🔍🔍🔍 INLINE BROKER CLIENTS ROUTE HIT - URL:', req.originalUrl);
+  res.json({ 
+    success: true, 
+    message: 'Inline route working - controller reference was the issue!',
+    data: [],
+    timestamp: new Date().toISOString() 
+  });
+});
 
 /**
  * @swagger
