@@ -18,6 +18,12 @@ router.get('/test', (req, res) => {
   res.json({ success: true, message: 'Broker routes are working', timestamp: new Date().toISOString() });
 });
 
+// Add early debug middleware to catch ALL requests to broker router
+router.use((req, res, next) => {
+  console.log('🎯 BROKER ROUTER MIDDLEWARE HIT - Path:', req.path, 'OriginalUrl:', req.originalUrl, 'Method:', req.method);
+  next();
+});
+
 // Debug middleware to see if ANY requests reach broker router (moved to after routes)
 // This will be moved to the end of the file
 
