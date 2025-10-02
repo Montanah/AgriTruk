@@ -432,16 +432,38 @@ router.get('/syntax-check', (req, res) => {
   res.json({ success: true, message: 'Syntax check passed', location: 'before-requests-route' });
 });
 
-// Test route with inline handler to isolate controller reference issue
-router.get('/requests', authenticateToken, requireRole('broker'), (req, res) => {
-  console.log('🔍🔍🔍 INLINE BROKER REQUESTS ROUTE HIT - URL:', req.originalUrl);
-  res.json({ 
-    success: true, 
-    message: 'Inline route working - controller reference was the issue!',
-    requests: [],
-    timestamp: new Date().toISOString() 
-  });
+// Super simple test route with NO middleware to isolate the issue
+router.get('/no-middleware-test', (req, res) => {
+  console.log('🧪 NO MIDDLEWARE TEST ROUTE HIT - This should work without any middleware!');
+  res.json({ success: true, message: 'No middleware route working!', timestamp: new Date().toISOString() });
 });
+
+// Debug middleware specifically for /requests route
+router.get('/requests', 
+  (req, res, next) => {
+    console.log('🔍 STEP 1: Entering /requests route handler');
+    next();
+  },
+  authenticateToken,
+  (req, res, next) => {
+    console.log('🔍 STEP 2: After authenticateToken middleware');
+    next();
+  },
+  requireRole('broker'),
+  (req, res, next) => {
+    console.log('🔍 STEP 3: After requireRole middleware');
+    next();
+  },
+  (req, res) => {
+    console.log('🔍🔍🔍 STEP 4: FINAL HANDLER - INLINE BROKER REQUESTS ROUTE HIT - URL:', req.originalUrl);
+    res.json({ 
+      success: true, 
+      message: 'Inline route working - controller reference was the issue!',
+      requests: [],
+      timestamp: new Date().toISOString() 
+    });
+  }
+);
 
 /**
  * @swagger
