@@ -475,14 +475,18 @@ exports.getRequestsByClient = async (req, res) => {
 
 exports.getAllBrokerRequests = async (req, res) => {
   try {
+    console.log('getAllBrokerRequests called for user:', req.user.uid);
     // Get broker by user ID
     const broker = await Broker.getByUserId(req.user.uid);
+    console.log('getAllBrokerRequests broker found:', broker ? broker.id : 'null');
     if (!broker) {
+      console.log('getAllBrokerRequests: No broker found, returning 404');
       return res.status(404).json({ success: false, message: 'Error retrieving broker: Broker not found' });
     }
 
     // Get all clients for this broker
     const clients = await Client.getClients(broker.id);
+    console.log('getAllBrokerRequests clients found:', clients.length);
     const clientIds = clients.map(client => client.id);
 
     // Get all requests for all clients
@@ -501,6 +505,7 @@ exports.getAllBrokerRequests = async (req, res) => {
       allRequests.push(...requestsWithClient);
     }
 
+    console.log('getAllBrokerRequests: Returning', allRequests.length, 'requests');
     await logActivity(req.user.uid, 'get_all_broker_requests', req);
     const notificationData = {
       userId: req.user.uid,
@@ -526,14 +531,18 @@ exports.getAllBrokerRequests = async (req, res) => {
 
 exports.getClientsWithRequests = async (req, res) => {
   try {
+    console.log('getClientsWithRequests called for user:', req.user.uid);
     // Get broker by user ID
     const broker = await Broker.getByUserId(req.user.uid);
+    console.log('getClientsWithRequests broker found:', broker ? broker.id : 'null');
     if (!broker) {
+      console.log('getClientsWithRequests: No broker found, returning 404');
       return res.status(404).json({ success: false, message: 'Error retrieving broker: Broker not found' });
     }
 
     // Get all clients for this broker
     const clients = await Client.getClients(broker.id);
+    console.log('getClientsWithRequests clients found:', clients.length);
     
     // Get requests for each client and add request statistics
     const clientsWithRequests = await Promise.all(
@@ -567,6 +576,7 @@ exports.getClientsWithRequests = async (req, res) => {
       })
     );
 
+    console.log('getClientsWithRequests: Returning', clientsWithRequests.length, 'clients');
     await logActivity(req.user.uid, 'get_clients_with_requests', req);
     const notificationData = {
       userId: req.user.uid,
@@ -605,9 +615,11 @@ exports.getAllBrokers = async (req, res) => {
         broker.clientCount = clients.length;
 
         const brokerBookings = await Booking.get(broker.id);
-        broker.bookings = formatTimestamps(brokerBookings);
-        broker.bookingCount = brokerBookings.length;
-        allBookings.push(...brokerBookings);
+        broker.bookings = formatTimestamps(brokerBookings || []);
+        broker.bookingCount = brokerBookings ? brokerBookings.length : 0;
+        if (brokerBookings && Array.isArray(brokerBookings)) {
+          allBookings.push(...brokerBookings);
+        }
       } catch (brokerError) {
         console.error(`Error processing broker ${broker.id}:`, brokerError);
         // Set default values if processing fails
