@@ -91,7 +91,9 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             if (!user) return;
             
             const token = await user.getIdToken();
-            const res = await fetch(`${API_ENDPOINTS.BROKERS}/requests`, {
+            const url = `${API_ENDPOINTS.BROKERS}/requests`;
+            console.log('🔍 Frontend calling URL:', url);
+            const res = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
@@ -133,7 +135,9 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             if (!user) return;
             
             const token = await user.getIdToken();
-            const res = await fetch(`${API_ENDPOINTS.BROKERS}/clients-with-requests`, {
+            const url = `${API_ENDPOINTS.BROKERS}/clients-with-requests`;
+            console.log('🔍 Frontend calling URL:', url);
+            const res = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
