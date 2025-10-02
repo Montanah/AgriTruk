@@ -51,33 +51,50 @@ export default function TransporterProcessingScreen({ route }) {
           !status || 
           (!status.hasActiveSubscription && !status.isTrialActive && status.subscriptionStatus === 'none')) {
         console.log('Transporter needs trial activation, redirecting to trial screen');
-        navigation.reset({
-          index: 0,
-          routes: [{
-            name: 'SubscriptionTrial',
-            params: {
-              userType: transporterType,
-              subscriptionStatus: status
-            }
-          }]
-        });
+        try {
+          navigation.navigate('SubscriptionTrial', {
+            userType: transporterType,
+            subscriptionStatus: status
+          });
+        } catch (navError) {
+          console.log('Navigation error, trying reset:', navError);
+          navigation.reset({
+            index: 0,
+            routes: [{
+              name: 'SubscriptionTrial',
+              params: {
+                userType: transporterType,
+                subscriptionStatus: status
+              }
+            }]
+          });
+        }
         return;
       }
       
       // If subscription has expired, redirect to expiry screen
       if (status.subscriptionStatus === 'expired' || status.trialUsed) {
         console.log('Transporter subscription expired, redirecting to expired screen');
-        navigation.reset({
-          index: 0,
-          routes: [{
-            name: 'SubscriptionExpiredScreen',
-            params: {
-              userType: transporterType,
-              userId: 'current_user', // Will be replaced with actual user ID
-              expiredDate: new Date().toISOString()
-            }
-          }]
-        });
+        try {
+          navigation.navigate('SubscriptionExpired', {
+            userType: transporterType,
+            userId: 'current_user', // Will be replaced with actual user ID
+            expiredDate: new Date().toISOString()
+          });
+        } catch (navError) {
+          console.log('Navigation error, trying reset:', navError);
+          navigation.reset({
+            index: 0,
+            routes: [{
+              name: 'SubscriptionExpired',
+              params: {
+                userType: transporterType,
+                userId: 'current_user', // Will be replaced with actual user ID
+                expiredDate: new Date().toISOString()
+              }
+            }]
+          });
+        }
         return;
       }
       
@@ -92,16 +109,24 @@ export default function TransporterProcessingScreen({ route }) {
     } catch (error) {
       console.error('Error checking subscription status:', error);
       // On error, assume user needs trial activation
-      navigation.reset({
-        index: 0,
-        routes: [{
-          name: 'SubscriptionTrial',
-          params: {
-            userType: transporterType,
-            subscriptionStatus: { needsTrialActivation: true }
-          }
-        }]
-      });
+      try {
+        navigation.navigate('SubscriptionTrial', {
+          userType: transporterType,
+          subscriptionStatus: { needsTrialActivation: true }
+        });
+      } catch (navError) {
+        console.log('Navigation error, trying reset:', navError);
+        navigation.reset({
+          index: 0,
+          routes: [{
+            name: 'SubscriptionTrial',
+            params: {
+              userType: transporterType,
+              subscriptionStatus: { needsTrialActivation: true }
+            }
+          }]
+        });
+      }
     } finally {
       setCheckingSubscription(false);
     }
@@ -168,12 +193,17 @@ export default function TransporterProcessingScreen({ route }) {
                     // The navigation will be handled in checkSubscriptionStatus
                     // If no subscription issues, navigate to dashboard
                     setTimeout(() => {
-                      navigation.reset({
-                        index: 0,
-                        routes: [
-                          { name: 'TransporterTabs', params: { transporterType: 'company' } },
-                        ],
-                      });
+                      try {
+                        navigation.navigate('TransporterTabs', { transporterType: 'company' });
+                      } catch (navError) {
+                        console.log('Navigation error, trying reset:', navError);
+                        navigation.reset({
+                          index: 0,
+                          routes: [
+                            { name: 'TransporterTabs', params: { transporterType: 'company' } },
+                          ],
+                        });
+                      }
                     }, 1200);
                   }
                 }
