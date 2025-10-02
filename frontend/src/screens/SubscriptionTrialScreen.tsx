@@ -74,15 +74,20 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 if (currentStatus.hasActiveSubscription || currentStatus.isTrialActive) {
                     console.log('✅ User already has active subscription/trial, redirecting to dashboard');
                     
-                    if (userType === 'transporter' || userType === 'company') {
+                    if (userType === 'transporter' || userType === 'company' || userType === 'individual') {
                         navigation.reset({
                             index: 0,
-                            routes: [{ name: 'TransporterTabs' }]
+                            routes: [{ name: 'TransporterTabs', params: { transporterType: userType === 'company' ? 'company' : 'individual' } }]
                         });
                     } else if (userType === 'broker') {
                         navigation.reset({
                             index: 0,
                             routes: [{ name: 'BrokerTabs' }]
+                        });
+                    } else {
+                        navigation.reset({
+                            index: 0,
+                            routes: [{ name: 'MainTabs' }]
                         });
                     }
                     return;
@@ -153,21 +158,23 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         });
                     } else if (subscriptionData.isTrialActive) {
                         // User already has active trial - navigate to appropriate dashboard
-                        if (userType === 'transporter' || userType === 'company') {
+                        if (userType === 'transporter' || userType === 'company' || userType === 'individual') {
                             // Both individual transporters and companies go to TransporterTabs
-                            navigation.navigate('TransporterTabs');
+                            navigation.navigate('TransporterTabs', { transporterType: userType === 'company' ? 'company' : 'individual' });
                         } else if (userType === 'broker') {
                             navigation.navigate('BrokerTabs');
                         } else {
+                            // For shippers/clients, use MainTabs
                             navigation.navigate('MainTabs');
                         }
                     } else {
                         // Navigate to appropriate dashboard
-                        if (userType === 'transporter' || userType === 'company') {
-                            navigation.navigate('TransporterTabs');
+                        if (userType === 'transporter' || userType === 'company' || userType === 'individual') {
+                            navigation.navigate('TransporterTabs', { transporterType: userType === 'company' ? 'company' : 'individual' });
                         } else if (userType === 'broker') {
                             navigation.navigate('BrokerTabs');
                         } else {
+                            // For shippers/clients, use MainTabs
                             navigation.navigate('MainTabs');
                         }
                     }
@@ -198,10 +205,10 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                             {
                                 text: 'Continue',
                                 onPress: () => {
-                                    if (userType === 'transporter' || userType === 'company') {
+                                    if (userType === 'transporter' || userType === 'company' || userType === 'individual') {
                                         // Both individual transporters and companies go to TransporterTabs
                                         // Companies will see fleet management options
-                                        navigation.navigate('TransporterTabs');
+                                        navigation.navigate('TransporterTabs', { transporterType: userType === 'company' ? 'company' : 'individual' });
                                     } else if (userType === 'broker') {
                                         // Navigate to payment confirmation for brokers
                                         navigation.navigate('PaymentConfirmation', {
@@ -213,7 +220,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                                             amount: trialPlan?.price || 0
                                         });
                                     } else {
-                                        // Fallback for business users
+                                        // Fallback for other user types (shippers/clients)
                                         navigation.navigate('MainTabs');
                                     }
                                 }
