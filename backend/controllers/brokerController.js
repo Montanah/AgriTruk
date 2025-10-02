@@ -593,20 +593,30 @@ exports.getClientsWithRequests = async (req, res) => {
 exports.getAllBrokers = async (req, res) => {
   try {
     const brokers = await Broker.getAll();
-    const bookings = [];
+    const allBookings = [];
 
    for (const broker of brokers) {
-      const user = await User.get(broker.userId);
-      broker.user = formatTimestamps(user); 
+      try {
+        const user = await User.get(broker.userId);
+        broker.user = formatTimestamps(user); 
 
-      const clients = await Client.getClients(broker.id);
-      broker.clients = formatTimestamps(clients);
-      broker.clientCount = clients.length;
+        const clients = await Client.getClients(broker.id);
+        broker.clients = formatTimestamps(clients);
+        broker.clientCount = clients.length;
 
-      const bookings = await Booking.get(broker.id);
-      broker.bookings = formatTimestamps(bookings);
-      broker.bookingCount = bookings.length;
-      bookings.push(...bookings);
+        const brokerBookings = await Booking.get(broker.id);
+        broker.bookings = formatTimestamps(brokerBookings);
+        broker.bookingCount = brokerBookings.length;
+        allBookings.push(...brokerBookings);
+      } catch (brokerError) {
+        console.error(`Error processing broker ${broker.id}:`, brokerError);
+        // Set default values if processing fails
+        broker.user = null;
+        broker.clients = [];
+        broker.clientCount = 0;
+        broker.bookings = [];
+        broker.bookingCount = 0;
+      }
     }
 
     const activeBrokers = brokers.filter(broker => broker.status === 'active' || broker.status === 'approved');
@@ -631,7 +641,7 @@ exports.getAllBrokers = async (req, res) => {
       inactiveBrokers: inactiveBrokers.length,
       totalBrokers: brokers.length,
       totalClients: totalClients.length,
-      totalBookings: bookings.length  
+      totalBookings: allBookings.length  
     });
   } catch (error) {
     res.status(500).json({

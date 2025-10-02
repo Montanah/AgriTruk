@@ -699,7 +699,7 @@ router.get('/pdfreports', authenticateToken, requireRole('admin'), authorize(['v
  *       500:
  *         description: Server error
  */
-router.get('/brokers/:brokerId', authorize(['view_brokers', 'super_admin']), brokerController.getBroker);
+router.get('/brokers/:brokerId', authenticateToken, requireRole('admin'), authorize(['view_brokers', 'super_admin']), brokerController.getBroker);
 
 /**
  * @swagger
