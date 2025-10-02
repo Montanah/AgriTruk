@@ -18,11 +18,8 @@ router.get('/test', (req, res) => {
   res.json({ success: true, message: 'Broker routes are working', timestamp: new Date().toISOString() });
 });
 
-// Debug middleware to see if ANY requests reach broker router
-router.use((req, res, next) => {
-  console.log('🔍🔍🔍 BROKER ROUTER HIT - Path:', req.originalUrl, 'Method:', req.method, 'Route:', req.route?.path || 'no-route');
-  next();
-});
+// Debug middleware to see if ANY requests reach broker router (moved to after routes)
+// This will be moved to the end of the file
 
 /**
  * @swagger
@@ -601,5 +598,12 @@ router.patch('/:brokerId/review', authenticateToken, requireRole('admin'), autho
  *         description: Server error
  */
 router.patch('/:brokerId/upload', authenticateToken, requireRole(['broker', 'admin']), upload.single('idImage'), BrokerController.uploadDocuments);
+
+// Debug middleware for unmatched routes - MUST BE LAST
+router.use((req, res, next) => {
+  console.log('🚨 UNMATCHED BROKER ROUTE - Path:', req.originalUrl, 'Method:', req.method);
+  console.log('🚨 Available routes should include /requests and /clients-with-requests');
+  next(); // This will eventually hit the 404 handler
+});
 
 module.exports = router;
