@@ -269,6 +269,36 @@ const AccountScreen = () => {
     }
   };
 
+  const showPhotoOptions = () => {
+    Alert.alert(
+      'Select Photo',
+      'Choose how you want to add a profile photo',
+      [
+        { text: 'Camera', onPress: handlePhotoCamera },
+        { text: 'Gallery', onPress: handlePhotoPick },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handlePhotoCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      setError('Permission to access camera is required!');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0].uri) {
+      await uploadProfilePhoto(result.assets[0].uri);
+    }
+  };
+
   const handlePhotoPick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -279,38 +309,40 @@ const AccountScreen = () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      // No aspect ratio constraint - allows flexible cropping for profile photos
       quality: 0.8,
     });
 
     if (!result.canceled && result.assets && result.assets[0].uri) {
-      const newUri = result.assets[0].uri;
-      setEditData(prev => ({ ...prev, profilePhotoUrl: newUri }));
-      setLoading(true);
-      setError('');
+      await uploadProfilePhoto(result.assets[0].uri);
+    }
+  };
 
-      try {
-        if (user?.uid) {
-          // Use backend upload API for profile photo
-          const uploadedUrl = await uploadFile(newUri, 'profile');
+  const uploadProfilePhoto = async (uri: string) => {
+    setEditData(prev => ({ ...prev, profilePhotoUrl: uri }));
+    setLoading(true);
+    setError('');
 
-          // Update Firestore with uploaded URL
-          await updateDoc(doc(db, 'users', user.uid), {
-            profilePhotoUrl: uploadedUrl,
-            updatedAt: new Date().toISOString(),
-          });
-          
-          setProfile(prev => prev ? { ...prev, profilePhotoUrl: uploadedUrl } : null);
-          setEditData(prev => ({ ...prev, profilePhotoUrl: uploadedUrl }));
-          Alert.alert('Success', 'Profile photo updated successfully');
-        }
-      } catch (e: any) {
-        setError(e.message || 'Failed to update profile photo.');
-        // Revert the local state
-        setEditData(prev => ({ ...prev, profilePhotoUrl: profile?.profilePhotoUrl || '' }));
-      } finally {
-        setLoading(false);
+    try {
+      if (user?.uid) {
+        // Use backend upload API for profile photo
+        const uploadedUrl = await uploadFile(uri, 'profile');
+
+        // Update Firestore with uploaded URL
+        await updateDoc(doc(db, 'users', user.uid), {
+          profilePhotoUrl: uploadedUrl,
+          updatedAt: new Date().toISOString(),
+        });
+        
+        setProfile(prev => prev ? { ...prev, profilePhotoUrl: uploadedUrl } : null);
+        setEditData(prev => ({ ...prev, profilePhotoUrl: uploadedUrl }));
+        Alert.alert('Success', 'Profile photo updated successfully');
       }
+    } catch (e: any) {
+      setError(e.message || 'Failed to update profile photo.');
+      // Revert the local state
+      setEditData(prev => ({ ...prev, profilePhotoUrl: profile?.profilePhotoUrl || '' }));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -504,7 +536,7 @@ const AccountScreen = () => {
           <View style={styles.profilePhotoSection}>
             <TouchableOpacity
               style={styles.profilePhotoContainer}
-              onPress={editing ? handlePhotoPick : undefined}
+              onPress={editing ? showPhotoOptions : undefined}
               disabled={!editing}
             >
               {profile?.profilePhotoUrl ? (

@@ -15,13 +15,7 @@ import { handleVerificationBackNavigation } from '../../utils/navigationUtils';
 
 
 // For Android SMS Retriever
-declare const require: any;
-let SmsRetriever: any;
-if (Platform.OS === 'android') {
-  try {
-    SmsRetriever = require('react-native-sms-retriever');
-  } catch { }
-}
+import SmsRetriever from 'react-native-sms-retriever';
 
 const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) => {
   const [otp, setOtp] = useState('');

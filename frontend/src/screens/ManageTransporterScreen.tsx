@@ -456,18 +456,44 @@ export default function ManageTransporterScreen({ route }: any) {
         const asset = result.assets[0];
         setEditProfilePhoto(asset);
         
-        // Upload the photo
+        // Upload the company logo
         try {
           setLoadingProfile(true);
           const user = auth.currentUser;
-          if (user) {
-            const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
-            setEditProfilePhoto({ ...asset, uri: uploadedUrl });
-            Alert.alert('Success', 'Profile photo updated successfully');
+          if (user && companyProfile?.companyId) {
+            // Upload to backend API which handles Cloudinary upload
+            const token = await user.getIdToken();
+            const formData = new FormData();
+            formData.append('logo', {
+              uri: asset.uri,
+              type: asset.type || 'image/jpeg',
+              name: 'company-logo.jpg',
+            } as any);
+            
+            const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+              body: formData,
+            });
+            
+            if (response.ok) {
+              const responseData = await response.json();
+              console.log('Company logo upload response:', responseData);
+              setEditProfilePhoto({ ...asset, uri: asset.uri });
+              Alert.alert('Success', 'Company logo updated successfully');
+              // Refresh company profile to show updated logo
+              fetchProfile();
+            } else {
+              const errorData = await response.text();
+              console.error('Backend response error:', errorData);
+              throw new Error('Failed to update company logo in database');
+            }
           }
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
-          Alert.alert('Upload Error', 'Failed to upload profile photo. Please try again.');
+          Alert.alert('Upload Error', 'Failed to upload company logo. Please try again.');
         } finally {
           setLoadingProfile(false);
         }
@@ -495,18 +521,44 @@ export default function ManageTransporterScreen({ route }: any) {
         const asset = result.assets[0];
         setEditProfilePhoto(asset);
         
-        // Upload the photo
+        // Upload the company logo
         try {
           setLoadingProfile(true);
           const user = auth.currentUser;
-          if (user) {
-            const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
-            setEditProfilePhoto({ ...asset, uri: uploadedUrl });
-            Alert.alert('Success', 'Profile photo updated successfully');
+          if (user && companyProfile?.companyId) {
+            // Upload to backend API which handles Cloudinary upload
+            const token = await user.getIdToken();
+            const formData = new FormData();
+            formData.append('logo', {
+              uri: asset.uri,
+              type: asset.type || 'image/jpeg',
+              name: 'company-logo.jpg',
+            } as any);
+            
+            const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+              body: formData,
+            });
+            
+            if (response.ok) {
+              const responseData = await response.json();
+              console.log('Company logo upload response:', responseData);
+              setEditProfilePhoto({ ...asset, uri: asset.uri });
+              Alert.alert('Success', 'Company logo updated successfully');
+              // Refresh company profile to show updated logo
+              fetchProfile();
+            } else {
+              const errorData = await response.text();
+              console.error('Backend response error:', errorData);
+              throw new Error('Failed to update company logo in database');
+            }
           }
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
-          Alert.alert('Upload Error', 'Failed to upload profile photo. Please try again.');
+          Alert.alert('Upload Error', 'Failed to upload company logo. Please try again.');
         } finally {
           setLoadingProfile(false);
         }
