@@ -42,17 +42,18 @@ const createDriver = async (req, res) => {
     // Generate default password (driver can change this later)
     const defaultPassword = Math.random().toString(36).slice(-8) + '123'; // 8 random chars + 123
 
-    // Create Firebase Auth user for the driver
-    const { createUserWithEmailAndPassword } = require('firebase/auth');
-    const { auth: firebaseAuth } = require('../config/firebase');
-    
+    // Create Firebase Auth user for the driver using Admin SDK
     let firebaseUser;
     try {
-      const userCredential = await createUserWithEmailAndPassword(firebaseAuth, req.body.email, defaultPassword);
-      firebaseUser = userCredential.user;
+      firebaseUser = await admin.auth().createUser({
+        email: req.body.email,
+        password: defaultPassword,
+        displayName: `${req.body.firstName} ${req.body.lastName}`,
+        emailVerified: false,
+      });
     } catch (authError) {
       console.error('Error creating Firebase user:', authError);
-      return res.status(400).json({ message: 'Failed to create driver account' });
+      return res.status(400).json({ message: 'Failed to create driver account: ' + authError.message });
     }
 
     // Prepare driver data
