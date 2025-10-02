@@ -229,7 +229,7 @@ const VehicleManagementScreen = () => {
               onPress={() => navigation.navigate('ManageTransporter', { 
                 transporterType: 'company',
                 activeTab: 'vehicles',
-                showVehicleModal: true 
+                showVehicleModal: true
               })}
             >
               <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
