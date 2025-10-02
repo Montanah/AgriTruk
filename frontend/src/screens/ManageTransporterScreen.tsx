@@ -1849,29 +1849,37 @@ export default function ManageTransporterScreen({ route }: any) {
                   <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
                   {/* Vehicle Details Form (Reusable) */}
                   <VehicleDetailsForm
-                    initial={{}}
-                    onChange={() => { }}
+                    initial={{
+                      vehicleType: vehicleType,
+                      vehicleMake: vehicleMake,
+                      vehicleColor: vehicleColor,
+                      registration: vehicleReg,
+                      maxCapacity: vehicleCapacity,
+                      year: vehicleYear,
+                      driveType: vehicleDriveType,
+                      bodyType: bodyType,
+                      humidityControl: humidityControl,
+                      refrigeration: refrigeration,
+                      vehicleFeatures: vehicleFeatures
+                    }}
+                    onChange={(data) => {
+                      setVehicleType(data.vehicleType);
+                      setVehicleMake(data.vehicleMake);
+                      setVehicleColor(data.vehicleColor);
+                      setVehicleReg(data.registration);
+                      setVehicleCapacity(data.maxCapacity);
+                      setVehicleYear(data.year);
+                      setVehicleDriveType(data.driveType);
+                      setBodyType(data.bodyType);
+                      setHumidityControl(data.humidityControl);
+                      setRefrigeration(data.refrigeration);
+                      setVehicleFeatures(data.vehicleFeatures);
+                    }}
                     onPhotoAdd={pickVehiclePhotos}
                     onPhotoRemove={removeVehiclePhoto}
                     vehiclePhotos={vehiclePhotos}
                     error={undefined}
                   />
-                  <TextInput style={styles.input} placeholder="Registration Number *" value={vehicleReg} onChangeText={setVehicleReg} />
-                  <View style={styles.featuresRow}>
-                    <TouchableOpacity style={[styles.featureBtn, refrigeration && styles.featureBtnActive]} onPress={() => setRefrigeration(!refrigeration)}>
-                      <MaterialCommunityIcons name="snowflake" size={18} color={refrigeration ? colors.white : colors.primary} />
-                      <Text style={[styles.featureText, refrigeration && { color: colors.white }]}>Refrigeration</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.featureBtn, humidityControl && styles.featureBtnActive]} onPress={() => setHumidityControl(!humidityControl)}>
-                      <MaterialCommunityIcons name="water-percent" size={18} color={humidityControl ? colors.white : colors.primary} />
-                      <Text style={[styles.featureText, humidityControl && { color: colors.white }]}>Humidity Control</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.featureBtn, specialCargo && styles.featureBtnActive]} onPress={() => setSpecialCargo(!specialCargo)}>
-                      <MaterialCommunityIcons name="cube-outline" size={18} color={specialCargo ? colors.white : colors.primary} />
-                      <Text style={[styles.featureText, specialCargo && { color: colors.white }]}>Special Cargo</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TextInput style={styles.input} placeholder="Other Features (comma separated)" value={vehicleFeatures} onChangeText={setVehicleFeatures} />
                   <View style={styles.section}>
                     <Text style={styles.editLabel}>Insurance Document (PDF or Image) *</Text>
                     <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
@@ -1879,25 +1887,6 @@ export default function ManageTransporterScreen({ route }: any) {
                       <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload File'}</Text>
                     </TouchableOpacity>
                     {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
-                  </View>
-                  <View style={styles.section}>
-                    <Text style={styles.editLabel}>Vehicle Photos (3-5) *</Text>
-                    <View style={styles.photosRow}>
-                      {vehiclePhotos.map((photo, idx) => (
-                        <View key={idx} style={styles.photoWrap}>
-                          <Image source={{ uri: photo.uri }} style={styles.photo} />
-                          <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeVehiclePhoto(idx)}>
-                            <Ionicons name="close-circle" size={20} color={colors.error} />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                      {vehiclePhotos.length < 5 && (
-                        <TouchableOpacity style={styles.addPhotoBtn} onPress={pickVehiclePhotos}>
-                          <Ionicons name="add" size={28} color={colors.primary} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <Text style={styles.photoHint}>Add at least 3 photos</Text>
                   </View>
                   <View style={styles.editActionsRow}>
                     <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
