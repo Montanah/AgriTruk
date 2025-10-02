@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
 import { ActivityIndicator, Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
+import { LinearGradient } from 'expo-linear-gradient';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
