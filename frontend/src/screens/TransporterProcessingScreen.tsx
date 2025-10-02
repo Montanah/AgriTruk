@@ -53,7 +53,8 @@ export default function TransporterProcessingScreen({ route }) {
         console.log('Transporter needs trial activation, redirecting to trial screen');
         try {
           navigation.navigate('SubscriptionTrial', {
-            userType: transporterType,
+            userType: 'transporter',
+            transporterType: transporterType,
             subscriptionStatus: status
           });
         } catch (navError) {
@@ -63,7 +64,8 @@ export default function TransporterProcessingScreen({ route }) {
             routes: [{
               name: 'SubscriptionTrial',
               params: {
-                userType: transporterType,
+                userType: 'transporter',
+                transporterType: transporterType,
                 subscriptionStatus: status
               }
             }]
@@ -77,7 +79,8 @@ export default function TransporterProcessingScreen({ route }) {
         console.log('Transporter subscription expired, redirecting to expired screen');
         try {
           navigation.navigate('SubscriptionExpired', {
-            userType: transporterType,
+            userType: 'transporter',
+            transporterType: transporterType,
             userId: 'current_user', // Will be replaced with actual user ID
             expiredDate: new Date().toISOString()
           });
@@ -88,7 +91,8 @@ export default function TransporterProcessingScreen({ route }) {
             routes: [{
               name: 'SubscriptionExpired',
               params: {
-                userType: transporterType,
+                userType: 'transporter',
+                transporterType: transporterType,
                 userId: 'current_user', // Will be replaced with actual user ID
                 expiredDate: new Date().toISOString()
               }
@@ -111,7 +115,8 @@ export default function TransporterProcessingScreen({ route }) {
       // On error, assume user needs trial activation
       try {
         navigation.navigate('SubscriptionTrial', {
-          userType: transporterType,
+          userType: 'transporter',
+          transporterType: transporterType,
           subscriptionStatus: { needsTrialActivation: true }
         });
       } catch (navError) {
@@ -121,7 +126,8 @@ export default function TransporterProcessingScreen({ route }) {
           routes: [{
             name: 'SubscriptionTrial',
             params: {
-              userType: transporterType,
+              userType: 'transporter',
+              transporterType: transporterType,
               subscriptionStatus: { needsTrialActivation: true }
             }
           }]

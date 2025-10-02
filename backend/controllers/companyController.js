@@ -1218,9 +1218,10 @@ exports.uploadLogo = async (req, res) => {
        } 
       } 
       
-      fs.unlinkSync(file.path); }); 
+      fs.unlinkSync(file.path);
+    });
       
-      await Promise.all(uploadTasks); 
+    await Promise.all(uploadTasks); 
       
       await Action.create({ 
         type: 'company_review', 
