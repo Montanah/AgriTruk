@@ -384,8 +384,6 @@ router.post('/requests/consolidate', authenticateToken, requireRole(['broker', '
  *       500:
  *         description: Server error
  */
-router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broker', 'admin']), BrokerController.getRequestsByClient);
-
 /**
  * @swagger
  * /api/brokers/requests:
@@ -434,6 +432,31 @@ router.get('/requests',
   },
   BrokerController.getAllBrokerRequests
 );
+
+/**
+ * @swagger
+ * /api/brokers/clients/{clientId}/requests:
+ *   get:
+ *     summary: Get requests for a specific client
+ *     tags: [Broker]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: clientId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The client ID
+ *     responses:
+ *       200:
+ *         description: Client requests retrieved successfully
+ *       400:
+ *         description: Client ID is required
+ *       500:
+ *         description: Server error
+ */
+router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broker', 'admin']), BrokerController.getRequestsByClient);
 
 /**
  * @swagger
