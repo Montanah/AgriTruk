@@ -85,6 +85,16 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+// Test endpoint outside of broker router to isolate the authentication issue
+app.get('/api/test-no-auth', (req, res) => {
+    console.log('🧪 GLOBAL TEST ENDPOINT HIT - No router involved');
+    res.status(200).json({
+        success: true,
+        message: 'Global test endpoint working without any authentication',
+        timestamp: new Date().toISOString()
+    });
+});
+
 
 
 // Root endpoint
