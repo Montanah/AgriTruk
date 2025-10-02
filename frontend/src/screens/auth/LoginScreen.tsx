@@ -154,7 +154,6 @@ const LoginScreen = ({ navigation }: any) => {
               </View>
             )}
 
-            <Spacer size={spacing.md} />
             <View style={styles.passwordInputWrap}>
               <TextInput
                 style={[styles.inputFull, styles.passwordInput]}
@@ -414,6 +413,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     fontSize: fonts.size.md,
     color: colors.text.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     paddingRight: 44,
     marginBottom: 0,
   },
@@ -464,7 +465,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     color: colors.text.primary,
     height: 44,
-    marginBottom: 0,
+    marginBottom: spacing.md,
     width: '100%',
   },
   inputFull: {
