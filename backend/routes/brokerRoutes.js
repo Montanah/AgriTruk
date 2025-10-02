@@ -135,29 +135,7 @@ router.get('/clients', authenticateToken, requireRole('broker'), BrokerControlle
  */
 router.get('/user/:userId', authenticateToken, requireRole(['broker', 'admin']), BrokerController.getBrokerByUserId);
 
-/**
- * @swagger
- * /api/brokers/{brokerId}:
- *   get:
- *     summary: Get broker details
- *     tags: [Broker]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: brokerId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Broker retrieved successfully
- *       404:
- *         description: Broker not found
- *       500:
- *         description: Server error
- */
-router.get('/:brokerId', authenticateToken, requireRole(['broker', 'admin']), BrokerController.getBroker);
+// MOVED /:brokerId route to end of file to avoid catching specific routes
 
 /**
  * @swagger
@@ -651,6 +629,31 @@ router.patch('/:brokerId/review', authenticateToken, requireRole('admin'), autho
  *         description: Server error
  */
 router.patch('/:brokerId/upload', authenticateToken, requireRole(['broker', 'admin']), upload.single('idImage'), BrokerController.uploadDocuments);
+
+/**
+ * @swagger
+ * /api/brokers/{brokerId}:
+ *   get:
+ *     summary: Get broker details
+ *     tags: [Broker]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: brokerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Broker retrieved successfully
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Server error
+ */
+// MOVED FROM LINE 160 - This catch-all route must be LAST to avoid intercepting specific routes
+router.get('/:brokerId', authenticateToken, requireRole(['broker', 'admin']), BrokerController.getBroker);
 
 // Debug middleware for unmatched routes - MUST BE LAST
 router.use((req, res, next) => {
