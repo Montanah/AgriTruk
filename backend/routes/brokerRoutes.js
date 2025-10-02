@@ -398,6 +398,12 @@ router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broke
  *       500:
  *         description: Server error
  */
+// Test endpoint to verify broker routes are working
+router.get('/test', (req, res) => {
+  console.log('🧪 Test route /api/brokers/test hit successfully');
+  res.json({ success: true, message: 'Broker routes are working', timestamp: new Date().toISOString() });
+});
+
 router.get('/requests', (req, res, next) => {
   console.log('🔍 Route /api/brokers/requests hit by user:', req.user?.uid || 'no-user');
   next();
