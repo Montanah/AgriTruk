@@ -34,12 +34,22 @@ const Broker = {
   },
 
   async getByUserId(userId) {
-    const snapshot = await db.collection('brokers').where('userId', '==', userId.trim()).limit(1).get();
+    console.log('🔍 Broker.getByUserId called with userId:', userId);
+    const trimmedUserId = userId.trim();
+    console.log('🔍 Searching for broker with trimmed userId:', trimmedUserId);
+    
+    const snapshot = await db.collection('brokers').where('userId', '==', trimmedUserId).limit(1).get();
+    console.log('🔍 Broker query result - empty:', snapshot.empty, 'size:', snapshot.size);
+    
     if (snapshot.empty) {
+      console.log('🔍 No broker found for userId:', trimmedUserId);
       return null;
     }
+    
     const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() };
+    const brokerData = { id: doc.id, ...doc.data() };
+    console.log('🔍 Found broker:', brokerData.id, 'for userId:', trimmedUserId);
+    return brokerData;
   },
 
   async update(brokerId, updates) {

@@ -407,6 +407,7 @@ router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broke
 
 router.get('/requests', 
   (req, res, next) => {
+    console.log('🔍🔍🔍 BROKER REQUESTS ROUTE HIT - URL:', req.originalUrl, 'Method:', req.method);
     console.log('🔍 Route /api/brokers/requests hit - starting auth chain');
     next();
   },
@@ -475,6 +476,7 @@ router.get('/requests',
  */
 router.get('/clients-with-requests', 
   (req, res, next) => {
+    console.log('🔍🔍🔍 BROKER CLIENTS ROUTE HIT - URL:', req.originalUrl, 'Method:', req.method);
     console.log('🔍 Route /api/brokers/clients-with-requests hit - starting auth chain');
     next();
   },
