@@ -1,7 +1,35 @@
 const admin = require('../config/firebase');
 const db = admin.firestore();
-const { uploadDocuments } = require('./transporterController');
 const { adminNotification } = require('../utils/sendMailTemplate');
+const cloudinary = require('cloudinary').v2;
+
+// Utility function to upload driver documents
+const uploadDriverDocuments = async (files) => {
+  const uploadResults = {};
+  
+  for (const file of files) {
+    try {
+      // Upload to Cloudinary
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'drivers',
+        resource_type: 'auto',
+      });
+      
+      // Categorize based on fieldname
+      const fieldName = file.fieldname;
+      if (!uploadResults[fieldName]) {
+        uploadResults[fieldName] = [];
+      }
+      uploadResults[fieldName].push(result.secure_url);
+      
+    } catch (uploadError) {
+      console.error(`Error uploading ${file.fieldname}:`, uploadError);
+      throw new Error(`Failed to upload ${file.fieldname}`);
+    }
+  }
+  
+  return uploadResults;
+};
 
 // Create a new driver for a company
 const createDriver = async (req, res) => {
@@ -78,7 +106,7 @@ const createDriver = async (req, res) => {
     // Handle file uploads
     if (req.files && req.files.length > 0) {
       try {
-        const uploadResults = await uploadDocuments(req.files, 'drivers');
+        const uploadResults = await uploadDriverDocuments(req.files);
         
         if (uploadResults.profileImage) {
           driverData.profileImage = uploadResults.profileImage[0];
@@ -279,7 +307,7 @@ const updateDriver = async (req, res) => {
     // Handle file uploads
     if (req.files && req.files.length > 0) {
       try {
-        const uploadResults = await uploadDocuments(req.files, 'drivers');
+        const uploadResults = await uploadDriverDocuments(req.files);
         
         if (uploadResults.profileImage) {
           updateData.profileImage = uploadResults.profileImage[0];
