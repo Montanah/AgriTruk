@@ -405,18 +405,22 @@ export default function App() {
               setProfileCompleted(!!data.profileCompleted);
             }
           } else {
-            // User not found in users collection
-            // Check if Firebase Auth shows email verified as fallback
-            if (firebaseUser.emailVerified) {
-              console.log('App.tsx: User not found in Firestore but Firebase Auth shows email verified - using as fallback');
-              setIsVerified(true);
-              setRole(null); // We can't determine role without Firestore data
-              setProfileCompleted(false);
-            } else {
-              setIsVerified(false);
-              setRole(null);
-              setProfileCompleted(false);
+            // User not found in users collection - this means their data was deleted
+            // Sign them out and redirect to welcome screen
+            console.log('App.tsx: User not found in Firestore - signing out and redirecting to welcome');
+            try {
+              await auth.signOut();
+              console.log('App.tsx: User signed out successfully');
+            } catch (signOutError) {
+              console.error('App.tsx: Error signing out user:', signOutError);
             }
+            setIsVerified(false);
+            setRole(null);
+            setProfileCompleted(false);
+            setUserData(null);
+            setSubscriptionStatus(null);
+            setIsDriver(false);
+            return; // Exit early to prevent further processing
           }
         } catch (e) {
           console.error('Error fetching user data from Firestore:', e);
