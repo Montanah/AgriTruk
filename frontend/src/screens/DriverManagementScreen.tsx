@@ -536,22 +536,10 @@ const DriverManagementScreen = () => {
 
       <View style={styles.driverActions}>
         {item.status === 'pending' && (
-          <>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.approveButton]}
-              onPress={() => handleDriverAction(item.id, 'approve')}
-            >
-              <MaterialCommunityIcons name="check" size={16} color={colors.white} />
-              <Text style={styles.actionText}>Approve</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.rejectButton]}
-              onPress={() => handleDriverAction(item.id, 'reject')}
-            >
-              <MaterialCommunityIcons name="close" size={16} color={colors.white} />
-              <Text style={styles.actionText}>Reject</Text>
-            </TouchableOpacity>
-          </>
+          <View style={styles.pendingNotice}>
+            <MaterialCommunityIcons name="clock-outline" size={16} color={colors.warning} />
+            <Text style={styles.pendingText}>Awaiting admin approval</Text>
+          </View>
         )}
         
         {item.status === 'approved' && (
@@ -940,6 +928,21 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     minWidth: 80,
     justifyContent: 'center',
+  },
+  pendingNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: colors.warning + '20',
+    borderRadius: 8,
+    marginVertical: 4,
+  },
+  pendingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: colors.warning,
+    fontWeight: '500',
   },
   approveButton: {
     backgroundColor: colors.success,

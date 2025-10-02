@@ -179,7 +179,7 @@ exports.adminNotification = function( subject, message, userData) {
 }
 
 exports.sendDriverWelcomeEmail = async function (data) {
-  const { sendEmail } = require('./sendEmail');
+  const sendEmail = require('./sendEmail');
   
   const subject = `Welcome to ${data.companyName} - Driver Account Created`;
   const html = `

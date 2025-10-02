@@ -384,11 +384,17 @@ const deleteDriver = async (req, res) => {
   }
 };
 
-// Approve driver (company owner can approve their own drivers)
+// Approve driver (admin only - like individual transporters)
 const approveDriver = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.uid;
+
+    // Check if user is admin
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists || userDoc.data().role !== 'admin') {
+      return res.status(403).json({ message: 'Only administrators can approve drivers' });
+    }
 
     const driverDoc = await db.collection('drivers').doc(id).get();
     if (!driverDoc.exists) {
@@ -397,12 +403,6 @@ const approveDriver = async (req, res) => {
 
     const driverData = driverDoc.data();
 
-    // Verify the user owns the company that owns this driver
-    const companyDoc = await db.collection('companies').doc(driverData.companyId).get();
-    if (!companyDoc.exists || companyDoc.data().transporterId !== userId) {
-      return res.status(403).json({ message: 'Unauthorized to approve this driver' });
-    }
-
     if (driverData.status !== 'pending') {
       return res.status(400).json({ message: 'Driver is not in pending status' });
     }
@@ -410,6 +410,8 @@ const approveDriver = async (req, res) => {
     // Update driver status
     await db.collection('drivers').doc(id).update({
       status: 'approved',
+      approvedBy: userId,
+      approvedAt: new Date(),
       updatedAt: new Date()
     });
 
@@ -421,11 +423,17 @@ const approveDriver = async (req, res) => {
   }
 };
 
-// Reject driver
+// Reject driver (admin only - like individual transporters)
 const rejectDriver = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.uid;
+
+    // Check if user is admin
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists || userDoc.data().role !== 'admin') {
+      return res.status(403).json({ message: 'Only administrators can reject drivers' });
+    }
 
     const driverDoc = await db.collection('drivers').doc(id).get();
     if (!driverDoc.exists) {
@@ -434,12 +442,6 @@ const rejectDriver = async (req, res) => {
 
     const driverData = driverDoc.data();
 
-    // Verify the user owns the company that owns this driver
-    const companyDoc = await db.collection('companies').doc(driverData.companyId).get();
-    if (!companyDoc.exists || companyDoc.data().transporterId !== userId) {
-      return res.status(403).json({ message: 'Unauthorized to reject this driver' });
-    }
-
     if (driverData.status !== 'pending') {
       return res.status(400).json({ message: 'Driver is not in pending status' });
     }
@@ -447,6 +449,9 @@ const rejectDriver = async (req, res) => {
     // Update driver status
     await db.collection('drivers').doc(id).update({
       status: 'rejected',
+      rejectedBy: userId,
+      rejectedAt: new Date(),
+      rejectionReason: req.body.reason || 'No reason provided',
       updatedAt: new Date()
     });
 
