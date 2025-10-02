@@ -26,7 +26,75 @@ exports.createBroker = async (req, res) => {
     //check if broker exists
     const existingBroker = await Broker.getByUserId(uid);
     if (existingBroker) {
-      return res.status(409).json({ success: false, message: 'Broker already exists' });
+      // If broker exists but wants to update their document, allow it
+      if (req.file) {
+        console.log('Updating existing broker document:', req.file.originalname, req.file.mimetype, req.file.path);
+        try {
+          const idImage = await uploadImage(req.file.path);
+          if (idImage) {
+            console.log('New idImage uploaded successfully:', idImage);
+            fs.unlinkSync(req.file.path);
+            
+            // Update the existing broker's document and reset status to pending
+            const updatedBroker = await Broker.update(existingBroker.id, {
+              brokerIdUrl: idImage,
+              status: 'pending',
+              rejectionReason: null, // Clear any previous rejection reason
+              updatedAt: new Date()
+            });
+            
+            await logActivity(uid, 'update_broker_document', req);
+            
+            // Create notification for document update
+            const notificationData = {
+              userId: uid,
+              userType: 'broker',
+              type: 'broker_document_updated',
+              message: 'Your broker ID document has been updated and is pending approval.',
+            };
+            await Notification.create(notificationData);
+            
+            // Create admin action for review
+            await Action.create({
+              type: "broker_document_updated",
+              entityId: uid,
+              priority: "high",
+              metadata: {
+                brokerId: existingBroker.id,
+              },
+              status: "Needs Approval",
+              message: 'Broker document updated - needs review',
+            });
+            
+            // Send admin notification
+            await sendEmail({
+              to: "support@trukafrica.com",
+              subject: 'Broker Document Updated - Needs Review',
+              html: adminNotification('Broker Document Updated', 'A broker has updated their ID document', `Broker ID: ${existingBroker.id}`),
+            });
+            
+            return res.status(200).json({
+              success: true,
+              message: 'Broker document updated successfully',
+              data: formatTimestamps(updatedBroker),
+              brokerIdUrl: idImage
+            });
+          } else {
+            console.error('Failed to upload new document');
+            return res.status(500).json({ message: 'Failed to upload document' });
+          }
+        } catch (uploadError) {
+          console.error('Upload error:', uploadError.message);
+          return res.status(500).json({ message: 'Failed to upload document' });
+        }
+      } else {
+        // No new document provided, just return existing broker data
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Broker already exists',
+          data: formatTimestamps(existingBroker)
+        });
+      }
     }
     // console.log("idImage", req.file);
     let idImage = null; 
@@ -93,6 +161,32 @@ exports.createBroker = async (req, res) => {
   } catch (error) {
     console.error('Error creating broker:', error);
     
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+exports.getBrokerByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    const broker = await Broker.getByUserId(userId);
+    
+    if (!broker) {
+      return res.status(404).json({ success: false, message: 'Broker not found' });
+    }
+
+    await logActivity(req.user.uid, 'get_broker_by_user_id', req);
+    res.status(200).json({
+      success: true,
+      message: 'Broker retrieved successfully',
+      data: formatTimestamps(broker),
+    });
+  } catch (error) {
+    console.error('Error getting broker by user ID:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

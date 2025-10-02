@@ -578,20 +578,22 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
 
       if (brokerCreateResponse.ok) {
         const brokerData = await brokerCreateResponse.json();
-        console.log('Broker created successfully:', brokerData);
+        console.log('Broker created/updated successfully:', brokerData);
         
         // Update local state with the uploaded URL for preview
-        setIdDoc({ ...asset, uri: brokerData.brokerIdUrl || asset.uri });
+        setIdDoc({ ...asset, uri: brokerData.brokerIdUrl || brokerData.data?.brokerIdUrl || asset.uri });
         setStatus('pending');
         
+        const isUpdate = brokerData.message?.includes('updated');
         Alert.alert(
-          'Document Uploaded',
-          'Your ID document has been uploaded successfully. You will be notified once it\'s reviewed.',
+          isUpdate ? 'Document Updated' : 'Document Uploaded',
+          isUpdate 
+            ? 'Your ID document has been updated successfully. You will be notified once it\'s reviewed.'
+            : 'Your ID document has been uploaded successfully. You will be notified once it\'s reviewed.',
           [{ text: 'OK' }]
         );
         
-          // TODO: Add admin notification for document verification
-          console.log('Broker document uploaded successfully - admin notification needed');
+        console.log('Broker document uploaded/updated successfully - admin notification sent');
       } else {
         const errorText = await brokerCreateResponse.text();
         console.error('Broker creation failed:', {
@@ -607,17 +609,7 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
           console.error('Failed to parse error response:', parseError);
         }
         
-        // Handle specific error cases
-        if (brokerCreateResponse.status === 409) {
-          // Broker already exists - check their status instead
-          console.log('Broker already exists - checking status...');
-          Alert.alert(
-            'Broker Already Exists',
-            'A broker account already exists for this user. Checking your verification status...',
-            [{ text: 'OK', onPress: () => checkBrokerStatus() }]
-          );
-          return;
-        }
+        // Handle specific error cases - 409 is now handled by backend for document updates
         
         throw new Error((errorData as any).message || `Failed to create broker record: ${brokerCreateResponse.status} ${brokerCreateResponse.statusText}`);
       }
@@ -632,15 +624,6 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
         errorMessage = 'Network error. Please check your internet connection and try again.';
       } else if (error.message.includes('Network connectivity issue')) {
         errorMessage = error.message;
-      } else if (error.message.includes('Broker already exists')) {
-        // Handle broker already exists error
-        console.log('Broker already exists - checking status...');
-        Alert.alert(
-          'Broker Already Exists',
-          'A broker account already exists for this user. Checking your verification status...',
-          [{ text: 'OK', onPress: () => checkBrokerStatus() }]
-        );
-        return;
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -758,9 +741,35 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
             <MaterialCommunityIcons name="clock-outline" size={28} color={colors.warning} />
             <Text style={styles.statusTextPending}>ID Verification Pending</Text>
             <Text style={styles.statusSubText}>Your ID document is under review. You will be notified once verified.</Text>
-            <TouchableOpacity style={styles.refreshBtn} onPress={handleRefreshStatus}>
-              <Ionicons name="refresh" size={20} color={colors.primary} />
-              <Text style={styles.refreshBtnText}>Check Status</Text>
+            
+            {/* Document Preview */}
+            {idDoc && (
+              <View style={styles.documentPreviewContainer}>
+                <Text style={styles.documentPreviewTitle}>Uploaded Document:</Text>
+                <View style={styles.imagePreview}>
+                  <Image 
+                    source={{ uri: idDoc.uri }} 
+                    style={styles.previewImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text style={styles.fileName}>{idDoc.name || idDoc.uri?.split('/').pop()}</Text>
+              </View>
+            )}
+            
+            <TouchableOpacity 
+              style={styles.refreshBtn} 
+              onPress={handleRefreshStatus}
+              disabled={checkingStatus}
+            >
+              {checkingStatus ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons name="refresh" size={20} color={colors.primary} />
+              )}
+              <Text style={styles.refreshBtnText}>
+                {checkingStatus ? 'Checking...' : 'Check Status'}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -892,6 +901,18 @@ const styles = StyleSheet.create({
   refreshBtnText: { color: colors.primary, marginLeft: 6, fontWeight: 'bold', fontSize: 14 },
   uploadBtnDisabled: { opacity: 0.6 },
   loadingText: { color: colors.text.secondary, fontSize: 16, marginTop: 12, textAlign: 'center' },
+  documentPreviewContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+    width: '100%',
+    alignItems: 'center',
+  },
+  documentPreviewTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: 8,
+  },
   infoMsg: { color: colors.text.secondary, fontSize: 15, marginBottom: 10, textAlign: 'center', fontStyle: 'italic' },
   imagePreview: {
     marginTop: 12,

@@ -84,6 +84,30 @@ router.get('/clients', authenticateToken, requireRole('broker'), BrokerControlle
 
 /**
  * @swagger
+ * /api/brokers/user/{userId}:
+ *   get:
+ *     summary: Get broker details by user ID
+ *     tags: [Broker]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Broker retrieved successfully
+ *       404:
+ *         description: Broker not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/user/:userId', authenticateToken, requireRole(['broker', 'admin']), BrokerController.getBrokerByUserId);
+
+/**
+ * @swagger
  * /api/brokers/{brokerId}:
  *   get:
  *     summary: Get broker details
