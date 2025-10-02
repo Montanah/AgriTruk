@@ -10,6 +10,12 @@ const upload = multer({ dest: 'uploads/' });
 
 const uploadAny = upload.any();
 
+// Test endpoint to verify broker routes are working (no auth required) - MUST BE FIRST
+router.get('/test', (req, res) => {
+  console.log('🧪 Test route /api/brokers/test hit successfully');
+  res.json({ success: true, message: 'Broker routes are working', timestamp: new Date().toISOString() });
+});
+
 /**
  * @swagger
  * tags:
@@ -398,11 +404,6 @@ router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broke
  *       500:
  *         description: Server error
  */
-// Test endpoint to verify broker routes are working (no auth required)
-router.get('/test', (req, res) => {
-  console.log('🧪 Test route /api/brokers/test hit successfully');
-  res.json({ success: true, message: 'Broker routes are working', timestamp: new Date().toISOString() });
-});
 
 router.get('/requests', 
   (req, res, next) => {
