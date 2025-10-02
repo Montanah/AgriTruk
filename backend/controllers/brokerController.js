@@ -476,11 +476,8 @@ exports.getRequestsByClient = async (req, res) => {
 exports.getAllBrokerRequests = async (req, res) => {
   try {
     // Get broker by user ID
-    console.log('getAllBrokerRequests: Looking for broker with userId:', req.user.uid);
     const broker = await Broker.getByUserId(req.user.uid);
-    console.log('getAllBrokerRequests: Broker lookup result:', broker);
     if (!broker) {
-      console.log('getAllBrokerRequests: No broker found for userId:', req.user.uid);
       return res.status(404).json({ success: false, message: 'Error retrieving broker: Broker not found' });
     }
 
@@ -530,11 +527,8 @@ exports.getAllBrokerRequests = async (req, res) => {
 exports.getClientsWithRequests = async (req, res) => {
   try {
     // Get broker by user ID
-    console.log('getClientsWithRequests: Looking for broker with userId:', req.user.uid);
     const broker = await Broker.getByUserId(req.user.uid);
-    console.log('getClientsWithRequests: Broker lookup result:', broker);
     if (!broker) {
-      console.log('getClientsWithRequests: No broker found for userId:', req.user.uid);
       return res.status(404).json({ success: false, message: 'Error retrieving broker: Broker not found' });
     }
 
