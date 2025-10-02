@@ -584,6 +584,7 @@ export default function ManageTransporterScreen({ route }: any) {
 
   // Recruit Driver modal state and fields
   const [recruitModal, setRecruitModal] = useState(false);
+  const [recruiting, setRecruiting] = useState(false);
   const [recruitName, setRecruitName] = useState('');
   const [recruitEmail, setRecruitEmail] = useState('');
   const [recruitPhone, setRecruitPhone] = useState('');
@@ -601,45 +602,110 @@ export default function ManageTransporterScreen({ route }: any) {
     setRecruitLicense(null);
     setRecruitModal(true);
   };
-  const handleRecruitDriver = () => {
+  const handleRecruitDriver = async () => {
     if (!recruitName || !recruitEmail || !recruitPhone || !recruitPhoto || !recruitIdDoc || !recruitLicense) {
       Alert.alert('Missing Info', 'Please fill all required fields.');
       return;
     }
-    const driver = {
-      id: Date.now().toString(),
-      name: recruitName,
-      email: recruitEmail,
-      phone: recruitPhone,
-      photo: recruitPhoto,
-      idDoc: recruitIdDoc,
-      license: recruitLicense,
-    };
-    setDrivers([...drivers, driver]);
-    setRecruitModal(false);
-    // Trigger notifications for driver recruitment
-    notificationService.sendEmail(
-      driver.email,
-      'Welcome to TRUKAPP',
-      `Hi ${driver.name}, you have been recruited as a driver. Please await vehicle assignment and further instructions.`,
-      'driver',
-      'driver_recruited',
-      { driver }
-    );
-    notificationService.sendSMS(
-      driver.phone,
-      `Welcome to TRUKAPP, ${driver.name}! You have been recruited as a driver.`,
-      'driver',
-      'driver_recruited',
-      { driver }
-    );
-    notificationService.sendInApp(
-      driver.id,
-      'You have been recruited as a driver. Please await vehicle assignment.',
-      'driver',
-      'driver_recruited',
-      { driver }
-    );
+
+    setRecruiting(true);
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        Alert.alert('Error', 'Please log in to recruit drivers');
+        return;
+      }
+
+      const token = await user.getIdToken();
+      
+      // Get company info first
+      const companyResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/transporter/${user.uid}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!companyResponse.ok) {
+        Alert.alert('Error', 'Company information not found');
+        return;
+      }
+      
+      const companyData = await companyResponse.json();
+      const company = companyData[0] || companyData;
+      
+      // Prepare form data for multipart upload
+      const formData = new FormData();
+      
+      // Split name into first and last name
+      const nameParts = recruitName.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || firstName;
+      
+      formData.append('companyId', company?.id || '');
+      formData.append('firstName', firstName);
+      formData.append('lastName', lastName);
+      formData.append('email', recruitEmail.trim());
+      formData.append('phone', recruitPhone.trim());
+      formData.append('driverLicenseNumber', 'DL-' + Date.now());
+      formData.append('idNumber', 'ID-' + Date.now());
+      
+      // Add files
+      if (recruitPhoto) {
+        formData.append('profileImage', {
+          uri: recruitPhoto.uri,
+          type: recruitPhoto.mimeType || 'image/jpeg',
+          name: recruitPhoto.fileName || 'profile_photo.jpg',
+        } as any);
+      }
+      
+      if (recruitIdDoc) {
+        formData.append('idDocument', {
+          uri: recruitIdDoc.uri,
+          type: recruitIdDoc.mimeType || 'image/jpeg',
+          name: recruitIdDoc.fileName || 'id_document.jpg',
+        } as any);
+      }
+      
+      if (recruitLicense) {
+        formData.append('driverLicense', {
+          uri: recruitLicense.uri,
+          type: recruitLicense.mimeType || 'image/jpeg',
+          name: recruitLicense.fileName || 'driver_license.jpg',
+        } as any);
+      }
+
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/${company?.id}/drivers`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Success', 'Driver recruited successfully! They will receive login credentials via email.');
+        setRecruitModal(false);
+        // Reset form
+        setRecruitName('');
+        setRecruitEmail('');
+        setRecruitPhone('');
+        setRecruitPhoto(null);
+        setRecruitIdDoc(null);
+        setRecruitLicense(null);
+        // Note: Drivers will be refreshed when navigating back to this screen
+      } else {
+        Alert.alert('Error', result.message || 'Failed to recruit driver');
+      }
+    } catch (error) {
+      console.error('Error recruiting driver:', error);
+      Alert.alert('Error', 'Failed to recruit driver. Please try again.');
+    } finally {
+      setRecruiting(false);
+    }
   };
 
   // Modularized image/file pickers for recruitment

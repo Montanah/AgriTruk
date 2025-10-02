@@ -360,21 +360,81 @@ const DriverManagementScreen = () => {
 
     setRecruiting(true);
     try {
-      // TODO: Implement actual driver recruitment API call
-      console.log('Recruiting driver:', {
-        name: recruitName,
-        email: recruitEmail,
-        phone: recruitPhone,
-        photo: recruitPhoto,
-        idDoc: recruitIdDoc,
-        license: recruitLicense
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        Alert.alert('Error', 'Please log in to recruit drivers');
+        return;
+      }
+
+      const token = await user.getIdToken();
+      
+      // Prepare form data for multipart upload
+      const formData = new FormData();
+      
+      // Split name into first and last name
+      const nameParts = recruitName.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || firstName; // Use first name as last name if only one name provided
+      
+      formData.append('companyId', companyInfo?.id || '');
+      formData.append('firstName', firstName);
+      formData.append('lastName', lastName);
+      formData.append('email', recruitEmail.trim());
+      formData.append('phone', recruitPhone.trim());
+      formData.append('driverLicenseNumber', 'DL-' + Date.now()); // Temporary license number
+      formData.append('idNumber', 'ID-' + Date.now()); // Temporary ID number
+      
+      // Add files
+      if (recruitPhoto) {
+        formData.append('profileImage', {
+          uri: recruitPhoto.uri,
+          type: recruitPhoto.mimeType || 'image/jpeg',
+          name: recruitPhoto.fileName || 'profile_photo.jpg',
+        } as any);
+      }
+      
+      if (recruitIdDoc) {
+        formData.append('idDocument', {
+          uri: recruitIdDoc.uri,
+          type: recruitIdDoc.mimeType || 'image/jpeg',
+          name: recruitIdDoc.fileName || 'id_document.jpg',
+        } as any);
+      }
+      
+      if (recruitLicense) {
+        formData.append('driverLicense', {
+          uri: recruitLicense.uri,
+          type: recruitLicense.mimeType || 'image/jpeg',
+          name: recruitLicense.fileName || 'driver_license.jpg',
+        } as any);
+      }
+
+      console.log('Recruiting driver with company ID:', companyInfo?.id);
+      console.log('Form data prepared for:', firstName, lastName, recruitEmail);
+
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/${companyInfo?.id}/drivers`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
       });
 
-      // For now, just show success and close modal
-      Alert.alert('Success', 'Driver recruitment request submitted successfully!');
-      setRecruitModal(false);
-      resetRecruitForm();
-      await fetchDrivers(); // Refresh the list
+      const result = await response.json();
+      console.log('Driver recruitment response:', result);
+
+      if (response.ok) {
+        Alert.alert('Success', 'Driver recruited successfully! They will receive login credentials via email.');
+        setRecruitModal(false);
+        resetRecruitForm();
+        await fetchDrivers(); // Refresh the list
+      } else {
+        Alert.alert('Error', result.message || 'Failed to recruit driver');
+      }
     } catch (error) {
       console.error('Error recruiting driver:', error);
       Alert.alert('Error', 'Failed to recruit driver. Please try again.');

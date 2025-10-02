@@ -23,6 +23,7 @@ const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
     const navigation = useNavigation();
     const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
     const [companyInfo, setCompanyInfo] = useState<any>(null);
+    const [companySubscription, setCompanySubscription] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
@@ -52,10 +53,16 @@ const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
     // Debug logging
     console.log('SubscriptionManagementScreen - currentUserType:', currentUserType);
     console.log('SubscriptionManagementScreen - availablePlans length:', availablePlans?.length);
+    console.log('SubscriptionManagementScreen - companyInfo:', companyInfo);
+    console.log('SubscriptionManagementScreen - companySubscription:', companySubscription);
+    console.log('SubscriptionManagementScreen - subscriptionStatus:', subscriptionStatus);
     
     // Determine current plan based on subscription status
     const getCurrentPlan = () => {
+        console.log('getCurrentPlan - subscriptionStatus:', subscriptionStatus);
+        
         if (subscriptionStatus?.isTrialActive) {
+            console.log('Using trial subscription');
             return {
                 name: 'Free Trial',
                 type: currentUserType,
@@ -66,19 +73,39 @@ const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
                 period: 'trial',
                 features: trialPlan.features
             };
-        } else if (subscriptionStatus?.currentPlan) {
+        } else if (subscriptionStatus?.hasActiveSubscription && subscriptionStatus?.currentPlan) {
+            console.log('Using active subscription:', subscriptionStatus.currentPlan);
+            
+            // Calculate next billing date from subscription data
+            let nextBilling = 'N/A';
+            if (subscriptionStatus.subscription?.endDate) {
+                try {
+                    // Handle Firebase timestamp or regular date
+                    const endDate = subscriptionStatus.subscription.endDate.toDate ? 
+                        subscriptionStatus.subscription.endDate.toDate() : 
+                        new Date(subscriptionStatus.subscription.endDate);
+                    nextBilling = endDate.toLocaleDateString();
+                } catch (e) {
+                    console.warn('Error parsing end date:', e);
+                    nextBilling = subscriptionStatus.daysRemaining ? 
+                        `${subscriptionStatus.daysRemaining} days remaining` : 'N/A';
+                }
+            } else if (subscriptionStatus.daysRemaining) {
+                nextBilling = `${subscriptionStatus.daysRemaining} days remaining`;
+            }
+            
             return {
-                name: subscriptionStatus.currentPlan.name || 'Professional Plan',
+                name: subscriptionStatus.currentPlan.name || subscriptionStatus.currentPlan || 'Professional Plan',
                 type: currentUserType,
                 status: subscriptionStatus.subscriptionStatus || 'active',
-                nextBilling: subscriptionStatus.subscription?.endDate ? 
-                    new Date(subscriptionStatus.subscription.endDate).toLocaleDateString() : 
-                    'N/A',
-                amount: subscriptionStatus.currentPlan.price || 499,
-                period: subscriptionStatus.currentPlan.period || 'monthly',
+                nextBilling: nextBilling,
+                amount: subscriptionStatus.currentPlan.price || 0,
+                period: subscriptionStatus.currentPlan.duration ? 
+                    `${subscriptionStatus.currentPlan.duration} days` : 'monthly',
                 features: subscriptionStatus.currentPlan.features || []
             };
         } else {
+            console.log('No active subscription found');
             // No active subscription
             return {
                 name: 'No Active Plan',
@@ -94,9 +121,9 @@ const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
     
     const currentPlan = getCurrentPlan();
 
-    // Fetch company and subscription info
+    // Fetch company info for display purposes
     React.useEffect(() => {
-        const fetchSubscriptionInfo = async () => {
+        const fetchCompanyInfo = async () => {
             try {
                 const { getAuth } = require('firebase/auth');
                 const auth = getAuth();
@@ -104,41 +131,35 @@ const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
                 if (!user) return;
 
                 const token = await user.getIdToken();
+                console.log('Fetching company info for user:', user.uid);
                 
-                // Check if this is a company transporter
+                // Check if this is a company transporter (for display purposes only)
                 const companyResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/transporter/${user.uid}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
+                console.log('Company response status:', companyResponse.status);
+                
                 if (companyResponse.ok) {
                     const companyData = await companyResponse.json();
+                    console.log('Company data received:', companyData);
+                    
                     const company = companyData[0] || companyData;
                     if (company?.id) {
                         setCompanyInfo(company);
-                        
-                        // Fetch subscription details
-                        const subscriptionResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/${company.id}/subscription`, {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        
-                        if (subscriptionResponse.ok) {
-                            const subscriptionData = await subscriptionResponse.json();
-                            setCurrentPlan(prev => ({
-                                ...prev,
-                                ...subscriptionData,
-                                type: 'company'
-                            }));
-                        }
+                        console.log('Company info set:', company);
                     }
+                } else {
+                    console.log('No company data found or user is not a company transporter');
                 }
             } catch (error) {
-                console.error('Error fetching subscription info:', error);
+                console.error('Error fetching company info:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchSubscriptionInfo();
+        fetchCompanyInfo();
     }, []);
 
     const handleCancelSubscription = () => {
