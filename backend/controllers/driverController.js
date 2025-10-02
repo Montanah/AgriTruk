@@ -73,16 +73,30 @@ const createDriver = async (req, res) => {
     // Create Firebase Auth user for the driver using Admin SDK
     let firebaseUser;
     try {
+      // Format phone number to international format if not already
+      let phoneNumber = req.body.phone;
+      if (phoneNumber && !phoneNumber.startsWith('+')) {
+        // Assume Kenyan number if no country code
+        phoneNumber = phoneNumber.startsWith('0') ? 
+          '+254' + phoneNumber.substring(1) : 
+          '+254' + phoneNumber;
+      }
+
       firebaseUser = await admin.auth().createUser({
         email: req.body.email,
+        phoneNumber: phoneNumber,
         password: defaultPassword,
         displayName: `${req.body.firstName} ${req.body.lastName}`,
         emailVerified: false,
+        // Note: Phone verification will be handled separately if needed
       });
     } catch (authError) {
       console.error('Error creating Firebase user:', authError);
       if (authError.code === 'auth/email-already-exists') {
         return res.status(400).json({ message: 'A user with this email already exists. Please use a different email address.' });
+      }
+      if (authError.code === 'auth/phone-number-already-exists') {
+        return res.status(400).json({ message: 'A user with this phone number already exists. Please use a different phone number.' });
       }
       return res.status(400).json({ message: 'Failed to create driver account: ' + authError.message });
     }
@@ -161,6 +175,7 @@ const createDriver = async (req, res) => {
       const { sendDriverWelcomeEmail } = require('../utils/sendMailTemplate');
       await sendDriverWelcomeEmail({
         email: driverData.email,
+        phone: driverData.phone,
         firstName: driverData.firstName,
         lastName: driverData.lastName,
         companyName: companyData.companyName,

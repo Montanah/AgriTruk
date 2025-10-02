@@ -193,8 +193,12 @@ exports.sendDriverWelcomeEmail = async function (data) {
         <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h3 style="color: #0F2B04; margin-top: 0;">Your Login Credentials</h3>
           <p><strong>Email:</strong> ${data.email}</p>
+          <p><strong>Phone:</strong> ${data.phone}</p>
           <p><strong>Password:</strong> ${data.defaultPassword}</p>
           <p style="font-size: 14px; color: #666; margin-top: 10px;">
+            <strong>Sign in options:</strong> You can sign in using either your email address or phone number with the password above.
+          </p>
+          <p style="font-size: 14px; color: #666;">
             <strong>Important:</strong> Please change your password after your first login for security.
           </p>
         </div>
