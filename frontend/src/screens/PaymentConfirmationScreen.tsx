@@ -31,14 +31,14 @@ interface PaymentConfirmationScreenProps {
 
 const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ navigation, route }) => {
   const params = route?.params || {};
-  const { 
-    userType = 'broker', 
-    subscriptionType = 'trial', 
-    trialDuration = 30, 
-    expiredDate = null, 
-    amount = 0, 
-    planName = 'Trial Plan' 
-  } = params;
+  
+  // Ensure all params are properly typed and safe
+  const userType = typeof params.userType === 'string' ? params.userType : 'broker';
+  const subscriptionType = typeof params.subscriptionType === 'string' ? params.subscriptionType : 'trial';
+  const trialDuration = typeof params.trialDuration === 'number' ? params.trialDuration : 30;
+  const expiredDate = typeof params.expiredDate === 'string' ? params.expiredDate : null;
+  const amount = typeof params.amount === 'number' ? params.amount : 0;
+  const planName = typeof params.planName === 'string' ? params.planName : 'Trial Plan';
   const [processing, setProcessing] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
 
