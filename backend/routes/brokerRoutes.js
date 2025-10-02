@@ -18,9 +18,9 @@ router.get('/test', (req, res) => {
   res.json({ success: true, message: 'Broker routes are working', timestamp: new Date().toISOString() });
 });
 
-// Catch-all debug route to see if ANY requests reach broker router
-router.use('*', (req, res, next) => {
-  console.log('🔍🔍🔍 BROKER ROUTER HIT - Path:', req.originalUrl, 'Method:', req.method, 'Params:', req.params);
+// Debug middleware to see if ANY requests reach broker router
+router.use((req, res, next) => {
+  console.log('🔍🔍🔍 BROKER ROUTER HIT - Path:', req.originalUrl, 'Method:', req.method, 'Route:', req.route?.path || 'no-route');
   next();
 });
 
