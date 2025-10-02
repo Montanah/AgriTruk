@@ -398,16 +398,29 @@ router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broke
  *       500:
  *         description: Server error
  */
-// Test endpoint to verify broker routes are working
+// Test endpoint to verify broker routes are working (no auth required)
 router.get('/test', (req, res) => {
   console.log('🧪 Test route /api/brokers/test hit successfully');
   res.json({ success: true, message: 'Broker routes are working', timestamp: new Date().toISOString() });
 });
 
-router.get('/requests', (req, res, next) => {
-  console.log('🔍 Route /api/brokers/requests hit by user:', req.user?.uid || 'no-user');
-  next();
-}, authenticateToken, requireRole('broker'), BrokerController.getAllBrokerRequests);
+router.get('/requests', 
+  (req, res, next) => {
+    console.log('🔍 Route /api/brokers/requests hit - starting auth chain');
+    next();
+  },
+  authenticateToken, 
+  (req, res, next) => {
+    console.log('🔍 Auth passed, user:', req.user?.uid || 'no-user');
+    next();
+  },
+  requireRole('broker'), 
+  (req, res, next) => {
+    console.log('🔍 Role check passed, calling controller');
+    next();
+  },
+  BrokerController.getAllBrokerRequests
+);
 
 /**
  * @swagger
@@ -459,10 +472,23 @@ router.get('/requests', (req, res, next) => {
  *       500:
  *         description: Server error
  */
-router.get('/clients-with-requests', (req, res, next) => {
-  console.log('🔍 Route /api/brokers/clients-with-requests hit by user:', req.user?.uid || 'no-user');
-  next();
-}, authenticateToken, requireRole('broker'), BrokerController.getClientsWithRequests);
+router.get('/clients-with-requests', 
+  (req, res, next) => {
+    console.log('🔍 Route /api/brokers/clients-with-requests hit - starting auth chain');
+    next();
+  },
+  authenticateToken, 
+  (req, res, next) => {
+    console.log('🔍 Auth passed, user:', req.user?.uid || 'no-user');
+    next();
+  },
+  requireRole('broker'), 
+  (req, res, next) => {
+    console.log('🔍 Role check passed, calling controller');
+    next();
+  },
+  BrokerController.getClientsWithRequests
+);
 
 /**
  * @swagger
