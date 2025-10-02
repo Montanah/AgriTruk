@@ -30,6 +30,12 @@ router.use((req, res, next) => {
   next();
 });
 
+// Simple test route to verify route registration works at this location
+router.get('/debug-test', (req, res) => {
+  console.log('🧪 DEBUG TEST ROUTE HIT - Route registration works here!');
+  res.json({ success: true, message: 'Debug test route working', path: req.path });
+});
+
 // Debug middleware to see if ANY requests reach broker router (moved to after routes)
 // This will be moved to the end of the file
 
