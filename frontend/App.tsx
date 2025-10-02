@@ -763,7 +763,11 @@ export default function App() {
         initialRouteName = 'TransporterProcessingScreen';
         screens = (
           <>
-            <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+            <Stack.Screen 
+              name="TransporterProcessingScreen" 
+              component={TransporterProcessingScreen}
+              initialParams={{ transporterType: transporterType }}
+            />
             <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
@@ -1048,7 +1052,11 @@ export default function App() {
       initialRouteName = 'TransporterProcessingScreen';
       screens = (
         <>
-          <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+          <Stack.Screen 
+            name="TransporterProcessingScreen" 
+            component={TransporterProcessingScreen}
+            initialParams={{ transporterType: userData?.transporterType || 'individual' }}
+          />
           <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
           <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
           <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
