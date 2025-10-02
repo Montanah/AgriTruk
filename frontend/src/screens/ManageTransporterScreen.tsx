@@ -1148,8 +1148,21 @@ export default function ManageTransporterScreen({ route }: any) {
     setVehicleModal(true);
   };
   const handleSaveVehicle = () => {
-    if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 3) {
-      Alert.alert('Missing Info', 'Please fill all required fields and upload at least 3 photos.');
+    console.log('🚗 Vehicle validation:', {
+      vehicleType,
+      vehicleReg,
+      insurance: !!insurance,
+      photosCount: vehiclePhotos.length
+    });
+    
+    if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 1) {
+      const missingFields = [];
+      if (!vehicleType) missingFields.push('Vehicle Type');
+      if (!vehicleReg) missingFields.push('Registration Number');
+      if (!insurance) missingFields.push('Insurance Document');
+      if (vehiclePhotos.length < 1) missingFields.push('At least 1 photo');
+      
+      Alert.alert('Missing Info', `Please provide: ${missingFields.join(', ')}`);
       return;
     }
     const vehicle = {
