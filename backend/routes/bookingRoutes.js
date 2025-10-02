@@ -204,7 +204,10 @@ const bookingController = require('../controllers/bookingController');
  *       500:
  *         description: Internal server error
  */
-router.get('/requests', authenticateToken, requireRole(['transporter', 'business']), bookingController.getAllAvailableBookings);
+router.get('/requests', (req, res, next) => {
+  console.log('🚨 BOOKING ROUTES /requests HIT - URL:', req.originalUrl, 'User:', req.user?.uid);
+  next();
+}, authenticateToken, requireRole(['transporter', 'business']), bookingController.getAllAvailableBookings);
 
 /**
  * @swagger

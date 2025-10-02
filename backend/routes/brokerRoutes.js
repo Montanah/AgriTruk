@@ -21,6 +21,12 @@ router.get('/test', (req, res) => {
 // Add early debug middleware to catch ALL requests to broker router
 router.use((req, res, next) => {
   console.log('🎯 BROKER ROUTER MIDDLEWARE HIT - Path:', req.path, 'OriginalUrl:', req.originalUrl, 'Method:', req.method);
+  
+  // Special debugging for /requests and /clients-with-requests
+  if (req.path === '/requests' || req.path === '/clients-with-requests') {
+    console.log('🚨 CRITICAL ROUTE HIT - This should match a handler!');
+  }
+  
   next();
 });
 
