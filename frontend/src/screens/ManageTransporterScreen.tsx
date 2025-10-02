@@ -130,6 +130,7 @@ export default function ManageTransporterScreen({ route }: any) {
           if (!user) return;
 
           const token = await user.getIdToken();
+          console.log('Fetching company profile from:', `${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`);
           const response = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -137,9 +138,14 @@ export default function ManageTransporterScreen({ route }: any) {
             },
           });
 
+          console.log('Company profile response status:', response.status);
           if (response.ok) {
             const data = await response.json();
+            console.log('Company profile data:', data);
             setCompanyProfile(data[0] || data); // Handle both array and object responses
+          } else {
+            const errorText = await response.text();
+            console.error('Company profile fetch error:', response.status, errorText);
           }
         } catch (error) {
           console.error('Error fetching company profile:', error);
@@ -470,10 +476,12 @@ export default function ManageTransporterScreen({ route }: any) {
               name: 'company-logo.jpg',
             } as any);
             
+            console.log('Uploading company logo to:', `${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`);
             const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
               method: 'PATCH',
               headers: {
                 'Authorization': `Bearer ${token}`,
+                // Don't set Content-Type for FormData - let React Native set it with boundary
               },
               body: formData,
             });
@@ -535,10 +543,12 @@ export default function ManageTransporterScreen({ route }: any) {
               name: 'company-logo.jpg',
             } as any);
             
+            console.log('Uploading company logo to:', `${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`);
             const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
               method: 'PATCH',
               headers: {
                 'Authorization': `Bearer ${token}`,
+                // Don't set Content-Type for FormData - let React Native set it with boundary
               },
               body: formData,
             });
