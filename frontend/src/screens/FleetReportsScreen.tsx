@@ -86,35 +86,8 @@ const FleetReportsScreen = () => {
         const data = await response.json();
         setReports(data.reports || []);
       } else {
-        // Mock data for now
-        setReports([
-          {
-            id: '1',
-            title: 'Fleet Overview Report',
-            type: 'fleet',
-            dateRange: 'Last 30 days',
-            generatedAt: '2024-01-15T10:30:00Z',
-            status: 'ready',
-            downloadUrl: 'https://example.com/report1.pdf',
-          },
-          {
-            id: '2',
-            title: 'Financial Report',
-            type: 'financial',
-            dateRange: 'Last 30 days',
-            generatedAt: '2024-01-14T14:20:00Z',
-            status: 'ready',
-            downloadUrl: 'https://example.com/report2.pdf',
-          },
-          {
-            id: '3',
-            title: 'Performance Report',
-            type: 'performance',
-            dateRange: 'Last 7 days',
-            generatedAt: '2024-01-16T09:15:00Z',
-            status: 'generating',
-          },
-        ]);
+        // No reports available yet
+        setReports([]);
       }
     } catch (err: any) {
       console.error('Error fetching reports:', err);

@@ -486,9 +486,28 @@ const VehicleManagementScreen = () => {
         onRequestClose={() => setShowVehicleModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
-            <View style={styles.vehicleModalCard}>
-              <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
+          <View style={styles.vehicleModalCard}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHandle} />
+              <View style={styles.modalTitleContainer}>
+                <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
+                <Text style={styles.modalSubtitle}>Fill in your vehicle details</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => setShowVehicleModal(false)}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Modal Content */}
+            <ScrollView 
+              style={styles.modalContent}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+            >
               
               {/* Vehicle Details Form */}
               <VehicleDetailsForm
@@ -533,27 +552,29 @@ const VehicleManagementScreen = () => {
                 {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
               </View>
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setShowVehicleModal(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveBtn, loadingProfile && styles.disabledBtn]}
-                  onPress={handleSaveVehicle}
-                  disabled={loadingProfile}
-                >
-                  {loadingProfile ? (
-                    <ActivityIndicator size="small" color={colors.white} />
-                  ) : (
-                    <Text style={styles.saveBtnText}>Save Vehicle</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
+            </ScrollView>
+            
+            {/* Modal Footer */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setShowVehicleModal(false)}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, loadingProfile && styles.disabledBtn]}
+                onPress={handleSaveVehicle}
+                disabled={loadingProfile}
+              >
+                {loadingProfile ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.saveBtnText}>Save Vehicle</Text>
+                )}
+              </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </View>
       </Modal>
     </View>
@@ -783,24 +804,90 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    padding: 20,
   },
   vehicleModalCard: {
     backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 0,
     width: '100%',
-    maxHeight: '90%',
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  // Modal Header Styles
+  modalHeader: {
+    paddingTop: 12,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: colors.text.light,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalTitleContainer: {
+    alignItems: 'center',
+    flex: 1,
   },
   editTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
-    textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.regular,
+    color: colors.text.secondary,
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    right: 20,
+    top: 16,
+    padding: 4,
+  },
+  // Modal Content Styles
+  modalContent: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  modalScrollContent: {
+    padding: 20,
+    paddingBottom: 100, // Extra space for footer
+  },
+  // Modal Footer Styles
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 20,
+    paddingTop: 16,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   section: {
     marginBottom: 16,
@@ -815,15 +902,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
-    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderWidth: 2,
     borderColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: colors.background,
+    borderStyle: 'dashed',
   },
   uploadBtnText: {
-    fontSize: 14,
-    fontFamily: fonts.family.medium,
+    fontSize: 16,
+    fontFamily: fonts.family.semiBold,
     color: colors.primary,
     marginLeft: 8,
   },
@@ -834,35 +923,41 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 12,
-  },
   cancelBtn: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.text.secondary,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.text.light,
     alignItems: 'center',
+    marginRight: 12,
+    backgroundColor: colors.white,
   },
   cancelBtnText: {
-    fontSize: 14,
-    fontFamily: fonts.family.medium,
+    fontSize: 16,
+    fontFamily: fonts.family.semiBold,
     color: colors.text.secondary,
   },
   saveBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    flex: 2,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
     backgroundColor: colors.primary,
     alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
   saveBtnText: {
-    fontSize: 14,
-    fontFamily: fonts.family.medium,
+    fontSize: 16,
+    fontFamily: fonts.family.semiBold,
     color: colors.white,
   },
   disabledBtn: {

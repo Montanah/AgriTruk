@@ -74,42 +74,8 @@ const FleetMaintenanceScreen = () => {
         const data = await response.json();
         setMaintenanceRecords(data.records || []);
       } else {
-        // Mock data for now
-        setMaintenanceRecords([
-          {
-            id: '1',
-            vehicleId: 'v1',
-            vehicleInfo: { make: 'Toyota', model: 'Hiace', registration: 'KCA 123A' },
-            type: 'scheduled',
-            description: 'Oil change and filter replacement',
-            dueDate: '2024-02-01',
-            status: 'pending',
-            cost: 150,
-            notes: 'Regular maintenance',
-          },
-          {
-            id: '2',
-            vehicleId: 'v2',
-            vehicleInfo: { make: 'Isuzu', model: 'NPR', registration: 'KCB 456B' },
-            type: 'repair',
-            description: 'Brake pad replacement',
-            dueDate: '2024-01-25',
-            status: 'overdue',
-            cost: 300,
-            notes: 'Urgent repair needed',
-          },
-          {
-            id: '3',
-            vehicleId: 'v3',
-            vehicleInfo: { make: 'Ford', model: 'Transit', registration: 'KCC 789C' },
-            type: 'inspection',
-            description: 'Annual safety inspection',
-            dueDate: '2024-02-15',
-            status: 'in_progress',
-            cost: 200,
-            notes: 'In progress at garage',
-          },
-        ]);
+        // No maintenance records available yet
+        setMaintenanceRecords([]);
       }
     } catch (err: any) {
       console.error('Error fetching maintenance records:', err);

@@ -1,41 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import React, { useState } from 'react';
-import { FlatList, Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { FlatList, Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
 import colors from '../constants/colors';
+import { API_ENDPOINTS } from '../constants/api';
 
 const regions = ['Nairobi', 'Central', 'Western', 'Rift Valley', 'Coast'];
-
-// Mock data for broker's own clients
-const MOCK_CLIENTS = [
-  { id: 'C001', name: 'Green Agri Co.', type: 'business', email: 'info@greenagri.com', phone: '+254712345678', address: 'Westlands, Nairobi', region: 'Nairobi' },
-  { id: 'C002', name: 'Mary Grower', type: 'individual', email: 'mary.grower@gmail.com', phone: '+254799888777', address: 'Karatina, Central', region: 'Central' },
-  { id: 'C003', name: 'Farmers United', type: 'business', email: 'info@farmersunited.com', phone: '+254701234567', address: 'Eldoret, Rift Valley', region: 'Rift Valley' },
-  { id: 'C004', name: 'John Farmer', type: 'individual', email: 'john.farmer@yahoo.com', phone: '+254700111222', address: 'Kakamega, Western', region: 'Western' },
-];
-
-// Mock request history per client
-const MOCK_REQUESTS = {
-  'C001': [
-    { id: 'R001', date: '2024-06-01', type: 'Booking', status: 'Completed', amount: 12000, summary: 'Maize, 10 tons, to Mombasa' },
-    { id: 'R005', date: '2024-06-10', type: 'Instant', status: 'Pending', amount: 8000, summary: 'Wheat, 5 tons, to Kisumu' },
-  ],
-  'C002': [
-    { id: 'R002', date: '2024-06-03', type: 'Booking', status: 'Completed', amount: 6000, summary: 'Vegetables, 2 tons, to Nairobi' },
-  ],
-  'C003': [
-    { id: 'R003', date: '2024-06-05', type: 'Instant', status: 'Completed', amount: 15000, summary: 'Tea, 8 tons, to Mombasa' },
-  ],
-  'C004': [
-    { id: 'R004', date: '2024-06-07', type: 'Booking', status: 'Pending', amount: 4000, summary: 'Potatoes, 3 tons, to Nakuru' },
-  ],
-};
-
-const mockSubscription = {
-  plan: 'Pro',
-  status: 'Active',
-  renewal: '2024-07-01',
-};
 
 function getDaysLeftInMonth() {
   const today = new Date();
@@ -44,7 +14,8 @@ function getDaysLeftInMonth() {
 }
 
 export default function BrokerNetworkScreen() {
-  const [clients, setClients] = useState(MOCK_CLIENTS);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editClientIdx, setEditClientIdx] = useState(null);
   const [clientName, setClientName] = useState('');
@@ -55,6 +26,40 @@ export default function BrokerNetworkScreen() {
   const [clientRegion, setClientRegion] = useState('Nairobi');
   const [search, setSearch] = useState('');
   const [showReminder, setShowReminder] = useState(true);
+
+  const fetchClients = async () => {
+    try {
+      setLoading(true);
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.BROKERS}/clients-with-requests`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data.data || []);
+      } else {
+        setClients([]);
+      }
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      setClients([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchClients();
+  }, []);
 
   // Add or edit client
   const handleSaveClient = () => {
@@ -173,13 +178,13 @@ export default function BrokerNetworkScreen() {
                 <Text style={styles.clientName}>{item.name}</Text>
                 <Text style={styles.clientInfo}>{item.type === 'business' ? 'Business' : 'Individual'} • {item.email} • {item.phone} • {item.address} • {item.region}</Text>
                 {/* Request history for this client */}
-                {MOCK_REQUESTS[item.id] && (
+                {item.requests && item.requests.length > 0 && (
                   <View style={styles.requestHistoryWrap}>
                     <Text style={styles.requestHistoryTitle}>Recent Requests:</Text>
-                    {MOCK_REQUESTS[item.id].map(req => (
+                    {item.requests.slice(0, 3).map(req => (
                       <View key={req.id} style={styles.requestHistoryItem}>
-                        <MaterialCommunityIcons name={req.type === 'Booking' ? 'calendar-check' : 'flash'} size={16} color={req.type === 'Booking' ? colors.primary : colors.secondary} style={{ marginRight: 4 }} />
-                        <Text style={styles.requestHistoryText}>{req.date}: {req.summary} <Text style={{ color: req.status === 'Completed' ? colors.secondary : colors.primaryDark }}>({req.status})</Text></Text>
+                        <MaterialCommunityIcons name={req.type === 'booking' ? 'calendar-check' : 'flash'} size={16} color={req.type === 'booking' ? colors.primary : colors.secondary} style={{ marginRight: 4 }} />
+                        <Text style={styles.requestHistoryText}>{new Date(req.createdAt).toLocaleDateString()}: {req.cargoDescription || 'Transport request'} <Text style={{ color: req.status === 'completed' ? colors.secondary : colors.primaryDark }}>({req.status})</Text></Text>
                       </View>
                     ))}
                   </View>
