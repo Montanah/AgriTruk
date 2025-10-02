@@ -35,7 +35,7 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
     userType = 'broker', 
     subscriptionType = 'trial', 
     trialDuration = 30, 
-    expiredDate, 
+    expiredDate = null, 
     amount = 0, 
     planName = 'Trial Plan' 
   } = params;
@@ -52,8 +52,8 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
   }, []);
 
   // Safety check to ensure all required values are defined
-  if (!userType || !subscriptionType) {
-    console.warn('PaymentConfirmationScreen: Missing required params', { userType, subscriptionType });
+  if (!userType || !subscriptionType || typeof userType !== 'string' || typeof subscriptionType !== 'string') {
+    console.warn('PaymentConfirmationScreen: Missing or invalid required params', { userType, subscriptionType, params });
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.statusCard}>
@@ -236,7 +236,7 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>User Type:</Text>
-            <Text style={styles.detailValue}>{userType ? userType.charAt(0).toUpperCase() + userType.slice(1) : 'Unknown'}</Text>
+            <Text style={styles.detailValue}>{userType && typeof userType === 'string' ? userType.charAt(0).toUpperCase() + userType.slice(1) : 'Unknown'}</Text>
           </View>
           
           <View style={styles.detailRow}>
@@ -245,18 +245,18 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
               {subscriptionType === 'trial' ? 'Free Trial' : 
                subscriptionType === 'renewal' ? 'Renewal' : 
                subscriptionType === 'upgrade' ? 'Upgrade' : 
-               subscriptionType ? 'Subscription' : 'Unknown'}
+               (subscriptionType && typeof subscriptionType === 'string') ? 'Subscription' : 'Unknown'}
             </Text>
           </View>
           
-          {trialDuration && (
+          {trialDuration && typeof trialDuration === 'number' && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Trial Duration:</Text>
-              <Text style={styles.detailValue}>{trialDuration || 30} days</Text>
+              <Text style={styles.detailValue}>{trialDuration} days</Text>
             </View>
           )}
           
-          {expiredDate && (
+          {expiredDate && typeof expiredDate === 'string' && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Previous Expiry:</Text>
               <Text style={styles.detailValue}>
@@ -265,7 +265,7 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
             </View>
           )}
           
-          {amount && (
+          {amount && typeof amount === 'number' && amount > 0 && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Amount:</Text>
               <Text style={styles.detailValue}>${amount}</Text>

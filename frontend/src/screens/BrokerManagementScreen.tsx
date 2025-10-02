@@ -108,9 +108,18 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 console.error('Failed to fetch broker requests:', res.status, res.statusText);
                 const errorData = await res.json().catch(() => ({}));
                 console.error('Error details:', errorData);
+                
+                // If 404, it means broker lookup failed - set empty data instead of crashing
+                if (res.status === 404) {
+                    console.log('Broker not found in backend - setting empty requests');
+                    setRequests([]);
+                    await loadClients();
+                }
             }
         } catch (error) {
             console.error('Error loading requests:', error);
+            // Set empty data on error to prevent crashes
+            setRequests([]);
         } finally {
             setLoading(false);
         }
@@ -139,9 +148,17 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 console.error('Failed to fetch clients with requests:', res.status, res.statusText);
                 const errorData = await res.json().catch(() => ({}));
                 console.error('Error details:', errorData);
+                
+                // If 404, it means broker lookup failed - set empty data instead of crashing
+                if (res.status === 404) {
+                    console.log('Broker not found in backend - setting empty clients');
+                    setClients([]);
+                }
             }
         } catch (error) {
             console.error('Error loading clients:', error);
+            // Set empty data on error to prevent crashes
+            setClients([]);
         }
     };
 
@@ -539,13 +556,23 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                             </TouchableOpacity>
                         </View>
 
-                        <FlatList
-                            data={requests}
-                            renderItem={renderRequestItem}
-                            keyExtractor={(item) => item.id}
-                            showsVerticalScrollIndicator={false}
-                            scrollEnabled={false}
-                        />
+                        {requests.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <MaterialCommunityIcons name="clipboard-list-outline" size={48} color={colors.text.light} />
+                                <Text style={styles.emptyStateTitle}>No Requests Yet</Text>
+                                <Text style={styles.emptyStateText}>
+                                    {loading ? 'Loading your requests...' : 'Create your first request to get started with managing client transportation needs.'}
+                                </Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={requests}
+                                renderItem={renderRequestItem}
+                                keyExtractor={(item) => item.id}
+                                showsVerticalScrollIndicator={false}
+                                scrollEnabled={false}
+                            />
+                        )}
                     </View>
                 );
 

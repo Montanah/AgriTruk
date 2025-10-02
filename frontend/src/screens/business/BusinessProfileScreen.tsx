@@ -652,17 +652,14 @@ const BusinessProfileScreen = ({ navigation }: any) => {
                   ) : (
                     <Text style={styles.infoValue}>{editData.email}</Text>
                   )}
-                  <View style={[
-                    styles.verificationBadge,
-                    editData.emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
-                  ]}>
-                    <Ionicons
-                      name={editData.emailVerified ? "checkmark-circle" : "close-circle"}
-                      size={12}
-                      color={editData.emailVerified ? colors.success : colors.warning}
+                  <View style={styles.verificationStatus}>
+                    <MaterialCommunityIcons
+                      name={editData.emailVerified ? "check-circle" : "close-circle"}
+                      size={16}
+                      color={editData.emailVerified ? colors.success : colors.text.light}
                     />
                     <Text style={[
-                      styles.verificationBadgeText,
+                      styles.verificationStatusText,
                       editData.emailVerified ? styles.verifiedText : styles.unverifiedText
                     ]}>
                       {editData.emailVerified ? 'Verified' : 'Unverified'}
@@ -688,17 +685,14 @@ const BusinessProfileScreen = ({ navigation }: any) => {
                   ) : (
                     <Text style={styles.infoValue}>{editData.phone}</Text>
                   )}
-                  <View style={[
-                    styles.verificationBadge,
-                    editData.phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
-                  ]}>
-                    <Ionicons
-                      name={editData.phoneVerified ? "checkmark-circle" : "close-circle"}
-                      size={12}
-                      color={editData.phoneVerified ? colors.success : colors.warning}
+                  <View style={styles.verificationStatus}>
+                    <MaterialCommunityIcons
+                      name={editData.phoneVerified ? "check-circle" : "close-circle"}
+                      size={16}
+                      color={editData.phoneVerified ? colors.success : colors.text.light}
                     />
                     <Text style={[
-                      styles.verificationBadgeText,
+                      styles.verificationStatusText,
                       editData.phoneVerified ? styles.verifiedText : styles.unverifiedText
                     ]}>
                       {editData.phoneVerified ? 'Verified' : 'Unverified'}
@@ -777,14 +771,19 @@ const BusinessProfileScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons
                   name="email"
                   size={20}
-                  color={editData.emailVerified ? colors.success : colors.warning}
+                  color={colors.text.secondary}
                 />
                 <Text style={styles.verificationLabel}>Email</Text>
-                <View style={[
-                  styles.verificationBadge,
-                  editData.emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
-                ]}>
-                  <Text style={styles.verificationBadgeText}>
+                <View style={styles.verificationStatus}>
+                  <MaterialCommunityIcons
+                    name={editData.emailVerified ? "check-circle" : "close-circle"}
+                    size={18}
+                    color={editData.emailVerified ? colors.success : colors.text.light}
+                  />
+                  <Text style={[
+                    styles.verificationStatusText,
+                    editData.emailVerified ? styles.verifiedText : styles.unverifiedText
+                  ]}>
                     {editData.emailVerified ? 'Verified' : 'Unverified'}
                   </Text>
                 </View>
@@ -794,14 +793,19 @@ const BusinessProfileScreen = ({ navigation }: any) => {
                 <MaterialCommunityIcons
                   name="phone"
                   size={20}
-                  color={editData.phoneVerified ? colors.success : colors.warning}
+                  color={colors.text.secondary}
                 />
                 <Text style={styles.verificationLabel}>Phone</Text>
-                <View style={[
-                  styles.verificationBadge,
-                  editData.phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
-                ]}>
-                  <Text style={styles.verificationBadgeText}>
+                <View style={styles.verificationStatus}>
+                  <MaterialCommunityIcons
+                    name={editData.phoneVerified ? "check-circle" : "close-circle"}
+                    size={18}
+                    color={editData.phoneVerified ? colors.success : colors.text.light}
+                  />
+                  <Text style={[
+                    styles.verificationStatusText,
+                    editData.phoneVerified ? styles.verifiedText : styles.unverifiedText
+                  ]}>
                     {editData.phoneVerified ? 'Verified' : 'Unverified'}
                   </Text>
                 </View>
@@ -1377,30 +1381,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  verificationBadge: {
+  verificationStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
     marginLeft: spacing.sm,
   },
-  verifiedBadge: {
-    backgroundColor: colors.success + '20',
-  },
-  unverifiedBadge: {
-    backgroundColor: colors.warning + '20',
-  },
-  verificationBadgeText: {
+  verificationStatusText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '500',
     marginLeft: 4,
   },
   verifiedText: {
     color: colors.success,
   },
   unverifiedText: {
-    color: colors.warning,
+    color: colors.text.light,
   },
   verifyButton: {
     backgroundColor: colors.primary,
@@ -1461,22 +1456,6 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.xs,
     marginBottom: spacing.xs,
-  },
-  verificationBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
-  },
-  verifiedBadge: {
-    backgroundColor: colors.success,
-  },
-  unverifiedBadge: {
-    backgroundColor: colors.warning,
-  },
-  verificationBadgeText: {
-    fontSize: fonts.size.xs,
-    color: colors.white,
-    fontWeight: '600',
   },
   changePrimaryButton: {
     flexDirection: 'row',
