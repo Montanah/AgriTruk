@@ -89,7 +89,6 @@ const ManageStack = ({ transporterType }) => (
       <>
         <Stack.Screen name="FleetManagement" component={FleetManagementScreen} />
         <Stack.Screen name="VehicleManagement" component={VehicleManagementScreen} />
-        <Stack.Screen name="ManageTransporter" component={require('../screens/ManageTransporterScreen').default} />
         <Stack.Screen name="DriverManagement" component={DriverManagementScreen} />
         <Stack.Screen name="DriverJobManagement" component={DriverJobManagementScreen} />
         <Stack.Screen name="DriverAssignments" component={DriverAssignmentsScreen} />

@@ -324,8 +324,7 @@ const CompanyDashboardScreen = () => {
               onPress={() => {
                 // Navigate to Fleet tab and then to VehicleManagement screen
                 navigation.navigate('Fleet', { 
-                  screen: 'VehicleManagement',
-                  params: { showVehicleModal: true }
+                  screen: 'VehicleManagement'
                 });
               }}
             >
