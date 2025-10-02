@@ -426,24 +426,11 @@ router.post('/requests/consolidate', authenticateToken, requireRole(['broker', '
  *         description: Server error
  */
 
-router.get('/requests', 
-  (req, res, next) => {
-    console.log('🔍🔍🔍 BROKER REQUESTS ROUTE HIT - URL:', req.originalUrl, 'Method:', req.method);
-    console.log('🔍 Route /api/brokers/requests hit - starting auth chain');
-    next();
-  },
-  authenticateToken, 
-  (req, res, next) => {
-    console.log('🔍 Auth passed, user:', req.user?.uid || 'no-user');
-    next();
-  },
-  requireRole('broker'), 
-  (req, res, next) => {
-    console.log('🔍 Role check passed, calling controller');
-    next();
-  },
-  BrokerController.getAllBrokerRequests
-);
+// Simplified route definition to test if multi-line syntax is the issue
+router.get('/requests', authenticateToken, requireRole('broker'), (req, res, next) => {
+  console.log('🔍🔍🔍 SIMPLIFIED BROKER REQUESTS ROUTE HIT - URL:', req.originalUrl);
+  next();
+}, BrokerController.getAllBrokerRequests);
 
 /**
  * @swagger
@@ -520,24 +507,11 @@ router.get('/clients/:clientId/requests', authenticateToken, requireRole(['broke
  *       500:
  *         description: Server error
  */
-router.get('/clients-with-requests', 
-  (req, res, next) => {
-    console.log('🔍🔍🔍 BROKER CLIENTS ROUTE HIT - URL:', req.originalUrl, 'Method:', req.method);
-    console.log('🔍 Route /api/brokers/clients-with-requests hit - starting auth chain');
-    next();
-  },
-  authenticateToken, 
-  (req, res, next) => {
-    console.log('🔍 Auth passed, user:', req.user?.uid || 'no-user');
-    next();
-  },
-  requireRole('broker'), 
-  (req, res, next) => {
-    console.log('🔍 Role check passed, calling controller');
-    next();
-  },
-  BrokerController.getClientsWithRequests
-);
+// Simplified route definition to test if multi-line syntax is the issue
+router.get('/clients-with-requests', authenticateToken, requireRole('broker'), (req, res, next) => {
+  console.log('🔍🔍🔍 SIMPLIFIED BROKER CLIENTS ROUTE HIT - URL:', req.originalUrl);
+  next();
+}, BrokerController.getClientsWithRequests);
 
 /**
  * @swagger
