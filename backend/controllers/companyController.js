@@ -328,7 +328,14 @@ exports.deleteCompany = async (req, res) => {
 exports.getCompaniesByTransporter = async (req, res) => {
   try {
     const { transporterId } = req.params;
+    console.log('🔍 Looking for companies with transporterId:', transporterId);
     const companies = await Company.getByTransporter(transporterId);
+    console.log('🔍 Found companies:', companies.length, companies.map(c => ({ id: c.id, name: c.companyName || c.name })));
+
+    if (companies.length === 0) {
+      console.log('🔍 No companies found for transporterId:', transporterId);
+      return res.status(404).json({ message: 'Company not found' });
+    }
 
     // await logAdminActivity(req.user.uid, 'get_companies_by_transporter', req);
     res.status(200).json(companies);
