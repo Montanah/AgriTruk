@@ -1147,7 +1147,7 @@ export default function ManageTransporterScreen({ route }: any) {
     setVehicleType(v.type); setVehicleReg(v.reg); setRefrigeration(v.refrigeration); setHumidityControl(v.humidityControl); setSpecialCargo(v.specialCargo); setVehicleFeatures(v.features); setInsurance(v.insurance); setVehiclePhotos(v.photos); setAssignedDriverId(v.assignedDriverId || null);
     setVehicleModal(true);
   };
-  const handleSaveVehicle = () => {
+  const handleSaveVehicle = async () => {
     console.log('🚗 Vehicle validation:', {
       vehicleType,
       vehicleReg,
@@ -1165,53 +1165,80 @@ export default function ManageTransporterScreen({ route }: any) {
       Alert.alert('Missing Info', `Please provide: ${missingFields.join(', ')}`);
       return;
     }
-    const vehicle = {
-      id: vehicleEditIdx !== null ? vehicles[vehicleEditIdx].id : Date.now().toString(),
-      type: vehicleType,
-      reg: vehicleReg,
-      bodyType,
-      refrigeration,
-      humidityControl,
-      specialCargo,
-      features: vehicleFeatures,
-      insurance,
-      photos: vehiclePhotos,
-      assignedDriverId,
-    };
-    let updated;
-    if (vehicleEditIdx !== null) {
-      updated = [...vehicles];
-      updated[vehicleEditIdx] = vehicle;
-    } else {
-      updated = [...vehicles, vehicle];
-    }
-    setVehicles(updated);
-    setVehicleModal(false);
-    // If editing, notify the assigned driver (if changed)
-    const assignedDriver = vehicle.assignedDriverId && drivers.find(d => d.id === vehicle.assignedDriverId);
-    if (assignedDriver) {
-      notificationService.sendEmail(
-        assignedDriver.email,
-        'Vehicle Assignment',
-        `Hi ${assignedDriver.name}, you have been assigned vehicle ${vehicle.reg} (${vehicle.type}).`,
-        'driver',
-        'vehicle_assigned',
-        { vehicle, driver: assignedDriver }
-      );
-      notificationService.sendSMS(
-        assignedDriver.phone,
-        `You have been assigned vehicle ${vehicle.reg} (${vehicle.type}).`,
-        'driver',
-        'vehicle_assigned',
-        { vehicle, driver: assignedDriver }
-      );
-      notificationService.sendInApp(
-        assignedDriver.id,
-        `You have been assigned vehicle ${vehicle.reg} (${vehicle.type}).`,
-        'driver',
-        'vehicle_assigned',
-        { vehicle, driver: assignedDriver }
-      );
+
+    try {
+      setLoadingProfile(true);
+      
+      const vehicleData = {
+        vehicleType: vehicleType,
+        vehicleRegistration: vehicleReg,
+        vehicleMake: vehicleMake,
+        vehicleModel: vehicleMake, // Use vehicleMake as model for backend compatibility
+        vehicleColor: vehicleColor,
+        year: vehicleYear,
+        capacity: vehicleCapacity,
+        driveType: vehicleDriveType,
+        bodyType: bodyType,
+        refrigeration: refrigeration,
+        humidityControl: humidityControl,
+        specialCargo: specialCargo,
+        features: vehicleFeatures,
+        insurance: insurance,
+        photos: vehiclePhotos,
+        assignedDriverId: assignedDriverId,
+        status: 'pending' // Set to pending for admin approval
+      };
+
+      console.log('🚗 Creating vehicle with data:', vehicleData);
+      
+      // Create vehicle via API
+      const response = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`, {
+        method: 'POST',
+        body: vehicleData
+      });
+
+      if (response.success) {
+        console.log('✅ Vehicle created successfully:', response);
+        
+        // Update local state
+        const newVehicle = {
+          id: response.vehicle?.vehicleId || Date.now().toString(),
+          type: vehicleType,
+          reg: vehicleReg,
+          bodyType,
+          refrigeration,
+          humidityControl,
+          specialCargo,
+          features: vehicleFeatures,
+          insurance,
+          photos: vehiclePhotos,
+          assignedDriverId,
+          status: 'pending' // Show pending status
+        };
+        
+        let updated;
+        if (vehicleEditIdx !== null) {
+          updated = [...vehicles];
+          updated[vehicleEditIdx] = newVehicle;
+        } else {
+          updated = [...vehicles, newVehicle];
+        }
+        setVehicles(updated);
+        setVehicleModal(false);
+        
+        Alert.alert(
+          'Success', 
+          'Vehicle added successfully! It will be reviewed by admin before approval.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error(response.message || 'Failed to create vehicle');
+      }
+    } catch (error) {
+      console.error('❌ Error creating vehicle:', error);
+      Alert.alert('Error', `Failed to create vehicle: ${error.message}`);
+    } finally {
+      setLoadingProfile(false);
     }
   };
   const handleRemoveVehicle = (idx: number) => {
