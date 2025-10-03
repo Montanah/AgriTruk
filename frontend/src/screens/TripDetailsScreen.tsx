@@ -1,9 +1,11 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useEffect, useState } from 'react';
-import { FlatList, Image, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { FlatList, Image, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, ActivityIndicator } from 'react-native';
 import { notificationService } from '../services/notificationService';
 import { enhancedNotificationService } from '../services/enhancedNotificationService';
+import { realTimeTrackingService } from '../services/realTimeTrackingService';
+import { trafficMonitoringService } from '../services/trafficMonitoringService';
 import NotificationBell from '../components/Notification/NotificationBell';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
@@ -52,6 +54,16 @@ const TripDetailsScreen = () => {
   const [transporterLocation, setTransporterLocation] = useState<any>(null);
   const [routeDeviation, setRouteDeviation] = useState<boolean>(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+  
+  // Real-time tracking state
+  const [isTracking, setIsTracking] = useState(false);
+  const [trackingData, setTrackingData] = useState<any>(null);
+  const [trafficAlerts, setTrafficAlerts] = useState<any[]>([]);
+  const [alternativeRoutes, setAlternativeRoutes] = useState<any[]>([]);
+  const [showTrafficModal, setShowTrafficModal] = useState(false);
+  const [showRouteOptions, setShowRouteOptions] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState(0);
+  const mapRef = useRef<any>(null);
 
   // Fetch real booking data when job is provided
   useEffect(() => {
@@ -131,6 +143,133 @@ const TripDetailsScreen = () => {
       sendStatusNotification(realBooking.status, realBooking);
     }
   }, [realBooking?.status]);
+
+  // Initialize real-time tracking for clients
+  useEffect(() => {
+    if (realBooking && ['shipper', 'business', 'broker'].includes(userType)) {
+      initializeRealTimeTracking();
+    }
+    
+    return () => {
+      if (realBooking?.id) {
+        realTimeTrackingService.stopTracking(realBooking.id);
+        realTimeTrackingService.unsubscribe(realBooking.id);
+      }
+    };
+  }, [realBooking, userType]);
+
+  // Real-time tracking functions
+  const initializeRealTimeTracking = async () => {
+    if (!realBooking?.id) return;
+
+    try {
+      // Start tracking
+      await realTimeTrackingService.startTracking(realBooking.id, realBooking.userId);
+      setIsTracking(true);
+
+      // Subscribe to location updates
+      realTimeTrackingService.onLocationUpdate(realBooking.id, (location) => {
+        setTransporterLocation(location);
+        setLastUpdateTime(new Date());
+        
+        // Update map if available
+        if (mapRef.current) {
+          mapRef.current.animateToRegion({
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }, 1000);
+        }
+      });
+
+      // Subscribe to route deviations
+      realTimeTrackingService.onRouteDeviation(realBooking.id, (deviation) => {
+        setRouteDeviation(true);
+        Alert.alert(
+          'Route Update',
+          `Your transporter is taking an alternative route. ${deviation.reason}`,
+          [
+            { text: 'View Traffic Info', onPress: () => setShowTrafficModal(true) },
+            { text: 'OK', style: 'default' },
+          ]
+        );
+      });
+
+      // Subscribe to traffic alerts
+      realTimeTrackingService.onTrafficAlert(realBooking.id, (alert) => {
+        setTrafficAlerts(prev => [alert, ...prev]);
+        Alert.alert(
+          'Traffic Alert',
+          alert.message,
+          [
+            { text: 'View Details', onPress: () => setShowTrafficModal(true) },
+            { text: 'OK', style: 'default' },
+          ]
+        );
+      });
+
+      // Load initial tracking data
+      const data = await realTimeTrackingService.getTrackingData(realBooking.id);
+      if (data) {
+        setTrackingData(data);
+      }
+
+      // Load traffic conditions
+      await loadTrafficConditions();
+    } catch (error) {
+      console.error('Error initializing real-time tracking:', error);
+    }
+  };
+
+  const loadTrafficConditions = async () => {
+    if (!realBooking?.route) return;
+
+    try {
+      const { pickup, delivery } = realBooking.route;
+      const centerLat = (pickup.latitude + delivery.latitude) / 2;
+      const centerLon = (pickup.longitude + delivery.longitude) / 2;
+      
+      const conditions = await trafficMonitoringService.getTrafficConditions(
+        centerLat,
+        centerLon,
+        10000 // 10km radius
+      );
+      
+      setTrafficAlerts(conditions);
+
+      // Get alternative routes
+      const routes = await trafficMonitoringService.getAlternativeRoutes(
+        pickup,
+        delivery,
+        realBooking.route.plannedRoute
+      );
+      
+      setAlternativeRoutes(routes);
+    } catch (error) {
+      console.error('Error loading traffic conditions:', error);
+    }
+  };
+
+  // Helper functions for UI
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'low': return colors.success;
+      case 'medium': return colors.warning;
+      case 'high': return colors.error;
+      case 'critical': return colors.error;
+      default: return colors.text.secondary;
+    }
+  };
+
+  const getTrafficColor = (level: string) => {
+    switch (level) {
+      case 'low': return colors.success;
+      case 'medium': return colors.warning;
+      case 'high': return colors.error;
+      default: return colors.text.secondary;
+    }
+  };
 
   // Route deviation detection
   useEffect(() => {
@@ -687,6 +826,131 @@ const TripDetailsScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Traffic Alerts Modal */}
+      <Modal visible={showTrafficModal} animationType="slide" transparent>
+        <View style={styles.modalBg}>
+          <View style={styles.trafficModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Traffic Alerts</Text>
+              <TouchableOpacity onPress={() => setShowTrafficModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.trafficContent}>
+              {trafficAlerts.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons name="check-circle" size={48} color={colors.success} />
+                  <Text style={styles.emptyText}>No traffic alerts</Text>
+                  <Text style={styles.emptySubtext}>Your route is clear!</Text>
+                </View>
+              ) : (
+                trafficAlerts.map((alert, index) => (
+                  <View key={index} style={styles.alertCard}>
+                    <View style={styles.alertHeader}>
+                      <MaterialCommunityIcons
+                        name={alert.type === 'congestion' ? 'traffic-light' : 'alert-circle'}
+                        size={20}
+                        color={alert.severity === 'high' ? colors.error : colors.warning}
+                      />
+                      <Text style={styles.alertType}>{alert.type.toUpperCase()}</Text>
+                      <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(alert.severity) }]}>
+                        <Text style={styles.severityText}>{alert.severity.toUpperCase()}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.alertMessage}>{alert.message || alert.description}</Text>
+                    <Text style={styles.alertLocation}>{alert.location.address}</Text>
+                    <Text style={styles.alertTime}>
+                      {new Date(alert.createdAt).toLocaleString()}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Route Options Modal */}
+      <Modal visible={showRouteOptions} animationType="slide" transparent>
+        <View style={styles.modalBg}>
+          <View style={styles.routeModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Route Options</Text>
+              <TouchableOpacity onPress={() => setShowRouteOptions(false)}>
+                <Ionicons name="close" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.routeContent}>
+              {alternativeRoutes.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons name="map" size={48} color={colors.primary} />
+                  <Text style={styles.emptyText}>No alternative routes</Text>
+                  <Text style={styles.emptySubtext}>Current route is optimal</Text>
+                </View>
+              ) : (
+                alternativeRoutes.map((route, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.routeCard, selectedRoute === index && styles.selectedRouteCard]}
+                    onPress={() => setSelectedRoute(index)}
+                  >
+                    <View style={styles.routeHeader}>
+                      <Text style={styles.routeName}>{route.name}</Text>
+                      <View style={[styles.trafficBadge, { backgroundColor: getTrafficColor(route.trafficLevel) }]}>
+                        <Text style={styles.trafficText}>{route.trafficLevel.toUpperCase()}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.routeDetails}>
+                      <View style={styles.routeDetail}>
+                        <MaterialCommunityIcons name="clock" size={16} color={colors.text.secondary} />
+                        <Text style={styles.routeDetailText}>{route.estimatedTime} min</Text>
+                      </View>
+                      <View style={styles.routeDetail}>
+                        <MaterialCommunityIcons name="map-marker-distance" size={16} color={colors.text.secondary} />
+                        <Text style={styles.routeDetailText}>{route.distance} km</Text>
+                      </View>
+                      {route.tolls && (
+                        <View style={styles.routeDetail}>
+                          <MaterialCommunityIcons name="toll" size={16} color={colors.warning} />
+                          <Text style={styles.routeDetailText}>Tolls</Text>
+                        </View>
+                      )}
+                    </View>
+                    {route.advantages.length > 0 && (
+                      <View style={styles.routeAdvantages}>
+                        <Text style={styles.advantagesTitle}>Advantages:</Text>
+                        {route.advantages.map((advantage, idx) => (
+                          <Text key={idx} style={styles.advantageText}>• {advantage}</Text>
+                        ))}
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+            {alternativeRoutes.length > 0 && (
+              <View style={styles.routeActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: colors.text.light }]}
+                  onPress={() => setShowRouteOptions(false)}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    // Implement route selection logic
+                    setShowRouteOptions(false);
+                  }}
+                >
+                  <Text style={[styles.modalButtonText, { color: 'white' }]}>Select Route</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -806,6 +1070,192 @@ const styles = StyleSheet.create({
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' },
   chatModal: { backgroundColor: colors.white, borderRadius: 18, padding: 16, width: '90%', height: 340, shadowColor: colors.black, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
   callModal: { backgroundColor: colors.white, borderRadius: 18, padding: 24, alignItems: 'center', width: 300 },
+  
+  // Traffic Modal Styles
+  trafficModal: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    width: '90%',
+    maxHeight: '80%',
+    shadowColor: colors.black,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.text.light,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  trafficContent: {
+    maxHeight: 400,
+    padding: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginTop: 12,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginTop: 4,
+  },
+  alertCard: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
+  },
+  alertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  alertType: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginLeft: 8,
+    flex: 1,
+  },
+  severityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  severityText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  alertMessage: {
+    fontSize: 14,
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  alertLocation: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginBottom: 4,
+  },
+  alertTime: {
+    fontSize: 11,
+    color: colors.text.light,
+  },
+
+  // Route Modal Styles
+  routeModal: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    width: '90%',
+    maxHeight: '80%',
+    shadowColor: colors.black,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  routeContent: {
+    maxHeight: 400,
+    padding: 20,
+  },
+  routeCard: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedRouteCard: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
+  },
+  routeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  routeName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    flex: 1,
+  },
+  trafficBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  trafficText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  routeDetails: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  routeDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 16,
+    marginBottom: 4,
+  },
+  routeDetailText: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginLeft: 4,
+  },
+  routeAdvantages: {
+    marginTop: 8,
+  },
+  advantagesTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  advantageText: {
+    fontSize: 11,
+    color: colors.text.secondary,
+    marginBottom: 2,
+  },
+  routeActions: {
+    flexDirection: 'row',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.text.light,
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
 });
 
 export default TripDetailsScreen;

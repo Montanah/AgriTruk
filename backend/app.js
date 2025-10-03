@@ -28,6 +28,7 @@ const reportsRoutes = require('./routes/reportsRoutes');
 const paymentRoutes = require('./routes/paymentsRoute');
 const transRoutes = require('./routes/transRoutes');
 const alertRoutes = require('./routes/alertRoutes');
+const trafficRoutes = require('./routes/trafficRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
@@ -75,6 +76,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/transactions', transRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/traffic', trafficRoutes);
 
 // Health and test endpoints
 app.get('/api/health', (req, res) => {

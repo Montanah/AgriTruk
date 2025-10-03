@@ -26,4 +26,5 @@ export const API_ENDPOINTS = {
   PAYMENTS: `${API_BASE_URL}/api/payments`,
   HEALTH: `${API_BASE_URL}/api/health`,
   ADMIN: `${API_BASE_URL}/api/admin`,
+  TRAFFIC: `${API_BASE_URL}/api/traffic`,
 } as const;
