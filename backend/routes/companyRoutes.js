@@ -23,6 +23,15 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); 
 
 const uploadAny = upload.any();
+
+// Add debugging middleware for multer
+const debugMulter = (req, res, next) => {
+  console.log('📁 MULTER MIDDLEWARE - Processing files');
+  console.log('📁 Content-Type:', req.headers['content-type']);
+  console.log('📁 Content-Length:', req.headers['content-length']);
+  console.log('📁 Files before multer:', req.files?.length || 0);
+  next();
+};
 /**
  * @swagger
  * tags:
@@ -164,13 +173,27 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, valid
 */
 // Company fleet management endpoints
 router.post('/:companyId/vehicles', (req, res, next) => {
-  console.log('🚗 VEHICLE CREATION ROUTE HIT!');
-  console.log('🚗 Company ID:', req.params.companyId);
+  console.log('🚗 ===== VEHICLE CREATION ROUTE HIT! =====');
+  console.log('🚗 Timestamp:', new Date().toISOString());
+  console.log('🚗 Company ID from params:', req.params.companyId);
   console.log('🚗 User ID:', req.user?.uid);
-  console.log('🚗 Files:', req.files?.length || 0);
+  console.log('🚗 Method:', req.method);
+  console.log('🚗 URL:', req.url);
+  console.log('🚗 Headers:', {
+    'content-type': req.headers['content-type'],
+    'authorization': req.headers['authorization'] ? 'Bearer [REDACTED]' : 'None',
+    'content-length': req.headers['content-length']
+  });
+  console.log('🚗 Files received:', req.files?.length || 0);
   console.log('🚗 Body keys:', Object.keys(req.body));
+  console.log('🚗 Body sample:', {
+    companyId: req.body.companyId,
+    vehicleType: req.body.vehicleType,
+    vehicleRegistration: req.body.vehicleRegistration
+  });
+  console.log('🚗 ===== END ROUTE DEBUG =====');
   next();
-}, authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
+}, debugMulter, authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
 
 /** 
  * @swagger

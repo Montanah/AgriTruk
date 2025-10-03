@@ -42,6 +42,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestMetadata);
 
+// Add request logging middleware
+app.use((req, res, next) => {
+  if (req.url.includes('/vehicles') && req.method === 'POST') {
+    console.log('🌐 ===== INCOMING REQUEST =====');
+    console.log('🌐 Method:', req.method);
+    console.log('🌐 URL:', req.url);
+    console.log('🌐 Headers:', {
+      'content-type': req.headers['content-type'],
+      'authorization': req.headers['authorization'] ? 'Bearer [REDACTED]' : 'None',
+      'content-length': req.headers['content-length']
+    });
+    console.log('🌐 ===== END INCOMING REQUEST =====');
+  }
+  next();
+});
+
 app.use(
     rateLimit({
         windowMs: 15 * 60 * 1000,

@@ -1,7 +1,15 @@
 const admin = require("../config/firebase");
 
 const authenticateToken = async (req, res, next) => {
-  // console.log('Authenticating token...');
+  console.log('🔐 AUTH MIDDLEWARE - Request received');
+  console.log('🔐 Method:', req.method);
+  console.log('🔐 URL:', req.url);
+  console.log('🔐 Headers present:', {
+    'authorization': !!req.headers["authorization"],
+    'content-type': req.headers["content-type"],
+    'content-length': req.headers["content-length"]
+  });
+  
   const authHeader = req.headers["authorization"];
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
