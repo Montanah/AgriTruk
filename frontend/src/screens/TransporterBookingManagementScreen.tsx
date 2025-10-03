@@ -511,16 +511,21 @@ const TransporterBookingManagementScreen = () => {
                 );
 
                 // Send notification to client about request acceptance
-                await enhancedNotificationService.sendNotification(
-                    'instant_request_accepted',
-                    request.userId || request.client?.id, // Use actual client ID
-                    {
-                        requestId: request.id,
-                        transporterName: 'You', // This should come from user profile
-                        pickupLocation: request.fromLocation || 'Unknown Location',
-                        deliveryLocation: request.toLocation || 'Unknown Location',
-                    }
-                );
+                try {
+                    await enhancedNotificationService.sendNotification(
+                        'instant_request_accepted',
+                        request.userId || request.client?.id, // Use actual client ID
+                        {
+                            requestId: request.id,
+                            transporterName: 'You', // This should come from user profile
+                            pickupLocation: request.fromLocation || 'Unknown Location',
+                            deliveryLocation: request.toLocation || 'Unknown Location',
+                        }
+                    );
+                } catch (notificationError) {
+                    console.warn('Failed to send notification:', notificationError);
+                    // Don't fail the job acceptance if notification fails
+                }
                 
                 // Remove from appropriate list based on request type
                 if (request.type === 'instant' || request.type === 'instant-request') {

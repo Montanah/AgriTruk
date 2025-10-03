@@ -25,7 +25,12 @@ exports.createChat = async (req, res) => {
       };
       await Notification.create(notificationData);
       if (user.notificationPreferences?.method === 'email' || user.notificationPreferences?.method === 'both') {
-        await sendEmail(user.email, 'New Chat', notificationData.message);
+        await sendEmail({
+          to: user.email,
+          subject: 'New Chat',
+          text: notificationData.message,
+          html: `<p>${notificationData.message}</p>`
+        });
       }
     }
 
@@ -65,7 +70,12 @@ exports.sendMessage = async (req, res) => {
     };
     await Notification.create(notificationData);
     if (user.notificationPreferences?.method === 'email' || user.notificationPreferences?.method === 'both') {
-      await sendEmail(user.email, 'New Message', notificationData.message);
+      await sendEmail({
+        to: user.email,
+        subject: 'New Message',
+        text: notificationData.message,
+        html: `<p>${notificationData.message}</p>`
+      });
     }
 
     res.status(201).json({
@@ -155,14 +165,27 @@ exports.getChatByJob = async (req, res) => {
 
 // Helper function (implement based on your models)
 async function getUserData(userId, userType) {
-  switch (userType) {
-    case 'broker':
-      return await require('../models/Broker').get(userId);
-    case 'user':
-      return await require('../models/User').get(userId);
-    case 'transporter':
-      return await require('../models/Transporter').get(userId);
-    default:
-      throw new Error('Unknown user type');
+  try {
+    switch (userType) {
+      case 'broker':
+        return await require('../models/Broker').get(userId);
+      case 'user':
+        return await require('../models/User').get(userId);
+      case 'transporter':
+        return await require('../models/Transporter').get(userId);
+      case 'client':
+        return await require('../models/User').get(userId);
+      default:
+        console.warn(`Unknown user type: ${userType}, defaulting to user`);
+        return await require('../models/User').get(userId);
+    }
+  } catch (error) {
+    console.error(`Error fetching user data for ${userType} ${userId}:`, error);
+    // Return a default user object to prevent crashes
+    return {
+      id: userId,
+      email: 'unknown@example.com',
+      notificationPreferences: { method: 'in-app' }
+    };
   }
-};
+}

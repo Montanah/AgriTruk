@@ -112,7 +112,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, creat
  * /api/transporters/available/list:
  *   get:
  *     summary: List available transporters
- *     description: Returns a list of approved transporters marked as available.
+ *     description: Returns a list of approved transporters marked as available. Accessible by admin, shipper, business, and broker users.
  *     tags: [Transporters]
  *     security:
  *       - bearerAuth: []
@@ -122,7 +122,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, creat
  *       500:
  *         description: Internal server error
  */
-router.get('/available/list', authenticateToken, requireRole(['admin', 'shipper']), getAvailableTransporters);
+router.get('/available/list', authenticateToken, requireRole(['admin', 'shipper', 'business', 'broker']), getAvailableTransporters);
 
 /**
  * @swagger

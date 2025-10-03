@@ -230,19 +230,24 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                     );
                     
                     // Send notification to client
-                    await enhancedNotificationService.sendNotification(
-                        'booking_accepted',
-                        job.userId, // This is the client ID
-                        {
-                            bookingId: jobId,
-                            transporterName: user.displayName || 'Transporter',
-                            pickupLocation: formatLocationForDisplay(job.fromLocation),
-                            deliveryLocation: formatLocationForDisplay(job.toLocation),
-                            productType: job.productType,
-                            weight: job.weightKg ? `${job.weightKg}kg` : 'N/A',
-                            cost: job.cost ? `KES ${job.cost.toLocaleString()}` : 'N/A',
-                        }
-                    );
+                    try {
+                        await enhancedNotificationService.sendNotification(
+                            'booking_accepted',
+                            job.userId, // This is the client ID
+                            {
+                                bookingId: jobId,
+                                transporterName: user.displayName || 'Transporter',
+                                pickupLocation: formatLocationForDisplay(job.fromLocation),
+                                deliveryLocation: formatLocationForDisplay(job.toLocation),
+                                productType: job.productType,
+                                weight: job.weightKg ? `${job.weightKg}kg` : 'N/A',
+                                cost: job.cost ? `KES ${job.cost.toLocaleString()}` : 'N/A',
+                            }
+                        );
+                    } catch (notificationError) {
+                        console.warn('Failed to send notification:', notificationError);
+                        // Don't fail the job acceptance if notification fails
+                    }
 
                     Alert.alert(
                         'Job Accepted! 🎉',

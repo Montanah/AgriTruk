@@ -7,6 +7,8 @@ import spacing from '../constants/spacing';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { useTransporters } from '../hooks/UseTransporters';
 import { googleMapsService } from '../services/googleMapsService';
+import { chatService } from '../services/chatService';
+import { enhancedNotificationService } from '../services/enhancedNotificationService';
 // import { instantRequestService } from '../services/enhancedInstantRequestService'; // Not needed - using direct API call
 
 // Props: requests (array or single), distance, onSelect (optional override), accent color
@@ -456,6 +458,41 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance 
             // Add request ID to payload
             payload.requestId = response.bookingId || response.id;
             payload.isInstantRequest = true;
+
+            // Create chat room for communication
+            try {
+              const chatRoom = await chatService.getOrCreateChatRoom(
+                response.bookingId || response.id,
+                t.id,
+                base.userId || base.clientId || 'current-user' // Use actual user ID
+              );
+              console.log('✅ Chat room created successfully:', chatRoom.id);
+              payload.chatRoomId = chatRoom.id;
+            } catch (chatError) {
+              console.warn('⚠️ Chat room creation failed:', chatError);
+              // Don't fail the request if chat creation fails
+            }
+
+            // Send notification to transporter about the new job
+            try {
+              await enhancedNotificationService.sendNotification(
+                'instant_request_assigned',
+                t.id,
+                {
+                  requestId: response.bookingId || response.id,
+                  clientName: base.clientName || 'Client',
+                  pickupLocation: base.fromLocation,
+                  deliveryLocation: base.toLocation,
+                  cargoType: base.productType,
+                  weight: base.weight,
+                  estimatedPrice: estAmount,
+                }
+              );
+              console.log('✅ Notification sent to transporter');
+            } catch (notificationError) {
+              console.warn('⚠️ Notification sending failed:', notificationError);
+              // Don't fail the request if notification fails
+            }
           } else {
             console.warn('⚠️ Instant request creation failed:', response.message);
             throw new Error(response.message || 'Failed to create instant request');
@@ -576,6 +613,13 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance 
 
           <View style={styles.profileInfo}>
             <Text style={styles.transporterName}>{displayName}</Text>
+            {/* Company information for company drivers */}
+            {t.companyName && t.companyName !== t.name && (
+              <View style={styles.companyInfo}>
+                <MaterialCommunityIcons name="office-building" size={12} color={colors.text.secondary} />
+                <Text style={styles.companyName}>{t.companyName}</Text>
+              </View>
+            )}
             <View style={styles.ratingContainer}>
               <View style={styles.starRating}>
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -1274,6 +1318,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: spacing.xs,
+  },
+
+  // Company Info Styles
+  companyInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  companyName: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginLeft: 4,
+    fontStyle: 'italic',
   },
 });
 

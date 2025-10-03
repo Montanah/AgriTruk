@@ -1044,19 +1044,26 @@ class EnhancedNotificationService {
   private async sendToChannel(payload: EnhancedNotificationPayload, channel: 'push' | 'in-app' | 'email' | 'sms'): Promise<void> {
     const { userId, title, message, type, category, priority, data } = payload;
 
-    switch (channel) {
-      case 'push':
-        await notificationService.sendPush(userId, title, message, data);
-        break;
-      case 'in-app':
-        await notificationService.sendInApp(userId, message, 'customer', type, data);
-        break;
-      case 'email':
-        await notificationService.sendEmail(userId, title, message, 'customer', type, data);
-        break;
-      case 'sms':
-        await notificationService.sendSMS(userId, message, 'customer', type, data);
-        break;
+    try {
+      switch (channel) {
+        case 'push':
+          await notificationService.sendPush(userId, title, message, data);
+          break;
+        case 'in-app':
+          await notificationService.sendInApp(userId, message, 'customer', type, data);
+          break;
+        case 'email':
+          await notificationService.sendEmail(userId, title, message, 'customer', type, data);
+          break;
+        case 'sms':
+          await notificationService.sendSMS(userId, message, 'customer', type, data);
+          break;
+        default:
+          console.warn(`Unknown notification channel: ${channel}`);
+      }
+    } catch (error) {
+      console.error(`Error sending notification via ${channel}:`, error);
+      throw error;
     }
   }
 
