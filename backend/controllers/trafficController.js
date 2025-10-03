@@ -1,4 +1,4 @@
-const { API_ENDPOINTS } = require('../constants/api');
+// Traffic controller for handling traffic monitoring and route optimization
 
 class TrafficController {
   /**
