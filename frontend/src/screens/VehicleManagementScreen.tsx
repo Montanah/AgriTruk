@@ -158,11 +158,9 @@ const VehicleManagementScreen = () => {
   };
 
   const openAddVehicle = () => {
-    console.log('🚗 Opening add vehicle modal...');
     setVehicleEditIdx(null);
     resetVehicleForm();
     setShowVehicleModal(true);
-    console.log('🚗 Modal state set to true');
   };
 
   const resetVehicleForm = () => {
@@ -232,12 +230,6 @@ const VehicleManagementScreen = () => {
   };
 
   const handleSaveVehicle = async () => {
-    console.log('🚗 Vehicle validation:', {
-      vehicleType,
-      vehicleReg,
-      insurance: !!insurance,
-      photosCount: vehiclePhotos.length
-    });
     
     if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 1) {
       const missingFields = [];
@@ -292,13 +284,6 @@ const VehicleManagementScreen = () => {
         } as any);
       });
 
-      console.log('🚗 Creating vehicle with FormData:', {
-        vehicleType,
-        vehicleRegistration: vehicleReg,
-        vehicleMake,
-        photosCount: vehiclePhotos.length,
-        hasInsurance: !!insurance
-      });
       
       // Get auth token
       const { getAuth } = require('firebase/auth');
@@ -323,7 +308,6 @@ const VehicleManagementScreen = () => {
       const responseData = await response.json();
 
       if (response.ok && responseData.message) {
-        console.log('✅ Vehicle created successfully:', responseData);
         
         // Update local state
         const newVehicle = {
@@ -530,7 +514,6 @@ const VehicleManagementScreen = () => {
       </View>
 
       {/* Vehicle Modal */}
-      {console.log('🚗 Modal render - showVehicleModal:', showVehicleModal)}
       <Modal
         visible={showVehicleModal}
         animationType="slide"

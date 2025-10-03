@@ -1148,12 +1148,6 @@ export default function ManageTransporterScreen({ route }: any) {
     setVehicleModal(true);
   };
   const handleSaveVehicle = async () => {
-    console.log('🚗 Vehicle validation:', {
-      vehicleType,
-      vehicleReg,
-      insurance: !!insurance,
-      photosCount: vehiclePhotos.length
-    });
     
     if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 1) {
       const missingFields = [];
@@ -1189,7 +1183,6 @@ export default function ManageTransporterScreen({ route }: any) {
         status: 'pending' // Set to pending for admin approval
       };
 
-      console.log('🚗 Creating vehicle with data:', vehicleData);
       
       // Create vehicle via API
       const response = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`, {
@@ -1198,7 +1191,6 @@ export default function ManageTransporterScreen({ route }: any) {
       });
 
       if (response.success) {
-        console.log('✅ Vehicle created successfully:', response);
         
         // Update local state
         const newVehicle = {
