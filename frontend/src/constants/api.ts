@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
   AUTH: `${API_BASE_URL}/api/auth`,
   USERS: `${API_BASE_URL}/api/users`,
   BOOKINGS: `${API_BASE_URL}/api/bookings`,
+  REQUESTS: `${API_BASE_URL}/api/requests`,
   TRANSPORTERS: `${API_BASE_URL}/api/transporters`,
   BROKERS: `${API_BASE_URL}/api/brokers`,
   COMPANIES: `${API_BASE_URL}/api/companies`,

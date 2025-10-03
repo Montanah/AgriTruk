@@ -75,7 +75,7 @@ class TransporterDetailsService {
       
       const token = await user.getIdToken();
 
-      const response = await fetch(`${this.baseUrl}/${transporterId}/details`, {
+      const response = await fetch(`${this.baseUrl}/${transporterId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -109,13 +109,12 @@ class TransporterDetailsService {
       
       const token = await user.getIdToken();
 
-      const response = await fetch(`${this.baseUrl}/find`, {
-        method: 'POST',
+      const response = await fetch(`${this.baseUrl}/available/list`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(request),
       });
 
       if (!response.ok) {
@@ -123,7 +122,7 @@ class TransporterDetailsService {
       }
 
       const result = await response.json();
-      return result.data || [];
+      return result.transporters || [];
     } catch (error) {
       console.error('Error finding transporters:', error);
       throw error;

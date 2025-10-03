@@ -89,8 +89,8 @@ class JobAcceptanceService {
       // Step 3: Send notifications to the job owner
       await this.sendJobAcceptanceNotifications(jobData, chatRoomId);
 
-      // Step 4: Add job to transporter's management
-      await this.addJobToTransporterManagement(jobData);
+      // Step 4: Add job to transporter's management (optional - not implemented yet)
+      // await this.addJobToTransporterManagement(jobData);
 
       return {
         success: true,
@@ -274,7 +274,7 @@ class JobAcceptanceService {
       const transporterDetails = await transporterDetailsService.getTransporterDetails(transporterId);
 
       // Accept the instant request
-      const response = await fetch(`${API_ENDPOINTS.REQUESTS}/${requestId}/assign-transporter`, {
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${requestId}/accept`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
