@@ -591,7 +591,7 @@ router.get('/transporter/:transporterId/all', authenticateToken, requireRole(['a
  *       500:
  *         description: Internal server error
  */
-router.delete('/companies/:companyId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), deleteCompany);
+router.delete('/:companyId', authenticateToken, requireRole('admin'), authorize(['manage_companies', 'super_admin']), deleteCompany);
 
 /**
  * @swagger
