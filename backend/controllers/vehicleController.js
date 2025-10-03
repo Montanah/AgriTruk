@@ -27,18 +27,22 @@ const createVehicle = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to add vehicles to this company' });
     }
 
-    // Prepare vehicle data
+    // Prepare vehicle data - map to Vehicle model field names
     const vehicleData = {
       companyId,
-      vehicleType: req.body.vehicleType,
-      vehicleMake: req.body.vehicleMake,
-      vehicleModel: req.body.vehicleModel,
-      vehicleYear: parseInt(req.body.vehicleYear),
-      vehicleColor: req.body.vehicleColor,
-      vehicleRegistration: req.body.vehicleRegistration,
-      vehicleCapacity: parseFloat(req.body.vehicleCapacity),
+      type: req.body.vehicleType,
+      make: req.body.vehicleMake, // Add make field
+      model: req.body.vehicleModel,
+      year: parseInt(req.body.vehicleYear),
+      color: req.body.vehicleColor,
+      reg: req.body.vehicleRegistration,
+      capacity: parseFloat(req.body.vehicleCapacity),
       bodyType: req.body.bodyType,
-      driveType: req.body.driveType,
+      driveType: req.body.driveType, // Add driveType field
+      refrigeration: req.body.refrigeration === 'true' || req.body.refrigeration === true,
+      humidityControl: req.body.humidityControl === 'true' || req.body.humidityControl === true,
+      specialCargo: req.body.specialCargo === 'true' || req.body.specialCargo === true,
+      features: req.body.features || '',
       status: 'pending',
       assignedDriverId: null,
       createdAt: new Date(),
