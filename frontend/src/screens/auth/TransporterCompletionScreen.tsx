@@ -417,12 +417,15 @@ export default function TransporterCompletionScreen() {
   const handleVehiclePhotoGallery = async () => {
     try {
       const result = await handleImagePicker('gallery', {
-        allowsEditing: true,
+        allowsMultipleSelection: true,
+        allowsEditing: false,
         quality: 0.8,
       });
       
       if (result && !result.canceled && result.assets && result.assets.length > 0) {
-        setVehiclePhotos((prev) => [...prev, result.assets[0]]);
+        // Add all selected photos up to the limit (4 photos max)
+        const newPhotos = result.assets.slice(0, 4 - vehiclePhotos.length);
+        setVehiclePhotos((prev) => [...prev, ...newPhotos]);
         setPhotoJustAdded(true);
         setError('');
       }

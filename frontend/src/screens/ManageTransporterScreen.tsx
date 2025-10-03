@@ -1110,10 +1110,17 @@ export default function ManageTransporterScreen({ route }: any) {
 
   // Robust photo add handler (always uses latest state)
   const pickVehiclePhotos = async () => {
-    if (vehiclePhotos.length >= 5) return;
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) {
-      setVehiclePhotos(prev => [...prev, result.assets[0]]);
+    if (vehiclePhotos.length >= 4) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ 
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+      allowsMultipleSelection: true,
+      allowsEditing: false, 
+      quality: 0.7 
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      // Add all selected photos up to the limit
+      const newPhotos = result.assets.slice(0, 4 - vehiclePhotos.length);
+      setVehiclePhotos(prev => [...prev, ...newPhotos]);
     }
   };
   // Robust photo remove handler
