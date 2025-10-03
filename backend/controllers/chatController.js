@@ -1,6 +1,6 @@
 const Chat = require('../models/Chat');
 const Notification = require('../models/Notification');
-const { sendEmail } = require('../utils/sendEmail');
+const sendEmail = require('../utils/sendEmail');
 
 exports.createChat = async (req, res) => {
   try {
