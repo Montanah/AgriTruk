@@ -230,6 +230,12 @@ const VehicleManagementScreen = () => {
   };
 
   const handleSaveVehicle = async () => {
+    console.log('🚗 Starting vehicle creation...');
+    console.log('🚗 Company Profile:', companyProfile);
+    console.log('🚗 Vehicle Type:', vehicleType);
+    console.log('🚗 Vehicle Reg:', vehicleReg);
+    console.log('🚗 Insurance:', insurance);
+    console.log('🚗 Vehicle Photos:', vehiclePhotos.length);
     
     if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 1) {
       const missingFields = [];
@@ -295,7 +301,17 @@ const VehicleManagementScreen = () => {
       
       const token = await user.getIdToken();
       
+      // Debug logging
+      console.log('🚗 Vehicle creation debug:');
+      console.log('Company ID:', companyProfile?.companyId);
+      console.log('API URL:', `${API_ENDPOINTS.COMPANIES}/${companyProfile?.companyId}/vehicles`);
+      console.log('FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}:`, value);
+      }
+      
       // Create vehicle via API with FormData
+      console.log('🚗 Making API request...');
       const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.companyId}/vehicles`, {
         method: 'POST',
         headers: {
@@ -304,6 +320,10 @@ const VehicleManagementScreen = () => {
         },
         body: formData
       });
+      
+      console.log('🚗 Response status:', response.status);
+      console.log('🚗 Response headers:', response.headers);
+      console.log('🚗 Response ok:', response.ok);
 
       const responseData = await response.json();
 

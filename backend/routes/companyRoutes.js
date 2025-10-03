@@ -163,7 +163,14 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, valid
  *         description: Internal server error
 */
 // Company fleet management endpoints
-router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
+router.post('/:companyId/vehicles', (req, res, next) => {
+  console.log('🚗 VEHICLE CREATION ROUTE HIT!');
+  console.log('🚗 Company ID:', req.params.companyId);
+  console.log('🚗 User ID:', req.user?.uid);
+  console.log('🚗 Files:', req.files?.length || 0);
+  console.log('🚗 Body keys:', Object.keys(req.body));
+  next();
+}, authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
 
 /** 
  * @swagger

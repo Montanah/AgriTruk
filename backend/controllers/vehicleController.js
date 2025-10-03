@@ -6,6 +6,13 @@ const { adminNotification } = require('../utils/sendMailTemplate');
 // Create a new vehicle for a company
 const createVehicle = async (req, res) => {
   try {
+    console.log('🚗 VEHICLE CONTROLLER HIT!');
+    console.log('🚗 User ID:', req.user?.uid);
+    console.log('🚗 Company ID from body:', req.body.companyId);
+    console.log('🚗 Company ID from params:', req.params.companyId);
+    console.log('🚗 Files received:', req.files?.length || 0);
+    console.log('🚗 Body data:', req.body);
+    
     const userId = req.user.uid;
     const companyId = req.body.companyId;
 
