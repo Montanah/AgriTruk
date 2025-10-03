@@ -1754,7 +1754,7 @@ export default function TransporterCompletionScreen() {
             <View style={styles.documentsRowSingle}>
               {/* Insurance */}
               <View style={styles.documentCardSingle}>
-                <Text style={styles.documentTitle}>Insurance</Text>
+                <Text style={styles.documentTitle}>Vehicle Insurance</Text>
                 <TouchableOpacity 
                   style={[styles.documentUploader, insuranceFile && styles.documentUploaderFilled]} 
                   onPress={handleInsuranceFile}

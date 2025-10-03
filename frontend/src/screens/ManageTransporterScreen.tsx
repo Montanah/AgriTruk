@@ -1159,7 +1159,7 @@ export default function ManageTransporterScreen({ route }: any) {
       const missingFields = [];
       if (!vehicleType) missingFields.push('Vehicle Type');
       if (!vehicleReg) missingFields.push('Registration Number');
-      if (!insurance) missingFields.push('Insurance Document');
+      if (!insurance) missingFields.push('Vehicle Insurance Document');
       if (vehiclePhotos.length < 1) missingFields.push('At least 1 photo');
       
       Alert.alert('Missing Info', `Please provide: ${missingFields.join(', ')}`);
@@ -1921,10 +1921,10 @@ export default function ManageTransporterScreen({ route }: any) {
                     error={undefined}
                   />
                   <View style={styles.section}>
-                    <Text style={styles.editLabel}>Insurance Document (PDF or Image) *</Text>
+                    <Text style={styles.editLabel}>Vehicle Insurance Document (PDF or Image) *</Text>
                     <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
                       <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-                      <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload File'}</Text>
+                      <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload Vehicle Insurance'}</Text>
                     </TouchableOpacity>
                     {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
                   </View>
