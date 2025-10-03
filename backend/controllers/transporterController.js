@@ -499,6 +499,48 @@ exports.uploadDocuments = async (req, res) => {
   }
 };
 
+// Upload documents for vehicles (used by vehicle controller)
+exports.uploadVehicleDocuments = async (files, folder = 'vehicles') => {
+  try {
+    if (!files || files.length === 0) {
+      return { vehicleImages: [], insurance: [] };
+    }
+
+    const uploadResults = {
+      vehicleImages: [],
+      insurance: []
+    };
+
+    const uploadTasks = files.map(async file => {
+      const fieldName = file.fieldname;
+      const publicId = await uploadImage(file.path);
+
+      if (publicId) {
+        switch (fieldName) {
+          case 'vehicleImages':
+            uploadResults.vehicleImages.push(publicId);
+            break;
+          case 'insurance':
+            uploadResults.insurance.push(publicId);
+            break;
+          default:
+            console.log(`Ignoring unexpected field: ${fieldName}`);
+        }
+      }
+
+      // Clean up temporary file
+      fs.unlinkSync(file.path);
+    });
+
+    await Promise.all(uploadTasks);
+    return uploadResults;
+
+  } catch (error) {
+    console.error('Error uploading vehicle documents:', error);
+    throw error;
+  }
+};
+
 exports.deleteVehicleImage = async (req, res) => {
   try {
     const transporterId = req.user.uid;

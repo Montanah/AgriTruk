@@ -1,6 +1,6 @@
 const admin = require('../config/firebase');
 const db = admin.firestore();
-const { uploadDocuments } = require('./transporterController');
+const { uploadVehicleDocuments } = require('./transporterController');
 const { adminNotification } = require('../utils/sendMailTemplate');
 
 // Create a new vehicle for a company
@@ -41,12 +41,12 @@ const createVehicle = async (req, res) => {
     // Handle file uploads
     if (req.files && req.files.length > 0) {
       try {
-        const uploadResults = await uploadDocuments(req.files, 'vehicles');
+        const uploadResults = await uploadVehicleDocuments(req.files, 'vehicles');
         
         if (uploadResults.vehicleImages && uploadResults.vehicleImages.length > 0) {
           vehicleData.vehicleImagesUrl = uploadResults.vehicleImages;
         }
-        if (uploadResults.insurance) {
+        if (uploadResults.insurance && uploadResults.insurance.length > 0) {
           vehicleData.insuranceUrl = uploadResults.insurance[0];
         }
       } catch (uploadError) {
@@ -218,12 +218,12 @@ const updateVehicle = async (req, res) => {
     // Handle file uploads
     if (req.files && req.files.length > 0) {
       try {
-        const uploadResults = await uploadDocuments(req.files, 'vehicles');
+        const uploadResults = await uploadVehicleDocuments(req.files, 'vehicles');
         
         if (uploadResults.vehicleImages && uploadResults.vehicleImages.length > 0) {
           updateData.vehicleImagesUrl = uploadResults.vehicleImages;
         }
-        if (uploadResults.insurance) {
+        if (uploadResults.insurance && uploadResults.insurance.length > 0) {
           updateData.insuranceUrl = uploadResults.insurance[0];
         }
       } catch (uploadError) {
