@@ -158,9 +158,11 @@ const VehicleManagementScreen = () => {
   };
 
   const openAddVehicle = () => {
+    console.log('🚗 Opening add vehicle modal...');
     setVehicleEditIdx(null);
     resetVehicleForm();
     setShowVehicleModal(true);
+    console.log('🚗 Modal state set to true');
   };
 
   const resetVehicleForm = () => {
@@ -251,40 +253,81 @@ const VehicleManagementScreen = () => {
     try {
       setLoadingProfile(true);
       
-      const vehicleData = {
-        vehicleType: vehicleType,
-        vehicleRegistration: vehicleReg,
-        vehicleMake: vehicleMake,
-        vehicleModel: vehicleMake, // Use vehicleMake as model for backend compatibility
-        vehicleColor: vehicleColor,
-        year: vehicleYear,
-        capacity: vehicleCapacity,
-        driveType: vehicleDriveType,
-        bodyType: bodyType,
-        refrigeration: refrigeration,
-        humidityControl: humidityControl,
-        specialCargo: specialCargo,
-        features: vehicleFeatures,
-        insurance: insurance,
-        photos: vehiclePhotos,
-        assignedDriverId: assignedDriverId,
-        status: 'pending' // Set to pending for admin approval
-      };
-
-      console.log('🚗 Creating vehicle with data:', vehicleData);
+      // Create FormData for multipart upload
+      const formData = new FormData();
       
-      // Create vehicle via API
-      const response = await apiRequest(`/companies/${companyProfile?.companyId}/vehicles`, {
-        method: 'POST',
-        body: vehicleData
+      // Add vehicle data fields
+      formData.append('companyId', companyProfile?.companyId || '');
+      formData.append('vehicleType', vehicleType);
+      formData.append('vehicleMake', vehicleMake);
+      formData.append('vehicleModel', vehicleMake); // Use vehicleMake as model
+      formData.append('vehicleColor', vehicleColor);
+      formData.append('vehicleYear', vehicleYear);
+      formData.append('vehicleRegistration', vehicleReg);
+      formData.append('vehicleCapacity', vehicleCapacity);
+      formData.append('bodyType', bodyType);
+      formData.append('driveType', vehicleDriveType);
+      
+      // Add special features
+      formData.append('refrigeration', refrigeration.toString());
+      formData.append('humidityControl', humidityControl.toString());
+      formData.append('specialCargo', specialCargo.toString());
+      formData.append('features', vehicleFeatures);
+      
+      // Add insurance document
+      if (insurance) {
+        formData.append('insurance', {
+          uri: insurance.uri,
+          type: insurance.type || 'application/pdf',
+          name: insurance.fileName || 'insurance.pdf'
+        } as any);
+      }
+      
+      // Add vehicle photos
+      vehiclePhotos.forEach((photo, index) => {
+        formData.append('vehicleImages', {
+          uri: photo.uri,
+          type: photo.type || 'image/jpeg',
+          name: photo.fileName || `vehicle_${index}.jpg`
+        } as any);
       });
 
-      if (response.success) {
-        console.log('✅ Vehicle created successfully:', response);
+      console.log('🚗 Creating vehicle with FormData:', {
+        vehicleType,
+        vehicleRegistration: vehicleReg,
+        vehicleMake,
+        photosCount: vehiclePhotos.length,
+        hasInsurance: !!insurance
+      });
+      
+      // Get auth token
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      const token = await user.getIdToken();
+      
+      // Create vehicle via API with FormData
+      const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.companyId}/vehicles`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData - let React Native set it automatically
+        },
+        body: formData
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok && responseData.message) {
+        console.log('✅ Vehicle created successfully:', responseData);
         
         // Update local state
         const newVehicle = {
-          id: response.vehicle?.vehicleId || Date.now().toString(),
+          id: responseData.vehicle?.id || Date.now().toString(),
           type: vehicleType,
           reg: vehicleReg,
           bodyType,
@@ -314,7 +357,7 @@ const VehicleManagementScreen = () => {
           [{ text: 'OK' }]
         );
       } else {
-        throw new Error(response.message || 'Failed to create vehicle');
+        throw new Error(responseData.message || 'Failed to create vehicle');
       }
     } catch (error) {
       console.error('❌ Error creating vehicle:', error);
@@ -487,6 +530,7 @@ const VehicleManagementScreen = () => {
       </View>
 
       {/* Vehicle Modal */}
+      {console.log('🚗 Modal render - showVehicleModal:', showVehicleModal)}
       <Modal
         visible={showVehicleModal}
         animationType="slide"
@@ -516,6 +560,13 @@ const VehicleManagementScreen = () => {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.modalScrollContent}
             >
+              <Text style={{ fontSize: 16, marginBottom: 10, color: colors.text.primary }}>
+                Vehicle Details Form - Modal is working!
+              </Text>
+              
+              <Text style={{ fontSize: 14, marginBottom: 20, color: colors.text.secondary }}>
+                This is a test to see if the modal is rendering properly.
+              </Text>
               
               {/* Vehicle Details Form */}
               <VehicleDetailsForm

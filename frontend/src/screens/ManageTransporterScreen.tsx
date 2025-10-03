@@ -1750,9 +1750,9 @@ export default function ManageTransporterScreen({ route }: any) {
               vehicles.filter(item => {
                 const assignedDriver = drivers.find(d => d.id === item.assignedDriverId);
                 return (
-                  item.reg.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-                  item.type.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-                  (assignedDriver && assignedDriver.name.toLowerCase().includes(vehicleSearch.toLowerCase()))
+                  (item.reg && item.reg.toLowerCase().includes(vehicleSearch.toLowerCase())) ||
+                  (item.type && item.type.toLowerCase().includes(vehicleSearch.toLowerCase())) ||
+                  (assignedDriver && assignedDriver.name && assignedDriver.name.toLowerCase().includes(vehicleSearch.toLowerCase()))
                 );
               }).map((item, index) => (
                 <View style={styles.vehicleListItem} key={item.id}>
@@ -1836,9 +1836,9 @@ export default function ManageTransporterScreen({ route }: any) {
                 )}
                 <ScrollView style={{ maxHeight: 320, width: '100%' }}>
                   {drivers.filter(d =>
-                    d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                    d.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                    d.phone.toLowerCase().includes(driverSearch.toLowerCase())
+                    (d.name && d.name.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                    (d.email && d.email.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                    (d.phone && d.phone.toLowerCase().includes(driverSearch.toLowerCase()))
                   ).map((d) => (
                     <TouchableOpacity
                       key={d.id}
@@ -1975,9 +1975,9 @@ export default function ManageTransporterScreen({ route }: any) {
             ) : (
               <ScrollView style={{ maxHeight: 340 }}>
                 {drivers.filter(item =>
-                  item.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                  item.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                  item.phone.toLowerCase().includes(driverSearch.toLowerCase())
+                  (item.name && item.name.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                  (item.email && item.email.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                  (item.phone && item.phone.toLowerCase().includes(driverSearch.toLowerCase()))
                 ).map((item, index) => (
                   <View style={styles.driverListItem} key={item.id}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
