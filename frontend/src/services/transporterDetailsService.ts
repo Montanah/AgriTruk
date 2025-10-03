@@ -75,19 +75,60 @@ class TransporterDetailsService {
       
       const token = await user.getIdToken();
 
-      const response = await fetch(`${this.baseUrl}/${transporterId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // First try to get individual transporter details
+      try {
+        const response = await fetch(`${this.baseUrl}/${transporterId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch transporter details: ${response.statusText}`);
+        if (response.ok) {
+          const result = await response.json();
+          return result.data;
+        }
+      } catch (individualError) {
+        console.log('Individual transporter not found, trying company lookup...');
       }
 
-      const result = await response.json();
-      return result.data;
+      // If individual transporter not found, try to get company details
+      try {
+        const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${transporterId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (companyResponse.ok) {
+          const companyResult = await companyResponse.json();
+          const companies = companyResult.data || companyResult;
+          
+          // Get the first company (there should only be one for a transporter)
+          const company = Array.isArray(companies) ? companies[0] : companies;
+          
+          if (company) {
+            // Convert company data to transporter details format
+            return {
+              id: transporterId,
+              name: company.name || 'Company Transporter',
+              email: company.email || '',
+              phone: company.phone || '',
+              companyName: company.name,
+              companyId: company.id,
+              vehicles: company.vehicles || [],
+              rating: company.rating || 0,
+              totalJobs: company.totalJobs || 0,
+              isCompanyTransporter: true
+            };
+          }
+        }
+      } catch (companyError) {
+        console.log('Company transporter not found either');
+      }
+
+      throw new Error('Transporter not found in individual or company collections');
     } catch (error) {
       console.error('Error fetching transporter details:', error);
       throw error;

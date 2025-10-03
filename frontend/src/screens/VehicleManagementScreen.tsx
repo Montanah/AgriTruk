@@ -150,7 +150,13 @@ const VehicleManagementScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setCompanyProfile(data[0] || data);
+        console.log('🏢 Company profile loaded:', data);
+        const profile = data[0] || data;
+        console.log('🏢 Setting company profile:', profile);
+        console.log('🏢 Company ID:', profile?.id);
+        setCompanyProfile(profile);
+      } else {
+        console.error('🏢 Failed to load company profile:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching company profile:', error);
@@ -230,12 +236,21 @@ const VehicleManagementScreen = () => {
   };
 
   const handleSaveVehicle = async () => {
+    console.log('🚗 ===== VEHICLE CREATION STARTED =====');
     console.log('🚗 Starting vehicle creation...');
     console.log('🚗 Company Profile:', companyProfile);
+    console.log('🚗 Company ID:', companyProfile?.id || companyProfile?.companyId);
     console.log('🚗 Vehicle Type:', vehicleType);
     console.log('🚗 Vehicle Reg:', vehicleReg);
     console.log('🚗 Insurance:', insurance);
     console.log('🚗 Vehicle Photos:', vehiclePhotos.length);
+    console.log('🚗 All form values:', {
+      vehicleType,
+      vehicleReg,
+      insurance: !!insurance,
+      vehiclePhotos: vehiclePhotos.length,
+      companyProfile: !!companyProfile
+    });
     
     if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 1) {
       const missingFields = [];
@@ -244,7 +259,14 @@ const VehicleManagementScreen = () => {
       if (!insurance) missingFields.push('Vehicle Insurance Document');
       if (vehiclePhotos.length < 1) missingFields.push('At least 1 photo');
       
+      console.log('🚗 VALIDATION FAILED - Missing fields:', missingFields);
       Alert.alert('Missing Info', `Please provide: ${missingFields.join(', ')}`);
+      return;
+    }
+
+    if (!companyProfile?.id && !companyProfile?.companyId) {
+      Alert.alert('Error', 'Company profile not loaded. Please try again.');
+      console.error('🚗 Company profile missing:', companyProfile);
       return;
     }
 
@@ -255,7 +277,7 @@ const VehicleManagementScreen = () => {
       const formData = new FormData();
       
       // Add vehicle data fields
-      formData.append('companyId', companyProfile?.companyId || '');
+      formData.append('companyId', companyProfile?.id || companyProfile?.companyId || '');
       formData.append('vehicleType', vehicleType);
       formData.append('vehicleMake', vehicleMake);
       formData.append('vehicleModel', vehicleMake); // Use vehicleMake as model
@@ -303,8 +325,8 @@ const VehicleManagementScreen = () => {
       
       // Debug logging
       console.log('🚗 Vehicle creation debug:');
-      console.log('Company ID:', companyProfile?.companyId);
-      console.log('API URL:', `${API_ENDPOINTS.COMPANIES}/${companyProfile?.companyId}/vehicles`);
+      console.log('Company ID:', companyProfile?.id || companyProfile?.companyId);
+      console.log('API URL:', `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`);
       console.log('FormData contents:');
       for (let [key, value] of formData.entries()) {
         console.log(`${key}:`, value);
@@ -312,13 +334,18 @@ const VehicleManagementScreen = () => {
       
       // Create vehicle via API with FormData
       console.log('🚗 Making API request...');
-      const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.companyId}/vehicles`, {
+      console.log('🚗 Full URL:', `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`);
+      
+      const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           // Don't set Content-Type for FormData - let React Native set it automatically
         },
         body: formData
+      }).catch(error => {
+        console.error('🚗 Network error:', error);
+        throw error;
       });
       
       console.log('🚗 Response status:', response.status);
