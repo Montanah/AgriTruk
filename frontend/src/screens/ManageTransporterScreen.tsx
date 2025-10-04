@@ -1563,6 +1563,8 @@ export default function ManageTransporterScreen({ route }: any) {
             <TouchableOpacity style={{ alignItems: 'center', marginBottom: 16 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
               {editProfilePhoto ? (
                 <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background }} />
+              ) : companyProfile?.companyLogo ? (
+                <Image source={{ uri: companyProfile.companyLogo }} style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background }} />
               ) : loadingProfile ? (
                 <ActivityIndicator size="large" color={colors.primary} />
               ) : (
@@ -1570,7 +1572,9 @@ export default function ManageTransporterScreen({ route }: any) {
                   <MaterialCommunityIcons name="office-building" size={40} color={colors.primary} />
                 </View>
               )}
-              <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontSize: 14, fontFamily: fonts.family.medium }}>Upload Company Logo</Text>
+              <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontSize: 14, fontFamily: fonts.family.medium }}>
+                {companyProfile?.companyLogo ? 'Update Company Logo' : 'Upload Company Logo'}
+              </Text>
             </TouchableOpacity>
 
             {/* Company Information */}
@@ -1593,7 +1597,11 @@ export default function ManageTransporterScreen({ route }: any) {
               </View>
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="map-marker" size={16} color={colors.text.secondary} />
-                <Text style={styles.infoText}>{companyProfile?.companyAddress || 'Company Address'}</Text>
+                <Text style={styles.infoText}>
+                  {companyProfile?.companyAddress && companyProfile.companyAddress.trim() !== '' 
+                    ? companyProfile.companyAddress 
+                    : 'No address provided'}
+                </Text>
               </View>
             </View>
 
