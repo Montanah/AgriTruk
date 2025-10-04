@@ -38,6 +38,18 @@ const healthMonitor = require('./utils/healthMonitor');
 //app.use(helmet());
 app.set('trust proxy', 1);
 app.use(cors());
+// Global request logger - BEFORE body parsers
+app.use((req, res, next) => {
+  console.log(`\n🌐 ===== INCOMING REQUEST =====`);
+  console.log(`🌐 Method: ${req.method}`);
+  console.log(`🌐 Path: ${req.path}`);
+  console.log(`🌐 URL: ${req.url}`);
+  console.log(`🌐 Content-Type: ${req.headers['content-type']}`);
+  console.log(`🌐 Content-Length: ${req.headers['content-length']}`);
+  console.log(`🌐 ===== END INCOMING REQUEST =====\n`);
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestMetadata);
