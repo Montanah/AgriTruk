@@ -195,7 +195,7 @@ router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'
   });
   console.log('🚗 ===== END ROUTE DEBUG =====');
   next();
-}, debugMulter, authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
+}, authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
 
 /** 
  * @swagger
