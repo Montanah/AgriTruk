@@ -352,21 +352,26 @@ const VehicleManagementScreen = () => {
         console.log(`Photo ${index + 1}:`, photo.fileName, photo.type);
       });
       
-      // Test simple request first to see if the route is working
-      console.log('🚗 Testing simple request first...');
+      // Test simple POST request first to see if the route is working
+      console.log('🚗 Testing simple POST request first...');
       try {
         const testResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
-          method: 'GET',
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify({
+            companyId: companyProfile?.id || companyProfile?.companyId,
+            vehicleType: 'truck',
+            vehicleRegistration: 'TEST123'
+          })
         });
-        console.log('🚗 Test GET request status:', testResponse.status);
-        const testData = await testResponse.json();
-        console.log('🚗 Test GET response:', testData);
+        console.log('🚗 Test POST request status:', testResponse.status);
+        const testData = await testResponse.text();
+        console.log('🚗 Test POST response:', testData);
       } catch (testError) {
-        console.error('🚗 Test GET request failed:', testError);
+        console.error('🚗 Test POST request failed:', testError);
       }
 
       
