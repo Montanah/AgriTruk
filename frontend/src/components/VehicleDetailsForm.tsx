@@ -84,6 +84,7 @@ export default function VehicleDetailsForm({
   const [bodyType, setBodyType] = useState(initial?.bodyType || 'closed');
   const [humidityControl, setHumidityControl] = useState(initial?.humidityControl || false);
   const [refrigeration, setRefrigeration] = useState(initial?.refrigeration || false);
+  const [specialCargo, setSpecialCargo] = useState(initial?.specialCargo || false);
   const [vehicleFeatures, setVehicleFeatures] = useState(initial?.vehicleFeatures || '');
   // Removed unused special feature states
   const dropdownAnim = useRef(new Animated.Value(0)).current;
@@ -111,9 +112,10 @@ export default function VehicleDetailsForm({
       bodyType,
       humidityControl,
       refrigeration,
+      specialCargo,
       vehicleFeatures,
     });
-  }, [vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, humidityControl, refrigeration, vehicleFeatures, onChange]);
+  }, [vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, humidityControl, refrigeration, specialCargo, vehicleFeatures, onChange]);
 
   return (
     <View style={styles.container}>
@@ -485,6 +487,24 @@ export default function VehicleDetailsForm({
             value={refrigeration}
             onValueChange={setRefrigeration}
             thumbColor={refrigeration ? colors.white : colors.text.light}
+            trackColor={{ true: colors.primary, false: colors.text.light + '40' }}
+            ios_backgroundColor={colors.text.light + '40'}
+          />
+        </View>
+
+        {/* Special Cargo */}
+        <View style={styles.featureRow}>
+          <View style={styles.featureInfo}>
+            <MaterialCommunityIcons name="package-variant" size={20} color={colors.primary} />
+            <View style={styles.featureTextContainer}>
+              <Text style={styles.featureTitle}>Special Cargo</Text>
+              <Text style={styles.featureDescription}>Handles hazardous or special materials</Text>
+            </View>
+          </View>
+          <Switch
+            value={specialCargo}
+            onValueChange={setSpecialCargo}
+            thumbColor={specialCargo ? colors.white : colors.text.light}
             trackColor={{ true: colors.primary, false: colors.text.light + '40' }}
             ios_backgroundColor={colors.text.light + '40'}
           />
