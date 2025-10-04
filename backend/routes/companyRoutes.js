@@ -172,6 +172,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, valid
  *         description: Internal server error
 */
 // Company fleet management endpoints
+console.log('🚗 REGISTERING VEHICLE CREATION ROUTE: POST /:companyId/vehicles');
 router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny, (req, res, next) => {
   console.log('🚗 ===== VEHICLE CREATION ROUTE HIT! =====');
   console.log('🚗 Timestamp:', new Date().toISOString());

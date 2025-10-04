@@ -75,6 +75,7 @@ app.use('/api/transporters', transporterRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/bookings', bookingRoutes);
+console.log('🚗 MOUNTING COMPANY ROUTES at /api/companies');
 app.use('/api/companies', companyRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/drivers', driverRoutes);
