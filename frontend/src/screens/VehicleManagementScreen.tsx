@@ -301,7 +301,7 @@ const VehicleManagementScreen = () => {
       formData.append('driveType', vehicleDriveType);
       
       // Add special features (as strings like individual transporter)
-      formData.append('refrigeration', refrigeration ? 'true' : 'false');
+      formData.append('refrigerated', refrigeration ? 'true' : 'false'); // Use 'refrigerated' to match backend
       formData.append('humidityControl', humidityControl ? 'true' : 'false');
       formData.append('specialCargo', specialCargo ? 'true' : 'false');
       formData.append('features', vehicleFeatures);
@@ -351,29 +351,6 @@ const VehicleManagementScreen = () => {
       vehiclePhotos.forEach((photo, index) => {
         console.log(`Photo ${index + 1}:`, photo.fileName, photo.type);
       });
-      
-      // Test simple POST request first to see if the route is working
-      console.log('🚗 Testing simple POST request first...');
-      try {
-        const testResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            companyId: companyProfile?.id || companyProfile?.companyId,
-            vehicleType: 'truck',
-            vehicleRegistration: 'TEST123'
-          })
-        });
-        console.log('🚗 Test POST request status:', testResponse.status);
-        const testData = await testResponse.text();
-        console.log('🚗 Test POST response:', testData);
-      } catch (testError) {
-        console.error('🚗 Test POST request failed:', testError);
-      }
-
       
       // Create vehicle via API with FormData (like individual transporter)
       console.log('🚗 Making API request...');
