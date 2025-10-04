@@ -11,14 +11,13 @@ const Vehicle = {
       vehicleId,
       type: vehicleData.type || null,
       make: vehicleData.make || null, // Add make field
-      model: vehicleData.model || null,
-      reg: vehicleData.reg || null,
+      vehicleRegistration: vehicleData.vehicleRegistration || null,
       bodyType: vehicleData.bodyType || null,
       year: vehicleData.year || null,
       color: vehicleData.color || null,
       capacity: vehicleData.capacity || null,
       driveType: vehicleData.driveType || null, // Add driveType field
-      refrigeration: vehicleData.refrigeration || false,
+      refrigerated: vehicleData.refrigerated || false,
       humidityControl: vehicleData.humidityControl || false,
       specialCargo: vehicleData.specialCargo || false,
       features: vehicleData.features || [],

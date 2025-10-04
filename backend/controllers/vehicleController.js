@@ -28,18 +28,18 @@ const createVehicle = async (req, res) => {
     }
 
     // Prepare vehicle data - map to Vehicle model field names with defaults
+    // Match individual transporter field structure
     const vehicleData = {
       companyId,
       type: req.body.vehicleType || 'truck',
       make: req.body.vehicleMake || 'Unknown',
-      model: req.body.vehicleModel || req.body.vehicleMake || 'Unknown',
       year: parseInt(req.body.vehicleYear) || 2020,
       color: req.body.vehicleColor || 'Unknown',
-      reg: req.body.vehicleRegistration,
+      vehicleRegistration: req.body.vehicleRegistration, // Use same field name as individual transporters
       capacity: parseFloat(req.body.vehicleCapacity) || 5,
       bodyType: req.body.bodyType || 'closed',
       driveType: req.body.driveType || '2WD',
-      refrigeration: req.body.refrigeration === 'true' || req.body.refrigeration === true,
+      refrigerated: req.body.refrigerated === 'true' || req.body.refrigerated === true, // Use 'refrigerated' like individual transporters
       humidityControl: req.body.humidityControl === 'true' || req.body.humidityControl === true,
       specialCargo: req.body.specialCargo === 'true' || req.body.specialCargo === true,
       features: req.body.features || '',
