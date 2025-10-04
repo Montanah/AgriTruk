@@ -32,6 +32,7 @@ const debugMulter = (req, res, next) => {
   console.log('📁 Files before multer:', req.files?.length || 0);
   next();
 };
+
 /**
  * @swagger
  * tags:
