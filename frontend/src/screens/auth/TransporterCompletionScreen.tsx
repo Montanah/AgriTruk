@@ -1105,8 +1105,6 @@ export default function TransporterCompletionScreen() {
         formData.append('contact', companyContact);
         formData.append('address', companyAddress || '');
         
-        // No additional fields needed for company creation
-        
         // Add logo file (backend expects 'logo' field name)
         if (profilePhoto && profilePhoto.uri) {
           console.log('Adding logo to FormData:', {
@@ -1114,14 +1112,33 @@ export default function TransporterCompletionScreen() {
             type: profilePhoto.type || 'image/jpeg',
             name: 'company-logo.jpg'
           });
-          formData.append('logo', {
+          
+          // Try a simpler file object structure that multer might recognize better
+          const fileType = profilePhoto.type === 'image' ? 'image/jpeg' : (profilePhoto.type || 'image/jpeg');
+          
+          // Create a file-like object that multer can process
+          const fileObj = {
             uri: profilePhoto.uri,
-            type: profilePhoto.type || 'image/jpeg',
+            type: fileType,
             name: 'company-logo.jpg',
-          } as any);
+            fileName: 'company-logo.jpg',
+            fileType: fileType,
+          };
+          
+          console.log('File object for FormData:', fileObj);
+          formData.append('logo', fileObj as any);
         } else {
           console.log('No profilePhoto or uri found:', { profilePhoto });
         }
+        
+        // TEMPORARY: Test FormData without file to isolate the issue
+        console.log('=== TESTING FORMDATA WITHOUT FILE ===');
+        const testFormData = new FormData();
+        testFormData.append('name', companyName);
+        testFormData.append('registration', companyReg);
+        testFormData.append('contact', companyContact);
+        testFormData.append('address', companyAddress || '');
+        console.log('Test FormData created without file');
         
         // Debug FormData contents
         console.log('=== COMPANY FORMDATA DEBUG ===');
@@ -1167,15 +1184,46 @@ export default function TransporterCompletionScreen() {
           
           try {
             console.log('Attempting FormData request with logo...');
-            res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                // Don't set Content-Type - let fetch set it with boundary for FormData
-              },
-              body: formData,
-              signal: controller.signal,
-            });
+            console.log('FormData object:', formData);
+            console.log('FormData has logo:', formData.get('logo') ? 'YES' : 'NO');
+            console.log('FormData has name:', formData.get('name') ? 'YES' : 'NO');
+            console.log('FormData has registration:', formData.get('registration') ? 'YES' : 'NO');
+            console.log('FormData has contact:', formData.get('contact') ? 'YES' : 'NO');
+            
+            // Try test FormData first (without file)
+            console.log('=== TRYING TEST FORMDATA (NO FILE) ===');
+            try {
+              const testRes = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: testFormData,
+                signal: controller.signal,
+              });
+              console.log('Test FormData response status:', testRes.status);
+              if (testRes.ok) {
+                console.log('Test FormData SUCCESS - basic FormData works!');
+                res = testRes;
+                formDataSuccess = true;
+              } else {
+                console.log('Test FormData failed, trying with file...');
+                throw new Error('Test FormData failed');
+              }
+            } catch (testError) {
+              console.log('Test FormData error:', testError);
+              console.log('Now trying with file...');
+              
+              res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  // Don't set Content-Type - let fetch set it with boundary for FormData
+                },
+                body: formData,
+                signal: controller.signal,
+              });
+            }
             console.log('FormData request completed with status:', res.status);
             console.log('FormData response headers:', res.headers);
             

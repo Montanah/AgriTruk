@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/requireRole');
-const { uploadAny } = require('../middlewares/uploadMiddleware');
+// Use the same multer configuration as individual transporters
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' }); 
+const uploadAny = upload.any();
 const {
   createCompany,
   getCompany,
