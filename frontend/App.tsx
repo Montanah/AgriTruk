@@ -756,6 +756,7 @@ export default function App() {
           <>
             <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
             <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+            <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
             <Stack.Screen name="RouteLoadsScreen" component={RouteLoadsScreen} />
@@ -776,6 +777,7 @@ export default function App() {
               initialParams={{ transporterType: transporterType }}
             />
             <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+            <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
             <Stack.Screen name="RouteLoadsScreen" component={RouteLoadsScreen} />
@@ -822,6 +824,27 @@ export default function App() {
               <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
             </>
           );
+        } else if (isExpired) {
+          // Subscription expired - route to expired screen
+          console.log('App.tsx: Subscription expired - routing to expired screen');
+          initialRouteName = 'SubscriptionExpired';
+          screens = (
+            <>
+              <Stack.Screen
+                name="SubscriptionExpired"
+                component={require('./src/screens/SubscriptionExpiredScreen').default}
+                initialParams={{
+                  userType: userData?.transporterType || 'transporter',
+                  userId: 'current_user',
+                  expiredDate: new Date().toISOString()
+                }}
+              />
+              <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+              <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+              <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+              <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            </>
+          );
         } else if (needsTrialActivation || (!hasActiveSubscription && !isTrialActive)) {
           // No active subscription - route to trial activation
           console.log('App.tsx: No active subscription - routing to trial activation');
@@ -842,27 +865,9 @@ export default function App() {
               <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
             </>
           );
-        } else if (isExpired) {
-          // Subscription expired - route to expired screen
-          console.log('App.tsx: Subscription expired - routing to expired screen');
-          initialRouteName = 'SubscriptionExpired';
-          screens = (
-            <>
-              <Stack.Screen
-                name="SubscriptionExpired"
-                component={SubscriptionExpiredScreen as any}
-                initialParams={{
-                  userType: userData?.transporterType || 'transporter',
-                  userId: user.uid,
-                  expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
-                }}
-              />
-              <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
-              <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
-              <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
-            </>
-          );
         } else {
+          // Has active subscription - route to dashboard
+          console.log('App.tsx: Has active subscription - routing to dashboard');
           // Has active subscription - check if driver or company/individual transporter
           if (isDriver && typeof isDriver === 'object' && isDriver.isDriver) {
             console.log('App.tsx: Driver detected - routing to driver dashboard');
@@ -924,6 +929,7 @@ export default function App() {
           <>
             <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
             <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+            <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
           </>
@@ -989,17 +995,17 @@ export default function App() {
       );
     } else {
       // Check subscription status for verified brokers
-      // If user has no active subscription and no trial, they need trial activation
-      if (subscriptionStatus?.needsTrialActivation || (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
-        initialRouteName = 'SubscriptionTrial';
+      if (subscriptionStatus?.subscriptionStatus === 'expired') {
+        initialRouteName = 'SubscriptionExpired';
         screens = (
           <>
             <Stack.Screen
-              name="SubscriptionTrial"
-              component={SubscriptionTrialScreen as any}
+              name="SubscriptionExpired"
+              component={SubscriptionExpiredScreen as any}
               initialParams={{
                 userType: 'broker',
-                subscriptionStatus: subscriptionStatus
+                userId: user.uid,
+                expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
               }}
             />
             <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
@@ -1017,19 +1023,24 @@ export default function App() {
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
           </>
         );
-      } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive) {
-        initialRouteName = 'SubscriptionExpired';
+      } else if (subscriptionStatus?.needsTrialActivation || (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive)) {
+        initialRouteName = 'SubscriptionTrial';
         screens = (
           <>
             <Stack.Screen
-              name="SubscriptionExpired"
-              component={SubscriptionExpiredScreen as any}
+              name="SubscriptionTrial"
+              component={SubscriptionTrialScreen as any}
               initialParams={{
                 userType: 'broker',
-                userId: user.uid,
-                expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
+                subscriptionStatus: subscriptionStatus
               }}
             />
+            <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
+            <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
+            <Stack.Screen name="BrokerRequestScreen" component={require('./src/screens/BrokerRequestScreen').default} />
+            <Stack.Screen name="BrokerNetworkScreen" component={require('./src/screens/BrokerNetworkScreen').default} />
+            <Stack.Screen name="BrokerRequestsScreen" component={require('./src/screens/BrokerRequestsScreen').default} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
@@ -1072,6 +1083,7 @@ export default function App() {
         <>
           <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
           <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
+          <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
           <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
           <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
           <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
@@ -1097,6 +1109,7 @@ export default function App() {
             component={TransporterProcessingScreen}
             initialParams={{ transporterType: userData?.transporterType || 'individual' }}
           />
+          <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
           <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
           <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
           <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
@@ -1116,12 +1129,29 @@ export default function App() {
       // Profile completed and verified - check subscription status
       // Transporter subscription check
       
-      // If user has no active subscription and no trial, they need trial activation
-      // Also handle case where subscriptionStatus is null/undefined (new users)
-      if (subscriptionStatus?.needsTrialActivation || 
-          !subscriptionStatus || 
-          (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
-        // Routing transporter to trial activation
+      // Check subscription status for approved transporters
+      if (subscriptionStatus?.subscriptionStatus === 'expired') {
+        // Routing transporter to expired screen
+        initialRouteName = 'SubscriptionExpired';
+        screens = (
+          <>
+            <Stack.Screen
+              name="SubscriptionExpired"
+              component={SubscriptionExpiredScreen as any}
+              initialParams={{
+                userType: userData?.transporterType || 'transporter',
+                userId: user.uid,
+                expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
+              }}
+            />
+            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+            <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+            <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+            <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+          </>
+        );
+      } else if (subscriptionStatus?.needsTrialActivation || (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive)) {
+        // No active subscription - route to trial activation
         initialRouteName = 'SubscriptionTrial';
         screens = (
           <>
@@ -1139,66 +1169,15 @@ export default function App() {
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
           </>
         );
-      } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'expired') {
-        // Routing transporter to expired subscription
-        initialRouteName = 'SubscriptionExpired';
-        screens = (
-          <>
-            <Stack.Screen
-              name="SubscriptionExpired"
-              component={SubscriptionExpiredScreen as any}
-              initialParams={{
-                userType: userData?.transporterType || 'transporter',
-                userId: user.uid,
-                expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
-              }}
-            />
-            <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
-            <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
-            <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
-          </>
-        );
-      } else if (!subscriptionStatus) {
-        // Fallback: if no subscription status, treat as new user needing trial
-        // Routing transporter to trial activation (no subscription status)
-        initialRouteName = 'SubscriptionTrial';
-        screens = (
-          <>
-            <Stack.Screen
-              name="SubscriptionTrial"
-              component={SubscriptionTrialScreen as any}
-              initialParams={{
-                userType: userData?.transporterType || 'transporter',
-                subscriptionStatus: null
-              }}
-            />
-            <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
-            <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
-            <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
-            <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
-          </>
-        );
       } else {
-        // Profile completed, verified, and has active subscription - go to dashboard
+        // Has active subscription - route to dashboard
         initialRouteName = 'TransporterTabs';
         screens = (
           <>
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
-            <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
-            <Stack.Screen name="RouteLoadsScreen" component={RouteLoadsScreen} />
-            <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
-            <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
-            <Stack.Screen name="RequestForm" component={require('./src/components/common/RequestForm').default} />
-            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-            <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
-            <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
-            <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
-            <Stack.Screen name="TransporterBookingManagement" component={require('./src/screens/TransporterBookingManagementScreen').default} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
-            <Stack.Screen name="SubscriptionManagement" component={require('./src/screens/SubscriptionManagementScreen').default} />
-            <Stack.Screen name="ContactCustomer" component={require('./src/screens/ContactCustomerScreen').default} />
           </>
         );
       }

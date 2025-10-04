@@ -54,33 +54,20 @@ exports.createCompany = async (req, res) => {
 
     let logoUrl = null;
 
-    console.log('Received files:', req.files);
-    console.log('Request headers:', req.headers);
-    console.log('Request body keys:', Object.keys(req.body || {}));
-    console.log('Content-Type:', req.get('Content-Type'));
 
     if (req.files && req.files.length > 0) {
       // Find the logo file
       const logoFile = req.files.find(file => file.fieldname === 'logo');
       if (logoFile) {
-        console.log('Processing logo file:', logoFile.originalname, logoFile.mimetype, logoFile.path);
         try {
           logoUrl = await uploadImage(logoFile.path);
           if (logoUrl) {
-            console.log('Logo uploaded successfully:', logoUrl);
             fs.unlinkSync(logoFile.path); 
-          } else {
-            console.error('Failed to upload logo, continuing without logo');
           }
         } catch (uploadError) {
-          console.error('Upload error:', uploadError.message);
           return res.status(500).json({ message: 'Failed to upload logo' });
         }
-      } else {
-        console.log('No logo file found in uploaded files');
       }
-    } else {
-      console.log('No files received');
     }
 
     const userData = await User.get(userId); 

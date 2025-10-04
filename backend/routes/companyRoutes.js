@@ -23,14 +23,6 @@ const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewar
 const CompanyController = require("../controllers/companyController");
 const adminController = require("../controllers/adminController");
 
-// Add debugging middleware for multer
-const debugMulter = (req, res, next) => {
-  console.log('📁 MULTER MIDDLEWARE - Processing files');
-  console.log('📁 Content-Type:', req.headers['content-type']);
-  console.log('📁 Content-Length:', req.headers['content-length']);
-  console.log('📁 Files before multer:', req.files?.length || 0);
-  next();
-};
 
 /**
  * @swagger
