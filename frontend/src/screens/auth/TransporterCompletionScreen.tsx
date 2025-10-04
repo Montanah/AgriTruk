@@ -1167,7 +1167,6 @@ export default function TransporterCompletionScreen() {
           
           try {
             console.log('Attempting FormData request with logo...');
-            console.log('FormData size:', formData.get('logo') ? 'Has logo' : 'No logo');
             res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
               method: 'POST',
               headers: {

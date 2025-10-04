@@ -84,7 +84,7 @@ const debugMulter = (req, res, next) => {
  *       500:
  *         description: Internal server error
  */
-router.post('/', authenticateToken, requireRole('transporter'), uploadAny, validateCompanyCreation, createCompany);
+router.post('/', authenticateToken, requireRole('transporter'), uploadAny, createCompany);
 
 /**
  * @swagger
@@ -171,6 +171,15 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, valid
  *       500:
  *         description: Internal server error
 */
+// Test route for debugging
+router.post('/:companyId/test', (req, res) => {
+  console.log('🧪 TEST ROUTE HIT!');
+  console.log('🧪 Method:', req.method);
+  console.log('🧪 URL:', req.url);
+  console.log('🧪 Content-Type:', req.headers['content-type']);
+  res.json({ success: true, message: 'Test route working' });
+});
+
 // Company fleet management endpoints
 console.log('🚗 REGISTERING VEHICLE CREATION ROUTE: POST /:companyId/vehicles');
 router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny, (req, res, next) => {
