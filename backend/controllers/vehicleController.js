@@ -27,18 +27,18 @@ const createVehicle = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to add vehicles to this company' });
     }
 
-    // Prepare vehicle data - map to Vehicle model field names
+    // Prepare vehicle data - map to Vehicle model field names with defaults
     const vehicleData = {
       companyId,
-      type: req.body.vehicleType,
-      make: req.body.vehicleMake, // Add make field
-      model: req.body.vehicleModel,
-      year: parseInt(req.body.vehicleYear),
-      color: req.body.vehicleColor,
+      type: req.body.vehicleType || 'truck',
+      make: req.body.vehicleMake || 'Unknown',
+      model: req.body.vehicleModel || req.body.vehicleMake || 'Unknown',
+      year: parseInt(req.body.vehicleYear) || 2020,
+      color: req.body.vehicleColor || 'Unknown',
       reg: req.body.vehicleRegistration,
-      capacity: parseFloat(req.body.vehicleCapacity),
-      bodyType: req.body.bodyType,
-      driveType: req.body.driveType, // Add driveType field
+      capacity: parseFloat(req.body.vehicleCapacity) || 5,
+      bodyType: req.body.bodyType || 'closed',
+      driveType: req.body.driveType || '2WD',
       refrigeration: req.body.refrigeration === 'true' || req.body.refrigeration === true,
       humidityControl: req.body.humidityControl === 'true' || req.body.humidityControl === true,
       specialCargo: req.body.specialCargo === 'true' || req.body.specialCargo === true,
