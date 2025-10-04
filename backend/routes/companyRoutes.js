@@ -21,9 +21,7 @@ const CompanyController = require("../controllers/companyController");
 const adminController = require("../controllers/adminController");
 
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' }); 
-
-const uploadAny = upload.any();
+const upload = multer({ dest: 'uploads/' });
 
 // Add debugging middleware for multer
 const debugMulter = (req, res, next) => {
