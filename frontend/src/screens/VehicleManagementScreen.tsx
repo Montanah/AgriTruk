@@ -77,6 +77,18 @@ const VehicleManagementScreen = () => {
   const [assignedDriverId, setAssignedDriverId] = useState('');
   const [companyProfile, setCompanyProfile] = useState<any>(null);
 
+  // Debug form state
+  useEffect(() => {
+    console.log('🚗 Form state updated:', {
+      vehicleType,
+      vehicleReg,
+      insurance: !!insurance,
+      vehiclePhotos: vehiclePhotos.length,
+      companyProfile: !!companyProfile,
+      loadingProfile
+    });
+  }, [vehicleType, vehicleReg, insurance, vehiclePhotos, companyProfile, loadingProfile]);
+
   const fetchVehicles = async () => {
     try {
       setError(null);
@@ -273,7 +285,7 @@ const VehicleManagementScreen = () => {
     try {
       setLoadingProfile(true);
       
-      // Create FormData for multipart upload
+      // Create FormData for multipart upload (like individual transporter)
       const formData = new FormData();
       
       // Add vehicle data fields
@@ -288,10 +300,10 @@ const VehicleManagementScreen = () => {
       formData.append('bodyType', bodyType);
       formData.append('driveType', vehicleDriveType);
       
-      // Add special features
-      formData.append('refrigeration', refrigeration.toString());
-      formData.append('humidityControl', humidityControl.toString());
-      formData.append('specialCargo', specialCargo.toString());
+      // Add special features (as strings like individual transporter)
+      formData.append('refrigeration', refrigeration ? 'true' : 'false');
+      formData.append('humidityControl', humidityControl ? 'true' : 'false');
+      formData.append('specialCargo', specialCargo ? 'true' : 'false');
       formData.append('features', vehicleFeatures);
       
       // Add insurance document
@@ -332,29 +344,78 @@ const VehicleManagementScreen = () => {
         console.log(`${key}:`, value);
       }
       
-      // Create vehicle via API with FormData
-      console.log('🚗 Making API request...');
-      console.log('🚗 Full URL:', `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`);
-      
-      const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type for FormData - let React Native set it automatically
-        },
-        body: formData
-      }).catch(error => {
-        console.error('🚗 Network error:', error);
-        throw error;
+      // Check file sizes
+      console.log('🚗 File size check:');
+      console.log('Insurance file size:', insurance ? 'Present' : 'Missing');
+      console.log('Vehicle photos count:', vehiclePhotos.length);
+      vehiclePhotos.forEach((photo, index) => {
+        console.log(`Photo ${index + 1}:`, photo.fileName, photo.type);
       });
       
-      console.log('🚗 Response status:', response.status);
-      console.log('🚗 Response headers:', response.headers);
-      console.log('🚗 Response ok:', response.ok);
+      // Test simple request first to see if the route is working
+      console.log('🚗 Testing simple request first...');
+      try {
+        const testResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log('🚗 Test GET request status:', testResponse.status);
+        const testData = await testResponse.json();
+        console.log('🚗 Test GET response:', testData);
+      } catch (testError) {
+        console.error('🚗 Test GET request failed:', testError);
+      }
 
-      const responseData = await response.json();
+      
+      // Create vehicle via API with FormData (like individual transporter)
+      console.log('🚗 Making API request...');
+      
+      try {
+        // Add timeout to the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.log('🚗 Request timed out after 30 seconds');
+          controller.abort();
+        }, 30000); // 30 second timeout
+        
+        console.log('🚗 About to make fetch request...');
+        console.log('🚗 URL:', `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`);
+        console.log('🚗 Method: POST');
+        console.log('🚗 FormData size check...');
+        
+        // Check FormData size
+        let formDataSize = 0;
+        for (let [key, value] of formData.entries()) {
+          if (value && typeof value === 'object' && value.uri) {
+            console.log(`🚗 File ${key}: ${value.name} (${value.type})`);
+          } else {
+            console.log(`🚗 Field ${key}: ${value}`);
+          }
+        }
+        
+        const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            // Don't set Content-Type for FormData - let React Native set it automatically
+          },
+          body: formData,
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        console.log('🚗 Fetch request completed successfully');
+        
+        console.log('🚗 Response status:', response.status);
+        console.log('🚗 Response ok:', response.ok);
 
-      if (response.ok && responseData.message) {
+        const responseData = await response.json();
+        console.log('🚗 Response data:', responseData);
+
+        if (response.ok && responseData.success) {
         
         // Update local state
         const newVehicle = {
@@ -387,10 +448,19 @@ const VehicleManagementScreen = () => {
           'Vehicle added successfully! It will be reviewed by admin before approval.',
           [{ text: 'OK' }]
         );
-      } else {
-        throw new Error(responseData.message || 'Failed to create vehicle');
+        } else {
+          throw new Error(responseData.message || 'Failed to create vehicle');
+        }
+      } catch (networkError: any) {
+        console.error('❌ Network error creating vehicle:', networkError);
+        console.error('❌ Network error details:', {
+          message: networkError.message,
+          name: networkError.name,
+          stack: networkError.stack
+        });
+        Alert.alert('Network Error', `Failed to create vehicle: ${networkError.message}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error creating vehicle:', error);
       Alert.alert('Error', `Failed to create vehicle: ${error.message}`);
     } finally {
@@ -647,7 +717,12 @@ const VehicleManagementScreen = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveBtn, loadingProfile && styles.disabledBtn]}
-                onPress={handleSaveVehicle}
+                onPress={() => {
+                  console.log('🚗 BUTTON PRESSED!');
+                  console.log('🚗 loadingProfile:', loadingProfile);
+                  console.log('🚗 Button disabled:', loadingProfile);
+                  handleSaveVehicle();
+                }}
                 disabled={loadingProfile}
               >
                 {loadingProfile ? (

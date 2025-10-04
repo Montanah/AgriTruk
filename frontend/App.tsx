@@ -188,29 +188,36 @@ const checkTransporterProfileComplete = (transporterData: any) => {
   return true;
 };
 
-// Helper function to check subscription status
+// Helper function to check subscription status with better error handling
 const checkSubscriptionStatus = async (userId: string, userType: 'transporter' | 'broker' | 'business') => {
   try {
     // Use the subscription service which handles auth tokens properly
     const subscriptionService = require('./src/services/subscriptionService').default;
     const status = await subscriptionService.getSubscriptionStatus();
+    
+    console.log('📊 Subscription status check result for user:', userId, {
+      hasActiveSubscription: status.hasActiveSubscription,
+      isTrialActive: status.isTrialActive,
+      needsTrialActivation: status.needsTrialActivation,
+      subscriptionStatus: status.subscriptionStatus,
+      isApiError: status.isApiError
+    });
+    
     return status;
   } catch (error) {
     console.error('Error checking subscription status:', error);
+    
+    // Return a consistent fallback status
+    return {
+      hasActiveSubscription: false,
+      isTrialActive: false,
+      needsTrialActivation: true,
+      currentPlan: null,
+      daysRemaining: 0,
+      subscriptionStatus: 'none',
+      isApiError: true
+    };
   }
-
-  // Fallback: return default values for development
-  // Fallback to trial for new users
-  return {
-    hasActiveSubscription: false,
-    isTrialActive: false,
-    trialExpiryDate: null,
-    subscriptionExpiryDate: null,
-    needsTrialActivation: true,
-    currentPlan: null,
-    daysRemaining: 0,
-    subscriptionStatus: 'none'
-  };
 };
 
 export default function App() {
@@ -780,9 +787,42 @@ export default function App() {
       } else {
         // Profile completed and approved - check subscription status
         console.log('App.tsx: Profile completed and approved - checking subscription status');
-        if (subscriptionStatus?.needsTrialActivation || 
-            !subscriptionStatus || 
-            (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'none')) {
+        console.log('App.tsx: Subscription status details:', {
+          hasActiveSubscription: subscriptionStatus?.hasActiveSubscription,
+          isTrialActive: subscriptionStatus?.isTrialActive,
+          needsTrialActivation: subscriptionStatus?.needsTrialActivation,
+          subscriptionStatus: subscriptionStatus?.subscriptionStatus,
+          isApiError: subscriptionStatus?.isApiError
+        });
+        
+        // More reliable subscription status checking
+        const hasActiveSubscription = subscriptionStatus?.hasActiveSubscription === true;
+        const isTrialActive = subscriptionStatus?.isTrialActive === true;
+        const needsTrialActivation = subscriptionStatus?.needsTrialActivation === true;
+        const isExpired = subscriptionStatus?.subscriptionStatus === 'expired';
+        const isApiError = subscriptionStatus?.isApiError === true;
+        
+        if (isApiError) {
+          // API error - be conservative and route to trial activation
+          console.log('App.tsx: Subscription API error - routing to trial activation for safety');
+          initialRouteName = 'SubscriptionTrial';
+          screens = (
+            <>
+              <Stack.Screen
+                name="SubscriptionTrial"
+                component={SubscriptionTrialScreen as any}
+                initialParams={{
+                  userType: userData?.transporterType || 'transporter',
+                  subscriptionStatus: subscriptionStatus
+                }}
+              />
+              <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
+              <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+              <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
+              <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
+            </>
+          );
+        } else if (needsTrialActivation || (!hasActiveSubscription && !isTrialActive)) {
           // No active subscription - route to trial activation
           console.log('App.tsx: No active subscription - routing to trial activation');
           initialRouteName = 'SubscriptionTrial';
@@ -802,7 +842,7 @@ export default function App() {
               <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
             </>
           );
-        } else if (!subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isTrialActive && subscriptionStatus?.subscriptionStatus === 'expired') {
+        } else if (isExpired) {
           // Subscription expired - route to expired screen
           console.log('App.tsx: Subscription expired - routing to expired screen');
           initialRouteName = 'SubscriptionExpired';

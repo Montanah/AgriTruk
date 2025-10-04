@@ -45,6 +45,9 @@ export interface Subscriber {
 
 class SubscriptionService {
   private authToken: string | null = null;
+  private subscriptionCache: { [key: string]: { data: SubscriptionStatus; timestamp: number } } = {};
+  private readonly CACHE_DURATION = 30000; // 30 seconds cache
+  private pendingRequests: { [key: string]: Promise<SubscriptionStatus> } = {};
 
   /**
    * Set authentication token
@@ -80,132 +83,199 @@ class SubscriptionService {
   }
 
   /**
-   * Get current user's subscription status
+   * Clear cache for a specific user or all users
+   */
+  clearCache(userId?: string): void {
+    if (userId) {
+      delete this.subscriptionCache[userId];
+    } else {
+      this.subscriptionCache = {};
+    }
+  }
+
+  /**
+   * Check if cached data is still valid
+   */
+  private isCacheValid(userId: string): boolean {
+    const cached = this.subscriptionCache[userId];
+    if (!cached) return false;
+    
+    const now = Date.now();
+    return (now - cached.timestamp) < this.CACHE_DURATION;
+  }
+
+  /**
+   * Get current user's subscription status with caching and race condition prevention
    */
   async getSubscriptionStatus(): Promise<SubscriptionStatus> {
     try {
-      const token = await this.getAuthToken();
-
-      // First, get the subscriber status to get planId
-      const subscriberResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!subscriberResponse.ok) {
-        console.warn(`Subscriber status API returned ${subscriberResponse.status}, using default status`);
-        throw new Error(`HTTP error! status: ${subscriberResponse.status}`);
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        throw new Error('User not authenticated');
       }
 
-      const subscriberData = await subscriberResponse.json();
-      // console.log('Subscriber API response:', subscriberData);
-      
-      // Extract subscription data
-      const subscriptionData = subscriberData.data || subscriberData;
-      const planId = subscriptionData.planId || subscriberData.planId;
-      
-      let planDetails = null;
-      
-      // If we have a planId, fetch the full plan details
-      if (planId) {
-        try {
-          // console.log('Fetching plan details for planId:', planId);
-          const planResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + `/plans/${planId}`, {
-            method: 'GET',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (planResponse.ok) {
-            const planData = await planResponse.json();
-            // console.log('Plan API response:', planData);
-            planDetails = planData.plan || planData;
-          } else {
-            console.warn(`Plan details API returned ${planResponse.status}`);
-          }
-        } catch (planError) {
-          console.warn('Failed to fetch plan details:', planError);
-        }
+      const userId = user.uid;
+
+      // Check cache first
+      if (this.isCacheValid(userId)) {
+        console.log('📦 Using cached subscription status for user:', userId);
+        return this.subscriptionCache[userId].data;
       }
-      
-      // Parse the subscription data
-      const hasActiveSubscription = subscriptionData.hasActiveSubscription || false;
-      const isTrialActive = subscriptionData.isTrialActive || false;
-      const needsTrialActivation = subscriptionData.needsTrialActivation || false;
-      const subscriptionStatus = subscriptionData.subscriptionStatus || 'none';
-      const isTrial = subscriptionData.isTrial || false;
-      
-      // Calculate actual days remaining based on start date
-      let daysRemaining = 0;
-      let trialDaysRemaining = 0;
-      
-      if (subscriberData.subscriber && subscriberData.subscriber.startDate) {
-        const startDate = new Date(subscriberData.subscriber.startDate);
-        const endDate = new Date(subscriberData.subscriber.endDate);
-        const now = new Date();
-        
-        // Calculate days since start
-        const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
-        
-        if (isTrial) {
-          // For trial, calculate remaining days from 30-day trial period
-          const totalTrialDays = 30;
-          trialDaysRemaining = Math.max(0, totalTrialDays - daysSinceStart);
-          daysRemaining = trialDaysRemaining;
-        } else {
-          // For regular subscription, calculate from end date
-          const timeDiff = endDate.getTime() - now.getTime();
-          daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
-        }
-        
-        // console.log('Days calculation:', {
-        //   startDate: startDate.toISOString(),
-        //   endDate: endDate.toISOString(),
-        //   now: now.toISOString(),
-        //   daysSinceStart,
-        //   isTrial,
-        //   trialDaysRemaining,
-        //   daysRemaining,
-        //   planId: subscriberData.subscriber?.planId,
-        //   subscriberId: subscriberData.subscriber?.id,
-        //   activationTime: subscriberData.subscriber?.createdAt
-        // });
-      } else {
-        // Fallback to API values if subscriber data not available
-        daysRemaining = subscriptionData.daysRemaining || 0;
-        trialDaysRemaining = subscriptionData.trialDaysRemaining || 0;
+
+      // Check if there's already a pending request for this user
+      if (this.pendingRequests[userId]) {
+        console.log('⏳ Waiting for pending subscription request for user:', userId);
+        return await this.pendingRequests[userId];
       }
-      
-      return {
-        hasActiveSubscription,
-        isTrialActive,
-        needsTrialActivation,
-        currentPlan: planDetails,
-        daysRemaining,
-        subscriptionStatus,
-        subscription: subscriberData.subscriber || subscriptionData,
-        isTrial,
-        trialDaysRemaining
-      };
+
+      // Create new request and store it to prevent race conditions
+      const requestPromise = this.fetchSubscriptionStatus(userId);
+      this.pendingRequests[userId] = requestPromise;
+
+      try {
+        const result = await requestPromise;
+        
+        // Cache the result
+        this.subscriptionCache[userId] = {
+          data: result,
+          timestamp: Date.now()
+        };
+        
+        return result;
+      } finally {
+        // Clean up pending request
+        delete this.pendingRequests[userId];
+      }
       
     } catch (error: any) {
-      console.warn('Subscription status API unavailable, using default status:', error.message);
+      console.warn('Subscription status check failed:', error.message);
 
-      // Return default status if API fails - don't force trial activation
+      // Return a consistent fallback status
       return {
         hasActiveSubscription: false,
         isTrialActive: false,
-        needsTrialActivation: false, // Changed from true to false
+        needsTrialActivation: true,
         currentPlan: null,
         daysRemaining: 0,
         subscriptionStatus: 'none',
+        isApiError: true,
       };
     }
+  }
+
+  /**
+   * Internal method to fetch subscription status from API
+   */
+  private async fetchSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
+    const token = await this.getAuthToken();
+
+    // First, get the subscriber status to get planId
+    const subscriberResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!subscriberResponse.ok) {
+      console.warn(`Subscriber status API returned ${subscriberResponse.status}`);
+      throw new Error(`HTTP error! status: ${subscriberResponse.status}`);
+    }
+
+    const subscriberData = await subscriberResponse.json();
+    console.log('📊 Subscriber API response for user:', userId, {
+      hasData: !!subscriberData,
+      hasSubscriber: !!subscriberData.subscriber,
+      status: subscriberData.subscriber?.status
+    });
+    
+    // Extract subscription data
+    const subscriptionData = subscriberData.data || subscriberData;
+    const planId = subscriptionData.planId || subscriberData.planId;
+    
+    let planDetails = null;
+    
+    // If we have a planId, fetch the full plan details
+    if (planId) {
+      try {
+        const planResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + `/plans/${planId}`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (planResponse.ok) {
+          const planData = await planResponse.json();
+          planDetails = planData.plan || planData;
+        } else {
+          console.warn(`Plan details API returned ${planResponse.status}`);
+        }
+      } catch (planError) {
+        console.warn('Failed to fetch plan details:', planError);
+      }
+    }
+    
+    // Parse the subscription data with more robust checking
+    const hasActiveSubscription = subscriptionData.hasActiveSubscription === true;
+    const isTrialActive = subscriptionData.isTrialActive === true;
+    const needsTrialActivation = subscriptionData.needsTrialActivation === true;
+    const subscriptionStatus = subscriptionData.subscriptionStatus || 'none';
+    const isTrial = subscriptionData.isTrial === true;
+    
+    // Calculate actual days remaining based on start date
+    let daysRemaining = 0;
+    let trialDaysRemaining = 0;
+    
+    if (subscriberData.subscriber && subscriberData.subscriber.startDate) {
+      const startDate = new Date(subscriberData.subscriber.startDate);
+      const endDate = new Date(subscriberData.subscriber.endDate);
+      const now = new Date();
+      
+      // Calculate days since start
+      const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
+      
+      if (isTrial) {
+        // For trial, calculate remaining days from 30-day trial period
+        const totalTrialDays = 30;
+        trialDaysRemaining = Math.max(0, totalTrialDays - daysSinceStart);
+        daysRemaining = trialDaysRemaining;
+      } else {
+        // For regular subscription, calculate from end date
+        const timeDiff = endDate.getTime() - now.getTime();
+        daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+      }
+    } else {
+      // Fallback to API values if subscriber data not available
+      daysRemaining = subscriptionData.daysRemaining || 0;
+      trialDaysRemaining = subscriptionData.trialDaysRemaining || 0;
+    }
+    
+    const result = {
+      hasActiveSubscription,
+      isTrialActive,
+      needsTrialActivation,
+      currentPlan: planDetails,
+      daysRemaining,
+      subscriptionStatus,
+      subscription: subscriberData.subscriber || subscriptionData,
+      isTrial,
+      trialDaysRemaining
+    };
+
+    console.log('📊 Processed subscription status for user:', userId, {
+      hasActiveSubscription,
+      isTrialActive,
+      needsTrialActivation,
+      subscriptionStatus,
+      daysRemaining
+    });
+
+    return result;
   }
 
   /**
@@ -231,7 +301,18 @@ class SubscriptionService {
       return data.subscriptions || [];
     } catch (error) {
       console.error('Error fetching subscription plans:', error);
-      return [];
+      
+      // Return a default trial plan if API fails to prevent navigation issues
+      return [{
+        id: 'trial-plan',
+        name: 'Trial Plan',
+        description: '30-day free trial',
+        price: 0,
+        duration: 30,
+        features: ['Basic features', '30-day trial'],
+        isTrial: true,
+        isActive: true
+      }];
     }
   }
 
@@ -416,6 +497,14 @@ class SubscriptionService {
   ): Promise<{ success: boolean; data?: any; message?: string; existingSubscription?: boolean }> {
     try {
       const token = await this.getAuthToken();
+      const auth = getAuth();
+      const user = auth.currentUser;
+      const userId = user?.uid;
+
+      // Clear cache before checking to ensure fresh data
+      if (userId) {
+        this.clearCache(userId);
+      }
 
       // First, check if user already has a subscription
       console.log('Checking existing subscription status...');
@@ -484,6 +573,10 @@ class SubscriptionService {
         if (data.message && data.message.includes('already exists')) {
           console.log('Subscriber already exists, fetching current status...');
           try {
+            // Clear cache and fetch fresh status
+            if (userId) {
+              this.clearCache(userId);
+            }
             const currentStatus = await this.getSubscriptionStatus();
             return { 
               success: true, 
@@ -497,6 +590,11 @@ class SubscriptionService {
           }
         }
         throw new Error(data.message || 'Failed to activate trial');
+      }
+
+      // Clear cache after successful trial activation to ensure fresh data on next check
+      if (userId) {
+        this.clearCache(userId);
       }
 
       return { success: true, data, existingSubscription: false };
