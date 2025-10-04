@@ -46,10 +46,54 @@ export default function TransporterProcessingScreen({ route }) {
       
       console.log('Transporter subscription status:', status);
       
-      // If user needs trial activation, redirect to trial screen
-      if (status.needsTrialActivation || 
-          !status || 
-          (!status.hasActiveSubscription && !status.isTrialActive && status.subscriptionStatus === 'none')) {
+      // Priority 1: Check if user has active subscription or trial - go to dashboard
+      if (status && (status.hasActiveSubscription || status.isTrialActive)) {
+        console.log('Transporter has active subscription/trial, navigating to dashboard');
+        try {
+          navigation.reset({
+            index: 0,
+            routes: [{
+              name: 'TransporterTabs',
+              params: { transporterType: transporterType }
+            }]
+          });
+        } catch (navError) {
+          console.log('Navigation error, trying navigate:', navError);
+          navigation.navigate('TransporterTabs', { transporterType: transporterType });
+        }
+        return;
+      }
+      
+      // Priority 2: Check if subscription has expired
+      if (status && (status.subscriptionStatus === 'expired' || status.trialUsed)) {
+        console.log('Transporter subscription expired, redirecting to expired screen');
+        try {
+          navigation.navigate('SubscriptionExpired', {
+            userType: 'transporter',
+            transporterType: transporterType,
+            userId: 'current_user',
+            expiredDate: new Date().toISOString()
+          });
+        } catch (navError) {
+          console.log('Navigation error, trying reset:', navError);
+          navigation.reset({
+            index: 0,
+            routes: [{
+              name: 'SubscriptionExpired',
+              params: {
+                userType: 'transporter',
+                transporterType: transporterType,
+                userId: 'current_user',
+                expiredDate: new Date().toISOString()
+              }
+            }]
+          });
+        }
+        return;
+      }
+      
+      // Priority 3: Check if user needs trial activation (no active subscription)
+      if (status && status.needsTrialActivation) {
         console.log('Transporter needs trial activation, redirecting to trial screen');
         try {
           navigation.navigate('SubscriptionTrial', {
@@ -74,42 +118,29 @@ export default function TransporterProcessingScreen({ route }) {
         return;
       }
       
-      // If subscription has expired, redirect to expiry screen
-      if (status.subscriptionStatus === 'expired' || status.trialUsed) {
-        console.log('Transporter subscription expired, redirecting to expired screen');
-        try {
-          navigation.navigate('SubscriptionExpired', {
-            userType: 'transporter',
-            transporterType: transporterType,
-            userId: 'current_user', // Will be replaced with actual user ID
-            expiredDate: new Date().toISOString()
-          });
-        } catch (navError) {
-          console.log('Navigation error, trying reset:', navError);
-          navigation.reset({
-            index: 0,
-            routes: [{
-              name: 'SubscriptionExpired',
-              params: {
-                userType: 'transporter',
-                transporterType: transporterType,
-                userId: 'current_user', // Will be replaced with actual user ID
-                expiredDate: new Date().toISOString()
-              }
-            }]
-          });
-        }
-        return;
+      // Priority 4: Fallback - if no subscription status or unknown state, assume needs trial
+      console.log('No subscription status or unknown state, redirecting to trial screen');
+      try {
+        navigation.navigate('SubscriptionTrial', {
+          userType: 'transporter',
+          transporterType: transporterType,
+          subscriptionStatus: status || { needsTrialActivation: true }
+        });
+      } catch (navError) {
+        console.log('Navigation error, trying reset:', navError);
+        navigation.reset({
+          index: 0,
+          routes: [{
+            name: 'SubscriptionTrial',
+            params: {
+              userType: 'transporter',
+              transporterType: transporterType,
+              subscriptionStatus: status || { needsTrialActivation: true }
+            }
+          }]
+        });
       }
-      
-      // If trial is active but expiring soon (less than 3 days), show warning
-      if (status.isTrialActive && status.daysRemaining <= 3) {
-        console.log(`Trial expiring in ${status.daysRemaining} days`);
-        // You could show a warning modal here
-      }
-      
-      console.log('Transporter has active subscription, proceeding to dashboard');
-      
+
     } catch (error) {
       console.error('Error checking subscription status:', error);
       // On error, assume user needs trial activation
@@ -193,24 +224,11 @@ export default function TransporterProcessingScreen({ route }) {
                   setStatusMessage(getStatusMessage(company.status));
                   // If approved, check subscription status before navigating
                   if (company.status === 'approved') {
-                    // Check subscription status first
+                    // Check subscription status and let it handle navigation
                     await checkSubscriptionStatus();
                     
-                    // The navigation will be handled in checkSubscriptionStatus
-                    // If no subscription issues, navigate to dashboard
-                    setTimeout(() => {
-                      try {
-                        navigation.navigate('TransporterTabs', { transporterType: 'company' });
-                      } catch (navError) {
-                        console.log('Navigation error, trying reset:', navError);
-                        navigation.reset({
-                          index: 0,
-                          routes: [
-                            { name: 'TransporterTabs', params: { transporterType: 'company' } },
-                          ],
-                        });
-                      }
-                    }, 1200);
+                    // No additional navigation needed - checkSubscriptionStatus handles everything
+                    // It will redirect to trial screen, expired screen, or dashboard as appropriate
                   }
                 }
               } else {

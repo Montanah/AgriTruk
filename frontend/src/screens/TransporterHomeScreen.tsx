@@ -7,6 +7,7 @@ import Divider from '../components/common/Divider';
 import NetworkTest from '../components/NetworkTest';
 import TransporterProfile from '../components/TransporterService/TransporterProfile';
 import TransporterInsights from '../components/TransporterService/TransporterInsights';
+import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
@@ -24,6 +25,7 @@ export default function TransporterHomeScreen() {
   const [connectivityStatus, setConnectivityStatus] = useState<string>('');
   const [acceptingBooking, setAcceptingBooking] = useState(false);
   const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
   
   // Real data states
   const [requests, setRequests] = useState([]);
@@ -147,6 +149,12 @@ export default function TransporterHomeScreen() {
           // Transporter profile retrieved successfully
           setProfile(data.transporter);
           setAcceptingBooking(data.transporter?.acceptingBooking || false);
+          
+          // Check if this is a first-time user (newly approved, no previous activity)
+          const isNewUser = !data.transporter?.hasAcceptedAnyBooking && 
+                           data.transporter?.status === 'approved' &&
+                           !data.transporter?.acceptingBooking;
+          setIsFirstTimeUser(isNewUser);
         } else if (res.status === 404) {
           // Transporter profile not found - redirecting to completion
           // Profile doesn't exist yet, redirect to profile completion
@@ -607,6 +615,18 @@ export default function TransporterHomeScreen() {
           </View>
         </View>
       )}
+
+      {/* Offline Instructions Card - Show when not accepting requests */}
+      {profile && !acceptingBooking && (
+        <OfflineInstructionsCard
+          onToggleAccepting={() => {
+            // Navigate to profile tab to show the toggle
+            navigation.navigate('Profile');
+          }}
+          isFirstTime={isFirstTimeUser}
+        />
+      )}
+
       {/* Current Trip */}
       {currentTrip && (
         <View style={styles.card}>

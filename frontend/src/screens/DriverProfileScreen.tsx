@@ -10,7 +10,8 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  Switch
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -70,6 +71,8 @@ const DriverProfileScreen = () => {
   const [uploading, setUploading] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<'driverLicense' | 'idDocument' | null>(null);
+  const [acceptingBooking, setAcceptingBooking] = useState(false);
+  const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
 
   useEffect(() => {
     fetchDriverProfile();
@@ -95,6 +98,7 @@ const DriverProfileScreen = () => {
       if (response.ok) {
         const data = await response.json();
         setDriverProfile(data.driver);
+        setAcceptingBooking(data.driver?.acceptingBooking || false);
       } else {
         throw new Error('Failed to fetch driver profile');
       }
@@ -110,6 +114,43 @@ const DriverProfileScreen = () => {
     setRefreshing(true);
     await fetchDriverProfile();
     setRefreshing(false);
+  };
+
+  const updateAcceptingBookingStatus = async (newStatus: boolean) => {
+    try {
+      setUpdatingBookingStatus(true);
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.DRIVERS}/accepting-booking`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          acceptingBooking: newStatus,
+        }),
+      });
+
+      if (response.ok) {
+        setAcceptingBooking(newStatus);
+        setDriverProfile((prev: any) => ({ ...prev, acceptingBooking: newStatus }));
+        Alert.alert(
+          'Status Updated',
+          `You are now ${newStatus ? 'accepting' : 'not accepting'} new job requests.`
+        );
+      } else {
+        throw new Error('Failed to update status');
+      }
+    } catch (err: any) {
+      console.error('Error updating accepting booking status:', err);
+      Alert.alert('Error', 'Failed to update status. Please try again.');
+    } finally {
+      setUpdatingBookingStatus(false);
+    }
   };
 
   const handleDocumentUpload = (documentType: 'driverLicense' | 'idDocument') => {
@@ -430,6 +471,37 @@ const DriverProfileScreen = () => {
               Your subscription is managed by {driverProfile.company.name}. 
               Contact your company administrator for subscription changes.
             </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Job Availability */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Job Availability</Text>
+        <View style={styles.availabilityCard}>
+          <View style={styles.availabilityHeader}>
+            <MaterialCommunityIcons name="briefcase" size={24} color={colors.primary} />
+            <Text style={styles.availabilityTitle}>Accepting New Jobs</Text>
+          </View>
+          
+          <View style={styles.toggleContainer}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleLabel}>Job Requests</Text>
+              <Text style={styles.toggleDescription}>
+                {acceptingBooking 
+                  ? 'You are currently accepting new job requests' 
+                  : 'You are not accepting new job requests'
+                }
+              </Text>
+            </View>
+            <Switch
+              value={acceptingBooking}
+              onValueChange={updateAcceptingBookingStatus}
+              disabled={updatingBookingStatus}
+              trackColor={{ false: colors.text.light, true: colors.primary + '40' }}
+              thumbColor={acceptingBooking ? colors.primary : colors.text.light}
+              ios_backgroundColor={colors.text.light}
+            />
           </View>
         </View>
       </View>
@@ -780,6 +852,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text.primary,
     fontWeight: 'bold',
+  },
+  availabilityCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  availabilityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  availabilityTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginLeft: 8,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  toggleDescription: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    lineHeight: 20,
   },
 });
 

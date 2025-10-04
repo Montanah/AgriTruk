@@ -312,7 +312,24 @@ class SubscriptionService {
       subscriberIsActive: subscriber?.isActive
     });
 
-    return result;
+        return result;
+        
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`Subscription status fetch failed (attempt ${attempt}/${maxRetries}):`, error.message);
+        
+        if (attempt === maxRetries) {
+          console.error('All subscription status fetch attempts failed:', error);
+          throw error;
+        }
+        
+        // Wait before retry with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+    
+    // If we get here, all retries failed
+    throw lastError || new Error('Failed to fetch subscription status after all retries');
   }
 
   /**

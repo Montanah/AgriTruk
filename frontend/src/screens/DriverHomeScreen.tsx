@@ -20,6 +20,7 @@ import AvailableJobsCard from '../components/TransporterService/AvailableJobsCar
 import IncomingRequestsCard from '../components/TransporterService/IncomingRequestsCard';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import { useAssignedJobs } from '../hooks/UseAssignedJobs';
+import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
 
 interface DriverProfile {
   id: string;
@@ -54,6 +55,8 @@ const DriverHomeScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTrip, setCurrentTrip] = useState<any>(null);
+  const [acceptingBooking, setAcceptingBooking] = useState(false);
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
 
   // Use the same hook as transporters for assigned jobs
   const { assignedJobs, loading: loadingJobs, fetchAssignedJobs } = useAssignedJobs();
@@ -83,6 +86,13 @@ const DriverHomeScreen = () => {
       if (response.ok) {
         const data = await response.json();
         setDriverProfile(data.driver);
+        setAcceptingBooking(data.driver?.acceptingBooking || false);
+        
+        // Check if this is a first-time user (newly approved, no previous activity)
+        const isNewUser = !data.driver?.hasAcceptedAnyJob && 
+                         data.driver?.status === 'approved' &&
+                         !data.driver?.acceptingBooking;
+        setIsFirstTimeUser(isNewUser);
         
         // Check for active trip
         if (data.driver?.assignedVehicle) {
@@ -224,6 +234,17 @@ const DriverHomeScreen = () => {
           </View>
         )}
       </View>
+
+      {/* Offline Instructions Card - Show when not accepting requests */}
+      {!acceptingBooking && (
+        <OfflineInstructionsCard
+          onToggleAccepting={() => {
+            // Navigate to profile tab to show the toggle
+            navigation.navigate('Profile');
+          }}
+          isFirstTime={isFirstTimeUser}
+        />
+      )}
 
       {/* Current Trip Status */}
       {currentTrip && (

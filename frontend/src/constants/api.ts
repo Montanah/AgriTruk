@@ -1,9 +1,9 @@
-// API Configuration
+
 // Updated to the correct backend URL
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com';
 
-// API Endpoints - Updated to match Swagger documentation
+// API Endpoints - Updated to match Mutuku's Swagger documentation
 export const API_ENDPOINTS = {
   AUTH: `${API_BASE_URL}/api/auth`,
   USERS: `${API_BASE_URL}/api/users`,

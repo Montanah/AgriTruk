@@ -28,6 +28,7 @@ interface SubscriptionTrialScreenProps {
     route: {
         params: {
             userType: 'transporter' | 'broker' | 'business';
+            transporterType?: 'individual' | 'company';
             subscriptionStatus?: {
                 daysRemaining: number;
                 currentPlan?: any;
@@ -44,7 +45,7 @@ type NavigationProp = {
 
 const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route }) => {
     const navigation = useNavigation<NavigationProp>();
-    const { userType, subscriptionStatus } = route.params;
+    const { userType, transporterType, subscriptionStatus } = route.params;
 
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'mpesa' | 'stripe' | null>(null);
     const [mpesaPhone, setMpesaPhone] = useState('');
@@ -160,7 +161,8 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         // User already has active trial - navigate to appropriate dashboard
                         if (userType === 'transporter' || userType === 'company' || userType === 'individual') {
                             // Both individual transporters and companies go to TransporterTabs
-                            navigation.navigate('TransporterTabs', { transporterType: userType === 'company' ? 'company' : 'individual' });
+                            // Use the transporterType parameter passed from the previous screen
+                            navigation.navigate('TransporterTabs', { transporterType: transporterType || 'individual' });
                         } else if (userType === 'broker') {
                             navigation.navigate('BrokerTabs');
                         } else {
@@ -170,7 +172,8 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                     } else {
                         // Navigate to appropriate dashboard
                         if (userType === 'transporter' || userType === 'company' || userType === 'individual') {
-                            navigation.navigate('TransporterTabs', { transporterType: userType === 'company' ? 'company' : 'individual' });
+                            // Use the transporterType parameter passed from the previous screen
+                            navigation.navigate('TransporterTabs', { transporterType: transporterType || 'individual' });
                         } else if (userType === 'broker') {
                             navigation.navigate('BrokerTabs');
                         } else {
@@ -207,8 +210,8 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                                 onPress: () => {
                                     if (userType === 'transporter' || userType === 'company' || userType === 'individual') {
                                         // Both individual transporters and companies go to TransporterTabs
-                                        // Companies will see fleet management options
-                                        navigation.navigate('TransporterTabs', { transporterType: userType === 'company' ? 'company' : 'individual' });
+                                        // Use the transporterType parameter passed from the previous screen
+                                        navigation.navigate('TransporterTabs', { transporterType: transporterType || 'individual' });
                                     } else if (userType === 'broker') {
                                         // Navigate to payment confirmation for brokers
                                         navigation.navigate('PaymentConfirmation', {
