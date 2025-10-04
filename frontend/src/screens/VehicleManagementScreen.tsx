@@ -226,6 +226,19 @@ const VehicleManagementScreen = () => {
     setVehiclePhotos(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Form validation function - require insurance as mandatory
+  const isFormValid = () => {
+    return !!(
+      vehicleType && 
+      vehicleReg && 
+      vehicleMake && 
+      vehicleColor && 
+      vehicleYear && 
+      vehicleCapacity &&
+      insurance
+    );
+  };
+
   const pickInsurance = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -264,20 +277,57 @@ const VehicleManagementScreen = () => {
       companyProfile: !!companyProfile
     });
     
-    if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 1) {
-      const missingFields = [];
-      if (!vehicleType) missingFields.push('Vehicle Type');
-      if (!vehicleReg) missingFields.push('Registration Number');
-      if (!insurance) missingFields.push('Vehicle Insurance Document');
-      if (vehiclePhotos.length < 1) missingFields.push('At least 1 photo');
-      
-      console.log('🚗 VALIDATION FAILED - Missing fields:', missingFields);
-      Alert.alert('Missing Info', `Please provide: ${missingFields.join(', ')}`);
+    // Enhanced validation with detailed error messages
+    const validationErrors = [];
+    
+    if (!vehicleType) {
+      validationErrors.push('Vehicle Type is required');
+    }
+    
+    if (!vehicleReg || vehicleReg.trim().length === 0) {
+      validationErrors.push('Registration Number is required');
+    } else if (vehicleReg.trim().length < 3) {
+      validationErrors.push('Registration Number must be at least 3 characters');
+    }
+    
+    if (!vehicleMake || vehicleMake.trim().length === 0) {
+      validationErrors.push('Vehicle Make is required');
+    }
+    
+    if (!vehicleColor || vehicleColor.trim().length === 0) {
+      validationErrors.push('Vehicle Color is required');
+    }
+    
+    if (!vehicleYear || vehicleYear < 1990 || vehicleYear > new Date().getFullYear() + 1) {
+      validationErrors.push('Vehicle Year must be between 1990 and ' + (new Date().getFullYear() + 1));
+    }
+    
+    if (!vehicleCapacity || vehicleCapacity < 1 || vehicleCapacity > 50) {
+      validationErrors.push('Vehicle Capacity must be between 1 and 50 tons');
+    }
+    
+    if (!insurance) {
+      validationErrors.push('Vehicle Insurance Document is required');
+    }
+    
+    if (vehiclePhotos.length < 1) {
+      validationErrors.push('At least 1 vehicle photo is required');
+    } else if (vehiclePhotos.length > 10) {
+      validationErrors.push('Maximum 10 vehicle photos allowed');
+    }
+    
+    if (validationErrors.length > 0) {
+      console.log('🚗 VALIDATION FAILED - Errors:', validationErrors);
+      Alert.alert(
+        'Validation Error', 
+        validationErrors.join('\n\n'),
+        [{ text: 'OK', style: 'default' }]
+      );
       return;
     }
 
     if (!companyProfile?.id && !companyProfile?.companyId) {
-      Alert.alert('Error', 'Company profile not loaded. Please try again.');
+      Alert.alert('Error', 'Company profile not loaded. Please refresh and try again.');
       console.error('🚗 Company profile missing:', companyProfile);
       return;
     }
@@ -294,9 +344,9 @@ const VehicleManagementScreen = () => {
       formData.append('vehicleMake', vehicleMake);
       formData.append('vehicleModel', vehicleMake); // Use vehicleMake as model
       formData.append('vehicleColor', vehicleColor);
-      formData.append('vehicleYear', vehicleYear);
+      formData.append('vehicleYear', vehicleYear.toString());
       formData.append('vehicleRegistration', vehicleReg);
-      formData.append('vehicleCapacity', vehicleCapacity);
+      formData.append('vehicleCapacity', vehicleCapacity.toString());
       formData.append('bodyType', bodyType);
       formData.append('driveType', vehicleDriveType);
       
@@ -306,23 +356,31 @@ const VehicleManagementScreen = () => {
       formData.append('specialCargo', specialCargo ? 'true' : 'false');
       formData.append('features', vehicleFeatures);
       
-      // Add insurance document
+      // Add insurance document with proper file structure (optional)
       if (insurance) {
         formData.append('insurance', {
           uri: insurance.uri,
           type: insurance.type || 'application/pdf',
           name: insurance.fileName || 'insurance.pdf'
         } as any);
+        console.log('🚗 Added insurance file to FormData');
+      } else {
+        console.log('🚗 No insurance file to add');
       }
       
-      // Add vehicle photos
-      vehiclePhotos.forEach((photo, index) => {
-        formData.append('vehicleImages', {
-          uri: photo.uri,
-          type: photo.type || 'image/jpeg',
-          name: photo.fileName || `vehicle_${index}.jpg`
-        } as any);
-      });
+      // Add vehicle photos with proper file structure (optional)
+      if (vehiclePhotos.length > 0) {
+        vehiclePhotos.forEach((photo, index) => {
+          formData.append('vehicleImages', {
+            uri: photo.uri,
+            type: photo.type || 'image/jpeg',
+            name: photo.fileName || `vehicle_${index}.jpg`
+          } as any);
+        });
+        console.log(`🚗 Added ${vehiclePhotos.length} vehicle photos to FormData`);
+      } else {
+        console.log('🚗 No vehicle photos to add');
+      }
 
       
       // Get auth token
@@ -378,15 +436,32 @@ const VehicleManagementScreen = () => {
           }
         }
         
-        const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            // Don't set Content-Type for FormData - let React Native set it automatically
-          },
-          body: formData,
-          signal: controller.signal
-        });
+        // Make FormData request - no fallback
+        console.log('🚗 Making FormData request...');
+        console.log('🚗 FormData entries:');
+        for (let [key, value] of formData.entries()) {
+          if (value && typeof value === 'object' && value.uri) {
+            console.log(`  ${key}: file (${value.name})`);
+          } else {
+            console.log(`  ${key}: ${value}`);
+          }
+        }
+        
+        let response;
+        try {
+          response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              // Don't set Content-Type for FormData - let React Native set it automatically
+            },
+            body: formData,
+            signal: controller.signal
+          });
+        } catch (fetchError: any) {
+          console.error('🚗 Fetch request failed:', fetchError);
+          throw new Error(`Network error: ${fetchError.message}. Please check your internet connection and try again.`);
+        }
         
         clearTimeout(timeoutId);
         console.log('🚗 Fetch request completed successfully');
@@ -394,44 +469,87 @@ const VehicleManagementScreen = () => {
         console.log('🚗 Response status:', response.status);
         console.log('🚗 Response ok:', response.ok);
 
-        const responseData = await response.json();
+        // Handle response like individual transporter (text first, then parse)
+        const responseText = await response.text();
+        console.log('🚗 Response text:', responseText);
+        
+        let responseData = null;
+        let parseError = null;
+        
+        try {
+          if (responseText.trim()) {
+            responseData = JSON.parse(responseText);
+          }
+        } catch (err) {
+          parseError = err;
+          console.error('🚗 JSON parse error:', err);
+        }
+        
+        if (!response.ok) {
+          console.error('🚗 Response error:', responseText);
+          throw new Error(`Server error: ${response.status} - ${responseText}`);
+        }
+        
+        if (parseError) {
+          console.error('🚗 Failed to parse response:', parseError);
+          throw new Error('Invalid response from server');
+        }
+        
         console.log('🚗 Response data:', responseData);
 
-        if (response.ok && responseData.success) {
-        
-        // Update local state
-        const newVehicle = {
-          id: responseData.vehicle?.id || Date.now().toString(),
-          type: vehicleType,
-          reg: vehicleReg,
-          bodyType,
-          refrigeration,
-          humidityControl,
-          specialCargo,
-          features: vehicleFeatures,
-          insurance,
-          photos: vehiclePhotos,
-          assignedDriverId,
-          status: 'pending' // Show pending status
-        };
-        
-        let updated;
-        if (vehicleEditIdx !== null) {
-          updated = [...vehicles];
-          updated[vehicleEditIdx] = newVehicle;
+        if (responseData.success !== false) {
+          // Update local state
+          const newVehicle = {
+            id: responseData.vehicle?.id || Date.now().toString(),
+            type: vehicleType,
+            reg: vehicleReg,
+            bodyType,
+            refrigeration,
+            humidityControl,
+            specialCargo,
+            features: vehicleFeatures,
+            insurance,
+            photos: vehiclePhotos,
+            assignedDriverId,
+            status: 'pending' // Show pending status
+          };
+          
+          let updated;
+          if (vehicleEditIdx !== null) {
+            updated = [...vehicles];
+            updated[vehicleEditIdx] = newVehicle;
+          } else {
+            updated = [...vehicles, newVehicle];
+          }
+          setVehicles(updated);
+          setShowVehicleModal(false);
+          
+          // Clear form after successful submission
+          setVehicleType('');
+          setVehicleReg('');
+          setVehicleMake('');
+          setVehicleColor('');
+          setVehicleYear(2020);
+          setVehicleCapacity(5);
+          setBodyType('closed');
+          setVehicleDriveType('2WD');
+          setRefrigeration(false);
+          setHumidityControl(false);
+          setSpecialCargo(false);
+          setVehicleFeatures('');
+          setVehiclePhotos([]);
+          setInsurance(null);
+          setVehicleEditIdx(null);
+          
+          Alert.alert(
+            'Success! 🎉', 
+            'Vehicle added successfully!\n\nIt will be reviewed by admin before approval. You can track its status in the vehicles list.',
+            [{ text: 'OK', style: 'default' }]
+          );
         } else {
-          updated = [...vehicles, newVehicle];
-        }
-        setVehicles(updated);
-        setShowVehicleModal(false);
-        
-        Alert.alert(
-          'Success', 
-          'Vehicle added successfully! It will be reviewed by admin before approval.',
-          [{ text: 'OK' }]
-        );
-        } else {
-          throw new Error(responseData.message || 'Failed to create vehicle');
+          const errorMessage = responseData.message || responseData.error || 'Failed to create vehicle';
+          console.error('❌ API Error Response:', responseData);
+          throw new Error(errorMessage);
         }
       } catch (networkError: any) {
         console.error('❌ Network error creating vehicle:', networkError);
@@ -440,11 +558,112 @@ const VehicleManagementScreen = () => {
           name: networkError.name,
           stack: networkError.stack
         });
-        Alert.alert('Network Error', `Failed to create vehicle: ${networkError.message}`);
+        
+        // Try fallback: Create vehicle without files first
+        if (networkError.message === 'Network request failed') {
+          console.log('🚗 FormData failed, trying fallback JSON request...');
+          try {
+            const fallbackData = {
+              companyId: companyProfile?.id || companyProfile?.companyId,
+              vehicleType,
+              vehicleMake,
+              vehicleModel: vehicleMake,
+              vehicleColor,
+              vehicleYear: parseInt(vehicleYear),
+              vehicleRegistration: vehicleReg,
+              vehicleCapacity: parseFloat(vehicleCapacity),
+              bodyType,
+              driveType: vehicleDriveType,
+              refrigerated: refrigeration,
+              humidityControl,
+              specialCargo,
+              features: vehicleFeatures
+            };
+            
+            console.log('🚗 Fallback data:', fallbackData);
+            
+            const fallbackResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(fallbackData)
+            });
+            
+            if (fallbackResponse.ok) {
+              const fallbackResult = await fallbackResponse.json();
+              console.log('🚗 Fallback success:', fallbackResult);
+              
+              Alert.alert(
+                'Vehicle Created', 
+                'Vehicle created successfully without files. You can add photos and insurance later.',
+                [{ text: 'OK' }]
+              );
+              
+              // Reset form
+              setVehicleType('');
+              setVehicleReg('');
+              setVehicleMake('');
+              setVehicleColor('');
+              setVehicleYear('');
+              setVehicleCapacity('');
+              setVehicleDriveType('2WD');
+              setRefrigeration(false);
+              setHumidityControl(false);
+              setSpecialCargo(false);
+              setVehicleFeatures('');
+              setVehiclePhotos([]);
+              setInsurance(null);
+              setShowVehicleModal(false);
+              
+              // Refresh vehicles list
+              loadVehicles();
+              return;
+            } else {
+              throw new Error(`Fallback failed: ${fallbackResponse.status}`);
+            }
+          } catch (fallbackError) {
+            console.error('❌ Fallback also failed:', fallbackError);
+          }
+        }
+        
+        let errorMessage = 'Network connection failed. Please check your internet connection and try again.';
+        if (networkError.name === 'AbortError') {
+          errorMessage = 'Request timed out. Please try again with a better connection.';
+        } else if (networkError.message.includes('fetch')) {
+          errorMessage = 'Unable to connect to server. Please try again later.';
+        }
+        
+        Alert.alert(
+          'Network Error', 
+          errorMessage,
+          [
+            { text: 'Retry', onPress: () => handleSaveVehicle() },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
       }
     } catch (error: any) {
       console.error('❌ Error creating vehicle:', error);
-      Alert.alert('Error', `Failed to create vehicle: ${error.message}`);
+      
+      let errorMessage = 'An unexpected error occurred. Please try again.';
+      if (error.message.includes('User not authenticated')) {
+        errorMessage = 'Session expired. Please log in again.';
+      } else if (error.message.includes('Company profile')) {
+        errorMessage = 'Company profile error. Please refresh the page and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert(
+        'Error', 
+        errorMessage,
+        [
+          { text: 'Try Again', onPress: () => handleSaveVehicle() },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
     } finally {
       setLoadingProfile(false);
     }
@@ -655,6 +874,7 @@ const VehicleManagementScreen = () => {
                   bodyType: bodyType,
                   humidityControl: humidityControl,
                   refrigeration: refrigeration,
+                  specialCargo: specialCargo,
                   vehicleFeatures: vehicleFeatures
                 }}
                 onChange={(data) => {
@@ -668,6 +888,7 @@ const VehicleManagementScreen = () => {
                   setBodyType(data.bodyType);
                   setHumidityControl(data.humidityControl);
                   setRefrigeration(data.refrigeration);
+                  setSpecialCargo(data.specialCargo);
                   setVehicleFeatures(data.vehicleFeatures);
                 }}
                 onPhotoAdd={pickVehiclePhotos}
@@ -698,19 +919,27 @@ const VehicleManagementScreen = () => {
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveBtn, loadingProfile && styles.disabledBtn]}
+                style={[
+                  styles.saveBtn, 
+                  (loadingProfile || !isFormValid()) && styles.disabledBtn
+                ]}
                 onPress={() => {
                   console.log('🚗 BUTTON PRESSED!');
                   console.log('🚗 loadingProfile:', loadingProfile);
-                  console.log('🚗 Button disabled:', loadingProfile);
+                  console.log('🚗 Button disabled:', loadingProfile || !isFormValid());
                   handleSaveVehicle();
                 }}
-                disabled={loadingProfile}
+                disabled={loadingProfile || !isFormValid()}
               >
                 {loadingProfile ? (
-                  <ActivityIndicator size="small" color={colors.white} />
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={colors.white} />
+                    <Text style={[styles.saveBtnText, { marginLeft: 8 }]}>Saving...</Text>
+                  </View>
                 ) : (
-                  <Text style={styles.saveBtnText}>Save Vehicle</Text>
+                  <Text style={styles.saveBtnText}>
+                    {vehicleEditIdx !== null ? 'Update Vehicle' : 'Save Vehicle'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1104,6 +1333,11 @@ const styles = StyleSheet.create({
   },
   disabledBtn: {
     backgroundColor: colors.text.light,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
