@@ -221,11 +221,24 @@ class SubscriptionService {
     }
     
     // Parse the subscription data with more robust checking
-    const hasActiveSubscription = subscriptionData.hasActiveSubscription === true;
-    const isTrialActive = subscriptionData.isTrialActive === true;
+    // Check if subscriber exists and is active
+    const subscriber = subscriberData.subscriber;
+    const hasActiveSubscriber = subscriber && subscriber.status === 'active' && subscriber.isActive === true;
+    
+    // Determine if it's a trial based on subscriber data
+    const isTrial = subscriber && (subscriber.isTrial === true || subscriptionData.isTrial === true);
+    
+    // Active subscription is either a paid subscription or an active trial
+    const hasActiveSubscription = subscriptionData.hasActiveSubscription === true || 
+                                 (hasActiveSubscriber && !isTrial);
+    
+    // Trial is active if subscriber is active and it's a trial
+    const isTrialActive = subscriptionData.isTrialActive === true || 
+                         (hasActiveSubscriber && isTrial);
+    
     const needsTrialActivation = subscriptionData.needsTrialActivation === true;
-    const subscriptionStatus = subscriptionData.subscriptionStatus || 'none';
-    const isTrial = subscriptionData.isTrial === true;
+    const subscriptionStatus = subscriptionData.subscriptionStatus || 
+                              (hasActiveSubscriber ? (isTrial ? 'trial' : 'active') : 'none');
     
     // Calculate actual days remaining based on start date
     let daysRemaining = 0;
@@ -272,7 +285,11 @@ class SubscriptionService {
       isTrialActive,
       needsTrialActivation,
       subscriptionStatus,
-      daysRemaining
+      daysRemaining,
+      hasActiveSubscriber,
+      isTrial,
+      subscriberStatus: subscriber?.status,
+      subscriberIsActive: subscriber?.isActive
     });
 
     return result;

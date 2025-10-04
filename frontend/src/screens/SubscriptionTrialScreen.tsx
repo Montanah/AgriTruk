@@ -59,19 +59,19 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     // Get trial duration from subscription status or default to 30 days
     const trialDuration = subscriptionStatus?.daysRemaining || 30;
 
+
     // Check if user already has active subscription on component mount
     useEffect(() => {
         const checkExistingSubscription = async () => {
             try {
                 const currentStatus = await subscriptionService.getSubscriptionStatus();
-                console.log('Trial screen - checking existing subscription:', {
-                    hasActiveSubscription: currentStatus.hasActiveSubscription,
-                    isTrialActive: currentStatus.isTrialActive,
-                    subscriptionStatus: currentStatus.subscriptionStatus
-                });
+
+                // Check if user has active subscription or trial
+                const hasActive = currentStatus.hasActiveSubscription === true;
+                const hasTrial = currentStatus.isTrialActive === true;
 
                 // If user already has active subscription or trial, redirect to dashboard
-                if (currentStatus.hasActiveSubscription || currentStatus.isTrialActive) {
+                if (hasActive || hasTrial) {
                     console.log('✅ User already has active subscription/trial, redirecting to dashboard');
                     
                     if (userType === 'transporter' || userType === 'company' || userType === 'individual') {
@@ -538,6 +538,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         </Text>
                     </View>
                 </View>
+
             </FormKeyboardWrapper>
 
             {/* Action Button */}
