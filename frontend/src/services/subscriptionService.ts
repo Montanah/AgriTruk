@@ -166,64 +166,84 @@ class SubscriptionService {
   }
 
   /**
-   * Internal method to fetch subscription status from API
+   * Internal method to fetch subscription status from API with retry logic
    */
   private async fetchSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
     const token = await this.getAuthToken();
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-    // First, get the subscriber status to get planId
-    const subscriberResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!subscriberResponse.ok) {
-      console.warn(`Subscriber status API returned ${subscriberResponse.status}`);
-      throw new Error(`HTTP error! status: ${subscriberResponse.status}`);
-    }
-
-    const subscriberData = await subscriberResponse.json();
-    console.log('📊 Subscriber API response for user:', userId, {
-      hasData: !!subscriberData,
-      hasSubscriber: !!subscriberData.subscriber,
-      status: subscriberData.subscriber?.status
-    });
-    
-    // Extract subscription data
-    const subscriptionData = subscriberData.data || subscriberData;
-    const planId = subscriptionData.planId || subscriberData.planId;
-    
-    let planDetails = null;
-    
-    // If we have a planId, fetch the full plan details
-    if (planId) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const planResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + `/plans/${planId}`, {
+        console.log(`📊 Fetching subscription status (attempt ${attempt}/${maxRetries})`);
+        
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, 10000); // 10 second timeout
+
+        // First, get the subscriber status to get planId
+        const subscriberResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + '/subscriber/status', {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!subscriberResponse.ok) {
+          console.warn(`Subscriber status API returned ${subscriberResponse.status} (attempt ${attempt})`);
+          if (attempt === maxRetries) {
+            throw new Error(`HTTP error! status: ${subscriberResponse.status}`);
+          }
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+
+        const subscriberData = await subscriberResponse.json();
+        console.log('📊 Subscriber API response for user:', userId, {
+          hasData: !!subscriberData,
+          hasSubscriber: !!subscriberData.subscriber,
+          status: subscriberData.subscriber?.status
         });
         
-        if (planResponse.ok) {
-          const planData = await planResponse.json();
-          planDetails = planData.plan || planData;
-        } else {
-          console.warn(`Plan details API returned ${planResponse.status}`);
+        // Extract subscription data
+        const subscriptionData = subscriberData.data || subscriberData;
+        const planId = subscriptionData.planId || subscriberData.planId;
+        
+        let planDetails = null;
+        
+        // If we have a planId, fetch the full plan details
+        if (planId) {
+          try {
+            const planResponse = await fetch(API_ENDPOINTS.SUBSCRIPTIONS + `/plans/${planId}`, {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (planResponse.ok) {
+              const planData = await planResponse.json();
+              planDetails = planData.plan || planData;
+            } else {
+              console.warn(`Plan details API returned ${planResponse.status}`);
+            }
+          } catch (planError) {
+            console.warn('Failed to fetch plan details:', planError);
+          }
         }
-      } catch (planError) {
-        console.warn('Failed to fetch plan details:', planError);
-      }
-    }
-    
-    // Parse the subscription data with more robust checking
-    // Check if subscriber exists and is active
-    const subscriber = subscriberData.subscriber;
-    const hasActiveSubscriber = subscriber && subscriber.status === 'active' && subscriber.isActive === true;
+        
+        // Parse the subscription data with more robust checking
+        // Check if subscriber exists and is active
+        const subscriber = subscriberData.subscriber;
+        const hasActiveSubscriber = subscriber && subscriber.status === 'active' && subscriber.isActive === true;
     
     // Determine if it's a trial based on subscriber data
     const isTrial = subscriber && (subscriber.isTrial === true || subscriptionData.isTrial === true);

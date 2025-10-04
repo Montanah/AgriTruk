@@ -78,7 +78,7 @@ const createVehicle = async (req, res) => {
       metadata: {
         companyName: companyData.companyName,
         vehicleRegistration: vehicleData.vehicleRegistration,
-        vehicleType: vehicleData.vehicleType
+        vehicleType: vehicleData.type
       },
       message: `New vehicle added by ${companyData.companyName}. Vehicle ID: ${vehicleRef.id}`,
       createdAt: new Date(),
