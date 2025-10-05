@@ -1009,24 +1009,64 @@ exports.acceptBooking = async (req, res) => {
       });
     }
 
-    // Update booking status
+    // Get transporter details first
+    let transporter = null;
+    try {
+      transporter = await Transporter.get(transporterId);
+    } catch (error) {
+      console.log('Transporter not found, continuing without transporter details:', error.message);
+    }
+
+    // Get vehicle details if vehicleId is provided
+    let vehicle = null;
+    if (vehicleId) {
+      try {
+        // Check if it's a company vehicle or individual transporter vehicle
+        const companySnapshot = await db.collection('companies').where('transporterId', '==', transporterId).get();
+        if (!companySnapshot.empty) {
+          // It's a company vehicle
+          const companyDoc = companySnapshot.docs[0];
+          const vehiclesSnapshot = await db.collection('companies').doc(companyDoc.id).collection('vehicles').doc(vehicleId).get();
+          if (vehiclesSnapshot.exists) {
+            vehicle = vehiclesSnapshot.data();
+          }
+        } else {
+          // It's an individual transporter vehicle
+          const vehicleSnapshot = await db.collection('vehicles').doc(vehicleId).get();
+          if (vehicleSnapshot.exists) {
+            vehicle = vehicleSnapshot.data();
+          }
+        }
+      } catch (error) {
+        console.log('Vehicle not found, continuing without vehicle details:', error.message);
+      }
+    }
+
+    // Update booking status with transporter and vehicle details
     const updates = {
       status: 'accepted',
       transporterId: transporterId,
       vehicleId: vehicleId || null,
+      transporterName: transporter?.name || null,
+      transporterPhone: transporter?.phone || null,
+      transporterPhoto: transporter?.profilePhoto || null,
+      transporterRating: transporter?.rating || 0,
+      transporterExperience: transporter?.experience || null,
+      transporterAvailability: transporter?.availability || null,
+      transporterTripsCompleted: transporter?.tripsCompleted || 0,
+      transporterStatus: transporter?.status || null,
+      vehicleMake: vehicle?.make || vehicle?.vehicleMake || null,
+      vehicleModel: vehicle?.model || vehicle?.vehicleModel || null,
+      vehicleYear: vehicle?.year || vehicle?.vehicleYear || null,
+      vehicleType: vehicle?.type || vehicle?.vehicleType || null,
+      vehicleRegistration: vehicle?.reg || vehicle?.vehicleRegistration || null,
+      vehicleColor: vehicle?.color || vehicle?.vehicleColor || null,
+      vehicleCapacity: vehicle?.capacity || vehicle?.vehicleCapacity || null,
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
 
     await Booking.update(bookingId, updates);
-
-    // Get transporter details for notification
-    let transporter = null;
-    try {
-      transporter = await Transporter.get(transporterId);
-    } catch (error) {
-      console.log('Transporter not found for notifications, continuing without transporter details:', error.message);
-    }
     
     // Create detailed notification for client
     await Notification.create({

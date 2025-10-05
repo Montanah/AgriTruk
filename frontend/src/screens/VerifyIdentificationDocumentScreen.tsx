@@ -307,64 +307,40 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                 else {
                   console.log('🔄 Verified broker needs trial activation, navigating to trial screen');
                   console.log('Navigation object available:', !!navigation);
-                  console.log('Navigation navigate method available:', !!navigation.navigate);
                   console.log('Subscription status:', subscriptionStatus);
                   
-                  // Use a small delay to ensure the screen is fully mounted
-                  setTimeout(() => {
-                    try {
-                      console.log('Attempting navigation to SubscriptionTrial...');
-                      navigation.navigate('SubscriptionTrial', {
-                        userType: 'broker',
-                        subscriptionStatus: subscriptionStatus
-                      });
-                      console.log('Navigation to SubscriptionTrial successful');
-                    } catch (navError) {
-                      console.log('Navigation error, trying reset:', navError);
-                      navigation.reset({
-                        index: 0,
-                        routes: [{ 
-                          name: 'SubscriptionTrial',
-                          params: {
-                            userType: 'broker',
-                            subscriptionStatus: subscriptionStatus
-                          }
-                        }]
-                      });
-                    }
-                  }, 500); // Small delay to ensure screen is ready
-                }
-              } catch (error) {
-                console.error('Error checking subscription status:', error);
-                // Fallback to trial screen if subscription check fails
-                try {
-                  navigation.navigate('SubscriptionTrial', {
-                    userType: 'broker',
-                    subscriptionStatus: {
-                      needsTrialActivation: true,
-                      hasActiveSubscription: false,
-                      isTrialActive: false,
-                      subscriptionStatus: 'none'
-                    }
-                  });
-                } catch (navError) {
-                  console.log('Fallback navigation error, trying reset:', navError);
+                  // Navigate directly to SubscriptionTrial
+                  console.log('Using navigation.reset() to navigate to SubscriptionTrial...');
                   navigation.reset({
                     index: 0,
                     routes: [{ 
                       name: 'SubscriptionTrial',
                       params: {
                         userType: 'broker',
-                        subscriptionStatus: {
-                          needsTrialActivation: true,
-                          hasActiveSubscription: false,
-                          isTrialActive: false,
-                          subscriptionStatus: 'none'
-                        }
+                        subscriptionStatus: subscriptionStatus
                       }
                     }]
                   });
                 }
+              } catch (error) {
+                console.error('Error checking subscription status:', error);
+                // Fallback to trial screen if subscription check fails
+                console.log('Using navigation.reset() for fallback navigation to SubscriptionTrial...');
+                navigation.reset({
+                  index: 0,
+                  routes: [{ 
+                    name: 'SubscriptionTrial',
+                    params: {
+                      userType: 'broker',
+                      subscriptionStatus: {
+                        needsTrialActivation: true,
+                        hasActiveSubscription: false,
+                        isTrialActive: false,
+                        subscriptionStatus: 'none'
+                      }
+                    }
+                  }]
+                });
               }
             }, 1000);
           } else if (brokerData.status === 'deactivated') {
@@ -853,9 +829,8 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
             <Text style={styles.statusTextVerified}>ID Verified</Text>
             <Text style={styles.statusSubText}>Your ID is verified. You can now access the broker dashboard.</Text>
             <TouchableOpacity style={styles.goDashboardBtn} onPress={() => {
-              console.log('Manual button pressed - attempting navigation to SubscriptionTrial');
+              console.log('Manual button pressed - trying navigation.navigate() first');
               console.log('Navigation object available:', !!navigation);
-              console.log('Navigation navigate method available:', !!navigation.navigate);
               
               try {
                 navigation.navigate('SubscriptionTrial', {
@@ -867,9 +842,9 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                     subscriptionStatus: 'none'
                   }
                 });
-                console.log('Manual navigation to SubscriptionTrial successful');
+                console.log('navigation.navigate() successful');
               } catch (navError) {
-                console.log('Manual navigation error, trying reset:', navError);
+                console.log('navigation.navigate() failed, trying reset:', navError);
                 navigation.reset({
                   index: 0,
                   routes: [{ 
