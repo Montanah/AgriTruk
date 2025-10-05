@@ -49,8 +49,9 @@ const createVehicle = async (req, res) => {
       updatedAt: new Date(),
     };
 
-    // Handle file uploads
+    // Handle file uploads - check for both multipart files and URL fields
     if (req.files && req.files.length > 0) {
+      // Handle multipart form data (original approach)
       try {
         const uploadResults = await uploadVehicleDocuments(req.files, 'vehicles');
         
@@ -63,6 +64,21 @@ const createVehicle = async (req, res) => {
       } catch (uploadError) {
         console.error('Error uploading vehicle documents:', uploadError);
         return res.status(500).json({ message: 'Failed to upload vehicle documents' });
+      }
+    } else if (req.body.insuranceUrl || req.body.vehicleImageUrls) {
+      // Handle pre-uploaded file URLs (new approach)
+      console.log('🚗 Handling pre-uploaded file URLs');
+      if (req.body.insuranceUrl) {
+        vehicleData.insuranceUrl = req.body.insuranceUrl;
+        console.log('🚗 Added insurance URL:', req.body.insuranceUrl);
+      }
+      if (req.body.vehicleImageUrls) {
+        try {
+          vehicleData.vehicleImagesUrl = JSON.parse(req.body.vehicleImageUrls);
+          console.log('🚗 Added vehicle image URLs:', vehicleData.vehicleImagesUrl);
+        } catch (parseError) {
+          console.error('Error parsing vehicle image URLs:', parseError);
+        }
       }
     }
 

@@ -18,9 +18,9 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import { apiRequest } from '../utils/api';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
-import { apiRequest } from '../utils/api';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
 
 interface Vehicle {
@@ -356,30 +356,43 @@ const VehicleManagementScreen = () => {
       formData.append('specialCargo', specialCargo ? 'true' : 'false');
       formData.append('features', vehicleFeatures);
       
-      // Add insurance document with proper file structure (optional)
-      if (insurance) {
-        formData.append('insurance', {
-          uri: insurance.uri,
-          type: insurance.type || 'application/pdf',
-          name: insurance.fileName || 'insurance.pdf'
-        } as any);
-        console.log('🚗 Added insurance file to FormData');
-      } else {
-        console.log('🚗 No insurance file to add');
+      // Upload files separately first to avoid FormData serialization issues
+      let insuranceUrl = null;
+      let vehicleImageUrls = [];
+      
+      try {
+        // Upload insurance document if provided
+        if (insurance) {
+          console.log('🚗 Uploading insurance file separately...');
+          const { uploadFile } = await import('../utils/api');
+          insuranceUrl = await uploadFile(insurance.uri, 'document');
+          console.log('🚗 Insurance file uploaded:', insuranceUrl);
+        }
+        
+        // Upload vehicle photos if provided
+        if (vehiclePhotos.length > 0) {
+          console.log('🚗 Uploading vehicle photos separately...');
+          const { uploadFile } = await import('../utils/api');
+          for (const photo of vehiclePhotos) {
+            const photoUrl = await uploadFile(photo.uri, 'transporter');
+            vehicleImageUrls.push(photoUrl);
+          }
+          console.log('🚗 Vehicle photos uploaded:', vehicleImageUrls);
+        }
+      } catch (uploadError) {
+        console.error('🚗 Error uploading files:', uploadError);
+        // Continue without files if upload fails
       }
       
-      // Add vehicle photos with proper file structure (optional)
-      if (vehiclePhotos.length > 0) {
-        vehiclePhotos.forEach((photo, index) => {
-          formData.append('vehicleImages', {
-            uri: photo.uri,
-            type: photo.type || 'image/jpeg',
-            name: photo.fileName || `vehicle_${index}.jpg`
-          } as any);
-        });
-        console.log(`🚗 Added ${vehiclePhotos.length} vehicle photos to FormData`);
-      } else {
-        console.log('🚗 No vehicle photos to add');
+      // Add file URLs to form data
+      if (insuranceUrl) {
+        formData.append('insuranceUrl', insuranceUrl);
+        console.log('🚗 Added insurance URL to FormData');
+      }
+      
+      if (vehicleImageUrls.length > 0) {
+        formData.append('vehicleImageUrls', JSON.stringify(vehicleImageUrls));
+        console.log('🚗 Added vehicle image URLs to FormData');
       }
 
       
@@ -397,10 +410,6 @@ const VehicleManagementScreen = () => {
       console.log('🚗 Vehicle creation debug:');
       console.log('Company ID:', companyProfile?.id || companyProfile?.companyId);
       console.log('API URL:', `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`);
-      console.log('FormData contents:');
-      for (let [key, value] of formData.entries()) {
-        console.log(`${key}:`, value);
-      }
       
       // Check file sizes
       console.log('🚗 File size check:');
@@ -410,10 +419,26 @@ const VehicleManagementScreen = () => {
         console.log(`Photo ${index + 1}:`, photo.fileName, photo.type);
       });
       
-      // Create vehicle via API with FormData (like individual transporter)
+      // Create vehicle via API with FormData
       console.log('🚗 Making API request...');
+      console.log('🚗 FormData type check:', {
+        isFormData: formData instanceof FormData,
+        formDataType: typeof formData,
+        formDataConstructor: formData.constructor.name
+      });
+      
+      // Debug FormData contents
+      console.log('🚗 FormData contents debug:');
+      console.log('🚗 FormData has files:', {
+        insurance: !!insurance,
+        vehiclePhotos: vehiclePhotos.length,
+        formDataKeys: Object.keys(formData)
+      });
       
       try {
+        // Use direct fetch like individual transporter completion (which works)
+        console.log('🚗 Making direct fetch request...');
+        
         // Add timeout to the fetch request
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
@@ -421,54 +446,43 @@ const VehicleManagementScreen = () => {
           controller.abort();
         }, 30000); // 30 second timeout
         
-        console.log('🚗 About to make fetch request...');
-        console.log('🚗 URL:', `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`);
-        console.log('🚗 Method: POST');
-        console.log('🚗 FormData size check...');
+        console.log('🚗 About to make fetch request with FormData...');
+        console.log('🚗 FormData before fetch:', {
+          hasInsurance: !!insurance,
+          hasVehiclePhotos: vehiclePhotos.length > 0,
+          formDataType: typeof formData,
+          isFormData: formData instanceof FormData
+        });
         
-        // Check FormData size
-        let formDataSize = 0;
-        for (let [key, value] of formData.entries()) {
-          if (value && typeof value === 'object' && value.uri) {
-            console.log(`🚗 File ${key}: ${value.name} (${value.type})`);
-          } else {
-            console.log(`🚗 Field ${key}: ${value}`);
-          }
-        }
+        // Debug FormData contents more thoroughly
+        console.log('🚗 FormData debug details:', {
+          constructor: formData.constructor.name,
+          hasParts: !!formData._parts,
+          partsLength: formData._parts?.length || 0,
+          parts: formData._parts?.map((part, index) => ({
+            index,
+            fieldName: part[0],
+            value: typeof part[1] === 'object' ? `File: ${part[1].name || 'unnamed'}` : part[1]
+          })) || []
+        });
         
-        // Make FormData request - no fallback
-        console.log('🚗 Making FormData request...');
-        console.log('🚗 FormData entries:');
-        for (let [key, value] of formData.entries()) {
-          if (value && typeof value === 'object' && value.uri) {
-            console.log(`  ${key}: file (${value.name})`);
-          } else {
-            console.log(`  ${key}: ${value}`);
-          }
-        }
+        const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            // Don't set Content-Type for FormData - let React Native set it automatically
+          },
+          body: formData,
+          signal: controller.signal
+        });
         
-        let response;
-        try {
-          response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              // Don't set Content-Type for FormData - let React Native set it automatically
-            },
-            body: formData,
-            signal: controller.signal
-          });
-        } catch (fetchError: any) {
-          console.error('🚗 Fetch request failed:', fetchError);
-          throw new Error(`Network error: ${fetchError.message}. Please check your internet connection and try again.`);
-        }
+        console.log('🚗 Fetch request completed');
         
         clearTimeout(timeoutId);
-        console.log('🚗 Fetch request completed successfully');
         
         console.log('🚗 Response status:', response.status);
         console.log('🚗 Response ok:', response.ok);
-
+        
         // Handle response like individual transporter (text first, then parse)
         const responseText = await response.text();
         console.log('🚗 Response text:', responseText);
@@ -551,16 +565,16 @@ const VehicleManagementScreen = () => {
           console.error('❌ API Error Response:', responseData);
           throw new Error(errorMessage);
         }
-      } catch (networkError: any) {
-        console.error('❌ Network error creating vehicle:', networkError);
+      } catch (error: any) {
+        console.error('❌ Network error creating vehicle:', error);
         console.error('❌ Network error details:', {
-          message: networkError.message,
-          name: networkError.name,
-          stack: networkError.stack
+          message: error.message,
+          name: error.name,
+          stack: error.stack
         });
         
         // Try fallback: Create vehicle without files first
-        if (networkError.message === 'Network request failed') {
+        if (error.message === 'Network request failed') {
           console.log('🚗 FormData failed, trying fallback JSON request...');
           try {
             const fallbackData = {
@@ -629,9 +643,9 @@ const VehicleManagementScreen = () => {
         }
         
         let errorMessage = 'Network connection failed. Please check your internet connection and try again.';
-        if (networkError.name === 'AbortError') {
+        if (error.name === 'AbortError') {
           errorMessage = 'Request timed out. Please try again with a better connection.';
-        } else if (networkError.message.includes('fetch')) {
+        } else if (error.message.includes('fetch')) {
           errorMessage = 'Unable to connect to server. Please try again later.';
         }
         
@@ -643,17 +657,19 @@ const VehicleManagementScreen = () => {
             { text: 'Cancel', style: 'cancel' }
           ]
         );
+      } finally {
+        setLoadingProfile(false);
       }
-    } catch (error: any) {
-      console.error('❌ Error creating vehicle:', error);
+    } catch (outerError: any) {
+      console.error('❌ Error creating vehicle:', outerError);
       
       let errorMessage = 'An unexpected error occurred. Please try again.';
-      if (error.message.includes('User not authenticated')) {
+      if (outerError.message && outerError.message.includes('User not authenticated')) {
         errorMessage = 'Session expired. Please log in again.';
-      } else if (error.message.includes('Company profile')) {
+      } else if (outerError.message && outerError.message.includes('Company profile')) {
         errorMessage = 'Company profile error. Please refresh the page and try again.';
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (outerError.message) {
+        errorMessage = outerError.message;
       }
       
       Alert.alert(
@@ -664,7 +680,7 @@ const VehicleManagementScreen = () => {
           { text: 'Cancel', style: 'cancel' }
         ]
       );
-    } finally {
+      
       setLoadingProfile(false);
     }
   };

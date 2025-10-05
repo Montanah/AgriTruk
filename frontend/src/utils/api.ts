@@ -97,11 +97,29 @@ export async function apiRequest(endpoint: string, options: any = {}) {
       endpoint
     });
     
+    // Detect if body is FormData to avoid setting Content-Type
+    const isFormData = options.body instanceof FormData;
+    
+    console.log('🔍 FormData detection:', {
+      isFormData,
+      bodyType: typeof options.body,
+      bodyConstructor: options.body?.constructor?.name,
+      isFormDataInstance: options.body instanceof FormData,
+      hasBody: !!options.body
+    });
+    
+    // For FormData, don't set Content-Type at all - let React Native handle it
     const headers = {
-      'Content-Type': 'application/json',
+      // Only set Content-Type for non-FormData requests
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token && !hasCustomAuth ? { Authorization: `Bearer ${token}` } : {}), // Add token if no custom auth provided
       ...options.headers, // Custom headers last to override defaults
     };
+    
+    // Remove Content-Type completely for FormData to let React Native set it
+    if (isFormData && headers['Content-Type']) {
+      delete headers['Content-Type'];
+    }
     
     console.log('Final headers:', {
       'Content-Type': headers['Content-Type'],
