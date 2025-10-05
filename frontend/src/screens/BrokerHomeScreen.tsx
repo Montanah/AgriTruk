@@ -67,16 +67,6 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
     // Use the centralized subscription hook
     const { subscriptionStatus, loadingSubscription } = useSubscriptionStatus();
     
-    // Check if broker needs trial activation and navigate automatically
-    useEffect(() => {
-        if (route.params?.needsTrialActivation && !loadingSubscription) {
-            console.log('Broker needs trial activation, navigating to SubscriptionTrial...');
-            navigation.navigate('SubscriptionTrial', {
-                userType: 'broker',
-                subscriptionStatus: route.params?.subscriptionStatus || subscriptionStatus
-            });
-        }
-    }, [route.params?.needsTrialActivation, loadingSubscription]);
 
     useEffect(() => {
         fetchBrokerStats();
