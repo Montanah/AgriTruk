@@ -359,6 +359,12 @@ const VehicleManagementScreen = () => {
       // Add files directly to FormData (like individual transporter)
       if (insurance) {
         console.log('🚗 Adding insurance file to FormData');
+        console.log('🚗 Insurance file details:', {
+          uri: insurance.uri,
+          type: insurance.type,
+          fileName: insurance.fileName,
+          size: insurance.fileSize
+        });
         formData.append('insurance', {
           uri: insurance.uri,
           type: insurance.type || 'image/jpeg',
@@ -369,11 +375,30 @@ const VehicleManagementScreen = () => {
       if (vehiclePhotos.length > 0) {
         console.log('🚗 Adding vehicle photos to FormData');
         vehiclePhotos.forEach((photo, index) => {
+          console.log(`🚗 Vehicle photo ${index + 1} details:`, {
+            uri: photo.uri,
+            type: photo.type,
+            fileName: photo.fileName,
+            size: photo.fileSize
+          });
           formData.append('vehicleImages', {
             uri: photo.uri,
             type: photo.type || 'image/jpeg',
             name: photo.fileName || `vehicle_${index + 1}.jpg`,
           } as any);
+        });
+      }
+      
+      // Debug FormData contents
+      console.log('🚗 FormData debug - checking if files were added:');
+      console.log('🚗 FormData has _parts:', !!formData._parts);
+      if (formData._parts) {
+        console.log('🚗 FormData parts count:', formData._parts.length);
+        formData._parts.forEach((part, index) => {
+          console.log(`🚗 Part ${index}:`, {
+            fieldName: part[0],
+            value: typeof part[1] === 'object' ? `File object: ${part[1].name || 'unnamed'}` : part[1]
+          });
         });
       }
 

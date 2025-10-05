@@ -50,16 +50,25 @@ const createVehicle = async (req, res) => {
     };
 
     // Handle file uploads - check for both multipart files and URL fields
+    console.log('🚗 File upload debug:');
+    console.log('🚗 req.files:', req.files);
+    console.log('🚗 req.files length:', req.files ? req.files.length : 0);
+    console.log('🚗 req.body keys:', Object.keys(req.body));
+    
     if (req.files && req.files.length > 0) {
       // Handle multipart form data (original approach)
+      console.log('🚗 Processing multipart files...');
       try {
         const uploadResults = await uploadVehicleDocuments(req.files, 'vehicles');
+        console.log('🚗 Upload results:', uploadResults);
         
         if (uploadResults.vehicleImages && uploadResults.vehicleImages.length > 0) {
           vehicleData.vehicleImagesUrl = uploadResults.vehicleImages;
+          console.log('🚗 Added vehicle images:', uploadResults.vehicleImages);
         }
         if (uploadResults.insurance && uploadResults.insurance.length > 0) {
           vehicleData.insuranceUrl = uploadResults.insurance[0];
+          console.log('🚗 Added insurance:', uploadResults.insurance[0]);
         }
       } catch (uploadError) {
         console.error('Error uploading vehicle documents:', uploadError);
