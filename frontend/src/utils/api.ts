@@ -225,7 +225,7 @@ export async function uploadFile(uri: string, type: 'profile' | 'logo' | 'docume
     }
   }
   
-  // All retries failed
+  // All retries failed - return a placeholder URL for now
   console.error('All upload attempts failed, using placeholder URL');
   const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
   return placeholderUrl;
@@ -277,10 +277,23 @@ async function attemptUpload(uri: string, type: 'profile' | 'logo' | 'document' 
       public_id: `${type}_${Date.now()}`
     });
     
+    // Create timeout controller
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log('Cloudinary upload timeout after 30 seconds');
+      controller.abort();
+    }, 30000);
+
     const res = await fetch(cloudinaryUrl, {
       method: 'POST',
       body: formData,
+      headers: {
+        // Don't set Content-Type for FormData - let the browser set it
+      },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
     
     console.log('Cloudinary response status:', res.status);
     
