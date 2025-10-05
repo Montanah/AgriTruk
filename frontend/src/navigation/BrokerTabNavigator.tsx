@@ -86,6 +86,8 @@ export default function BrokerTabNavigator({ route }: any) {
       <Stack.Screen name="PaymentConfirmation" component={require('../screens/PaymentConfirmationScreen').default} />
       <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
       <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+      <Stack.Screen name="SubscriptionTrial" component={require('../screens/SubscriptionTrialScreen').default} />
+      <Stack.Screen name="SubscriptionExpired" component={require('../screens/SubscriptionExpiredScreen').default} />
       <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
       <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
     </Stack.Navigator>

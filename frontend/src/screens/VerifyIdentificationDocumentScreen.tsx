@@ -306,35 +306,65 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                 // Priority 3: No subscription or needs trial activation - go to trial screen
                 else {
                   console.log('🔄 Verified broker needs trial activation, navigating to trial screen');
+                  console.log('Navigation object available:', !!navigation);
+                  console.log('Navigation navigate method available:', !!navigation.navigate);
+                  console.log('Subscription status:', subscriptionStatus);
+                  
+                  // Use a small delay to ensure the screen is fully mounted
+                  setTimeout(() => {
+                    try {
+                      console.log('Attempting navigation to SubscriptionTrial...');
+                      navigation.navigate('SubscriptionTrial', {
+                        userType: 'broker',
+                        subscriptionStatus: subscriptionStatus
+                      });
+                      console.log('Navigation to SubscriptionTrial successful');
+                    } catch (navError) {
+                      console.log('Navigation error, trying reset:', navError);
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ 
+                          name: 'SubscriptionTrial',
+                          params: {
+                            userType: 'broker',
+                            subscriptionStatus: subscriptionStatus
+                          }
+                        }]
+                      });
+                    }
+                  }, 500); // Small delay to ensure screen is ready
+                }
+              } catch (error) {
+                console.error('Error checking subscription status:', error);
+                // Fallback to trial screen if subscription check fails
+                try {
+                  navigation.navigate('SubscriptionTrial', {
+                    userType: 'broker',
+                    subscriptionStatus: {
+                      needsTrialActivation: true,
+                      hasActiveSubscription: false,
+                      isTrialActive: false,
+                      subscriptionStatus: 'none'
+                    }
+                  });
+                } catch (navError) {
+                  console.log('Fallback navigation error, trying reset:', navError);
                   navigation.reset({
                     index: 0,
                     routes: [{ 
                       name: 'SubscriptionTrial',
                       params: {
                         userType: 'broker',
-                        subscriptionStatus: subscriptionStatus
+                        subscriptionStatus: {
+                          needsTrialActivation: true,
+                          hasActiveSubscription: false,
+                          isTrialActive: false,
+                          subscriptionStatus: 'none'
+                        }
                       }
                     }]
                   });
                 }
-              } catch (error) {
-                console.error('Error checking subscription status:', error);
-                // Fallback to trial screen if subscription check fails
-                navigation.reset({
-                  index: 0,
-                  routes: [{ 
-                    name: 'SubscriptionTrial',
-                    params: {
-                      userType: 'broker',
-                      subscriptionStatus: {
-                        needsTrialActivation: true,
-                        hasActiveSubscription: false,
-                        isTrialActive: false,
-                        subscriptionStatus: 'none'
-                      }
-                    }
-                  }]
-                });
               }
             }, 1000);
           } else if (brokerData.status === 'deactivated') {
@@ -822,11 +852,13 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
             <MaterialCommunityIcons name="check-circle-outline" size={28} color={colors.success} />
             <Text style={styles.statusTextVerified}>ID Verified</Text>
             <Text style={styles.statusSubText}>Your ID is verified. You can now access the broker dashboard.</Text>
-            <TouchableOpacity style={styles.goDashboardBtn} onPress={() => navigation.reset({
-              index: 0,
-              routes: [{ 
-                name: 'SubscriptionTrial',
-                params: {
+            <TouchableOpacity style={styles.goDashboardBtn} onPress={() => {
+              console.log('Manual button pressed - attempting navigation to SubscriptionTrial');
+              console.log('Navigation object available:', !!navigation);
+              console.log('Navigation navigate method available:', !!navigation.navigate);
+              
+              try {
+                navigation.navigate('SubscriptionTrial', {
                   userType: 'broker',
                   subscriptionStatus: {
                     needsTrialActivation: true,
@@ -834,9 +866,27 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                     isTrialActive: false,
                     subscriptionStatus: 'none'
                   }
-                }
-              }]
-            })}>
+                });
+                console.log('Manual navigation to SubscriptionTrial successful');
+              } catch (navError) {
+                console.log('Manual navigation error, trying reset:', navError);
+                navigation.reset({
+                  index: 0,
+                  routes: [{ 
+                    name: 'SubscriptionTrial',
+                    params: {
+                      userType: 'broker',
+                      subscriptionStatus: {
+                        needsTrialActivation: true,
+                        hasActiveSubscription: false,
+                        isTrialActive: false,
+                        subscriptionStatus: 'none'
+                      }
+                    }
+                  }]
+                });
+              }
+            }}>
               <Text style={styles.goDashboardBtnText}>Continue to Subscription</Text>
             </TouchableOpacity>
           </View>
