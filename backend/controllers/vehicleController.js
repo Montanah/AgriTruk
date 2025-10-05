@@ -205,69 +205,6 @@ const getVehicleById = async (req, res) => {
   }
 };
 
-// Update vehicle
-const updateVehicle = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.uid;
-
-    const vehicleDoc = await db.collection('vehicles').doc(id).get();
-    if (!vehicleDoc.exists) {
-      return res.status(404).json({ message: 'Vehicle not found' });
-    }
-
-    const vehicleData = vehicleDoc.data();
-
-    // Verify the user owns the company that owns this vehicle
-    const companyDoc = await db.collection('companies').doc(vehicleData.companyId).get();
-    if (!companyDoc.exists || companyDoc.data().transporterId !== userId) {
-      return res.status(403).json({ message: 'Unauthorized to update this vehicle' });
-    }
-
-    // Prepare update data
-    const updateData = {
-      vehicleType: req.body.vehicleType || vehicleData.vehicleType,
-      vehicleMake: req.body.vehicleMake || vehicleData.vehicleMake,
-      vehicleModel: req.body.vehicleModel || vehicleData.vehicleModel,
-      vehicleYear: req.body.vehicleYear ? parseInt(req.body.vehicleYear) : vehicleData.vehicleYear,
-      vehicleColor: req.body.vehicleColor || vehicleData.vehicleColor,
-      vehicleRegistration: req.body.vehicleRegistration || vehicleData.vehicleRegistration,
-      vehicleCapacity: req.body.vehicleCapacity ? parseFloat(req.body.vehicleCapacity) : vehicleData.vehicleCapacity,
-      bodyType: req.body.bodyType || vehicleData.bodyType,
-      driveType: req.body.driveType || vehicleData.driveType,
-      updatedAt: new Date(),
-    };
-
-    // Handle file uploads
-    if (req.files && req.files.length > 0) {
-      try {
-        const uploadResults = await uploadVehicleDocuments(req.files, 'vehicles');
-        
-        if (uploadResults.vehicleImages && uploadResults.vehicleImages.length > 0) {
-          updateData.vehicleImagesUrl = uploadResults.vehicleImages;
-        }
-        if (uploadResults.insurance && uploadResults.insurance.length > 0) {
-          updateData.insuranceUrl = uploadResults.insurance[0];
-        }
-      } catch (uploadError) {
-        console.error('Error uploading vehicle documents:', uploadError);
-        return res.status(500).json({ message: 'Failed to upload vehicle documents' });
-      }
-    }
-
-    // Update vehicle
-    await db.collection('vehicles').doc(id).update(updateData);
-
-    res.json({
-      message: 'Vehicle updated successfully',
-      vehicle: { id, ...updateData }
-    });
-
-  } catch (error) {
-    console.error('Error updating vehicle:', error);
-    res.status(500).json({ message: 'Failed to update vehicle' });
-  }
-};
 
 // Delete vehicle
 const deleteVehicle = async (req, res) => {
