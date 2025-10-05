@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
-  TextInput,
+  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -18,33 +18,46 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
-import { apiRequest } from '../utils/api';
-import spacing from '../constants/spacing';
+import { apiRequest, uploadFile } from '../utils/api';
 import { API_ENDPOINTS } from '../constants/api';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
 
 interface Vehicle {
   id: string;
-  vehicleType: string;
-  vehicleMake: string;
-  vehicleModel: string;
-  vehicleYear: number;
-  vehicleColor: string;
-  vehicleRegistration: string;
-  vehicleCapacity: number;
+  vehicleType?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehicleColor?: string;
+  vehicleRegistration?: string;
+  vehicleCapacity?: number;
   bodyType: string;
   driveType: string;
-  vehicleImagesUrl: string[];
-  insuranceUrl: string;
-  insuranceExpiryDate: string;
+  vehicleImagesUrl?: string[];
+  insuranceUrl?: string;
+  insuranceExpiryDate?: string;
+  refrigerated?: boolean;
+  humidityControl?: boolean;
+  specialCargo?: boolean;
+  features?: string;
   status: 'pending' | 'approved' | 'rejected';
   assignedDriver?: {
     id: string;
     name: string;
     phone: string;
   };
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  // Backend field names (from database)
+  type?: string;
+  make?: string;
+  model?: string;
+  year?: number;
+  color?: string;
+  capacity?: number;
+  registration?: string;
+  images?: string[];
+  insurance?: string;
 }
 
 const VehicleManagementScreen = () => {
@@ -57,6 +70,9 @@ const VehicleManagementScreen = () => {
   // Vehicle modal state
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [vehicleEditIdx, setVehicleEditIdx] = useState<number | null>(null);
+  const [showInsuranceModal, setShowInsuranceModal] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [newInsuranceDocument, setNewInsuranceDocument] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   
   // Vehicle form state
@@ -77,17 +93,6 @@ const VehicleManagementScreen = () => {
   const [assignedDriverId, setAssignedDriverId] = useState('');
   const [companyProfile, setCompanyProfile] = useState<any>(null);
 
-  // Debug form state
-  useEffect(() => {
-    console.log('🚗 Form state updated:', {
-      vehicleType,
-      vehicleReg,
-      insurance: !!insurance,
-      vehiclePhotos: vehiclePhotos.length,
-      companyProfile: !!companyProfile,
-      loadingProfile
-    });
-  }, [vehicleType, vehicleReg, insurance, vehiclePhotos, companyProfile, loadingProfile]);
 
   const fetchVehicles = async () => {
     try {
@@ -136,9 +141,9 @@ const VehicleManagementScreen = () => {
 
   // Check if we should show the vehicle modal from route params
   useEffect(() => {
-    const showModal = navigation.getState()?.routes?.find(route => 
+    const showModal = (navigation.getState()?.routes?.find(route => 
       route.name === 'VehicleManagement'
-    )?.params?.showVehicleModal;
+    )?.params as any)?.showVehicleModal;
     
     if (showModal) {
       setShowVehicleModal(true);
@@ -261,21 +266,6 @@ const VehicleManagementScreen = () => {
   };
 
   const handleSaveVehicle = async () => {
-    console.log('🚗 ===== VEHICLE CREATION STARTED =====');
-    console.log('🚗 Starting vehicle creation...');
-    console.log('🚗 Company Profile:', companyProfile);
-    console.log('🚗 Company ID:', companyProfile?.id || companyProfile?.companyId);
-    console.log('🚗 Vehicle Type:', vehicleType);
-    console.log('🚗 Vehicle Reg:', vehicleReg);
-    console.log('🚗 Insurance:', insurance);
-    console.log('🚗 Vehicle Photos:', vehiclePhotos.length);
-    console.log('🚗 All form values:', {
-      vehicleType,
-      vehicleReg,
-      insurance: !!insurance,
-      vehiclePhotos: vehiclePhotos.length,
-      companyProfile: !!companyProfile
-    });
     
     // Enhanced validation with detailed error messages
     const validationErrors = [];
@@ -298,11 +288,14 @@ const VehicleManagementScreen = () => {
       validationErrors.push('Vehicle Color is required');
     }
     
-    if (!vehicleYear || vehicleYear < 1990 || vehicleYear > new Date().getFullYear() + 1) {
+    const yearNum = parseInt(vehicleYear);
+    const capacityNum = parseFloat(vehicleCapacity);
+    
+    if (!vehicleYear || yearNum < 1990 || yearNum > new Date().getFullYear() + 1) {
       validationErrors.push('Vehicle Year must be between 1990 and ' + (new Date().getFullYear() + 1));
     }
     
-    if (!vehicleCapacity || vehicleCapacity < 1 || vehicleCapacity > 50) {
+    if (!vehicleCapacity || capacityNum < 1 || capacityNum > 50) {
       validationErrors.push('Vehicle Capacity must be between 1 and 50 tons');
     }
     
@@ -317,7 +310,6 @@ const VehicleManagementScreen = () => {
     }
     
     if (validationErrors.length > 0) {
-      console.log('🚗 VALIDATION FAILED - Errors:', validationErrors);
       Alert.alert(
         'Validation Error', 
         validationErrors.join('\n\n'),
@@ -358,13 +350,6 @@ const VehicleManagementScreen = () => {
       
       // Add files directly to FormData (like individual transporter)
       if (insurance) {
-        console.log('🚗 Adding insurance file to FormData');
-        console.log('🚗 Insurance file details:', {
-          uri: insurance.uri,
-          type: insurance.type,
-          fileName: insurance.fileName,
-          size: insurance.fileSize
-        });
         formData.append('insurance', {
           uri: insurance.uri,
           type: insurance.type || 'image/jpeg',
@@ -373,14 +358,7 @@ const VehicleManagementScreen = () => {
       }
       
       if (vehiclePhotos.length > 0) {
-        console.log('🚗 Adding vehicle photos to FormData');
         vehiclePhotos.forEach((photo, index) => {
-          console.log(`🚗 Vehicle photo ${index + 1} details:`, {
-            uri: photo.uri,
-            type: photo.type,
-            fileName: photo.fileName,
-            size: photo.fileSize
-          });
           formData.append('vehicleImages', {
             uri: photo.uri,
             type: photo.type || 'image/jpeg',
@@ -389,18 +367,6 @@ const VehicleManagementScreen = () => {
         });
       }
       
-      // Debug FormData contents
-      console.log('🚗 FormData debug - checking if files were added:');
-      console.log('🚗 FormData has _parts:', !!formData._parts);
-      if (formData._parts) {
-        console.log('🚗 FormData parts count:', formData._parts.length);
-        formData._parts.forEach((part, index) => {
-          console.log(`🚗 Part ${index}:`, {
-            fieldName: part[0],
-            value: typeof part[1] === 'object' ? `File object: ${part[1].name || 'unnamed'}` : part[1]
-          });
-        });
-      }
 
       
       // Get auth token
@@ -413,56 +379,25 @@ const VehicleManagementScreen = () => {
       
       const token = await user.getIdToken();
       
-      // Debug logging
-      console.log('🚗 Vehicle creation debug:');
-      console.log('Company ID:', companyProfile?.id || companyProfile?.companyId);
-      console.log('API URL:', `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`);
       
-      // Check file sizes
-      console.log('🚗 File size check:');
-      console.log('Insurance file size:', insurance ? 'Present' : 'Missing');
-      console.log('Vehicle photos count:', vehiclePhotos.length);
-      vehiclePhotos.forEach((photo, index) => {
-        console.log(`Photo ${index + 1}:`, photo.fileName, photo.type);
-      });
-      
-      // Create vehicle via API with FormData
-      console.log('🚗 Making API request...');
-      console.log('🚗 FormData type check:', {
-        isFormData: formData instanceof FormData,
-        formDataType: typeof formData,
-        formDataConstructor: formData.constructor.name
-      });
-      
-      // Debug FormData contents
-      console.log('🚗 FormData contents debug:');
-      console.log('🚗 FormData has files:', {
-        insurance: !!insurance,
-        vehiclePhotos: vehiclePhotos.length,
-        formDataKeys: Object.keys(formData)
-      });
+      // Create or update vehicle via API with FormData
+      const isEdit = vehicleEditIdx !== null;
+      const vehicleId = isEdit ? vehicles[vehicleEditIdx]?.id : null;
       
       try {
         // Use direct fetch like individual transporter completion (which works)
-        console.log('🚗 Making direct fetch request...');
-        
         // Add timeout to the fetch request
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.log('🚗 Request timed out after 30 seconds');
           controller.abort();
         }, 30000); // 30 second timeout
         
-        console.log('🚗 About to make fetch request with FormData...');
-        console.log('🚗 FormData before fetch:', {
-          hasInsurance: !!insurance,
-          hasVehiclePhotos: vehiclePhotos.length > 0,
-          formDataType: typeof formData,
-          isFormData: formData instanceof FormData
-        });
+        const url = isEdit 
+          ? `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles/${vehicleId}`
+          : `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`;
         
-        const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
-          method: 'POST',
+        const response = await fetch(url, {
+          method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             // Don't set Content-Type for FormData - let React Native set it automatically
@@ -471,16 +406,10 @@ const VehicleManagementScreen = () => {
           signal: controller.signal
         });
         
-        console.log('🚗 Fetch request completed');
-        
         clearTimeout(timeoutId);
-        
-        console.log('🚗 Response status:', response.status);
-        console.log('🚗 Response ok:', response.ok);
         
         // Handle response like individual transporter (text first, then parse)
         const responseText = await response.text();
-        console.log('🚗 Response text:', responseText);
         
         let responseData = null;
         let parseError = null;
@@ -491,36 +420,41 @@ const VehicleManagementScreen = () => {
           }
         } catch (err) {
           parseError = err;
-          console.error('🚗 JSON parse error:', err);
         }
         
         if (!response.ok) {
-          console.error('🚗 Response error:', responseText);
           throw new Error(`Server error: ${response.status} - ${responseText}`);
         }
         
         if (parseError) {
-          console.error('🚗 Failed to parse response:', parseError);
           throw new Error('Invalid response from server');
         }
         
-        console.log('🚗 Response data:', responseData);
 
         if (responseData.success !== false) {
           // Update local state
-          const newVehicle = {
+          const newVehicle: Vehicle = {
             id: responseData.vehicle?.id || Date.now().toString(),
-            type: vehicleType,
-            reg: vehicleReg,
-            bodyType,
-            refrigeration,
-            humidityControl,
-            specialCargo,
+            vehicleType: vehicleType,
+            vehicleMake: vehicleMake,
+            vehicleModel: vehicleMake, // Using make as model for now
+            vehicleYear: parseInt(vehicleYear) || 2020,
+            vehicleColor: vehicleColor,
+            vehicleRegistration: vehicleReg,
+            vehicleCapacity: parseFloat(vehicleCapacity) || 5,
+            bodyType: bodyType,
+            driveType: vehicleDriveType,
+            vehicleImagesUrl: vehiclePhotos.map(photo => photo.uri),
+            insuranceUrl: insurance?.uri || '',
+            insuranceExpiryDate: '',
+            refrigerated: refrigeration,
+            humidityControl: humidityControl,
+            specialCargo: specialCargo,
             features: vehicleFeatures,
-            insurance,
-            photos: vehiclePhotos,
-            assignedDriverId,
-            status: 'pending' // Show pending status
+            status: 'pending',
+            assignedDriver: assignedDriverId ? { id: assignedDriverId, name: '', phone: '' } : undefined,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
           };
           
           let updated;
@@ -533,13 +467,22 @@ const VehicleManagementScreen = () => {
           setVehicles(updated);
           setShowVehicleModal(false);
           
+          // Show success message
+          Alert.alert(
+            isEdit ? 'Vehicle Updated' : 'Vehicle Added',
+            isEdit 
+              ? 'Vehicle updated successfully!\n\nChanges will be reviewed by admin before approval.'
+              : 'Vehicle added successfully!\n\nIt will be reviewed by admin before approval. You can track its status in the vehicles list.',
+            [{ text: 'OK', style: 'default' }]
+          );
+          
           // Clear form after successful submission
           setVehicleType('');
           setVehicleReg('');
           setVehicleMake('');
           setVehicleColor('');
-          setVehicleYear(2020);
-          setVehicleCapacity(5);
+          setVehicleYear('2020');
+          setVehicleCapacity('5');
           setBodyType('closed');
           setVehicleDriveType('2WD');
           setRefrigeration(false);
@@ -557,21 +500,30 @@ const VehicleManagementScreen = () => {
           );
         } else {
           const errorMessage = responseData.message || responseData.error || 'Failed to create vehicle';
-          console.error('❌ API Error Response:', responseData);
           throw new Error(errorMessage);
         }
       } catch (error: any) {
-        console.error('❌ Network error creating vehicle:', error);
-        console.error('❌ Network error details:', {
-          message: error.message,
-          name: error.name,
-          stack: error.stack
-        });
         
-        // Try fallback: Create vehicle without files first
+        // Try fallback: Upload files separately, then create vehicle with URLs
         if (error.message === 'Network request failed') {
-          console.log('🚗 FormData failed, trying fallback JSON request...');
           try {
+            // Upload files separately first
+            let insuranceUrl = null;
+            let vehicleImageUrls = [];
+
+            if (insurance) {
+              const { uploadFile } = await import('../utils/api');
+              insuranceUrl = await uploadFile(insurance.uri, 'document');
+            }
+
+            if (vehiclePhotos.length > 0) {
+              const { uploadFile } = await import('../utils/api');
+              for (const photo of vehiclePhotos) {
+                const photoUrl = await uploadFile(photo.uri, 'transporter');
+                vehicleImageUrls.push(photoUrl);
+              }
+            }
+            
             const fallbackData = {
               companyId: companyProfile?.id || companyProfile?.companyId,
               vehicleType,
@@ -586,10 +538,11 @@ const VehicleManagementScreen = () => {
               refrigerated: refrigeration,
               humidityControl,
               specialCargo,
-              features: vehicleFeatures
+              features: vehicleFeatures,
+              ...(insuranceUrl && { insuranceUrl }),
+              ...(vehicleImageUrls.length > 0 && { vehicleImageUrls })
             };
             
-            console.log('🚗 Fallback data:', fallbackData);
             
             const fallbackResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
               method: 'POST',
@@ -601,12 +554,11 @@ const VehicleManagementScreen = () => {
             });
             
             if (fallbackResponse.ok) {
-              const fallbackResult = await fallbackResponse.json();
-              console.log('🚗 Fallback success:', fallbackResult);
+              await fallbackResponse.json();
               
               Alert.alert(
                 'Vehicle Created', 
-                'Vehicle created successfully without files. You can add photos and insurance later.',
+                'Vehicle created successfully with files!',
                 [{ text: 'OK' }]
               );
               
@@ -627,13 +579,13 @@ const VehicleManagementScreen = () => {
               setShowVehicleModal(false);
               
               // Refresh vehicles list
-              loadVehicles();
+              fetchVehicles();
               return;
             } else {
               throw new Error(`Fallback failed: ${fallbackResponse.status}`);
             }
-          } catch (fallbackError) {
-            console.error('❌ Fallback also failed:', fallbackError);
+          } catch {
+            // Fallback failed
           }
         }
         
@@ -680,71 +632,292 @@ const VehicleManagementScreen = () => {
     }
   };
 
-  const renderVehicle = ({ item }: { item: Vehicle }) => (
-    <View style={styles.vehicleCard}>
-      <View style={styles.vehicleHeader}>
-        <View style={styles.vehicleInfo}>
-          <Text style={styles.vehicleTitle}>
-            {item.vehicleMake} {item.vehicleModel} ({item.vehicleYear})
-          </Text>
-          <Text style={styles.vehicleSubtitle}>
-            {item.vehicleType} • {item.vehicleRegistration}
-          </Text>
+  // Function to get colors for spec cards
+  const getSpecCardColors = (specType: string, vehicleColor?: string) => {
+    // Enhanced color mapping for vehicle colors
+    const getVehicleColorHex = (color: string) => {
+      const colorMap: { [key: string]: string } = {
+        'white': '#FFFFFF',
+        'black': '#000000',
+        'red': '#FF0000',
+        'blue': '#0066CC',
+        'green': '#00AA00',
+        'yellow': '#FFD700',
+        'orange': '#FF8C00',
+        'purple': '#800080',
+        'pink': '#FF69B4',
+        'brown': '#8B4513',
+        'gray': '#808080',
+        'grey': '#808080',
+        'silver': '#C0C0C0',
+        'gold': '#FFD700',
+        'navy': '#000080',
+        'maroon': '#800000',
+        'lime': '#00FF00',
+        'cyan': '#00FFFF',
+        'magenta': '#FF00FF',
+        'teal': '#008080',
+        'olive': '#808000'
+      };
+      
+      const normalizedColor = color.toLowerCase().trim();
+      return colorMap[normalizedColor] || color;
+    };
+
+    const colorMap = {
+      color: {
+        background: vehicleColor ? getVehicleColorHex(vehicleColor) : '#BDBDBD',
+        text: vehicleColor && vehicleColor.toLowerCase() !== 'white' ? '#FFFFFF' : '#000000',
+        border: vehicleColor ? getVehicleColorHex(vehicleColor) : '#BDBDBD'
+      },
+      capacity: {
+        background: colors.secondary + '20',
+        text: colors.secondary,
+        border: colors.secondary + '40'
+      },
+      bodyType: {
+        background: colors.tertiary + '20',
+        text: colors.tertiary,
+        border: colors.tertiary + '40'
+      },
+      driveType: {
+        background: colors.warning + '20',
+        text: colors.warning,
+        border: colors.warning + '40'
+      }
+    };
+    
+    return colorMap[specType as keyof typeof colorMap] || {
+      background: colors.background,
+      text: colors.text.primary,
+      border: colors.border
+    };
+  };
+
+  const renderVehicle = ({ item }: { item: Vehicle }) => {
+    // Get the best display photo (first image or placeholder)
+    const displayPhoto = item.vehicleImagesUrl && item.vehicleImagesUrl.length > 0 
+      ? item.vehicleImagesUrl[0] 
+      : null;
+
+    // Get important features for driver assignment
+    const features = [];
+    if (item.refrigerated) features.push('Refrigerated');
+    if (item.humidityControl) features.push('Humidity Control');
+    if (item.specialCargo) features.push('Special Cargo');
+    if (item.driveType === '4WD') features.push('4WD');
+    if (item.bodyType === 'open') features.push('Open Body');
+
+    return (
+      <View style={styles.vehicleCard}>
+        {/* Vehicle Photo and Header */}
+        <View style={styles.vehiclePhotoContainer}>
+          {displayPhoto ? (
+            <Image 
+              source={{ uri: displayPhoto }} 
+              style={styles.vehiclePhoto}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.vehiclePhotoPlaceholder}>
+              <MaterialCommunityIcons name="truck" size={40} color={colors.text.secondary} />
+            </View>
+          )}
+          <View style={styles.vehicleHeader}>
+            <View style={styles.vehicleInfo}>
+              <Text style={styles.vehicleTitle}>
+                {item.vehicleMake || item.make} {item.vehicleModel || item.model} ({item.vehicleYear || item.year})
+              </Text>
+              <Text style={styles.vehicleSubtitle}>
+                {item.vehicleType || item.type} • {item.vehicleRegistration || item.vehicleRegistration}
+              </Text>
+            </View>
+            <View style={[
+              styles.statusBadge,
+              { backgroundColor: item.status === 'approved' ? colors.success : 
+                               item.status === 'rejected' ? colors.error : colors.warning }
+            ]}>
+              <Text style={styles.statusText}>
+                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+              </Text>
+            </View>
+          </View>
         </View>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: item.status === 'approved' ? colors.success : 
-                           item.status === 'rejected' ? colors.error : colors.warning }
-        ]}>
-          <Text style={styles.statusText}>
-            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-          </Text>
+
+            {/* Vehicle Specifications - Color-coded Layout */}
+            <View style={styles.vehicleSpecs}>
+              <View style={styles.specRow}>
+                <View style={[
+                  styles.specItem,
+                  {
+                    backgroundColor: getSpecCardColors('color', item.vehicleColor || item.color).background,
+                    borderColor: getSpecCardColors('color', item.vehicleColor || item.color).border,
+                  }
+                ]}>
+                  <MaterialCommunityIcons 
+                    name="palette" 
+                    size={18} 
+                    color={getSpecCardColors('color', item.vehicleColor || item.color).text} 
+                  />
+                  <Text style={[
+                    styles.specLabel,
+                    { color: getSpecCardColors('color', item.vehicleColor || item.color).text }
+                  ]}>Color</Text>
+                  <Text style={[
+                    styles.specValue,
+                    { color: getSpecCardColors('color', item.vehicleColor || item.color).text }
+                  ]}>{item.vehicleColor || item.color || 'Unknown'}</Text>
+                </View>
+                <View style={[
+                  styles.specItem,
+                  {
+                    backgroundColor: getSpecCardColors('capacity').background,
+                    borderColor: getSpecCardColors('capacity').border,
+                  }
+                ]}>
+                  <MaterialCommunityIcons 
+                    name="weight" 
+                    size={18} 
+                    color={getSpecCardColors('capacity').text} 
+                  />
+                  <Text style={[
+                    styles.specLabel,
+                    { color: getSpecCardColors('capacity').text }
+                  ]}>Capacity</Text>
+                  <Text style={[
+                    styles.specValue,
+                    { color: getSpecCardColors('capacity').text }
+                  ]}>{item.vehicleCapacity || item.capacity || 0} tons</Text>
+                </View>
+              </View>
+              <View style={styles.specRow}>
+                <View style={[
+                  styles.specItem,
+                  {
+                    backgroundColor: getSpecCardColors('bodyType').background,
+                    borderColor: getSpecCardColors('bodyType').border,
+                  }
+                ]}>
+                  <MaterialCommunityIcons 
+                    name="car" 
+                    size={18} 
+                    color={getSpecCardColors('bodyType').text} 
+                  />
+                  <Text style={[
+                    styles.specLabel,
+                    { color: getSpecCardColors('bodyType').text }
+                  ]}>Body Type</Text>
+                  <Text style={[
+                    styles.specValue,
+                    { color: getSpecCardColors('bodyType').text }
+                  ]}>{item.bodyType}</Text>
+                </View>
+                <View style={[
+                  styles.specItem,
+                  {
+                    backgroundColor: getSpecCardColors('driveType').background,
+                    borderColor: getSpecCardColors('driveType').border,
+                  }
+                ]}>
+                  <MaterialCommunityIcons 
+                    name="cog" 
+                    size={18} 
+                    color={getSpecCardColors('driveType').text} 
+                  />
+                  <Text style={[
+                    styles.specLabel,
+                    { color: getSpecCardColors('driveType').text }
+                  ]}>Drive Type</Text>
+                  <Text style={[
+                    styles.specValue,
+                    { color: getSpecCardColors('driveType').text }
+                  ]}>{item.driveType}</Text>
+                </View>
+              </View>
+            </View>
+
+        {/* Key Features - Simplified */}
+        {features.length > 0 && (
+          <View style={styles.featuresContainer}>
+            <Text style={styles.featuresTitle}>Features:</Text>
+            <Text style={styles.featuresText}>{features.join(' • ')}</Text>
+          </View>
+        )}
+
+        {/* Insurance Status */}
+        {item.insuranceUrl && (
+          <View style={styles.insuranceContainer}>
+            <View style={styles.insuranceInfo}>
+              <MaterialCommunityIcons name="shield-check" size={16} color={colors.success} />
+              <Text style={styles.insuranceText}>Insurance Active</Text>
+            </View>
+            {item.insuranceExpiryDate && (
+              <TouchableOpacity 
+                style={styles.renewInsuranceButton}
+                onPress={() => {
+                  setSelectedVehicleId(item.id);
+                  setShowInsuranceModal(true);
+                }}
+              >
+                <MaterialCommunityIcons name="upload" size={14} color={colors.primary} />
+                <Text style={styles.renewInsuranceText}>Renew</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Driver Assignment Info */}
+        {item.assignedDriver && (
+          <View style={styles.driverInfo}>
+            <MaterialCommunityIcons name="account" size={16} color={colors.primary} />
+            <Text style={styles.driverText}>
+              Assigned to: {item.assignedDriver.name} ({item.assignedDriver.phone})
+            </Text>
+          </View>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.vehicleActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => {
+              // Set the vehicle to edit and open modal
+              setVehicleEditIdx(vehicles.findIndex(v => v.id === item.id));
+              setVehicleType(item.vehicleType || item.type || '');
+              setVehicleMake(item.vehicleMake || item.make || '');
+              setVehicleColor(item.vehicleColor || item.color || '');
+              setVehicleReg(item.vehicleRegistration || item.registration || '');
+              setVehicleYear((item.vehicleYear || item.year || 2020).toString());
+              setVehicleCapacity((item.vehicleCapacity || item.capacity || 0).toString());
+              setBodyType(item.bodyType || 'closed');
+              setVehicleDriveType(item.driveType || '2WD');
+              setRefrigeration(item.refrigerated || false);
+              setHumidityControl(item.humidityControl || false);
+              setSpecialCargo(item.specialCargo || false);
+              setVehicleFeatures(item.features || '');
+              setVehiclePhotos(item.vehicleImagesUrl?.map(url => ({ uri: url })) || []);
+              setInsurance(item.insuranceUrl ? { uri: item.insuranceUrl } : null);
+              setShowVehicleModal(true);
+            }}
+          >
+            <MaterialCommunityIcons name="pencil" size={16} color={colors.primary} />
+            <Text style={styles.actionText}>Edit</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => {
+              // TODO: Implement assign driver functionality
+              Alert.alert('Assign Driver', 'Driver assignment functionality coming soon');
+            }}
+          >
+            <MaterialCommunityIcons name="account-plus" size={16} color={colors.primary} />
+            <Text style={styles.actionText}>Assign Driver</Text>
+          </TouchableOpacity>
         </View>
       </View>
-
-      <View style={styles.vehicleDetails}>
-        <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="palette" size={16} color={colors.text.secondary} />
-          <Text style={styles.detailText}>{item.vehicleColor}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="weight" size={16} color={colors.text.secondary} />
-          <Text style={styles.detailText}>{item.vehicleCapacity} tons</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="car" size={16} color={colors.text.secondary} />
-          <Text style={styles.detailText}>{item.bodyType}</Text>
-        </View>
-      </View>
-
-      {item.assignedDriver && (
-        <View style={styles.driverInfo}>
-          <MaterialCommunityIcons name="account" size={16} color={colors.primary} />
-          <Text style={styles.driverText}>
-            Assigned to: {item.assignedDriver.name} ({item.assignedDriver.phone})
-          </Text>
-        </View>
-      )}
-
-      <View style={styles.vehicleActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('EditVehicle', { vehicleId: item.id })}
-        >
-          <MaterialCommunityIcons name="pencil" size={16} color={colors.primary} />
-          <Text style={styles.actionText}>Edit</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('AssignDriver', { vehicleId: item.id })}
-        >
-          <MaterialCommunityIcons name="account-plus" size={16} color={colors.primary} />
-          <Text style={styles.actionText}>Assign Driver</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -763,9 +936,9 @@ const VehicleManagementScreen = () => {
           onPress={() => {
             try {
               navigation.goBack();
-            } catch (error) {
+            } catch {
               // Fallback navigation if goBack fails
-              navigation.navigate('FleetManagement');
+              // Navigation fallback
             }
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -897,16 +1070,16 @@ const VehicleManagementScreen = () => {
                   setVehicleYear(data.year);
                   setVehicleDriveType(data.driveType);
                   setBodyType(data.bodyType);
-                  setHumidityControl(data.humidityControl);
-                  setRefrigeration(data.refrigeration);
-                  setSpecialCargo(data.specialCargo);
-                  setVehicleFeatures(data.vehicleFeatures);
+                  setHumidityControl(data.humidityControl || false);
+                  setRefrigeration(data.refrigeration || false);
+                  setSpecialCargo(data.specialCargo || false);
+                  setVehicleFeatures(data.vehicleFeatures || '');
                 }}
                 onPhotoAdd={pickVehiclePhotos}
                 onPhotoRemove={removeVehiclePhoto}
                 onFilePick={pickInsurance}
                 vehiclePhotos={vehiclePhotos}
-                error={error}
+                error={error || undefined}
               />
               
               {/* Vehicle Insurance Section */}
@@ -935,15 +1108,12 @@ const VehicleManagementScreen = () => {
                   (loadingProfile || !isFormValid()) && styles.disabledBtn
                 ]}
                 onPress={() => {
-                  console.log('🚗 BUTTON PRESSED!');
-                  console.log('🚗 loadingProfile:', loadingProfile);
-                  console.log('🚗 Button disabled:', loadingProfile || !isFormValid());
                   handleSaveVehicle();
                 }}
                 disabled={loadingProfile || !isFormValid()}
               >
                 {loadingProfile ? (
-                  <View style={styles.loadingContainer}>
+                  <View style={styles.buttonLoadingContainer}>
                     <ActivityIndicator size="small" color={colors.white} />
                     <Text style={[styles.saveBtnText, { marginLeft: 8 }]}>Saving...</Text>
                   </View>
@@ -953,6 +1123,142 @@ const VehicleManagementScreen = () => {
                   </Text>
                 )}
               </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Insurance Renewal Modal */}
+      <Modal
+        visible={showInsuranceModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowInsuranceModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Renew Insurance</Text>
+              <TouchableOpacity
+                onPress={() => setShowInsuranceModal(false)}
+                style={styles.closeButton}
+              >
+                <MaterialCommunityIcons name="close" size={24} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.insuranceModalContent}>
+              <Text style={styles.insuranceModalText}>
+                Upload the new insurance document for this vehicle. The document will be reviewed by admin.
+              </Text>
+
+              <TouchableOpacity
+                style={styles.documentUploadButton}
+                onPress={async () => {
+                  try {
+                    const result = await DocumentPicker.getDocumentAsync({
+                      type: ['application/pdf', 'image/*'],
+                      copyToCacheDirectory: true,
+                    });
+                    if (!result.canceled && result.assets && result.assets.length > 0) {
+                      setNewInsuranceDocument(result.assets[0]);
+                    }
+                  } catch (err) {
+                    Alert.alert('Error', 'Failed to pick document');
+                  }
+                }}
+              >
+                <MaterialCommunityIcons name="upload" size={20} color={colors.primary} />
+                <Text style={styles.uploadButtonText}>
+                  {newInsuranceDocument ? 'Change Document' : 'Select Insurance Document'}
+                </Text>
+              </TouchableOpacity>
+
+              {newInsuranceDocument && (
+                <View style={styles.selectedDocument}>
+                  <MaterialCommunityIcons name="file-document" size={16} color={colors.success} />
+                  <Text style={styles.selectedDocumentText}>
+                    {newInsuranceDocument.name}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setShowInsuranceModal(false);
+                    setNewInsuranceDocument(null);
+                    setSelectedVehicleId(null);
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    !newInsuranceDocument && styles.saveButtonDisabled
+                  ]}
+                  onPress={async () => {
+                    if (!newInsuranceDocument || !selectedVehicleId) return;
+                    
+                    try {
+                      setLoading(true);
+                      
+                      // Get current user
+                      const { getAuth } = require('firebase/auth');
+                      const auth = getAuth();
+                      const user = auth.currentUser;
+                      if (!user) {
+                        throw new Error('User not authenticated');
+                      }
+                      
+                      // Upload the new insurance document
+                      const uploadResult = await uploadFile(newInsuranceDocument);
+                      
+                      if (uploadResult) {
+                        // Update the vehicle with new insurance
+                        const token = await user.getIdToken();
+                        const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles/${selectedVehicleId}/insurance`, {
+                          method: 'PUT',
+                          headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            insuranceUrl: uploadResult,
+                            updatedAt: new Date().toISOString()
+                          })
+                        });
+
+                        if (response.ok) {
+                          Alert.alert(
+                            'Insurance Updated',
+                            'New insurance document uploaded successfully. It will be reviewed by admin.',
+                            [{ text: 'OK', onPress: () => {
+                              setShowInsuranceModal(false);
+                              setNewInsuranceDocument(null);
+                              setSelectedVehicleId(null);
+                              fetchVehicles(); // Refresh the vehicles list
+                            }}]
+                          );
+                        } else {
+                          throw new Error('Failed to update insurance');
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Error updating insurance:', error);
+                      Alert.alert('Error', 'Failed to update insurance document');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={!newInsuranceDocument}
+                >
+                  <Text style={styles.saveButtonText}>Update Insurance</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -1029,36 +1335,171 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.background,
+  },
+  vehiclePhotoContainer: {
+    marginBottom: 12,
+  },
+  vehiclePhoto: {
+    width: '100%',
+    height: 100,
+    borderRadius: 8,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  vehiclePhotoPlaceholder: {
+    width: '100%',
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.text.light,
+    borderStyle: 'dashed',
+  },
+  featuresContainer: {
+    marginTop: 12,
+    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.background,
+  },
+  featuresTitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 6,
+  },
+  featuresText: {
+    fontSize: 13,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    lineHeight: 18,
+  },
+  insuranceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.background,
+  },
+  insuranceInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  insuranceText: {
+    fontSize: 13,
+    fontFamily: fonts.family.medium,
+    color: colors.success,
+    marginLeft: 6,
+  },
+  renewInsuranceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  renewInsuranceText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.primary,
+    marginLeft: 4,
+  },
+  vehicleSpecs: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  specRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  specItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    marginHorizontal: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 1,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: colors.text.light + '20',
+  },
+  specLabel: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginTop: 6,
+    marginBottom: 3,
+    textAlign: 'center',
+  },
+  specValue: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    textAlign: 'center',
+    lineHeight: 16,
   },
   vehicleHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
   },
   vehicleInfo: {
     flex: 1,
   },
   vehicleTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
-    marginBottom: 4,
+    marginBottom: 6,
+    lineHeight: 22,
   },
   vehicleSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: fonts.family.medium,
     color: colors.text.secondary,
+    lineHeight: 18,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fonts.family.bold,
     color: colors.white,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   vehicleDetails: {
     marginBottom: 12,
@@ -1091,27 +1532,42 @@ const styles = StyleSheet.create({
   vehicleActions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    marginTop: 12,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.background,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
     borderColor: colors.primary,
+    backgroundColor: colors.white,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    minWidth: 120,
   },
   actionText: {
-    fontSize: 14,
-    fontFamily: fonts.family.medium,
+    fontSize: 15,
+    fontFamily: fonts.family.bold,
     color: colors.primary,
-    marginLeft: 4,
+    marginLeft: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
+    paddingVertical: 40,
   },
   loadingText: {
     fontSize: 16,
@@ -1179,7 +1635,98 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   listContainer: {
-    paddingBottom: 20,
+    paddingBottom: 100, // Extra padding to prevent overlap with bottom nav
+  },
+  // Insurance renewal modal styles
+  insuranceModalContent: {
+    padding: 20,
+  },
+  insuranceModalText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  documentUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.primary + '30',
+    borderStyle: 'dashed',
+    marginBottom: 16,
+  },
+  uploadButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.primary,
+    marginLeft: 8,
+  },
+  selectedDocument: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.successLight,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  selectedDocumentText: {
+    fontSize: 13,
+    fontFamily: fonts.family.medium,
+    color: colors.success,
+    marginLeft: 8,
+    flex: 1,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+  },
+  saveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    backgroundColor: colors.text.light,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
   },
   // Modal styles
   modalOverlay: {
@@ -1294,7 +1841,7 @@ const styles = StyleSheet.create({
   },
   uploadBtnText: {
     fontSize: 16,
-    fontFamily: fonts.family.semiBold,
+    fontFamily: fonts.family.bold,
     color: colors.primary,
     marginLeft: 8,
   },
@@ -1318,7 +1865,7 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     fontSize: 16,
-    fontFamily: fonts.family.semiBold,
+    fontFamily: fonts.family.bold,
     color: colors.text.secondary,
   },
   saveBtn: {
@@ -1339,13 +1886,13 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontSize: 16,
-    fontFamily: fonts.family.semiBold,
+    fontFamily: fonts.family.bold,
     color: colors.white,
   },
   disabledBtn: {
     backgroundColor: colors.text.light,
   },
-  loadingContainer: {
+  buttonLoadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

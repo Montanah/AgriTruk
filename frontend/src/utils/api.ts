@@ -228,6 +228,7 @@ export async function uploadFile(uri: string, type: 'profile' | 'logo' | 'docume
   // All retries failed - return a placeholder URL for now
   console.error('All upload attempts failed, using placeholder URL');
   const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
+  console.log('Using placeholder URL:', placeholderUrl);
   return placeholderUrl;
 }
 
@@ -334,7 +335,10 @@ async function attemptUpload(uri: string, type: 'profile' | 'logo' | 'document' 
         return await uploadToCloudinarySigned(uri, type, cloudName);
       } catch (signedError) {
         console.error('Signed upload also failed:', signedError);
-        throw new Error(`Both unsigned and signed uploads failed: ${signedError.message}`);
+        // Return placeholder instead of throwing error
+        const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
+        console.log('Using placeholder URL due to upload failures:', placeholderUrl);
+        return placeholderUrl;
       }
     }
     

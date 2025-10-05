@@ -6,12 +6,6 @@ const { adminNotification } = require('../utils/sendMailTemplate');
 // Create a new vehicle for a company
 const createVehicle = async (req, res) => {
   try {
-    console.log('🚗 VEHICLE CONTROLLER HIT!');
-    console.log('🚗 User ID:', req.user?.uid);
-    console.log('🚗 Company ID from body:', req.body.companyId);
-    console.log('🚗 Company ID from params:', req.params.companyId);
-    console.log('🚗 Files received:', req.files?.length || 0);
-    console.log('🚗 Body data:', req.body);
     
     const userId = req.user.uid;
     const companyId = req.body.companyId;
@@ -50,25 +44,17 @@ const createVehicle = async (req, res) => {
     };
 
     // Handle file uploads - check for both multipart files and URL fields
-    console.log('🚗 File upload debug:');
-    console.log('🚗 req.files:', req.files);
-    console.log('🚗 req.files length:', req.files ? req.files.length : 0);
-    console.log('🚗 req.body keys:', Object.keys(req.body));
     
     if (req.files && req.files.length > 0) {
       // Handle multipart form data (original approach)
-      console.log('🚗 Processing multipart files...');
       try {
         const uploadResults = await uploadVehicleDocuments(req.files, 'vehicles');
-        console.log('🚗 Upload results:', uploadResults);
         
         if (uploadResults.vehicleImages && uploadResults.vehicleImages.length > 0) {
           vehicleData.vehicleImagesUrl = uploadResults.vehicleImages;
-          console.log('🚗 Added vehicle images:', uploadResults.vehicleImages);
         }
         if (uploadResults.insurance && uploadResults.insurance.length > 0) {
           vehicleData.insuranceUrl = uploadResults.insurance[0];
-          console.log('🚗 Added insurance:', uploadResults.insurance[0]);
         }
       } catch (uploadError) {
         console.error('Error uploading vehicle documents:', uploadError);
@@ -76,19 +62,16 @@ const createVehicle = async (req, res) => {
       }
     } else if (req.body.insuranceUrl || req.body.vehicleImageUrls) {
       // Handle pre-uploaded file URLs (new approach)
-      console.log('🚗 Handling pre-uploaded file URLs');
       if (req.body.insuranceUrl) {
         vehicleData.insuranceUrl = req.body.insuranceUrl;
-        console.log('🚗 Added insurance URL:', req.body.insuranceUrl);
       }
       if (req.body.vehicleImageUrls) {
         try {
           // Handle both string (from FormData) and array (from JSON) formats
-          const imageUrls = typeof req.body.vehicleImageUrls === 'string' 
-            ? JSON.parse(req.body.vehicleImageUrls) 
+          const imageUrls = typeof req.body.vehicleImageUrls === 'string'
+            ? JSON.parse(req.body.vehicleImageUrls)
             : req.body.vehicleImageUrls;
           vehicleData.vehicleImagesUrl = imageUrls;
-          console.log('🚗 Added vehicle image URLs:', vehicleData.vehicleImagesUrl);
         } catch (parseError) {
           console.error('Error parsing vehicle image URLs:', parseError);
         }
@@ -425,11 +408,165 @@ const unassignDriverFromVehicle = async (req, res) => {
   }
 };
 
+// Update an existing vehicle
+const updateVehicle = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const companyId = req.params.companyId;
+    const vehicleId = req.params.vehicleId;
+
+    // Verify the user owns the company
+    const companyDoc = await db.collection('companies').doc(companyId).get();
+    if (!companyDoc.exists) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    const companyData = companyDoc.data();
+    if (companyData.transporterId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized to update vehicles for this company' });
+    }
+
+    // Check if vehicle exists and belongs to the company
+    const vehicleDoc = await db.collection('vehicles').doc(vehicleId).get();
+    if (!vehicleDoc.exists) {
+      return res.status(404).json({ message: 'Vehicle not found' });
+    }
+
+    const vehicleData = vehicleDoc.data();
+    if (vehicleData.companyId !== companyId) {
+      return res.status(403).json({ message: 'Vehicle does not belong to this company' });
+    }
+
+    // Prepare updated vehicle data
+    const updateData = {
+      type: req.body.vehicleType || vehicleData.type,
+      make: req.body.vehicleMake || vehicleData.make,
+      year: parseInt(req.body.vehicleYear) || vehicleData.year,
+      color: req.body.vehicleColor || vehicleData.color,
+      vehicleRegistration: req.body.vehicleRegistration || vehicleData.vehicleRegistration,
+      capacity: parseFloat(req.body.vehicleCapacity) || vehicleData.capacity,
+      bodyType: req.body.bodyType || vehicleData.bodyType,
+      driveType: req.body.driveType || vehicleData.driveType,
+      refrigerated: req.body.refrigerated === 'true' || req.body.refrigerated === true,
+      humidityControl: req.body.humidityControl === 'true' || req.body.humidityControl === true,
+      specialCargo: req.body.specialCargo === 'true' || req.body.specialCargo === true,
+      features: req.body.features || vehicleData.features,
+      updatedAt: new Date(),
+    };
+
+    // Handle file uploads - check for both multipart files and URL fields
+    if (req.files && req.files.length > 0) {
+      // Handle multipart form data
+      try {
+        const uploadResults = await uploadVehicleDocuments(req.files);
+        
+        if (uploadResults.vehicleImages && uploadResults.vehicleImages.length > 0) {
+          updateData.vehicleImagesUrl = uploadResults.vehicleImages;
+        }
+        
+        if (uploadResults.insurance) {
+          updateData.insuranceUrl = uploadResults.insurance;
+        }
+      } catch (uploadError) {
+        console.error('Error uploading vehicle documents:', uploadError);
+        return res.status(500).json({ message: 'Failed to upload vehicle documents' });
+      }
+    } else if (req.body.vehicleImageUrls || req.body.insuranceUrl) {
+      // Handle pre-uploaded URLs (fallback approach)
+      if (req.body.vehicleImageUrls) {
+        const imageUrls = Array.isArray(req.body.vehicleImageUrls) 
+          ? req.body.vehicleImageUrls 
+          : JSON.parse(req.body.vehicleImageUrls);
+        updateData.vehicleImagesUrl = imageUrls;
+      }
+      
+      if (req.body.insuranceUrl) {
+        updateData.insuranceUrl = req.body.insuranceUrl;
+      }
+    }
+
+    // Update the vehicle in the database
+    await db.collection('vehicles').doc(vehicleId).update(updateData);
+
+    // Get the updated vehicle data
+    const updatedVehicleDoc = await db.collection('vehicles').doc(vehicleId).get();
+    const updatedVehicle = { id: vehicleId, ...updatedVehicleDoc.data() };
+
+    res.json({ 
+      success: true, 
+      message: 'Vehicle updated successfully',
+      vehicle: updatedVehicle 
+    });
+
+  } catch (error) {
+    console.error('Error updating vehicle:', error);
+    res.status(500).json({ message: 'Failed to update vehicle' });
+  }
+};
+
+// Update vehicle insurance
+const updateVehicleInsurance = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const companyId = req.params.companyId;
+    const vehicleId = req.params.vehicleId;
+    const { insuranceUrl } = req.body;
+
+    if (!insuranceUrl) {
+      return res.status(400).json({ message: 'Insurance URL is required' });
+    }
+
+    // Verify the user owns the company
+    const companyDoc = await db.collection('companies').doc(companyId).get();
+    if (!companyDoc.exists) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    const companyData = companyDoc.data();
+    if (companyData.transporterId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized to update vehicles for this company' });
+    }
+
+    // Check if vehicle exists and belongs to the company
+    const vehicleDoc = await db.collection('vehicles').doc(vehicleId).get();
+    if (!vehicleDoc.exists) {
+      return res.status(404).json({ message: 'Vehicle not found' });
+    }
+
+    const vehicleData = vehicleDoc.data();
+    if (vehicleData.companyId !== companyId) {
+      return res.status(403).json({ message: 'Vehicle does not belong to this company' });
+    }
+
+    // Update only the insurance information
+    await db.collection('vehicles').doc(vehicleId).update({
+      insuranceUrl: insuranceUrl,
+      insuranceUpdatedAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Get the updated vehicle data
+    const updatedVehicleDoc = await db.collection('vehicles').doc(vehicleId).get();
+    const updatedVehicle = { id: vehicleId, ...updatedVehicleDoc.data() };
+
+    res.json({ 
+      success: true, 
+      message: 'Vehicle insurance updated successfully',
+      vehicle: updatedVehicle 
+    });
+
+  } catch (error) {
+    console.error('Error updating vehicle insurance:', error);
+    res.status(500).json({ message: 'Failed to update vehicle insurance' });
+  }
+};
+
 module.exports = {
   createVehicle,
   getVehicles,
   getVehicleById,
   updateVehicle,
+  updateVehicleInsurance,
   deleteVehicle,
   assignDriverToVehicle,
   unassignDriverFromVehicle

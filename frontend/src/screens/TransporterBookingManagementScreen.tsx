@@ -161,16 +161,33 @@ const TransporterBookingManagementScreen = () => {
                     setAllBookings(bookingsData.bookings || []);
                 }
 
-                // Fetch transporter profile
-                const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile/me`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
-                if (transporterRes.ok) {
-                    const transporterData = await transporterRes.json();
-                    setCurrentTransporter(transporterData);
+                // Fetch transporter profile - check if user is company or individual
+                try {
+                    // Try company endpoint first (for company transporters)
+                    const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                    if (companyRes.ok) {
+                        const companyData = await companyRes.json();
+                        setCurrentTransporter(companyData);
+                    } else {
+                        // Fallback to individual transporter endpoint
+                        const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile/me`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                            },
+                        });
+                        if (transporterRes.ok) {
+                            const transporterData = await transporterRes.json();
+                            setCurrentTransporter(transporterData);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching transporter profile:', error);
                 }
 
                 // TODO: Uncomment when backend endpoints are ready

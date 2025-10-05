@@ -281,6 +281,12 @@ router.post('/:companyId/drivers', authenticateToken, requireRole('transporter')
  */
 router.get('/:companyId/vehicles', authenticateToken, requireRole('transporter'), require('../controllers/vehicleController').getVehicles);
 
+// Update vehicle route
+router.put('/:companyId/vehicles/:vehicleId', authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').updateVehicle);
+
+// Update vehicle insurance route
+router.put('/:companyId/vehicles/:vehicleId/insurance', authenticateToken, requireRole('transporter'), require('../controllers/vehicleController').updateVehicleInsurance);
+
 /** 
  * @swagger
  * /api/companies/{companyId}/drivers:
