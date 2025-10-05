@@ -1013,8 +1013,15 @@ exports.acceptBooking = async (req, res) => {
     let transporter = null;
     try {
       transporter = await Transporter.get(transporterId);
+      console.log('✅ Transporter found:', {
+        id: transporterId,
+        name: transporter?.name,
+        phone: transporter?.phone,
+        rating: transporter?.rating,
+        status: transporter?.status
+      });
     } catch (error) {
-      console.log('Transporter not found, continuing without transporter details:', error.message);
+      console.log('❌ Transporter not found, continuing without transporter details:', error.message);
     }
 
     // Get vehicle details if vehicleId is provided
@@ -1065,6 +1072,15 @@ exports.acceptBooking = async (req, res) => {
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
+
+    console.log('💾 Saving booking updates:', {
+      bookingId,
+      transporterName: updates.transporterName,
+      transporterPhone: updates.transporterPhone,
+      transporterRating: updates.transporterRating,
+      vehicleMake: updates.vehicleMake,
+      vehicleRegistration: updates.vehicleRegistration
+    });
 
     await Booking.update(bookingId, updates);
     
