@@ -174,7 +174,8 @@ router.post('/:companyId/test', (req, res) => {
 
 // Company fleet management endpoints
 console.log('🚗 REGISTERING VEHICLE CREATION ROUTE: POST /:companyId/vehicles');
-router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny, (req, res, next) => {
+// Route for JSON requests (new approach with pre-uploaded files)
+router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), (req, res, next) => {
   console.log('🚗 ===== VEHICLE CREATION ROUTE HIT! =====');
   console.log('🚗 Timestamp:', new Date().toISOString());
   console.log('🚗 Company ID from params:', req.params.companyId);

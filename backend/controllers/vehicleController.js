@@ -74,7 +74,11 @@ const createVehicle = async (req, res) => {
       }
       if (req.body.vehicleImageUrls) {
         try {
-          vehicleData.vehicleImagesUrl = JSON.parse(req.body.vehicleImageUrls);
+          // Handle both string (from FormData) and array (from JSON) formats
+          const imageUrls = typeof req.body.vehicleImageUrls === 'string' 
+            ? JSON.parse(req.body.vehicleImageUrls) 
+            : req.body.vehicleImageUrls;
+          vehicleData.vehicleImagesUrl = imageUrls;
           console.log('🚗 Added vehicle image URLs:', vehicleData.vehicleImagesUrl);
         } catch (parseError) {
           console.error('Error parsing vehicle image URLs:', parseError);

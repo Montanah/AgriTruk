@@ -335,26 +335,23 @@ const VehicleManagementScreen = () => {
     try {
       setLoadingProfile(true);
       
-      // Create FormData for multipart upload (like individual transporter)
-      const formData = new FormData();
-      
-      // Add vehicle data fields
-      formData.append('companyId', companyProfile?.id || companyProfile?.companyId || '');
-      formData.append('vehicleType', vehicleType);
-      formData.append('vehicleMake', vehicleMake);
-      formData.append('vehicleModel', vehicleMake); // Use vehicleMake as model
-      formData.append('vehicleColor', vehicleColor);
-      formData.append('vehicleYear', vehicleYear.toString());
-      formData.append('vehicleRegistration', vehicleReg);
-      formData.append('vehicleCapacity', vehicleCapacity.toString());
-      formData.append('bodyType', bodyType);
-      formData.append('driveType', vehicleDriveType);
-      
-      // Add special features (as strings like individual transporter)
-      formData.append('refrigerated', refrigeration ? 'true' : 'false'); // Use 'refrigerated' to match backend
-      formData.append('humidityControl', humidityControl ? 'true' : 'false');
-      formData.append('specialCargo', specialCargo ? 'true' : 'false');
-      formData.append('features', vehicleFeatures);
+      // Create JSON payload for the request (no FormData needed since files are pre-uploaded)
+      const vehicleData = {
+        companyId: companyProfile?.id || companyProfile?.companyId || '',
+        vehicleType,
+        vehicleMake,
+        vehicleModel: vehicleMake, // Use vehicleMake as model
+        vehicleColor,
+        vehicleYear: vehicleYear.toString(),
+        vehicleRegistration: vehicleReg,
+        vehicleCapacity: vehicleCapacity.toString(),
+        bodyType,
+        driveType: vehicleDriveType,
+        refrigerated: refrigeration ? 'true' : 'false',
+        humidityControl: humidityControl ? 'true' : 'false',
+        specialCargo: specialCargo ? 'true' : 'false',
+        features: vehicleFeatures
+      };
       
       // Upload files separately first to avoid FormData serialization issues
       let insuranceUrl = null;
@@ -384,15 +381,15 @@ const VehicleManagementScreen = () => {
         // Continue without files if upload fails
       }
       
-      // Add file URLs to form data
+      // Add file URLs to vehicle data
       if (insuranceUrl) {
-        formData.append('insuranceUrl', insuranceUrl);
-        console.log('🚗 Added insurance URL to FormData');
+        vehicleData.insuranceUrl = insuranceUrl;
+        console.log('🚗 Added insurance URL to vehicle data');
       }
       
       if (vehicleImageUrls.length > 0) {
-        formData.append('vehicleImageUrls', JSON.stringify(vehicleImageUrls));
-        console.log('🚗 Added vehicle image URLs to FormData');
+        vehicleData.vehicleImageUrls = vehicleImageUrls;
+        console.log('🚗 Added vehicle image URLs to vehicle data');
       }
 
       
@@ -419,20 +416,21 @@ const VehicleManagementScreen = () => {
         console.log(`Photo ${index + 1}:`, photo.fileName, photo.type);
       });
       
-      // Create vehicle via API with FormData
+      // Create vehicle via API with JSON data
       console.log('🚗 Making API request...');
-      console.log('🚗 FormData type check:', {
-        isFormData: formData instanceof FormData,
-        formDataType: typeof formData,
-        formDataConstructor: formData.constructor.name
+      console.log('🚗 Vehicle data type check:', {
+        dataType: typeof vehicleData,
+        dataConstructor: vehicleData.constructor.name,
+        hasInsurance: !!insuranceUrl,
+        hasVehiclePhotos: vehicleImageUrls.length > 0
       });
       
-      // Debug FormData contents
-      console.log('🚗 FormData contents debug:');
-      console.log('🚗 FormData has files:', {
-        insurance: !!insurance,
-        vehiclePhotos: vehiclePhotos.length,
-        formDataKeys: Object.keys(formData)
+      // Debug vehicle data contents
+      console.log('🚗 Vehicle data contents debug:');
+      console.log('🚗 Vehicle data has files:', {
+        insurance: !!insuranceUrl,
+        vehiclePhotos: vehicleImageUrls.length,
+        dataKeys: Object.keys(vehicleData)
       });
       
       try {
@@ -446,33 +444,21 @@ const VehicleManagementScreen = () => {
           controller.abort();
         }, 30000); // 30 second timeout
         
-        console.log('🚗 About to make fetch request with FormData...');
-        console.log('🚗 FormData before fetch:', {
-          hasInsurance: !!insurance,
-          hasVehiclePhotos: vehiclePhotos.length > 0,
-          formDataType: typeof formData,
-          isFormData: formData instanceof FormData
-        });
-        
-        // Debug FormData contents more thoroughly
-        console.log('🚗 FormData debug details:', {
-          constructor: formData.constructor.name,
-          hasParts: !!formData._parts,
-          partsLength: formData._parts?.length || 0,
-          parts: formData._parts?.map((part, index) => ({
-            index,
-            fieldName: part[0],
-            value: typeof part[1] === 'object' ? `File: ${part[1].name || 'unnamed'}` : part[1]
-          })) || []
+        console.log('🚗 About to make fetch request with JSON data...');
+        console.log('🚗 Vehicle data before fetch:', {
+          hasInsurance: !!insuranceUrl,
+          hasVehiclePhotos: vehicleImageUrls.length > 0,
+          dataType: typeof vehicleData,
+          dataKeys: Object.keys(vehicleData)
         });
         
         const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            // Don't set Content-Type for FormData - let React Native set it automatically
+            'Content-Type': 'application/json'
           },
-          body: formData,
+          body: JSON.stringify(vehicleData),
           signal: controller.signal
         });
         
