@@ -114,6 +114,20 @@ const ActivityScreen = () => {
             fromLocation: booking.fromLocation,
             toLocation: booking.toLocation
           });
+          console.log('Transporter data:', {
+            transporterId: booking.transporterId,
+            transporterName: booking.transporterName,
+            transporterPhone: booking.transporterPhone,
+            transporterPhoto: booking.transporterPhoto,
+            transporterRating: booking.transporterRating
+          });
+          console.log('Vehicle data:', {
+            vehicleId: booking.vehicleId,
+            vehicleMake: booking.vehicleMake,
+            vehicleModel: booking.vehicleModel,
+            vehicleType: booking.vehicleType,
+            vehicleRegistration: booking.vehicleRegistration
+          });
           
           // Calculate distance if not provided by backend
           let calculatedDistance = booking.actualDistance;

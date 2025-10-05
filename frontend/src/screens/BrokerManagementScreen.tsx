@@ -29,6 +29,26 @@ interface RequestItem {
     price?: number;
     isConsolidated?: boolean;
     consolidatedRequests?: RequestItem[];
+    transporter?: {
+        name: string;
+        phone: string;
+        profilePhoto?: string;
+        photo?: string;
+        rating?: number;
+        experience?: string;
+        availability?: string;
+        tripsCompleted?: number;
+        status?: string;
+    } | null;
+    vehicle?: {
+        make: string;
+        model: string;
+        year: string;
+        type: string;
+        registration: string;
+        color: string;
+        capacity: string;
+    } | null;
 }
 
 interface Client {
@@ -387,7 +407,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             {item.transporter && (
                 <View style={styles.transporterInfo}>
                     <View style={styles.transporterHeader}>
-                        <MaterialCommunityIcons name="truck" size={16} color={colors.primary} />
+                        <MaterialCommunityIcons name="account-tie" size={16} color={colors.primary} />
                         <Text style={styles.transporterLabel}>Assigned Transporter:</Text>
                     </View>
                     <View style={styles.transporterDetails}>
@@ -399,6 +419,24 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                                 <Text style={styles.ratingText}>{item.transporter.rating}</Text>
                             </View>
                         )}
+                    </View>
+                </View>
+            )}
+
+            {/* Vehicle Information */}
+            {item.vehicle && (
+                <View style={styles.vehicleInfo}>
+                    <View style={styles.vehicleHeader}>
+                        <MaterialCommunityIcons name="truck" size={16} color={colors.secondary} />
+                        <Text style={styles.vehicleLabel}>Vehicle Details:</Text>
+                    </View>
+                    <View style={styles.vehicleDetails}>
+                        <Text style={styles.vehicleName}>
+                            {item.vehicle.make} {item.vehicle.model} ({item.vehicle.year})
+                        </Text>
+                        <Text style={styles.vehicleRegistration}>{item.vehicle.registration}</Text>
+                        <Text style={styles.vehicleType}>{item.vehicle.type} • {item.vehicle.capacity}</Text>
+                        <Text style={styles.vehicleColor}>{item.vehicle.color}</Text>
                     </View>
                 </View>
             )}
@@ -1277,6 +1315,49 @@ const styles = StyleSheet.create({
     chatButton: {
         backgroundColor: colors.success + '10',
         borderColor: colors.success,
+    },
+    // Vehicle Information Styles
+    vehicleInfo: {
+        marginBottom: spacing.md,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        backgroundColor: colors.surface,
+        borderRadius: 8,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.secondary,
+    },
+    vehicleHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    vehicleLabel: {
+        fontSize: fonts.size.sm,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginLeft: spacing.xs,
+    },
+    vehicleDetails: {
+        flexDirection: 'column',
+        gap: spacing.xs,
+    },
+    vehicleName: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.text.primary,
+    },
+    vehicleRegistration: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        fontWeight: '500',
+    },
+    vehicleType: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+    },
+    vehicleColor: {
+        fontSize: fonts.size.xs,
+        color: colors.text.light,
     },
     // Consolidation Tab Styles
     consolidationTabs: {

@@ -46,6 +46,15 @@ interface RequestItem {
     tripsCompleted?: number;
     status?: string;
   } | null;
+  vehicle?: {
+    make: string;
+    model: string;
+    year: string;
+    type: string;
+    registration: string;
+    color: string;
+    capacity: string;
+  } | null;
   isConsolidated: boolean;
   consolidatedRequests?: {
     id: string;
@@ -237,6 +246,39 @@ const BusinessManageScreen = ({ navigation }: any) => {
                 <Text style={styles.transporterMetaText}>
                   {item.transporter?.languages ? item.transporter.languages.join(', ') : 'N/A'}
                 </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {item.vehicle && (
+          <View style={styles.vehicleInfo}>
+            <View style={styles.vehicleHeader}>
+              <MaterialCommunityIcons name="truck" size={20} color={colors.secondary} />
+              <Text style={styles.vehicleLabel}>Vehicle Details</Text>
+            </View>
+            <View style={styles.vehicleDetails}>
+              <View style={styles.vehicleRow}>
+                <Text style={styles.vehicleDetailLabel}>Vehicle:</Text>
+                <Text style={styles.vehicleDetailValue}>
+                  {item.vehicle.make} {item.vehicle.model} ({item.vehicle.year})
+                </Text>
+              </View>
+              <View style={styles.vehicleRow}>
+                <Text style={styles.vehicleDetailLabel}>Registration:</Text>
+                <Text style={styles.vehicleDetailValue}>{item.vehicle.registration}</Text>
+              </View>
+              <View style={styles.vehicleRow}>
+                <Text style={styles.vehicleDetailLabel}>Type:</Text>
+                <Text style={styles.vehicleDetailValue}>{item.vehicle.type}</Text>
+              </View>
+              <View style={styles.vehicleRow}>
+                <Text style={styles.vehicleDetailLabel}>Capacity:</Text>
+                <Text style={styles.vehicleDetailValue}>{item.vehicle.capacity}</Text>
+              </View>
+              <View style={styles.vehicleRow}>
+                <Text style={styles.vehicleDetailLabel}>Color:</Text>
+                <Text style={styles.vehicleDetailValue}>{item.vehicle.color}</Text>
               </View>
             </View>
           </View>
@@ -751,6 +793,45 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: 'bold',
     fontSize: fonts.size.md,
+  },
+  // Vehicle Information Styles
+  vehicleInfo: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  vehicleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  vehicleLabel: {
+    fontSize: fonts.size.sm,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+  },
+  vehicleDetails: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+  vehicleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  vehicleDetailLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    fontWeight: '600',
+  },
+  vehicleDetailValue: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
+    fontWeight: '500',
+    flex: 1,
+    textAlign: 'right',
   },
 });
 
