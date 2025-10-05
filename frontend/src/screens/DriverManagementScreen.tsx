@@ -63,6 +63,7 @@ const DriverManagementScreen = () => {
   const [recruitIdDoc, setRecruitIdDoc] = useState<any>(null);
   const [recruitLicense, setRecruitLicense] = useState<any>(null);
   const [recruiting, setRecruiting] = useState(false);
+  const [recruitmentStep, setRecruitmentStep] = useState('');
 
   const fetchDrivers = async () => {
     try {
@@ -359,6 +360,8 @@ const DriverManagementScreen = () => {
     }
 
     setRecruiting(true);
+    setRecruitmentStep('Preparing driver data...');
+    
     try {
       const { getAuth } = require('firebase/auth');
       const auth = getAuth();
@@ -366,9 +369,12 @@ const DriverManagementScreen = () => {
       
       if (!user) {
         Alert.alert('Error', 'Please log in to recruit drivers');
+        setRecruiting(false);
+        setRecruitmentStep('');
         return;
       }
 
+      setRecruitmentStep('Authenticating...');
       const token = await user.getIdToken();
       
       // Prepare form data for multipart upload
@@ -412,9 +418,11 @@ const DriverManagementScreen = () => {
         } as any);
       }
 
+      setRecruitmentStep('Uploading files...');
       console.log('Recruiting driver with company ID:', companyInfo?.id);
       console.log('Form data prepared for:', firstName, lastName, recruitEmail);
 
+      setRecruitmentStep('Submitting driver application...');
       const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/${companyInfo?.id}/drivers`, {
         method: 'POST',
         headers: {
@@ -428,6 +436,7 @@ const DriverManagementScreen = () => {
       console.log('Driver recruitment response:', result);
 
       if (response.ok) {
+        setRecruitmentStep('Driver recruited successfully!');
         Alert.alert('Success', 'Driver recruited successfully! They will receive login credentials via email.');
         setRecruitModal(false);
         resetRecruitForm();
@@ -440,6 +449,7 @@ const DriverManagementScreen = () => {
       Alert.alert('Error', 'Failed to recruit driver. Please try again.');
     } finally {
       setRecruiting(false);
+      setRecruitmentStep('');
     }
   };
 
@@ -487,6 +497,17 @@ const DriverManagementScreen = () => {
   const renderDriver = ({ item }: { item: Driver }) => (
     <View style={styles.driverCard}>
       <View style={styles.driverHeader}>
+        {/* Driver Profile Image */}
+        <View style={styles.driverProfileContainer}>
+          {item.profileImage ? (
+            <Image source={{ uri: item.profileImage }} style={styles.driverProfileImage} />
+          ) : (
+            <View style={styles.driverProfilePlaceholder}>
+              <MaterialCommunityIcons name="account" size={24} color={colors.text.secondary} />
+            </View>
+          )}
+        </View>
+        
         <View style={styles.driverInfo}>
           <Text style={styles.driverName}>
             {item.firstName} {item.lastName}
@@ -764,9 +785,14 @@ const DriverManagementScreen = () => {
                   disabled={recruiting}
                 >
                   {recruiting ? (
-                    <ActivityIndicator size="small" color={colors.white} />
+                    <View style={styles.recruitingContainer}>
+                      <ActivityIndicator size="small" color={colors.white} />
+                      <Text style={styles.recruitingText}>
+                        {recruitmentStep || 'Recruiting Driver...'}
+                      </Text>
+                    </View>
                   ) : (
-                    <Text style={styles.recruitText}>Recruit</Text>
+                    <Text style={styles.recruitText}>Recruit Driver</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1184,6 +1210,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts.family.bold,
     color: colors.white,
+  },
+  // Driver Profile Image Styles
+  driverProfileContainer: {
+    marginRight: 12,
+  },
+  driverProfileImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.background,
+  },
+  driverProfilePlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  // Enhanced Loading Styles
+  recruitingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recruitingText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.white,
+    marginLeft: 8,
   },
 });
 

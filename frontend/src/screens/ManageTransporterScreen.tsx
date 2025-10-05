@@ -1763,7 +1763,15 @@ export default function ManageTransporterScreen({ route }: any) {
                 );
               }).map((item, index) => (
                 <View style={styles.vehicleListItem} key={item.id}>
-                  <Text style={styles.value}>{item.reg} ({item.type})</Text>
+                  <View style={styles.vehicleBasicInfo}>
+                    <Text style={styles.vehicleTitle}>
+                      {item.make || 'Unknown'} {item.model || ''} ({item.year || 'N/A'})
+                    </Text>
+                    <Text style={styles.vehicleReg}>{item.reg} • {item.type}</Text>
+                    <Text style={styles.vehicleCapacity}>
+                      {item.capacity ? `${item.capacity} tons` : 'Capacity N/A'} • {item.color || 'Color N/A'}
+                    </Text>
+                  </View>
                   <Text style={styles.value}>
                     Assigned Driver: {item.assignedDriverId ? (
                       <Text style={{ color: colors.success, fontWeight: 'bold' }}>
@@ -2856,6 +2864,10 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginTop: 2 },
   actionText: { color: colors.primary, fontWeight: 'bold', marginLeft: 6, fontSize: 15 },
   vehicleListItem: { borderBottomWidth: 1, borderBottomColor: colors.background, paddingVertical: 10, marginBottom: 6 },
+  vehicleBasicInfo: { marginBottom: 8 },
+  vehicleTitle: { fontSize: 16, fontWeight: 'bold', color: colors.text.primary, marginBottom: 4 },
+  vehicleReg: { fontSize: 14, color: colors.text.secondary, marginBottom: 2 },
+  vehicleCapacity: { fontSize: 13, color: colors.text.light },
   driverListItem: { borderBottomWidth: 1, borderBottomColor: colors.background, paddingVertical: 10, marginBottom: 6 },
   editBtn: { marginRight: 10 },
   removeBtn: {},

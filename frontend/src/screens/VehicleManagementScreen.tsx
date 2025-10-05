@@ -11,6 +11,7 @@ import {
   Modal,
   ScrollView,
   Image,
+  TextInput,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -92,7 +93,68 @@ const VehicleManagementScreen = () => {
   const [insurance, setInsurance] = useState<any>(null);
   const [assignedDriverId, setAssignedDriverId] = useState('');
   const [companyProfile, setCompanyProfile] = useState<any>(null);
+  
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filterVehicleType, setFilterVehicleType] = useState('all');
+  const [filterBodyType, setFilterBodyType] = useState('all');
+  const [filterDriveType, setFilterDriveType] = useState('all');
+  const [filterFeatures, setFilterFeatures] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
+  // Filter vehicles based on search and filter criteria
+  const getFilteredVehicles = () => {
+    return vehicles.filter(vehicle => {
+      // Search query filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = 
+          (vehicle.vehicleMake || vehicle.make || '').toLowerCase().includes(query) ||
+          (vehicle.vehicleModel || vehicle.model || '').toLowerCase().includes(query) ||
+          (vehicle.vehicleRegistration || vehicle.registration || '').toLowerCase().includes(query) ||
+          (vehicle.vehicleType || vehicle.type || '').toLowerCase().includes(query) ||
+          (vehicle.vehicleColor || vehicle.color || '').toLowerCase().includes(query);
+        
+        if (!matchesSearch) return false;
+      }
+
+      // Status filter
+      if (filterStatus !== 'all' && vehicle.status !== filterStatus) {
+        return false;
+      }
+
+      // Vehicle type filter
+      if (filterVehicleType !== 'all' && (vehicle.vehicleType || vehicle.type) !== filterVehicleType) {
+        return false;
+      }
+
+      // Body type filter
+      if (filterBodyType !== 'all' && vehicle.bodyType !== filterBodyType) {
+        return false;
+      }
+
+      // Drive type filter
+      if (filterDriveType !== 'all' && vehicle.driveType !== filterDriveType) {
+        return false;
+      }
+
+      // Features filter
+      if (filterFeatures.length > 0) {
+        const vehicleFeatures: string[] = [];
+        if (vehicle.refrigerated) vehicleFeatures.push('refrigerated');
+        if (vehicle.humidityControl) vehicleFeatures.push('humidityControl');
+        if (vehicle.specialCargo) vehicleFeatures.push('specialCargo');
+        if (vehicle.driveType === '4WD') vehicleFeatures.push('4WD');
+        if (vehicle.bodyType === 'open') vehicleFeatures.push('openBody');
+
+        const hasMatchingFeature = filterFeatures.some(feature => vehicleFeatures.includes(feature));
+        if (!hasMatchingFeature) return false;
+      }
+
+      return true;
+    });
+  };
 
   const fetchVehicles = async () => {
     try {
@@ -974,6 +1036,187 @@ const VehicleManagementScreen = () => {
           </View>
         </View>
 
+        {/* Search and Filter Section */}
+        <View style={styles.searchFilterContainer}>
+          <View style={styles.searchContainer}>
+            <MaterialCommunityIcons name="magnify" size={20} color={colors.text.secondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search vehicles by make, model, registration..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor={colors.text.secondary}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <MaterialCommunityIcons name="close-circle" size={20} color={colors.text.secondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => setShowFilters(!showFilters)}
+          >
+            <MaterialCommunityIcons name="filter" size={20} color={colors.primary} />
+            <Text style={styles.filterButtonText}>Filters</Text>
+            {(filterStatus !== 'all' || filterVehicleType !== 'all' || filterBodyType !== 'all' || filterDriveType !== 'all' || filterFeatures.length > 0) && (
+              <View style={styles.filterBadge} />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Filter Options */}
+        {showFilters && (
+          <View style={styles.filterOptions}>
+            {/* Status Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Status</Text>
+              <View style={styles.filterRow}>
+                {['all', 'pending', 'approved', 'rejected'].map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.filterChip,
+                      filterStatus === status && styles.filterChipActive
+                    ]}
+                    onPress={() => setFilterStatus(status as any)}
+                  >
+                    <Text style={[
+                      styles.filterChipText,
+                      filterStatus === status && styles.filterChipTextActive
+                    ]}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Vehicle Type Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Vehicle Type</Text>
+              <View style={styles.filterRow}>
+                {['all', 'truck', 'van', 'pickup', 'trailer'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.filterChip,
+                      filterVehicleType === type && styles.filterChipActive
+                    ]}
+                    onPress={() => setFilterVehicleType(type)}
+                  >
+                    <Text style={[
+                      styles.filterChipText,
+                      filterVehicleType === type && styles.filterChipTextActive
+                    ]}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Body Type Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Body Type</Text>
+              <View style={styles.filterRow}>
+                {['all', 'closed', 'open', 'flatbed'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.filterChip,
+                      filterBodyType === type && styles.filterChipActive
+                    ]}
+                    onPress={() => setFilterBodyType(type)}
+                  >
+                    <Text style={[
+                      styles.filterChipText,
+                      filterBodyType === type && styles.filterChipTextActive
+                    ]}>
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Drive Type Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Drive Type</Text>
+              <View style={styles.filterRow}>
+                {['all', '2WD', '4WD'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.filterChip,
+                      filterDriveType === type && styles.filterChipActive
+                    ]}
+                    onPress={() => setFilterDriveType(type)}
+                  >
+                    <Text style={[
+                      styles.filterChipText,
+                      filterDriveType === type && styles.filterChipTextActive
+                    ]}>
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Features Filter */}
+            <View style={styles.filterGroup}>
+              <Text style={styles.filterLabel}>Features</Text>
+              <View style={styles.filterRow}>
+                {[
+                  { key: 'refrigerated', label: 'Refrigerated' },
+                  { key: 'humidityControl', label: 'Humidity Control' },
+                  { key: 'specialCargo', label: 'Special Cargo' },
+                  { key: '4WD', label: '4WD' },
+                  { key: 'openBody', label: 'Open Body' }
+                ].map((feature) => (
+                  <TouchableOpacity
+                    key={feature.key}
+                    style={[
+                      styles.filterChip,
+                      filterFeatures.includes(feature.key) && styles.filterChipActive
+                    ]}
+                    onPress={() => {
+                      if (filterFeatures.includes(feature.key)) {
+                        setFilterFeatures(filterFeatures.filter(f => f !== feature.key));
+                      } else {
+                        setFilterFeatures([...filterFeatures, feature.key]);
+                      }
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterChipText,
+                      filterFeatures.includes(feature.key) && styles.filterChipTextActive
+                    ]}>
+                      {feature.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Clear Filters */}
+            <TouchableOpacity 
+              style={styles.clearFiltersButton}
+              onPress={() => {
+                setFilterStatus('all');
+                setFilterVehicleType('all');
+                setFilterBodyType('all');
+                setFilterDriveType('all');
+                setFilterFeatures([]);
+              }}
+            >
+              <Text style={styles.clearFiltersText}>Clear All Filters</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {error ? (
           <View style={styles.errorContainer}>
             <MaterialCommunityIcons name="alert-circle" size={48} color={colors.error} />
@@ -999,7 +1242,7 @@ const VehicleManagementScreen = () => {
           </View>
         ) : (
           <FlatList
-            data={vehicles}
+            data={getFilteredVehicles()}
             renderItem={renderVehicle}
             keyExtractor={(item) => item.id}
             refreshControl={
@@ -1351,6 +1594,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    resizeMode: 'contain',
   },
   vehiclePhotoPlaceholder: {
     width: '100%',
@@ -1896,6 +2140,119 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Search and Filter Styles
+  searchFilterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    gap: 12,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.primary,
+    marginLeft: 8,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    position: 'relative',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.primary,
+    marginLeft: 6,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  filterOptions: {
+    backgroundColor: colors.white,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  filterGroup: {
+    marginBottom: 16,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 8,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+  },
+  filterChipTextActive: {
+    color: colors.white,
+  },
+  clearFiltersButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  clearFiltersText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
   },
 });
 

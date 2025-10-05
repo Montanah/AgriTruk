@@ -32,9 +32,16 @@ import FleetMaintenanceScreen from '../screens/FleetMaintenanceScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-const HomeStack = ({ transporterType }) => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
-    {transporterType === 'company' ? (
+const HomeStack = ({ transporterType }) => {
+  console.log('🏠 HomeStack rendering with transporterType:', transporterType);
+  console.log('🏠 Initial route name:', transporterType === 'company' ? 'CompanyDashboard' : 'TransporterService');
+  
+  return (
+    <Stack.Navigator 
+      screenOptions={{ headerShown: false }}
+      initialRouteName={transporterType === 'company' ? 'CompanyDashboard' : 'TransporterService'}
+    >
+      {transporterType === 'company' ? (
       // Company-specific screens
       <>
         <Stack.Screen name="CompanyDashboard" component={CompanyDashboardScreen} />
@@ -79,8 +86,9 @@ const HomeStack = ({ transporterType }) => (
         <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
       </>
     )}
-  </Stack.Navigator>
-);
+    </Stack.Navigator>
+  );
+};
 
 const ManageStack = ({ transporterType }) => (
   <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={transporterType === 'company' ? 'FleetManagement' : 'JobManagement'}>
@@ -181,6 +189,7 @@ const TransporterTabNavigator = () => {
           if (companyData && companyData.length > 0) {
             // This is a company transporter - they are in companies collection
             // but should be treated as transporters with type 'company'
+            console.log('✅ Company transporter detected, setting type to company');
             setTransporterType('company');
             setLoading(false);
             return;
@@ -199,6 +208,7 @@ const TransporterTabNavigator = () => {
           const data = await transporterRes.json();
           // Individual transporters are in transporters collection
           const type = data.transporter?.transporterType || 'individual';
+          console.log('✅ Individual transporter detected, setting type to:', type);
           setTransporterType(type);
         }
       } catch (error) {
