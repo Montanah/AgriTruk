@@ -1,3 +1,4 @@
+const admin = require('firebase-admin');
 const { Timestamp } = require('firebase-admin/firestore');
 const { scheduleRecurringBookings } = require('../services/bookingService');
 const Booking = require('../models/Booking');
@@ -14,6 +15,22 @@ const calculateTransportCost = require('../utils/calculateCost');
 require('dotenv').config();
 
 const google_key = process.env.GOOGLE_MAPS_API_KEY;
+
+// Generate readable ID for display purposes
+const generateReadableId = (bookingType, bookingMode, isConsolidated = false) => {
+  const now = new Date();
+  const year = now.getFullYear().toString().slice(-2);
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  const hour = now.getHours().toString().padStart(2, '0');
+  const minute = now.getMinutes().toString().padStart(2, '0');
+  
+  const type = bookingType === 'Agri' ? 'AGR' : 'CRG';
+  const mode = isConsolidated ? 'CONS' : (bookingMode === 'instant' ? 'INST' : 'BOOK');
+  
+  return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
+};
+
 exports.createBooking = async (req, res) => {
   try {
     const {
@@ -30,20 +47,24 @@ exports.createBooking = async (req, res) => {
       insured,
       priority,
       recurrence,
-      fromLocation,
-      toLocation,
       pickUpDate,
       additionalNotes,
       specialCargo = [], 
       consolidated,
+      bulkiness,
       lengthCm, 
       widthCm,
       heightCm,
       tolls = 0, 
       fuelSurchargePct = 0, 
       waitMinutes = 0, 
-      nightSurcharge = false, 
+      nightSurcharge = false,
+      vehicleType = 'truck', 
     } = req.body;
+
+    // Extract location variables separately to allow reassignment
+    let fromLocation = req.body.fromLocation;
+    let toLocation = req.body.toLocation;
 
     const user = req.user?.uid || null;
 
@@ -62,44 +83,68 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
-    // Validate fromLocation and toLocation
-    const validateLocation = (location, fieldName) => {
+    // Validate and geocode locations if needed
+    const validateAndGeocodeLocation = async (location, fieldName) => {
       // Check if location is an object
       if (!location || typeof location !== 'object') {
         throw new Error(`${fieldName} must be an object`);
       }
 
-      // Define required fields
-      const requiredFields = ['address', 'latitude', 'longitude'];
-      const providedFields = Object.keys(location);
-
-      // Check for missing required fields
-      const missingFields = requiredFields.filter(field => !(field in location) || location[field] === undefined || location[field] === null);
-      if (missingFields.length > 0) {
-        throw new Error(`${fieldName} is missing required fields: ${missingFields.join(', ')}`);
+      // Check if address exists
+      if (!location.address || typeof location.address !== 'string' || location.address.trim() === '') {
+        throw new Error(`${fieldName}.address is required and must be a non-empty string`);
       }
 
-      // Check for extra fields
-      const extraFields = providedFields.filter(field => !requiredFields.includes(field));
-      if (extraFields.length > 0) {
-        throw new Error(`${fieldName} contains invalid fields: ${extraFields.join(', ')}`);
+      // If we have valid coordinates, use them
+      if (location.latitude !== undefined && location.latitude !== null && 
+          location.longitude !== undefined && location.longitude !== null &&
+          typeof location.latitude === 'number' && !isNaN(location.latitude) &&
+          typeof location.longitude === 'number' && !isNaN(location.longitude)) {
+        return location;
       }
 
-      // Validate field types
-      if (typeof location.address !== 'string' || location.address.trim() === '') {
-        throw new Error(`${fieldName}.address must be a non-empty string`);
+      // If no valid coordinates, geocode the address
+      if (!google_key) {
+        throw new Error('Google Maps API key is required for geocoding');
       }
-      if (typeof location.latitude !== 'number' || isNaN(location.latitude)) {
-        throw new Error(`${fieldName}.latitude must be a valid number`);
-      }
-      if (typeof location.longitude !== 'number' || isNaN(location.longitude)) {
-        throw new Error(`${fieldName}.longitude must be a valid number`);
+
+      try {
+        const { Client } = require('@googlemaps/google-maps-services-js');
+        const client = new Client({});
+        
+        const geocodeResponse = await client.geocode({
+          params: {
+            address: location.address,
+            key: google_key,
+          },
+        });
+
+        if (geocodeResponse.data.results && geocodeResponse.data.results.length > 0) {
+          const result = geocodeResponse.data.results[0];
+          const coords = result.geometry.location;
+          
+          return {
+            address: location.address,
+            latitude: coords.lat,
+            longitude: coords.lng
+          };
+        } else {
+          throw new Error(`Could not geocode address: ${location.address}`);
+        }
+      } catch (geocodeError) {
+        console.error(`Geocoding error for ${fieldName}:`, geocodeError);
+        throw new Error(`Could not geocode ${fieldName} address: ${location.address}`);
       }
     };
 
     try {
-      validateLocation(fromLocation, 'fromLocation');
-      validateLocation(toLocation, 'toLocation');
+      // Geocode locations if needed
+      const geocodedFromLocation = await validateAndGeocodeLocation(fromLocation, 'fromLocation');
+      const geocodedToLocation = await validateAndGeocodeLocation(toLocation, 'toLocation');
+      
+      // Update the location variables with geocoded data
+      fromLocation = geocodedFromLocation;
+      toLocation = geocodedToLocation;
     } catch (error) {
       return res.status(400).json({ message: error.message });
     }
@@ -197,7 +242,7 @@ exports.createBooking = async (req, res) => {
       needsRefrigeration: !!needsRefrigeration,
       humidityControl: !!humidyControl,
       specialCargo: specialCargo || [],
-      bulkness: !!bulkness,
+      bulkiness: !!bulkiness,
       insured: !!insured,
       value: value || 0,
       tolls: tolls || 0,
@@ -216,6 +261,7 @@ exports.createBooking = async (req, res) => {
       bookingMode,
       userId: user,
       weightKg,
+      createdAt: Timestamp.now(), // Explicitly set createdAt
       productType,
       specialRequest,
       perishable: !!perishable,
@@ -286,12 +332,16 @@ exports.createBooking = async (req, res) => {
     });
     // console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
 
+    // Generate readable ID for display
+    const readableId = generateReadableId(bookingType, bookingMode);
+    
     if (bookingMode === 'instant') {
       const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
       return res.status(201).json({
         success: true,
         message: `${bookingType}TRUK booking created successfully`,
         booking: formatTimestamps(booking),
+        readableId: readableId,
         matchedTransporter
       });
     } else {
@@ -300,6 +350,7 @@ exports.createBooking = async (req, res) => {
         success: true,
         message: `${bookingType}TRUK booking created successfully`,
         booking: formatTimestamps(booking),
+        readableId: readableId,
       });
     }
   } catch (error) {
@@ -424,12 +475,82 @@ exports.getBookingsByTransporterId = async (req, res) => {
     if (!transporterId) {
       return res.status(400).json({ message: 'Transporter ID is required' });
     }
+    
     const bookings = await Booking.getBookingsForTransporter(transporterId);
+    
+    // Populate client and vehicle information for each booking
+    const enrichedBookings = await Promise.all(bookings.map(async (booking) => {
+      const enrichedBooking = { ...booking };
+      
+      // Populate client information
+      if (booking.userId) {
+        try {
+          const client = await User.get(booking.userId);
+          if (client) {
+            enrichedBooking.client = {
+              id: client.uid,
+              name: client.name || 'Unknown Client',
+              phone: client.phone || 'No phone',
+              email: client.email || 'No email',
+              rating: client.rating || 0,
+              completedOrders: client.completedOrders || 0,
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching client for booking:', booking.id, error);
+          enrichedBooking.client = {
+            id: booking.userId,
+            name: 'Unknown Client',
+            phone: 'No phone',
+            email: 'No email',
+            rating: 0,
+            completedOrders: 0,
+          };
+        }
+      }
+      
+      // Populate vehicle information
+      if (booking.vehicleId) {
+        try {
+          // First, we need to find which company owns this vehicle
+          // For now, we'll try to get the transporter's company ID
+          const transporter = await Transporter.get(transporterId);
+          if (transporter && transporter.companyId) {
+            const Vehicle = require('../models/Vehicle');
+            const vehicle = await Vehicle.get(transporter.companyId, booking.vehicleId);
+            if (vehicle) {
+              enrichedBooking.vehicle = {
+                id: vehicle.vehicleId,
+                type: vehicle.type || 'N/A',
+                reg: vehicle.reg || 'N/A',
+                bodyType: vehicle.bodyType || 'N/A',
+                model: vehicle.model || 'N/A',
+                capacity: vehicle.capacity || 'N/A',
+              };
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching vehicle for booking:', booking.id, error);
+          enrichedBooking.vehicle = {
+            id: booking.vehicleId,
+            type: 'N/A',
+            reg: 'N/A',
+            bodyType: 'N/A',
+            model: 'N/A',
+            capacity: 'N/A',
+          };
+        }
+      }
+      
+      return enrichedBooking;
+    }));
+    
     // await logAdminActivity(req.user.uid, 'get_bookings_by_transporter_id', req);
     res.status(200).json({
       message: 'Bookings retrieved successfully', 
-      bookings: formatTimestamps(bookings), 
-      count: bookings});
+      bookings: formatTimestamps(enrichedBookings), 
+      count: enrichedBookings
+    });
   } catch (err) {
     console.error('Get bookings by transporter ID error:', err);
     res.status(500).json({ message: 'Failed to fetch bookings' });
@@ -580,8 +701,8 @@ exports.getFleetStatus = async (req, res) => {
     
     // Process each transporter to determine status
     const fleetStatus = transporters.map(transporter => {
-      const booking = bookingMap[transporter.transporterId];
-      const user = userMap[transporter.userId];
+      const booking = transporter.transporterId ? bookingMap[transporter.transporterId] : null;
+      const user = transporter.userId ? userMap[transporter.userId] : null;
       
       return {
         transporterId: transporter.transporterId,
@@ -782,7 +903,7 @@ exports.updateBooking = async (req, res) => {
         waitMinutes,
         nightSurcharge: bookingData.nightSurcharge,
       };
-      const { cost, costBreakdown} =calculateTransportCost(costCalculationData);
+      const { cost, costBreakdown } = calculateTransportCost(costCalculationData);
       
       updates.cost = cost;
       updates.costBreakdown = costBreakdown;
@@ -864,7 +985,7 @@ exports.acceptBooking = async (req, res) => {
     }
 
     // Get booking details
-    const booking = await Booking.getById(bookingId);
+    const booking = await Booking.get(bookingId);
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -888,19 +1009,80 @@ exports.acceptBooking = async (req, res) => {
       });
     }
 
-    // Update booking status
+    // Get transporter details first
+    let transporter = null;
+    try {
+      transporter = await Transporter.get(transporterId);
+      console.log('✅ Transporter found:', {
+        id: transporterId,
+        name: transporter?.name,
+        phone: transporter?.phone,
+        rating: transporter?.rating,
+        status: transporter?.status
+      });
+    } catch (error) {
+      console.log('❌ Transporter not found, continuing without transporter details:', error.message);
+    }
+
+    // Get vehicle details if vehicleId is provided
+    let vehicle = null;
+    if (vehicleId) {
+      try {
+        // Check if it's a company vehicle or individual transporter vehicle
+        const companySnapshot = await db.collection('companies').where('transporterId', '==', transporterId).get();
+        if (!companySnapshot.empty) {
+          // It's a company vehicle
+          const companyDoc = companySnapshot.docs[0];
+          const vehiclesSnapshot = await db.collection('companies').doc(companyDoc.id).collection('vehicles').doc(vehicleId).get();
+          if (vehiclesSnapshot.exists) {
+            vehicle = vehiclesSnapshot.data();
+          }
+        } else {
+          // It's an individual transporter vehicle
+          const vehicleSnapshot = await db.collection('vehicles').doc(vehicleId).get();
+          if (vehicleSnapshot.exists) {
+            vehicle = vehicleSnapshot.data();
+          }
+        }
+      } catch (error) {
+        console.log('Vehicle not found, continuing without vehicle details:', error.message);
+      }
+    }
+
+    // Update booking status with transporter and vehicle details
     const updates = {
       status: 'accepted',
       transporterId: transporterId,
       vehicleId: vehicleId || null,
+      transporterName: transporter?.displayName || null,
+      transporterPhone: transporter?.phoneNumber || null,
+      transporterPhoto: transporter?.driverProfileImage || null,
+      transporterRating: transporter?.rating || 0,
+      transporterExperience: transporter?.totalTrips ? `${transporter.totalTrips} trips` : 'New transporter',
+      transporterAvailability: transporter?.acceptingBooking ? 'Available' : 'Offline',
+      transporterTripsCompleted: transporter?.totalTrips || 0,
+      transporterStatus: transporter?.status || null,
+      vehicleMake: vehicle?.make || vehicle?.vehicleMake || null,
+      vehicleModel: vehicle?.model || vehicle?.vehicleModel || null,
+      vehicleYear: vehicle?.year || vehicle?.vehicleYear || null,
+      vehicleType: vehicle?.type || vehicle?.vehicleType || null,
+      vehicleRegistration: vehicle?.reg || vehicle?.vehicleRegistration || null,
+      vehicleColor: vehicle?.color || vehicle?.vehicleColor || null,
+      vehicleCapacity: vehicle?.capacity || vehicle?.vehicleCapacity || null,
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
 
-    await Booking.update(bookingId, updates);
+    console.log('💾 Saving booking updates:', {
+      bookingId,
+      transporterName: updates.transporterName,
+      transporterPhone: updates.transporterPhone,
+      transporterRating: updates.transporterRating,
+      vehicleMake: updates.vehicleMake,
+      vehicleRegistration: updates.vehicleRegistration
+    });
 
-    // Get transporter details for notification
-    const transporter = await Transporter.get(transporterId);
+    await Booking.update(bookingId, updates);
     
     // Create detailed notification for client
     await Notification.create({
@@ -975,7 +1157,7 @@ exports.rejectBooking = async (req, res) => {
     }
 
     // Get booking details
-    const booking = await Booking.getById(bookingId);
+    const booking = await Booking.get(bookingId);
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -1032,7 +1214,7 @@ exports.getBookingStatus = async (req, res) => {
     const userId = req.user.uid;
 
     // Get booking details
-    const booking = await Booking.getById(bookingId);
+    const booking = await Booking.get(bookingId);
     if (!booking) {
       return res.status(404).json({
         success: false,
