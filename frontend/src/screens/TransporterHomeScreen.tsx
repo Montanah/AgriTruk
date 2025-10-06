@@ -771,6 +771,31 @@ export default function TransporterHomeScreen() {
         </View>
       )}
       {/* History, Notifications, etc. can be added here */}
+      {/* Global accepting overlay */}
+      {acceptingJobId && (
+        <View style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.25)',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <View style={{
+            backgroundColor: colors.white,
+            padding: 16,
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: 160
+          }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ marginTop: 8, color: colors.text.primary, fontWeight: '600' }}>Accepting...</Text>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 }

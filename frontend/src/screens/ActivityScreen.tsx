@@ -1130,15 +1130,16 @@ const styles = StyleSheet.create({
   },
   requestActions: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: spacing.sm,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.md,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 16,
     flex: 1,
     minHeight: 48,
@@ -1156,6 +1157,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.primary,
+    marginHorizontal: spacing.sm,
   },
   mapButtonText: {
     color: colors.primary,
@@ -1166,6 +1168,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.secondary,
+    marginLeft: spacing.sm,
   },
   contactButtonText: {
     color: colors.secondary,
