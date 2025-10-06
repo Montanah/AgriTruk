@@ -7,11 +7,15 @@ import Divider from '../components/common/Divider';
 import NetworkTest from '../components/NetworkTest';
 import TransporterProfile from '../components/TransporterService/TransporterProfile';
 import TransporterInsights from '../components/TransporterService/TransporterInsights';
+import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
 import { testBackendConnectivity, testTerminalLogging } from '../utils/api';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import { getLocationName, formatRoute, getLocationNameSync } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
+import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 
 export default function TransporterHomeScreen() {
   const navigation = useNavigation();
@@ -21,12 +25,14 @@ export default function TransporterHomeScreen() {
   const [connectivityStatus, setConnectivityStatus] = useState<string>('');
   const [acceptingBooking, setAcceptingBooking] = useState(false);
   const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
   
   // Real data states
   const [requests, setRequests] = useState([]);
   const [currentTrip, setCurrentTrip] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [acceptingJobId, setAcceptingJobId] = useState(null);
   
   // Insights data
   const [insightsData, setInsightsData] = useState({
@@ -66,14 +72,14 @@ export default function TransporterHomeScreen() {
       if (!user) throw new Error('Not authenticated');
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+      const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/availability`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          acceptingBooking: newStatus,
+          availability: newStatus,
         }),
       });
 
@@ -107,7 +113,31 @@ export default function TransporterHomeScreen() {
         const token = await user.getIdToken();
         // Fetching transporter profile
 
-        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+        // Determine endpoint based on transporter type
+        // For now, we'll check if it's a company by trying the companies API first
+        let res = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        let isCompany = false;
+        if (res.ok) {
+          const companyData = await res.json();
+          if (companyData && companyData.length > 0) {
+            isCompany = true;
+            // Use company data
+            const data = { transporter: companyData[0] };
+            setProfile(data.transporter);
+            setAcceptingBooking(data.transporter?.acceptingBooking || false);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // If not a company, fetch from transporters API
+        res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -120,6 +150,12 @@ export default function TransporterHomeScreen() {
           // Transporter profile retrieved successfully
           setProfile(data.transporter);
           setAcceptingBooking(data.transporter?.acceptingBooking || false);
+          
+          // Check if this is a first-time user (newly approved, no previous activity)
+          const isNewUser = !data.transporter?.hasAcceptedAnyBooking && 
+                           data.transporter?.status === 'approved' &&
+                           !data.transporter?.acceptingBooking;
+          setIsFirstTimeUser(isNewUser);
         } else if (res.status === 404) {
           // Transporter profile not found - redirecting to completion
           // Profile doesn't exist yet, redirect to profile completion
@@ -188,7 +224,22 @@ export default function TransporterHomeScreen() {
       
       if (res.ok) {
         const data = await res.json();
-        setRequests(data.requests || []);
+        const rawRequests = data.requests || [];
+        
+        // Filter out requests that are not available for acceptance
+        const availableRequests = rawRequests.filter((request: any) => {
+          // Only show requests that are pending and not already accepted
+          const isPending = request.status === 'pending';
+          const notAccepted = !request.acceptedAt || request.acceptedAt === null;
+          const notAssigned = !request.transporterId || request.transporterId === null;
+          
+          console.log(`TransporterHomeScreen - Request ${request.bookingId || request.id} - Status: ${request.status}, AcceptedAt: ${request.acceptedAt}, TransporterId: ${request.transporterId}, Available: ${isPending && notAccepted && notAssigned}`);
+          
+          return isPending && notAccepted && notAssigned;
+        });
+        
+        console.log(`TransporterHomeScreen - Filtered ${availableRequests.length} available requests from ${rawRequests.length} total requests`);
+        setRequests(availableRequests);
       }
     } catch (error) {
       console.error('Error fetching requests:', error);
@@ -247,11 +298,22 @@ export default function TransporterHomeScreen() {
             text: 'Accept', 
             onPress: async () => {
               try {
+                // Set loading state
+                setAcceptingJobId(req.id);
                 const token = await user.getIdToken();
                 const jobId = req.bookingId || req.id;
                 
+                // Ensure we have a valid job ID
+                if (!jobId) {
+                  throw new Error('No valid job ID found');
+                }
+                
                 console.log('Making API call to:', `${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`);
                 console.log('Request body:', { transporterId: user.uid });
+                console.log('Job data:', { bookingId: req.bookingId, id: req.id, jobId });
+                console.log('User token length:', token.length);
+                console.log('User UID:', user.uid);
+                console.log('Full request object:', req);
                 
                 const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`, {
                   method: 'POST',
@@ -263,6 +325,10 @@ export default function TransporterHomeScreen() {
                     transporterId: user.uid,
                   }),
                 });
+                
+                console.log('Response status:', response.status);
+                console.log('Response ok:', response.ok);
+                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
                 if (response.ok) {
                   const result = await response.json();
@@ -303,11 +369,54 @@ export default function TransporterHomeScreen() {
                     );
                   }
                 } else {
-                  const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-                  console.error('Failed to accept job:', response.status, errorData);
+                  let errorData;
+                  try {
+                    const responseText = await response.text();
+                    console.log('Raw response text:', responseText);
+                    console.log('Response status:', response.status);
+                    console.log('Response statusText:', response.statusText);
+                    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                    
+                    if (responseText) {
+                      errorData = JSON.parse(responseText);
+                    } else {
+                      errorData = { message: 'Empty response from server' };
+                    }
+                  } catch (parseError) {
+                    console.error('Failed to parse response:', parseError);
+                    errorData = { message: 'Failed to parse server response' };
+                  }
+                  
+                  console.error('Failed to accept job - Full error details:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorData: errorData,
+                    jobId: jobId,
+                    transporterId: user.uid,
+                    apiUrl: `${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`
+                  });
+                  
+                  // Provide more specific error messages based on status code
+                  let errorMessage = 'Unknown error';
+                  if (response.status === 401) {
+                    errorMessage = 'Authentication failed. Please log in again.';
+                  } else if (response.status === 403) {
+                    errorMessage = 'Access denied. You may not have permission to accept this job.';
+                  } else if (response.status === 404) {
+                    errorMessage = 'Job not found. It may have been removed or already accepted.';
+                  } else if (response.status === 409) {
+                    errorMessage = 'This job has already been accepted by another transporter.';
+                  } else if (response.status === 400) {
+                    errorMessage = errorData.message || 'Invalid request. Please check your input.';
+                  } else if (response.status >= 500) {
+                    errorMessage = 'Server error. Please try again later.';
+                  } else {
+                    errorMessage = errorData.message || errorData.code || 'Unknown error';
+                  }
+                  
                   Alert.alert(
                     'Error', 
-                    `Failed to accept job: ${errorData.message || 'Unknown error'}`,
+                    `Failed to accept job: ${errorMessage}`,
                     [{ text: 'OK' }]
                   );
                 }
@@ -318,6 +427,9 @@ export default function TransporterHomeScreen() {
                   'Network error. Please check your connection and try again.',
                   [{ text: 'OK' }]
                 );
+              } finally {
+                // Clear loading state
+                setAcceptingJobId(null);
               }
             }
           }
@@ -329,9 +441,72 @@ export default function TransporterHomeScreen() {
     }
   };
 
-  const handleReject = (req) => {
-    setRequests((prev) => prev.map(r => r.id === req.id ? { ...r, status: 'Rejected' } : r));
-    setShowModal(false);
+  const handleReject = async (req) => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        Alert.alert('Error', 'Please log in to reject jobs');
+        return;
+      }
+
+      // Show confirmation dialog
+      Alert.alert(
+        'Reject Job',
+        `Are you sure you want to reject this ${req.productType || 'job'}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Reject', 
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const token = await user.getIdToken();
+                const jobId = req.bookingId || req.id;
+                
+                const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/reject`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    transporterId: user.uid,
+                    reason: 'Transporter declined',
+                  }),
+                });
+
+                if (response.ok) {
+                  setRequests((prev) => prev.map(r => r.id === req.id ? { ...r, status: 'Rejected' } : r));
+                  setShowModal(false);
+                  Alert.alert('Success', 'Job rejected successfully');
+                } else {
+                  const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+                  console.error('Failed to reject job:', response.status, errorData);
+                  Alert.alert(
+                    'Error', 
+                    `Failed to reject job: ${errorData.message || 'Unknown error'}`,
+                    [{ text: 'OK' }]
+                  );
+                }
+              } catch (error) {
+                console.error('Error rejecting job:', error);
+                Alert.alert(
+                  'Error', 
+                  'Network error. Please check your connection and try again.',
+                  [{ text: 'OK' }]
+                );
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error rejecting job:', error);
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+    }
   };
 
   const openRequestModal = (req) => {
@@ -446,6 +621,18 @@ export default function TransporterHomeScreen() {
           </View>
         </View>
       )}
+
+      {/* Offline Instructions Card - Show when not accepting requests */}
+      {profile && !acceptingBooking && (
+        <OfflineInstructionsCard
+          onToggleAccepting={() => {
+            // Navigate to profile tab to show the toggle
+            navigation.navigate('Profile');
+          }}
+          isFirstTime={isFirstTimeUser}
+        />
+      )}
+
       {/* Current Trip */}
       {currentTrip && (
         <View style={styles.card}>
@@ -499,16 +686,17 @@ export default function TransporterHomeScreen() {
             renderItem={({ item }) => (
               <View style={styles.requestItem}>
                 <TouchableOpacity style={{ flex: 1 }} onPress={() => openRequestModal(item)}>
-                  <Text style={styles.label}>From: <Text style={styles.value}>{item.from}</Text></Text>
-                  <Text style={styles.label}>To: <Text style={styles.value}>{item.to}</Text></Text>
-                  <Text style={styles.label}>Product: <Text style={styles.value}>{item.product}</Text></Text>
-                  <Text style={styles.label}>Weight: <Text style={styles.value}>{item.weight} kg</Text></Text>
-                  <Text style={styles.label}>ETA: <Text style={styles.value}>{item.eta}</Text></Text>
-                  <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {item.price?.toLocaleString()}</Text></Text>
+                  <Text style={styles.label}>Booking ID: <Text style={[styles.value, { fontWeight: 'bold', color: colors.primary }]}>{getDisplayBookingId(item)}</Text></Text>
+                  <Text style={styles.label}>From: <LocationDisplay location={item.fromLocation || item.from} style={styles.value} /></Text>
+                  <Text style={styles.label}>To: <LocationDisplay location={item.toLocation || item.to} style={styles.value} /></Text>
+                  <Text style={styles.label}>Product: <Text style={styles.value}>{item.productType || item.product}</Text></Text>
+                  <Text style={styles.label}>Weight: <Text style={styles.value}>{item.weightKg || item.weight} kg</Text></Text>
+                  <Text style={styles.label}>ETA: <Text style={styles.value}>{item.estimatedDuration || item.eta}</Text></Text>
+                  <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {(item.cost || item.price)?.toLocaleString()}</Text></Text>
                   <Text style={styles.label}>Customer: <Text style={styles.value}>{item.customer}</Text></Text>
                   <Text style={styles.label}>Contact: <Text style={styles.value}>{item.contact}</Text></Text>
-                  {item.special && item.special.length > 0 && (
-                    <Text style={styles.label}>Special: <Text style={styles.value}>{item.special.join(', ')}</Text></Text>
+                  {item.specialCargo && item.specialCargo.length > 0 && (
+                    <Text style={styles.label}>Special: <Text style={styles.value}>{item.specialCargo.join(', ')}</Text></Text>
                   )}
                   <Text style={styles.label}>Status: <Text style={[styles.value, item.status === 'Rejected' ? { color: colors.error } : { color: colors.secondary }]}>{item.status}</Text></Text>
                 </TouchableOpacity>
@@ -537,21 +725,39 @@ export default function TransporterHomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.sectionTitle}>Request Details</Text>
-            <Text style={styles.label}>From: <Text style={styles.value}>{selectedRequest.from}</Text></Text>
-            <Text style={styles.label}>To: <Text style={styles.value}>{selectedRequest.to}</Text></Text>
-            <Text style={styles.label}>Product: <Text style={styles.value}>{selectedRequest.product}</Text></Text>
-            <Text style={styles.label}>Weight: <Text style={styles.value}>{selectedRequest.weight} kg</Text></Text>
-            <Text style={styles.label}>ETA: <Text style={styles.value}>{selectedRequest.eta}</Text></Text>
-            <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {selectedRequest.price?.toLocaleString()}</Text></Text>
+            <Text style={styles.label}>Booking ID: <Text style={[styles.value, { fontWeight: 'bold', color: colors.primary }]}>{getDisplayBookingId(selectedRequest)}</Text></Text>
+            <Text style={styles.label}>From: <LocationDisplay location={selectedRequest.fromLocation || selectedRequest.from} style={styles.value} /></Text>
+            <Text style={styles.label}>To: <LocationDisplay location={selectedRequest.toLocation || selectedRequest.to} style={styles.value} /></Text>
+            <Text style={styles.label}>Product: <Text style={styles.value}>{selectedRequest.productType || selectedRequest.product}</Text></Text>
+            <Text style={styles.label}>Weight: <Text style={styles.value}>{selectedRequest.weightKg || selectedRequest.weight} kg</Text></Text>
+            <Text style={styles.label}>ETA: <Text style={styles.value}>{selectedRequest.estimatedDuration || selectedRequest.eta}</Text></Text>
+            <Text style={styles.label}>Price: <Text style={styles.value}>Ksh {(selectedRequest.cost || selectedRequest.price)?.toLocaleString()}</Text></Text>
             <Text style={styles.label}>Customer: <Text style={styles.value}>{selectedRequest.customer}</Text></Text>
             <Text style={styles.label}>Contact: <Text style={styles.value}>{selectedRequest.contact}</Text></Text>
             {selectedRequest.special && selectedRequest.special.length > 0 && (
               <Text style={styles.label}>Special: <Text style={styles.value}>{selectedRequest.special.join(', ')}</Text></Text>
             )}
             <View style={{ flexDirection: 'row', marginTop: spacing.lg, justifyContent: 'space-between' }}>
-              <TouchableOpacity style={[styles.acceptBtn, { flex: 1, marginRight: 8 }]} onPress={() => handleAccept(selectedRequest)}>
-                <MaterialCommunityIcons name="check-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
-                <Text style={styles.acceptBtnText}>Accept</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.acceptBtn, 
+                  { flex: 1, marginRight: 8 },
+                  acceptingJobId === selectedRequest.id && styles.acceptBtnDisabled
+                ]} 
+                onPress={() => handleAccept(selectedRequest)}
+                disabled={acceptingJobId === selectedRequest.id}
+              >
+                {acceptingJobId === selectedRequest.id ? (
+                  <>
+                    <ActivityIndicator size="small" color={colors.white} style={{ marginRight: 4 }} />
+                    <Text style={styles.acceptBtnText}>Accepting...</Text>
+                  </>
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="check-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
+                    <Text style={styles.acceptBtnText}>Accept</Text>
+                  </>
+                )}
               </TouchableOpacity>
               <TouchableOpacity style={[styles.rejectBtn, { flex: 1, marginLeft: 8 }]} onPress={() => handleReject(selectedRequest)}>
                 <Ionicons name="close-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
@@ -625,6 +831,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 10,
+  },
+  acceptBtnDisabled: {
+    backgroundColor: colors.text.light,
+    opacity: 0.7,
   },
   acceptBtnText: {
     color: colors.white,

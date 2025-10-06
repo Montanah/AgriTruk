@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo, useState } from 'react';
+import { getAuth } from 'firebase/auth';
 import {
     ActivityIndicator,
     Alert,
@@ -20,9 +21,12 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
-import { cleanLocationDisplay } from '../utils/locationUtils';
+import { getLocationName, formatRoute, getLocationNameSync } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
+import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
 import { chatService } from '../services/chatService';
 import { enhancedNotificationService } from '../services/enhancedNotificationService';
+import locationService from '../services/locationService';
 
 interface RouteParams {
     transporterType?: 'company' | 'individual' | 'broker';
@@ -37,6 +41,7 @@ const TransporterBookingManagementScreen = () => {
     const [activeTab, setActiveTab] = useState<'accepted' | 'route_loads' | 'history'>('accepted');
     const [jobStatusFilter, setJobStatusFilter] = useState<'all' | 'pending' | 'in_transit' | 'completed'>('all');
     const [refreshing, setRefreshing] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [acceptingId, setAcceptingId] = useState<string | null>(null);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [showLoadDetails, setShowLoadDetails] = useState(false);
@@ -104,7 +109,6 @@ const TransporterBookingManagementScreen = () => {
     const [allRouteLoads, setAllRouteLoads] = useState<any[]>([]);
     const [allBookings, setAllBookings] = useState<any[]>([]);
     const [currentTransporter, setCurrentTransporter] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
 
     // Fetch transporter profile and booking data
     useEffect(() => {
@@ -157,16 +161,33 @@ const TransporterBookingManagementScreen = () => {
                     setAllBookings(bookingsData.bookings || []);
                 }
 
-                // Fetch transporter profile
-                const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile/me`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
-                if (transporterRes.ok) {
-                    const transporterData = await transporterRes.json();
-                    setCurrentTransporter(transporterData);
+                // Fetch transporter profile - check if user is company or individual
+                try {
+                    // Try company endpoint first (for company transporters)
+                    const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                    if (companyRes.ok) {
+                        const companyData = await companyRes.json();
+                        setCurrentTransporter(companyData);
+                    } else {
+                        // Fallback to individual transporter endpoint
+                        const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                            },
+                        });
+                        if (transporterRes.ok) {
+                            const transporterData = await transporterRes.json();
+                            setCurrentTransporter(transporterData);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching transporter profile:', error);
                 }
 
                 // TODO: Uncomment when backend endpoints are ready
@@ -194,7 +215,52 @@ const TransporterBookingManagementScreen = () => {
         };
 
         fetchData();
-        getCurrentLocation();
+        
+        // Get current location for route-based filtering (optional)
+        const getCurrentLocation = async () => {
+            try {
+                // Check if locationService is available
+                if (!locationService || typeof locationService.getCurrentLocation !== 'function') {
+                    console.warn('LocationService not available, using default location');
+                    setCurrentLocation({
+                        latitude: -1.2921,
+                        longitude: 36.8219,
+                    });
+                    return;
+                }
+
+                const location = await locationService.getCurrentLocation();
+                if (location) {
+                    setCurrentLocation({
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                    });
+                    console.log('Current location set:', location);
+                } else {
+                    console.warn('No location data received, using default location');
+                    setCurrentLocation({
+                        latitude: -1.2921,
+                        longitude: 36.8219,
+                    });
+                }
+            } catch (error) {
+                console.error('Error getting current location:', error);
+                // Set a default location (Nairobi) if location fails
+                setCurrentLocation({
+                    latitude: -1.2921,
+                    longitude: 36.8219,
+                });
+            }
+        };
+        
+        // Call getCurrentLocation asynchronously to not block the main flow
+        getCurrentLocation().catch(error => {
+            console.error('Failed to get current location:', error);
+            setCurrentLocation({
+                latitude: -1.2921,
+                longitude: 36.8219,
+            });
+        });
     }, []);
 
     // Function to check if transporter can handle a request
@@ -451,23 +517,32 @@ const TransporterBookingManagementScreen = () => {
 
             // Create chat room for communication
             try {
+                const auth = getAuth();
+                const user = auth.currentUser;
+                if (!user) throw new Error('User not authenticated');
+                
                 const chatRoom = await chatService.getOrCreateChatRoom(
                     request.id,
-                    'transporter-id', // This should come from auth context
-                    request.client?.id || 'client-id'
+                    user.uid, // Use actual transporter ID from auth
+                    request.userId || request.client?.id // Use actual client ID
                 );
 
                 // Send notification to client about request acceptance
-                await enhancedNotificationService.sendNotification(
-                    'instant_request_accepted',
-                    request.client?.id || 'client-id',
-                    {
-                        requestId: request.id,
-                        transporterName: 'You', // This should come from user profile
-                        pickupLocation: cleanLocationDisplay(request.fromLocation || ''),
-                        deliveryLocation: cleanLocationDisplay(request.toLocation || ''),
-                    }
-                );
+                try {
+                    await enhancedNotificationService.sendNotification(
+                        'instant_request_accepted',
+                        request.userId || request.client?.id, // Use actual client ID
+                        {
+                            requestId: request.id,
+                            transporterName: 'You', // This should come from user profile
+                            pickupLocation: request.fromLocation || 'Unknown Location',
+                            deliveryLocation: request.toLocation || 'Unknown Location',
+                        }
+                    );
+                } catch (notificationError) {
+                    console.warn('Failed to send notification:', notificationError);
+                    // Don't fail the job acceptance if notification fails
+                }
                 
                 // Remove from appropriate list based on request type
                 if (request.type === 'instant' || request.type === 'instant-request') {
@@ -617,7 +692,7 @@ const TransporterBookingManagementScreen = () => {
         <View style={styles.jobCard}>
             <View style={styles.jobHeader}>
                 <View style={styles.jobInfo}>
-                    <Text style={styles.jobId}>#{item.id}</Text>
+                    <Text style={styles.jobId}>#{getDisplayBookingId(item)}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getJobStatusColor(item.status) + '20' }]}>
                         <Text style={[styles.statusText, { color: getJobStatusColor(item.status) }]}>
                             {item.status?.toUpperCase() || 'PENDING'}
@@ -630,14 +705,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
+                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
+                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
             
@@ -675,7 +750,7 @@ const TransporterBookingManagementScreen = () => {
         <View style={styles.loadCard}>
             <View style={styles.loadHeader}>
                 <View style={styles.loadInfo}>
-                    <Text style={styles.loadId}>#{item.id}</Text>
+                    <Text style={styles.loadId}>#{getDisplayBookingId(item)}</Text>
                     <View style={[styles.urgencyBadge, { backgroundColor: getUrgencyColor(item.urgency) + '20' }]}>
                         <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency) }]}>
                             {item.urgency?.toUpperCase() || 'MEDIUM'}
@@ -688,14 +763,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
+                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
+                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
             
@@ -743,7 +818,7 @@ const TransporterBookingManagementScreen = () => {
         <View style={styles.completedJobCard}>
             <View style={styles.jobHeader}>
                 <View style={styles.jobInfo}>
-                    <Text style={styles.jobId}>#{item.id}</Text>
+                    <Text style={styles.jobId}>#{getDisplayBookingId(item)}</Text>
                     <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
                         <Text style={[styles.statusText, { color: colors.success }]}>COMPLETED</Text>
                     </View>
@@ -754,14 +829,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
+                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.error} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
+                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
             
@@ -826,21 +901,21 @@ const TransporterBookingManagementScreen = () => {
                         </Text>
                     </View>
                 </View>
-                <Text style={styles.requestId}>#{item.id}</Text>
+                <Text style={styles.requestId}>#{getDisplayBookingId(item)}</Text>
             </View>
 
             {/* Route information */}
             <View style={styles.routeContainer}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.fromLocation)}</Text>
+                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
-                    <Text style={styles.routeText}>{cleanLocationDisplay(item.toLocation)}</Text>
+                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
 
@@ -1051,7 +1126,7 @@ const TransporterBookingManagementScreen = () => {
                         </Text>
                     </View>
                 </View>
-                <Text style={styles.requestId}>#{item.id}</Text>
+                <Text style={styles.requestId}>#{getDisplayBookingId(item)}</Text>
             </View>
 
             {/* Current Route Information */}
@@ -1079,14 +1154,14 @@ const TransporterBookingManagementScreen = () => {
             <View style={styles.routeContainer}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <Text style={styles.routeText}>{item.pickup}</Text>
+                    <LocationDisplay location={item.pickup} style={styles.routeText} showIcon={false} />
                 </View>
                 <View style={styles.routeArrow}>
                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
                 </View>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
-                    <Text style={styles.routeText}>{item.dropoff}</Text>
+                    <LocationDisplay location={item.dropoff} style={styles.routeText} showIcon={false} />
                 </View>
             </View>
 

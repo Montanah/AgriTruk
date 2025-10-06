@@ -1,15 +1,17 @@
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
-import { notificationService } from '../../services/notificationService';
-import SubscriptionStatusCard from '../components/common/SubscriptionStatusCard';
-import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
+import { notificationService } from '../services/notificationService';
+import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
+import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import colors from '../constants/colors';
+import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 import { convertCoordinatesToPlaceName, getShortLocationName } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
@@ -18,6 +20,7 @@ import Toast, { ToastProps } from '../components/common/Toast';
 import ModernToggle from '../components/common/ModernToggle';
 import locationService from '../services/locationService';
 import subscriptionService from '../services/subscriptionService';
+import { transporterPlans } from '../constants/subscriptionPlans';
 import { apiRequest, uploadFile } from '../utils/api';
 
 export default function ManageTransporterScreen({ route }: any) {
@@ -25,10 +28,8 @@ export default function ManageTransporterScreen({ route }: any) {
   const navigation = useNavigation<any>();
 
   // Modal state and profile state for individual
-  const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState('monthly');
-  const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
-  const [loadingSubscription, setLoadingSubscription] = useState(false);
+  // Use the subscription hook for better subscription management
+  const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
   const [drivers, setDrivers] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loadingDrivers, setLoadingDrivers] = useState(true);
@@ -49,9 +50,7 @@ export default function ManageTransporterScreen({ route }: any) {
 
       if (result.success) {
         Alert.alert('Success', 'Payment processed successfully!');
-        // Refresh subscription status
-        const status = await subscriptionService.getSubscriptionStatus();
-        setSubscriptionStatus(status);
+        // Subscription status will be automatically refreshed by the hook
       } else {
         Alert.alert('Payment Failed', result.message || 'Failed to process payment.');
       }
@@ -61,24 +60,13 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   };
 
-  const handleSubscribe = (planData: any) => {
-    // Navigate directly to PaymentScreen within the current stack
-    navigation.navigate('PaymentScreen', {
-      plan: planData,
-      userType: 'transporter',
-      billingPeriod: 'monthly',
-      isUpgrade: true
-    });
-  };
 
   const handleActivateTrial = async () => {
     try {
       const result = await subscriptionService.activateTrial('transporter');
       if (result.success) {
         Alert.alert('Trial Activated!', 'Your free trial has been activated successfully.');
-        // Refresh subscription status
-        const status = await subscriptionService.getSubscriptionStatus();
-        setSubscriptionStatus(status);
+        // Subscription status will be automatically refreshed by the hook
       } else {
         Alert.alert('Activation Failed', result.message || 'Failed to activate trial.');
       }
@@ -108,6 +96,10 @@ export default function ManageTransporterScreen({ route }: any) {
   const [loadingIndividualProfile, setLoadingIndividualProfile] = useState(true);
   const [individualProfilePhoto, setIndividualProfilePhoto] = useState<any>(null);
   
+  // Company profile states
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [registrationDocument, setRegistrationDocument] = useState<any>(null);
+  
   // Location tracking state
   const [isLocationTracking, setIsLocationTracking] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<any>(null);
@@ -127,55 +119,92 @@ export default function ManageTransporterScreen({ route }: any) {
   const [licenseModalVisible, setLicenseModalVisible] = useState(false);
   const [photoGalleryModalVisible, setPhotoGalleryModalVisible] = useState(false);
 
+  // Fetch company profile data
+  useEffect(() => {
+    const fetchCompanyProfile = async () => {
+      if (transporterType === 'company') {
+        try {
+          const { getAuth } = require('firebase/auth');
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (!user) return;
+
+          const token = await user.getIdToken();
+          console.log('Fetching company profile from:', `${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`);
+          const response = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          console.log('Company profile response status:', response.status);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Company profile data:', data);
+            setCompanyProfile(data[0] || data); // Handle both array and object responses
+          } else {
+            const errorText = await response.text();
+            console.error('Company profile fetch error:', response.status, errorText);
+          }
+        } catch (error) {
+          console.error('Error fetching company profile:', error);
+        }
+      }
+    };
+
+    fetchCompanyProfile();
+  }, [transporterType]);
+
   // Fetch drivers and vehicles data (only for company transporters)
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Only fetch drivers/vehicles for company transporters
-        if (transporterType === 'company') {
-          // Fetch drivers
-          const driversData = await apiRequest('/transporters/drivers');
-          setDrivers(driversData || []);
+        if (transporterType === 'company' && companyProfile?.companyId) {
+          // Fetch drivers using company-specific endpoint
+          const driversData = await apiRequest(`/companies/${companyProfile.companyId}/drivers`);
+          setDrivers(driversData?.drivers || []);
 
-          // Fetch vehicles
-          const vehiclesData = await apiRequest('/transporters/vehicles');
-          setVehicles(vehiclesData || []);
+          // Fetch vehicles using company-specific endpoint
+          const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
+          setVehicles(vehiclesData?.vehicles || []);
         } else {
           // For individual transporters, set empty arrays
           setDrivers([]);
           setVehicles([]);
         }
 
-      } catch (error) {
-        console.error('Failed to fetch drivers/vehicles:', error);
-        // Set empty arrays on error
-        setDrivers([]);
-        setVehicles([]);
-      } finally {
+        } catch (error) {
+          console.error('Failed to fetch drivers/vehicles:', error);
+          // Set empty arrays on error and show user-friendly message
+          setDrivers([]);
+          setVehicles([]);
+          
+          // Show more specific error message
+          const errorMessage = error.message || 'Unknown error occurred';
+          console.log('Error details:', errorMessage);
+          
+          // Don't show alert for 404 errors (company might not have data yet)
+          if (!errorMessage.includes('404') && !errorMessage.includes('not found')) {
+            Alert.alert(
+              'Unable to Load Fleet Data', 
+              `We couldn't load your fleet information: ${errorMessage}`,
+              [{ text: 'OK' }]
+            );
+          } else {
+            console.log('Company has no fleet data yet - this is normal for new companies');
+          }
+        } finally {
         setLoadingDrivers(false);
         setLoadingVehicles(false);
       }
     };
 
     fetchData();
-  }, [transporterType]);
+  }, [transporterType, companyProfile?.companyId]);
 
-  // Fetch subscription status
-  useEffect(() => {
-    const fetchSubscriptionStatus = async () => {
-      try {
-        setLoadingSubscription(true);
-        const status = await subscriptionService.getSubscriptionStatus();
-        setSubscriptionStatus(status);
-      } catch (error) {
-        console.error('Error fetching subscription status:', error);
-      } finally {
-        setLoadingSubscription(false);
-      }
-    };
-
-    fetchSubscriptionStatus();
-  }, []);
+  // Subscription status is now managed by the useSubscriptionStatus hook
 
   // Fetch user profile for verification status
   useEffect(() => {
@@ -258,7 +287,7 @@ export default function ManageTransporterScreen({ route }: any) {
           
           // Fetch both transporter profile and user verification status
           const [transporterRes, userRes] = await Promise.all([
-            fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+            fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -433,18 +462,53 @@ export default function ManageTransporterScreen({ route }: any) {
         const asset = result.assets[0];
         setEditProfilePhoto(asset);
         
-        // Upload the photo
+        // Upload the company logo
         try {
           setLoadingProfile(true);
           const user = auth.currentUser;
-          if (user) {
-            const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
-            setEditProfilePhoto({ ...asset, uri: uploadedUrl });
-            Alert.alert('Success', 'Profile photo updated successfully');
+          if (user && companyProfile?.companyId) {
+            // Upload to backend API which handles Cloudinary upload
+            const token = await user.getIdToken();
+            const formData = new FormData();
+            formData.append('logo', {
+              uri: asset.uri,
+              type: asset.type || 'image/jpeg',
+              name: 'company-logo.jpg',
+            } as any);
+            
+            console.log('Uploading company logo to:', `${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`);
+            console.log('FormData contents:', formData);
+            console.log('Asset details:', {
+              uri: asset.uri,
+              type: asset.type,
+              name: 'company-logo.jpg'
+            });
+            
+            const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                // Don't set Content-Type for FormData - let React Native set it with boundary
+              },
+              body: formData,
+            });
+            
+            if (response.ok) {
+              const responseData = await response.json();
+              console.log('Company logo upload response:', responseData);
+              setEditProfilePhoto({ ...asset, uri: asset.uri });
+              Alert.alert('Success', 'Company logo updated successfully');
+              // Refresh company profile to show updated logo
+              fetchProfile();
+            } else {
+              const errorData = await response.text();
+              console.error('Backend response error:', errorData);
+              throw new Error('Failed to update company logo in database');
+            }
           }
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
-          Alert.alert('Upload Error', 'Failed to upload profile photo. Please try again.');
+          Alert.alert('Upload Error', 'Failed to upload company logo. Please try again.');
         } finally {
           setLoadingProfile(false);
         }
@@ -472,18 +536,53 @@ export default function ManageTransporterScreen({ route }: any) {
         const asset = result.assets[0];
         setEditProfilePhoto(asset);
         
-        // Upload the photo
+        // Upload the company logo
         try {
           setLoadingProfile(true);
           const user = auth.currentUser;
-          if (user) {
-            const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
-            setEditProfilePhoto({ ...asset, uri: uploadedUrl });
-            Alert.alert('Success', 'Profile photo updated successfully');
+          if (user && companyProfile?.companyId) {
+            // Upload to backend API which handles Cloudinary upload
+            const token = await user.getIdToken();
+            const formData = new FormData();
+            formData.append('logo', {
+              uri: asset.uri,
+              type: asset.type || 'image/jpeg',
+              name: 'company-logo.jpg',
+            } as any);
+            
+            console.log('Uploading company logo to:', `${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`);
+            console.log('FormData contents:', formData);
+            console.log('Asset details:', {
+              uri: asset.uri,
+              type: asset.type,
+              name: 'company-logo.jpg'
+            });
+            
+            const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                // Don't set Content-Type for FormData - let React Native set it with boundary
+              },
+              body: formData,
+            });
+            
+            if (response.ok) {
+              const responseData = await response.json();
+              console.log('Company logo upload response:', responseData);
+              setEditProfilePhoto({ ...asset, uri: asset.uri });
+              Alert.alert('Success', 'Company logo updated successfully');
+              // Refresh company profile to show updated logo
+              fetchProfile();
+            } else {
+              const errorData = await response.text();
+              console.error('Backend response error:', errorData);
+              throw new Error('Failed to update company logo in database');
+            }
           }
         } catch (uploadError: any) {
           console.error('Upload error:', uploadError);
-          Alert.alert('Upload Error', 'Failed to upload profile photo. Please try again.');
+          Alert.alert('Upload Error', 'Failed to upload company logo. Please try again.');
         } finally {
           setLoadingProfile(false);
         }
@@ -491,6 +590,23 @@ export default function ManageTransporterScreen({ route }: any) {
     } catch (error) {
       console.error('Gallery error:', error);
       Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const pickRegistrationDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setRegistrationDocument(result.assets[0]);
+        Alert.alert('Success', 'Registration document selected. You can upload it when editing company details.');
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      Alert.alert('Error', 'Failed to select document. Please try again.');
     }
   };
 
@@ -540,9 +656,11 @@ export default function ManageTransporterScreen({ route }: any) {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignModalVehicleIdx, setAssignModalVehicleIdx] = useState<number | null>(null);
   const [driverSearch, setDriverSearch] = useState('');
+  const [assigningDriver, setAssigningDriver] = useState(false);
 
   // Recruit Driver modal state and fields
   const [recruitModal, setRecruitModal] = useState(false);
+  const [recruiting, setRecruiting] = useState(false);
   const [recruitName, setRecruitName] = useState('');
   const [recruitEmail, setRecruitEmail] = useState('');
   const [recruitPhone, setRecruitPhone] = useState('');
@@ -560,59 +678,348 @@ export default function ManageTransporterScreen({ route }: any) {
     setRecruitLicense(null);
     setRecruitModal(true);
   };
-  const handleRecruitDriver = () => {
+  const handleRecruitDriver = async () => {
     if (!recruitName || !recruitEmail || !recruitPhone || !recruitPhoto || !recruitIdDoc || !recruitLicense) {
       Alert.alert('Missing Info', 'Please fill all required fields.');
       return;
     }
-    const driver = {
-      id: Date.now().toString(),
-      name: recruitName,
-      email: recruitEmail,
-      phone: recruitPhone,
-      photo: recruitPhoto,
-      idDoc: recruitIdDoc,
-      license: recruitLicense,
-    };
-    setDrivers([...drivers, driver]);
-    setRecruitModal(false);
-    // Trigger notifications for driver recruitment
-    notificationService.sendEmail(
-      driver.email,
-      'Welcome to TRUKAPP',
-      `Hi ${driver.name}, you have been recruited as a driver. Please await vehicle assignment and further instructions.`,
-      'driver',
-      'driver_recruited',
-      { driver }
-    );
-    notificationService.sendSMS(
-      driver.phone,
-      `Welcome to TRUKAPP, ${driver.name}! You have been recruited as a driver.`,
-      'driver',
-      'driver_recruited',
-      { driver }
-    );
-    notificationService.sendInApp(
-      driver.id,
-      'You have been recruited as a driver. Please await vehicle assignment.',
-      'driver',
-      'driver_recruited',
-      { driver }
-    );
+
+    setRecruiting(true);
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        Alert.alert('Error', 'Please log in to recruit drivers');
+        return;
+      }
+
+      const token = await user.getIdToken();
+      
+      // Get company info first
+      const companyResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/transporter/${user.uid}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!companyResponse.ok) {
+        Alert.alert('Error', 'Company information not found');
+        return;
+      }
+      
+      const companyData = await companyResponse.json();
+      const company = companyData[0] || companyData;
+      
+      // Prepare form data for multipart upload
+      const formData = new FormData();
+      
+      // Split name into first and last name
+      const nameParts = recruitName.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || firstName;
+      
+      formData.append('companyId', company?.id || '');
+      formData.append('firstName', firstName);
+      formData.append('lastName', lastName);
+      formData.append('email', recruitEmail.trim());
+      formData.append('phone', recruitPhone.trim());
+      formData.append('driverLicenseNumber', 'DL-' + Date.now());
+      formData.append('idNumber', 'ID-' + Date.now());
+      
+      // Add files
+      if (recruitPhoto) {
+        formData.append('profileImage', {
+          uri: recruitPhoto.uri,
+          type: recruitPhoto.mimeType || 'image/jpeg',
+          name: recruitPhoto.fileName || 'profile_photo.jpg',
+        } as any);
+      }
+      
+      if (recruitIdDoc) {
+        formData.append('idDocument', {
+          uri: recruitIdDoc.uri,
+          type: recruitIdDoc.mimeType || 'image/jpeg',
+          name: recruitIdDoc.fileName || 'id_document.jpg',
+        } as any);
+      }
+      
+      if (recruitLicense) {
+        formData.append('driverLicense', {
+          uri: recruitLicense.uri,
+          type: recruitLicense.mimeType || 'image/jpeg',
+          name: recruitLicense.fileName || 'driver_license.jpg',
+        } as any);
+      }
+
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/${company?.id}/drivers`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Success', 'Driver recruited successfully! They will receive login credentials via email.');
+        setRecruitModal(false);
+        // Reset form
+        setRecruitName('');
+        setRecruitEmail('');
+        setRecruitPhone('');
+        setRecruitPhoto(null);
+        setRecruitIdDoc(null);
+        setRecruitLicense(null);
+        // Note: Drivers will be refreshed when navigating back to this screen
+      } else {
+        Alert.alert('Error', result.message || 'Failed to recruit driver');
+      }
+    } catch (error) {
+      console.error('Error recruiting driver:', error);
+      Alert.alert('Error', 'Failed to recruit driver. Please try again.');
+    } finally {
+      setRecruiting(false);
+    }
   };
 
   // Modularized image/file pickers for recruitment
   const pickDriverPhoto = async (setFn: (value: any) => void) => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setFn(result.assets[0]);
+    Alert.alert(
+      'Select Profile Photo',
+      'Choose how you want to add the driver\'s profile photo',
+      [
+        { text: 'Take Photo', onPress: () => pickDriverPhotoFromCamera(setFn) },
+        { text: 'Choose from Gallery', onPress: () => pickDriverPhotoFromGallery(setFn) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickDriverPhotoFromCamera = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'profile_photo.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickDriverPhotoFromGallery = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'profile_photo.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
   };
   const pickDriverIdDoc = async (setFn: (value: any) => void) => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setFn(result.assets[0]);
+    Alert.alert(
+      'Select ID Document',
+      'Choose how you want to add your ID document',
+      [
+        { text: 'Take Photo', onPress: () => pickDriverIdDocFromCamera(setFn) },
+        { text: 'Choose from Gallery', onPress: () => pickDriverIdDocFromGallery(setFn) },
+        { text: 'Upload PDF', onPress: () => pickDriverIdDocFromPDF(setFn) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
+
+  const pickDriverIdDocFromCamera = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'id_document.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickDriverIdDocFromGallery = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'id_document.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const pickDriverIdDocFromPDF = async (setFn: (value: any) => void) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: result.assets[0].name || 'id_document.pdf',
+          mimeType: 'application/pdf'
+        });
+      }
+    } catch (error) {
+      console.error('PDF picker error:', error);
+      Alert.alert('Error', 'Failed to select PDF');
+    }
+  };
+
   const pickDriverLicense = async (setFn: (value: any) => void) => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) setFn(result.assets[0]);
+    Alert.alert(
+      'Select Driver\'s License',
+      'Choose how you want to add your driver\'s license',
+      [
+        { text: 'Take Photo', onPress: () => pickDriverLicenseFromCamera(setFn) },
+        { text: 'Choose from Gallery', onPress: () => pickDriverLicenseFromGallery(setFn) },
+        { text: 'Upload PDF', onPress: () => pickDriverLicenseFromPDF(setFn) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickDriverLicenseFromCamera = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'driver_license.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickDriverLicenseFromGallery = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'driver_license.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const pickDriverLicenseFromPDF = async (setFn: (value: any) => void) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: result.assets[0].name || 'driver_license.pdf',
+          mimeType: 'application/pdf'
+        });
+      }
+    } catch (error) {
+      console.error('PDF picker error:', error);
+      Alert.alert('Error', 'Failed to select PDF');
+    }
   };
 
   // Vehicle modal state and fields
@@ -703,10 +1110,17 @@ export default function ManageTransporterScreen({ route }: any) {
 
   // Robust photo add handler (always uses latest state)
   const pickVehiclePhotos = async () => {
-    if (vehiclePhotos.length >= 5) return;
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.7 });
-    if (!result.canceled && result.assets && result.assets[0].uri) {
-      setVehiclePhotos(prev => [...prev, result.assets[0]]);
+    if (vehiclePhotos.length >= 4) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ 
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+      allowsMultipleSelection: true,
+      allowsEditing: false, 
+      quality: 0.7 
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      // Add all selected photos up to the limit
+      const newPhotos = result.assets.slice(0, 4 - vehiclePhotos.length);
+      setVehiclePhotos(prev => [...prev, ...newPhotos]);
     }
   };
   // Robust photo remove handler
@@ -740,58 +1154,90 @@ export default function ManageTransporterScreen({ route }: any) {
     setVehicleType(v.type); setVehicleReg(v.reg); setRefrigeration(v.refrigeration); setHumidityControl(v.humidityControl); setSpecialCargo(v.specialCargo); setVehicleFeatures(v.features); setInsurance(v.insurance); setVehiclePhotos(v.photos); setAssignedDriverId(v.assignedDriverId || null);
     setVehicleModal(true);
   };
-  const handleSaveVehicle = () => {
-    if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 3) {
-      Alert.alert('Missing Info', 'Please fill all required fields and upload at least 3 photos.');
+  const handleSaveVehicle = async () => {
+    
+    if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 1) {
+      const missingFields = [];
+      if (!vehicleType) missingFields.push('Vehicle Type');
+      if (!vehicleReg) missingFields.push('Registration Number');
+      if (!insurance) missingFields.push('Vehicle Insurance Document');
+      if (vehiclePhotos.length < 1) missingFields.push('At least 1 photo');
+      
+      Alert.alert('Missing Info', `Please provide: ${missingFields.join(', ')}`);
       return;
     }
-    const vehicle = {
-      id: vehicleEditIdx !== null ? vehicles[vehicleEditIdx].id : Date.now().toString(),
-      type: vehicleType,
-      reg: vehicleReg,
-      bodyType,
-      refrigeration,
-      humidityControl,
-      specialCargo,
-      features: vehicleFeatures,
-      insurance,
-      photos: vehiclePhotos,
-      assignedDriverId,
-    };
-    let updated;
-    if (vehicleEditIdx !== null) {
-      updated = [...vehicles];
-      updated[vehicleEditIdx] = vehicle;
-    } else {
-      updated = [...vehicles, vehicle];
-    }
-    setVehicles(updated);
-    setVehicleModal(false);
-    // If editing, notify the assigned driver (if changed)
-    const assignedDriver = vehicle.assignedDriverId && drivers.find(d => d.id === vehicle.assignedDriverId);
-    if (assignedDriver) {
-      notificationService.sendEmail(
-        assignedDriver.email,
-        'Vehicle Assignment',
-        `Hi ${assignedDriver.name}, you have been assigned vehicle ${vehicle.reg} (${vehicle.type}).`,
-        'driver',
-        'vehicle_assigned',
-        { vehicle, driver: assignedDriver }
-      );
-      notificationService.sendSMS(
-        assignedDriver.phone,
-        `You have been assigned vehicle ${vehicle.reg} (${vehicle.type}).`,
-        'driver',
-        'vehicle_assigned',
-        { vehicle, driver: assignedDriver }
-      );
-      notificationService.sendInApp(
-        assignedDriver.id,
-        `You have been assigned vehicle ${vehicle.reg} (${vehicle.type}).`,
-        'driver',
-        'vehicle_assigned',
-        { vehicle, driver: assignedDriver }
-      );
+
+    try {
+      setLoadingProfile(true);
+      
+      const vehicleData = {
+        vehicleType: vehicleType,
+        vehicleRegistration: vehicleReg,
+        vehicleMake: vehicleMake,
+        vehicleModel: vehicleMake, // Use vehicleMake as model for backend compatibility
+        vehicleColor: vehicleColor,
+        year: vehicleYear,
+        capacity: vehicleCapacity,
+        driveType: vehicleDriveType,
+        bodyType: bodyType,
+        refrigeration: refrigeration,
+        humidityControl: humidityControl,
+        specialCargo: specialCargo,
+        features: vehicleFeatures,
+        insurance: insurance,
+        photos: vehiclePhotos,
+        assignedDriverId: assignedDriverId,
+        status: 'pending' // Set to pending for admin approval
+      };
+
+      
+      // Create vehicle via API
+      const response = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`, {
+        method: 'POST',
+        body: vehicleData
+      });
+
+      if (response.success) {
+        
+        // Update local state
+        const newVehicle = {
+          id: response.vehicle?.vehicleId || Date.now().toString(),
+          type: vehicleType,
+          reg: vehicleReg,
+          bodyType,
+          refrigeration,
+          humidityControl,
+          specialCargo,
+          features: vehicleFeatures,
+          insurance,
+          photos: vehiclePhotos,
+          assignedDriverId,
+          status: 'pending' // Show pending status
+        };
+        
+        let updated;
+        if (vehicleEditIdx !== null) {
+          updated = [...vehicles];
+          updated[vehicleEditIdx] = newVehicle;
+        } else {
+          updated = [...vehicles, newVehicle];
+        }
+        setVehicles(updated);
+        setVehicleModal(false);
+        
+        Alert.alert(
+          'Success', 
+          'Vehicle added successfully! It will be reviewed by admin before approval.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error(response.message || 'Failed to create vehicle');
+      }
+    } catch (error) {
+      console.error('❌ Error creating vehicle:', error);
+      Alert.alert('Error', `Failed to create vehicle: ${error.message}`);
+    } finally {
+      setLoadingProfile(false);
     }
   };
   const handleRemoveVehicle = (idx: number) => {
@@ -976,8 +1422,128 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   };
 
-  const assignDriverToVehicle = (vehicleIdx: number, driverId: string) => {
-    setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: driverId } : v));
+  const assignDriverToVehicle = async (vehicleIdx: number, driverId: string) => {
+    try {
+      setAssigningDriver(true);
+      const vehicle = vehicles[vehicleIdx];
+      if (!vehicle) return;
+
+      // Call backend API to assign driver
+      const response = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicle.id}/assign-driver`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${await getAuth().currentUser?.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ driverId }),
+      });
+
+      if (response.ok) {
+        // Update local state only if backend call succeeds
+        setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: driverId } : v));
+        
+        // Refresh data to ensure consistency
+        setTimeout(() => {
+          fetchCompanyData();
+        }, 1000);
+        
+        // Show success message
+        Alert.alert(
+          'Success',
+          `Driver assigned to vehicle ${vehicle.reg} successfully!`,
+          [{ text: 'OK' }]
+        );
+
+        // Send notification to driver
+        const driver = drivers.find(d => d.id === driverId);
+        if (driver) {
+          notificationService.sendEmail(
+            driver.email,
+            'Vehicle Assignment',
+            `Hi ${driver.name}, you have been assigned vehicle ${vehicle.reg} (${vehicle.type}). Please check your dashboard for details.`,
+            'driver',
+            'vehicle_assigned',
+            { vehicle, driver }
+          );
+        }
+      } else {
+        const errorData = await response.json();
+        Alert.alert(
+          'Assignment Failed',
+          errorData.message || 'Failed to assign driver to vehicle. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error assigning driver to vehicle:', error);
+      Alert.alert(
+        'Error',
+        'Network error. Please check your connection and try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setAssigningDriver(false);
+    }
+  };
+
+  const unassignDriverFromVehicle = async (vehicleIdx: number) => {
+    try {
+      const vehicle = vehicles[vehicleIdx];
+      if (!vehicle || !vehicle.assignedDriverId) return;
+
+      // Call backend API to unassign driver
+      const response = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicle.id}/unassign-driver`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${await getAuth().currentUser?.getIdToken()}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Update local state only if backend call succeeds
+        setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: null } : v));
+        
+        // Refresh data to ensure consistency
+        setTimeout(() => {
+          fetchCompanyData();
+        }, 1000);
+        
+        // Show success message
+        Alert.alert(
+          'Success',
+          `Driver unassigned from vehicle ${vehicle.reg} successfully!`,
+          [{ text: 'OK' }]
+        );
+
+        // Send notification to driver
+        const driver = drivers.find(d => d.id === vehicle.assignedDriverId);
+        if (driver) {
+          notificationService.sendEmail(
+            driver.email,
+            'Vehicle Assignment Removed',
+            `Hi ${driver.name}, you have been unassigned from vehicle ${vehicle.reg} (${vehicle.type}).`,
+            'driver',
+            'vehicle_unassigned',
+            { vehicle, driver }
+          );
+        }
+      } else {
+        const errorData = await response.json();
+        Alert.alert(
+          'Unassignment Failed',
+          errorData.message || 'Failed to unassign driver from vehicle. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error unassigning driver from vehicle:', error);
+      Alert.alert(
+        'Error',
+        'Network error. Please check your connection and try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   if (transporterType === 'company') {
@@ -985,42 +1551,65 @@ export default function ManageTransporterScreen({ route }: any) {
       <>
         <FormKeyboardWrapper style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}>
           <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
-          {/* Profile Section */}
+          {/* Company Profile Section */}
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Profile</Text>
+            <Text style={styles.sectionTitle}>Corporate Profile</Text>
             <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
-              <MaterialCommunityIcons name="account-edit" size={20} color={colors.secondary} />
-              <Text style={styles.actionText}>Edit Profile</Text>
+              <MaterialCommunityIcons name="office-building" size={20} color={colors.secondary} />
+              <Text style={styles.actionText}>Edit Corporate Details</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={{ alignItems: 'center', marginBottom: 8 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
+            
+            {/* Company Logo */}
+            <TouchableOpacity style={{ alignItems: 'center', marginBottom: 16 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
               {editProfilePhoto ? (
-                <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background }} />
+              ) : companyProfile?.companyLogo ? (
+                <Image source={{ uri: companyProfile.companyLogo }} style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background }} />
               ) : loadingProfile ? (
                 <ActivityIndicator size="large" color={colors.primary} />
               ) : (
-                <MaterialCommunityIcons name="account-circle" size={80} color={colors.primary} />
+                <View style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background.secondary, alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons name="office-building" size={40} color={colors.primary} />
+                </View>
               )}
-              <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
+              <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontSize: 14, fontFamily: fonts.family.medium }}>
+                {companyProfile?.companyLogo ? 'Update Corporate Logo' : 'Upload Corporate Logo'}
+              </Text>
             </TouchableOpacity>
-            <Text style={styles.value}>Name: {editName}</Text>
-            <Text style={styles.value}>Phone: {editPhone}</Text>
-            
-            {/* Accepting Requests Toggle for Company */}
-            <View style={styles.toggleContainer}>
-              <ModernToggle
-                value={acceptingBooking}
-                onValueChange={updateAcceptingBookingStatus}
-                disabled={updatingBookingStatus}
-                loading={updatingBookingStatus}
-                label="Accepting New Requests"
-                description={acceptingBooking 
-                  ? 'You are currently accepting new booking requests' 
-                  : 'You are not accepting new booking requests'
-                }
-                size="medium"
-                variant="success"
-              />
+
+            {/* Company Information */}
+            <View style={styles.companyInfo}>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="office-building" size={16} color={colors.text.secondary} />
+                <Text style={styles.companyName}>{companyProfile?.companyName || 'Corporate Name'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="file-document" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>{companyProfile?.companyRegistration || 'Registration Number'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="phone" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>{companyProfile?.companyContact || 'Contact Number'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="email" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>{companyProfile?.companyEmail || 'Email Address'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="map-marker" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>
+                  {companyProfile?.companyAddress && companyProfile.companyAddress.trim() !== '' 
+                    ? companyProfile.companyAddress 
+                    : 'No address provided'}
+                </Text>
+              </View>
             </View>
+
+            {/* Registration Document Upload */}
+            <TouchableOpacity style={[styles.actionBtn, { marginTop: 12, backgroundColor: colors.background.secondary }]} onPress={pickRegistrationDocument}>
+              <MaterialCommunityIcons name="file-upload" size={20} color={colors.primary} />
+              <Text style={[styles.actionText, { color: colors.primary }]}>Upload Registration Document</Text>
+            </TouchableOpacity>
             
             <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
               <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
@@ -1054,17 +1643,19 @@ export default function ManageTransporterScreen({ route }: any) {
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
                 {userProfile?.email || 'No email set'}
               </Text>
-              <TouchableOpacity
-                style={styles.verifyButton}
-                onPress={handleVerifyEmail}
-                disabled={verifyingEmail}
-              >
-                {verifyingEmail ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.verifyButtonText}>Verify Email</Text>
-                )}
-              </TouchableOpacity>
+              {!userProfile?.emailVerified && (
+                <TouchableOpacity
+                  style={styles.verifyButton}
+                  onPress={handleVerifyEmail}
+                  disabled={verifyingEmail}
+                >
+                  {verifyingEmail ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.verifyButtonText}>Verify Email</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={{ marginBottom: 12 }}>
@@ -1090,26 +1681,62 @@ export default function ManageTransporterScreen({ route }: any) {
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
                 {userProfile?.phone || editPhone || 'No phone set'}
               </Text>
-              <TouchableOpacity
-                style={styles.verifyButton}
-                onPress={handleVerifyPhone}
-                disabled={verifyingPhone}
-              >
-                {verifyingPhone ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.verifyButtonText}>Verify Phone</Text>
-                )}
-              </TouchableOpacity>
+              {!userProfile?.phoneVerified && (
+                <TouchableOpacity
+                  style={styles.verifyButton}
+                  onPress={handleVerifyPhone}
+                  disabled={verifyingPhone}
+                >
+                  {verifyingPhone ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           </View>
+
+          {/* Subscription Section */}
+          <View style={styles.card}>
+            <EnhancedSubscriptionStatusCard
+              subscriptionStatus={subscriptionStatus || {
+                hasActiveSubscription: true,
+                isTrialActive: false,
+                needsTrialActivation: false,
+                currentPlan: transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1],
+                daysRemaining: 15,
+                subscriptionStatus: 'active'
+              }}
+              onManagePress={() => {
+                console.log('Manage button pressed!');
+                navigation.navigate('SubscriptionManagement', { userType: transporterType === 'company' ? 'company' : 'transporter' });
+              }}
+              onRenewPress={handlePayment}
+              onUpgradePress={() => navigation.navigate('SubscriptionManagement')}
+              showUpgradeOptions={true}
+              animated={true}
+              onActivateTrial={handleActivateTrial}
+              loading={subscriptionLoading}
+            />
+          </View>
+
           {/* Vehicles List */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Vehicles</Text>
-            <TouchableOpacity style={styles.actionBtn} onPress={openAddVehicle}>
-              <Ionicons name="add-circle" size={20} color={colors.primary} />
-              <Text style={styles.actionText}>Add Vehicle</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity style={[styles.actionBtn, { flex: 1, marginRight: 8 }]} onPress={openAddVehicle}>
+                <Ionicons name="add-circle" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Add Vehicle</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, { flex: 1, marginLeft: 8 }]} 
+                onPress={() => navigation.navigate('Fleet', { screen: 'VehicleManagement' })}
+              >
+                <MaterialCommunityIcons name="truck" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Manage Fleet</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Search vehicles..."
@@ -1117,19 +1744,43 @@ export default function ManageTransporterScreen({ route }: any) {
               onChangeText={setVehicleSearch}
             />
             {vehicles.length === 0 ? (
-              <Text style={styles.value}>No vehicles added.</Text>
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="truck-outline" size={48} color={colors.text.secondary} />
+                <Text style={styles.emptyStateTitle}>No Vehicles Yet</Text>
+                <Text style={styles.emptyStateText}>Start building your fleet by adding your first vehicle.</Text>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={openAddVehicle}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                  <Text style={styles.emptyStateButtonText}>Add Vehicle</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               vehicles.filter(item => {
                 const assignedDriver = drivers.find(d => d.id === item.assignedDriverId);
                 return (
-                  item.reg.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-                  item.type.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-                  (assignedDriver && assignedDriver.name.toLowerCase().includes(vehicleSearch.toLowerCase()))
+                  (item.reg && item.reg.toLowerCase().includes(vehicleSearch.toLowerCase())) ||
+                  (item.type && item.type.toLowerCase().includes(vehicleSearch.toLowerCase())) ||
+                  (assignedDriver && assignedDriver.name && assignedDriver.name.toLowerCase().includes(vehicleSearch.toLowerCase()))
                 );
               }).map((item, index) => (
                 <View style={styles.vehicleListItem} key={item.id}>
-                  <Text style={styles.value}>{item.reg} ({item.type})</Text>
-                  <Text style={styles.value}>Assigned Driver: {item.assignedDriverId ? (drivers.find(d => d.id === item.assignedDriverId)?.name || 'Unknown') : 'None'}</Text>
+                  <View style={styles.vehicleBasicInfo}>
+                    <Text style={styles.vehicleTitle}>
+                      {item.make || 'Unknown'} {item.model || ''} ({item.year || 'N/A'})
+                    </Text>
+                    <Text style={styles.vehicleReg}>{item.reg} • {item.type}</Text>
+                    <Text style={styles.vehicleCapacity}>
+                      {item.capacity ? `${item.capacity} tons` : 'Capacity N/A'} • {item.color || 'Color N/A'}
+                    </Text>
+                  </View>
+                  <Text style={styles.value}>
+                    Assigned Driver: {item.assignedDriverId ? (
+                      <Text style={{ color: colors.success, fontWeight: 'bold' }}>
+                        {drivers.find(d => d.id === item.assignedDriverId)?.name || 'Unknown'}
+                      </Text>
+                    ) : (
+                      <Text style={{ color: colors.text.secondary, fontStyle: 'italic' }}>None</Text>
+                    )}
+                  </Text>
                   <View style={{ flexDirection: 'row', marginTop: 4 }}>
                     <TouchableOpacity style={styles.editBtn} onPress={() => openEditVehicle(index)}>
                       <Ionicons name="create-outline" size={18} color={colors.secondary} />
@@ -1138,11 +1789,39 @@ export default function ManageTransporterScreen({ route }: any) {
                       <Ionicons name="trash" size={18} color={colors.error} />
                     </TouchableOpacity>
                   </View>
-                  <View style={{ marginTop: 6 }}>
-                    <TouchableOpacity style={[styles.driverAssignBtn, { minWidth: 180, justifyContent: 'center' }]} onPress={() => { setAssignModalVehicleIdx(index); setShowAssignModal(true); }}>
+                  <View style={{ marginTop: 6, flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity 
+                      style={[styles.driverAssignBtn, { minWidth: 120, justifyContent: 'center' }]} 
+                      onPress={() => { setAssignModalVehicleIdx(index); setShowAssignModal(true); }}
+                    >
                       <Ionicons name="swap-horizontal" size={18} color={colors.primary} />
-                      <Text style={{ color: colors.primary, marginLeft: 8, fontWeight: 'bold' }}>Assign Driver</Text>
+                      <Text style={{ color: colors.primary, marginLeft: 8, fontWeight: 'bold' }}>
+                        {item.assignedDriverId ? 'Reassign' : 'Assign'} Driver
+                      </Text>
                     </TouchableOpacity>
+                    
+                    {item.assignedDriverId && (
+                      <TouchableOpacity 
+                        style={[styles.driverAssignBtn, { minWidth: 120, justifyContent: 'center', backgroundColor: colors.error }]} 
+                        onPress={() => {
+                          Alert.alert(
+                            'Confirm Unassignment',
+                            `Are you sure you want to unassign the driver from vehicle ${item.reg}?`,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { 
+                                text: 'Unassign', 
+                                style: 'destructive',
+                                onPress: () => unassignDriverFromVehicle(index)
+                              }
+                            ]
+                          );
+                        }}
+                      >
+                        <Ionicons name="person-remove" size={18} color={colors.white} />
+                        <Text style={{ color: colors.white, marginLeft: 8, fontWeight: 'bold' }}>Unassign</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               ))
@@ -1164,18 +1843,24 @@ export default function ManageTransporterScreen({ route }: any) {
                   value={driverSearch}
                   onChangeText={setDriverSearch}
                 />
+                {assigningDriver && (
+                  <View style={{ alignItems: 'center', marginVertical: 10 }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={{ color: colors.text.secondary, marginTop: 5 }}>Assigning driver...</Text>
+                  </View>
+                )}
                 <ScrollView style={{ maxHeight: 320, width: '100%' }}>
                   {drivers.filter(d =>
-                    d.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                    d.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                    d.phone.toLowerCase().includes(driverSearch.toLowerCase())
+                    (d.name && d.name.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                    (d.email && d.email.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                    (d.phone && d.phone.toLowerCase().includes(driverSearch.toLowerCase()))
                   ).map((d) => (
                     <TouchableOpacity
                       key={d.id}
                       style={[styles.driverAssignBtn, assignModalVehicleIdx !== null && vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && styles.driverAssignBtnActive, { flexDirection: 'row', alignItems: 'center', marginBottom: 8 }]}
-                      onPress={() => {
+                      onPress={async () => {
                         if (assignModalVehicleIdx !== null) {
-                          assignDriverToVehicle(assignModalVehicleIdx, d.id);
+                          await assignDriverToVehicle(assignModalVehicleIdx, d.id);
                         }
                         setShowAssignModal(false);
                       }}
@@ -1186,6 +1871,11 @@ export default function ManageTransporterScreen({ route }: any) {
                         <Text style={styles.driverAssignName}>Contact: {d.phone}</Text>
                         <Text style={styles.driverAssignName}>Email: {d.email}</Text>
                         <Text style={styles.driverAssignName}>ID: {d.id}</Text>
+                        {d.assignedVehicleId && (
+                          <Text style={[styles.driverAssignName, { color: colors.warning, fontWeight: 'bold' }]}>
+                            Currently assigned to: {d.assignedVehicleId}
+                          </Text>
+                        )}
                       </View>
                       {assignModalVehicleIdx !== null && vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && (
                         <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={{ marginLeft: 8 }} />
@@ -1214,55 +1904,44 @@ export default function ManageTransporterScreen({ route }: any) {
                   <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
                   {/* Vehicle Details Form (Reusable) */}
                   <VehicleDetailsForm
-                    initial={{}}
-                    onChange={() => { }}
+                    initial={{
+                      vehicleType: vehicleType,
+                      vehicleMake: vehicleMake,
+                      vehicleColor: vehicleColor,
+                      registration: vehicleReg,
+                      maxCapacity: vehicleCapacity,
+                      year: vehicleYear,
+                      driveType: vehicleDriveType,
+                      bodyType: bodyType,
+                      humidityControl: humidityControl,
+                      refrigeration: refrigeration,
+                      vehicleFeatures: vehicleFeatures
+                    }}
+                    onChange={(data) => {
+                      setVehicleType(data.vehicleType);
+                      setVehicleMake(data.vehicleMake);
+                      setVehicleColor(data.vehicleColor);
+                      setVehicleReg(data.registration);
+                      setVehicleCapacity(data.maxCapacity);
+                      setVehicleYear(data.year);
+                      setVehicleDriveType(data.driveType);
+                      setBodyType(data.bodyType);
+                      setHumidityControl(data.humidityControl);
+                      setRefrigeration(data.refrigeration);
+                      setVehicleFeatures(data.vehicleFeatures);
+                    }}
                     onPhotoAdd={pickVehiclePhotos}
                     onPhotoRemove={removeVehiclePhoto}
                     vehiclePhotos={vehiclePhotos}
                     error={undefined}
                   />
-                  <TextInput style={styles.input} placeholder="Registration Number *" value={vehicleReg} onChangeText={setVehicleReg} />
-                  <View style={styles.featuresRow}>
-                    <TouchableOpacity style={[styles.featureBtn, refrigeration && styles.featureBtnActive]} onPress={() => setRefrigeration(!refrigeration)}>
-                      <MaterialCommunityIcons name="snowflake" size={18} color={refrigeration ? colors.white : colors.primary} />
-                      <Text style={[styles.featureText, refrigeration && { color: colors.white }]}>Refrigeration</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.featureBtn, humidityControl && styles.featureBtnActive]} onPress={() => setHumidityControl(!humidityControl)}>
-                      <MaterialCommunityIcons name="water-percent" size={18} color={humidityControl ? colors.white : colors.primary} />
-                      <Text style={[styles.featureText, humidityControl && { color: colors.white }]}>Humidity Control</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.featureBtn, specialCargo && styles.featureBtnActive]} onPress={() => setSpecialCargo(!specialCargo)}>
-                      <MaterialCommunityIcons name="cube-outline" size={18} color={specialCargo ? colors.white : colors.primary} />
-                      <Text style={[styles.featureText, specialCargo && { color: colors.white }]}>Special Cargo</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TextInput style={styles.input} placeholder="Other Features (comma separated)" value={vehicleFeatures} onChangeText={setVehicleFeatures} />
                   <View style={styles.section}>
-                    <Text style={styles.editLabel}>Insurance Document (PDF or Image) *</Text>
+                    <Text style={styles.editLabel}>Vehicle Insurance Document (PDF or Image) *</Text>
                     <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
                       <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
-                      <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload File'}</Text>
+                      <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload Vehicle Insurance'}</Text>
                     </TouchableOpacity>
                     {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
-                  </View>
-                  <View style={styles.section}>
-                    <Text style={styles.editLabel}>Vehicle Photos (3-5) *</Text>
-                    <View style={styles.photosRow}>
-                      {vehiclePhotos.map((photo, idx) => (
-                        <View key={idx} style={styles.photoWrap}>
-                          <Image source={{ uri: photo.uri }} style={styles.photo} />
-                          <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeVehiclePhoto(idx)}>
-                            <Ionicons name="close-circle" size={20} color={colors.error} />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                      {vehiclePhotos.length < 5 && (
-                        <TouchableOpacity style={styles.addPhotoBtn} onPress={pickVehiclePhotos}>
-                          <Ionicons name="add" size={28} color={colors.primary} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                    <Text style={styles.photoHint}>Add at least 3 photos</Text>
                   </View>
                   <View style={styles.editActionsRow}>
                     <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
@@ -1279,10 +1958,19 @@ export default function ManageTransporterScreen({ route }: any) {
           {/* Drivers List */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Drivers</Text>
-            <TouchableOpacity style={styles.actionBtn} onPress={openRecruitDriver}>
-              <Ionicons name="add-circle" size={20} color={colors.primary} />
-              <Text style={styles.actionText}>Recruit Driver</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity style={[styles.actionBtn, { flex: 1, marginRight: 8 }]} onPress={openRecruitDriver}>
+                <Ionicons name="add-circle" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Recruit Driver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, { flex: 1, marginLeft: 8 }]} 
+                onPress={() => navigation.navigate('DriverManagement')}
+              >
+                <MaterialCommunityIcons name="account-group" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Manage Drivers</Text>
+              </TouchableOpacity>
+            </View>
             <TextInput
               style={styles.input}
               placeholder="Search drivers..."
@@ -1290,13 +1978,21 @@ export default function ManageTransporterScreen({ route }: any) {
               onChangeText={setDriverSearch}
             />
             {drivers.length === 0 ? (
-              <Text style={styles.value}>No drivers added.</Text>
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="account-group-outline" size={48} color={colors.text.secondary} />
+                <Text style={styles.emptyStateTitle}>No Drivers Yet</Text>
+                <Text style={styles.emptyStateText}>Start building your team by recruiting your first driver.</Text>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={openRecruitDriver}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                  <Text style={styles.emptyStateButtonText}>Recruit Driver</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <ScrollView style={{ maxHeight: 340 }}>
                 {drivers.filter(item =>
-                  item.name.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                  item.email.toLowerCase().includes(driverSearch.toLowerCase()) ||
-                  item.phone.toLowerCase().includes(driverSearch.toLowerCase())
+                  (item.name && item.name.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                  (item.email && item.email.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                  (item.phone && item.phone.toLowerCase().includes(driverSearch.toLowerCase()))
                 ).map((item, index) => (
                   <View style={styles.driverListItem} key={item.id}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -1790,6 +2486,30 @@ export default function ManageTransporterScreen({ route }: any) {
             )}
           </View>
 
+          {/* Subscription Section */}
+          <View style={styles.card}>
+            <EnhancedSubscriptionStatusCard
+              subscriptionStatus={subscriptionStatus || {
+                hasActiveSubscription: true,
+                isTrialActive: false,
+                needsTrialActivation: false,
+                currentPlan: transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1],
+                daysRemaining: 15,
+                subscriptionStatus: 'active'
+              }}
+              onManagePress={() => {
+                console.log('Manage button pressed!');
+                navigation.navigate('SubscriptionManagement', { userType: transporterType === 'company' ? 'company' : 'transporter' });
+              }}
+              onRenewPress={handlePayment}
+              onUpgradePress={() => navigation.navigate('SubscriptionManagement')}
+              showUpgradeOptions={true}
+              animated={true}
+              onActivateTrial={handleActivateTrial}
+              loading={subscriptionLoading}
+            />
+          </View>
+
           {/* Location Tracking Section */}
           <View style={[styles.card, { marginTop: 8 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -2064,31 +2784,8 @@ export default function ManageTransporterScreen({ route }: any) {
               </ScrollView>
             </View>
           </Modal>
-          {/* Subscription Section */}
-          <SubscriptionStatusCard
-            subscriptionStatus={subscriptionStatus || {
-              hasActiveSubscription: false,
-              isTrialActive: false,
-              needsTrialActivation: true,
-              currentPlan: null,
-              daysRemaining: 0,
-              subscriptionStatus: 'none'
-            }}
-            onManagePress={() => setSubscriptionModalVisible(true)}
-            onRenewPress={handlePayment}
-            onActivateTrial={handleActivateTrial}
-            loading={loadingSubscription}
-          />
-          {/* Subscription Plans Modal */}
-          {subscriptionModalVisible && (
-            <SubscriptionModal
-              selectedPlan={selectedPlan}
-              setSelectedPlan={setSelectedPlan}
-              onClose={() => setSubscriptionModalVisible(false)}
-              onSubscribe={handleSubscribe}
-            />
-          )}
         </FormKeyboardWrapper>
+        
         {/* Edit Profile Modal (always rendered) */}
         <Modal
           visible={editModal}
@@ -2167,6 +2864,10 @@ const styles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginTop: 2 },
   actionText: { color: colors.primary, fontWeight: 'bold', marginLeft: 6, fontSize: 15 },
   vehicleListItem: { borderBottomWidth: 1, borderBottomColor: colors.background, paddingVertical: 10, marginBottom: 6 },
+  vehicleBasicInfo: { marginBottom: 8 },
+  vehicleTitle: { fontSize: 16, fontWeight: 'bold', color: colors.text.primary, marginBottom: 4 },
+  vehicleReg: { fontSize: 14, color: colors.text.secondary, marginBottom: 2 },
+  vehicleCapacity: { fontSize: 13, color: colors.text.light },
   driverListItem: { borderBottomWidth: 1, borderBottomColor: colors.background, paddingVertical: 10, marginBottom: 6 },
   editBtn: { marginRight: 10 },
   removeBtn: {},
@@ -2303,5 +3004,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.secondary,
     lineHeight: 18,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  emptyStateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyStateButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    marginLeft: 8,
+  },
+  companyInfo: {
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  companyName: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginLeft: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginLeft: 8,
   },
 });
