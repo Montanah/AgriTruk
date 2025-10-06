@@ -321,12 +321,11 @@ export default function App() {
             
             // User data processed
 
-            // First check if this user is a driver
-            const driverCheck = await checkIfDriver(firebaseUser.uid);
-            setIsDriver(driverCheck);
-
-            // For transporters, check if they have a profile
+            // For transporters, check if they have a profile and if they're a driver
             if (data.role === 'transporter') {
+              // Check if this user is a driver (only for transporters)
+              const driverCheck = await checkIfDriver(firebaseUser.uid);
+              setIsDriver(driverCheck);
               try {
                 // First check if this is a company transporter by calling the backend API
                 const token = await firebaseUser.getIdToken();
@@ -403,13 +402,16 @@ export default function App() {
                 const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'broker');
                 setSubscriptionStatus(subStatus);
               }
+              setIsDriver(false); // Brokers are not drivers
             } else if (data.role === 'business') {
               // For business users, no subscription needed - just check verification
               // Business user found - checking verification status
               setProfileCompleted(!!data.profileCompleted);
+              setIsDriver(false); // Business users are not drivers
             } else {
               // For other users (shippers), use the profileCompleted field
               setProfileCompleted(!!data.profileCompleted);
+              setIsDriver(false); // Shippers are not drivers
             }
           } else {
             // User not found in users collection - this means their data was deleted
