@@ -242,7 +242,7 @@ const DriverJobManagementScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/update`, {
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${job.id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -277,7 +277,7 @@ const DriverJobManagementScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/update`, {
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${job.id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -306,7 +306,7 @@ const DriverJobManagementScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/update`, {
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${job.id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

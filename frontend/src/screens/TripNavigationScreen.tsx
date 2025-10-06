@@ -184,7 +184,7 @@ const TripNavigationScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${params.jobId}/update`, {
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${params.jobId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,

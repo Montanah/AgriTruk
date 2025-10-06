@@ -218,7 +218,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
           </View>
         )}
 
-        {item.transporter && (
+        {(item.transporterId || item.transporterName || item.transporter?.name || item.driverName) && (
           <View style={styles.transporterInfo}>
             <View style={styles.transporterHeader}>
               <MaterialCommunityIcons name="account-tie" size={20} color={colors.success} />
@@ -231,17 +231,19 @@ const BusinessManageScreen = ({ navigation }: any) => {
                   style={styles.transporterPhoto}
                 />
                 <View style={styles.transporterBasic}>
-                  <Text style={styles.transporterName}>{item.transporter.name}</Text>
+                  <Text style={styles.transporterName}>
+                    {item.transporterName || item.transporter?.name || item.driverName || 'Unknown Transporter'}
+                  </Text>
                   <View style={styles.transporterRating}>
                     <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 2 }} />
-                    <Text style={styles.ratingText}>{item.transporter?.rating || 'N/A'}</Text>
-                    <Text style={styles.tripsText}> • {item.transporter?.tripsCompleted || 0} trips</Text>
+                    <Text style={styles.ratingText}>{item.transporterRating || item.transporter?.rating || 'N/A'}</Text>
+                    <Text style={styles.tripsText}> • {(item.transporterTripsCompleted || item.transporter?.tripsCompleted || 0)} trips</Text>
                   </View>
                 </View>
               </View>
               <View style={styles.transporterMeta}>
                 <Text style={styles.transporterMetaText}>
-                  {item.transporter?.experience || 'N/A'} • {item.transporter?.availability || 'N/A'}
+                  {(item.transporterExperience || item.transporter?.experience || 'N/A')} • {(item.transporterAvailability || item.transporter?.availability || 'N/A')}
                 </Text>
                 <Text style={styles.transporterMetaText}>
                   {item.transporter?.languages ? item.transporter.languages.join(', ') : 'N/A'}
@@ -251,7 +253,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
           </View>
         )}
 
-        {item.vehicle && (
+        {(item.vehicleId || item.vehicleMake || item.vehicleRegistration || item.vehicle?.make || item.vehicle?.registration || item.transporter?.assignedVehicle?.vehicleMake || item.transporter?.vehicleMake) && (
           <View style={styles.vehicleInfo}>
             <View style={styles.vehicleHeader}>
               <MaterialCommunityIcons name="truck" size={20} color={colors.secondary} />
@@ -261,24 +263,32 @@ const BusinessManageScreen = ({ navigation }: any) => {
               <View style={styles.vehicleRow}>
                 <Text style={styles.vehicleDetailLabel}>Vehicle:</Text>
                 <Text style={styles.vehicleDetailValue}>
-                  {item.vehicle.make} {item.vehicle.model} ({item.vehicle.year})
+                  {(item.vehicleMake || item.vehicle?.make || item.transporter?.assignedVehicle?.vehicleMake || item.transporter?.vehicleMake || 'Unknown')} {(item.vehicleModel || item.vehicle?.model || item.transporter?.assignedVehicle?.vehicleModel || item.transporter?.vehicleModel || '')} ({item.vehicleYear || item.vehicle?.year || item.transporter?.assignedVehicle?.vehicleYear || item.transporter?.vehicleYear || 'N/A'})
                 </Text>
               </View>
               <View style={styles.vehicleRow}>
                 <Text style={styles.vehicleDetailLabel}>Registration:</Text>
-                <Text style={styles.vehicleDetailValue}>{item.vehicle.registration}</Text>
+                <Text style={styles.vehicleDetailValue}>
+                  {item.vehicleRegistration || item.vehicle?.registration || item.transporter?.assignedVehicle?.vehicleRegistration || item.transporter?.vehicleRegistration || 'N/A'}
+                </Text>
               </View>
               <View style={styles.vehicleRow}>
                 <Text style={styles.vehicleDetailLabel}>Type:</Text>
-                <Text style={styles.vehicleDetailValue}>{item.vehicle.type}</Text>
+                <Text style={styles.vehicleDetailValue}>
+                  {item.vehicleType || item.vehicle?.type || item.transporter?.assignedVehicle?.vehicleType || item.transporter?.vehicleType || 'N/A'}
+                </Text>
               </View>
               <View style={styles.vehicleRow}>
                 <Text style={styles.vehicleDetailLabel}>Capacity:</Text>
-                <Text style={styles.vehicleDetailValue}>{item.vehicle.capacity}</Text>
+                <Text style={styles.vehicleDetailValue}>
+                  {item.vehicleCapacity || item.vehicle?.capacity || item.transporter?.assignedVehicle?.vehicleCapacity || item.transporter?.vehicleCapacity || 'N/A'}
+                </Text>
               </View>
               <View style={styles.vehicleRow}>
                 <Text style={styles.vehicleDetailLabel}>Color:</Text>
-                <Text style={styles.vehicleDetailValue}>{item.vehicle.color}</Text>
+                <Text style={styles.vehicleDetailValue}>
+                  {item.vehicleColor || item.vehicle?.color || item.transporter?.assignedVehicle?.vehicleColor || item.transporter?.vehicleColor || 'N/A'}
+                </Text>
               </View>
             </View>
           </View>

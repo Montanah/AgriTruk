@@ -404,19 +404,25 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             )}
 
             {/* Transporter Information */}
-            {item.transporter && (
+            {(item.transporterId || item.transporterName || item.transporter?.name || item.driverName) && (
                 <View style={styles.transporterInfo}>
                     <View style={styles.transporterHeader}>
                         <MaterialCommunityIcons name="account-tie" size={16} color={colors.primary} />
                         <Text style={styles.transporterLabel}>Assigned Transporter:</Text>
                     </View>
                     <View style={styles.transporterDetails}>
-                        <Text style={styles.transporterName}>{item.transporter.name}</Text>
-                        <Text style={styles.transporterPhone}>{item.transporter.phone}</Text>
-                        {item.transporter.rating && (
+                        <Text style={styles.transporterName}>
+                            {item.transporterName || item.transporter?.name || item.driverName || 'Unknown Transporter'}
+                        </Text>
+                        <Text style={styles.transporterPhone}>
+                            {item.transporterPhone || item.transporter?.phone || item.driverPhone || 'N/A'}
+                        </Text>
+                        {(item.transporterRating || item.transporter?.rating) && (
                             <View style={styles.ratingContainer}>
                                 <MaterialCommunityIcons name="star" size={14} color={colors.warning} />
-                                <Text style={styles.ratingText}>{item.transporter.rating}</Text>
+                                <Text style={styles.ratingText}>
+                                    {item.transporterRating || item.transporter?.rating || 'N/A'}
+                                </Text>
                             </View>
                         )}
                     </View>
@@ -424,7 +430,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             )}
 
             {/* Vehicle Information */}
-            {item.vehicle && (
+            {(item.vehicleId || item.vehicleMake || item.vehicleRegistration || item.vehicle?.make || item.vehicle?.registration || item.transporter?.assignedVehicle?.vehicleMake || item.transporter?.vehicleMake) && (
                 <View style={styles.vehicleInfo}>
                     <View style={styles.vehicleHeader}>
                         <MaterialCommunityIcons name="truck" size={16} color={colors.secondary} />
@@ -432,11 +438,17 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                     </View>
                     <View style={styles.vehicleDetails}>
                         <Text style={styles.vehicleName}>
-                            {item.vehicle.make} {item.vehicle.model} ({item.vehicle.year})
+                            {item.vehicleMake || item.vehicle?.make || item.transporter?.assignedVehicle?.vehicleMake || item.transporter?.vehicleMake || 'Unknown'} {item.vehicleModel || item.vehicle?.model || item.transporter?.assignedVehicle?.vehicleModel || item.transporter?.vehicleModel || ''} ({item.vehicleYear || item.vehicle?.year || item.transporter?.assignedVehicle?.vehicleYear || item.transporter?.vehicleYear || 'N/A'})
                         </Text>
-                        <Text style={styles.vehicleRegistration}>{item.vehicle.registration}</Text>
-                        <Text style={styles.vehicleType}>{item.vehicle.type} • {item.vehicle.capacity}</Text>
-                        <Text style={styles.vehicleColor}>{item.vehicle.color}</Text>
+                        <Text style={styles.vehicleRegistration}>
+                            {item.vehicleRegistration || item.vehicle?.registration || item.transporter?.assignedVehicle?.vehicleRegistration || item.transporter?.vehicleRegistration || 'N/A'}
+                        </Text>
+                        <Text style={styles.vehicleType}>
+                            {item.vehicleType || item.vehicle?.type || item.transporter?.assignedVehicle?.vehicleType || item.transporter?.vehicleType || 'N/A'} • {item.vehicleCapacity || item.vehicle?.capacity || item.transporter?.assignedVehicle?.vehicleCapacity || item.transporter?.vehicleCapacity || 'N/A'}
+                        </Text>
+                        <Text style={styles.vehicleColor}>
+                            {item.vehicleColor || item.vehicle?.color || item.transporter?.assignedVehicle?.vehicleColor || item.transporter?.vehicleColor || 'N/A'}
+                        </Text>
                     </View>
                 </View>
             )}
