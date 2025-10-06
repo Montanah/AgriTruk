@@ -545,7 +545,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
             </TouchableOpacity>
 
             <View style={styles.profileInfo}>
-              <Text style={styles.businessName}>{editData.businessName || 'Business Name'}</Text>
+              <Text style={styles.businessName}>{editData.businessName || 'Corporate Name'}</Text>
               <View style={styles.statusContainer}>
                 <MaterialCommunityIcons
                   name={getStatusIcon(editData.status)}
@@ -583,12 +583,12 @@ const BusinessProfileScreen = ({ navigation }: any) => {
 
         {/* Business Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Business Information</Text>
+          <Text style={styles.sectionTitle}>Corporate Information</Text>
           <View style={styles.card}>
             <View style={styles.infoRow}>
               <MaterialCommunityIcons name="domain" size={20} color={colors.primary} />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Business Name</Text>
+                <Text style={styles.infoLabel}>Corporate Name</Text>
                 {editing ? (
                   <TextInput
                     style={styles.input}

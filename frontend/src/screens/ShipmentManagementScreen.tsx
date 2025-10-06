@@ -386,7 +386,7 @@ const ShipmentManagementScreen = () => {
           <View style={styles.clientCard}>
             <Text style={styles.clientTitle}>
               {clientInfo.userType === 'shipper' ? 'Shipper Information' : 
-               clientInfo.userType === 'business' ? 'Business Information' :
+               clientInfo.userType === 'business' ? 'Corporate Information' :
                clientInfo.userType === 'broker' ? 'Broker Information' : 'Client Information'}
             </Text>
             <View style={styles.clientInfo}>

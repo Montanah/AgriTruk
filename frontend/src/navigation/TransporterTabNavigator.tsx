@@ -197,7 +197,7 @@ const TransporterTabNavigator = () => {
         }
 
         // If not a company, fetch from transporters collection
-        const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+        const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

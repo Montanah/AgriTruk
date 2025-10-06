@@ -1123,7 +1123,7 @@ export default function TransporterCompletionScreen() {
         // Validate required fields before sending
         if (!companyName || !companyReg || !companyContact) {
           const missingFields = [];
-          if (!companyName) missingFields.push('Company Name');
+          if (!companyName) missingFields.push('Corporate Name');
           if (!companyReg) missingFields.push('Registration Number');
           if (!companyContact) missingFields.push('Contact');
           
@@ -1594,7 +1594,7 @@ export default function TransporterCompletionScreen() {
             styles.roleButtonText,
             transporterType === 'company' && styles.roleButtonTextActive
           ]}>
-            Company
+            Corporate
           </Text>
         </TouchableOpacity>
       </View>
@@ -1765,11 +1765,11 @@ export default function TransporterCompletionScreen() {
       {/* COMPANY FORM */}
       {transporterType === 'company' && (
         <>
-          <Text style={styles.sectionTitle}>Company Details</Text>
+          <Text style={styles.sectionTitle}>Corporate Details</Text>
           <View style={[styles.card, { backgroundColor: colors.background, borderRadius: 18, padding: spacing.lg, marginBottom: spacing.md, shadowColor: colors.black, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
               <Ionicons name="business-outline" size={22} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.label}>Company Name</Text>
+              <Text style={styles.label}>Corporate Name</Text>
             </View>
             <TextInput
               style={styles.input}
@@ -1780,7 +1780,7 @@ export default function TransporterCompletionScreen() {
             />
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
               <MaterialCommunityIcons name="file-document-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
-              <Text style={styles.label}>Company Registration Number</Text>
+              <Text style={styles.label}>Corporate Registration Number</Text>
             </View>
             <TextInput
               style={styles.input}
@@ -1803,7 +1803,7 @@ export default function TransporterCompletionScreen() {
             />
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
               <MaterialCommunityIcons name="map-marker-outline" size={22} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.label}>Company Address (Optional)</Text>
+              <Text style={styles.label}>Corporate Address (Optional)</Text>
             </View>
             <TextInput
               style={styles.input}
@@ -1823,7 +1823,7 @@ export default function TransporterCompletionScreen() {
             ) : (
               <Ionicons name="business-outline" size={80} color={colors.text.light} />
             )}
-            <Text style={styles.photoPickerText}>Upload Company Logo</Text>
+            <Text style={styles.photoPickerText}>Upload Corporate Logo</Text>
           </TouchableOpacity>
           <View style={[styles.card, { marginTop: 10, backgroundColor: colors.background, borderRadius: 18, padding: spacing.lg, borderWidth: 1, borderColor: colors.text.light + '22' }]}>
             <Text style={styles.label}>Assign Jobs to Drivers</Text>

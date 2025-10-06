@@ -64,6 +64,7 @@ const AllAvailableJobsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'instant' | 'booking'>('all');
+  const [acceptingJobId, setAcceptingJobId] = useState<string | null>(null);
 
   const applyFilter = (jobsList: AvailableJob[], filterType: 'all' | 'instant' | 'booking') => {
     if (filterType === 'all') {
@@ -183,6 +184,8 @@ const AllAvailableJobsScreen = () => {
             text: 'Accept', 
             onPress: async () => {
               try {
+                // Set loading state
+                setAcceptingJobId(job.id);
                 const token = await user.getIdToken();
                 
                 // Use bookingId if available, otherwise use id
@@ -268,6 +271,9 @@ const AllAvailableJobsScreen = () => {
                   'Network error. Please check your connection and try again.',
                   [{ text: 'OK' }]
                 );
+              } finally {
+                // Clear loading state
+                setAcceptingJobId(null);
               }
             }
           }
@@ -479,12 +485,26 @@ const AllAvailableJobsScreen = () => {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.actionButton, styles.acceptButton]}
+          style={[
+            styles.actionButton, 
+            styles.acceptButton,
+            acceptingJobId === job.id && styles.acceptButtonDisabled
+          ]}
           onPress={() => handleAcceptJob(job)}
           activeOpacity={0.8}
+          disabled={acceptingJobId === job.id}
         >
-          <MaterialCommunityIcons name="check" size={18} color={colors.white} />
-          <Text style={[styles.actionButtonText, { color: colors.white }]}>Accept</Text>
+          {acceptingJobId === job.id ? (
+            <>
+              <ActivityIndicator size="small" color={colors.white} />
+              <Text style={[styles.actionButtonText, { color: colors.white }]}>Accepting...</Text>
+            </>
+          ) : (
+            <>
+              <MaterialCommunityIcons name="check" size={18} color={colors.white} />
+              <Text style={[styles.actionButtonText, { color: colors.white }]}>Accept</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -919,6 +939,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
+  },
+  acceptButtonDisabled: {
+    backgroundColor: colors.text.light,
+    opacity: 0.7,
+    shadowOpacity: 0.1,
   },
   actionButtonText: {
     fontSize: fonts.size.md,

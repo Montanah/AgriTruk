@@ -183,7 +183,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
         }
 
         if (newClient.clientType === 'business' && !newClient.company) {
-            Alert.alert('Error', 'Company name is required for business clients');
+            Alert.alert('Error', 'Corporate name is required for business clients');
             return;
         }
 
@@ -585,7 +585,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                                             styles.clientTypeText,
                                             newClient.clientType === 'business' && styles.clientTypeTextActive
                                         ]}>
-                                            Business
+                                            Corporate
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -610,7 +610,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
                             {newClient.clientType === 'business' && (
                                 <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Company Name *</Text>
+                                    <Text style={styles.inputLabel}>Corporate Name *</Text>
                                     <TextInput
                                         style={styles.textInput}
                                         value={newClient.company}
@@ -623,7 +623,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
                             {newClient.clientType === 'business' && (
                                 <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Business Type</Text>
+                                    <Text style={styles.inputLabel}>Corporate Type</Text>
                                     <TextInput
                                         style={styles.textInput}
                                         value={newClient.businessType}
@@ -779,7 +779,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                                             color={colors.warning}
                                         />
                                         <Text style={styles.contactText}>
-                                            {selectedClient.clientType === 'business' ? 'Business Client' : 'Individual Client'}
+                                            {selectedClient.clientType === 'business' ? 'Corporate Client' : 'Individual Client'}
                                         </Text>
                                     </View>
                                 </View>

@@ -32,7 +32,7 @@ const roles = [
   },
   {
     key: 'business',
-    label: 'Business',
+    label: 'Corporate',
     accent: colors.secondary,
     icon: (animatedStyle: any) => (
       <Animated.View style={animatedStyle}>

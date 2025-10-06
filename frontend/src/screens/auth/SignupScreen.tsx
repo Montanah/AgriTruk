@@ -45,7 +45,7 @@ const roleAccents = {
 const roleLabels = {
   shipper: 'Shipper',
   broker: 'Broker',
-  business: 'Business',
+  business: 'Corporate',
   transporter: 'Transporter',
 };
 

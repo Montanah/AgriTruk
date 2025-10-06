@@ -287,7 +287,7 @@ export default function ManageTransporterScreen({ route }: any) {
           
           // Fetch both transporter profile and user verification status
           const [transporterRes, userRes] = await Promise.all([
-            fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+            fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',
@@ -1553,10 +1553,10 @@ export default function ManageTransporterScreen({ route }: any) {
           <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
           {/* Company Profile Section */}
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Company Profile</Text>
+            <Text style={styles.sectionTitle}>Corporate Profile</Text>
             <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
               <MaterialCommunityIcons name="office-building" size={20} color={colors.secondary} />
-              <Text style={styles.actionText}>Edit Company Details</Text>
+              <Text style={styles.actionText}>Edit Corporate Details</Text>
             </TouchableOpacity>
             
             {/* Company Logo */}
@@ -1573,7 +1573,7 @@ export default function ManageTransporterScreen({ route }: any) {
                 </View>
               )}
               <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontSize: 14, fontFamily: fonts.family.medium }}>
-                {companyProfile?.companyLogo ? 'Update Company Logo' : 'Upload Company Logo'}
+                {companyProfile?.companyLogo ? 'Update Corporate Logo' : 'Upload Corporate Logo'}
               </Text>
             </TouchableOpacity>
 
@@ -1581,7 +1581,7 @@ export default function ManageTransporterScreen({ route }: any) {
             <View style={styles.companyInfo}>
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="office-building" size={16} color={colors.text.secondary} />
-                <Text style={styles.companyName}>{companyProfile?.companyName || 'Company Name'}</Text>
+                <Text style={styles.companyName}>{companyProfile?.companyName || 'Corporate Name'}</Text>
               </View>
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="file-document" size={16} color={colors.text.secondary} />

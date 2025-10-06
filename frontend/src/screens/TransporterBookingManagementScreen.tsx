@@ -175,7 +175,7 @@ const TransporterBookingManagementScreen = () => {
                         setCurrentTransporter(companyData);
                     } else {
                         // Fallback to individual transporter endpoint
-                        const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile/me`, {
+                        const transporterRes = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
                             headers: {
                                 'Authorization': `Bearer ${token}`,
                                 'Content-Type': 'application/json',

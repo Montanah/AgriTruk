@@ -75,7 +75,7 @@ const TransporterServiceScreen = () => {
         } else {
           // For individual transporters, fetch from transporters API
           [transporterRes, userRes] = await Promise.all([
-            fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+            fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json',

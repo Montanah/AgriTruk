@@ -493,7 +493,7 @@ export default function BrokerProfileScreen() {
 
       <View style={styles.profileInfo}>
         <Text style={styles.profileName}>{name || 'Broker Name'}</Text>
-        <Text style={styles.profileCompany}>{company || 'Company Name'}</Text>
+        <Text style={styles.profileCompany}>{company || 'Corporate Name'}</Text>
         <Text style={styles.profileLocation}>{location || 'Location'}</Text>
         <View style={styles.verifiedBrokerBadge}>
           <Ionicons name="checkmark-circle" size={16} color={colors.success} />
@@ -616,7 +616,7 @@ export default function BrokerProfileScreen() {
 
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="office-building" size={20} color={colors.warning} />
-          <Text style={styles.detailLabel}>Company</Text>
+          <Text style={styles.detailLabel}>Corporate</Text>
           <Text style={styles.detailValue}>{company || 'Not set'}</Text>
         </View>
 
@@ -771,7 +771,7 @@ export default function BrokerProfileScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Company Name</Text>
+              <Text style={styles.inputLabel}>Corporate Name</Text>
               <TextInput
                 style={styles.textInput}
                 value={company}

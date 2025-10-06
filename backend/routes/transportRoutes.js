@@ -7,10 +7,12 @@ const { authorize } = require("../middlewares/adminAuth");
 const {
   createTransporter,
   getTransporter,
+  getTransporterProfile,
   updateTransporter,
   getAvailableBookings,
   getAvailableTransporters,
   toggleAvailability,
+  toggleMyAvailability,
   updateRating,
   updateLocation,
   uploadDocuments
@@ -164,6 +166,12 @@ router.get('/getAvailableBookings', authenticateToken, requireRole('transporter'
  *       500:
  *         description: Internal server error
  */
+// Get current user's transporter profile
+router.get('/profile', authenticateToken, requireRole('transporter'), getTransporterProfile);
+
+// Toggle current user's availability
+router.patch('/availability', authenticateToken, requireRole('transporter'), toggleMyAvailability);
+
 router.get('/:transporterId', authenticateToken, requireRole(['transporter', 'admin', 'shipper']), getTransporter);
 
 /**

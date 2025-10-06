@@ -91,6 +91,7 @@ const DriverJobManagementScreen = () => {
   const [currentTrip, setCurrentTrip] = useState<Job | null>(null);
   const [routeLoads, setRouteLoads] = useState<RouteLoad[]>([]);
   const [selectedLoads, setSelectedLoads] = useState<RouteLoad[]>([]);
+  const [acceptingJobId, setAcceptingJobId] = useState<string | null>(null);
 
   const fetchDriverProfile = async () => {
     try {
@@ -206,6 +207,9 @@ const DriverJobManagementScreen = () => {
       const user = auth.currentUser;
       if (!user) return;
 
+      // Set loading state
+      setAcceptingJobId(job.id);
+
       const token = await user.getIdToken();
       const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/accept`, {
         method: 'POST',
@@ -225,6 +229,9 @@ const DriverJobManagementScreen = () => {
     } catch (err: any) {
       console.error('Error accepting job:', err);
       Alert.alert('Error', err.message || 'Failed to accept job');
+    } finally {
+      // Clear loading state
+      setAcceptingJobId(null);
     }
   };
 
@@ -442,11 +449,24 @@ const DriverJobManagementScreen = () => {
       <View style={styles.jobActions}>
         {item.status === 'pending' && (
           <TouchableOpacity
-            style={styles.acceptButton}
+            style={[
+              styles.acceptButton,
+              acceptingJobId === item.id && styles.acceptButtonDisabled
+            ]}
             onPress={() => handleAcceptJob(item)}
+            disabled={acceptingJobId === item.id}
           >
-            <MaterialCommunityIcons name="check" size={16} color={colors.white} />
-            <Text style={styles.actionText}>Accept</Text>
+            {acceptingJobId === item.id ? (
+              <>
+                <ActivityIndicator size="small" color={colors.white} />
+                <Text style={styles.actionText}>Accepting...</Text>
+              </>
+            ) : (
+              <>
+                <MaterialCommunityIcons name="check" size={16} color={colors.white} />
+                <Text style={styles.actionText}>Accept</Text>
+              </>
+            )}
           </TouchableOpacity>
         )}
         
@@ -849,6 +869,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
+  },
+  acceptButtonDisabled: {
+    backgroundColor: colors.text.light,
+    opacity: 0.7,
   },
   startButton: {
     flexDirection: 'row',

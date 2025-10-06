@@ -32,6 +32,7 @@ export default function TransporterHomeScreen() {
   const [currentTrip, setCurrentTrip] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [acceptingJobId, setAcceptingJobId] = useState(null);
   
   // Insights data
   const [insightsData, setInsightsData] = useState({
@@ -71,14 +72,14 @@ export default function TransporterHomeScreen() {
       if (!user) throw new Error('Not authenticated');
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+      const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/availability`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          acceptingBooking: newStatus,
+          availability: newStatus,
         }),
       });
 
@@ -136,7 +137,7 @@ export default function TransporterHomeScreen() {
         }
         
         // If not a company, fetch from transporters API
-        res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+        res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -297,6 +298,8 @@ export default function TransporterHomeScreen() {
             text: 'Accept', 
             onPress: async () => {
               try {
+                // Set loading state
+                setAcceptingJobId(req.id);
                 const token = await user.getIdToken();
                 const jobId = req.bookingId || req.id;
                 
@@ -424,6 +427,9 @@ export default function TransporterHomeScreen() {
                   'Network error. Please check your connection and try again.',
                   [{ text: 'OK' }]
                 );
+              } finally {
+                // Clear loading state
+                setAcceptingJobId(null);
               }
             }
           }
@@ -732,9 +738,26 @@ export default function TransporterHomeScreen() {
               <Text style={styles.label}>Special: <Text style={styles.value}>{selectedRequest.special.join(', ')}</Text></Text>
             )}
             <View style={{ flexDirection: 'row', marginTop: spacing.lg, justifyContent: 'space-between' }}>
-              <TouchableOpacity style={[styles.acceptBtn, { flex: 1, marginRight: 8 }]} onPress={() => handleAccept(selectedRequest)}>
-                <MaterialCommunityIcons name="check-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
-                <Text style={styles.acceptBtnText}>Accept</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.acceptBtn, 
+                  { flex: 1, marginRight: 8 },
+                  acceptingJobId === selectedRequest.id && styles.acceptBtnDisabled
+                ]} 
+                onPress={() => handleAccept(selectedRequest)}
+                disabled={acceptingJobId === selectedRequest.id}
+              >
+                {acceptingJobId === selectedRequest.id ? (
+                  <>
+                    <ActivityIndicator size="small" color={colors.white} style={{ marginRight: 4 }} />
+                    <Text style={styles.acceptBtnText}>Accepting...</Text>
+                  </>
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="check-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
+                    <Text style={styles.acceptBtnText}>Accept</Text>
+                  </>
+                )}
               </TouchableOpacity>
               <TouchableOpacity style={[styles.rejectBtn, { flex: 1, marginLeft: 8 }]} onPress={() => handleReject(selectedRequest)}>
                 <Ionicons name="close-circle-outline" size={22} color={colors.white} style={{ marginRight: 4 }} />
@@ -808,6 +831,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 10,
+  },
+  acceptBtnDisabled: {
+    backgroundColor: colors.text.light,
+    opacity: 0.7,
   },
   acceptBtnText: {
     color: colors.white,
