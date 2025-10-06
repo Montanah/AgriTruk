@@ -209,14 +209,14 @@ const ActivityScreen = () => {
               tripsCompleted: booking.transporterTripsCompleted || booking.transporter?.tripsCompleted || 0,
               status: booking.transporterStatus || booking.transporter?.status || 'unknown'
             } : null,
-            vehicle: (booking.vehicleId || booking.vehicleMake || booking.vehicleRegistration || booking.vehicle?.make || booking.vehicle?.registration) ? {
-              make: booking.vehicleMake || booking.vehicle?.make || 'Unknown',
-              model: booking.vehicleModel || booking.vehicle?.model || '',
-              year: booking.vehicleYear || booking.vehicle?.year || 'N/A',
-              type: booking.vehicleType || booking.vehicle?.type || 'N/A',
-              registration: booking.vehicleRegistration || booking.vehicle?.registration || 'N/A',
-              color: booking.vehicleColor || booking.vehicle?.color || 'N/A',
-              capacity: booking.vehicleCapacity || booking.vehicle?.capacity || 'N/A'
+            vehicle: (booking.vehicleId || booking.vehicleMake || booking.vehicleRegistration || booking.vehicle?.make || booking.vehicle?.registration || booking.transporter?.assignedVehicle?.vehicleMake || booking.transporter?.vehicleMake) ? {
+              make: booking.vehicleMake || booking.vehicle?.make || booking.transporter?.assignedVehicle?.vehicleMake || booking.transporter?.vehicleMake || 'Unknown',
+              model: booking.vehicleModel || booking.vehicle?.model || booking.transporter?.assignedVehicle?.vehicleModel || booking.transporter?.vehicleModel || '',
+              year: booking.vehicleYear || booking.vehicle?.year || booking.transporter?.assignedVehicle?.vehicleYear || booking.transporter?.vehicleYear || 'N/A',
+              type: booking.vehicleType || booking.vehicle?.type || booking.transporter?.assignedVehicle?.vehicleType || booking.transporter?.vehicleType || 'N/A',
+              registration: booking.vehicleRegistration || booking.vehicle?.registration || booking.transporter?.assignedVehicle?.vehicleRegistration || booking.transporter?.vehicleRegistration || 'N/A',
+              color: booking.vehicleColor || booking.vehicle?.color || booking.transporter?.assignedVehicle?.vehicleColor || booking.transporter?.vehicleColor || 'N/A',
+              capacity: booking.vehicleCapacity || booking.vehicle?.capacity || booking.transporter?.assignedVehicle?.vehicleCapacity || booking.transporter?.vehicleCapacity || 'N/A'
             } : null
           };
           
