@@ -129,7 +129,8 @@ const ActivityScreen = () => {
             vehicleMake: booking.vehicleMake,
             vehicleModel: booking.vehicleModel,
             vehicleType: booking.vehicleType,
-            vehicleRegistration: booking.vehicleRegistration
+            vehicleRegistration: booking.vehicleRegistration,
+            vehicle: booking.vehicle
           });
           
           // Calculate distance if not provided by backend
@@ -177,7 +178,7 @@ const ActivityScreen = () => {
           const toLocation = booking.toLocation || booking.to;
           
           
-          return {
+          const transformedBooking = {
             id: booking.bookingId || booking.id || `booking_${Date.now()}`,
             type: booking.bookingMode === 'instant' ? 'instant' : 'booking',
             status: booking.status || 'pending',
@@ -218,6 +219,15 @@ const ActivityScreen = () => {
               capacity: booking.vehicleCapacity || booking.vehicle?.capacity || 'N/A'
             } : null
           };
+          
+          // Debug the final transformed data
+          console.log('Final transformed booking:', {
+            id: transformedBooking.id,
+            transporter: transformedBooking.transporter,
+            vehicle: transformedBooking.vehicle
+          });
+          
+          return transformedBooking;
         }));
 
         setRequests(transformedBookings);
@@ -489,6 +499,11 @@ const ActivityScreen = () => {
               <Text style={styles.transporterMetaText}>
                 {item.transporter?.experience || 'N/A'} • {item.transporter?.availability || 'N/A'}
               </Text>
+              {item.transporter?.phone && item.transporter.phone !== 'N/A' && (
+                <Text style={styles.transporterPhoneText}>
+                  📞 {item.transporter.phone}
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -1054,6 +1069,12 @@ const styles = StyleSheet.create({
   transporterMetaText: {
     fontSize: fonts.size.xs,
     color: colors.text.secondary,
+  },
+  transporterPhoneText: {
+    fontSize: fonts.size.xs,
+    color: colors.primary,
+    marginTop: spacing.xs,
+    fontWeight: '500',
   },
   vehicleInfo: {
     marginTop: spacing.sm,
