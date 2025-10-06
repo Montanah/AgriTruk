@@ -1101,14 +1101,18 @@ exports.acceptBooking = async (req, res) => {
 
     await Booking.update(bookingId, updates);
     
-    // Create detailed notification for client
+    // Generate simple booking ID for display
+    const simpleBookingId = bookingId.slice(-8).toUpperCase();
+    
+    // Create single notification for client
     await Notification.create({
       userId: booking.userId,
       type: 'booking_accepted',
       title: 'Booking Accepted! 🎉',
-      message: `Your booking from ${booking.fromLocation} to ${booking.toLocation} has been accepted by ${transporter?.name || 'a transporter'}`,
+      message: `Your booking #${simpleBookingId} from ${booking.fromLocation} to ${booking.toLocation} has been accepted by ${transporter?.name || 'a transporter'}`,
       data: {
         bookingId: bookingId,
+        simpleBookingId: simpleBookingId,
         transporterId: transporterId,
         transporterName: transporter?.name,
         transporterPhone: transporter?.phone,
@@ -1119,24 +1123,6 @@ exports.acceptBooking = async (req, res) => {
         chatRoomId: `booking_${bookingId}_${transporterId}_${booking.userId}`
       },
       priority: 'high',
-      actionRequired: false
-    });
-
-    // Also create notification for transporter
-    await Notification.create({
-      userId: transporterId,
-      type: 'booking_accepted_confirmation',
-      title: 'Booking Accepted Successfully! ✅',
-      message: `You have accepted the booking from ${booking.fromLocation} to ${booking.toLocation}`,
-      data: {
-        bookingId: bookingId,
-        clientId: booking.userId,
-        fromLocation: booking.fromLocation,
-        toLocation: booking.toLocation,
-        productType: booking.productType,
-        estimatedCost: booking.cost
-      },
-      priority: 'medium',
       actionRequired: false
     });
 
