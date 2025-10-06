@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ActivityIndicator, Text, View } from 'react-native';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 
@@ -48,15 +49,27 @@ const ProfileStack = () => (
 const DriverTabNavigator = () => {
   const insets = useSafeAreaInsets();
   const [driverType, setDriverType] = React.useState<'company' | 'individual'>('individual');
+  const [isInitialized, setIsInitialized] = React.useState(false);
 
-  // Check if this is a company driver
+  // Check if this is a company driver - only when component is actually mounted
   React.useEffect(() => {
     const checkDriverType = async () => {
       try {
         const { getAuth } = require('firebase/auth');
         const auth = getAuth();
         const user = auth.currentUser;
-        if (!user) return;
+        if (!user) {
+          setIsInitialized(true);
+          return;
+        }
+
+        // Check if user has transporter role first
+        const userRole = user.displayName || '';
+        if (!userRole.includes('transporter') && !userRole.includes('driver')) {
+          console.log('User is not a transporter/driver, skipping driver type check');
+          setIsInitialized(true);
+          return;
+        }
 
         const token = await user.getIdToken();
         const driverResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/driver/${user.uid}`, {
@@ -71,11 +84,23 @@ const DriverTabNavigator = () => {
         }
       } catch (error) {
         console.log('Not a company driver, using individual driver flow');
+      } finally {
+        setIsInitialized(true);
       }
     };
 
     checkDriverType();
   }, []);
+
+  // Don't render until we've checked the driver type
+  if (!isInitialized) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 10, color: colors.text.secondary }}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <Tab.Navigator

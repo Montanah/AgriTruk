@@ -80,10 +80,21 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     if (user) {
       try {
         token = await user.getIdToken(true); // Force refresh token
-        // Firebase token obtained
+        console.log('✅ Firebase token obtained successfully');
       } catch (tokenError) {
         console.warn('Failed to get Firebase token:', tokenError);
-        // Continue without token - some endpoints might not require auth
+        // For network errors, try to get cached token
+        if (tokenError.message?.includes('network-request-failed')) {
+          try {
+            token = await user.getIdToken(false); // Try cached token
+            console.log('✅ Using cached Firebase token');
+          } catch (cachedError) {
+            console.warn('Failed to get cached Firebase token:', cachedError);
+            // Continue without token - some endpoints might not require auth
+          }
+        } else {
+          // Continue without token - some endpoints might not require auth
+        }
       }
     }
 
