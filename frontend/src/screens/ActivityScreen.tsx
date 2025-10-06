@@ -243,6 +243,7 @@ const ActivityScreen = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return colors.warning;
+      case 'accepted': return colors.primary;
       case 'confirmed': return colors.primary;
       case 'in_transit': return colors.secondary;
       case 'delivered': return colors.success;
@@ -254,6 +255,7 @@ const ActivityScreen = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending': return 'clock-outline';
+      case 'accepted': return 'check-circle';
       case 'confirmed': return 'check-circle-outline';
       case 'in_transit': return 'truck-delivery';
       case 'delivered': return 'check-circle';
