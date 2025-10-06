@@ -83,6 +83,11 @@ const Company = {
     const snapshot = await db.collection('companies').where('transporterId', '==', transporterId).where('status', '==', status).get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
+
+  async getByStatus(status) {
+    const snapshot = await db.collection('companies').where('status', '==', status).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = Company;

@@ -889,7 +889,7 @@ router.get('/transporter/:transporterId', authenticateToken, requireRole([ 'admi
  *       500:
  *         description: Internal server error
  */
-router.get('/status/:status', authenticateToken, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByStatus);
+router.get('/companies/status/:status', authenticateToken, requireRole('admin'), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByStatus);
 
 /**
  * @swagger
@@ -919,7 +919,7 @@ router.get('/status/:status', authenticateToken, requireRole('admin'), authorize
  *       500:
  *         description: Internal server error
  */
-router.get('/transporter/:transporterId/status/:status', authenticateToken, requireRole(['transporter', 'admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByTransporterAndStatus);
+router.get('/companies/transporter/:transporterId/status/:status', authenticateToken, requireRole(['transporter', 'admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getCompaniesByTransporterAndStatus);
 
 /**
  * @swagger
@@ -943,7 +943,7 @@ router.get('/transporter/:transporterId/status/:status', authenticateToken, requ
  *       500:
  *         description: Internal server error
  */
-router.get('/transporter/:transporterId/all', authenticateToken, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllForTransporter);
+router.get('/companies/transporter/:transporterId/all', authenticateToken, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), companyController.getAllForTransporter);
 
 /**
  * @swagger
