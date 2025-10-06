@@ -54,6 +54,7 @@ interface RouteParams {
 
 const statusConfig: { [key: string]: { color: string; icon: string; label: string } } = {
     pending: { color: colors.primary, icon: 'clock-outline', label: 'Pending' },
+    accepted: { color: colors.secondary, icon: 'check-circle', label: 'Accepted' },
     confirmed: { color: colors.secondary, icon: 'check-circle-outline', label: 'Confirmed' },
     pickup: { color: colors.tertiary, icon: 'package-variant', label: 'Pickup' },
     in_transit: { color: colors.success, icon: 'truck-delivery', label: 'In Transit' },
@@ -98,12 +99,12 @@ const TrackingScreen = () => {
             description: 'Your booking request has been submitted and is being processed.'
         });
 
-        if (['confirmed', 'pickup', 'in_transit', 'delivered'].includes(status)) {
+        if (['accepted', 'confirmed', 'pickup', 'in_transit', 'delivered'].includes(status)) {
             timeline.push({
                 status: 'completed',
-                location: 'Booking Confirmed',
-                time: new Date(pickupDate.getTime() - (2 * 60 * 60 * 1000)).toLocaleString(), // 2 hours before pickup
-                description: 'Your booking has been confirmed by a transporter.'
+                location: 'Booking Accepted',
+                time: new Date(booking.acceptedAt || pickupDate.getTime() - (2 * 60 * 60 * 1000)).toLocaleString(),
+                description: 'Your booking has been accepted by a transporter.'
             });
         }
 
@@ -146,6 +147,13 @@ const TrackingScreen = () => {
                 time: 'Currently',
                 description: 'Package is ready for pickup.'
             });
+        } else if (status === 'accepted') {
+            timeline.push({
+                status: 'pending',
+                location: 'Awaiting Pickup',
+                time: 'Pending',
+                description: 'Booking accepted! Transporter will contact you for pickup details.'
+            });
         } else {
             timeline.push({
                 status: 'pending',
@@ -169,10 +177,14 @@ const TrackingScreen = () => {
             } : null,
             estimatedDelivery: deliveryDate.toLocaleString(),
             transporter: booking.transporter ? {
-                name: booking.transporter.name || 'Transporter',
+                name: booking.transporter.name || 'Unknown Transporter',
                 phone: booking.transporter.phone || 'N/A',
-                vehicle: booking.transporter.vehicle || 'N/A'
-            } : null
+                vehicle: booking.transporter.vehicle || `${booking.vehicleMake || ''} ${booking.vehicleModel || ''}`.trim() || booking.vehicleRegistration || 'N/A'
+            } : (booking.transporterName ? {
+                name: booking.transporterName,
+                phone: booking.transporterPhone || 'N/A',
+                vehicle: `${booking.vehicleMake || ''} ${booking.vehicleModel || ''}`.trim() || booking.vehicleRegistration || 'N/A'
+            } : null)
         };
     };
 
