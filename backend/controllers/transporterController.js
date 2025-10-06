@@ -328,17 +328,115 @@ exports.toggleAvailability = async (req, res) => {
 
 exports.getAvailableTransporters = async (req, res) => {
   try {
-    const available = await Transporter.getByAvailability(true);
+    // Get individual transporters
+    const individualTransporters = await Transporter.getByAvailability(true);
+    
+    // Get company drivers
+    const companyDrivers = await getAvailableCompanyDrivers();
+    
+    // Combine both types
+    const allTransporters = [...individualTransporters, ...companyDrivers];
 
-    // await logAdminActivity(req.user.uid, 'get_available_transporters', req);
     await logActivity(req.user.uid, 'get_available_transporters', req);
 
-    res.status(200).json({ transporters: formatTimestamps(available) });
+    res.status(200).json({ transporters: formatTimestamps(allTransporters) });
   } catch (error) {
     console.error('Get available transporters error:', error);
     res.status(500).json({ message: 'Failed to fetch available transporters' });
   }
 };
+
+// Helper function to get available company drivers
+async function getAvailableCompanyDrivers() {
+  try {
+    const db = admin.firestore();
+    const companiesSnapshot = await db.collection('companies')
+      .where('status', '==', 'approved')
+      .get();
+
+    if (companiesSnapshot.empty) return [];
+
+    const allDrivers = [];
+    
+    for (const companyDoc of companiesSnapshot.docs) {
+      const companyData = companyDoc.data();
+      
+      // Get drivers for this company
+      const driversSnapshot = await db.collection('companies')
+        .doc(companyDoc.id)
+        .collection('drivers')
+        .where('availability', '==', true)
+        .get();
+
+      for (const driverDoc of driversSnapshot.docs) {
+        const driverData = driverDoc.data();
+        
+        // Transform company driver data to match transporter format
+        allDrivers.push({
+          transporterId: driverDoc.id,
+          userId: driverData.userId,
+          transporterType: 'company',
+          displayName: driverData.name || driverData.displayName || 'Company Driver',
+          phoneNumber: driverData.phone || driverData.phoneNumber,
+          driverProfileImage: driverData.profilePhoto || driverData.driverProfileImage,
+          email: driverData.email,
+          // Vehicle details from assigned vehicle
+          vehicleType: driverData.assignedVehicle?.vehicleType || driverData.vehicleType,
+          vehicleRegistration: driverData.assignedVehicle?.vehicleRegistration || driverData.vehicleRegistration,
+          vehicleColor: driverData.assignedVehicle?.vehicleColor || driverData.vehicleColor,
+          vehicleMake: driverData.assignedVehicle?.vehicleMake || driverData.vehicleMake,
+          vehicleModel: driverData.assignedVehicle?.vehicleModel || driverData.vehicleModel,
+          vehicleYear: driverData.assignedVehicle?.vehicleYear || driverData.vehicleYear,
+          vehicleCapacity: driverData.assignedVehicle?.vehicleCapacity || driverData.vehicleCapacity,
+          driveType: driverData.assignedVehicle?.driveType || driverData.driveType,
+          bodyType: driverData.assignedVehicle?.bodyType || driverData.bodyType,
+          vehicleFeatures: driverData.assignedVehicle?.vehicleFeatures || driverData.vehicleFeatures,
+          humidityControl: driverData.assignedVehicle?.humidityControl || driverData.humidityControl || false,
+          refrigerated: driverData.assignedVehicle?.refrigerated || driverData.refrigerated || false,
+          // Documents
+          vehicleImagesUrl: driverData.assignedVehicle?.vehicleImagesUrl || driverData.vehicleImagesUrl || [],
+          driverLicense: driverData.driverLicense,
+          logbookUrl: driverData.assignedVehicle?.logbookUrl || driverData.logbookUrl,
+          insuranceUrl: driverData.assignedVehicle?.insuranceUrl || driverData.insuranceUrl,
+          driverIdUrl: driverData.driverIdUrl,
+          // Trip details
+          acceptingBooking: driverData.availability || false,
+          status: 'approved',
+          totalTrips: driverData.totalTrips || 0,
+          rating: driverData.rating || 0,
+          accountStatus: true,
+          // Company information
+          companyId: companyDoc.id,
+          companyName: companyData.companyName || companyData.displayName,
+          companyLogo: companyData.companyLogo,
+          companyAddress: companyData.companyAddress,
+          // Location
+          lastKnownLocation: driverData.lastKnownLocation,
+          // Payment
+          paymentMethod: driverData.paymentMethod || 'cash',
+          paymentAccount: driverData.paymentAccount,
+          totalRevenue: driverData.totalRevenue || 0,
+          // Timestamps
+          createdAt: driverData.createdAt,
+          updatedAt: driverData.updatedAt,
+          // Mark as company driver for frontend
+          isCompanyDriver: true,
+          company: {
+            id: companyDoc.id,
+            name: companyData.companyName || companyData.displayName,
+            logo: companyData.companyLogo,
+            address: companyData.companyAddress
+          }
+        });
+      }
+    }
+
+    return allDrivers;
+  } catch (error) {
+    console.error('Error fetching company drivers:', error);
+    return [];
+  }
+}
 
 exports.updateRating = async (req, res) => {
   try {
