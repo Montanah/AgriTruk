@@ -200,6 +200,24 @@ exports.createTransporter = async (req, res) => {
   }
 };
 
+exports.getTransporterProfile = async (req, res) => {
+  try {
+    const transporter = await Transporter.get(req.user.uid); 
+    await logActivity(req.user.uid, 'get_transporter_profile', req);
+
+    res.status(200).json({
+      message: "Transporter profile retrieved successfully",
+      transporter: formatTimestamps(transporter)
+    });
+  } catch (error) {
+    console.error('Error retrieving transporter profile:', error);
+    if (error.message === 'Transporter not found') {
+      return res.status(404).json({ message: 'Transporter profile not found. Please complete your profile setup.' });
+    }
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 exports.getTransporter = async (req, res) => {
   try {
     const transporter = await Transporter.get(req.params.transporterId); 
@@ -249,6 +267,36 @@ exports.getAllTransporters = async (req, res) => {
   } catch (error) {
     console.error('Error retrieving transporters:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.toggleMyAvailability = async (req, res) => {
+  try {
+    const { availability } = req.body;
+
+    if (typeof availability !== 'boolean') {
+      return res.status(400).json({ message: 'Availability must be true or false' });
+    }
+
+    const updated = await Transporter.update(req.user.uid, { acceptingBooking: availability });
+
+    await logActivity(req.user.uid, 'toggle_my_availability', req);
+
+    await Notification.create({
+      type: "Toggle My Availability",
+      message: `You ${availability ? 'enabled' : 'disabled'} accepting new bookings`,
+      userId: req.user.uid,
+      userType: "transporter",
+    });
+    
+    res.status(200).json({ 
+      message: `Availability ${availability ? 'enabled' : 'disabled'} successfully`, 
+      transporter: formatTimestamps(updated),
+      acceptingBooking: availability
+    });
+  } catch (error) {
+    console.error('Toggle my availability error:', error);
+    res.status(500).json({ message: 'Failed to update availability' });
   }
 };
 
@@ -496,6 +544,48 @@ exports.uploadDocuments = async (req, res) => {
       success: false,
       message: 'Internal server error',
     });
+  }
+};
+
+// Upload documents for vehicles (used by vehicle controller)
+exports.uploadVehicleDocuments = async (files, folder = 'vehicles') => {
+  try {
+    if (!files || files.length === 0) {
+      return { vehicleImages: [], insurance: [] };
+    }
+
+    const uploadResults = {
+      vehicleImages: [],
+      insurance: []
+    };
+
+    const uploadTasks = files.map(async file => {
+      const fieldName = file.fieldname;
+      const publicId = await uploadImage(file.path);
+
+      if (publicId) {
+        switch (fieldName) {
+          case 'vehicleImages':
+            uploadResults.vehicleImages.push(publicId);
+            break;
+          case 'insurance':
+            uploadResults.insurance.push(publicId);
+            break;
+          default:
+            console.log(`Ignoring unexpected field: ${fieldName}`);
+        }
+      }
+
+      // Clean up temporary file
+      fs.unlinkSync(file.path);
+    });
+
+    await Promise.all(uploadTasks);
+    return uploadResults;
+
+  } catch (error) {
+    console.error('Error uploading vehicle documents:', error);
+    throw error;
   }
 };
 

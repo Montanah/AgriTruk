@@ -7,10 +7,12 @@ const { authorize } = require("../middlewares/adminAuth");
 const {
   createTransporter,
   getTransporter,
+  getTransporterProfile,
   updateTransporter,
   getAvailableBookings,
   getAvailableTransporters,
   toggleAvailability,
+  toggleMyAvailability,
   updateRating,
   updateLocation,
   uploadDocuments
@@ -112,7 +114,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, creat
  * /api/transporters/available/list:
  *   get:
  *     summary: List available transporters
- *     description: Returns a list of approved transporters marked as available.
+ *     description: Returns a list of approved transporters marked as available. Accessible by admin, shipper, business, and broker users.
  *     tags: [Transporters]
  *     security:
  *       - bearerAuth: []
@@ -122,7 +124,7 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, creat
  *       500:
  *         description: Internal server error
  */
-router.get('/available/list', authenticateToken, requireRole(['admin', 'shipper']), getAvailableTransporters);
+router.get('/available/list', authenticateToken, requireRole(['admin', 'shipper', 'business', 'broker']), getAvailableTransporters);
 
 /**
  * @swagger
@@ -164,6 +166,12 @@ router.get('/getAvailableBookings', authenticateToken, requireRole('transporter'
  *       500:
  *         description: Internal server error
  */
+// Get current user's transporter profile
+router.get('/profile', authenticateToken, requireRole('transporter'), getTransporterProfile);
+
+// Toggle current user's availability
+router.patch('/availability', authenticateToken, requireRole('transporter'), toggleMyAvailability);
+
 router.get('/:transporterId', authenticateToken, requireRole(['transporter', 'admin', 'shipper']), getTransporter);
 
 /**
