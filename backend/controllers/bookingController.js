@@ -1101,18 +1101,28 @@ exports.acceptBooking = async (req, res) => {
 
     await Booking.update(bookingId, updates);
     
-    // Generate simple booking ID for display
-    const simpleBookingId = bookingId.slice(-8).toUpperCase();
+    // Use existing user-facing booking ID if available (must match what's shown in Activity/Management screens)
+    const displayBookingId = (
+      booking.displayId ||
+      booking.userFriendlyId ||
+      booking.unifiedBookingId ||
+      booking.readableId ||
+      booking.referenceCode ||
+      booking.referenceId ||
+      booking.bookingId ||
+      booking.id ||
+      bookingId
+    );
     
     // Create single notification for client
     await Notification.create({
       userId: booking.userId,
       type: 'booking_accepted',
       title: 'Booking Accepted! 🎉',
-      message: `Your booking #${simpleBookingId} from ${booking.fromLocation} to ${booking.toLocation} has been accepted by ${transporter?.name || 'a transporter'}`,
+      message: `Your booking #${displayBookingId} from ${booking.fromLocation} to ${booking.toLocation} has been accepted by ${transporter?.name || 'a transporter'}`,
       data: {
         bookingId: bookingId,
-        simpleBookingId: simpleBookingId,
+        displayBookingId: displayBookingId,
         transporterId: transporterId,
         transporterName: transporter?.name,
         transporterPhone: transporter?.phone,
