@@ -119,7 +119,10 @@ const ActivityScreen = () => {
             transporterName: booking.transporterName,
             transporterPhone: booking.transporterPhone,
             transporterPhoto: booking.transporterPhoto,
-            transporterRating: booking.transporterRating
+            transporterRating: booking.transporterRating,
+            transporter: booking.transporter,
+            driverName: booking.driverName,
+            driverPhone: booking.driverPhone
           });
           console.log('Vehicle data:', {
             vehicleId: booking.vehicleId,
@@ -194,25 +197,25 @@ const ActivityScreen = () => {
             priority: booking.priority || false,
             urgencyLevel: booking.urgencyLevel || 'normal',
             createdAt: booking.createdAt || new Date().toISOString(),
-            transporter: booking.transporterId ? {
-              name: booking.transporterName || 'Unknown Transporter',
-              phone: booking.transporterPhone || 'N/A',
-              profilePhoto: booking.transporterPhoto,
-              photo: booking.transporterPhoto,
-              rating: booking.transporterRating || 0,
-              experience: booking.transporterExperience || 'N/A',
-              availability: booking.transporterAvailability || 'N/A',
-              tripsCompleted: booking.transporterTripsCompleted || 0,
-              status: booking.transporterStatus || 'unknown'
+            transporter: (booking.transporterId || booking.transporterName || booking.transporter?.name || booking.driverName) ? {
+              name: booking.transporterName || booking.transporter?.name || booking.driverName || 'Unknown Transporter',
+              phone: booking.transporterPhone || booking.transporter?.phone || booking.driverPhone || 'N/A',
+              profilePhoto: booking.transporterPhoto || booking.transporter?.photo || booking.driverPhoto,
+              photo: booking.transporterPhoto || booking.transporter?.photo || booking.driverPhoto,
+              rating: booking.transporterRating || booking.transporter?.rating || 0,
+              experience: booking.transporterExperience || booking.transporter?.experience || 'N/A',
+              availability: booking.transporterAvailability || booking.transporter?.availability || 'N/A',
+              tripsCompleted: booking.transporterTripsCompleted || booking.transporter?.tripsCompleted || 0,
+              status: booking.transporterStatus || booking.transporter?.status || 'unknown'
             } : null,
-            vehicle: booking.vehicleId ? {
-              make: booking.vehicleMake || 'Unknown',
-              model: booking.vehicleModel || '',
-              year: booking.vehicleYear || 'N/A',
-              type: booking.vehicleType || 'N/A',
-              registration: booking.vehicleRegistration || 'N/A',
-              color: booking.vehicleColor || 'N/A',
-              capacity: booking.vehicleCapacity || 'N/A'
+            vehicle: (booking.vehicleId || booking.vehicleMake || booking.vehicleRegistration || booking.vehicle?.make || booking.vehicle?.registration) ? {
+              make: booking.vehicleMake || booking.vehicle?.make || 'Unknown',
+              model: booking.vehicleModel || booking.vehicle?.model || '',
+              year: booking.vehicleYear || booking.vehicle?.year || 'N/A',
+              type: booking.vehicleType || booking.vehicle?.type || 'N/A',
+              registration: booking.vehicleRegistration || booking.vehicle?.registration || 'N/A',
+              color: booking.vehicleColor || booking.vehicle?.color || 'N/A',
+              capacity: booking.vehicleCapacity || booking.vehicle?.capacity || 'N/A'
             } : null
           };
         }));
