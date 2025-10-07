@@ -546,60 +546,6 @@ router.get('/transporter/:transporterId', authenticateToken, requireRole(['trans
 
 /**
  * @swagger
- * /api/companies/transporter/{transporterId}/status/{status}:
- *   get:
- *     summary: Get companies by transporter and status
- *     description: Retrieves all companies for a transporter with a specific status.
- *     tags: [Admin Views]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: transporterId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the transporter
- *       - in: path
- *         name: status
- *         required: true
- *         schema:
- *           type: string
- *         description: The status of the companies (e.g., pending, approved, rejected)
- *     responses:
- *       200:
- *         description: Companies retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/transporter/:transporterId/status/:status', authenticateToken, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), getCompaniesByTransporterAndStatus);
-
-/**
- * @swagger
- * /api/companies/transporter/{transporterId}/all:
- *   get:
- *     summary: Get all companies for a transporter
- *     description: Retrieves all companies associated with a specific transporter.
- *     tags: [Admin Views]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: transporterId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the transporter
- *     responses:
- *       200:
- *         description: Companies retrieved successfully
- *       500:
- *         description: Internal server error
- */
-router.get('/transporter/:transporterId/all', authenticateToken, requireRole(['admin']), authorize(['view_companies', 'manage_companies', 'super_admin']), getAllForTransporter);
-
-/**
- * @swagger
  * /api/companies/{companyId}:
  *   delete:
  *     summary: Soft delete a company
