@@ -761,6 +761,7 @@ export default function App() {
             <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
             <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
             <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
             <Stack.Screen name="RouteLoadsScreen" component={RouteLoadsScreen} />
@@ -782,6 +783,7 @@ export default function App() {
             />
             <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
             <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="JobManagementScreen" component={JobManagementScreen} />
             <Stack.Screen name="RouteLoadsScreen" component={RouteLoadsScreen} />
@@ -934,6 +936,7 @@ export default function App() {
             <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
             <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
             <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
           </>
@@ -1091,6 +1094,7 @@ export default function App() {
           <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
           <Stack.Screen name="TransporterProcessingScreen" component={TransporterProcessingScreen} />
           <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+          <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
           <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
           <Stack.Screen name="TransporterHome" component={require('./src/screens/TransporterHomeScreen').default} />
           <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
