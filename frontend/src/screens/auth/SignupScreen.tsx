@@ -266,7 +266,12 @@ const SignupScreen = () => {
         }
 
         // Navigate to verification screen immediately based on preferred method
+        console.log('🔍 Signup method selected:', signupMethod);
+        console.log('🔍 Phone number:', selectedCountry.code + phone.trim());
+        console.log('🔍 Email:', email.trim());
+        
         if (signupMethod === 'phone') {
+          console.log('📱 Navigating to PhoneOTPScreen');
           navigation.navigate('PhoneOTPScreen', {
             email: email.trim(),
             phone: selectedCountry.code + phone.trim(),
@@ -274,6 +279,7 @@ const SignupScreen = () => {
             userId: userCredential.user.uid
           });
         } else {
+          console.log('📧 Navigating to EmailVerification');
           navigation.navigate('EmailVerification', {
             email: email.trim(),
             phone: selectedCountry.code + phone.trim(),

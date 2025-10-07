@@ -626,7 +626,9 @@ export default function App() {
   } else if (role && role !== 'transporter' && role !== 'broker' && !isVerified) {
     // Unverified non-transporter/non-broker users - send to verification options
     // Unverified user detected - routing to verification options
-    initialRouteName = 'EmailVerification';
+    // Check user's preferred verification method from their profile
+    const preferredMethod = userData?.preferredVerificationMethod || 'phone';
+    initialRouteName = preferredMethod === 'phone' ? 'PhoneOTPScreen' : 'EmailVerification';
     screens = (
       <>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -937,8 +939,9 @@ export default function App() {
           </>
         );
       } else {
-        // Unverified transporter - route directly to email verification
-        initialRouteName = 'EmailVerification';
+        // Unverified transporter - route to preferred verification method
+        const preferredMethod = userData?.preferredVerificationMethod || 'phone';
+        initialRouteName = preferredMethod === 'phone' ? 'PhoneOTPScreen' : 'EmailVerification';
         screens = (
           <>
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
@@ -953,7 +956,8 @@ export default function App() {
     } else {
       // Fallback: Any other authenticated user who is not verified should go to verification options
       // Fallback: authenticated but unverified user - routing to verification options
-      initialRouteName = 'EmailVerification';
+      const preferredMethod = data?.preferredVerificationMethod || 'phone';
+      initialRouteName = preferredMethod === 'phone' ? 'PhoneOTPScreen' : 'EmailVerification';
       screens = (
         <>
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
@@ -973,8 +977,9 @@ export default function App() {
     }
   } else if (role === 'broker') {
     if (!isVerified) {
-      // Unverified broker - route directly to email verification
-      initialRouteName = 'EmailVerification';
+      // Unverified broker - route to preferred verification method
+      const preferredMethod = userData?.preferredVerificationMethod || 'phone';
+      initialRouteName = preferredMethod === 'phone' ? 'PhoneOTPScreen' : 'EmailVerification';
       screens = (
         <>
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
@@ -1189,8 +1194,9 @@ export default function App() {
     console.log('App.tsx: Business user routing - isVerified:', isVerified, 'userData:', userData);
 
     if (!isVerified) {
-      // Unverified business users - send to verification options
-      initialRouteName = 'EmailVerification';
+      // Unverified business users - send to preferred verification method
+      const preferredMethod = userData?.preferredVerificationMethod || 'phone';
+      initialRouteName = preferredMethod === 'phone' ? 'PhoneOTPScreen' : 'EmailVerification';
       screens = (
         <>
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
