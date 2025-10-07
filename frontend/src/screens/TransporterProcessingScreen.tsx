@@ -184,32 +184,8 @@ export default function TransporterProcessingScreen({ route }) {
     }
   };
 
-  // Auto-refresh functionality
-  const startAutoRefresh = () => {
-    // Clear existing interval
-    if (refreshInterval) {
-      clearInterval(refreshInterval);
-    }
-    
-    // Set up new interval to check status every 10 seconds
-    const interval = setInterval(() => {
-      console.log('Auto-refreshing transporter status...');
-      fetchProfile();
-    }, 10000); // 10 seconds
-    
-    setRefreshInterval(interval);
-  };
-
-  const stopAutoRefresh = () => {
-    if (refreshInterval) {
-      clearInterval(refreshInterval);
-      setRefreshInterval(null);
-    }
-  };
-
-  // Fetch profile photo and status on mount
-  React.useEffect(() => {
-    const fetchProfile = async () => {
+  // Fetch profile photo and status function
+  const fetchProfile = React.useCallback(async () => {
       try {
         const { getAuth } = require('firebase/auth');
         const auth = getAuth();
@@ -315,7 +291,33 @@ export default function TransporterProcessingScreen({ route }) {
         }
       }
       setLoadingProfile(false);
-    };
+    }, [transporterType, checkSubscriptionStatus]);
+
+  // Auto-refresh functionality
+  const startAutoRefresh = React.useCallback(() => {
+    // Clear existing interval
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+    }
+    
+    // Set up new interval to check status every 10 seconds
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing transporter status...');
+      fetchProfile();
+    }, 10000); // 10 seconds
+    
+    setRefreshInterval(interval);
+  }, [fetchProfile, refreshInterval]);
+
+  const stopAutoRefresh = React.useCallback(() => {
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+      setRefreshInterval(null);
+    }
+  }, [refreshInterval]);
+
+  // Fetch profile photo and status on mount
+  React.useEffect(() => {
     fetchProfile();
     
     // Start auto-refresh when component mounts
@@ -325,7 +327,7 @@ export default function TransporterProcessingScreen({ route }) {
     return () => {
       stopAutoRefresh();
     };
-  }, [transporterType]);
+  }, [fetchProfile, startAutoRefresh, stopAutoRefresh]);
 
   // Animated glowing ring effect (LED-like)
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
