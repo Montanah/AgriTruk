@@ -382,6 +382,56 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   };
 
+  // Function to update vehicle body type in backend
+  const updateVehicleBodyType = async (newBodyType: 'closed' | 'open') => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      
+      // For individual transporters, update the transporter profile
+      if (transporterType === 'individual') {
+        const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bodyType: newBodyType
+          }),
+        });
+
+        if (response.ok) {
+          // Update local state
+          setIndividualProfile(prev => ({
+            ...prev,
+            bodyType: newBodyType
+          }));
+          Alert.alert('Success', `Body type updated to ${newBodyType}`);
+        } else {
+          const errorText = await response.text();
+          console.error('Failed to update body type:', response.status, errorText);
+          Alert.alert('Error', 'Failed to update body type. Please try again.');
+        }
+      } else {
+        // For company transporters, we need to update the vehicle
+        // This would require knowing which vehicle to update
+        // For now, show a message that this needs to be done from vehicle management
+        Alert.alert(
+          'Vehicle Update Required', 
+          'To update body type for company vehicles, please use the vehicle management section.'
+        );
+      }
+    } catch (error) {
+      console.error('Error updating vehicle body type:', error);
+      Alert.alert('Error', 'Failed to update body type. Please try again.');
+    }
+  };
+
   // Location tracking setup
   useEffect(() => {
     if (transporterType === 'individual') {
@@ -2714,10 +2764,7 @@ export default function ManageTransporterScreen({ route }: any) {
                       paddingHorizontal: 18,
                       marginRight: 6,
                     }}
-                    onPress={() => {
-                      // TODO: update backend; for now, just show feedback
-                      Alert.alert('Body Type', 'Switch to Closed (backend update needed)');
-                    }}
+                    onPress={() => updateVehicleBodyType('closed')}
                     activeOpacity={0.85}
                   >
                     <Text style={{ color: individualProfile.bodyType === 'closed' ? '#fff' : colors.primary, fontWeight: 'bold' }}>Closed</Text>
@@ -2729,10 +2776,7 @@ export default function ManageTransporterScreen({ route }: any) {
                       paddingVertical: 6,
                       paddingHorizontal: 18,
                     }}
-                    onPress={() => {
-                      // TODO: update backend; for now, just show feedback
-                      Alert.alert('Body Type', 'Switch to Open (backend update needed)');
-                    }}
+                    onPress={() => updateVehicleBodyType('open')}
                     activeOpacity={0.85}
                   >
                     <Text style={{ color: individualProfile.bodyType === 'open' ? '#fff' : colors.primary, fontWeight: 'bold' }}>Open</Text>

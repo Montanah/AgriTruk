@@ -174,18 +174,18 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             routes: [{ name: 'BusinessStack' }]
           });
         } else if (role === 'broker') {
-          // Navigating broker to VerifyIdentificationDocument
+          // Navigating broker to dashboard (secondary verification)
+          console.log('Phone verification complete - navigating broker to dashboard');
           navigation.reset({
             index: 0,
-            routes: [{ name: 'VerifyIdentificationDocument' }]
+            routes: [{ name: 'BrokerTabs' }]
           });
         } else if (role === 'transporter') {
-          // For transporters, we need to check if they are individual or company type
-          // This will be handled by the TransporterCompletionScreen itself
-          console.log('Phone verification complete - navigating transporter to TransporterCompletionScreen');
+          // Navigating transporter to dashboard (secondary verification)
+          console.log('Phone verification complete - navigating transporter to dashboard');
           navigation.reset({
             index: 0,
-            routes: [{ name: 'TransporterCompletionScreen' }]
+            routes: [{ name: 'TransporterTabs' }]
           });
         } else {
           // Navigating unknown role to MainTabs
