@@ -515,39 +515,56 @@ export default function TransporterCompletionScreen() {
     return /^[0-9]{9}$/.test(cleanPhone);
   };
 
-  const isValid = () => {
+  // Get validation status for each section
+  const getValidationStatus = () => {
     if (transporterType === 'individual') {
-      return (
-        vehicleType &&
-        registration &&
-        profilePhoto &&
-        dlFile &&
-        insuranceFile &&
-        idFile &&
-        vehiclePhotos.length > 0
-      );
-    } else {
-      const valid = (
-        companyName &&
-        companyReg &&
-        companyContact &&
-        validatePhone(companyContact) &&
-        profilePhoto
-      );
-      
-      // Debug company validation
-      console.log('Company validation check:', {
-        companyName: !!companyName,
-        companyReg: !!companyReg,
-        companyContact: !!companyContact,
-        phoneValid: validatePhone(companyContact),
+      return {
         profilePhoto: !!profilePhoto,
-        companyContactValue: companyContact,
-        isValid: valid
-      });
-      
-      return valid;
+        vehicleDetails: !!(vehicleType && registration),
+        documents: !!(dlFile && insuranceFile && idFile),
+        vehiclePhotos: vehiclePhotos.length > 0,
+        allValid: !!(
+          vehicleType &&
+          registration &&
+          profilePhoto &&
+          dlFile &&
+          insuranceFile &&
+          idFile &&
+          vehiclePhotos.length > 0
+        )
+      };
+    } else {
+      return {
+        companyDetails: !!(companyName && companyReg && companyContact && validatePhone(companyContact)),
+        profilePhoto: !!profilePhoto,
+        allValid: !!(
+          companyName &&
+          companyReg &&
+          companyContact &&
+          validatePhone(companyContact) &&
+          profilePhoto
+        )
+      };
     }
+  };
+
+  const isValid = () => {
+    const status = getValidationStatus();
+    return status.allValid;
+  };
+
+  // Debug company validation
+  const debugCompanyValidation = () => {
+    const status = getValidationStatus();
+    console.log('Company validation check:', {
+      companyName: !!companyName,
+      companyReg: !!companyReg,
+      companyContact: !!companyContact,
+      phoneValid: validatePhone(companyContact),
+      profilePhoto: !!profilePhoto,
+      companyContactValue: companyContact,
+      isValid: status.allValid
+    });
   };
 
   const handleDlFile = async () => {
@@ -1604,10 +1621,15 @@ export default function TransporterCompletionScreen() {
         <>
           {/* Profile Photo Section */}
           <View style={styles.modernSection}>
-            <Text style={styles.modernSectionTitle}>
-              <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-              Profile Photo
-            </Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.modernSectionTitle}>
+                <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+                Profile Photo
+              </Text>
+              {getValidationStatus().profilePhoto && (
+                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+              )}
+            </View>
             <TouchableOpacity 
               style={styles.modernPhotoPicker} 
               onPress={handleProfilePhoto}
@@ -1627,7 +1649,12 @@ export default function TransporterCompletionScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.sectionTitle}>Vehicle Details</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Vehicle Details</Text>
+            {getValidationStatus().vehicleDetails && (
+              <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+            )}
+          </View>
           <VehicleDetailsForm
             initial={{ vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures }}
             onChange={({ vehicleType, vehicleMake, vehicleModel, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures, humidityControl, refrigeration }) => {
@@ -1872,6 +1899,38 @@ export default function TransporterCompletionScreen() {
             )}
           </TouchableOpacity>
 
+          {/* Validation Summary */}
+          {!isValid() && (
+            <View style={styles.validationSummary}>
+              <Text style={styles.validationTitle}>Complete these sections to submit:</Text>
+              {transporterType === 'individual' ? (
+                <>
+                  {!getValidationStatus().profilePhoto && (
+                    <Text style={styles.validationItem}>• Upload profile photo</Text>
+                  )}
+                  {!getValidationStatus().vehicleDetails && (
+                    <Text style={styles.validationItem}>• Fill vehicle details</Text>
+                  )}
+                  {!getValidationStatus().documents && (
+                    <Text style={styles.validationItem}>• Upload all required documents</Text>
+                  )}
+                  {!getValidationStatus().vehiclePhotos && (
+                    <Text style={styles.validationItem}>• Upload vehicle photos</Text>
+                  )}
+                </>
+              ) : (
+                <>
+                  {!getValidationStatus().companyDetails && (
+                    <Text style={styles.validationItem}>• Fill company details</Text>
+                  )}
+                  {!getValidationStatus().profilePhoto && (
+                    <Text style={styles.validationItem}>• Upload company logo</Text>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+
           {/* Submit Profile Button */}
           <TouchableOpacity
             style={[styles.submitBtn, { backgroundColor: isValid() && !photoJustAdded ? colors.primary : colors.text.light }]}
@@ -1915,6 +1974,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     marginTop: spacing.lg,
     textAlign: 'center',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
   },
   sectionTitle: {
     fontSize: fonts.size.lg,
@@ -2153,6 +2218,25 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '600',
     fontSize: fonts.size.sm,
+  },
+  validationSummary: {
+    backgroundColor: colors.warning + '15',
+    borderRadius: 8,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.warning + '30',
+  },
+  validationTitle: {
+    fontSize: fonts.size.sm,
+    fontWeight: 'bold',
+    color: colors.warning,
+    marginBottom: spacing.xs,
+  },
+  validationItem: {
+    fontSize: fonts.size.sm,
+    color: colors.warning,
+    marginBottom: 2,
     letterSpacing: 0.2,
   },
   error: {
