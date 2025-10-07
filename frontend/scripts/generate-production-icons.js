@@ -11,15 +11,15 @@ if (!fs.existsSync(outputDir)) {
 // Input TRUK logo path
 const inputLogo = path.join(__dirname, '../assets/images/TRUK Logo.png');
 
-// TRUK Brand color scheme (from colors.ts)
+// White background for all app icons (iOS and Android)
 const productionColors = {
-  primary: { r: 15, g: 43, b: 4, alpha: 1 }, // #0F2B04 - Dark Green
-  primaryDark: { r: 10, g: 29, b: 2, alpha: 1 }, // #0A1D02 - Darker Green
-  secondary: { r: 39, g: 174, b: 96, alpha: 1 }, // #27AE60 - Green
-  tertiary: { r: 176, g: 11, b: 28, alpha: 1 }, // #B00B1C - Red
-  surface: { r: 234, g: 244, b: 234, alpha: 1 }, // #EAF4EA - Light Green
+  white: { r: 255, g: 255, b: 255, alpha: 1 }, // #FFFFFF - Pure White (Primary)
+  light: { r: 248, g: 250, b: 252, alpha: 1 }, // #F8FAFC - Light Gray
+  surface: { r: 240, g: 240, b: 240, alpha: 1 }, // #F0F0F0 - Light Surface
   background: { r: 247, g: 249, b: 252, alpha: 1 }, // #F7F9FC - Light Gray
-  white: { r: 255, g: 255, b: 255, alpha: 1 }, // #FFFFFF - Pure White
+  primary: { r: 255, g: 255, b: 255, alpha: 1 }, // #FFFFFF - Pure White (Default)
+  secondary: { r: 255, g: 255, b: 255, alpha: 1 }, // #FFFFFF - Pure White
+  tertiary: { r: 255, g: 255, b: 255, alpha: 1 }, // #FFFFFF - Pure White
 };
 
 // Icon sizes needed for different platforms
@@ -85,8 +85,8 @@ async function generateProductionIcons() {
       for (const [filename, size] of Object.entries(iconSizes)) {
         const outputPath = path.join(outputDir, filename.replace('.png', `-${colorName}.png`));
         
-        // Calculate proper spacing - logo should be 80% of icon size for better visibility
-        const logoSize = Math.floor(size * 0.8);
+        // Calculate proper spacing - logo should be 85% of icon size for better visibility
+        const logoSize = Math.floor(size * 0.85);
         const padding = Math.floor((size - logoSize) / 2);
         
         // Resize the logo to fit properly
@@ -126,10 +126,10 @@ async function generateProductionIcons() {
     console.log(`\n🎯 Generating default icons (primary color)...`);
     for (const [filename, size] of Object.entries(iconSizes)) {
       const outputPath = path.join(outputDir, filename);
-      const color = productionColors.primary;
+      const color = productionColors.white;
       
       // Calculate proper spacing
-      const logoSize = Math.floor(size * 0.8);
+      const logoSize = Math.floor(size * 0.85);
       const padding = Math.floor((size - logoSize) / 2);
       
       // Resize the logo to fit properly
@@ -167,7 +167,7 @@ async function generateProductionIcons() {
     console.log(`\n🤖 Generating Android adaptive icons...`);
     for (const [colorName, color] of Object.entries(productionColors)) {
       const adaptiveSize = 108;
-      const logoSize = Math.floor(adaptiveSize * 0.7); // Slightly larger for adaptive icons
+      const logoSize = Math.floor(adaptiveSize * 0.8); // Larger for adaptive icons
       const padding = Math.floor((adaptiveSize - logoSize) / 2);
       
       // Resize logo for adaptive icons
@@ -226,9 +226,9 @@ async function generateProductionIcons() {
 
     // Generate default adaptive icons
     const adaptiveSize = 108;
-    const logoSize = Math.floor(adaptiveSize * 0.7);
+    const logoSize = Math.floor(adaptiveSize * 0.8);
     const padding = Math.floor((adaptiveSize - logoSize) / 2);
-    const color = productionColors.primary;
+    const color = productionColors.white;
     
     // Resize logo for default adaptive icons
     const resizedLogoBuffer = await sharp(logoBuffer)
@@ -284,10 +284,10 @@ async function generateProductionIcons() {
     console.log(`🎨 Color variants: ${Object.keys(productionColors).join(', ')}`);
     console.log(`📱 Platforms: iOS, Android, Web`);
     console.log(`\n💡 Key improvements:`);
-    console.log(`   • Logo is now 80% of icon size (improved visibility)`);
+    console.log(`   • Logo is now 85% of icon size (improved visibility)`);
     console.log(`   • Proper padding ensures logo doesn't touch edges`);
     console.log(`   • High-quality PNG compression for crisp display`);
-    console.log(`   • TRUK brand colors (no blue - using green/red palette)`);
+    console.log(`   • White background for both iOS and Android`);
     console.log(`   • Optimized for both light and dark themes`);
     
   } catch (error) {
