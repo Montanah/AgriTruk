@@ -1,12 +1,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getAuth } from 'firebase/auth';
 import {
     ActivityIndicator,
     Alert,
     Image,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -56,9 +57,24 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     const [activatingTrial, setActivatingTrial] = useState(false);
     const [trialPlan, setTrialPlan] = useState<any>(null);
     // const [trialActivated, setTrialActivated] = useState(false);
+    
+    // Ref for scrolling to payment section
+    const scrollViewRef = useRef<ScrollView>(null);
+    const paymentSectionRef = useRef<View>(null);
 
     // Get trial duration from subscription status or default to 30 days
     const trialDuration = subscriptionStatus?.daysRemaining || 30;
+
+    // Function to scroll to payment section
+    const scrollToPaymentSection = () => {
+        paymentSectionRef.current?.measureLayout(
+            scrollViewRef.current as any,
+            (x, y) => {
+                scrollViewRef.current?.scrollTo({ y: y - 50, animated: true });
+            },
+            () => {}
+        );
+    };
 
 
     // Check if user already has active subscription on component mount
@@ -385,6 +401,11 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 style={styles.scrollView} 
                 keyboardVerticalOffset={0}
             >
+                <ScrollView 
+                    ref={scrollViewRef}
+                    showsVerticalScrollIndicator={true}
+                    contentContainerStyle={styles.scrollContent}
+                >
                 {/* Welcome Section */}
                 <View style={styles.welcomeCard}>
                     <View style={styles.welcomeIcon}>
@@ -398,52 +419,44 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         Welcome to TRUK! 🎉
                     </Text>
                     <Text style={styles.welcomeSubtitle}>
-                        Your {userType} profile has been approved! Activate your {trialDuration}-day free trial to access all premium features.
+                        Your {userType} profile has been approved! Complete the steps below to activate your {trialDuration}-day free trial.
                     </Text>
                 </View>
 
-                {/* Trial Benefits */}
-                <View style={styles.benefitsCard}>
-                    <Text style={styles.sectionTitle}>What You&apos;ll Get</Text>
-                    <Text style={styles.trialDuration}>
-                        {trialDuration} Days Free Trial
-                    </Text>
-                    <Text style={styles.trialDescription}>
-                        Experience all premium features without any commitment. Your trial includes:
-                    </Text>
-
-                    <View style={styles.featuresList}>
-                        {getTrialFeatures().map((feature, index) => (
-                            <View key={index} style={styles.featureRow}>
-                                <MaterialCommunityIcons
-                                    name="check-circle"
-                                    size={20}
-                                    color={colors.success}
-                                />
-                                <Text style={styles.featureText}>{feature}</Text>
+                {/* Progress Steps */}
+                <View style={styles.progressCard}>
+                    <Text style={styles.sectionTitle}>Activation Steps</Text>
+                    <View style={styles.stepsContainer}>
+                        <View style={styles.stepItem}>
+                            <View style={[styles.stepNumber, selectedPaymentMethod ? styles.stepCompleted : styles.stepActive]}>
+                                {selectedPaymentMethod ? (
+                                    <MaterialCommunityIcons
+                                        name="check"
+                                        size={16}
+                                        color={colors.white}
+                                    />
+                                ) : (
+                                    <Text style={styles.stepNumberText}>1</Text>
+                                )}
                             </View>
-                        ))}
+                            <Text style={[styles.stepText, selectedPaymentMethod && styles.stepTextCompleted]}>
+                                Select Payment Method
+                            </Text>
+                        </View>
+                        <View style={styles.stepConnector} />
+                        <View style={styles.stepItem}>
+                            <View style={[styles.stepNumber, styles.stepPending]}>
+                                <Text style={styles.stepNumberTextPending}>2</Text>
+                            </View>
+                            <Text style={styles.stepText}>
+                                Activate Trial
+                            </Text>
+                        </View>
                     </View>
-
-                    <TouchableOpacity
-                        style={styles.viewPlansButton}
-                        onPress={() => {
-                            navigation.navigate('SubscriptionScreen', {
-                                userType: userType
-                            });
-                        }}
-                    >
-                        <MaterialCommunityIcons
-                            name="eye"
-                            size={16}
-                            color={colors.primary}
-                        />
-                        <Text style={styles.viewPlansButtonText}>View All Subscription Plans</Text>
-                    </TouchableOpacity>
                 </View>
 
-                {/* Payment Method Selection */}
-                <View style={styles.paymentCard}>
+                {/* Payment Method Selection - Now at the top */}
+                <View ref={paymentSectionRef} style={styles.paymentCard}>
                     <Text style={styles.sectionTitle}>Payment Method Verification</Text>
                     <Text style={styles.paymentDescription}>
                         To activate your {trialDuration}-day free trial, we need to verify your payment method with a $1 test charge that will be immediately refunded.
@@ -507,6 +520,46 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                     </View>
                 </View>
 
+                {/* Trial Benefits - Now after payment selection */}
+                <View style={styles.benefitsCard}>
+                    <Text style={styles.sectionTitle}>What You&apos;ll Get</Text>
+                    <Text style={styles.trialDuration}>
+                        {trialDuration} Days Free Trial
+                    </Text>
+                    <Text style={styles.trialDescription}>
+                        Experience all premium features without any commitment. Your trial includes:
+                    </Text>
+
+                    <View style={styles.featuresList}>
+                        {getTrialFeatures().map((feature, index) => (
+                            <View key={index} style={styles.featureRow}>
+                                <MaterialCommunityIcons
+                                    name="check-circle"
+                                    size={20}
+                                    color={colors.success}
+                                />
+                                <Text style={styles.featureText}>{feature}</Text>
+                            </View>
+                        ))}
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.viewPlansButton}
+                        onPress={() => {
+                            navigation.navigate('SubscriptionScreen', {
+                                userType: userType
+                            });
+                        }}
+                    >
+                        <MaterialCommunityIcons
+                            name="eye"
+                            size={16}
+                            color={colors.primary}
+                        />
+                        <Text style={styles.viewPlansButtonText}>View All Subscription Plans</Text>
+                    </TouchableOpacity>
+                </View>
+
                 {/* Important Notes */}
                 <View style={styles.notesCard}>
                     <Text style={styles.sectionTitle}>Important Information</Text>
@@ -542,10 +595,24 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                     </View>
                 </View>
 
+                </ScrollView>
             </FormKeyboardWrapper>
 
             {/* Action Button */}
             <View style={styles.actionContainer}>
+                {!selectedPaymentMethod && (
+                    <View style={styles.paymentRequiredBanner}>
+                        <MaterialCommunityIcons
+                            name="alert-circle"
+                            size={20}
+                            color={colors.warning}
+                        />
+                        <Text style={styles.paymentRequiredBannerText}>
+                            Please select a payment method above to continue
+                        </Text>
+                    </View>
+                )}
+                
                 <TouchableOpacity
                     style={[
                         styles.activateButton,
@@ -557,9 +624,19 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                     {activatingTrial ? (
                         <ActivityIndicator size="small" color={colors.white} />
                     ) : (
-                        <Text style={styles.activateButtonText}>
-                            {activatingTrial ? 'Verifying Payment...' : `Activate ${trialDuration}-Day Trial`}
-                        </Text>
+                        <View style={styles.activateButtonContent}>
+                            <MaterialCommunityIcons
+                                name={selectedPaymentMethod ? "rocket-launch" : "credit-card-outline"}
+                                size={18}
+                                color={colors.white}
+                            />
+                            <Text style={styles.activateButtonText}>
+                                {!selectedPaymentMethod 
+                                    ? 'Select Payment Method' 
+                                    : `Activate Trial`
+                                }
+                            </Text>
+                        </View>
                     )}
                 </TouchableOpacity>
 
@@ -567,30 +644,13 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 <TouchableOpacity
                     style={styles.skipButton}
                     onPress={() => {
-                        Alert.alert(
-                            'View Subscription Plans?',
-                            'You\'ll see all available plans with pricing, features, and can choose what works best for you. You can always activate your trial later from your profile settings.',
-                            [
-                                { text: 'Cancel', style: 'cancel' },
-                                {
-                                    text: 'View Plans',
-                                    onPress: () => {
-                                        // Navigate to subscription plans screen
-                                        navigation.navigate('SubscriptionScreen', {
-                                            userType: userType
-                                        });
-                                    }
-                                }
-                            ]
-                        );
+                        navigation.navigate('SubscriptionScreen', {
+                            userType: userType
+                        });
                     }}
                 >
-                    <Text style={styles.skipButtonText}>View Subscription Plans</Text>
+                    <Text style={styles.skipButtonText}>View Plans</Text>
                 </TouchableOpacity>
-
-                <Text style={styles.skipNote}>
-                    Prefer to choose a plan directly? View our subscription options and select what works best for you.
-                </Text>
             </View>
         </SafeAreaView>
     );
@@ -748,7 +808,7 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
     actionContainer: {
-        padding: spacing.lg,
+        padding: spacing.md,
         backgroundColor: colors.white,
         borderTopWidth: 1,
         borderTopColor: colors.text.light + '20',
@@ -758,15 +818,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: spacing.lg,
-        paddingHorizontal: spacing.xl,
-        borderRadius: 14,
-        marginBottom: spacing.md,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        borderRadius: 10,
+        marginBottom: spacing.sm,
         shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
     },
     activateButtonDisabled: {
         backgroundColor: colors.text.light,
@@ -775,18 +835,17 @@ const styles = StyleSheet.create({
     },
     activateButtonText: {
         color: colors.white,
-        fontSize: fonts.size.lg,
-        fontWeight: 'bold',
-        marginLeft: spacing.sm,
-        letterSpacing: 0.5,
+        fontSize: fonts.size.md,
+        fontWeight: '600',
+        marginLeft: spacing.xs,
     },
     skipButton: {
         alignItems: 'center',
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.xs,
     },
     skipButtonText: {
         color: colors.text.secondary,
-        fontSize: fonts.size.md,
+        fontSize: fonts.size.sm,
         textDecorationLine: 'underline',
     },
     skipNote: {
@@ -903,6 +962,138 @@ const styles = StyleSheet.create({
     paymentMethodTextSelected: {
         color: colors.primary,
         fontWeight: '600',
+    },
+    scrollContent: {
+        paddingBottom: spacing.xl,
+    },
+    paymentRequiredCard: {
+        backgroundColor: colors.warning + '10',
+        borderRadius: 12,
+        padding: spacing.md,
+        marginTop: spacing.md,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.warning,
+    },
+    paymentRequiredHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    paymentRequiredTitle: {
+        fontSize: fonts.size.md,
+        fontWeight: '600',
+        color: colors.warning,
+        marginLeft: spacing.sm,
+    },
+    paymentRequiredText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        lineHeight: 20,
+        marginBottom: spacing.md,
+    },
+    scrollToPaymentButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.primary + '15',
+        borderRadius: 8,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+    },
+    scrollToPaymentText: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.primary,
+        marginLeft: spacing.xs,
+    },
+    progressCard: {
+        backgroundColor: colors.white,
+        borderRadius: 16,
+        padding: spacing.lg,
+        marginVertical: spacing.sm,
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    stepsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: spacing.md,
+    },
+    stepItem: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    stepNumber: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.sm,
+    },
+    stepActive: {
+        backgroundColor: colors.primary,
+    },
+    stepCompleted: {
+        backgroundColor: colors.success,
+    },
+    stepPending: {
+        backgroundColor: colors.background,
+        borderWidth: 2,
+        borderColor: colors.border,
+    },
+    stepConnector: {
+        flex: 1,
+        height: 2,
+        backgroundColor: colors.border,
+        marginHorizontal: spacing.sm,
+        marginBottom: 16,
+    },
+    stepText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        fontWeight: '500',
+    },
+    stepTextCompleted: {
+        color: colors.success,
+        fontWeight: '600',
+    },
+    paymentRequiredBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.warning + '15',
+        borderRadius: 6,
+        padding: spacing.sm,
+        marginBottom: spacing.sm,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.warning,
+    },
+    paymentRequiredBannerText: {
+        fontSize: fonts.size.sm,
+        color: colors.warning,
+        fontWeight: '500',
+        marginLeft: spacing.sm,
+        flex: 1,
+    },
+    activateButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    stepNumberText: {
+        fontSize: fonts.size.sm,
+        fontWeight: 'bold',
+        color: colors.white,
+    },
+    stepNumberTextPending: {
+        fontSize: fonts.size.sm,
+        fontWeight: 'bold',
+        color: colors.text.light,
     },
 });
 
