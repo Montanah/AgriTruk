@@ -1,0 +1,40 @@
+0000000000000000000000000000000000000000 aa078a3023466862efc429a642118b9eefa2f6de clintmadeit <clintonbrirdley@gmail.com> 1758259891 +0300	branch: Created from HEAD
+aa078a3023466862efc429a642118b9eefa2f6de ace940adcb0178cc6119e0d5e7d2b4d140f4b0d3 clintmadeit <clintonbrirdley@gmail.com> 1758308335 +0300	reset: moving to ace940a
+ace940adcb0178cc6119e0d5e7d2b4d140f4b0d3 f5c83e7cf266e4218e2de48a6341b70767c1209b clintmadeit <clintonbrirdley@gmail.com> 1758308560 +0300	commit: Ignore backend folder from git tracking
+f5c83e7cf266e4218e2de48a6341b70767c1209b 35149fae43b55ff88733b8215cf23867d93d742b clintmadeit <clintonbrirdley@gmail.com> 1758359531 +0300	commit: fixing the transporter subscription countdown
+35149fae43b55ff88733b8215cf23867d93d742b 40b5800548b7e8539124c46589fb0426a0eacd32 clintmadeit <clintonbrirdley@gmail.com> 1758362801 +0300	commit: feat: unify subscription flow for brokers and transporters
+40b5800548b7e8539124c46589fb0426a0eacd32 bca78aa6a2421c5ef87bf74d30e8ab4694319a31 clintmadeit <clintonbrirdley@gmail.com> 1758365564 +0300	commit: feat: transform booking management into professional job lifecycle system
+bca78aa6a2421c5ef87bf74d30e8ab4694319a31 b4c09e9fd83714f1acac6b2598704ae653dfe91d clintmadeit <clintonbrirdley@gmail.com> 1758366317 +0300	commit: fix: resolve duplicate function declaration in TransporterBookingManagementScreen
+b4c09e9fd83714f1acac6b2598704ae653dfe91d e8af1f681da2c0e33d1253e20ba38b706ed30f9f clintmadeit <clintonbrirdley@gmail.com> 1758366493 +0300	commit: fix: resolve duplicate function declarations in TransporterBookingManagementScreen
+e8af1f681da2c0e33d1253e20ba38b706ed30f9f 9f853de80e32fdd4e535b7680e08f30f7ed7cc19 clintmadeit <clintonbrirdley@gmail.com> 1758366752 +0300	commit: fix: resolve duplicate function declarations in TransporterBookingManagementScreen
+9f853de80e32fdd4e535b7680e08f30f7ed7cc19 c3e4bb807fbddf1e4538d91042ed0951ccd44e74 clintmadeit <clintonbrirdley@gmail.com> 1758366947 +0300	commit: fix: remove duplicate renderBooking function declaration
+c3e4bb807fbddf1e4538d91042ed0951ccd44e74 47a4d486a0c89495ba53e9d0a230ca47f387bec7 clintmadeit <clintonbrirdley@gmail.com> 1758367554 +0300	commit: feat: implement world-class filtering system for TransporterBookingManagementScreen
+47a4d486a0c89495ba53e9d0a230ca47f387bec7 f65c424bf8cd6947893f12cc4fbc6b60787fe29a clintmadeit <clintonbrirdley@gmail.com> 1758367792 +0300	commit: fix: remove duplicate filter bar causing overlapping UI
+f65c424bf8cd6947893f12cc4fbc6b60787fe29a 80397d490fc2c3b52dc80df5359981c4bbba3afe clintmadeit <clintonbrirdley@gmail.com> 1758367991 +0300	commit: chore: ignore build scripts from git tracking
+80397d490fc2c3b52dc80df5359981c4bbba3afe 43dcd16d20fa176423fc7aacd9c0dc030d9c09dc clintmadeit <clintonbrirdley@gmail.com> 1758537164 +0300	commit: subscription and transporter process fixed
+43dcd16d20fa176423fc7aacd9c0dc030d9c09dc 6a9ec8b6bc61878c97bb6f98a0575ad3289b562a clintmadeit <clintonbrirdley@gmail.com> 1758632627 +0300	commit: improved activity screen. Fixed booking creation
+6a9ec8b6bc61878c97bb6f98a0575ad3289b562a 25e24c51c4a10eb86a2ebf3f25cdf4d841ccba13 clintmadeit <clintonbrirdley@gmail.com> 1758636821 +0300	commit (merge): Merge backend branch: Add missing backend controllers and utilities
+25e24c51c4a10eb86a2ebf3f25cdf4d841ccba13 dc16a1d248cb7f07f2ccda85d3a18385d34bee31 clintmadeit <clintonbrirdley@gmail.com> 1758637297 +0300	commit: Fix: Add missing sendEmail and adminNotification imports to transporterController.js
+dc16a1d248cb7f07f2ccda85d3a18385d34bee31 6a9ec8b6bc61878c97bb6f98a0575ad3289b562a clintmadeit <clintonbrirdley@gmail.com> 1758637689 +0300	reset: moving to HEAD~2
+6a9ec8b6bc61878c97bb6f98a0575ad3289b562a 0f12fa8aafeae3c61abd4c6687780ee9ed3336e4 clintmadeit <clintonbrirdley@gmail.com> 1758637733 +0300	commit: Fix: Add missing sendEmail and adminNotification imports to transporterController.js
+0f12fa8aafeae3c61abd4c6687780ee9ed3336e4 6a9ec8b6bc61878c97bb6f98a0575ad3289b562a clintmadeit <clintonbrirdley@gmail.com> 1758639361 +0300	reset: moving to HEAD~1
+6a9ec8b6bc61878c97bb6f98a0575ad3289b562a 0f12fa8aafeae3c61abd4c6687780ee9ed3336e4 clintmadeit <clintonbrirdley@gmail.com> 1758639471 +0300	pull origin mobile: Fast-forward
+0f12fa8aafeae3c61abd4c6687780ee9ed3336e4 03337fd066a535047558c4fef7b8ad9f3bc3e296 clintmadeit <clintonbrirdley@gmail.com> 1758639495 +0300	commit: Remove backend transporterController.js from mobile branch
+03337fd066a535047558c4fef7b8ad9f3bc3e296 6ba82030a59eb595a856ca155822ecd20f850410 clintmadeit <clintonbrirdley@gmail.com> 1758640051 +0300	commit: Fix: Improve button styling in TransporterCompletionScreen
+6ba82030a59eb595a856ca155822ecd20f850410 b46696b92d726cba3e82f5a925a6ea4909686cd3 clintmadeit <clintonbrirdley@gmail.com> 1758640284 +0300	commit: Fix: Improve bottom action buttons styling in TransporterCompletionScreen
+b46696b92d726cba3e82f5a925a6ea4909686cd3 5fbe008ce2c4829464519275b050cb899b1b0c8e clintmadeit <clintonbrirdley@gmail.com> 1758641957 +0300	commit: Fix: Improve status refresh functionality in TransporterProcessingScreen
+5fbe008ce2c4829464519275b050cb899b1b0c8e d0db736ecde6b7d09b5d8bc1c7b2afd0297844ea clintmadeit <clintonbrirdley@gmail.com> 1758642445 +0300	commit: Fix: Improve error handling and debugging in SubscriptionTrialScreen
+d0db736ecde6b7d09b5d8bc1c7b2afd0297844ea 128cb77d45d3337c2762647849b0ccf7e095ad1e clintmadeit <clintonbrirdley@gmail.com> 1758642702 +0300	commit: Fix: Auto-load location names in transporter account screen
+128cb77d45d3337c2762647849b0ccf7e095ad1e 6cb4c7aaf3d734aefb4448d5728ff0cc5ea772db clintmadeit <clintonbrirdley@gmail.com> 1758644335 +0300	commit: Fix: Clean up git tracking and improve .gitignore
+6cb4c7aaf3d734aefb4448d5728ff0cc5ea772db 24401ce8aee90532f98908dcf35c3256ebe63122 clintmadeit <clintonbrirdley@gmail.com> 1758646144 +0300	commit: Add debugging logs to password reset screen
+24401ce8aee90532f98908dcf35c3256ebe63122 d3e5b8e9fd5840990a3242c8e6e2eb5695fe8e6a clintmadeit <clintonbrirdley@gmail.com> 1758655404 +0300	commit: Fix: Phone password reset SMS format issue
+d3e5b8e9fd5840990a3242c8e6e2eb5695fe8e6a a4852b81df45e7dffa74288dc42ea37f26f2b3bc clintmadeit <clintonbrirdley@gmail.com> 1758655438 +0300	commit: Temporarily allow backend folder for specific fix commit
+a4852b81df45e7dffa74288dc42ea37f26f2b3bc 553b6ac268968bc0791e3e2d0d917562c79e473e clintmadeit <clintonbrirdley@gmail.com> 1758655451 +0300	commit: Save all changes before switching to backend branch
+553b6ac268968bc0791e3e2d0d917562c79e473e eef90458902a9aec2cd5f8b128028ac5c2483d01 clintmadeit <clintonbrirdley@gmail.com> 1758697740 +0300	commit: Fix: Rename backend_temp to backend and update .gitignore
+eef90458902a9aec2cd5f8b128028ac5c2483d01 36344c414b2a27a9a70d78688f011ae1da831796 clintmadeit <clintonbrirdley@gmail.com> 1758698548 +0300	reset: moving to 36344c414b2a27a9a70d78688f011ae1da831796
+36344c414b2a27a9a70d78688f011ae1da831796 7152b0e46d685a7513fdb8610a9db21add6874fa clintmadeit <clintonbrirdley@gmail.com> 1758698572 +0300	commit: Add frontend code to mobile branch
+7152b0e46d685a7513fdb8610a9db21add6874fa 1948849eb4e49a3566e925f3722e90cd9cd3b95f clintmadeit <clintonbrirdley@gmail.com> 1758699034 +0300	commit: Remove backend folder from mobile branch git tracking
+1948849eb4e49a3566e925f3722e90cd9cd3b95f c8f5cb23482ff2d3aa6cbe5551d0dba3f24a9a50 clintmadeit <clintonbrirdley@gmail.com> 1758699713 +0300	commit: Update .gitignore to ignore all build scripts
+c8f5cb23482ff2d3aa6cbe5551d0dba3f24a9a50 8bade6e23245b9343c2af88c1e8bcd977d4cd024 clintmadeit <clintonbrirdley@gmail.com> 1758798832 +0300	commit: feat: Add transporter booking acceptance flow and client tracking
+8bade6e23245b9343c2af88c1e8bcd977d4cd024 dd3c635cc7376e04f37eb846c50aeda024b5748d clintmadeit <clintonbrirdley@gmail.com> 1758884939 +0300	commit (cherry-pick): Enhanced frontend with improved cost calculation and error handling
+dd3c635cc7376e04f37eb846c50aeda024b5748d 6f392de3fab712e2e24d03e6506c62668c36b1b4 clintmadeit <clintonbrirdley@gmail.com> 1759732295 +0300	commit: Fix transporter profile display and add availability toggle

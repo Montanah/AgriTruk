@@ -431,41 +431,46 @@ const SignupScreen = () => {
               />
 
               {/* Signup Method Switcher - Using LoginScreen pattern */}
-              <View style={styles.switchRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.switchBtn,
-                    signupMethod === 'phone' && { backgroundColor: accent }
-                  ]}
-                  onPress={() => setSignupMethod('phone')}
-                >
-                  <Ionicons
-                    name="call"
-                    size={18}
-                    color={signupMethod === 'phone' ? colors.white : colors.text.secondary}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text style={[styles.switchBtnText, signupMethod === 'phone' && styles.switchBtnTextActive]}>
-                    Phone
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.switchBtn,
-                    signupMethod === 'email' && { backgroundColor: accent }
-                  ]}
-                  onPress={() => setSignupMethod('email')}
-                >
-                  <Ionicons
-                    name="mail"
-                    size={18}
-                    color={signupMethod === 'email' ? colors.white : colors.text.secondary}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text style={[styles.switchBtnText, signupMethod === 'email' && styles.switchBtnTextActive]}>
-                    Email
-                  </Text>
-                </TouchableOpacity>
+              <View style={styles.methodSelectionContainer}>
+                <Text style={styles.methodInstructionText}>
+                  Choose how you'd like to receive your verification code
+                </Text>
+                <View style={styles.switchRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.switchBtn,
+                      signupMethod === 'phone' && { backgroundColor: accent }
+                    ]}
+                    onPress={() => setSignupMethod('phone')}
+                  >
+                    <Ionicons
+                      name="call"
+                      size={18}
+                      color={signupMethod === 'phone' ? colors.white : colors.text.secondary}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={[styles.switchBtnText, signupMethod === 'phone' && styles.switchBtnTextActive]}>
+                      Phone
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.switchBtn,
+                      signupMethod === 'email' && { backgroundColor: accent }
+                    ]}
+                    onPress={() => setSignupMethod('email')}
+                  >
+                    <Ionicons
+                      name="mail"
+                      size={18}
+                      color={signupMethod === 'email' ? colors.white : colors.text.secondary}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={[styles.switchBtnText, signupMethod === 'email' && styles.switchBtnTextActive]}>
+                      Email
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Email Input - Always show but highlight based on method */}
@@ -803,12 +808,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  methodSelectionContainer: {
+    width: '100%',
+    marginBottom: spacing.md,
+    marginTop: spacing.md,
+  },
+  methodInstructionText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    fontWeight: '500',
+  },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
-    marginTop: spacing.md,
   },
   switchBtn: {
     flexDirection: 'row',

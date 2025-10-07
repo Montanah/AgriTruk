@@ -27,6 +27,7 @@ import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator
 import { chatService } from '../services/chatService';
 import { enhancedNotificationService } from '../services/enhancedNotificationService';
 import locationService from '../services/locationService';
+import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
 
 interface RouteParams {
     transporterType?: 'company' | 'individual' | 'broker';
@@ -109,6 +110,10 @@ const TransporterBookingManagementScreen = () => {
     const [allRouteLoads, setAllRouteLoads] = useState<any[]>([]);
     const [allBookings, setAllBookings] = useState<any[]>([]);
     const [currentTransporter, setCurrentTransporter] = useState<any>(null);
+    
+    // Offline status
+    const [acceptingBooking, setAcceptingBooking] = useState<boolean>(true);
+    const [updatingBookingStatus, setUpdatingBookingStatus] = useState<boolean>(false);
 
     // Fetch transporter profile and booking data
     useEffect(() => {
@@ -184,6 +189,8 @@ const TransporterBookingManagementScreen = () => {
                         if (transporterRes.ok) {
                             const transporterData = await transporterRes.json();
                             setCurrentTransporter(transporterData);
+                            // Set accepting booking status from transporter data
+                            setAcceptingBooking(transporterData.acceptingBooking || false);
                         }
                     }
                 } catch (error) {
@@ -262,6 +269,42 @@ const TransporterBookingManagementScreen = () => {
             });
         });
     }, []);
+
+    // Function to update accepting booking status
+    const updateAcceptingBookingStatus = async (newStatus: boolean) => {
+        try {
+            setUpdatingBookingStatus(true);
+            
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const currentUser = auth.currentUser;
+            if (!currentUser) return;
+
+            const token = await currentUser.getIdToken();
+
+            const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/toggle-availability`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ availability: newStatus }),
+            });
+
+            if (response.ok) {
+                setAcceptingBooking(newStatus);
+                // Update the current transporter data
+                setCurrentTransporter(prev => prev ? { ...prev, acceptingBooking: newStatus } : null);
+            } else {
+                Alert.alert('Error', 'Failed to update availability status');
+            }
+        } catch (error) {
+            console.error('Error updating availability:', error);
+            Alert.alert('Error', 'Failed to update availability status');
+        } finally {
+            setUpdatingBookingStatus(false);
+        }
+    };
 
     // Function to check if transporter can handle a request
     const canTransporterHandleRequest = (transporter: any, request: any) => {
@@ -370,26 +413,42 @@ const TransporterBookingManagementScreen = () => {
     // Filter requests based on transporter capabilities and advanced filters
     const filteredRequests = useMemo(() => {
         if (!currentTransporter) return [];
+        
+        // If transporter is offline (not accepting bookings), return empty array
+        if (!acceptingBooking) return [];
+        
         const capabilityFiltered = allInstantRequests.filter(request => {
             return canTransporterHandleRequest(currentTransporter, request);
         });
         return applyAdvancedFilters(capabilityFiltered);
-    }, [allInstantRequests, currentTransporter, filters]);
+    }, [allInstantRequests, currentTransporter, filters, acceptingBooking]);
 
     const filteredBookings = useMemo(() => {
         if (!currentTransporter) return [];
+        
+        // If transporter is offline, only show completed jobs (not new requests)
+        if (!acceptingBooking) {
+            return allBookings.filter(booking => 
+                booking.status === 'completed' || booking.status === 'delivered'
+            );
+        }
+        
         return allBookings.filter(booking => {
             return canTransporterHandleRequest(currentTransporter, booking);
         });
-    }, [allBookings, currentTransporter]);
+    }, [allBookings, currentTransporter, acceptingBooking]);
 
     const filteredRouteLoads = useMemo(() => {
         if (!currentTransporter) return [];
+        
+        // If transporter is offline, return empty array for route loads
+        if (!acceptingBooking) return [];
+        
         const transporterFiltered = allRouteLoads.filter(load => {
             return canTransporterHandleRequest(currentTransporter, load);
         });
         return filterRouteLoadsByLocation(transporterFiltered);
-    }, [allRouteLoads, currentTransporter, currentLocation]);
+    }, [allRouteLoads, currentTransporter, currentLocation, acceptingBooking]);
 
     // Show loading state AFTER all hooks
     if (loading) {
@@ -1377,6 +1436,17 @@ const TransporterBookingManagementScreen = () => {
                 <Text style={styles.headerTitle}>Manage Requests</Text>
                 <View style={styles.headerRight} />
             </LinearGradient>
+
+            {/* Offline Instructions Card - Show when not accepting requests */}
+            {!acceptingBooking && (
+                <OfflineInstructionsCard
+                    onToggleAccepting={() => {
+                        // Navigate to profile tab to show the toggle
+                        navigation.navigate('Profile');
+                    }}
+                    isFirstTime={false}
+                />
+            )}
 
             {/* Enhanced Tab Navigation */}
             <View style={styles.tabContainer}>
