@@ -328,13 +328,13 @@ exports.toggleAvailability = async (req, res) => {
 
 exports.getAvailableTransporters = async (req, res) => {
   try {
-    // Get individual transporters
+    // Get individual transporters who are accepting bookings
     const individualTransporters = await Transporter.getByAvailability(true);
     
-    // Get company drivers
+    // Get company drivers who are accepting bookings
     const companyDrivers = await getAvailableCompanyDrivers();
     
-    // Combine both types
+    // Combine both types - all should already be filtered by acceptingBooking: true
     const allTransporters = [...individualTransporters, ...companyDrivers];
 
     await logActivity(req.user.uid, 'get_available_transporters', req);
@@ -361,11 +361,12 @@ async function getAvailableCompanyDrivers() {
     for (const companyDoc of companiesSnapshot.docs) {
       const companyData = companyDoc.data();
       
-      // Get drivers for this company
+      // Get drivers for this company who are accepting bookings
       const driversSnapshot = await db.collection('companies')
         .doc(companyDoc.id)
         .collection('drivers')
         .where('availability', '==', true)
+        .where('status', '==', 'approved')
         .get();
 
       for (const driverDoc of driversSnapshot.docs) {

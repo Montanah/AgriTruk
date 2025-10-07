@@ -37,7 +37,8 @@ class MatchingService {
         const activeTransportersSnapshot = await db.collection('transporters')
           .where('userId', 'in', chunk)
           .where('status', '==', 'approved')
-          .where('acceptingBooking', '==', true)
+          .where('acceptingBooking', '==', true) // Only get transporters who are accepting bookings
+          .where('accountStatus', '==', true) // Only get active accounts
           .get();
   
         activeTransporters = activeTransporters.concat(
@@ -48,7 +49,7 @@ class MatchingService {
         );
       }
   
-      console.log('Active subscribed transporters:', activeTransporters);
+      console.log('Active subscribed transporters (online only):', activeTransporters.length);
       return activeTransporters;
   
     } catch (error) {
@@ -156,6 +157,13 @@ class MatchingService {
 
   static async getAvailableBookingsForTransporter(transporterId) {
     const transporter = await Transporter.get(transporterId);
+    
+    // If transporter is offline (not accepting bookings), return empty array
+    if (!transporter.acceptingBooking) {
+      console.log(`Transporter ${transporterId} is offline - not returning available bookings`);
+      return [];
+    }
+    
     const agriBookings = await AgriBooking.getPendingBookings();
     const cargoBookings = await CargoBooking.getPendingBookings();
     const requests = await Request.getPendingRequests();
