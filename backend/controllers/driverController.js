@@ -669,6 +669,68 @@ const getDriverProfile = async (req, res) => {
   }
 };
 
+// Toggle driver availability (for drivers to update their own status)
+const toggleDriverAvailability = async (req, res) => {
+  try {
+    const { availability } = req.body;
+    const driverId = req.user.uid;
+
+    if (typeof availability !== 'boolean') {
+      return res.status(400).json({ message: 'Availability must be true or false' });
+    }
+
+    // Find the driver in the companies collection
+    const companiesSnapshot = await db.collection('companies').get();
+    let driverFound = false;
+    let companyId = null;
+
+    for (const companyDoc of companiesSnapshot.docs) {
+      const driverDoc = await db.collection('companies')
+        .doc(companyDoc.id)
+        .collection('drivers')
+        .where('userId', '==', driverId)
+        .limit(1)
+        .get();
+
+      if (!driverDoc.empty) {
+        companyId = companyDoc.id;
+        driverFound = true;
+        break;
+      }
+    }
+
+    if (!driverFound) {
+      return res.status(404).json({ message: 'Driver not found' });
+    }
+
+    // Update driver availability
+    const driverDoc = await db.collection('companies')
+      .doc(companyId)
+      .collection('drivers')
+      .where('userId', '==', driverId)
+      .limit(1)
+      .get();
+
+    if (driverDoc.empty) {
+      return res.status(404).json({ message: 'Driver not found' });
+    }
+
+    const driverRef = driverDoc.docs[0].ref;
+    await driverRef.update({
+      availability: availability,
+      updatedAt: admin.firestore.Timestamp.now()
+    });
+
+    res.status(200).json({
+      message: `Availability ${availability ? 'enabled' : 'disabled'} successfully`,
+      availability: availability
+    });
+  } catch (error) {
+    console.error('Toggle driver availability error:', error);
+    res.status(500).json({ message: 'Failed to update availability' });
+  }
+};
+
 module.exports = {
   createDriver,
   getDrivers,
@@ -680,5 +742,6 @@ module.exports = {
   activateDriver,
   deactivateDriver,
   verifyDriver,
-  getDriverProfile
+  getDriverProfile,
+  toggleDriverAvailability
 };

@@ -15,7 +15,8 @@ const {
   activateDriver,
   deactivateDriver,
   verifyDriver,
-  getDriverProfile
+  getDriverProfile,
+  toggleDriverAvailability
 } = require('../controllers/driverController');
 
 // Driver management routes for companies
@@ -34,5 +35,8 @@ router.patch('/:id/deactivate', authenticateToken, requireRole('transporter'), d
 // Driver authentication and profile routes
 router.post('/verify', authenticateToken, verifyDriver);
 router.get('/profile', authenticateToken, getDriverProfile);
+
+// Driver availability management
+router.post('/toggle-availability', authenticateToken, requireRole('driver'), toggleDriverAvailability);
 
 module.exports = router;
