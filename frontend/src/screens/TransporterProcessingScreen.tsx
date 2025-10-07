@@ -21,7 +21,6 @@ export default function TransporterProcessingScreen({ route }) {
   const [checkingSubscription, setCheckingSubscription] = React.useState(false);
   const [isRetrying, setIsRetrying] = React.useState(false);
   const [retryCount, setRetryCount] = React.useState(0);
-  const [refreshInterval, setRefreshInterval] = React.useState(null);
 
   // Helper to map status to step index
   const getStepIndex = (status) => {
@@ -203,7 +202,6 @@ export default function TransporterProcessingScreen({ route }) {
           ? `${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`
           : `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`;
         
-        console.log('Initial fetch from:', endpoint);
         
         // Add timeout to the fetch request
         const controller = new AbortController();
@@ -222,13 +220,11 @@ export default function TransporterProcessingScreen({ route }) {
           
           if (res.ok) {
             const data = await res.json();
-            console.log('Initial fetch response:', data);
             
             if (transporterType === 'company') {
               // Handle companies array response
               if (Array.isArray(data) && data.length > 0) {
                 const company = data[0]; // Get the first (and should be only) company
-                console.log('Company data:', company);
                 
                 if (company.companyLogo) {
                   setProfilePhotoUrl(company.companyLogo);
@@ -293,41 +289,10 @@ export default function TransporterProcessingScreen({ route }) {
       setLoadingProfile(false);
     }, [transporterType, checkSubscriptionStatus]);
 
-  // Auto-refresh functionality
-  const startAutoRefresh = React.useCallback(() => {
-    // Clear existing interval
-    if (refreshInterval) {
-      clearInterval(refreshInterval);
-    }
-    
-    // Set up new interval to check status every 10 seconds
-    const interval = setInterval(() => {
-      console.log('Auto-refreshing transporter status...');
-      fetchProfile();
-    }, 10000); // 10 seconds
-    
-    setRefreshInterval(interval);
-  }, [fetchProfile, refreshInterval]);
-
-  const stopAutoRefresh = React.useCallback(() => {
-    if (refreshInterval) {
-      clearInterval(refreshInterval);
-      setRefreshInterval(null);
-    }
-  }, [refreshInterval]);
-
   // Fetch profile photo and status on mount
   React.useEffect(() => {
     fetchProfile();
-    
-    // Start auto-refresh when component mounts
-    startAutoRefresh();
-    
-    // Cleanup function
-    return () => {
-      stopAutoRefresh();
-    };
-  }, [fetchProfile, startAutoRefresh, stopAutoRefresh]);
+  }, [fetchProfile]);
 
   // Animated glowing ring effect (LED-like)
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
@@ -522,7 +487,6 @@ export default function TransporterProcessingScreen({ route }) {
                 ? `${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`
                 : `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`;
               
-              console.log('Fetching status from:', endpoint);
               
               // Get JWT token
               const token = await user.getIdToken();
@@ -551,7 +515,6 @@ export default function TransporterProcessingScreen({ route }) {
                 }
                 
                 const data = await res.json();
-                console.log('Status fetch response:', data);
                 
                 // Update status and message based on transporter type
                 let status = 'unknown';
