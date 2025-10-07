@@ -304,8 +304,9 @@ exports.resendVerificationCode = async (req, res) => {
         phoneVerificationExpires: expiresAt
       });
 
-      // Send SMS (replace sendSMS with your provider integration)
-      await sendSMS(userData.phone, `Your verification code is: ${verificationCode}`);
+      // Send SMS using the SMS service
+      const formattedPhone = formatPhoneNumber(userData.phone);
+      await smsService.sendSMS('TRUK LTD', `Your verification code is: ${verificationCode}`, formattedPhone);
 
       await logActivity(uid, 'resend_phone_verification', req);
     }

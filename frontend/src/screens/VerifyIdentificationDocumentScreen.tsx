@@ -265,8 +265,8 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
           if (brokerData.status === 'approved' && brokerData.idVerified === true) {
             console.log('Broker is approved and verified - checking subscription status');
             setStatus('verified');
-            // Check subscription status before navigating
-            setTimeout(async () => {
+            // Check subscription status before navigating - use immediate execution
+            (async () => {
               try {
                 // subscriptionService is already imported at the top
                 const subscriptionStatus = await subscriptionService.getSubscriptionStatus();

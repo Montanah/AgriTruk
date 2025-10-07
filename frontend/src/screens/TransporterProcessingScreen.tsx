@@ -49,18 +49,14 @@ export default function TransporterProcessingScreen({ route }) {
       // Priority 1: Check if user has active subscription or trial - go to dashboard
       if (status && (status.hasActiveSubscription || status.isTrialActive)) {
         console.log('Transporter has active subscription/trial, navigating to dashboard');
-        try {
-          navigation.reset({
-            index: 0,
-            routes: [{
-              name: 'TransporterTabs',
-              params: { transporterType: transporterType }
-            }]
-          });
-        } catch (navError) {
-          console.log('Navigation error, trying navigate:', navError);
-          navigation.navigate('TransporterTabs', { transporterType: transporterType });
-        }
+        // Use immediate navigation without setTimeout
+        navigation.reset({
+          index: 0,
+          routes: [{
+            name: 'TransporterTabs',
+            params: { transporterType: transporterType }
+          }]
+        });
         return;
       }
       
@@ -95,39 +91,7 @@ export default function TransporterProcessingScreen({ route }) {
       // Priority 3: Check if user needs trial activation (no active subscription)
       if (status && status.needsTrialActivation) {
         console.log('Transporter needs trial activation, redirecting to trial screen');
-        try {
-          navigation.navigate('SubscriptionTrial', {
-            userType: 'transporter',
-            transporterType: transporterType,
-            subscriptionStatus: status
-          });
-        } catch (navError) {
-          console.log('Navigation error, trying reset:', navError);
-          navigation.reset({
-            index: 0,
-            routes: [{
-              name: 'SubscriptionTrial',
-              params: {
-                userType: 'transporter',
-                transporterType: transporterType,
-                subscriptionStatus: status
-              }
-            }]
-          });
-        }
-        return;
-      }
-      
-      // Priority 4: Fallback - if no subscription status or unknown state, assume needs trial
-      console.log('No subscription status or unknown state, redirecting to trial screen');
-      try {
-        navigation.navigate('SubscriptionTrial', {
-          userType: 'transporter',
-          transporterType: transporterType,
-          subscriptionStatus: status || { needsTrialActivation: true }
-        });
-      } catch (navError) {
-        console.log('Navigation error, trying reset:', navError);
+        // Use immediate navigation without setTimeout
         navigation.reset({
           index: 0,
           routes: [{
@@ -135,11 +99,27 @@ export default function TransporterProcessingScreen({ route }) {
             params: {
               userType: 'transporter',
               transporterType: transporterType,
-              subscriptionStatus: status || { needsTrialActivation: true }
+              subscriptionStatus: status
             }
           }]
         });
+        return;
       }
+      
+      // Priority 4: Fallback - if no subscription status or unknown state, assume needs trial
+      console.log('No subscription status or unknown state, redirecting to trial screen');
+      // Use immediate navigation without setTimeout
+      navigation.reset({
+        index: 0,
+        routes: [{
+          name: 'SubscriptionTrial',
+          params: {
+            userType: 'transporter',
+            transporterType: transporterType,
+            subscriptionStatus: status || { needsTrialActivation: true }
+          }
+        }]
+      });
 
     } catch (error) {
       console.error('Error checking subscription status:', error);

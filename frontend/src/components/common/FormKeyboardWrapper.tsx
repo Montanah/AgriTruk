@@ -42,10 +42,8 @@ const FormKeyboardWrapper: React.FC<FormKeyboardWrapperProps> = ({
   };
 
   const handleContentSizeChange = () => {
-    // Auto-scroll to bottom when content size changes (useful for dynamic forms)
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    // Don't auto-scroll to bottom - let user control scroll position
+    // This was causing the transporter completion screen to start at bottom
   };
 
   const Wrapper = enableDismissOnTap ? TouchableWithoutFeedback : React.Fragment;
