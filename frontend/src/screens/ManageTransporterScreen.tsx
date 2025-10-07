@@ -226,11 +226,18 @@ export default function ManageTransporterScreen({ route }: any) {
         if (response.ok) {
           const data = await response.json();
           const userProfileData = data.userData || data;
+          
+          // Debug: Log the actual data from user collection
+          console.log('🔍 User profile data from /auth/profile:', userProfileData);
+          console.log('📧 emailVerified from user collection:', userProfileData.emailVerified);
+          console.log('📱 phoneVerified from user collection:', userProfileData.phoneVerified);
+          console.log('✅ isVerified from user collection:', userProfileData.isVerified);
+          
           setUserProfile({
             ...userProfileData,
-            emailVerified: userProfileData.emailVerified === true || userProfileData.isVerified === true,
+            emailVerified: userProfileData.emailVerified === true,
             phoneVerified: userProfileData.phoneVerified === true,
-            isVerified: userProfileData.isVerified === true || userProfileData.emailVerified === true,
+            isVerified: userProfileData.isVerified === true,
           });
         } else {
           console.error('Failed to fetch user profile:', response.status, response.statusText);
@@ -313,11 +320,17 @@ export default function ManageTransporterScreen({ route }: any) {
           if (userRes.ok) {
             const userData = await userRes.json();
             const userProfileData = userData.userData || userData;
+            // Debug: Log the actual data from user collection for individual transporters
+            console.log('🔍 Individual transporter user profile data:', userProfileData);
+            console.log('📧 emailVerified from user collection (individual):', userProfileData.emailVerified);
+            console.log('📱 phoneVerified from user collection (individual):', userProfileData.phoneVerified);
+            console.log('✅ isVerified from user collection (individual):', userProfileData.isVerified);
+            
             setUserProfile({
               ...userProfileData,
-              emailVerified: userProfileData.emailVerified === true || userProfileData.isVerified === true,
+              emailVerified: userProfileData.emailVerified === true,
               phoneVerified: userProfileData.phoneVerified === true,
-              isVerified: userProfileData.isVerified === true || userProfileData.emailVerified === true,
+              isVerified: userProfileData.isVerified === true,
             });
           }
         } catch (error) {

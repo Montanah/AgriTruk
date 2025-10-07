@@ -120,9 +120,9 @@ const TransporterServiceScreen = () => {
             profilePhotoUrl: userProfileData.profilePhotoUrl || user.photoURL || null,
             email: userProfileData.email || user.email,
             phoneNumber: userProfileData.phone || user.phoneNumber,
-            emailVerified: userProfileData.emailVerified === true || userProfileData.isVerified === true,
+            emailVerified: userProfileData.emailVerified === true,
             phoneVerified: userProfileData.phoneVerified === true,
-            isVerified: userProfileData.isVerified === true || userProfileData.emailVerified === true,
+            isVerified: userProfileData.isVerified === true,
             role: userProfileData.role || 'transporter',
             status: userProfileData.status || 'active'
           });
