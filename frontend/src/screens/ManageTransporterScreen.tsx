@@ -2445,25 +2445,25 @@ export default function ManageTransporterScreen({ route }: any) {
                 <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Phone</Text>
                 <View style={[
                   styles.verificationBadge,
-                  individualProfile?.phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
+                  userProfile?.phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
                 ]}>
                   <MaterialCommunityIcons
-                    name={individualProfile?.phoneVerified ? "check-circle" : "close-circle"}
+                    name={userProfile?.phoneVerified ? "check-circle" : "close-circle"}
                     size={12}
-                    color={individualProfile?.phoneVerified ? colors.success : colors.error}
+                    color={userProfile?.phoneVerified ? colors.success : colors.error}
                   />
                   <Text style={[
                     styles.verificationBadgeText,
-                    individualProfile?.phoneVerified ? styles.verifiedText : styles.unverifiedText
+                    userProfile?.phoneVerified ? styles.verifiedText : styles.unverifiedText
                   ]}>
-                    {individualProfile?.phoneVerified ? 'Verified' : 'Unverified'}
+                    {userProfile?.phoneVerified ? 'Verified' : 'Unverified'}
                   </Text>
                 </View>
               </View>
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
-                {individualProfile?.phoneNumber || 'No phone set'}
+                {userProfile?.phoneNumber || individualProfile?.phoneNumber || 'No phone set'}
               </Text>
-              {!individualProfile?.phoneVerified && (
+              {!userProfile?.phoneVerified && (
                 <TouchableOpacity
                   style={styles.verifyButton}
                   onPress={handleVerifyPhone}
