@@ -959,7 +959,7 @@ export default function App() {
     } else {
       // Fallback: Any other authenticated user who is not verified should go to verification options
       // Fallback: authenticated but unverified user - routing to verification options
-      const preferredMethod = data?.preferredVerificationMethod || 'phone';
+      const preferredMethod = userData?.preferredVerificationMethod || 'phone';
       initialRouteName = preferredMethod === 'phone' ? 'PhoneOTPScreen' : 'EmailVerification';
       screens = (
         <>
