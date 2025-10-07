@@ -1,4 +1,0 @@
-0000000000000000000000000000000000000000 201d7b997df59f9ddefde482a511064a3db3fe58 clintmadeit <clintonbrirdley@gmail.com> 1758635015 +0300	WIP on mobile: 6a9ec8b improved activity screen. Fixed booking creation
-201d7b997df59f9ddefde482a511064a3db3fe58 cad6ba8b7659de10b8b0f30df8f72ef2ba86c052 clintmadeit <clintonbrirdley@gmail.com> 1758694663 +0300	WIP on main: c34e529 Fix: Phone password reset SMS format - use formatPhoneNumber instead of formatPhoneNumberAuth for SMS service
-cad6ba8b7659de10b8b0f30df8f72ef2ba86c052 b2504ad8009c1d7e2e76291d3cc54036dbaea42e clintmadeit <clintonbrirdley@gmail.com> 1758699675 +0300	WIP on main: 2f3c342 Update .gitignore to ignore all build scripts
-b2504ad8009c1d7e2e76291d3cc54036dbaea42e 8be1b8890a24a187dae2d5e281978507e9f2b27e clintmadeit <clintonbrirdley@gmail.com> 1758798450 +0300	On main: WIP: transporter acceptance and client tracking features
