@@ -392,9 +392,9 @@ export default function ManageTransporterScreen({ route }: any) {
 
       const token = await user.getIdToken();
       
-      // For individual transporters, update the transporter profile
+      // For individual transporters, update the transporter vehicle body type
       if (transporterType === 'individual') {
-        const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
+        const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -411,11 +411,11 @@ export default function ManageTransporterScreen({ route }: any) {
             ...prev,
             bodyType: newBodyType
           }));
-          Alert.alert('Success', `Body type updated to ${newBodyType}`);
+          Alert.alert('Success', `Vehicle body type updated to ${newBodyType}`);
         } else {
           const errorText = await response.text();
           console.error('Failed to update body type:', response.status, errorText);
-          Alert.alert('Error', 'Failed to update body type. Please try again.');
+          Alert.alert('Error', 'Failed to update vehicle body type. Please try again.');
         }
       } else {
         // For company transporters, we need to update the vehicle
@@ -428,7 +428,7 @@ export default function ManageTransporterScreen({ route }: any) {
       }
     } catch (error) {
       console.error('Error updating vehicle body type:', error);
-      Alert.alert('Error', 'Failed to update body type. Please try again.');
+      Alert.alert('Error', 'Failed to update vehicle body type. Please try again.');
     }
   };
 
