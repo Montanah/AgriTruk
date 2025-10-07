@@ -386,11 +386,11 @@ export default function TransporterCompletionScreen() {
 
   const handleAddVehiclePhoto = async () => {
     Alert.alert(
-      'Add Vehicle Photo',
-      'Choose how you want to add a vehicle photo',
+      'Add Vehicle Photos',
+      'Choose how you want to add vehicle photos. You can select multiple photos at once from your gallery.',
       [
         { text: 'Take Photo', onPress: () => handleVehiclePhotoCamera() },
-        { text: 'Choose from Gallery', onPress: () => handleVehiclePhotoGallery() },
+        { text: 'Choose from Gallery (Multi-select)', onPress: () => handleVehiclePhotoGallery() },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
@@ -1877,6 +1877,38 @@ export default function TransporterCompletionScreen() {
         </View>
       )}
       
+      {/* Validation Summary */}
+      {!isValid() && (
+        <View style={styles.validationSummary}>
+          <Text style={styles.validationTitle}>Complete these sections to submit:</Text>
+          {transporterType === 'individual' ? (
+            <>
+              {!getValidationStatus().profilePhoto && (
+                <Text style={styles.validationItem}>• Upload profile photo</Text>
+              )}
+              {!getValidationStatus().vehicleDetails && (
+                <Text style={styles.validationItem}>• Fill vehicle details</Text>
+              )}
+              {!getValidationStatus().documents && (
+                <Text style={styles.validationItem}>• Upload all required documents</Text>
+              )}
+              {!getValidationStatus().vehiclePhotos && (
+                <Text style={styles.validationItem}>• Upload vehicle photos</Text>
+              )}
+            </>
+          ) : (
+            <>
+              {!getValidationStatus().companyDetails && (
+                <Text style={styles.validationItem}>• Fill company details</Text>
+              )}
+              {!getValidationStatus().profilePhoto && (
+                <Text style={styles.validationItem}>• Upload company logo</Text>
+              )}
+            </>
+          )}
+        </View>
+      )}
+
       <View style={{ paddingBottom: insets.bottom + 18, width: '100%' }}>
         {/* Action Buttons Container */}
         <View style={styles.actionButtonsContainer}>
@@ -1898,38 +1930,6 @@ export default function TransporterCompletionScreen() {
               </>
             )}
           </TouchableOpacity>
-
-          {/* Validation Summary */}
-          {!isValid() && (
-            <View style={styles.validationSummary}>
-              <Text style={styles.validationTitle}>Complete these sections to submit:</Text>
-              {transporterType === 'individual' ? (
-                <>
-                  {!getValidationStatus().profilePhoto && (
-                    <Text style={styles.validationItem}>• Upload profile photo</Text>
-                  )}
-                  {!getValidationStatus().vehicleDetails && (
-                    <Text style={styles.validationItem}>• Fill vehicle details</Text>
-                  )}
-                  {!getValidationStatus().documents && (
-                    <Text style={styles.validationItem}>• Upload all required documents</Text>
-                  )}
-                  {!getValidationStatus().vehiclePhotos && (
-                    <Text style={styles.validationItem}>• Upload vehicle photos</Text>
-                  )}
-                </>
-              ) : (
-                <>
-                  {!getValidationStatus().companyDetails && (
-                    <Text style={styles.validationItem}>• Fill company details</Text>
-                  )}
-                  {!getValidationStatus().profilePhoto && (
-                    <Text style={styles.validationItem}>• Upload company logo</Text>
-                  )}
-                </>
-              )}
-            </View>
-          )}
 
           {/* Submit Profile Button */}
           <TouchableOpacity

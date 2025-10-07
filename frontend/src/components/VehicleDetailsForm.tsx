@@ -536,6 +536,9 @@ export default function VehicleDetailsForm({
         <Text style={styles.sectionDescription}>
           Add up to 4 photos of your vehicle (minimum 1 required)
         </Text>
+        <Text style={styles.multiSelectHint}>
+          💡 Tip: You can select multiple photos at once from your gallery
+        </Text>
         <View style={styles.photosContainer}>
           {vehiclePhotos.map((img: any, idx: number) => (
             <View key={idx} style={styles.photoItem}>
@@ -653,8 +656,19 @@ const styles = StyleSheet.create({
   sectionDescription: {
     fontSize: fonts.size.sm,
     color: colors.text.secondary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
     lineHeight: 18,
+  },
+  multiSelectHint: {
+    fontSize: fonts.size.xs,
+    color: colors.primary,
+    marginBottom: spacing.md,
+    fontStyle: 'italic',
+    backgroundColor: colors.primary + '10',
+    padding: spacing.xs,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
   },
 
   // Modern Input
