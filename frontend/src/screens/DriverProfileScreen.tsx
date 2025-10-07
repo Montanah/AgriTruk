@@ -23,6 +23,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
+import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
 
 interface DriverProfile {
   id: string;
@@ -98,7 +99,7 @@ const DriverProfileScreen = () => {
       if (response.ok) {
         const data = await response.json();
         setDriverProfile(data.driver);
-        setAcceptingBooking(data.driver?.acceptingBooking || false);
+        setAcceptingBooking(data.driver?.availability || false);
       } else {
         throw new Error('Failed to fetch driver profile');
       }
@@ -124,20 +125,20 @@ const DriverProfileScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.DRIVERS}/accepting-booking`, {
-        method: 'PUT',
+      const response = await fetch(`${API_ENDPOINTS.DRIVERS}/toggle-availability`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          acceptingBooking: newStatus,
+          availability: newStatus,
         }),
       });
 
       if (response.ok) {
         setAcceptingBooking(newStatus);
-        setDriverProfile((prev: any) => ({ ...prev, acceptingBooking: newStatus }));
+        setDriverProfile((prev: any) => ({ ...prev, availability: newStatus }));
         Alert.alert(
           'Status Updated',
           `You are now ${newStatus ? 'accepting' : 'not accepting'} new job requests.`
@@ -335,6 +336,17 @@ const DriverProfileScreen = () => {
           </Text>
         </View>
       </View>
+
+      {/* Offline Instructions Card - Show when not accepting requests */}
+      {!acceptingBooking && (
+        <OfflineInstructionsCard
+          onToggleAccepting={() => {
+            // Scroll to the job availability section
+            // The toggle is already visible in the same screen
+          }}
+          isFirstTime={false}
+        />
+      )}
 
       {/* Company Information */}
       <View style={styles.section}>
