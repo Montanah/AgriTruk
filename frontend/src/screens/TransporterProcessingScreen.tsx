@@ -1,8 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Easing, Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getAuth, signOut } from 'firebase/auth';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
@@ -20,6 +21,7 @@ export default function TransporterProcessingScreen({ route }) {
   const [checkingSubscription, setCheckingSubscription] = React.useState(false);
   const [isRetrying, setIsRetrying] = React.useState(false);
   const [retryCount, setRetryCount] = React.useState(0);
+  const [refreshInterval, setRefreshInterval] = React.useState(null);
 
   // Helper to map status to step index
   const getStepIndex = (status) => {
@@ -149,6 +151,62 @@ export default function TransporterProcessingScreen({ route }) {
     }
   };
 
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      Alert.alert(
+        'Logout',
+        'Are you sure you want to logout? You will need to complete your profile again when you return.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Logout',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const auth = getAuth();
+                await signOut(auth);
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Welcome' }]
+                });
+              } catch (error) {
+                console.error('Logout error:', error);
+                Alert.alert('Error', 'Failed to logout. Please try again.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
+
+  // Auto-refresh functionality
+  const startAutoRefresh = () => {
+    // Clear existing interval
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+    }
+    
+    // Set up new interval to check status every 10 seconds
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing transporter status...');
+      fetchProfile();
+    }, 10000); // 10 seconds
+    
+    setRefreshInterval(interval);
+  };
+
+  const stopAutoRefresh = () => {
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+      setRefreshInterval(null);
+    }
+  };
+
   // Fetch profile photo and status on mount
   React.useEffect(() => {
     const fetchProfile = async () => {
@@ -259,6 +317,14 @@ export default function TransporterProcessingScreen({ route }) {
       setLoadingProfile(false);
     };
     fetchProfile();
+    
+    // Start auto-refresh when component mounts
+    startAutoRefresh();
+    
+    // Cleanup function
+    return () => {
+      stopAutoRefresh();
+    };
   }, [transporterType]);
 
   // Animated glowing ring effect (LED-like)
@@ -353,7 +419,15 @@ export default function TransporterProcessingScreen({ route }) {
         </View>
       </View>
       <View style={styles.cardWrap}>
-        <Text style={styles.title}>{transporterType === 'company' ? 'Company Profile Under Review' : 'Documents Under Review'}</Text>
+        <View style={styles.headerContainer}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>{transporterType === 'company' ? 'Company Profile Under Review' : 'Documents Under Review'}</Text>
+          </View>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.subtitle}>
           {transporterType === 'company'
             ? 'Your company profile and documents have been submitted and are being reviewed by our admin team.'
@@ -750,5 +824,31 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.sm,
     marginLeft: spacing.sm,
     fontWeight: '500',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.error + '15',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.error + '30',
+  },
+  logoutText: {
+    color: colors.error,
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 4,
   },
 });
