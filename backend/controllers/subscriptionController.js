@@ -213,7 +213,7 @@ exports.createSubscriber = async (req, res) => {
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid user' });
     }
-    console.log(userId, user);
+  
     // check subscriber exists
     const sub = await Subscribers.getByUserId(userId);
     if (sub) {
@@ -222,13 +222,14 @@ exports.createSubscriber = async (req, res) => {
     const planId = req.body.planId;
     // check plan exists
     const plan = await SubscriptionPlans.getSubscriptionPlan(planId);
-    if (!plan) {
-      return res.status(400).json({ success: false, message: 'Invalid plan' });
+    if (!plan || !plan.isActive) {
+      return res.status(400).json({ success: false, message: 'Invalid or inactive plan' });
     }
 
     const startDate = new Date(Date.now());
     const endDate = new Date(startDate); // Create a new Date object
-    endDate.setDate(endDate.getDate() + plan.duration); // Add days, not months
+    endDate.setMonth(endDate.getMonth() + plan.duration);
+    // endDate.setDate(endDate.getDate() + plan.duration); // Add days, not months
     const isActive = true;
     const paymentStatus = 'pending';
     const transactionId = null;
@@ -260,6 +261,7 @@ exports.createSubscriber = async (req, res) => {
 exports.getAllSubscribers = async (req, res) => {
   try {
     const subscribers = await Subscribers.getAll();
+    console.log(subscribers);
 
     for (const subscriber of subscribers) {
       const user = await Users.get(subscriber.userId);
