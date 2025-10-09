@@ -1024,28 +1024,45 @@ exports.acceptBooking = async (req, res) => {
       console.log('❌ Transporter not found, continuing without transporter details:', error.message);
     }
 
-    // Get vehicle details if vehicleId is provided
+    // Get vehicle details - handle both individual transporters and company drivers
     let vehicle = null;
+    
     if (vehicleId) {
       try {
-        // Check if it's a company vehicle or individual transporter vehicle
-        const companySnapshot = await db.collection('companies').where('transporterId', '==', transporterId).get();
-        if (!companySnapshot.empty) {
-          // It's a company vehicle
-          const companyDoc = companySnapshot.docs[0];
-          const vehiclesSnapshot = await db.collection('companies').doc(companyDoc.id).collection('vehicles').doc(vehicleId).get();
-          if (vehiclesSnapshot.exists) {
-            vehicle = vehiclesSnapshot.data();
-          }
-        } else {
-          // It's an individual transporter vehicle
-          const vehicleSnapshot = await db.collection('vehicles').doc(vehicleId).get();
-          if (vehicleSnapshot.exists) {
-            vehicle = vehicleSnapshot.data();
+        // Check if this is a company driver by looking for the driver in companies collection
+        const companiesSnapshot = await db.collection('companies').get();
+        let isCompanyDriver = false;
+        let companyId = null;
+        
+        for (const companyDoc of companiesSnapshot.docs) {
+          const driverSnapshot = await db.collection('companies').doc(companyDoc.id).collection('drivers').doc(transporterId).get();
+          if (driverSnapshot.exists) {
+            isCompanyDriver = true;
+            companyId = companyDoc.id;
+            break;
           }
         }
+        
+        if (isCompanyDriver) {
+          // Company driver - get vehicle from companies/{companyId}/vehicles/{vehicleId}
+          console.log('✅ Company driver detected, getting vehicle from company collection');
+          const vehicleSnapshot = await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).get();
+          if (vehicleSnapshot.exists) {
+            vehicle = vehicleSnapshot.data();
+            console.log('✅ Company vehicle found:', {
+              make: vehicle.vehicleMake,
+              model: vehicle.vehicleModel,
+              registration: vehicle.vehicleRegistration
+            });
+          }
+        } else {
+          // Individual transporter - vehicle data is already in transporter document
+          console.log('✅ Individual transporter detected, vehicle data should be in transporter document');
+          // For individual transporters, vehicle data is embedded in the transporter document
+          // We'll extract it from the transporter data below
+        }
       } catch (error) {
-        console.log('Vehicle not found, continuing without vehicle details:', error.message);
+        console.log('Error determining transporter type, continuing without vehicle details:', error.message);
       }
     }
 
@@ -1062,13 +1079,13 @@ exports.acceptBooking = async (req, res) => {
       transporterAvailability: transporter?.acceptingBooking ? 'Available' : 'Offline',
       transporterTripsCompleted: transporter?.totalTrips || 0,
       transporterStatus: transporter?.status || null,
-      vehicleMake: vehicle?.make || vehicle?.vehicleMake || null,
-      vehicleModel: vehicle?.model || vehicle?.vehicleModel || null,
-      vehicleYear: vehicle?.year || vehicle?.vehicleYear || null,
-      vehicleType: vehicle?.type || vehicle?.vehicleType || null,
-      vehicleRegistration: vehicle?.reg || vehicle?.vehicleRegistration || null,
-      vehicleColor: vehicle?.color || vehicle?.vehicleColor || null,
-      vehicleCapacity: vehicle?.capacity || vehicle?.vehicleCapacity || null,
+      vehicleMake: vehicle?.vehicleMake || vehicle?.make || transporter?.vehicleMake || null,
+      vehicleModel: vehicle?.vehicleModel || vehicle?.model || transporter?.vehicleModel || null,
+      vehicleYear: vehicle?.vehicleYear || vehicle?.year || transporter?.vehicleYear || null,
+      vehicleType: vehicle?.vehicleType || vehicle?.type || transporter?.vehicleType || null,
+      vehicleRegistration: vehicle?.vehicleRegistration || vehicle?.reg || transporter?.vehicleRegistration || null,
+      vehicleColor: vehicle?.vehicleColor || vehicle?.color || transporter?.vehicleColor || null,
+      vehicleCapacity: vehicle?.vehicleCapacity || vehicle?.capacity || transporter?.vehicleCapacity || null,
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
@@ -1084,14 +1101,28 @@ exports.acceptBooking = async (req, res) => {
 
     await Booking.update(bookingId, updates);
     
-    // Create detailed notification for client
+    // Use existing user-facing booking ID if available (must match what's shown in Activity/Management screens)
+    const displayBookingId = (
+      booking.displayId ||
+      booking.userFriendlyId ||
+      booking.unifiedBookingId ||
+      booking.readableId ||
+      booking.referenceCode ||
+      booking.referenceId ||
+      booking.bookingId ||
+      booking.id ||
+      bookingId
+    );
+    
+    // Create single notification for client
     await Notification.create({
       userId: booking.userId,
       type: 'booking_accepted',
       title: 'Booking Accepted! 🎉',
-      message: `Your booking from ${booking.fromLocation} to ${booking.toLocation} has been accepted by ${transporter?.name || 'a transporter'}`,
+      message: `Your booking #${displayBookingId} from ${booking.fromLocation} to ${booking.toLocation} has been accepted by ${transporter?.name || 'a transporter'}`,
       data: {
         bookingId: bookingId,
+        displayBookingId: displayBookingId,
         transporterId: transporterId,
         transporterName: transporter?.name,
         transporterPhone: transporter?.phone,
@@ -1102,24 +1133,6 @@ exports.acceptBooking = async (req, res) => {
         chatRoomId: `booking_${bookingId}_${transporterId}_${booking.userId}`
       },
       priority: 'high',
-      actionRequired: false
-    });
-
-    // Also create notification for transporter
-    await Notification.create({
-      userId: transporterId,
-      type: 'booking_accepted_confirmation',
-      title: 'Booking Accepted Successfully! ✅',
-      message: `You have accepted the booking from ${booking.fromLocation} to ${booking.toLocation}`,
-      data: {
-        bookingId: bookingId,
-        clientId: booking.userId,
-        fromLocation: booking.fromLocation,
-        toLocation: booking.toLocation,
-        productType: booking.productType,
-        estimatedCost: booking.cost
-      },
-      priority: 'medium',
       actionRequired: false
     });
 
