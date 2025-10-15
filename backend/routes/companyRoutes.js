@@ -197,22 +197,24 @@ router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'
   next();
 }, authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
 
-/** 
+/**
  * @swagger
  * /api/companies/{companyId}/drivers:
- *   post:  
- *     summary: Create a driver for a company
- *     description: Creates a new driver associated with a company.
- *     tags: [Companies]
+ *   post:
+ *     summary: Create a new driver for a company
+ *     description: 
+ *       Allows a transporter to recruit and register a new driver under a company they own. 
+ *       This endpoint also uploads driver documents (photo, ID, and license), creates a Firebase Auth user, 
+ *       and sends a welcome email with login credentials.
+ *     tags: [Companies, Drivers]
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: companyId
- *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the company to create a driver for
+ *         description: Unique ID of the company to associate the driver with.
  *     requestBody:
  *       required: true
  *       content:
@@ -220,40 +222,153 @@ router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'
  *           schema:
  *             type: object
  *             required:
- *               - name
+ *               - firstName
+ *               - lastName
  *               - email
  *               - phone
  *             properties:
- *               name:
+ *               companyId:
  *                 type: string
- *                 description: The name of the driver
+ *               firstName:
+ *                 type: string
+ *                 example: John
+ *                 description: Driver's first name
+ *               lastName:
+ *                 type: string
+ *                 example: Doe
+ *                 description: Driver's last name
  *               email:
  *                 type: string
- *                 description: The email address of the driver
+ *                 format: email
+ *                 example: johndoe@example.com
+ *                 description: Driver's email address
  *               phone:
  *                 type: string
- *                 description: The phone number of the driver
- *               photo:
+ *                 example: +254712345678
+ *                 description: Driver's phone number in international format
+ *               driverLicenseNumber:
+ *                 type: string
+ *                 example: DL1234567
+ *                 description: Driver’s license number (optional if uploaded as document)
+ *               driverLicenseExpiryDate:
+ *                 type: string
+ *                 format: date
+ *                 example: 2027-05-30
+ *                 description: Expiry date of driver’s license
+ *               idNumber:
+ *                 type: string
+ *                 example: 12345678
+ *                 description: National ID number of the driver
+ *               idExpiryDate:
+ *                 type: string
+ *                 format: date
+ *                 example: 2030-01-01
+ *                 description: Expiry date of the ID document
+ *               profileImage:
  *                 type: string
  *                 format: binary
- *                 description: The photo URL of the driver
- *               idDoc:
+ *                 description: Driver's profile photo
+ *               driverLicense:
  *                 type: string
  *                 format: binary
- *                 description: The ID document of the driver
- *               license:
+ *                 description: Scanned copy of the driver’s license
+ *               idDocument:
  *                 type: string
  *                 format: binary
- *                 description: The license of the driver
+ *                 description: Scanned copy of the driver’s national ID document
  *     responses:
  *       201:
  *         description: Driver created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Driver created successfully
+ *                 driver:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: dvr_ABC123
+ *                     firstName:
+ *                       type: string
+ *                       example: John
+ *                     lastName:
+ *                       type: string
+ *                       example: Doe
+ *                     email:
+ *                       type: string
+ *                       example: johndoe@example.com
+ *                     phone:
+ *                       type: string
+ *                       example: +254712345678
+ *                     status:
+ *                       type: string
+ *                       example: pending
+ *                     profileImage:
+ *                       type: string
+ *                       example: https://res.cloudinary.com/.../john_doe.jpg
+ *                     driverLicenseUrl:
+ *                       type: string
+ *                       example: https://res.cloudinary.com/.../license.pdf
+ *                     idDocumentUrl:
+ *                       type: string
+ *                       example: https://res.cloudinary.com/.../id_doc.pdf
+ *                     defaultPassword:
+ *                       type: string
+ *                       example: a1b2c3d4123
+ *                       description: Default password generated for the driver (for admin reference)
  *       400:
- *         description: Missing required fields or validation errors
+ *         description: Bad Request – Missing or invalid input fields, or driver already exists.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Driver with this email already exists
+ *       403:
+ *         description: Unauthorized – The logged-in transporter does not own the company.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Unauthorized to add drivers to this company
+ *       404:
+ *         description: Company not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Company not found
  *       500:
  *         description: Internal server error
-*/
-router.post('/:companyId/drivers', authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/driverController').createDriver);
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Failed to create driver
+ */
+router.post(
+  '/:companyId/drivers',
+  authenticateToken,
+  requireRole('transporter'),
+  uploadAny,
+  require('../controllers/driverController').createDriver
+);
 
 /**
  * @swagger

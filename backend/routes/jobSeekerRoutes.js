@@ -610,7 +610,7 @@ router.patch('/:jobSeekerId/status', authenticateToken, requireRole('admin'), au
  * /api/job-seekers/{jobSeekerId}/status:
  *   get:
  *     summary: Get job seeker status
- *     tags: [Admin Actions]
+ *     tags: [Job Seekers]
  *     parameters:
  *       - in: path
  *         name: jobSeekerId
@@ -630,7 +630,7 @@ router.patch('/:jobSeekerId/status', authenticateToken, requireRole('admin'), au
  *       500:
  *         description: Internal server error
  */
-router.get('/:jobSeekerId/status', authenticateToken, requireRole('admin'), authorize(['view-job-seekers',  'manage-job-seekers', 'super_admin']), jobSeekerController.getApplicationStatus);
+router.get('/:jobSeekerId/status', authenticateToken, requireRole(['job_seeker', 'transporter', 'admin']), authorize(['view-job-seekers',  'manage-job-seekers', 'super_admin']), jobSeekerController.getApplicationStatus);
 
 /**
  * @swagger

@@ -9,7 +9,9 @@ const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
 const formatPhoneNumber = require("../utils/formatPhone");
 const admin = require("../config/firebase");
 const { getRejectTemplate } = require("../utils/sendMailTemplate");
-const { approvedBy } = require('../schemas/JobSeekerSchema');
+const { formatTimestamps } = require('../utils/formatData');
+const { logActivity, logAdminActivity } = require('../utils/activityLogger');
+const Notification = require('../models/Notification');
 
 const jobSeekerController = {
   // POST /api/job-seekers - Submit job seeker application (Step 1)
@@ -103,6 +105,18 @@ const jobSeekerController = {
         documents
       });
 
+      await logActivity(uid, "Job Seeker Application", "Submitted");
+
+      await Action.create({
+        type: 'jobSeekerApplication',
+        entityId: jobSeeker.id,
+        priority: 'high',
+        metadata: {
+          name: jobSeeker.name
+        },
+        message: `A new job seeker has been created. Job Seeker ID: ${jobSeeker.id}`,
+      });
+
       res.status(201).json({
         success: true,
         application: jobSeeker,
@@ -137,6 +151,9 @@ const jobSeekerController = {
       if (!updatedJobSeeker) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
       }
+      
+      await logActivity(userId, "Job Seeker Application", "Completed");
+
       res.status(200).json({
         success: true,
         application: updatedJobSeeker,
@@ -313,6 +330,18 @@ const jobSeekerController = {
       // updateData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
       await JobSeeker.update(jobSeekerId, updateData);
 
+      await logActivity(userId, "Job Seeker Documents", "Updated");
+
+      await Action.create({
+        type: 'job_seeker_review',
+        entityId: { id: jobSeekerId, email: jobSeeker.email },
+        priority: 'high',
+        metadata: {
+          changedFields,
+        },
+        message: `Job Seeker ${jobSeeker.name} updated documents: ${changedFields.join(', ')}`
+      })
+
       return res.status(200).json({
         success: true,
         message: 'Documents updated successfully',
@@ -400,7 +429,7 @@ const jobSeekerController = {
       const jobSeekers = await JobSeeker.getAll(filters);
       res.status(200).json({
         success: true,
-        jobSeekers,
+        jobSeekers: formatTimestamps(jobSeekers),
         count: jobSeekers.length
       });
     } catch (error) {
@@ -431,6 +460,19 @@ const jobSeekerController = {
       if (!updatedJobSeeker) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
       }
+
+      await logActivity(userId, "Job Seeker", "Updated");
+
+      await Action.create({
+        type: 'job_seeker_review',
+        entityId: { id: id, email: jobseeker.email },
+        priority: 'high',
+        metadata: {
+          changedFields: Object.keys(updateData),
+        },
+        message: `Job Seeker ${jobseeker.name} updated: ${Object.keys(updateData).join(', ')}`
+      });
+
       res.status(200).json({
         success: true,
         application: updatedJobSeeker
@@ -451,6 +493,9 @@ const jobSeekerController = {
     try {
       const { id } = req.params;
       const result = await JobSeeker.delete(id);
+
+      await logAdminActivity(req.user.id, "Job Seeker", "Deleted");
+
       res.status(200).json({
         success: true,
         message: result.message
@@ -679,7 +724,11 @@ const jobSeekerController = {
   async getApprovedJobSeekers(req, res) {
     try {
       const jobSeekers = await JobSeeker.getApprovedJobSeekers();
-      res.status(200).json({ jobSeekers });
+      
+      res.status(200).json({ 
+        success: true,
+        jobSeekers: formatTimestamps(jobSeekers) 
+      });
     } catch (error) {
       console.error('Error fetching approved job seekers:', error);
       res.status(500).json({ message: 'Failed to fetch approved job seekers' });

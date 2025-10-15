@@ -2,6 +2,7 @@ const admin = require('../config/firebase');
 const db = admin.firestore();
 const { adminNotification } = require('../utils/sendMailTemplate');
 const cloudinary = require('cloudinary').v2;
+const sendEmail = require('../utils/sendEmail');
 
 // Utility function to upload driver documents
 const uploadDriverDocuments = async (files) => {
@@ -32,6 +33,179 @@ const uploadDriverDocuments = async (files) => {
 };
 
 // Create a new driver for a company
+// const createDriver = async (req, res) => {
+//   try {
+//     const userId = req.user.uid;
+//     const companyId = req.body.companyId;
+   
+//     // Verify the user owns the company
+//     const companyDoc = await db.collection('companies').doc(companyId).get();
+//     if (!companyDoc.exists) {
+//       return res.status(404).json({ message: 'Company not found' });
+//     }
+
+//     const companyData = companyDoc.data();
+//     if (companyData.transporterId !== userId) {
+//       return res.status(403).json({ message: 'Unauthorized to add drivers to this company' });
+//     }
+
+//     // Check if driver with same email or phone already exists
+//     const existingDriverQuery = await db.collection('drivers')
+//       .where('companyId', '==', companyId)
+//       .where('email', '==', req.body.email)
+//       .get();
+
+//     if (!existingDriverQuery.empty) {
+//       return res.status(400).json({ message: 'Driver with this email already exists' });
+//     }
+
+//     const existingPhoneQuery = await db.collection('drivers')
+//       .where('companyId', '==', companyId)
+//       .where('phone', '==', req.body.phone)
+//       .get();
+
+//     if (!existingPhoneQuery.empty) {
+//       return res.status(400).json({ message: 'Driver with this phone number already exists' });
+//     }
+
+//     // Generate default password (driver can change this later)
+//     const defaultPassword = Math.random().toString(36).slice(-8) + '123'; // 8 random chars + 123
+
+//     // Create Firebase Auth user for the driver using Admin SDK
+//     let firebaseUser;
+//     try {
+//       // Format phone number to international format if not already
+//       let phoneNumber = req.body.phone;
+//       if (phoneNumber && !phoneNumber.startsWith('+')) {
+//         // Assume Kenyan number if no country code
+//         phoneNumber = phoneNumber.startsWith('0') ? 
+//           '+254' + phoneNumber.substring(1) : 
+//           '+254' + phoneNumber;
+//       }
+
+//       firebaseUser = await admin.auth().createUser({
+//         email: req.body.email,
+//         phoneNumber: phoneNumber,
+//         password: defaultPassword,
+//         displayName: `${req.body.firstName} ${req.body.lastName}`,
+//         emailVerified: false,
+//         // Note: Phone verification will be handled separately if needed
+//       });
+//       console.log('Firebase user created:', firebaseUser.uid);
+//     } catch (authError) {
+//       console.error('Error creating Firebase user:', authError);
+//       if (authError.code === 'auth/email-already-exists') {
+//         return res.status(400).json({ message: 'A user with this email already exists. Please use a different email address.' });
+//       }
+//       if (authError.code === 'auth/phone-number-already-exists') {
+//         return res.status(400).json({ message: 'A user with this phone number already exists. Please use a different phone number.' });
+//       }
+//       return res.status(400).json({ message: 'Failed to create driver account: ' + authError.message });
+//     }
+
+//     // Prepare driver data (filter out undefined values)
+//     const driverData = {
+//       companyId,
+//       userId: firebaseUser.uid,
+//       firstName: req.body.firstName,
+//       lastName: req.body.lastName,
+//       email: req.body.email,
+//       phone: req.body.phone,
+//       driverLicense: req.body.driverLicenseNumber || req.body.driverLicense || 'DL-' + Date.now(),
+//       idNumber: req.body.idNumber || 'ID-' + Date.now(),
+//       status: 'pending',
+//       assignedVehicleId: null,
+//       isDefaultPassword: true,
+//       createdAt: new Date(),
+//       updatedAt: new Date(),
+//     };
+
+//     // Only add optional fields if they have values
+//     if (req.body.driverLicenseExpiryDate) {
+//       driverData.driverLicenseExpiryDate = req.body.driverLicenseExpiryDate;
+//     }
+//     if (req.body.idExpiryDate) {
+//       driverData.idExpiryDate = req.body.idExpiryDate;
+//     }
+
+//     // Handle file uploads
+//     if (req.files && req.files.length > 0) {
+//       try {
+//         const uploadResults = await uploadDriverDocuments(req.files);
+        
+//         if (uploadResults.profileImage) {
+//           driverData.profileImage = uploadResults.profileImage[0];
+//         }
+//         if (uploadResults.driverLicense) {
+//           driverData.driverLicenseUrl = uploadResults.driverLicense[0];
+//         }
+//         if (uploadResults.idDocument) {
+//           driverData.idDocumentUrl = uploadResults.idDocument[0];
+//         }
+//       } catch (uploadError) {
+//         console.error('Error uploading driver documents:', uploadError);
+//         return res.status(500).json({ message: 'Failed to upload driver documents' });
+//       }
+//     }
+
+//     // Create driver document
+//     const driverRef = db.collection('drivers').doc();
+//     await driverRef.set(driverData);
+
+//     // Create action for admin review
+//     await db.collection('actions').add({
+//       type: 'driver_review',
+//       entityId: driverRef.id,
+//       priority: 'medium',
+//       metadata: {
+//         companyName: companyData.companyName,
+//         driverName: `${driverData.firstName} ${driverData.lastName}`,
+//         driverLicense: driverData.driverLicense
+//       },
+//       message: `New driver recruited by ${companyData.companyName}. Driver ID: ${driverRef.id}`,
+//       createdAt: new Date(),
+//     });
+
+//     // Send notification to admin
+//     await sendEmail({
+//         to: "support@trukafrica.com",
+//         subject: 'New Driver Recruited for Review',
+//         html: adminNotification(`Company ${companyData.companyName} has recruited a new driver (${driverData.firstName} ${driverData.lastName}) for review.`),
+//       });
+
+//     // Send welcome email with login credentials
+//     try {
+//       const { sendDriverWelcomeEmail } = require('../utils/sendMailTemplate');
+//       await sendDriverWelcomeEmail({
+//         email: driverData.email,
+//         phone: driverData.phone,
+//         firstName: driverData.firstName,
+//         lastName: driverData.lastName,
+//         companyName: companyData.companyName,
+//         defaultPassword,
+//         loginUrl: process.env.FRONTEND_URL || 'https://your-app.com'
+//       });
+//     } catch (emailError) {
+//       console.error('Error sending welcome email:', emailError);
+//       // Don't fail the driver creation if email fails
+//     }
+
+//     res.status(201).json({
+//       message: 'Driver created successfully',
+//       driver: { 
+//         id: driverRef.id, 
+//         ...driverData,
+//         defaultPassword // Include for company admin reference
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error('Error creating driver:', error);
+//     res.status(500).json({ message: 'Failed to create driver' });
+//   }
+// };
+
+// Create a new driver for a company
 const createDriver = async (req, res) => {
   try {
     const userId = req.user.uid;
@@ -48,7 +222,7 @@ const createDriver = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to add drivers to this company' });
     }
 
-    // Check if driver with same email or phone already exists
+    // Check for existing driver with same email or phone within the company
     const existingDriverQuery = await db.collection('drivers')
       .where('companyId', '==', companyId)
       .where('email', '==', req.body.email)
@@ -67,58 +241,75 @@ const createDriver = async (req, res) => {
       return res.status(400).json({ message: 'Driver with this phone number already exists' });
     }
 
-    // Generate default password (driver can change this later)
-    const defaultPassword = Math.random().toString(36).slice(-8) + '123'; // 8 random chars + 123
-
-    // Create Firebase Auth user for the driver using Admin SDK
-    let firebaseUser;
-    try {
-      // Format phone number to international format if not already
-      let phoneNumber = req.body.phone;
-      if (phoneNumber && !phoneNumber.startsWith('+')) {
-        // Assume Kenyan number if no country code
-        phoneNumber = phoneNumber.startsWith('0') ? 
-          '+254' + phoneNumber.substring(1) : 
-          '+254' + phoneNumber;
+    // Check for existing job seeker to reuse Firebase user
+    let firebaseUser, userIdFromJobSeeker, defaultPassword = null;
+    const jobSeekerQuery = await db.collection('job_seekers')
+      .where('email', '==', req.body.email)
+      .get();
+    if (!jobSeekerQuery.empty) {
+      const jobSeekerDoc = req.body.jobSeekerId ? 
+        jobSeekerQuery.docs.find(doc => doc.id === req.body.jobSeekerId) : 
+        jobSeekerQuery.docs[0];
+      if (jobSeekerDoc) {
+        const jobSeekerData = jobSeekerDoc.data();
+        firebaseUser = await admin.auth().getUserByEmail(req.body.email);
+        userIdFromJobSeeker = firebaseUser.uid;
+        // Update user role and job seeker status
+        await db.collection('users').doc(userIdFromJobSeeker).update({ role: 'driver' });
+        await db.collection('job_seekers').doc(jobSeekerDoc.id).update({ status: 'recruited' });
       }
-
-      firebaseUser = await admin.auth().createUser({
-        email: req.body.email,
-        phoneNumber: phoneNumber,
-        password: defaultPassword,
-        displayName: `${req.body.firstName} ${req.body.lastName}`,
-        emailVerified: false,
-        // Note: Phone verification will be handled separately if needed
-      });
-    } catch (authError) {
-      console.error('Error creating Firebase user:', authError);
-      if (authError.code === 'auth/email-already-exists') {
-        return res.status(400).json({ message: 'A user with this email already exists. Please use a different email address.' });
-      }
-      if (authError.code === 'auth/phone-number-already-exists') {
-        return res.status(400).json({ message: 'A user with this phone number already exists. Please use a different phone number.' });
-      }
-      return res.status(400).json({ message: 'Failed to create driver account: ' + authError.message });
     }
 
-    // Prepare driver data (filter out undefined values)
+    // If no job seeker found, create new Firebase user
+    if (!userIdFromJobSeeker) {
+      defaultPassword = Math.random().toString(36).slice(-8) + '123'; // 8 random chars + 123
+      let phoneNumber = req.body.phone;
+      if (phoneNumber && !phoneNumber.startsWith('+')) {
+        phoneNumber = phoneNumber.startsWith('0') ? '+254' + phoneNumber.substring(1) : '+254' + phoneNumber;
+      }
+
+      try {
+        firebaseUser = await admin.auth().createUser({
+          email: req.body.email,
+          phoneNumber: phoneNumber,
+          password: defaultPassword,
+          displayName: `${req.body.firstName} ${req.body.lastName}`,
+          emailVerified: false,
+        });
+        console.log('Firebase user created:', firebaseUser.uid);
+        await db.collection('users').doc(firebaseUser.uid).set({
+          email: req.body.email,
+          phone: phoneNumber,
+          role: 'driver',
+          createdAt: new Date(),
+        });
+      } catch (authError) {
+        console.error('Error creating Firebase user:', authError);
+        if (authError.code === 'auth/email-already-exists' || authError.code === 'auth/phone-number-already-exists') {
+          return res.status(400).json({ message: 'A user with this email or phone already exists. Consider linking a job seeker.' });
+        }
+        return res.status(400).json({ message: 'Failed to create driver account: ' + authError.message });
+      }
+    }
+
+    // Prepare driver data using existing Firebase details where applicable
     const driverData = {
       companyId,
-      userId: firebaseUser.uid,
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      email: req.body.email,
-      phone: req.body.phone,
+      userId: userIdFromJobSeeker || firebaseUser.uid,
+      firstName: req.body.firstName || (firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0] : null),
+      lastName: req.body.lastName || (firebaseUser.displayName ? firebaseUser.displayName.split(' ')[1] : null),
+      email: firebaseUser.email,
+      phone: firebaseUser.phoneNumber || req.body.phone,
       driverLicense: req.body.driverLicenseNumber || req.body.driverLicense || 'DL-' + Date.now(),
       idNumber: req.body.idNumber || 'ID-' + Date.now(),
-      status: 'pending',
+      status: userIdFromJobSeeker ? 'recruited' : 'pending',
       assignedVehicleId: null,
-      isDefaultPassword: true,
+      isDefaultPassword: !!defaultPassword,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
-    // Only add optional fields if they have values
+    // Handle optional fields
     if (req.body.driverLicenseExpiryDate) {
       driverData.driverLicenseExpiryDate = req.body.driverLicenseExpiryDate;
     }
@@ -130,16 +321,9 @@ const createDriver = async (req, res) => {
     if (req.files && req.files.length > 0) {
       try {
         const uploadResults = await uploadDriverDocuments(req.files);
-        
-        if (uploadResults.profileImage) {
-          driverData.profileImage = uploadResults.profileImage[0];
-        }
-        if (uploadResults.driverLicense) {
-          driverData.driverLicenseUrl = uploadResults.driverLicense[0];
-        }
-        if (uploadResults.idDocument) {
-          driverData.idDocumentUrl = uploadResults.idDocument[0];
-        }
+        if (uploadResults.profileImage) driverData.profileImage = uploadResults.profileImage[0];
+        if (uploadResults.driverLicense) driverData.driverLicenseUrl = uploadResults.driverLicense[0];
+        if (uploadResults.idDocument) driverData.idDocumentUrl = uploadResults.idDocument[0];
       } catch (uploadError) {
         console.error('Error uploading driver documents:', uploadError);
         return res.status(500).json({ message: 'Failed to upload driver documents' });
@@ -165,35 +349,33 @@ const createDriver = async (req, res) => {
     });
 
     // Send notification to admin
-    await adminNotification({
+    await sendEmail({
+      to: "support@trukafrica.com",
       subject: 'New Driver Recruited for Review',
-      message: `Company ${companyData.companyName} has recruited a new driver (${driverData.firstName} ${driverData.lastName}) for review.`,
+      html: adminNotification(`Company ${companyData.companyName} has recruited a new driver (${driverData.firstName} ${driverData.lastName}) for review.`),
     });
 
-    // Send welcome email with login credentials
-    try {
-      const { sendDriverWelcomeEmail } = require('../utils/sendMailTemplate');
-      await sendDriverWelcomeEmail({
-        email: driverData.email,
-        phone: driverData.phone,
-        firstName: driverData.firstName,
-        lastName: driverData.lastName,
-        companyName: companyData.companyName,
-        defaultPassword,
-        loginUrl: process.env.FRONTEND_URL || 'https://your-app.com'
-      });
-    } catch (emailError) {
-      console.error('Error sending welcome email:', emailError);
-      // Don't fail the driver creation if email fails
+    // Send welcome email with login credentials if new account
+    if (defaultPassword) {
+      try {
+        const { sendDriverWelcomeEmail } = require('../utils/sendMailTemplate');
+        await sendDriverWelcomeEmail({
+          email: driverData.email,
+          phone: driverData.phone,
+          firstName: driverData.firstName,
+          lastName: driverData.lastName,
+          companyName: companyData.companyName,
+          defaultPassword,
+          loginUrl: process.env.FRONTEND_URL || 'https://your-app.com'
+        });
+      } catch (emailError) {
+        console.error('Error sending welcome email:', emailError);
+      }
     }
 
     res.status(201).json({
       message: 'Driver created successfully',
-      driver: { 
-        id: driverRef.id, 
-        ...driverData,
-        defaultPassword // Include for company admin reference
-      }
+      driver: { id: driverRef.id, ...driverData, defaultPassword }
     });
 
   } catch (error) {
@@ -202,6 +384,7 @@ const createDriver = async (req, res) => {
   }
 };
 
+module.exports = { createDriver };
 // Get all drivers for a company
 const getDrivers = async (req, res) => {
   try {
