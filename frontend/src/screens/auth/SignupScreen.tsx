@@ -199,6 +199,8 @@ const SignupScreen = () => {
         broker: 'broker',
         business: 'business',
         transporter: 'transporter',
+        // When user selects "Driver" in UI, they are actually job seekers until recruited
+        driver: 'job_seeker',
       };
 
       // Use backend signup endpoint that creates both Firebase user and Firestore record
@@ -255,10 +257,10 @@ const SignupScreen = () => {
         
         // Send welcome notification
         try {
-          const { NotificationHelper } = require('../../services/notificationHelper');
+          const { NotificationHelper } = await import('../../services/notificationHelper');
           await NotificationHelper.sendAuthNotification('signup', {
             userId: userCredential.user.uid,
-            role,
+            role: role || 'shipper',
             email
           });
         } catch (notificationError) {
@@ -439,7 +441,7 @@ const SignupScreen = () => {
               {/* Signup Method Switcher - Using LoginScreen pattern */}
               <View style={styles.methodSelectionContainer}>
                 <Text style={styles.methodInstructionText}>
-                  Choose how you'd like to receive your verification code
+                  Choose how you&apos;d like to receive your verification code
                 </Text>
                 <View style={styles.switchRow}>
                   <TouchableOpacity

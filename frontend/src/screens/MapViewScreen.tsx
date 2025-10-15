@@ -20,20 +20,22 @@ import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
 import ChatModal from '../components/Chat/ChatModal';
 import { getDisplayBookingId } from '../utils/unifiedIdSystem';
+import { unifiedTrackingService, TrackingData as UnifiedTrackingData } from '../services/unifiedTrackingService';
+import { API_ENDPOINTS } from '../constants/api';
 
 const { width, height } = Dimensions.get('window');
 
 const MapViewScreen = () => {
     const route = useRoute();
     const navigation = useNavigation();
-    const { booking, trackingData, isConsolidated, consolidatedRequests, isInstant } = route.params || {};
+    const { booking, trackingData, isConsolidated, consolidatedRequests, isInstant, userType } = route.params || {};
     const [loading, setLoading] = useState(true);
     const [currentLocation, setCurrentLocation] = useState(null);
     const [routeCoordinates, setRouteCoordinates] = useState([]);
     const [estimatedTime, setEstimatedTime] = useState('2 hours 30 minutes');
     const [isTracking, setIsTracking] = useState(false);
     const [transporterLocation, setTransporterLocation] = useState(null);
-    const [locationInterval, setLocationInterval] = useState(null);
+    const [unifiedTrackingData, setUnifiedTrackingData] = useState<UnifiedTrackingData | null>(null);
     const [chatVisible, setChatVisible] = useState(false);
     const [callVisible, setCallVisible] = useState(false);
 
@@ -48,7 +50,46 @@ const MapViewScreen = () => {
 
     useEffect(() => {
         initializeMap();
-    }, []);
+        if (booking?.id) {
+            loadUnifiedTrackingData();
+        }
+    }, [booking?.id]);
+
+    useEffect(() => {
+        return () => {
+            // Cleanup tracking when component unmounts
+            if (booking?.id) {
+                unifiedTrackingService.stopTracking(booking.id);
+            }
+        };
+    }, [booking?.id]);
+
+    const loadUnifiedTrackingData = async () => {
+        try {
+            const trackingData = await unifiedTrackingService.getTrackingData(booking.id, booking.userId || 'current-user');
+            setUnifiedTrackingData(trackingData);
+            
+            if (trackingData?.currentLocation) {
+                setTransporterLocation({
+                    latitude: trackingData.currentLocation.latitude,
+                    longitude: trackingData.currentLocation.longitude,
+                    address: trackingData.currentLocation.address || 'Transporter Location',
+                    timestamp: trackingData.currentLocation.timestamp,
+                    speed: trackingData.currentLocation.speed || 0,
+                });
+            }
+            
+            if (trackingData?.routeCoordinates) {
+                setRouteCoordinates(trackingData.routeCoordinates);
+            }
+            
+            if (trackingData?.estimatedTimeOfArrival) {
+                setEstimatedTime(trackingData.estimatedTimeOfArrival);
+            }
+        } catch (error) {
+            console.error('Error loading unified tracking data:', error);
+        }
+    };
 
     const initializeMap = async () => {
         try {
@@ -73,18 +114,41 @@ const MapViewScreen = () => {
     };
 
     const startRealTimeTracking = async () => {
-        setIsTracking(true);
+        if (!booking?.id) return;
         
-        // First, try to fetch current transporter location from backend
-        await fetchTransporterLocation();
-        
-        // Set up polling for real-time updates
-        const interval = setInterval(async () => {
-            await fetchTransporterLocation();
-            updateEstimatedTime();
-        }, 10000); // Update every 10 seconds
-        
-        setLocationInterval(interval);
+        try {
+            setIsTracking(true);
+            await unifiedTrackingService.startTracking(booking.id, booking.userId || 'current-user', 10000);
+            
+            // Set up listeners for real-time updates
+            unifiedTrackingService.onLocationUpdate(booking.id, (location) => {
+                setTransporterLocation({
+                    latitude: location.latitude,
+                    longitude: location.longitude,
+                    address: location.address || 'Transporter Location',
+                    timestamp: location.timestamp,
+                    speed: location.speed || 0,
+                });
+            });
+
+            unifiedTrackingService.onStatusUpdate(booking.id, (status) => {
+                // Handle status updates if needed
+                console.log('Status updated:', status);
+            });
+
+            unifiedTrackingService.onRouteDeviation(booking.id, (deviation) => {
+                // Handle route deviation alerts
+                console.log('Route deviation detected:', deviation);
+            });
+
+            unifiedTrackingService.onTrafficAlert(booking.id, (alert) => {
+                // Handle traffic alerts
+                console.log('Traffic alert:', alert);
+            });
+        } catch (error) {
+            console.error('Error starting real-time tracking:', error);
+            setIsTracking(false);
+        }
     };
 
     const fetchTransporterLocation = async () => {
@@ -132,12 +196,10 @@ const MapViewScreen = () => {
     };
 
     const stopRealTimeTracking = () => {
-        setIsTracking(false);
-        
-        if (locationInterval) {
-            clearInterval(locationInterval);
-            setLocationInterval(null);
+        if (booking?.id) {
+            unifiedTrackingService.stopTracking(booking.id);
         }
+        setIsTracking(false);
     };
 
     const generateMockTransporterLocation = () => {

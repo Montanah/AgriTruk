@@ -19,6 +19,8 @@ import { formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
 import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 import ChatModal from '../components/Chat/ChatModal';
+import { unifiedTrackingService, TrackingData as UnifiedTrackingData } from '../services/unifiedTrackingService';
+import { unifiedBookingService } from '../services/unifiedBookingService';
 // Mock data removed - now using real API calls
 
 interface TrackingData {
@@ -65,20 +67,94 @@ const statusConfig: { [key: string]: { color: string; icon: string; label: strin
 const TrackingScreen = () => {
     const route = useRoute();
     const navigation = useNavigation();
-    const { booking, isConsolidated, consolidatedRequests } = (route.params as RouteParams) || {};
-    const [trackingData, setTrackingData] = useState<TrackingData | null>(null);
+    const { booking, isConsolidated, consolidatedRequests, userType } = (route.params as RouteParams) || {};
+    const [trackingData, setTrackingData] = useState<UnifiedTrackingData | null>(null);
     const [loading, setLoading] = useState(false);
     const [chatVisible, setChatVisible] = useState(false);
     const [callVisible, setCallVisible] = useState(false);
+    const [isTracking, setIsTracking] = useState(false);
 
     // Get transporter info for communication
-    const transporter = booking?.transporter || trackingData?.transporter;
+    const transporter = booking?.transporter || trackingData?.transporterInfo;
     const commTarget = transporter ? {
         id: transporter.id || 'transporter-id',
         name: transporter.name || 'Transporter',
         phone: transporter.phone || '+254700000000',
         role: 'Transporter'
     } : null;
+
+    useEffect(() => {
+        if (booking?.id) {
+            loadTrackingData();
+        }
+    }, [booking?.id]);
+
+    const loadTrackingData = async () => {
+        try {
+            setLoading(true);
+            const trackingData = await unifiedTrackingService.getTrackingData(booking.id, booking.userId || 'current-user');
+            setTrackingData(trackingData);
+        } catch (error) {
+            console.error('Error loading tracking data:', error);
+            // Fallback to mock data if needed
+            setTrackingData(generateMockTrackingData(booking));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const startRealTimeTracking = async () => {
+        if (!booking?.id) return;
+        
+        try {
+            setIsTracking(true);
+            await unifiedTrackingService.startTracking(booking.id, booking.userId || 'current-user', 30000);
+            
+            // Set up listeners for real-time updates
+            unifiedTrackingService.onLocationUpdate(booking.id, (location) => {
+                setTrackingData(prev => prev ? {
+                    ...prev,
+                    currentLocation: location
+                } : null);
+            });
+
+            unifiedTrackingService.onStatusUpdate(booking.id, (status) => {
+                setTrackingData(prev => prev ? {
+                    ...prev,
+                    status
+                } : null);
+            });
+
+            unifiedTrackingService.onRouteDeviation(booking.id, (deviation) => {
+                // Handle route deviation alerts
+                console.log('Route deviation detected:', deviation);
+            });
+
+            unifiedTrackingService.onTrafficAlert(booking.id, (alert) => {
+                // Handle traffic alerts
+                console.log('Traffic alert:', alert);
+            });
+        } catch (error) {
+            console.error('Error starting real-time tracking:', error);
+            setIsTracking(false);
+        }
+    };
+
+    const stopRealTimeTracking = () => {
+        if (booking?.id) {
+            unifiedTrackingService.stopTracking(booking.id);
+        }
+        setIsTracking(false);
+    };
+
+    useEffect(() => {
+        return () => {
+            // Cleanup tracking when component unmounts
+            if (booking?.id) {
+                unifiedTrackingService.stopTracking(booking.id);
+            }
+        };
+    }, [booking?.id]);
 
     const generateMockTrackingData = (booking: any): TrackingData => {
         const now = new Date();

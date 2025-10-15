@@ -125,3 +125,7 @@ frontend/google-play-service-account.json
 google-play-service-account.json
 # Local backend changelog (do not commit)
 BACKEND_CHANGELOG.md
+
+# Documentation files (consolidated)
+COMPREHENSIVE_API_DOCUMENTATION.md
+COMPREHENSIVE_API_DOCUMENTATION.txt

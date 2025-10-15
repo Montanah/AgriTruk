@@ -10,46 +10,10 @@ import { API_ENDPOINTS } from '../constants/api';
 import { getReadableLocationName, formatRoute, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
 import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/unifiedIdSystem';
+import { unifiedBookingService, UnifiedBooking, BookingFilters } from '../services/unifiedBookingService';
 
-interface RequestItem {
-    id: string;
-    type: 'instant' | 'booking';
-    status: string;
-    clientName: string;
-    clientCompany: string;
-    fromLocation: string;
-    toLocation: string;
-    productType: string;
-    weight: string;
-    urgency: string;
-    createdAt: string;
-    estimatedValue?: number;
-    description?: string;
-    clientRating?: number;
-    price?: number;
-    isConsolidated?: boolean;
-    consolidatedRequests?: RequestItem[];
-    transporter?: {
-        name: string;
-        phone: string;
-        profilePhoto?: string;
-        photo?: string;
-        rating?: number;
-        experience?: string;
-        availability?: string;
-        tripsCompleted?: number;
-        status?: string;
-    } | null;
-    vehicle?: {
-        make: string;
-        model: string;
-        year: string;
-        type: string;
-        registration: string;
-        color: string;
-        capacity: string;
-    } | null;
-}
+// Use UnifiedBooking interface from the service
+type RequestItem = UnifiedBooking;
 
 interface Client {
     id: string;
@@ -61,11 +25,23 @@ interface Client {
     activeRequests: number;
     instantRequests: number;
     bookingRequests: number;
+    // Enhanced request counters
+    pendingRequests: number;
+    confirmedRequests: number;
+    inTransitRequests: number;
+    deliveredRequests: number;
+    completedRequests: number;
+    cancelledRequests: number;
+    consolidatedRequests: number;
     lastRequest: string;
     latestRequestStatus?: string;
     latestRequestType?: string;
     isVerified: boolean;
     requests?: RequestItem[];
+    // Client performance metrics
+    averageResponseTime?: number; // in hours
+    successRate?: number; // percentage
+    totalValue?: number; // total value of all requests
 }
 
 // Mock data removed - now using real API calls
@@ -105,39 +81,18 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
     const loadRequests = async () => {
         try {
             setLoading(true);
-            const { getAuth } = require('firebase/auth');
-            const auth = getAuth();
-            const user = auth.currentUser;
-            if (!user) return;
             
-            const token = await user.getIdToken();
-            const url = `${API_ENDPOINTS.BROKERS}/requests`;
-            console.log('🔍 Frontend calling URL:', url);
-            const res = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-            });
+            // Use unified booking service for consistent data handling
+            const filters: BookingFilters = {
+                // Add any specific filters for broker requests
+            };
             
-            if (res.ok) {
-                const data = await res.json();
-                console.log('Broker requests API response:', data);
-                setRequests(data.requests || data.data || []);
-                // Reload clients to update active request counts
-                await loadClients();
-            } else {
-                console.error('Failed to fetch broker requests:', res.status, res.statusText);
-                const errorData = await res.json().catch(() => ({}));
-                console.error('Error details:', errorData);
-                
-                // If 404, it means broker lookup failed - set empty data instead of crashing
-                if (res.status === 404) {
-                    console.log('Broker not found in backend - setting empty requests');
-                    setRequests([]);
-                    await loadClients();
-                }
-            }
+            const bookings = await unifiedBookingService.getBookings('broker', filters);
+            console.log('Broker requests from unified service:', bookings);
+            
+            setRequests(bookings);
+            // Reload clients to update active request counts
+            await loadClients();
         } catch (error) {
             console.error('Error loading requests:', error);
             // Set empty data on error to prevent crashes
@@ -259,36 +214,47 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
 
     const confirmConsolidation = async () => {
         try {
-            const { getAuth } = require('firebase/auth');
-            const auth = getAuth();
-            const user = auth.currentUser;
-            if (!user) return;
-
-            const token = await user.getIdToken();
+            // Get selected requests data
+            const selectedRequestsData = requests.filter(req => selectedRequests.includes(req.id));
             
-            const response = await fetch(`${API_ENDPOINTS.BROKERS}/requests/consolidate`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    requestIds: selectedRequests,
-                }),
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                Alert.alert('Success', 'Requests consolidated successfully!');
-                setSelectedRequests([]);
-                setShowConsolidationModal(false);
-                // Refresh requests list
-                await loadRequests();
-            } else {
-                const errorData = await response.json();
-                console.error('Consolidation failed:', errorData);
-                Alert.alert('Error', errorData.message || 'Failed to consolidate requests');
+            if (selectedRequestsData.length < 2) {
+                Alert.alert('Error', 'Please select at least 2 requests to consolidate');
+                return;
             }
+
+            // Calculate consolidation data
+            const consolidationData = {
+                fromLocation: selectedRequestsData[0].fromLocation, // Use first request as base
+                toLocation: selectedRequestsData[0].toLocation,
+                productType: 'Mixed Products', // Since we're consolidating different products
+                totalWeight: selectedRequestsData.reduce((sum, req) => {
+                    const weight = parseFloat(req.weight) || 0;
+                    return sum + weight;
+                }, 0).toString(),
+                urgency: selectedRequestsData.some(req => req.urgency === 'high') ? 'high' : 
+                        selectedRequestsData.some(req => req.urgency === 'medium') ? 'medium' : 'low',
+                description: `Consolidated request containing ${selectedRequestsData.length} individual requests`,
+            };
+
+            // Use unified booking service for consolidation
+            const consolidatedBooking = await unifiedBookingService.consolidateBookings(
+                selectedRequests,
+                consolidationData
+            );
+
+            Alert.alert('Success', 'Requests consolidated successfully!');
+            setSelectedRequests([]);
+            setShowConsolidationModal(false);
+            
+            // Refresh requests list
+            await loadRequests();
+            
+            // Navigate to consolidated request details
+            navigation.navigate('TrackingScreen', {
+                booking: consolidatedBooking,
+                isConsolidated: true,
+                userType: 'broker',
+            });
         } catch (error) {
             console.error('Error consolidating requests:', error);
             Alert.alert('Error', 'Failed to consolidate requests. Please try again.');
@@ -539,14 +505,71 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 </View>
 
                 <View style={styles.clientStats}>
+                    {/* Primary Stats Row */}
                     <View style={styles.clientStatsRow}>
                         <Text style={styles.clientRequests}>{item.activeRequests} active</Text>
                         <Text style={styles.clientTotal}>{item.totalRequests} total</Text>
                     </View>
+                    
+                    {/* Request Type Breakdown */}
                     <View style={styles.clientStatsRow}>
                         <Text style={styles.clientInstant}>{item.instantRequests} instant</Text>
                         <Text style={styles.clientBooking}>{item.bookingRequests} booking</Text>
                     </View>
+                    
+                    {/* Status Breakdown */}
+                    <View style={styles.clientStatusBreakdown}>
+                        {item.pendingRequests > 0 && (
+                            <View style={styles.statusBadge}>
+                                <Text style={[styles.statusBadgeText, { color: colors.warning }]}>
+                                    {item.pendingRequests} pending
+                                </Text>
+                            </View>
+                        )}
+                        {item.inTransitRequests > 0 && (
+                            <View style={styles.statusBadge}>
+                                <Text style={[styles.statusBadgeText, { color: colors.secondary }]}>
+                                    {item.inTransitRequests} in transit
+                                </Text>
+                            </View>
+                        )}
+                        {item.deliveredRequests > 0 && (
+                            <View style={styles.statusBadge}>
+                                <Text style={[styles.statusBadgeText, { color: colors.success }]}>
+                                    {item.deliveredRequests} delivered
+                                </Text>
+                            </View>
+                        )}
+                        {item.consolidatedRequests > 0 && (
+                            <View style={styles.statusBadge}>
+                                <Text style={[styles.statusBadgeText, { color: colors.primary }]}>
+                                    {item.consolidatedRequests} consolidated
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                    
+                    {/* Performance Metrics */}
+                    {(item.successRate || item.averageResponseTime || item.totalValue) && (
+                        <View style={styles.clientPerformance}>
+                            {item.successRate && (
+                                <Text style={styles.performanceText}>
+                                    Success: {item.successRate}%
+                                </Text>
+                            )}
+                            {item.averageResponseTime && (
+                                <Text style={styles.performanceText}>
+                                    Avg Response: {item.averageResponseTime}h
+                                </Text>
+                            )}
+                            {item.totalValue && (
+                                <Text style={styles.performanceText}>
+                                    Total Value: KES {item.totalValue.toLocaleString()}
+                                </Text>
+                            )}
+                        </View>
+                    )}
+                    
                     {item.latestRequestStatus && (
                         <View style={styles.latestRequestInfo}>
                             <Text style={styles.latestRequestText}>
@@ -1523,6 +1546,32 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginBottom: 2,
+    },
+    clientStatusBreakdown: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-end',
+        marginTop: 4,
+        gap: 4,
+    },
+    statusBadge: {
+        backgroundColor: colors.background.light,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    statusBadgeText: {
+        fontSize: fonts.size.xs,
+        fontWeight: '500',
+    },
+    clientPerformance: {
+        marginTop: 4,
+        alignItems: 'flex-end',
+    },
+    performanceText: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        marginBottom: 1,
     },
     clientRequests: {
         fontSize: fonts.size.sm,

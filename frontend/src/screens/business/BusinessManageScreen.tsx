@@ -12,63 +12,19 @@ import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
 import { PLACEHOLDER_IMAGES } from '../../constants/images';
 import { apiRequest } from '../../utils/api';
 import { getReadableLocationName, formatRoute } from '../../utils/locationUtils';
+import { unifiedBookingService, UnifiedBooking, BookingFilters } from '../../services/unifiedBookingService';
+import ConsolidationManager from '../../components/common/ConsolidationManager';
 
 // Real API integration - no mock data
 
-interface RequestItem {
-  id: string;
-  type: 'instant' | 'booking';
-  status: string;
-  fromLocation: string;
-  toLocation: string;
-  pickupLocation?: {
-    latitude: number;
-    longitude: number;
-    address: string;
-  };
-  toLocation?: {
-    latitude: number;
-    longitude: number;
-    address: string;
-  };
-  productType: string;
-  weight: string;
-  createdAt: string;
-  transporter: {
-    name: string;
-    phone: string;
-    profilePhoto?: string;
-    photo?: string;
-    rating?: number;
-    experience?: string;
-    languages?: string[];
-    availability?: string;
-    tripsCompleted?: number;
-    status?: string;
-  } | null;
-  vehicle?: {
-    make: string;
-    model: string;
-    year: string;
-    type: string;
-    registration: string;
-    color: string;
-    capacity: string;
-  } | null;
-  isConsolidated: boolean;
-  consolidatedRequests?: {
-    id: string;
-    fromLocation: string;
-    toLocation: string;
-    productType: string;
-    weight: string;
-  }[];
-}
+// Use UnifiedBooking interface from the service
+type RequestItem = UnifiedBooking;
 
 const BusinessManageScreen = ({ navigation }: any) => {
   const [activeTab, setActiveTab] = useState('all'); // all, instant, booking
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showConsolidationModal, setShowConsolidationModal] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -77,12 +33,15 @@ const BusinessManageScreen = ({ navigation }: any) => {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with correct business API endpoint when backend is ready
-      // const data = await apiRequest('/business/requests');
-      // setRequests(data.requests || []);
+      // Use unified booking service for consistent data handling
+      const filters: BookingFilters = {
+        // Add any specific filters for business requests
+      };
       
-      // For now, return empty array - no mock data
-      setRequests([]);
+      const bookings = await unifiedBookingService.getBookings('business', filters);
+      console.log('Business requests from unified service:', bookings);
+      
+      setRequests(bookings);
     } catch (error) {
       console.error('Error fetching requests:', error);
       setRequests([]);
@@ -357,7 +316,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.consolidateHeaderButton} 
-              onPress={() => navigation.navigate('Consolidation')}
+              onPress={() => setShowConsolidationModal(true)}
             >
               <FontAwesome5 name="layer-group" size={20} color={colors.white} />
             </TouchableOpacity>
@@ -414,7 +373,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.consolidateButton}
-                onPress={() => navigation.navigate('Consolidation')}
+                onPress={() => setShowConsolidationModal(true)}
               >
                 <Text style={styles.consolidateButtonText}>Consolidate Requests</Text>
               </TouchableOpacity>
@@ -429,6 +388,23 @@ const BusinessManageScreen = ({ navigation }: any) => {
         size="large"
         type="pulse"
         logo={true}
+      />
+
+      {/* Consolidation Manager Modal */}
+      <ConsolidationManager
+        userRole="business"
+        visible={showConsolidationModal}
+        onClose={() => setShowConsolidationModal(false)}
+        onConsolidationComplete={(consolidatedBooking) => {
+          // Refresh requests list
+          fetchRequests();
+          // Navigate to consolidated request details
+          navigation.navigate('TrackingScreen', {
+            booking: consolidatedBooking,
+            isConsolidated: true,
+            userType: 'business',
+          });
+        }}
       />
     </SafeAreaView>
   );

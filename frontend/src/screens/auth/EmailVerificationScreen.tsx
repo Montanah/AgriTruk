@@ -225,6 +225,13 @@ const EmailVerificationScreen = ({ navigation, route }) => {
             index: 0,
             routes: [{ name: 'TransporterTabs' }]
           });
+        } else if (role === 'driver') {
+          // Navigating job seeker (who selected "Driver" in UI) to completion screen for job application
+          console.log('Email verification complete - navigating job seeker to completion screen');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'TransporterCompletionScreen' }]
+          });
         } else {
           // Navigating unknown role to MainTabs
           navigation.reset({
