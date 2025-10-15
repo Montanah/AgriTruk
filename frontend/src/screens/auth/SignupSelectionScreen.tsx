@@ -63,6 +63,17 @@ const roles = [
     ),
     description: 'For transporters (individuals or companies)',
   },
+  {
+    key: 'driver',
+    label: 'Driver',
+    accent: '#4CAF50',
+    icon: (animatedStyle: any) => (
+      <Animated.View style={animatedStyle}>
+        <MaterialCommunityIcons name="account-tie" size={32} color="#4CAF50" />
+      </Animated.View>
+    ),
+    description: 'For drivers seeking employment with transport companies',
+  },
 ];
 
 const SignupSelectionScreen = () => {
@@ -187,6 +198,7 @@ const SignupSelectionScreen = () => {
                   style={[
                     styles.cardWrap,
                     role.key === 'transporter' && { borderColor: '#FF8C00', borderWidth: 0.5 },
+                    role.key === 'driver' && { borderColor: '#4CAF50', borderWidth: 0.5 },
                   ]}
                 >
                   <LinearGradient
@@ -200,6 +212,8 @@ const SignupSelectionScreen = () => {
                       styles.accentDot,
                       role.key === 'transporter'
                         ? { backgroundColor: '#FF8C00', shadowColor: '#FF8C00' }
+                        : role.key === 'driver'
+                        ? { backgroundColor: '#4CAF50', shadowColor: '#4CAF50' }
                         : { backgroundColor: role.accent, shadowColor: role.accent },
                       {
                         transform: [
@@ -220,7 +234,11 @@ const SignupSelectionScreen = () => {
                     <Text
                       style={[
                         styles.roleLabel,
-                        role.key === 'transporter' ? { color: '#FF8C00' } : { color: role.accent },
+                        role.key === 'transporter' 
+                          ? { color: '#FF8C00' } 
+                          : role.key === 'driver'
+                          ? { color: '#4CAF50' }
+                          : { color: role.accent },
                       ]}
                     >
                       {role.label}
