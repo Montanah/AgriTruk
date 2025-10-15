@@ -66,13 +66,13 @@ const roles = [
   {
     key: 'driver',
     label: 'Driver',
-    accent: '#2196F3',
+    accent: colors.tertiary,
     icon: (animatedStyle: any) => (
       <Animated.View style={animatedStyle}>
-        <MaterialCommunityIcons name="account-tie" size={32} color="#2196F3" />
+        <MaterialCommunityIcons name="account-tie" size={32} color={colors.tertiary} />
       </Animated.View>
     ),
-    description: 'For professional drivers looking to join transport companies and manage deliveries',
+    description: 'For skilled drivers seeking career opportunities with transport companies',
   },
 ];
 
@@ -198,7 +198,7 @@ const SignupSelectionScreen = () => {
                   style={[
                     styles.cardWrap,
                     role.key === 'transporter' && { borderColor: '#FF8C00', borderWidth: 0.5 },
-                    role.key === 'driver' && { borderColor: '#2196F3', borderWidth: 0.5 },
+                    role.key === 'driver' && { borderColor: colors.tertiary, borderWidth: 0.5 },
                   ]}
                 >
                   <LinearGradient
@@ -213,7 +213,7 @@ const SignupSelectionScreen = () => {
                       role.key === 'transporter'
                         ? { backgroundColor: '#FF8C00', shadowColor: '#FF8C00' }
                         : role.key === 'driver'
-                        ? { backgroundColor: '#2196F3', shadowColor: '#2196F3' }
+                        ? { backgroundColor: colors.tertiary, shadowColor: colors.tertiary }
                         : { backgroundColor: role.accent, shadowColor: role.accent },
                       {
                         transform: [
@@ -237,7 +237,7 @@ const SignupSelectionScreen = () => {
                         role.key === 'transporter' 
                           ? { color: '#FF8C00' } 
                           : role.key === 'driver'
-                          ? { color: '#2196F3' }
+                          ? { color: colors.tertiary }
                           : { color: role.accent },
                       ]}
                     >
