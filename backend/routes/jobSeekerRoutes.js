@@ -6,6 +6,7 @@ const { authenticateToken } = require('../middlewares/authMiddleware');
 const multer = require("multer");
 const { authorize } = require('../middlewares/adminAuth');
 
+
 const upload = multer({ dest: 'uploads/' }); 
 
 const uploadAny = upload.any();
@@ -337,6 +338,28 @@ router.post('/', authenticateToken, uploadAny, jobSeekerController.submitApplica
 
 /**
  * @swagger
+ * /api/job-seekers/approved:
+ *   get:
+ *     summary: Get approved job seekers
+ *     tags: [Job Seekers]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of approved job seekers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/JobSeeker'
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/approved', authenticateToken, requireRole(['transporter', 'admin']), authorize(['manage-job-seekers', 'super_admin']), jobSeekerController.getApprovedJobSeekers);
+
+/**
+ * @swagger
  * /api/job-seekers/{jobSeekerId}:
  *   put:
  *     summary: Update job seeker
@@ -359,7 +382,7 @@ router.post('/', authenticateToken, uploadAny, jobSeekerController.submitApplica
  *       400:
  *         description: Bad request
  */
-router.put('/:jobSeekerId', authenticateToken, requireRole('job-seeker'), jobSeekerController.updateJobSeeker);
+router.put('/:jobSeekerId', authenticateToken, requireRole('job_seeker'), jobSeekerController.updateJobSeeker);
 
 /**
  * @swagger
@@ -406,7 +429,7 @@ router.put('/:jobSeekerId', authenticateToken, requireRole('job-seeker'), jobSee
  *       400:
  *         description: Bad request
  */
-router.put('/:jobSeekerId/experience', authenticateToken, requireRole('job-seeker'), jobSeekerController.completeApplication);
+router.put('/:jobSeekerId/experience', authenticateToken, requireRole('job_seeker'), jobSeekerController.completeApplication);
 
 /**
  * @swagger
@@ -460,7 +483,7 @@ router.get('/:jobSeekerId', authenticateToken, requireRole(['job-seeker', 'trans
  *       500:
  *         description: Internal server error
  */
-router.get('/user/:userId', authenticateToken, requireRole(['job-seeker', 'transporter', 'admin' ]), jobSeekerController.getApplicationByUserId);
+router.get('/user/:userId', authenticateToken, requireRole(['job_seeker', 'transporter', 'admin' ]), jobSeekerController.getApplicationByUserId);
 
 /**
  * @swagger
@@ -524,7 +547,7 @@ router.get('/user/:userId', authenticateToken, requireRole(['job-seeker', 'trans
  *       500:
  *         description: Internal server error
  */
-router.patch('/:jobSeekerId/upload', authenticateToken, requireRole('job-seeker'), uploadAny, jobSeekerController.uploadDocuments);
+router.patch('/:jobSeekerId/upload', authenticateToken, requireRole('job_seeker'), uploadAny, jobSeekerController.uploadDocuments);
 
 /**
  * @swagger
@@ -551,7 +574,7 @@ router.patch('/:jobSeekerId/upload', authenticateToken, requireRole('job-seeker'
  *       500:
  *         description: Internal server error
  */
-router.get('/:jobSeekerId/documents', authenticateToken, requireRole(['job-seeker', 'admin', 'transporter']), jobSeekerController.getDocuments);
+router.get('/:jobSeekerId/documents', authenticateToken, requireRole(['job_seeker', 'admin', 'transporter']), jobSeekerController.getDocuments);
 
 /**
  * @swagger
@@ -744,6 +767,52 @@ router.patch('admin/:jobSeekerId/updateTier', authenticateToken, requireRole('ad
  *       500:
  *         description: Internal server error
  */
-router.get('/:jobSeekerId/email', authenticateToken, requireRole(['transporter', 'admin', 'job-seeker']), authorize(['manage-job-seekers', 'super_admin']), jobSeekerController.getJobSeekerByEmail);
+router.get('/:jobSeekerId/email', authenticateToken, requireRole(['transporter', 'admin', 'job_seeker']), authorize(['manage-job-seekers', 'super_admin']), jobSeekerController.getJobSeekerByEmail);
+
+/**
+ * @swagger
+ * /api/job-seekers/{jobSeekerId}/review:
+ *   patch:
+ *     summary: Approve a job seeker's documents or reject job seeker (super-admin, manage_job_seekers)
+ *     description: Allows an admin to review a pending job seeker's documents.
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobSeekerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [approve-idDoc, approve-drivingLicense, approve-goodConductCert, approve-goodsServiceLicense, reject]
+ *                 description: Action to take on the job seeker's documents (approve or reject)
+ *               reason:
+ *                 type: string
+ *                 description: Reason for rejection (optional, required for reject action)
+ *               expiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Expiry date for the approved document (required for approve actions)
+ *     responses:
+ *       200:
+ *         description: Job seeker reviewed successfully
+ *       400:
+ *         description: Bad request (e.g., missing required fields or invalid action)
+ *       404:
+ *         description: Job seeker not found
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/:jobSeekerId/review', authenticateToken, requireRole('admin'), authorize(['manage_job_seekers', 'super_admin']), jobSeekerController.reviewJobSeeker);
+
 
 module.exports = router;

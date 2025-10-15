@@ -355,6 +355,12 @@ const JobSeeker = {
     return this.get(jobSeekerId);
   },
 
+  async getApprovedJobSeekers() {
+    const snapshot = await db.collection('job_seekers').where('status', '==', 'approved').get();
+    const jobSeekers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return jobSeekers;
+  },
+
   // Get schema for reference
   getSchema() {
     return JobSeekerSchema;
