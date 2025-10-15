@@ -230,7 +230,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
           console.log('Email verification complete - navigating job seeker to completion screen');
           navigation.reset({
             index: 0,
-            routes: [{ name: 'TransporterCompletionScreen' }]
+            routes: [{ name: 'TransporterCompletionScreen', params: { isJobSeeker: true } }]
           });
         } else {
           // Navigating unknown role to MainTabs

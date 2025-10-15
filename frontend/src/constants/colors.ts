@@ -18,6 +18,7 @@ const colors = {
   success: '#219653',
   border: '#E0E0E0',
   successLight: '#E8F5E8',
+  warningLight: '#FFF4E6',
   primaryLight: '#E8F0E8',
 };
 
