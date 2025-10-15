@@ -29,6 +29,7 @@ const paymentRoutes = require('./routes/paymentsRoute');
 const transRoutes = require('./routes/transRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const trafficRoutes = require('./routes/trafficRoutes');
+const jobSeekerRoutes = require('./routes/jobSeekerRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
@@ -106,6 +107,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/transactions', transRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/traffic', trafficRoutes);
+app.use('/api/job-seekers', jobSeekerRoutes);
 
 // Health and test endpoints
 app.get('/api/health', (req, res) => {
@@ -115,9 +117,6 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-
-// Debug endpoint removed - issue was broker route ordering, not global auth
-
 
 
 // Root endpoint
