@@ -1,132 +1,138 @@
 const JobSeeker = require('../models/JobSeeker');
 const User = require('../models/User');
 const { uploadImage } = require('../utils/upload');
-const fs = require('fs'); 
+const fs = require('fs');
 const Action = require('../models/Action');
+const sendEmail = require("../utils/sendEmail");
+const SMSService = require('../utils/sendSms');
+const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
+const formatPhoneNumber = require("../utils/formatPhone");
+const admin = require("../config/firebase");
+const { getRejectTemplate } = require("../utils/sendMailTemplate");
+const { approvedBy } = require('../schemas/JobSeekerSchema');
 
 const jobSeekerController = {
   // POST /api/job-seekers - Submit job seeker application (Step 1)
   async submitApplication(req, res) {
-  try {
-    const uid = req.user.uid;
+    try {
+      const uid = req.user.uid;
 
-    // Check if job seeker exists
-    const seeker = await JobSeeker.getByUserId(uid);
-    if (seeker) {
-      return res.status(400).json({
-        success: false,
-        error: { code: "BAD_REQUEST", message: "Job seeker already exists" }
+      // Check if job seeker exists
+      const seeker = await JobSeeker.getByUserId(uid);
+      if (seeker) {
+        return res.status(400).json({
+          success: false,
+          error: { code: "BAD_REQUEST", message: "Job seeker already exists" }
+        });
+      }
+
+      const jobSeekerData = req.body;
+      const user = await User.get(uid);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: { code: "NOT_FOUND", message: "User not found" }
+        });
+      }
+
+      const userId = uid;
+      const name = user.name;
+      const email = user.email;
+      const phone = user.phone;
+
+      let address = jobSeekerData.address ? JSON.parse(jobSeekerData.address) : undefined;
+      let experience = jobSeekerData.experience ? JSON.parse(jobSeekerData.experience) : undefined;
+
+      const files = req.files || [];
+      let profilePhoto = null;
+      let idDocUrl = null;
+      let drivingLicenseUrl = null;
+      let goodConductCertUrl = null;
+      let gslUrl = null;
+
+      if (files.length > 0) {
+        const uploadTasks = files.map(async file => {
+          const fieldName = file.fieldname;
+
+          console.log(`Processing file: ${fieldName}, path: ${file.path}`);
+
+          const uploadedUrl = await uploadImage(file.path);
+          fs.unlinkSync(file.path); // clean temp file
+
+          switch (fieldName) {
+            case 'profilePhoto':
+              profilePhoto = uploadedUrl;
+              break;
+            case 'idDoc':
+              idDocUrl = uploadedUrl;
+              break;
+            case 'drivingLicense':
+              drivingLicenseUrl = uploadedUrl;
+              break;
+            case 'goodConductCert':
+              goodConductCertUrl = uploadedUrl;
+              break;
+            case 'gsl':
+              gslUrl = uploadedUrl;
+              break;
+            default:
+              console.log(`Ignoring unexpected field: ${fieldName}`);
+          }
+        });
+
+        await Promise.all(uploadTasks);
+      }
+      // ✅ Inject uploaded document URLs as flat strings
+      const documents = {
+        idDoc: idDocUrl,
+        drivingLicense: drivingLicenseUrl,
+        goodConductCert: goodConductCertUrl,
+        gslLicence: gslUrl
+      };
+
+      console.log("Job Seeker data:", documents.drivingLicense);
+      const jobSeeker = await JobSeeker.create({
+        userId,
+        name,
+        email,
+        phone,
+        ...jobSeekerData,
+        address,
+        experience,
+        profilePhoto,
+        documents
       });
-    }
 
-    const jobSeekerData = req.body;
-    const user = await User.get(uid);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: { code: "NOT_FOUND", message: "User not found" }
+      res.status(201).json({
+        success: true,
+        application: jobSeeker,
+        nextStep: "experience_details"
       });
-    }
 
-    const userId = uid;
-    const name = user.name;
-    const email = user.email;
-    const phone = user.phone;
-
-    let address = jobSeekerData.address ? JSON.parse(jobSeekerData.address) : undefined;
-    let experience = jobSeekerData.experience ? JSON.parse(jobSeekerData.experience) : undefined;
-
-    const files = req.files || [];
-    let profilePhoto = null;
-    let idDocUrl = null;
-    let drivingLicenseUrl = null;
-    let goodConductCertUrl = null;
-    let gslUrl = null;
-
-    if (files.length > 0) {
-      const uploadTasks = files.map(async file => {
-        const fieldName = file.fieldname;
-
-        console.log(`Processing file: ${fieldName}, path: ${file.path}`);
-
-        const uploadedUrl = await uploadImage(file.path);
-        fs.unlinkSync(file.path); // clean temp file
-
-        switch (fieldName) {
-          case 'profilePhoto':
-            profilePhoto = uploadedUrl;
-            break;
-          case 'idDoc':
-            idDocUrl = uploadedUrl;
-            break;
-          case 'drivingLicense':
-            drivingLicenseUrl = uploadedUrl;
-            break;
-          case 'goodConductCert':
-            goodConductCertUrl = uploadedUrl;
-            break;
-          case 'gsl':
-            gslUrl = uploadedUrl;
-            break;
-          default:
-            console.log(`Ignoring unexpected field: ${fieldName}`);
+    } catch (error) {
+      console.error("Error creating job seeker:", error);
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: error.message
         }
       });
-
-      await Promise.all(uploadTasks);
     }
-    // ✅ Inject uploaded document URLs as flat strings
-    const documents = {
-      idDoc: idDocUrl,
-      drivingLicense: drivingLicenseUrl,
-      goodConductCert: goodConductCertUrl,
-      gslLicence: gslUrl
-    };
-    
-    console.log("Job Seeker data:", documents.drivingLicense);
-    const jobSeeker = await JobSeeker.create({
-      userId,
-      name,
-      email,
-      phone,
-      ...jobSeekerData,
-      address,
-      experience,
-      profilePhoto,
-      documents
-    });
-
-    res.status(201).json({
-      success: true,
-      application: jobSeeker,
-      nextStep: "experience_details"
-    });
-
-  } catch (error) {
-    console.error("Error creating job seeker:", error);
-    res.status(400).json({
-      success: false,
-      error: {
-        code: "BAD_REQUEST",
-        message: error.message
-      }
-    });
-  }
-},
-
+  },
 
   // PUT /api/job-seekers/{jobSeekerId} - Complete application (Step 2: Experience)
   async completeApplication(req, res) {
     try {
-      const userId  = req.user.uid;
-      const experience  = req.body;   
-      
+      const userId = req.user.uid;
+      const experience = req.body;
+
       const jobseeker = await JobSeeker.getByUserId(userId);
       if (!jobseeker) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
       }
       const jobSeekerId = jobseeker.id;
-      
+
       const updatedJobSeeker = await JobSeeker.update(jobSeekerId, { experience });
       if (!updatedJobSeeker) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
@@ -237,7 +243,7 @@ const jobSeekerController = {
       if (!jobSeeker) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
       }
-      
+
       const jobSeekerId = jobSeeker.id;
       let updateData = {};
 
@@ -412,7 +418,7 @@ const jobSeekerController = {
   // Additional endpoints from provided code
   async updateJobSeeker(req, res) {
     try {
-      const  userId  = req.user.uid;
+      const userId = req.user.uid;
       const jobseeker = await JobSeeker.getByUserId(userId);
       if (!jobseeker) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
@@ -420,7 +426,7 @@ const jobSeekerController = {
 
       const id = jobseeker.id;
       const updateData = req.body;
-      
+
       const updatedJobSeeker = await JobSeeker.update(id, updateData);
       if (!updatedJobSeeker) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
@@ -543,7 +549,142 @@ const jobSeekerController = {
         }
       });
     }
-  }
+  },
+
+  async reviewJobSeeker(req, res) {
+    try {
+      const jobSeekerId = req.params.jobSeekerId;
+      const { action, reason, expiryDate } = req.body; // expiryDate can be specific to each document type
+
+      // 1. Check if job seeker exists
+      const jobSeeker = await JobSeeker.get(jobSeekerId);
+      if (!jobSeeker) {
+        return res.status(404).json({ message: 'Job seeker not found' });
+      }
+
+      // 2. Check if already approved/rejected
+      const isFullyApproved = ['idDoc', 'drivingLicense', 'goodConductCert', 'goodsServiceLicense'].every(
+        doc => jobSeeker.documents[doc]?.status === 'approved'
+      );
+      if (isFullyApproved && ['approve-idDoc', 'approve-drivingLicense', 'approve-goodConductCert', 'approve-goodsServiceLicense'].includes(action)) {
+        return res.status(400).json({ message: 'Job seeker already fully approved' });
+      }
+      if (jobSeeker.status === 'rejected' && action === 'reject') {
+        return res.status(400).json({ message: 'Job seeker already rejected' });
+      }
+
+      let updates = {};
+
+      // Handle individual document approvals
+      const documentActions = {
+        'approve-idDoc': 'idDoc',
+        'approve-drivingLicense': 'drivingLicense',
+        'approve-goodConductCert': 'goodConductCert',
+        'approve-goodsServiceLicense': 'goodsServiceLicense'
+      };
+
+      const docType = documentActions[action];
+      if (docType) {
+        if (!expiryDate) {
+          return res.status(400).json({ message: `${docType} expiryDate is required` });
+        }
+        updates = {
+          documents: {
+            ...jobSeeker.documents,
+            [docType]: {
+              ...jobSeeker.documents[docType],
+              status: 'approved',
+              verifiedBy: req.user.uid,
+              verifiedAt: admin.firestore.Timestamp.now(),
+              expiryDate: admin.firestore.Timestamp.fromDate(new Date(expiryDate)),
+            },
+          },
+          updatedAt: admin.firestore.Timestamp.now(),
+        };
+        await JobSeeker.update(jobSeekerId, updates);
+
+        // Check if all critical documents are approved
+        const allApproved = ['idDoc', 'drivingLicense', 'goodConductCert', 'goodsServiceLicense'].every(
+          doc => updates.documents[doc]?.status === 'approved'
+        );
+        if (allApproved) {
+          updates = {
+            ...updates,
+            status: 'approved',
+            approvedAt: admin.firestore.Timestamp.now(),
+            approvedBy: req.user.uid,
+            updatedAt: admin.firestore.Timestamp.now(),
+          };
+          await JobSeeker.update(jobSeekerId, updates);
+
+          await sendEmail({
+            to: jobSeeker.email,
+            subject: 'Job Seeker Approved',
+            html: getRejectTemplate("Job Seeker Approved", `<br> <br> Your job seeker account has been approved. <br> <br> Thank you for using our services. <br> <br> Best regards, <br> ${process.env.APP_NAME}`, jobSeeker),
+            text: 'Your job seeker account has been approved. Welcome to our platform!'
+          });
+
+          const formattedPhone = formatPhoneNumber(jobSeeker.phone);
+          const smsMessage = 'Your job seeker documents have been approved. Welcome aboard!';
+          await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+          await logAdminActivity(
+            req.user.uid,
+            'approve_job_seeker',
+            req,
+            { type: 'job_seeker', id: jobSeekerId }
+          );
+        }
+        return res.status(200).json({ message: `${docType} approved`, updates });
+      }
+
+      // Handle rejection
+      if (action === 'reject') {
+        updates = {
+          status: 'rejected',
+          rejectionReason: reason || 'Unqualified',
+          updatedAt: admin.firestore.Timestamp.now(),
+        };
+
+        await JobSeeker.update(jobSeekerId, updates);
+
+        await sendEmail({
+          to: jobSeeker.email,
+          subject: 'Job Seeker Rejected',
+          html: getRejectTemplate('Job Seeker Rejected', `Your job seeker account has been rejected. Reason: ${reason || 'Unqualified'}`, jobSeeker),
+          text: `Your job seeker account has been rejected. Reason: ${reason || 'Unqualified'}`
+        });
+
+        const formattedPhone = formatPhoneNumber(jobSeeker.phone);
+        const smsMessage = `Your job seeker documents have been rejected. Reason: ${reason || 'Unqualified'}.`;
+        await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+        await logAdminActivity(
+          req.user.uid,
+          'reject_job_seeker',
+          req,
+          { type: 'job_seeker', id: jobSeekerId }
+        );
+
+        return res.status(200).json({ message: 'Job seeker rejected', updates });
+      }
+
+      return res.status(400).json({ message: 'Invalid action, must be approve-idDoc, approve-drivingLicense, approve-goodConductCert, approve-goodsServiceLicense, or reject' });
+    } catch (error) {
+      console.error('Review job seeker error:', error);
+      res.status(500).json({ message: 'Failed to review job seeker' });
+    }
+  },
+
+  async getApprovedJobSeekers(req, res) {
+    try {
+      const jobSeekers = await JobSeeker.getApprovedJobSeekers();
+      res.status(200).json({ jobSeekers });
+    } catch (error) {
+      console.error('Error fetching approved job seekers:', error);
+      res.status(500).json({ message: 'Failed to fetch approved job seekers' });
+    }
+  },
 };
 
 module.exports = jobSeekerController;

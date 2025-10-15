@@ -44,7 +44,7 @@ exports.registerUser = async (req, res) => {
   const uid = req.user.uid;
   // const email = req.user.email;
 
-  if (!["shipper", "transporter", "admin", "user", "broker", "business", "jobseeker"].includes(role)) {
+  if (!["shipper", "transporter", "admin", "user", "broker", "business", "job_seeker"].includes(role)) {
     return res.status(400).json({ message: "Invalid role" });
   }
 
@@ -869,7 +869,7 @@ exports.registerUserFromBackend = async (req, res) => {
     preferredVerificationMethod 
   } = req.body;
 
-  if (!["shipper", "transporter", "admin", "user", "broker", "business"].includes(role)) {
+  if (!["shipper", "transporter", "admin", "user", "broker", "business", "job_seeker"].includes(role)) {
     return res.status(400).json({ message: "Invalid role" });
   }
 
