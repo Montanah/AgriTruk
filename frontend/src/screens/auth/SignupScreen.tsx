@@ -40,6 +40,7 @@ const roleAccents = {
   broker: colors.tertiary,
   business: colors.secondary,
   transporter: '#FF8C00', // Unique bold orange for transporters
+  driver: colors.tertiary, // Same as broker - red accent for drivers
 };
 
 const roleLabels = {
@@ -47,6 +48,7 @@ const roleLabels = {
   broker: 'Broker',
   business: 'Corporate',
   transporter: 'Transporter',
+  driver: 'Driver',
 };
 
 const SignupScreen = () => {
