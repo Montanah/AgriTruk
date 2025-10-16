@@ -12,6 +12,8 @@ const MatchingService = require('../services/matchingService');
 const { calculateDistance, calculateRoadDistanceAndDuration } = require('../utils/geoUtils');
 const User = require('../models/User');
 const calculateTransportCost = require('../utils/calculateCost');
+const { driverId } = require('../schemas/DriverSchema');
+const Driver = require('../models/Driver');
 require('dotenv').config();
 
 const google_key = process.env.GOOGLE_MAPS_API_KEY;
@@ -1288,6 +1290,132 @@ exports.getBookingStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to get booking status'
+    });
+  }
+};
+
+exports.getDriverRouteLoads = async (req, res) => {
+  try {
+    const userId = req.params.userId || req.user.uid;
+
+    const driver = await Driver.getDriverIdByUserId(userId);
+    if (!driver) {
+      return res.status(404).json({ message: 'Driver not found' });
+    }
+    
+    if (!driver.currentRoute || driver.currentRoute.length === 0) {
+      return res.status(404).json({ message: 'Driver has no route' });
+    }
+
+    const bookingsSnapshot = await Booking.getAllAvailable();
+
+    const routeLoads = [];
+
+    for (const booking of bookingsSnapshot) {
+
+      let isRouteCompatible = false;
+      if (driver.currentRoute && driver.currentRoute.length > 0) {
+        const lastKnownLocation = driver.lastKnownLocation || 
+          driver.currentRoute[driver.currentRoute.length - 1].location;
+        
+        if (lastKnownLocation && booking.fromLocation) {
+          const distance = geolib.getDistance(
+            { latitude: lastKnownLocation.latitude, longitude: lastKnownLocation.longitude },
+            { latitude: booking.fromLocation.latitude, longitude: booking.fromLocation.longitude }
+          );
+          isRouteCompatible = distance <= 50000;
+        }
+      } else {
+        isRouteCompatible = true;
+      }
+
+      const isCapacityCompatible = 
+        (!booking.weightKg || !driver.assignedVehicleDetails?.capacityKg || 
+         booking.weightKg <= driver.assignedVehicleDetails.capacityKg) &&
+        (!booking.needsRefrigeration || driver.assignedVehicleDetails?.refrigerated) &&
+        (!booking.humidityControl || driver.assignedVehicleDetails?.humidityControl);
+
+      let isScheduleCompatible = true;
+      if (booking.pickUpDate) {
+        const now = new Date();
+        const pickupDate = booking.pickUpDate.toDate();
+        const timeDiff = pickupDate.getTime() - now.getTime();
+        isScheduleCompatible = timeDiff >= 0 && timeDiff <= 24 * 60 * 60 * 1000;
+      }
+
+      if (isRouteCompatible && isCapacityCompatible && isScheduleCompatible) {
+        routeLoads.push({
+          bookingId: booking.bookingId,
+          fromLocation: booking.fromLocation,
+          toLocation: booking.toLocation,
+          weightKg: booking.weightKg,
+          needsRefrigeration: booking.needsRefrigeration,
+          humidityControl: booking.humidityControl,
+          pickUpDate: booking.pickUpDate,
+          productType: booking.productType,
+          cost: booking.cost
+        });
+      }
+    }
+    await logActivity(req.user.uid, 'get_route_loads', req);
+    return res.status(200).json({
+      success: true,
+      routeLoads: formatTimestamps(routeLoads)
+    });
+  } catch (error) {
+    console.error('Error fetching route loads:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+exports.acceptDriverRouteLoad = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const bookingId = req.params.bookingId;
+
+    const driver = await Driver.get(userId);
+    if (!driver) {
+      return res.status(404).json({ message: 'Driver not found' });
+    }
+
+    const bookingSnap = await Booking.get(bookingId);
+    if (!bookingSnap) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (bookingSnap.status !== 'pending') {
+      return res.status(400).json({ message: 'Booking is not available for acceptance' });
+    }
+
+    await Driver.acceptLoad(userId, bookingId, bookingData);
+    await logActivity(userId, 'accept_route_load', req);
+    
+    await Action.create({
+      type: 'accept_route_load',
+      entityId: driverId,
+      priority: 'low',
+      metadata: {
+        bookingId: bookingId,
+        userId: userId
+      },
+      status: 'Accepted',
+      message: 'A driver has accepted a route load',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Load accepted successfully',
+      driverId: userId,
+      bookingId
+    });
+  } catch (error) {
+    console.error('Error accepting route load:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to accept load: ' + error.message
     });
   }
 };

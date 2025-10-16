@@ -6,6 +6,7 @@ const { requireRole } = require('../middlewares/requireRole');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' }); 
 const uploadAny = upload.any();
+
 const {
   createCompany,
   getCompany,
@@ -23,7 +24,8 @@ const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewar
 const CompanyController = require("../controllers/companyController");
 const adminController = require("../controllers/adminController");
 const jobSeekerController = require('../controllers/jobSeekerController');
-
+const vehicleController = require('../controllers/vehicleController');
+const driverController = require('../controllers/driverController');
 
 /**
  * @swagger
@@ -84,17 +86,13 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, creat
  * /api/companies/{companyId}/vehicles:
  *   post:
  *     summary: Create a new vehicle for a company
- *     description: Creates a new vehicle associated with a company.
- *     tags: [Companies]
+ *     description: >
+ *       Creates a new vehicle record associated with a company.  
+ *       The authenticated user must be the company's transporter to add a vehicle.  
+ *       Supports both **multipart/form-data** (for direct uploads) and **application/json** (for pre-uploaded URLs).
+ *     tags: [ Companies ]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path 
- *         name: companyId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the company to create a vehicle for
  *     requestBody:
  *       required: true
  *       content:
@@ -102,68 +100,196 @@ router.post('/', authenticateToken, requireRole('transporter'), uploadAny, creat
  *           schema:
  *             type: object
  *             required:
- *               - reg
- *               - model
- *               - year
+ *               - companyId
+ *               - vehicleRegistration
  *             properties:
- *               type:
+ *               companyId:
  *                 type: string
- *                 description: The type of the vehicle
- *               reg:
+ *                 description: ID of the company the vehicle belongs to.
+ *                 example: f0AIIfF299XJhr9CchF3
+ *               vehicleRegistration:
  *                 type: string
- *                 description: The make of the vehicle
- *               year:
+ *                 description: Vehicle registration number (e.g., license plate).
+ *                 example: KDB123A
+ *               vehicleType:
+ *                 type: string
+ *                 description: Type of vehicle.
+ *                 example: truck
+ *               vehicleMake:
+ *                 type: string
+ *                 description: Manufacturer of the vehicle.
+ *                 example: Isuzu
+ *               vehicleYear:
+ *                 type: integer
+ *                 description: Manufacturing year.
+ *                 example: 2022
+ *               vehicleColor:
+ *                 type: string
+ *                 description: Vehicle color.
+ *                 example: white
+ *               vehicleCapacity:
  *                 type: number
- *                 description: The year of manufacturer the vehicle
- *               color:
- *                 type: string
- *                 description: The color of the vehicle
- *               capacity:
- *                 type: number
- *                 description: The capacity of the vehicle
- *               model:
- *                 type: string
- *                 description: The model of the vehicle
- *               features:
- *                 type: number
- *                 description: The extra features of the vehicle
+ *                 description: Vehicle capacity in tons or cubic meters.
+ *                 example: 8
  *               bodyType:
  *                 type: string
- *                 description: The body type of the vehicle
- *               refrigeration:
+ *                 description: Body type of the vehicle.
+ *                 example: closed
+ *               driveType:
+ *                 type: string
+ *                 description: Drive type of the vehicle.
+ *                 example: 4WD
+ *               refrigerated:
  *                 type: boolean
- *                 description: Whether the vehicle has refrigeration
+ *                 description: Whether the vehicle has refrigeration.
+ *                 example: true
  *               humidityControl:
  *                 type: boolean
- *                 description: Whether the vehicle has humidity control
+ *                 description: Whether the vehicle supports humidity control.
+ *                 example: false
  *               specialCargo:
  *                 type: boolean
- *                 description: Whether the vehicle has special cargo
+ *                 description: Whether the vehicle is for special cargo.
+ *                 example: false
+ *               features:
+ *                 type: string
+ *                 description: Additional vehicle features or notes.
+ *                 example: GPS, Air Suspension
  *               insurance:
  *                 type: string
  *                 format: binary
- *                 description: The insurance details of the vehicle
- *               photos:
+ *                 description: Insurance document file (optional).
+ *               vehicleImages:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
- *                 description: The photos of the vehicle
- *               est:
+ *                 description: Array of vehicle image files (optional).
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - companyId
+ *               - vehicleRegistration
+ *             properties:
+ *               companyId:
  *                 type: string
- *                 description: The estimated value of the vehicle
- *             example:
- *               make: "Toyota" 
- *               model: "Camry"
- *               year: 2022
+ *                 example: f0AIIfF299XJhr9CchF3
+ *               vehicleRegistration:
+ *                 type: string
+ *                 example: KDB123A
+ *               vehicleType:
+ *                 type: string
+ *                 example: truck
+ *               vehicleMake:
+ *                 type: string
+ *                 example: Isuzu
+ *               vehicleYear:
+ *                 type: integer
+ *                 example: 2022
+ *               vehicleColor:
+ *                 type: string
+ *                 example: white
+ *               vehicleCapacity:
+ *                 type: number
+ *                 example: 8
+ *               bodyType:
+ *                 type: string
+ *                 example: closed
+ *               driveType:
+ *                 type: string
+ *                 example: 4WD
+ *               refrigerated:
+ *                 type: boolean
+ *                 example: true
+ *               humidityControl:
+ *                 type: boolean
+ *                 example: false
+ *               specialCargo:
+ *                 type: boolean
+ *                 example: false
+ *               features:
+ *                 type: string
+ *                 example: GPS, Air Suspension
+ *               insuranceUrl:
+ *                 type: string
+ *                 description: Pre-uploaded insurance file URL.
+ *                 example: https://cdn.example.com/uploads/insurance123.pdf
+ *               vehicleImageUrls:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of pre-uploaded vehicle image URLs.
+ *                 example:
+ *                   - https://cdn.example.com/uploads/truck1.jpg
+ *                   - https://cdn.example.com/uploads/truck2.jpg
  *     responses:
  *       201:
- *         description: Vehicle created successfully
- *       400:
- *         description: Missing required fields or validation errors
+ *         description: Vehicle created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Vehicle created successfully
+ *                 vehicle:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       example: a1b2c3d4
+ *                     companyId:
+ *                       type: string
+ *                       example: f0AIIfF299XJhr9CchF3
+ *                     vehicleRegistration:
+ *                       type: string
+ *                       example: KDB123A
+ *                     type:
+ *                       type: string
+ *                       example: truck
+ *                     make:
+ *                       type: string
+ *                       example: Isuzu
+ *                     year:
+ *                       type: integer
+ *                       example: 2022
+ *                     status:
+ *                       type: string
+ *                       example: pending
+ *       403:
+ *         description: Unauthorized to add vehicles to this company.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Unauthorized to add vehicles to this company
+ *       404:
+ *         description: Company not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Company not found
  *       500:
- *         description: Internal server error
-*/
+ *         description: Failed to create vehicle.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Failed to create vehicle
+ */
+// router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny, vehicleController.createVehicle);
 // Test route for debugging
 router.post('/:companyId/test', (req, res) => {
   console.log('🧪 TEST ROUTE HIT!');
@@ -1057,5 +1183,44 @@ router.get('/:companyId/job-seekers', authenticateToken, requireRole('transporte
  *         description: Internal server error
  */
 router.get('/:companyId/job-seekers/:jobSeekerId/documents', authenticateToken, requireRole('transporter'), jobSeekerController.getJobSeekerDocuments);
-  
-module.exports = router;
+
+/**
+ * @swagger
+ * /api/companies/{companyId}/updateRoute:
+ *   patch:
+ *     summary: Update driver location
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               location:
+ *                 type: object
+ *                 properties:
+ *                   latitude:
+ *                     type: number
+ *                   longitude:
+ *                     type: number
+ *     responses:
+ *       200:
+ *         description: Driver location updated successfully
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Internal server error
+ */
+router.patch('/:companyId/updateRoute', authenticateToken, requireRole('driver'), driverController.updateLocation);
+
+module.exports = router;  

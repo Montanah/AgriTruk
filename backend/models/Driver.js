@@ -1,102 +1,242 @@
 const admin = require("../config/firebase");
-const { approve, reject } = require("./Transporter");
-const { updateAvailability } = require("./Vehicle");
 const db = admin.firestore();
+const DriverSchema = require('../schemas/DriverSchema');
 
 const Driver = {
-  async create(companyId, driverData) {
-    const driverId = driverData.driverId || db.collection('companies').doc(companyId).collection('drivers').doc().id;
+  async create(driverData) {
+    const driverId = driverData.driverId || db.collection('drivers').doc().id;
     const driver = {
       driverId,
-      name: driverData.name || null,
+      companyId: driverData.companyId || null,
+      firstName: driverData.firstName || null,
+      lastName: driverData.lastName || null,
       email: driverData.email || null,
       phone: driverData.phone || null,
-      photo: driverData.photo || null,
-      idDoc: driverData.idDoc || null,
-      idExpiryDate: driverData.idExpiry || null,
-      idapproved: driverData.idapproved || false,
-      license: driverData.license || null,
-      driverLicenseExpiryDate: driverData.licenseExpiry || null,
-      driverLicenseapproved: driverData.driverLicenseapproved || false,
+      profileImage: driverData.profileImage || null,
+      idDocumentUrl: driverData.idDocumentUrl || null,
+      idExpiryDate: driverData.idExpiryDate ? admin.firestore.Timestamp.fromDate(new Date(driverData.idExpiryDate)) : null,
+      idApproved: driverData.idApproved || false,
+      driverLicense: driverData.driverLicense || null,
+      driverLicenseUrl: driverData.driverLicenseUrl || null,
+      driverLicenseExpiryDate: driverData.driverLicenseExpiryDate ? admin.firestore.Timestamp.fromDate(new Date(driverData.driverLicenseExpiryDate)) : null,
+      driverLicenseApproved: driverData.driverLicenseApproved || false,
       status: driverData.status || 'pending',
+      assignedVehicleId: driverData.assignedVehicleId || null,
+      assignedVehicleDetails: driverData.assignedVehicleDetails || null,
+      currentRoute: driverData.currentRoute || null,
+      lastKnownLocation: driverData.lastKnownLocation || null,
+      acceptedLoads: driverData.acceptedLoads || null,
+      currentLoadStatus: driverData.currentLoadStatus || null,
       availability: driverData.availability || false,
       rejectionReason: driverData.rejectionReason || null,
-      // auth
       userId: driverData.userId || null,
       role: driverData.role || 'driver',
+      isDefaultPassword: driverData.isDefaultPassword || false,
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
+      lastActiveAt: driverData.lastActiveAt || null,
     };
-    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).set(driver);
+    await db.collection('drivers').doc(driverId).set(driver);
     return driver;
   },
 
-  async get(companyId, driverId) {
-    const doc = await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).get();
+  async get(driverId) {
+    const doc = await db.collection('drivers').doc(driverId).get();
     if (!doc.exists) throw new Error('Driver not found');
-    return { id: doc.id, ...doc.data() };
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      idExpiryDate: data.idExpiryDate ? data.idExpiryDate.toDate().toISOString() : null,
+      driverLicenseExpiryDate: data.driverLicenseExpiryDate ? data.driverLicenseExpiryDate.toDate().toISOString() : null,
+      createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
+      updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null,
+      lastActiveAt: data.lastActiveAt ? data.lastActiveAt.toDate().toISOString() : null,
+      acceptedAt: data.acceptedLoads?.map(load => load.acceptedAt ? load.acceptedAt.toDate().toISOString() : null) || null,
+      pickUpDate: data.acceptedLoads?.map(load => load.pickUpDate ? load.pickUpDate.toDate().toISOString() : null) || null,
+    };
   },
 
-  async update(companyId, driverId, updates) {
-    console.log(updates);
-    const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
-    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update(updated);
+  async update(driverId, updates) {
+    const updated = {
+      ...updates,
+      updatedAt: admin.firestore.Timestamp.now(),
+      ...(updates.idExpiryDate ? { idExpiryDate: admin.firestore.Timestamp.fromDate(new Date(updates.idExpiryDate)) } : {}),
+      ...(updates.driverLicenseExpiryDate ? { driverLicenseExpiryDate: admin.firestore.Timestamp.fromDate(new Date(updates.driverLicenseExpiryDate)) } : {}),
+      ...(updates.lastActiveAt ? { lastActiveAt: admin.firestore.Timestamp.fromDate(new Date(updates.lastActiveAt)) } : {}),
+      ...(updates.acceptedLoads ? { acceptedLoads: updates.acceptedLoads.map(load => ({
+        ...load,
+        acceptedAt: load.acceptedAt ? admin.firestore.Timestamp.fromDate(new Date(load.acceptedAt)) : null,
+        pickUpDate: load.pickUpDate ? admin.firestore.Timestamp.fromDate(new Date(load.pickUpDate)) : null,
+      })) } : {}),
+    };
+    await db.collection('drivers').doc(driverId).update(updated);
     return updated;
   },
 
-  async getAll(companyId) {
-    const snapshot = await db.collection('companies').doc(companyId).collection('drivers').get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  async getAll() {
+    const snapshot = await db.collection('drivers').get();
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        idExpiryDate: data.idExpiryDate ? data.idExpiryDate.toDate().toISOString() : null,
+        driverLicenseExpiryDate: data.driverLicenseExpiryDate ? data.driverLicenseExpiryDate.toDate().toISOString() : null,
+        createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
+        updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null,
+        lastActiveAt: data.lastActiveAt ? data.lastActiveAt.toDate().toISOString() : null,
+        acceptedAt: data.acceptedLoads?.map(load => load.acceptedAt ? load.acceptedAt.toDate().toISOString() : null) || null,
+        pickUpDate: data.acceptedLoads?.map(load => load.pickUpDate ? load.pickUpDate.toDate().toISOString() : null) || null,
+      };
+    });
   },
 
-  async getByEmail(companyId, email) {
-    console.log(`Searching for email ${email} in company ${companyId}`); // Debug
-    const querySnapshot = await db.collection('companies')
-      .doc(companyId)
-      .collection('drivers')
+  async getByEmail(email) {
+    const querySnapshot = await db.collection('drivers')
       .where('email', '==', email)
       .limit(1)
       .get();
-    console.log('Query snapshot:', querySnapshot.empty); // Debug
-    return querySnapshot.empty ? null : querySnapshot.docs[0].data();
+    return querySnapshot.empty ? null : {
+      id: querySnapshot.docs[0].id,
+      ...querySnapshot.docs[0].data(),
+      idExpiryDate: querySnapshot.docs[0].data().idExpiryDate ? querySnapshot.docs[0].data().idExpiryDate.toDate().toISOString() : null,
+      driverLicenseExpiryDate: querySnapshot.docs[0].data().driverLicenseExpiryDate ? querySnapshot.docs[0].data().driverLicenseExpiryDate.toDate().toISOString() : null,
+      createdAt: querySnapshot.docs[0].data().createdAt ? querySnapshot.docs[0].data().createdAt.toDate().toISOString() : null,
+      updatedAt: querySnapshot.docs[0].data().updatedAt ? querySnapshot.docs[0].data().updatedAt.toDate().toISOString() : null,
+      lastActiveAt: querySnapshot.docs[0].data().lastActiveAt ? querySnapshot.docs[0].data().lastActiveAt.toDate().toISOString() : null,
+      acceptedAt: querySnapshot.docs[0].data().acceptedLoads?.map(load => load.acceptedAt ? load.acceptedAt.toDate().toISOString() : null) || null,
+      pickUpDate: querySnapshot.docs[0].data().acceptedLoads?.map(load => load.pickUpDate ? load.pickUpDate.toDate().toISOString() : null) || null,
+    };
   },
 
-  async getByPhone(companyId, phone) {
-    const querySnapshot = await db.collection('companies')
-      .doc(companyId)
-      .collection('drivers')
+  async getByPhone(phone) {
+    const querySnapshot = await db.collection('drivers')
       .where('phone', '==', phone)
       .limit(1)
       .get();
-    return querySnapshot.empty ? null : querySnapshot.docs[0].data();
+    return querySnapshot.empty ? null : {
+      id: querySnapshot.docs[0].id,
+      ...querySnapshot.docs[0].data(),
+      idExpiryDate: querySnapshot.docs[0].data().idExpiryDate ? querySnapshot.docs[0].data().idExpiryDate.toDate().toISOString() : null,
+      driverLicenseExpiryDate: querySnapshot.docs[0].data().driverLicenseExpiryDate ? querySnapshot.docs[0].data().driverLicenseExpiryDate.toDate().toISOString() : null,
+      createdAt: querySnapshot.docs[0].data().createdAt ? querySnapshot.docs[0].data().createdAt.toDate().toISOString() : null,
+      updatedAt: querySnapshot.docs[0].data().updatedAt ? querySnapshot.docs[0].data().updatedAt.toDate().toISOString() : null,
+      lastActiveAt: querySnapshot.docs[0].data().lastActiveAt ? querySnapshot.docs[0].data().lastActiveAt.toDate().toISOString() : null,
+      acceptedAt: querySnapshot.docs[0].data().acceptedLoads?.map(load => load.acceptedAt ? load.acceptedAt.toDate().toISOString() : null) || null,
+      pickUpDate: querySnapshot.docs[0].data().acceptedLoads?.map(load => load.pickUpDate ? load.pickUpDate.toDate().toISOString() : null) || null,
+    };
   },
 
-  async updateAvailability(companyId,driverId, availability) {
-    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update({ availability });
+  async updateAvailability(driverId, availability) {
+    await db.collection('drivers').doc(driverId).update({ availability, updatedAt: admin.firestore.Timestamp.now() });
   },
 
-  async approve(companyId, driverId) {
+  async approve(driverId) {
     const updates = {
       status: 'approved',
       updatedAt: admin.firestore.Timestamp.now(),
     };
-    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update(updates);
+    await db.collection('drivers').doc(driverId).update(updates);
     return updates;
   },
 
-  async reject(companyId, driverId, reason) {
+  async reject(driverId, reason) {
     const updates = {
       status: 'rejected',
       rejectionReason: reason || 'Not specified',
       updatedAt: admin.firestore.Timestamp.now(),
     };
-    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update(updates);
+    await db.collection('drivers').doc(driverId).update(updates);
     return updates;
   },
 
   async updateFirebaseId(companyId, driverId, userId) {
-    await db.collection('companies').doc(companyId).collection('drivers').doc(driverId).update({ userId });
+    await db.collection('drivers').doc(driverId).update({ userId, updatedAt: admin.firestore.Timestamp.now() });
   },
+  async acceptLoad(driverId, bookingId, bookingData) {
+    const driverRef = db.collection('drivers').doc(driverId);
+    const driverSnap = await driverRef.get();
+    if (!driverSnap.exists) throw new Error('Driver not found');
+
+    const driverData = driverSnap.data();
+    if (!driverData.assignedVehicleId) throw new Error('No vehicle assigned to driver');
+
+    // Fetch vehicle details
+    const vehicleRef = db.collection('vehicles').doc(driverData.assignedVehicleId);
+    const vehicleSnap = await vehicleRef.get();
+    if (!vehicleSnap.exists) throw new Error('Vehicle not found');
+    const vehicleData = vehicleSnap.data();
+
+    // Validate capacity and compatibility
+    if (bookingData.weightKg && bookingData.weightKg > vehicleData.capacityKg) {
+      throw new Error('Booking weight exceeds vehicle capacity');
+    }
+    if (bookingData.needsRefrigeration && !vehicleData.refrigerated) {
+      throw new Error('Vehicle does not support refrigeration');
+    }
+    if (bookingData.humidityControl && !vehicleData.humidityControl) {
+      throw new Error('Vehicle does not support humidity control');
+    }
+
+    // Update currentRoute
+    const updatedRoute = driverData.currentRoute || [];
+    updatedRoute.push({
+      location: bookingData.fromLocation,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      stopType: 'pickup'
+    });
+    updatedRoute.push({
+      location: bookingData.toLocation,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      stopType: 'dropoff'
+    });
+
+    // Update acceptedLoads
+    const updatedLoads = driverData.acceptedLoads || [];
+    updatedLoads.push({
+      bookingId,
+      status: 'accepted',
+      acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+      pickUpDate: bookingData.pickUpDate
+    });
+
+    // Update driver
+    await driverRef.update({
+      currentRoute: updatedRoute,
+      acceptedLoads: updatedLoads,
+      currentLoadStatus: 'inTransit',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Update vehicle status
+    await vehicleRef.update({
+      inUse: true,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Update booking status (e.g., mark as assigned)
+    await db.collection('bookings').doc(bookingId).update({
+      status: 'assigned',
+      driverId,
+      vehicleId: driverData.assignedVehicleId,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return { success: true, driverId, bookingId };
+  },
+
+  // Existing get method
+  async get(driverId) {
+    const driverSnap = await db.collection('drivers').doc(driverId).get();
+    return driverSnap.exists ? { id: driverSnap.id, ...driverSnap.data() } : null;
+  },
+
+  async getDriverIdByUserId(userId) {
+    const driverSnap = await db.collection('drivers').where('userId', '==', userId).limit(1).get();
+    return driverSnap.docs[0]?.data() || null;
+  },
+
 };
 
-module.exports = Driver;
+module.exports = Driver; 
