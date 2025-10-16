@@ -510,7 +510,7 @@ router.get('/user/:userId', authenticateToken, requireRole(['job_seeker', 'trans
  *                 type: string
  *                 format: binary
  *                 description: Profile photo file
- *               driverLicense:
+ *               drivingLicense:
  *                 type: string
  *                 format: binary
  *                 description: Driver's license file
@@ -518,7 +518,7 @@ router.get('/user/:userId', authenticateToken, requireRole(['job_seeker', 'trans
  *                 type: string
  *                 format: binary
  *                 description: Good conduct certificate file
- *               goodsServiceLicence:
+ *               goodsServiceLicense:
  *                 type: string
  *                 format: binary
  *                 description: Goods service license file
@@ -610,7 +610,7 @@ router.patch('/:jobSeekerId/status', authenticateToken, requireRole('admin'), au
  * /api/job-seekers/{jobSeekerId}/status:
  *   get:
  *     summary: Get job seeker status
- *     tags: [Admin Actions]
+ *     tags: [Job Seekers]
  *     parameters:
  *       - in: path
  *         name: jobSeekerId
@@ -630,7 +630,7 @@ router.patch('/:jobSeekerId/status', authenticateToken, requireRole('admin'), au
  *       500:
  *         description: Internal server error
  */
-router.get('/:jobSeekerId/status', authenticateToken, requireRole('admin'), authorize(['view-job-seekers',  'manage-job-seekers', 'super_admin']), jobSeekerController.getApplicationStatus);
+router.get('/:jobSeekerId/status', authenticateToken, requireRole(['job_seeker', 'transporter', 'admin']), authorize(['view-job-seekers',  'manage-job-seekers', 'super_admin']), jobSeekerController.getApplicationStatus);
 
 /**
  * @swagger

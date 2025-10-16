@@ -3,6 +3,7 @@ const db = admin.firestore();
 const JobSeekerSchema = require('../schemas/JobSeekerSchema');
 const { uploadImage } = require('../utils/upload');
 
+
 function calculateAge(dateOfBirth) {
   if (!dateOfBirth) return 0;
   const birthDate = new Date(dateOfBirth);
@@ -360,7 +361,6 @@ const JobSeeker = {
     const jobSeekers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return jobSeekers;
   },
-
   // Get schema for reference
   getSchema() {
     return JobSeekerSchema;

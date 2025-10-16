@@ -9,7 +9,12 @@ const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
 const formatPhoneNumber = require("../utils/formatPhone");
 const admin = require("../config/firebase");
 const { getRejectTemplate } = require("../utils/sendMailTemplate");
-const { approvedBy } = require('../schemas/JobSeekerSchema');
+const { formatTimestamps } = require('../utils/formatData');
+const { logActivity, logAdminActivity } = require('../utils/activityLogger');
+const Notification = require('../models/Notification');
+const Company = require('../models/Company');
+const cloudinary = require('cloudinary').v2;
+const db = admin.firestore();
 
 const jobSeekerController = {
   // POST /api/job-seekers - Submit job seeker application (Step 1)
@@ -103,6 +108,18 @@ const jobSeekerController = {
         documents
       });
 
+      await logActivity(uid, "Job Seeker Application", "Submitted");
+
+      await Action.create({
+        type: 'jobSeekerApplication',
+        entityId: jobSeeker.id,
+        priority: 'high',
+        metadata: {
+          name: jobSeeker.name
+        },
+        message: `A new job seeker has been created. Job Seeker ID: ${jobSeeker.id}`,
+      });
+
       res.status(201).json({
         success: true,
         application: jobSeeker,
@@ -137,6 +154,9 @@ const jobSeekerController = {
       if (!updatedJobSeeker) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
       }
+      
+      await logActivity(userId, "Job Seeker Application", "Completed");
+
       res.status(200).json({
         success: true,
         application: updatedJobSeeker,
@@ -260,9 +280,9 @@ const jobSeekerController = {
             case 'profilePhoto':
               updateData.profilePhoto = publicId;  // Replace profile photo
               break;
-            case 'driverLicense':
+            case 'drivingLicense':
               updateData.documents = updateData.documents || {};
-              updateData.documents.driverLicense = { url: publicId, approved: false };
+              updateData.documents.drivingLicense = { url: publicId, approved: false };
               sensitiveDocsChanged = true;
               changedFields.push('Driver License');
               break;
@@ -272,11 +292,11 @@ const jobSeekerController = {
               sensitiveDocsChanged = true;
               changedFields.push('Good Conduct Certificate');
               break;
-            case 'goodsServiceLicence':
+            case 'goodsServiceLicense':
               updateData.documents = updateData.documents || {};
-              updateData.documents.goodsServiceLicence = { url: publicId, approved: false };
+              updateData.documents.goodsServiceLicense = { url: publicId, approved: false };
               sensitiveDocsChanged = true;
-              changedFields.push('Goods Service Licence');
+              changedFields.push('Goods Service License');
               break;
             case 'idDoc':
               updateData.documents = updateData.documents || {};
@@ -312,6 +332,18 @@ const jobSeekerController = {
       // Update job seeker root fields
       // updateData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
       await JobSeeker.update(jobSeekerId, updateData);
+
+      await logActivity(userId, "Job Seeker Documents", "Updated");
+
+      await Action.create({
+        type: 'job_seeker_review',
+        entityId: { id: jobSeekerId, email: jobSeeker.email },
+        priority: 'high',
+        metadata: {
+          changedFields,
+        },
+        message: `Job Seeker ${jobSeeker.name} updated documents: ${changedFields.join(', ')}`
+      })
 
       return res.status(200).json({
         success: true,
@@ -400,7 +432,7 @@ const jobSeekerController = {
       const jobSeekers = await JobSeeker.getAll(filters);
       res.status(200).json({
         success: true,
-        jobSeekers,
+        jobSeekers: formatTimestamps(jobSeekers),
         count: jobSeekers.length
       });
     } catch (error) {
@@ -431,6 +463,19 @@ const jobSeekerController = {
       if (!updatedJobSeeker) {
         return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
       }
+
+      await logActivity(userId, "Job Seeker", "Updated");
+
+      await Action.create({
+        type: 'job_seeker_review',
+        entityId: { id: id, email: jobseeker.email },
+        priority: 'high',
+        metadata: {
+          changedFields: Object.keys(updateData),
+        },
+        message: `Job Seeker ${jobseeker.name} updated: ${Object.keys(updateData).join(', ')}`
+      });
+
       res.status(200).json({
         success: true,
         application: updatedJobSeeker
@@ -451,6 +496,9 @@ const jobSeekerController = {
     try {
       const { id } = req.params;
       const result = await JobSeeker.delete(id);
+
+      await logAdminActivity(req.user.id, "Job Seeker", "Deleted");
+
       res.status(200).json({
         success: true,
         message: result.message
@@ -679,12 +727,172 @@ const jobSeekerController = {
   async getApprovedJobSeekers(req, res) {
     try {
       const jobSeekers = await JobSeeker.getApprovedJobSeekers();
-      res.status(200).json({ jobSeekers });
+      
+      res.status(200).json({ 
+        success: true,
+        jobSeekers: formatTimestamps(jobSeekers) 
+      });
     } catch (error) {
       console.error('Error fetching approved job seekers:', error);
       res.status(500).json({ message: 'Failed to fetch approved job seekers' });
     }
   },
+
+  
+async browseJobSeekers (req, res) {
+  try {
+    const companyId = req.params.companyId;
+    
+    const companyDoc = await Company.get(companyId);
+    if (!companyDoc) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Verify the user owns the company
+    const userId = req.user.uid;
+    
+    if (companyDoc.transporterId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized to view job seekers for this company' });
+    }
+
+    if (companyDoc.status !== 'approved') {
+      return res.status(403).json({ message: 'Company is not approved' });
+    }
+
+    // Fetch approved job seekers
+    const jobSeekersSnapshot = await JobSeeker.getApprovedJobSeekers();
+
+    await logActivity(
+      userId,
+      'view_job_seekers',
+      req,
+      { type: 'company', id: companyId }
+    );
+
+    res.status(200).json({ success: true, jobSeekers: formatTimestamps(jobSeekersSnapshot) });
+  } catch (error) {
+    console.error('Error fetching approved job seekers:', error);
+    res.status(500).json({ message: 'Failed to fetch approved job seekers' });
+  }
+},
+
+async getJobSeekerDocuments (req, res) {
+  try {
+    const companyId = req.params.companyId;
+    const jobSeekerId = req.params.jobSeekerId;
+    const companyDoc = await Company.get(companyId);
+    if (!companyDoc) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Verify the user owns the company
+    const userId = req.user.uid;
+    
+    if (companyDoc.transporterId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized to view job seeker documents for this company' });
+    }
+
+    if (companyDoc.status !== 'approved') {
+      return res.status(403).json({ message: 'Company is not approved' });
+    }
+
+    // Fetch job seeker and verify status
+    const jobSeekerDoc = await JobSeeker.get(jobSeekerId);
+    if (!jobSeekerDoc) {
+      return res.status(404).json({ message: 'Job seeker not found' });
+    }
+
+    if (jobSeekerDoc.status !== 'approved') {
+      return res.status(403).json({ message: 'Only approved job seekers\' documents are accessible' });
+    }
+
+    // Generate signed URLs for documents (1-hour expiration)
+    const generateSignedUrl = async (url) => {
+      if (!url) return null;
+      const timestamp = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      const signature = cloudinary.utils.api_sign_request(
+        { timestamp, public_id: url.split('/').pop(), version: url.split('/').slice(-2, -1)[0] },
+        process.env.CLOUDINARY_API_SECRET
+      );
+      return `${url}?timestamp=${timestamp}&signature=${signature}`;
+    };
+
+    // Fetch documents (assuming documents are a nested object in job_seeker)
+    const documents = jobSeekerDoc.documents || {};
+    const formattedDocuments = {
+      idDoc: documents.idDoc ? {
+        url: await generateSignedUrl(documents.idDoc.url),
+        status: documents.idDoc.status,
+        expiryDate: documents.idDoc.expiryDate ? documents.idDoc.expiryDate.toDate().toISOString() : null,
+      } : null,
+      drivingLicense: documents.drivingLicense ? {
+        url: await generateSignedUrl(documents.drivingLicense.url),
+        status: documents.drivingLicense.status,
+        expiryDate: documents.drivingLicense.expiryDate ? documents.drivingLicense.expiryDate.toDate().toISOString() : null,
+        vehicleClasses: documents.drivingLicense.vehicleClasses,
+      } : null,
+      goodConductCert: documents.goodConductCert ? {
+        url: await generateSignedUrl(documents.goodConductCert.url),
+        status: documents.goodConductCert.status,
+        expiryDate: documents.goodConductCert.expiryDate ? documents.goodConductCert.expiryDate.toDate().toISOString() : null,
+        isClean: documents.goodConductCert.isClean,
+        isRenewed: documents.goodConductCert.isRenewed,
+      } : null,
+      psvBadge: documents.psvBadge ? {
+        url: await generateSignedUrl(documents.psvBadge.url), // Using Cloudinary URL directly as it's already secure documents.psvBadge.url,
+        status: documents.psvBadge.status,
+        expiryDate: documents.psvBadge.expiryDate ? documents.psvBadge.expiryDate.toDate().toISOString() : null,
+      } : null,
+      nightTravelLicense: documents.nightTravelLicense ? {
+        url: await generateSignedUrl(documents.nightTravelLicense.url),
+        status: documents.nightTravelLicense.status,
+        expiryDate: documents.nightTravelLicense.expiryDate ? documents.nightTravelLicense.expiryDate.toDate().toISOString() : null,
+      } : null,
+      rslLicense: documents.rslLicense ? {
+        url: await generateSignedUrl(documents.rslLicense.url),
+        status: documents.rslLicense.status,
+        expiryDate: documents.rslLicense.expiryDate ? documents.rslLicense.expiryDate.toDate().toISOString() : null,
+      } : null,
+      backgroundCheck: documents.backgroundCheck ? {
+        url: await generateSignedUrl(documents.backgroundCheck.url),
+        status: documents.backgroundCheck.status,
+        expiryDate: documents.backgroundCheck.expiryDate ? documents.backgroundCheck.expiryDate.toDate().toISOString() : null,
+      } : null,
+      goodsServiceLicense: documents.goodsServiceLicense ? {
+        url: await generateSignedUrl(documents.goodsServiceLicense.url),
+        status: documents.goodsServiceLicense.status,
+        expiryDate: documents.goodsServiceLicense.expiryDate ? documents.goodsServiceLicense.expiryDate.toDate().toISOString() : null,
+      } : null,
+    };
+
+    // Log document access
+    await db.collection('document_access_logs').add({
+      companyId,
+      jobSeekerId,
+      accessedBy: userId,
+      documentType: Object.keys(documents).join(', '), // Log all accessed document types
+      accessedAt: new Date(),
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    });
+
+    await Action.create({
+      type: 'document_access',
+      entityId: { id: jobSeekerId, email: jobSeekerDoc.email },
+      priority: 'high',
+      metadata: {
+        documentType: Object.keys(documents).join(', '), // Log all accessed document types
+      },
+      message: `Job Seeker ${jobSeekerDoc.name} accessed documents: ${Object.keys(documents).join(', ')}`
+    });
+
+    res.status(200).json({ success: true, documents: formattedDocuments });
+  } catch (error) {
+    console.error('Error fetching job seeker documents:', error);
+    res.status(500).json({ message: 'Failed to fetch job seeker documents' });
+  }
+},
+
 };
 
 module.exports = jobSeekerController;
