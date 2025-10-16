@@ -5,6 +5,7 @@ const { authenticateToken } = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/requireRole');
 const { authorize } = require('../middlewares/adminAuth');
 const bookingController = require('../controllers/bookingController');
+const driverController = require('../controllers/driverController');
 
 /**
  * @swagger
@@ -225,6 +226,23 @@ router.get('/requests', (req, res, next) => {
  *         description: Internal server error
  */
 router.get('/transporters/route-loads', authenticateToken, requireRole('transporter'), bookingController.getTransporterRouteLoads);
+
+/**
+ * @swagger
+ * /api/bookings/companies/route-loads:
+ *   get:
+ *     summary: Get available bookings for companies
+ *     description: Returns a list of available bookings for companies.
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of available bookings for companies
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/companies/route-loads', authenticateToken, requireRole('driver'), bookingController.getDriverRouteLoads);
 
 /**
  * @swagger
@@ -603,5 +621,40 @@ router.get('/client/:userId', authenticateToken, requireRole(['shipper', 'busine
  *         description: Booking not found
  */
 router.get('/:bookingId/status', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingStatus);
+
+/**
+ * @swagger
+ * /api/bookings/{companyId}/accept/{bookingId}:
+ *   patch:
+ *     summary: Accept a booking request for a specific company
+ *     description: Allows a transporter to accept a booking request for a specific company
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking to accept
+ *     responses:
+ *       200:
+ *         description: Booking accepted successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+ */
+router.patch('/:companyId/accept/:bookingId', authenticateToken, requireRole([ 'transporter', 'driver']), driverController.acceptBooking);
+
 
 module.exports = router;

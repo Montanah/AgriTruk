@@ -3,6 +3,13 @@ const db = admin.firestore();
 const { adminNotification, sendDriverWelcomeMail } = require('../utils/sendMailTemplate');
 const cloudinary = require('cloudinary').v2;
 const sendEmail = require('../utils/sendEmail');
+const Driver = require('../models/Driver');
+const Booking = require('../models/Booking');
+const Notification = require('../models/Notification');
+const { logActivity, logAdminActivity } = require('../utils/activityLogger');
+const Action = require('../models/Action');
+const Company = require('../models/Company');
+
 
 // Utility function to upload driver documents
 const uploadDriverDocuments = async (files) => {
@@ -332,13 +339,14 @@ const createDriver = async (req, res) => {
     }
 
     // Create driver document
-    const driverRef = db.collection('drivers').doc();
-    await driverRef.set(driverData);
+    // const driverRef = db.collection('drivers').doc();
+    // await driverRef.set(driverData);
+    const driverRef = await Driver.create(driverData);
 
     // Create action for admin review
     await db.collection('actions').add({
       type: 'driver_review',
-      entityId: driverRef.id,
+      entityId: driverRef.driverId,
       priority: 'medium',
       metadata: {
         companyName: companyData.companyName,
@@ -391,7 +399,6 @@ const createDriver = async (req, res) => {
   }
 };
 
-module.exports = { createDriver };
 // Get all drivers for a company
 const getDrivers = async (req, res) => {
   try {
@@ -921,6 +928,302 @@ const toggleDriverAvailability = async (req, res) => {
   }
 };
 
+const acceptBooking = async (req, res) => {
+  try {
+    const { bookingId, companyId } = req.params;
+    const userId = req.user.uid;
+
+    console.log('🚗 Accepting booking:', bookingId);
+    console.log('🚗 Company ID:', companyId);
+    console.log('🚗 User ID:', userId);
+
+    const driverData = await Driver.getDriverIdByUserId(userId);
+    if (!driverData) {
+      return res.status(404).json({
+        success: false,
+        message: 'Driver not found'
+      });
+    }
+
+    const driverId = driverData.driverId;
+
+    const vehicleId = driverData.assignedVehicleId;
+    console.log('🚗 Vehicle ID:', vehicleId);
+
+    if (driverData.companyId !== companyId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to accept this booking'
+      });
+    }
+
+    // Get booking details
+    const booking = await Booking.get(bookingId);
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check if booking is already accepted
+    if (booking.status === 'accepted') {
+      return res.status(409).json({
+        success: false,
+        message: 'Booking already accepted'
+      });
+    }
+
+    // Check if booking is still available
+    if (booking.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Booking is no longer available'
+      });
+    }
+
+    // Get driver details
+    let driver = null;
+    try {
+      driver = await Driver.get(driverId);
+      console.log('✅ Driver found:', {
+        id: driverId,
+        name: `${driver.firstName} ${driver.lastName}`,
+        phone: driver.phone,
+        status: driver.status
+      });
+    } catch (error) {
+      console.log('❌ Driver not found, continuing without driver details:', error.message);
+    }
+
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: 'Driver not found'
+      });
+    }
+
+    // Get vehicle details - handle both individual drivers and company drivers
+    let vehicle = null;
+    if (vehicleId) {
+      try {
+        // Check if this is a company driver by looking for the driver in companies collection
+        let isCompanyDriver = false;
+        let companyIdFromDriver = companyId || driver.companyId; // Use provided companyId or driver's companyId
+        console.log('🚗 Company ID from driver:', companyIdFromDriver);
+        
+        if (companyIdFromDriver) {
+          const driverSnapshot  = await Driver.get(driverId);
+          
+          if (driverSnapshot) {
+            isCompanyDriver = true;
+            console.log('✅ Company driver detected, getting vehicle from company collection');
+            
+            const vehicleSnapshot = await db.collection('vehicles').doc(vehicleId).get();
+            if (vehicleSnapshot.exists) {
+              vehicle = vehicleSnapshot.data();
+              console.log('✅ Vehicle found:', vehicle);
+              console.log('✅ Company vehicle found:', {
+                make: vehicle.make,
+                model: vehicle.type,
+                registration: vehicle.vehicleRegistration
+              });
+            }
+          }
+        }
+
+        if (!isCompanyDriver && driver.assignedVehicleId) {
+          // Individual driver - vehicle data might be in assignedVehicleDetails
+          console.log('✅ Individual driver detected, using assigned vehicle details');
+          vehicle = driver.assignedVehicleDetails || {};
+        }
+      } catch (error) {
+        console.log('Error determining driver type or fetching vehicle details:', error.message);
+      }
+    }
+
+    // Update booking status with driver and vehicle details
+    const updates = {
+      status: 'accepted',
+      driverId: driverId,
+      vehicleId: vehicleId || null,
+      companyId: companyId || null, // Include companyId
+      driverName: `${driver.firstName} ${driver.lastName}` || null,
+      driverPhone: driver.phone || null,
+      driverPhoto: driver.profileImage || null,
+      driverStatus: driver.status || null,
+      vehicleMake: vehicle?.vehicleMake || vehicle?.make || (driver.assignedVehicleDetails?.make || null),
+      vehicleModel: vehicle?.vehicleModel || vehicle?.model || (driver.assignedVehicleDetails?.model || null),
+      vehicleYear: vehicle?.vehicleYear || vehicle?.year || (driver.assignedVehicleDetails?.year || null),
+      vehicleType: vehicle?.vehicleType || vehicle?.type || (driver.assignedVehicleDetails?.type || null),
+      vehicleRegistration: vehicle?.vehicleRegistration || vehicle?.reg || (driver.assignedVehicleDetails?.registration || null),
+      vehicleColor: vehicle?.vehicleColor || vehicle?.color || (driver.assignedVehicleDetails?.color || null),
+      vehicleCapacity: vehicle?.vehicleCapacity || vehicle?.capacity || (driver.assignedVehicleDetails?.capacityKg || null),
+      acceptedAt: admin.firestore.Timestamp.now(),
+      updatedAt: admin.firestore.Timestamp.now()
+    };
+
+    console.log('💾 Saving booking updates:', {
+      bookingId,
+      driverName: updates.driverName,
+      driverPhone: updates.driverPhone,
+      vehicleMake: updates.vehicleMake,
+      vehicleRegistration: updates.vehicleRegistration
+    });
+
+    await Booking.update(bookingId, updates);
+
+    // Use existing user-facing booking ID if available
+    const displayBookingId = (
+      booking.displayId ||
+      booking.userFriendlyId ||
+      booking.unifiedBookingId ||
+      booking.readableId ||
+      booking.referenceCode ||
+      booking.referenceId ||
+      booking.bookingId ||
+      booking.id ||
+      bookingId
+    );
+
+    // Create single notification for client
+    await Notification.create({
+      userId: booking.userId,
+      type: 'booking_accepted',
+      title: 'Booking Accepted! 🎉',
+      message: `Your booking #${displayBookingId} from ${booking.fromLocation} to ${booking.toLocation} has been accepted by ${driver.firstName} ${driver.lastName || ''}`,
+      data: {
+        bookingId: bookingId,
+        displayBookingId: displayBookingId,
+        driverId: driverId,
+        driverName: `${driver.firstName} ${driver.lastName || ''}`,
+        driverPhone: driver.phone,
+        fromLocation: booking.fromLocation,
+        toLocation: booking.toLocation,
+        productType: booking.productType,
+        estimatedCost: booking.cost,
+        chatRoomId: `booking_${bookingId}_${driverId}_${booking.userId}`
+      },
+      priority: 'high',
+      actionRequired: false
+    });
+
+    // Log activity
+    await logActivity(userId, 'accept_booking', req);
+
+    await Action.create({
+      type: 'accept_booking',
+      entityId: driverId,
+      priority: 'low',
+      metadata: {
+        bookingId: bookingId,
+        userId: userId
+      },
+      message: `Booking #${displayBookingId} from ${booking.fromLocation} to ${booking.toLocation} has been accepted by ${driver.firstName} ${driver.lastName || ''}`
+    })
+
+    return res.status(200).json({
+      success: true,
+      message: 'Booking accepted successfully',
+      booking: { ...booking, ...updates }
+    });
+
+  } catch (error) {
+    console.error('Accept booking error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to accept booking'
+    });
+  }
+};
+
+const updateLocation = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const companyId = req.params.companyId;
+    const { latitude, longitude } = req.body;
+
+    // Validate input
+    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or missing latitude/longitude',
+      });
+    }
+    
+    const companyData = await Company.get(companyId);
+    if (!companyData && !companyData.status === 'approved') {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found nor approved',
+      });
+    }
+
+    //validate relationships of company and driver
+    const driver = await Driver.getDriverIdByUserId(userId);
+    if (driver.companyId !== companyId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid company for driver',
+      });
+    }
+
+    // Create new location entry
+    const newLocation = {
+      location: {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+      },
+      timestamp: admin.firestore.Timestamp.now(),
+    };
+
+    // Update currentRoute with time-based pruning (keep last 48 hours)
+    const currentRoute = driver.currentRoute || [];
+    const maxAgeHours = 48;
+    const cutoffTime = admin.firestore.Timestamp.fromMillis(
+      Date.now() - maxAgeHours * 60 * 60 * 1000
+    );
+    const filteredRoute = currentRoute.filter(
+      (entry) => entry.timestamp.toMillis() >= cutoffTime.toMillis()
+    );
+    filteredRoute.push(newLocation);
+
+    // Prepare updates
+    const updates = {
+      currentRoute: filteredRoute,
+      lastKnownLocation: newLocation.location
+    };
+
+    const driverId = driver.driverId;
+    // Update transporter document
+    await Driver.update(driverId, updates);
+
+    await Action.create({
+      type: 'update_location',
+      entityId: driverId,
+      priority: 'low',
+      metadata: {
+        driverId: driverId,
+        userId: userId
+      },
+      message: `Driver ${driver.firstName} ${driver.lastName || ''} updated location`
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Location updated successfully',
+      location: newLocation,
+    });
+
+  } catch (error) {
+    console.error('Error updating location:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
+
 module.exports = {
   createDriver,
   getDrivers,
@@ -933,5 +1236,7 @@ module.exports = {
   deactivateDriver,
   verifyDriver,
   getDriverProfile,
-  toggleDriverAvailability
+  toggleDriverAvailability,
+  acceptBooking,
+  updateLocation
 };
