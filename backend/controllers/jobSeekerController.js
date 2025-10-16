@@ -13,6 +13,8 @@ const { formatTimestamps } = require('../utils/formatData');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const Notification = require('../models/Notification');
 const Company = require('../models/Company');
+const cloudinary = require('cloudinary').v2;
+const db = admin.firestore();
 
 const jobSeekerController = {
   // POST /api/job-seekers - Submit job seeker application (Step 1)
@@ -753,6 +755,10 @@ async browseJobSeekers (req, res) {
       return res.status(403).json({ message: 'Unauthorized to view job seekers for this company' });
     }
 
+    if (companyDoc.status !== 'approved') {
+      return res.status(403).json({ message: 'Company is not approved' });
+    }
+
     // Fetch approved job seekers
     const jobSeekersSnapshot = await JobSeeker.getApprovedJobSeekers();
 
@@ -786,6 +792,10 @@ async getJobSeekerDocuments (req, res) {
       return res.status(403).json({ message: 'Unauthorized to view job seeker documents for this company' });
     }
 
+    if (companyDoc.status !== 'approved') {
+      return res.status(403).json({ message: 'Company is not approved' });
+    }
+
     // Fetch job seeker and verify status
     const jobSeekerDoc = await JobSeeker.get(jobSeekerId);
     if (!jobSeekerDoc) {
@@ -796,53 +806,85 @@ async getJobSeekerDocuments (req, res) {
       return res.status(403).json({ message: 'Only approved job seekers\' documents are accessible' });
     }
 
+    // Generate signed URLs for documents (1-hour expiration)
+    const generateSignedUrl = async (url) => {
+      if (!url) return null;
+      const timestamp = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      const signature = cloudinary.utils.api_sign_request(
+        { timestamp, public_id: url.split('/').pop(), version: url.split('/').slice(-2, -1)[0] },
+        process.env.CLOUDINARY_API_SECRET
+      );
+      return `${url}?timestamp=${timestamp}&signature=${signature}`;
+    };
+
     // Fetch documents (assuming documents are a nested object in job_seeker)
     const documents = jobSeekerDoc.documents || {};
     const formattedDocuments = {
       idDoc: documents.idDoc ? {
-        url: documents.idDoc.url,
+        url: await generateSignedUrl(documents.idDoc.url),
         status: documents.idDoc.status,
         expiryDate: documents.idDoc.expiryDate ? documents.idDoc.expiryDate.toDate().toISOString() : null,
       } : null,
       drivingLicense: documents.drivingLicense ? {
-        url: documents.drivingLicense.url,
+        url: await generateSignedUrl(documents.drivingLicense.url),
         status: documents.drivingLicense.status,
         expiryDate: documents.drivingLicense.expiryDate ? documents.drivingLicense.expiryDate.toDate().toISOString() : null,
         vehicleClasses: documents.drivingLicense.vehicleClasses,
       } : null,
       goodConductCert: documents.goodConductCert ? {
-        url: documents.goodConductCert.url,
+        url: await generateSignedUrl(documents.goodConductCert.url),
         status: documents.goodConductCert.status,
         expiryDate: documents.goodConductCert.expiryDate ? documents.goodConductCert.expiryDate.toDate().toISOString() : null,
         isClean: documents.goodConductCert.isClean,
         isRenewed: documents.goodConductCert.isRenewed,
       } : null,
       psvBadge: documents.psvBadge ? {
-        url: documents.psvBadge.url,
+        url: await generateSignedUrl(documents.psvBadge.url), // Using Cloudinary URL directly as it's already secure documents.psvBadge.url,
         status: documents.psvBadge.status,
         expiryDate: documents.psvBadge.expiryDate ? documents.psvBadge.expiryDate.toDate().toISOString() : null,
       } : null,
       nightTravelLicense: documents.nightTravelLicense ? {
-        url: documents.nightTravelLicense.url,
+        url: await generateSignedUrl(documents.nightTravelLicense.url),
         status: documents.nightTravelLicense.status,
         expiryDate: documents.nightTravelLicense.expiryDate ? documents.nightTravelLicense.expiryDate.toDate().toISOString() : null,
       } : null,
       rslLicense: documents.rslLicense ? {
-        url: documents.rslLicense.url,
+        url: await generateSignedUrl(documents.rslLicense.url),
         status: documents.rslLicense.status,
         expiryDate: documents.rslLicense.expiryDate ? documents.rslLicense.expiryDate.toDate().toISOString() : null,
       } : null,
       backgroundCheck: documents.backgroundCheck ? {
-        url: documents.backgroundCheck.url,
+        url: await generateSignedUrl(documents.backgroundCheck.url),
         status: documents.backgroundCheck.status,
         expiryDate: documents.backgroundCheck.expiryDate ? documents.backgroundCheck.expiryDate.toDate().toISOString() : null,
       } : null,
       goodsServiceLicense: documents.goodsServiceLicense ? {
-        url: documents.goodsServiceLicense.url,
+        url: await generateSignedUrl(documents.goodsServiceLicense.url),
         status: documents.goodsServiceLicense.status,
         expiryDate: documents.goodsServiceLicense.expiryDate ? documents.goodsServiceLicense.expiryDate.toDate().toISOString() : null,
       } : null,
     };
+
+    // Log document access
+    await db.collection('document_access_logs').add({
+      companyId,
+      jobSeekerId,
+      accessedBy: userId,
+      documentType: Object.keys(documents).join(', '), // Log all accessed document types
+      accessedAt: new Date(),
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    });
+
+    await Action.create({
+      type: 'document_access',
+      entityId: { id: jobSeekerId, email: jobSeekerDoc.email },
+      priority: 'high',
+      metadata: {
+        documentType: Object.keys(documents).join(', '), // Log all accessed document types
+      },
+      message: `Job Seeker ${jobSeekerDoc.name} accessed documents: ${Object.keys(documents).join(', ')}`
+    });
 
     res.status(200).json({ success: true, documents: formattedDocuments });
   } catch (error) {
