@@ -22,6 +22,7 @@ const { authorize } = require("../middlewares/adminAuth");
 const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewares/validationMiddleware');
 const CompanyController = require("../controllers/companyController");
 const adminController = require("../controllers/adminController");
+const jobSeekerController = require('../controllers/jobSeekerController');
 
 
 /**
@@ -992,5 +993,69 @@ router.patch('/:companyId/upload', authenticateToken, requireRole('transporter')
 
 // TODO: Implement uploadDriverDocuments function in companyController
 // router.patch('/:companyId/driver/upload/:driverId', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadDriverDocuments);
+
+// Browse approved job seekers
+/**
+ * @swagger
+ * /api/companies/{companyId}/job-seekers:
+ *   get:
+ *     summary: Browse approved job seekers
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *     responses:
+ *       200:
+ *         description: List of approved job seekers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/JobSeeker'
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:companyId/job-seekers', authenticateToken, requireRole('transporter'), jobSeekerController.browseJobSeekers);
+
+// Access job seeker documents
+/**
+ * @swagger
+ * /api/companies/{companyId}/job-seekers/{jobSeekerId}/documents:
+ *   get:
+ *     summary: Get job seeker documents
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: jobSeekerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the job seeker
+ *     responses:
+ *       200:
+ *         description: Job seeker documents
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/JobSeeker'
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:companyId/job-seekers/:jobSeekerId/documents', authenticateToken, requireRole('transporter'), jobSeekerController.getJobSeekerDocuments);
   
 module.exports = router;

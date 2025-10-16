@@ -12,6 +12,7 @@ const { getRejectTemplate } = require("../utils/sendMailTemplate");
 const { formatTimestamps } = require('../utils/formatData');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const Notification = require('../models/Notification');
+const Company = require('../models/Company');
 
 const jobSeekerController = {
   // POST /api/job-seekers - Submit job seeker application (Step 1)
@@ -277,9 +278,9 @@ const jobSeekerController = {
             case 'profilePhoto':
               updateData.profilePhoto = publicId;  // Replace profile photo
               break;
-            case 'driverLicense':
+            case 'drivingLicense':
               updateData.documents = updateData.documents || {};
-              updateData.documents.driverLicense = { url: publicId, approved: false };
+              updateData.documents.drivingLicense = { url: publicId, approved: false };
               sensitiveDocsChanged = true;
               changedFields.push('Driver License');
               break;
@@ -289,11 +290,11 @@ const jobSeekerController = {
               sensitiveDocsChanged = true;
               changedFields.push('Good Conduct Certificate');
               break;
-            case 'goodsServiceLicence':
+            case 'goodsServiceLicense':
               updateData.documents = updateData.documents || {};
-              updateData.documents.goodsServiceLicence = { url: publicId, approved: false };
+              updateData.documents.goodsServiceLicense = { url: publicId, approved: false };
               sensitiveDocsChanged = true;
-              changedFields.push('Goods Service Licence');
+              changedFields.push('Goods Service License');
               break;
             case 'idDoc':
               updateData.documents = updateData.documents || {};
@@ -734,6 +735,122 @@ const jobSeekerController = {
       res.status(500).json({ message: 'Failed to fetch approved job seekers' });
     }
   },
+
+  
+async browseJobSeekers (req, res) {
+  try {
+    const companyId = req.params.companyId;
+    
+    const companyDoc = await Company.get(companyId);
+    if (!companyDoc) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Verify the user owns the company
+    const userId = req.user.uid;
+    
+    if (companyDoc.transporterId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized to view job seekers for this company' });
+    }
+
+    // Fetch approved job seekers
+    const jobSeekersSnapshot = await JobSeeker.getApprovedJobSeekers();
+
+    await logActivity(
+      userId,
+      'view_job_seekers',
+      req,
+      { type: 'company', id: companyId }
+    );
+
+    res.status(200).json({ success: true, jobSeekers: formatTimestamps(jobSeekersSnapshot) });
+  } catch (error) {
+    console.error('Error fetching approved job seekers:', error);
+    res.status(500).json({ message: 'Failed to fetch approved job seekers' });
+  }
+},
+
+async getJobSeekerDocuments (req, res) {
+  try {
+    const companyId = req.params.companyId;
+    const jobSeekerId = req.params.jobSeekerId;
+    const companyDoc = await Company.get(companyId);
+    if (!companyDoc) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Verify the user owns the company
+    const userId = req.user.uid;
+    
+    if (companyDoc.transporterId !== userId) {
+      return res.status(403).json({ message: 'Unauthorized to view job seeker documents for this company' });
+    }
+
+    // Fetch job seeker and verify status
+    const jobSeekerDoc = await JobSeeker.get(jobSeekerId);
+    if (!jobSeekerDoc) {
+      return res.status(404).json({ message: 'Job seeker not found' });
+    }
+
+    if (jobSeekerDoc.status !== 'approved') {
+      return res.status(403).json({ message: 'Only approved job seekers\' documents are accessible' });
+    }
+
+    // Fetch documents (assuming documents are a nested object in job_seeker)
+    const documents = jobSeekerDoc.documents || {};
+    const formattedDocuments = {
+      idDoc: documents.idDoc ? {
+        url: documents.idDoc.url,
+        status: documents.idDoc.status,
+        expiryDate: documents.idDoc.expiryDate ? documents.idDoc.expiryDate.toDate().toISOString() : null,
+      } : null,
+      drivingLicense: documents.drivingLicense ? {
+        url: documents.drivingLicense.url,
+        status: documents.drivingLicense.status,
+        expiryDate: documents.drivingLicense.expiryDate ? documents.drivingLicense.expiryDate.toDate().toISOString() : null,
+        vehicleClasses: documents.drivingLicense.vehicleClasses,
+      } : null,
+      goodConductCert: documents.goodConductCert ? {
+        url: documents.goodConductCert.url,
+        status: documents.goodConductCert.status,
+        expiryDate: documents.goodConductCert.expiryDate ? documents.goodConductCert.expiryDate.toDate().toISOString() : null,
+        isClean: documents.goodConductCert.isClean,
+        isRenewed: documents.goodConductCert.isRenewed,
+      } : null,
+      psvBadge: documents.psvBadge ? {
+        url: documents.psvBadge.url,
+        status: documents.psvBadge.status,
+        expiryDate: documents.psvBadge.expiryDate ? documents.psvBadge.expiryDate.toDate().toISOString() : null,
+      } : null,
+      nightTravelLicense: documents.nightTravelLicense ? {
+        url: documents.nightTravelLicense.url,
+        status: documents.nightTravelLicense.status,
+        expiryDate: documents.nightTravelLicense.expiryDate ? documents.nightTravelLicense.expiryDate.toDate().toISOString() : null,
+      } : null,
+      rslLicense: documents.rslLicense ? {
+        url: documents.rslLicense.url,
+        status: documents.rslLicense.status,
+        expiryDate: documents.rslLicense.expiryDate ? documents.rslLicense.expiryDate.toDate().toISOString() : null,
+      } : null,
+      backgroundCheck: documents.backgroundCheck ? {
+        url: documents.backgroundCheck.url,
+        status: documents.backgroundCheck.status,
+        expiryDate: documents.backgroundCheck.expiryDate ? documents.backgroundCheck.expiryDate.toDate().toISOString() : null,
+      } : null,
+      goodsServiceLicense: documents.goodsServiceLicense ? {
+        url: documents.goodsServiceLicense.url,
+        status: documents.goodsServiceLicense.status,
+        expiryDate: documents.goodsServiceLicense.expiryDate ? documents.goodsServiceLicense.expiryDate.toDate().toISOString() : null,
+      } : null,
+    };
+
+    res.status(200).json({ success: true, documents: formattedDocuments });
+  } catch (error) {
+    console.error('Error fetching job seeker documents:', error);
+    res.status(500).json({ message: 'Failed to fetch job seeker documents' });
+  }
+},
+
 };
 
 module.exports = jobSeekerController;

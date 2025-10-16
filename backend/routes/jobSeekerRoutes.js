@@ -510,7 +510,7 @@ router.get('/user/:userId', authenticateToken, requireRole(['job_seeker', 'trans
  *                 type: string
  *                 format: binary
  *                 description: Profile photo file
- *               driverLicense:
+ *               drivingLicense:
  *                 type: string
  *                 format: binary
  *                 description: Driver's license file
@@ -518,7 +518,7 @@ router.get('/user/:userId', authenticateToken, requireRole(['job_seeker', 'trans
  *                 type: string
  *                 format: binary
  *                 description: Good conduct certificate file
- *               goodsServiceLicence:
+ *               goodsServiceLicense:
  *                 type: string
  *                 format: binary
  *                 description: Goods service license file

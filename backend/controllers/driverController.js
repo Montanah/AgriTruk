@@ -1,6 +1,6 @@
 const admin = require('../config/firebase');
 const db = admin.firestore();
-const { adminNotification } = require('../utils/sendMailTemplate');
+const { adminNotification, sendDriverWelcomeMail } = require('../utils/sendMailTemplate');
 const cloudinary = require('cloudinary').v2;
 const sendEmail = require('../utils/sendEmail');
 
@@ -263,6 +263,7 @@ const createDriver = async (req, res) => {
     // If no job seeker found, create new Firebase user
     if (!userIdFromJobSeeker) {
       defaultPassword = Math.random().toString(36).slice(-8) + '123'; // 8 random chars + 123
+      console.log('🚀 Creating Firebase user...', defaultPassword);
       let phoneNumber = req.body.phone;
       if (phoneNumber && !phoneNumber.startsWith('+')) {
         phoneNumber = phoneNumber.startsWith('0') ? '+254' + phoneNumber.substring(1) : '+254' + phoneNumber;
@@ -358,16 +359,22 @@ const createDriver = async (req, res) => {
     // Send welcome email with login credentials if new account
     if (defaultPassword) {
       try {
-        const { sendDriverWelcomeEmail } = require('../utils/sendMailTemplate');
-        await sendDriverWelcomeEmail({
-          email: driverData.email,
-          phone: driverData.phone,
-          firstName: driverData.firstName,
-          lastName: driverData.lastName,
-          companyName: companyData.companyName,
-          defaultPassword,
-          loginUrl: process.env.FRONTEND_URL || 'https://your-app.com'
+        const {subject, html} = sendDriverWelcomeMail(driverData, defaultPassword);
+        await sendEmail({
+          to: driverData.email,
+          subject,
+          html
         });
+        // const { sendDriverWelcomeEmail } = require('../utils/sendMailTemplate');
+        // await sendDriverWelcomeEmail({
+        //   email: driverData.email,
+        //   phone: driverData.phone,
+        //   firstName: driverData.firstName,
+        //   lastName: driverData.lastName,
+        //   companyName: companyData.companyName,
+        //   defaultPassword,
+        //   loginUrl: process.env.FRONTEND_URL || 'https://your-app.com'
+        // });
       } catch (emailError) {
         console.error('Error sending welcome email:', emailError);
       }
