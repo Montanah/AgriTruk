@@ -7,6 +7,8 @@ const Users = require('../models/User');
 const { processMpesaPayment, processCardPayment } = require('../services/pay');
 const { formatTimestamps } = require('../utils/formatData');
 const Action = require('../models/Action');
+// controllers/subscriptionController.js
+const SubscriptionService = require('../services/subscriptionService');
 
 exports.manageSubscription = async (req, res) => {
   try {
@@ -486,7 +488,6 @@ async function hasUsedTrial(userId) {
   }
 };
 
-
 exports.changePlan = async (req, res) => {
   try {
     const userId = req.user.uid;
@@ -864,5 +865,179 @@ async function processRefund(userId, amount, description) {
     console.error('Refund processing error:', error);
     // Don't fail the cancellation if refund fails, just log it
     return { success: false, message: error.message };
+  }
+};
+
+/**
+ * GET /api/subscription/plans/active - Get active paid plans
+ */
+exports.getActivePlans = async function(req, res) {
+  try {
+    const plans = await SubscriptionPlans.getActivePlans();
+    res.status(200).json({
+      success: true,
+      plans,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching active plans',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * POST /api/subscription/start - Start a new subscription
+ * Body: { userId, planId, paymentData }
+ */
+exports.startSubscription = async function (req, res)  {
+  try {
+    const { planId, paymentData } = req.body;
+
+    const userId = req.user.uid || req.body.userId;
+
+    if (!userId || !planId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId and planId are required',
+      });
+    }
+
+    const result = await SubscriptionService.startSubscription(
+      userId,
+      planId,
+      paymentData
+    );
+
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/subscription/status/:userId - Get subscription status
+ */
+exports.getStatus = async function(req, res) {
+  try {
+    const { userId } = req.params;
+    const status = await SubscriptionService.getSubscriptionStatus(userId);
+
+    res.status(200).json({
+      success: true,
+      ...status,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching subscription status',
+      error: error.message,
+    });
+  }
+},
+
+/**
+ * POST /api/subscription/upgrade - Upgrade subscription
+ * Body: { userId, newPlanId, paymentData }
+ */
+exports.upgradeSubscription = async function(req, res) {
+  try {
+    const { newPlanId, paymentData } = req.body;
+
+    const userId = req.user.uid || req.body.userId;
+
+    if (!userId || !newPlanId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId and newPlanId are required',
+      });
+    }
+
+    const result = await SubscriptionService.upgradeSubscription(
+      userId,
+      newPlanId,
+      paymentData
+    );
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * POST /api/subscription/cancel - Cancel subscription
+ * Body: { userId, reason }
+ */
+exports.cancelSubscription = async function(req, res) {
+  try {
+    const { reason } = req.body;
+
+    userId = req.user.uid || req.body.userId;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId is required',
+      });
+    }
+
+    const result = await SubscriptionService.cancelSubscription(userId, reason);
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+},
+
+/**
+ * GET /api/subscription/validate/driver/:companyId - Check if can add driver
+ */
+exports.validateDriverLimit = async function(req, res) {
+  try {
+    const { companyId } = req.params;
+    const validation = await SubscriptionService.canAddDriver(companyId);
+
+    res.status(200).json({
+      success: true,
+      ...validation,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error validating driver limit',
+      error: error.message,
+    });
+  }
+},
+
+/**
+ * GET /api/subscription/validate/vehicle/:companyId - Check if can add vehicle
+ */
+exports.validateVehicleLimit = async function(req, res) {
+  try {
+    const { companyId } = req.params;
+    const validation = await SubscriptionService.canAddVehicle(companyId);
+
+    res.status(200).json({
+      success: true,
+      ...validation,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error validating vehicle limit',
+      error: error.message,
+    });
   }
 };

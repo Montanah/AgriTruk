@@ -92,6 +92,24 @@ const Driver = {
     });
   },
 
+  async getByCompanyId(companyId) {
+    const snapshot = await db.collection('drivers')
+      .where('companyId', '==', companyId)
+      .get();
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data
+        // idExpiryDate: data.idExpiryDate ? data.idExpiryDate.toDate().toISOString() : null,
+        // driverLicenseExpiryDate: data.driverLicenseExpiryDate ? data.driverLicenseExpiryDate.toDate().toISOString() : null,
+        // createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
+        // updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null,
+        // lastActiveAt: data.lastActiveAt ? data.lastActiveAt.toDate().toISOString() : null,
+      };
+    });
+  },
+
   async getByEmail(email) {
     const querySnapshot = await db.collection('drivers')
       .where('email', '==', email)

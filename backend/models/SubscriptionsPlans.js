@@ -49,6 +49,56 @@ const SubscriptionPlans = {
     async deleteSubscriptionPlan(planId) {
         await db.collection('subscriptionPlans').doc(planId).delete();
     },
+
+    async getAllPlans() {
+    const snapshot = await db.collection('subscriptionPlans')
+      .where('isActive', '==', true)
+      .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getActivePlans() {
+    const snapshot = await db.collection('subscriptionPlans')
+      .where('isActive', '==', true)
+      .where('billingCycle', '!=', 'trial')
+      .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getTrialPlan() {
+    const snapshot = await db.collection('subscriptionPlans')
+      .where('billingCycle', '==', 'trial')
+      .where('isActive', '==', true)
+      .limit(1)
+      .get();
+    if (snapshot.empty) return null;
+    return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+  },
+
+  async updatePlan(planId, updates) {
+    const updated = { 
+      ...updates, 
+      updatedAt: admin.firestore.Timestamp.now() 
+    };
+    await db.collection('subscriptionPlans').doc(planId).update(updated);
+    return updated;
+  },
+
+  // Helper to check if feature is available in plan
+  hasFeature(plan, featureName) {
+    return plan.features && plan.features[featureName];
+  },
+
+  // Helper to get limit value
+  getLimit(plan, limitName) {
+    return plan.features && plan.features[limitName];
+  },
+
+  // Check if limit is unlimited (-1)
+  isUnlimited(limit) {
+    return limit === -1;
+  },
+
 };
 
 module.exports = SubscriptionPlans;

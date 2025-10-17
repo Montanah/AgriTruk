@@ -7,7 +7,7 @@ const Payment = {
   async create(paymentData) {
     const payment = {
       paymentId: paymentData.paymentId || db.collection('payments').doc().id,
-      requestId: paymentData.requestId,
+      requestId: paymentData.requestId || null,
       payerId: paymentData.payerId,
       subscriberId: paymentData.subscriberId || null,
       planId: paymentData.planId || null,
@@ -49,7 +49,54 @@ const Payment = {
   async getAll() {
     const snapshot = await db.collection('payments').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  }
+  },
+
+   async updateStatus(paymentId, status, additionalData = {}) {
+    const updates = {
+      status,
+      updatedAt: admin.firestore.Timestamp.now(),
+      ...additionalData,
+    };
+    
+    if (status === 'completed' || status === 'success') {
+      updates.paidAt = admin.firestore.Timestamp.now();
+    }
+    
+    await db.collection('payments').doc(paymentId).update(updates);
+    return updates;
+  },
+
+  async getBySubscriber(subscriberId) {
+    const snapshot = await db.collection('payments')
+      .where('subscriberId', '==', subscriberId)
+      .orderBy('createdAt', 'desc')
+      .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getByPayer(payerId) {
+    const snapshot = await db.collection('payments')
+      .where('payerId', '==', payerId)
+      .orderBy('createdAt', 'desc')
+      .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getByStatus(status) {
+    const snapshot = await db.collection('payments')
+      .where('status', '==', status)
+      .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getByReference(mpesaReference) {
+    const snapshot = await db.collection('payments')
+      .where('mpesaReference', '==', mpesaReference)
+      .limit(1)
+      .get();
+    return snapshot.empty ? null : { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+  },
+
 };
 
 module.exports = Payment;
