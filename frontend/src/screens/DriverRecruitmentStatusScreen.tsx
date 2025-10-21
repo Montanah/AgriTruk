@@ -78,7 +78,27 @@ const DriverRecruitmentStatusScreen = () => {
 
       if (profileResponse.ok) {
         const profileData = await profileResponse.json();
-        setDriverProfile(profileData.application);
+        const application = profileData.application;
+        
+        // Check if profile is complete
+        if (!isProfileComplete(application)) {
+          console.log('Job seeker profile incomplete - redirecting to profile completion');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'TransporterCompletionScreen', params: { isJobSeeker: true } }]
+          });
+          return;
+        }
+        
+        setDriverProfile(application);
+      } else if (profileResponse.status === 404) {
+        // No job seeker application found - redirect to profile completion
+        console.log('No job seeker application found - redirecting to profile completion');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'TransporterCompletionScreen', params: { isJobSeeker: true } }]
+        });
+        return;
       }
 
       // No recruitment requests - companies handle recruitment themselves
@@ -90,6 +110,28 @@ const DriverRecruitmentStatusScreen = () => {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  // Check if job seeker profile is complete
+  const isProfileComplete = (profile: any) => {
+    if (!profile) return false;
+    
+    // Check required documents
+    const hasRequiredDocs = profile.documents && 
+      profile.documents.profilePhoto && 
+      profile.documents.driverLicense && 
+      profile.documents.goodConductCert && 
+      profile.documents.idDoc;
+    
+    // Check required profile fields
+    const hasRequiredFields = profile.dateOfBirth && 
+      profile.careerStartDate && 
+      profile.vehicleClasses && 
+      profile.vehicleClasses.length > 0 && 
+      profile.specializations && 
+      profile.specializations.length > 0;
+    
+    return hasRequiredDocs && hasRequiredFields;
   };
 
   useEffect(() => {
