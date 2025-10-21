@@ -15,12 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { transporterPlans, brokerPlans } from '../constants/subscriptionPlans';
+import { getPlansByUserType, type SubscriptionPlan } from '../constants/subscriptionPlans';
 
 interface SubscriptionScreenProps {
     route: {
         params: {
-            userType: 'transporter' | 'broker';
+            userType: 'individual' | 'broker' | 'company';
         };
     };
 }
@@ -30,7 +30,7 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
     const { userType } = route.params;
 
     // Use proper subscription plans based on user type
-    const plans = userType === 'broker' ? brokerPlans : transporterPlans;
+    const plans = getPlansByUserType(userType as 'individual' | 'broker' | 'company');
 
     const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -81,13 +81,27 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>
-                        {userType === 'transporter' ? 'Transporter' : 'Broker'} Subscription
+                        {userType === 'company' ? 'Fleet' : userType === 'broker' ? 'Broker' : 'Individual'} Subscription
                     </Text>
                     <View style={styles.headerSpacer} />
                 </View>
             </LinearGradient>
 
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+
+                {/* Plan Type Header */}
+                <View style={styles.planTypeHeader}>
+                    <Text style={styles.planTypeTitle}>
+                        {userType === 'company' ? 'Company Fleet Plans' : 
+                         userType === 'broker' ? 'Broker Plans' : 
+                         'Individual Transporter Plans'}
+                    </Text>
+                    <Text style={styles.planTypeSubtitle}>
+                        {userType === 'company' ? 'Scale your transport business with our fleet management solutions' :
+                         userType === 'broker' ? 'Connect shippers with transporters efficiently' :
+                         'Perfect for individual transporters and small operations'}
+                    </Text>
+                </View>
 
                 {/* Plans */}
                 <View style={styles.plansContainer}>
@@ -104,13 +118,13 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
                                 style={[
                                     styles.planCard,
                                     isSelected && styles.planCardSelected,
-                                    plan.popular && styles.popularPlan,
+                                    plan.isPopular && styles.popularPlan,
                                     { borderColor: isSelected ? colors.secondary : colors.surface, shadowColor: isSelected ? colors.secondary : colors.black },
                                 ]}
                                 activeOpacity={0.92}
                                 onPress={() => handlePlanSelect(plan.id)}
                             >
-                                {plan.popular && (
+                                {plan.isPopular && (
                                     <View style={styles.popularBadge}>
                                         <Text style={styles.popularText}>Most Popular</Text>
                                     </View>
@@ -120,9 +134,9 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
                                     {isSelected && <Ionicons name="checkmark-circle" size={22} color={colors.secondary} style={{ marginLeft: 6 }} />}
                                 </View>
                                 <Text style={[styles.planPrice, { color: isSelected ? colors.secondary : colors.text.primary }]}>
-                                    KES {plan.price.toLocaleString()}
+                                    {plan.currency} {plan.price.toLocaleString()}
                                     <Text style={{ color: colors.text.secondary, fontSize: 14 }}>
-                                        / {plan.period}
+                                        / {plan.billingPeriod}
                                     </Text>
                                 </Text>
                                 <View style={styles.featureList}>
@@ -156,21 +170,21 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
                                         <View style={styles.summaryRow}>
                                             <Text style={styles.summaryLabel}>Billing Period:</Text>
                                             <Text style={styles.summaryValue}>
-                                                {selectedPlanData.period === 'monthly' ? 'Monthly' : selectedPlanData.period === 'yearly' ? 'Yearly' : selectedPlanData.period}
+                                                {selectedPlanData.billingPeriod === 'monthly' ? 'Monthly' : 'Yearly'}
                                             </Text>
                                         </View>
                                         <View style={styles.summaryRow}>
                                             <Text style={styles.summaryLabel}>Price:</Text>
                                             <Text style={styles.summaryValue}>
-                                                KES {selectedPlanData.price.toLocaleString()}
-                                                / {selectedPlanData.period}
+                                                {selectedPlanData.currency} {selectedPlanData.price.toLocaleString()}
+                                                / {selectedPlanData.billingPeriod}
                                             </Text>
                                         </View>
-                                        {selectedPlanData.discount && (
+                                        {selectedPlanData.savings && (
                                             <View style={styles.summaryRow}>
                                                 <Text style={styles.summaryLabel}>Savings:</Text>
                                                 <Text style={[styles.summaryValue, { color: colors.success }]}>
-                                                    {selectedPlanData.discount}% OFF
+                                                    {selectedPlanData.savings}
                                                 </Text>
                                             </View>
                                         )}
@@ -450,6 +464,28 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: spacing.lg,
         lineHeight: 22,
+    },
+    planTypeHeader: {
+        backgroundColor: colors.surface,
+        padding: spacing.lg,
+        marginHorizontal: spacing.lg,
+        marginTop: spacing.lg,
+        borderRadius: 12,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.primary,
+    },
+    planTypeTitle: {
+        fontSize: fonts.size.lg,
+        fontWeight: 'bold',
+        color: colors.primary,
+        marginBottom: spacing.sm,
+        textAlign: 'center',
+    },
+    planTypeSubtitle: {
+        fontSize: fonts.size.md,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        lineHeight: 20,
     },
 });
 

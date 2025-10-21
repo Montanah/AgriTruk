@@ -1,141 +1,278 @@
-import { SubscriptionPlan } from '../components/common/SubscriptionPlanCard';
+// Subscription Plans for TRUK Platform
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  billingPeriod: 'monthly' | 'yearly';
+  features: string[];
+  limits: {
+    drivers?: number;
+    vehicles?: number;
+    bookings?: number;
+    apiCalls?: number;
+  };
+  isPopular?: boolean;
+  isEnterprise?: boolean;
+  savings?: string;
+  color: string;
+  icon: string;
+}
 
-// Trial Plan - Free 30-day trial
-export const trialPlan: SubscriptionPlan = {
-  id: 'trial-plan',
-  name: 'Free Trial',
-  price: 0,
-  period: 'monthly',
-  features: [
-    '30-day free trial',
-    'Full access to all features',
-    'Unlimited job requests',
-    'Advanced route optimization',
-    'Real-time tracking',
-    'Priority customer support',
-    'Advanced analytics & insights',
-    'No commitment required',
-  ],
+// Individual and Broker Plans (Existing)
+export const INDIVIDUAL_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'individual_basic',
+    name: 'Basic',
+    description: 'Perfect for individual transporters',
+    price: 299,
+    currency: 'KES',
+    billingPeriod: 'monthly',
+    features: [
+      'Up to 3 vehicles',
+      'Unlimited bookings',
+      'Basic tracking',
+      'Email support',
+      'Mobile app access'
+    ],
+    limits: {
+      vehicles: 3,
+      bookings: -1, // unlimited
+    },
+    color: '#27AE60',
+    icon: 'truck'
+  },
+  {
+    id: 'individual_pro',
+    name: 'Pro',
+    description: 'For growing transporters',
+    price: 599,
+    currency: 'KES',
+    billingPeriod: 'monthly',
+    features: [
+      'Up to 10 vehicles',
+      'Everything in Basic, plus:',
+      'Advanced analytics',
+      'Priority support',
+      'Route optimization',
+      'Driver performance tracking'
+    ],
+    limits: {
+      vehicles: 10,
+      bookings: -1,
+    },
+    isPopular: true,
+    color: '#FF8C00',
+    icon: 'truck-fast'
+  },
+  {
+    id: 'individual_enterprise',
+    name: 'Enterprise',
+    description: 'For large operations',
+    price: 999,
+    currency: 'KES',
+    billingPeriod: 'monthly',
+    features: [
+      'Unlimited vehicles',
+      'Everything in Pro, plus:',
+      'Custom integrations',
+      'White-label solutions',
+      '24/7 phone support',
+      'Dedicated account manager'
+    ],
+    limits: {
+      vehicles: -1, // unlimited
+      bookings: -1,
+    },
+    isEnterprise: true,
+    color: '#B00B1C',
+    icon: 'truck-check'
+  }
+];
+
+// Broker Plans (Existing)
+export const BROKER_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'broker_basic',
+    name: 'Broker Basic',
+    description: 'For new brokers',
+    price: 499,
+    currency: 'KES',
+    billingPeriod: 'monthly',
+    features: [
+      'Up to 5 clients',
+      'Basic matching',
+      'Email support',
+      'Mobile app access'
+    ],
+    limits: {
+      drivers: 5,
+      bookings: 50,
+    },
+    color: '#B00B1C',
+    icon: 'account-tie'
+  },
+  {
+    id: 'broker_pro',
+    name: 'Broker Pro',
+    description: 'For established brokers',
+    price: 999,
+    currency: 'KES',
+    billingPeriod: 'monthly',
+    features: [
+      'Up to 20 clients',
+      'Everything in Basic, plus:',
+      'Advanced matching',
+      'Priority support',
+      'Analytics dashboard',
+      'Client management tools'
+    ],
+    limits: {
+      drivers: 20,
+      bookings: 200,
+    },
+    isPopular: true,
+    color: '#FF8C00',
+    icon: 'account-tie-outline'
+  },
+  {
+    id: 'broker_enterprise',
+    name: 'Broker Enterprise',
+    description: 'For large brokerages',
+    price: 1999,
+    currency: 'KES',
+    billingPeriod: 'monthly',
+    features: [
+      'Unlimited clients',
+      'Everything in Pro, plus:',
+      'Custom integrations',
+      'White-label solutions',
+      '24/7 phone support',
+      'Dedicated account manager'
+    ],
+    limits: {
+      drivers: -1, // unlimited
+      bookings: -1,
+    },
+    isEnterprise: true,
+    color: '#0F2B04',
+    icon: 'account-tie-hat'
+  }
+];
+
+// Company Fleet Plans (New)
+export const COMPANY_FLEET_PLANS: SubscriptionPlan[] = [
+  {
+    id: 'fleet_basic',
+    name: 'Basic Fleet',
+    description: 'Perfect for small transport companies',
+    price: 999,
+    currency: 'KES',
+    billingPeriod: 'monthly',
+    features: [
+      'Up to 5 drivers',
+      'Full app access for all drivers',
+      'Unlimited bookings',
+      'Central company dashboard',
+      '24/7 support',
+      'Basic reporting'
+    ],
+    limits: {
+      drivers: 5,
+      vehicles: 10,
+      bookings: -1, // unlimited
+    },
+    color: '#27AE60',
+    icon: 'truck'
+  },
+  {
+    id: 'fleet_growing',
+    name: 'Growing Fleet',
+    description: 'For expanding transport companies',
+    price: 1499,
+    currency: 'KES',
+    billingPeriod: 'monthly',
+    features: [
+      'Up to 15 drivers',
+      'Save 20% per driver',
+      'Everything in Basic, plus:',
+      'Priority booking alerts',
+      'Advanced analytics dashboard',
+      'Driver performance tracking',
+      'Route optimization',
+      'Dedicated account manager',
+      'Access to Driver Job Board'
+    ],
+    limits: {
+      drivers: 15,
+      vehicles: 30,
+      bookings: -1,
+    },
+    isPopular: true,
+    savings: 'Save 20% per driver',
+    color: '#FF8C00',
+    icon: 'truck-fast'
+  },
+  {
+    id: 'fleet_enterprise',
+    name: 'Unlimited Fleet',
+    description: 'For large transport enterprises',
+    price: 2999,
+    currency: 'KES',
+    billingPeriod: 'monthly',
+    features: [
+      'Unlimited drivers',
+      'Maximum savings',
+      'Everything in Growing, plus:',
+      'Custom integrations (API access)',
+      'White-label solutions',
+      'Advanced security features',
+      'Multi-location management',
+      '24/7 premium phone support',
+      'Custom training sessions'
+    ],
+    limits: {
+      drivers: -1, // unlimited
+      vehicles: -1,
+      bookings: -1,
+    },
+    isEnterprise: true,
+    savings: 'Maximum savings',
+    color: '#B00B1C',
+    icon: 'truck-check'
+  }
+];
+
+// Helper function to get plans by user type
+export const getPlansByUserType = (userType: 'individual' | 'broker' | 'company'): SubscriptionPlan[] => {
+  switch (userType) {
+    case 'individual':
+      return INDIVIDUAL_PLANS;
+    case 'broker':
+      return BROKER_PLANS;
+    case 'company':
+      return COMPANY_FLEET_PLANS;
+    default:
+      return INDIVIDUAL_PLANS;
+  }
 };
 
-export const transporterPlans: SubscriptionPlan[] = [
-  {
-    id: 'monthly-plan',
-    name: 'Monthly Plan',
-    price: 199,
-    period: 'monthly',
-    features: [
-      'Unlimited job requests',
-      'Advanced route optimization',
-      'Priority customer support',
-      'Real-time tracking',
-      'Advanced analytics & insights',
-      'Mobile app access',
-    ],
-  },
-  {
-    id: 'quarterly-plan',
-    name: 'Quarterly Plan',
-    price: 499,
-    period: 'quarterly',
-    popular: true,
-    features: [
-      'Unlimited job requests',
-      'Advanced route optimization',
-      'Priority customer support',
-      'Real-time tracking',
-      'Advanced analytics & insights',
-      'Mobile app access',
-      'Save 17% with quarterly billing',
-    ],
-  },
-  {
-    id: 'annual-plan',
-    name: 'Annual Plan',
-    price: 1599,
-    period: 'annual',
-    features: [
-      'Unlimited job requests',
-      'Advanced route optimization',
-      'Priority customer support',
-      'Real-time tracking',
-      'Advanced analytics & insights',
-      'Mobile app access',
-      'Save 20% with annual billing',
-    ],
-  },
-];
+// Helper function to get plan by ID
+export const getPlanById = (planId: string): SubscriptionPlan | undefined => {
+  const allPlans = [...INDIVIDUAL_PLANS, ...BROKER_PLANS, ...COMPANY_FLEET_PLANS];
+  return allPlans.find(plan => plan.id === planId);
+};
 
-export const brokerPlans: SubscriptionPlan[] = [
-  {
-    id: 'monthly-plan',
-    name: 'Monthly Plan',
-    price: 199,
-    period: 'monthly',
-    features: [
-      'Unlimited client requests',
-      'Advanced consolidation tools',
-      'Priority customer support',
-      'Real-time tracking for all shipments',
-      'Advanced analytics & insights',
-      'Commission tracking',
-      'Client management tools',
-      'Mobile app access',
-    ],
-  },
-  {
-    id: 'quarterly-plan',
-    name: 'Quarterly Plan',
-    price: 499,
-    period: 'quarterly',
-    popular: true,
-    features: [
-      'Unlimited client requests',
-      'Advanced consolidation tools',
-      'Priority customer support',
-      'Real-time tracking for all shipments',
-      'Advanced analytics & insights',
-      'Commission tracking',
-      'Client management tools',
-      'Mobile app access',
-      'Save 17% with quarterly billing',
-    ],
-  },
-  {
-    id: 'annual-plan',
-    name: 'Annual Plan',
-    price: 1599,
-    period: 'annual',
-    features: [
-      'Unlimited client requests',
-      'Advanced consolidation tools',
-      'Priority customer support',
-      'Real-time tracking for all shipments',
-      'Advanced analytics & insights',
-      'Commission tracking',
-      'Client management tools',
-      'Mobile app access',
-      'Save 20% with annual billing',
-    ],
-  },
-];
+// Helper function to check if user can add more drivers
+export const canAddDriver = (currentPlan: SubscriptionPlan, currentDriverCount: number): boolean => {
+  if (currentPlan.limits.drivers === -1) return true; // unlimited
+  return currentDriverCount < currentPlan.limits.drivers;
+};
 
-// Yearly plans with discounts
-export const transporterPlansYearly: SubscriptionPlan[] = transporterPlans.map((plan) => ({
-  ...plan,
-  id: plan.id + '-yearly',
-  period: 'yearly' as const,
-  price: Math.round(plan.price * 10), // 2 months free
-  discount: 17,
-}));
-
-export const brokerPlansYearly: SubscriptionPlan[] = brokerPlans.map((plan) => ({
-  ...plan,
-  id: plan.id + '-yearly',
-  period: 'yearly' as const,
-  price: Math.round(plan.price * 10), // 2 months free
-  discount: 17,
-}));
-
-
-
+// Helper function to get plan usage percentage
+export const getPlanUsagePercentage = (currentPlan: SubscriptionPlan, currentCount: number, limitType: 'drivers' | 'vehicles' | 'bookings'): number => {
+  const limit = currentPlan.limits[limitType];
+  if (limit === -1) return 0; // unlimited
+  return Math.min((currentCount / limit) * 100, 100);
+};
