@@ -189,7 +189,8 @@ const checkTransporterProfileComplete = (transporterData: any) => {
 };
 
 // Helper function to check subscription status with better error handling
-const checkSubscriptionStatus = async (userId: string, userType: 'transporter' | 'broker' | 'business') => {
+// Only transporters and brokers need subscriptions - business users are free
+const checkSubscriptionStatus = async (userId: string, userType: 'transporter' | 'broker') => {
   try {
     // Use the subscription service which handles auth tokens properly
     const subscriptionService = require('./src/services/subscriptionService').default;
@@ -404,8 +405,8 @@ export default function App() {
               }
               setIsDriver(false); // Brokers are not drivers
             } else if (data.role === 'business') {
-              // For business users, no subscription needed - just check verification
-              // Business user found - checking verification status
+              // Business users don't need subscriptions - they're free users
+              console.log('App.tsx: Business user detected - no subscription needed');
               setProfileCompleted(!!data.profileCompleted);
               setIsDriver(false); // Business users are not drivers
             } else if (data.role === 'job_seeker' || data.role === 'driver') {
