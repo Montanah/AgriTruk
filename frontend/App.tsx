@@ -408,6 +408,11 @@ export default function App() {
               // Business user found - checking verification status
               setProfileCompleted(!!data.profileCompleted);
               setIsDriver(false); // Business users are not drivers
+            } else if (data.role === 'job_seeker' || data.role === 'driver') {
+              // Job seekers don't need subscriptions - they're just applying for jobs
+              console.log('App.tsx: Job seeker detected - skipping subscription checks');
+              setProfileCompleted(!!data.profileCompleted);
+              setIsDriver(false); // Job seekers are not active drivers yet
             } else {
               // For other users (shippers), use the profileCompleted field
               setProfileCompleted(!!data.profileCompleted);
