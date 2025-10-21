@@ -906,6 +906,20 @@ export default function App() {
           );
         }
       }
+    } else if (role === 'driver' || role === 'job_seeker') {
+      // Job seekers should only access their recruitment status screen
+      // They should NEVER have access to service requests or job management
+      console.log('App.tsx: Job seeker detected - routing to recruitment status screen only');
+      initialRouteName = 'DriverRecruitmentStatusScreen';
+      screens = (
+        <>
+          <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
+          <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+          {/* Add verification screens for secondary verification */}
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+        </>
+      );
     } else {
       // Fallback for other roles
       // Routing unknown role to main tabs
@@ -956,6 +970,19 @@ export default function App() {
           </>
         );
       }
+    } else if (role === 'driver' || role === 'job_seeker') {
+      // Unverified job seekers should go to verification, then profile completion
+      console.log('App.tsx: Unverified job seeker detected - routing to verification');
+      const preferredMethod = userData?.preferredVerificationMethod || 'phone';
+      initialRouteName = preferredMethod === 'phone' ? 'PhoneOTPScreen' : 'EmailVerification';
+      screens = (
+        <>
+          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
+          <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
+        </>
+      );
     } else {
       // Fallback: Any other authenticated user who is not verified should go to verification options
       // Fallback: authenticated but unverified user - routing to verification options
