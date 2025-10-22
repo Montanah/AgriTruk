@@ -20,6 +20,14 @@ const Driver = {
       driverLicenseUrl: driverData.driverLicenseUrl || null,
       driverLicenseExpiryDate: driverData.driverLicenseExpiryDate ? admin.firestore.Timestamp.fromDate(new Date(driverData.driverLicenseExpiryDate)) : null,
       driverLicenseApproved: driverData.driverLicenseApproved || false,
+      goodConductCert: driverData.goodConductCert || null,
+      goodConductCerturl: driverData.goodConductCerturl || null,
+      goodConductCertApproved: driverData.goodConductCertApproved || false,
+      goodConductCertExpiryDate: driverData.goodConductCertExpiryDate ? admin.firestore.Timestamp.fromDate(new Date(driverData.goodConductCertExpiryDate)) : null,
+      goodsServiceLicense: driverData.goodsServiceLicense || null,
+      goodsServiceLicenseUrl: driverData.goodsServiceLicenseUrl || null,
+      goodsServiceLicenseApproved: driverData.goodsServiceLicenseApproved || false,
+      goodsServiceLicenseExpiryDate: driverData.goodsServiceLicenseExpiryDate ? admin.firestore.Timestamp.fromDate(new Date(driverData.goodsServiceLicenseExpiryDate)) : null,
       status: driverData.status || 'pending',
       assignedVehicleId: driverData.assignedVehicleId || null,
       assignedVehicleDetails: driverData.assignedVehicleDetails || null,
@@ -32,6 +40,8 @@ const Driver = {
       userId: driverData.userId || null,
       role: driverData.role || 'driver',
       isDefaultPassword: driverData.isDefaultPassword || false,
+      deliveries: driverData.deliveries || null,
+      rating: driverData.rating || null,
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
       lastActiveAt: driverData.lastActiveAt || null,
@@ -63,6 +73,8 @@ const Driver = {
       updatedAt: admin.firestore.Timestamp.now(),
       ...(updates.idExpiryDate ? { idExpiryDate: admin.firestore.Timestamp.fromDate(new Date(updates.idExpiryDate)) } : {}),
       ...(updates.driverLicenseExpiryDate ? { driverLicenseExpiryDate: admin.firestore.Timestamp.fromDate(new Date(updates.driverLicenseExpiryDate)) } : {}),
+      ...(updates.goodConductCertExpiryDate ? { goodConductCertExpiryDate: admin.firestore.Timestamp.fromDate(new Date(updates.goodConductCertExpiryDate)) } : {}),
+      ...(updates.goodsServiceLicenseExpiryDate ? { goodsServiceLicenseExpiryDate: admin.firestore.Timestamp.fromDate(new Date(updates.goodsServiceLicenseExpiryDate)) } : {}),
       ...(updates.lastActiveAt ? { lastActiveAt: admin.firestore.Timestamp.fromDate(new Date(updates.lastActiveAt)) } : {}),
       ...(updates.acceptedLoads ? { acceptedLoads: updates.acceptedLoads.map(load => ({
         ...load,
@@ -253,6 +265,25 @@ const Driver = {
   async getDriverIdByUserId(userId) {
     const driverSnap = await db.collection('drivers').where('userId', '==', userId).limit(1).get();
     return driverSnap.docs[0]?.data() || null;
+  },
+
+  async getExpiringDocuments(docType, days) {
+    const expiryFieldMap = {
+      'id': 'idExpiryDate',
+      'dl': 'driverLicenseExpiryDate',
+      'goodconduct': 'goodConductCertExpiryDate',
+      'gsl': 'goodsServiceLicenseExpiryDate'
+    };
+    const expiryField = expiryFieldMap[docType];
+    if (!expiryField) throw new Error('Invalid document type');
+
+    const targetDate = admin.firestore.Timestamp.fromDate(new Date());
+    targetDate.seconds += days * 24 * 60 * 60; 
+
+    const snapshot = await db.collection('drivers')
+      .where(expiryField, '<=', targetDate)
+      .get();
+    return snapshot.docs.map(doc => ({ driverId: doc.id, ...doc.data() }));
   },
 
 };
