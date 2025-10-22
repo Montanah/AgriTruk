@@ -214,7 +214,8 @@ exports.approveCompany = async (req, res) => {
 
     const updatedCompany = await Company.approve(companyId);
     
-    const email = updatedCompany?.companyEmail;
+    const email = company.companyEmail;
+    console.log("Email", email);
     await sendEmail({
       to: email,
       subject: 'Company Status',
@@ -228,7 +229,7 @@ exports.approveCompany = async (req, res) => {
     await Notification.create({
       type: "Approved Company",
       message: `Your company was approved. Company ID: ${companyId}`,
-      userId: updatedCompany.transporterId,
+      userId: company.transporterId,
       userType: "user",
     })
     res.status(200).json({ message: 'Company approved successfully', company: updatedCompany });
@@ -251,9 +252,15 @@ exports.rejectCompany = async (req, res) => {
       return res.status(400).json({ message: 'Rejection reason is required' });
     }
 
+    // Check if the company exists
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
     const updatedCompany = await Company.reject(companyId, reason);
 
-    const email = updatedCompany?.companyEmail;
+    const email = company.companyEmail;
 
     await sendEmail({
       to: email,
@@ -268,7 +275,7 @@ exports.rejectCompany = async (req, res) => {
     await Notification.create({
       type: "Rejected Company",
       message: `Your company was rejected. Company ID: ${companyId}`,
-      userId: updatedCompany.transporterId,
+      userId: company.transporterId,
       userType: "user",
     })
     res.status(200).json({ message: 'Company rejected successfully', company: updatedCompany });
