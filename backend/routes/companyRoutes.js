@@ -949,7 +949,7 @@ router.delete('/:companyId', authenticateToken, requireRole('admin'), authorize(
  *             properties:
  *               action:
  *                 type: string
- *                 enum: [approve-id, approve-dl, approve-insurance, reject-vehicle, reject-driver]
+ *                 enum: [approve-id, approve-dl, approve-insurance, reject-vehicle, reject-driver, approve-goodconduct, approve-gsl]
  *                 description: Action to take on the company (approve or reject)
  *               vehicleId:
  *                 type: string
@@ -972,6 +972,14 @@ router.delete('/:companyId', authenticateToken, requireRole('admin'), authorize(
  *                 type: string
  *                 format: date-time
  *                 description: ID expiry date (optional)
+ *               goodConductCertExpiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Good conduct certificate expiry date (optional)
+ *               goodsServiceLicenseExpiryDate:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Goods service license expiry date (optional)
  *     responses:
  *       200:
  *         description: Company reviewed successfully

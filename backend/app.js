@@ -36,6 +36,7 @@ const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
 const requestMetadata = require('./middlewares/requestMetadata');
 const healthMonitor = require('./utils/healthMonitor');
+// const { testJob } = require('./jobs/companyDocumentExpiryJob');
 
 //app.use(helmet());
 app.set('trust proxy', 1);
@@ -155,6 +156,9 @@ console.log('✅ System alert cron job started');
 
 documentExpiryJob.start();
 console.log('✅ Document expiry cron job started');
+
+// testJob.start();
+// console.log('✅ Test cron job started');
 
 // Graceful shutdown
 process.on('SIGINT', () => {

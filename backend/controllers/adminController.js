@@ -585,7 +585,7 @@ exports.getAllShippers = async(req, res) => {
 exports.reviewTransporter = async (req, res) => {
   try {
     const transporterId = req.params.transporterId;
-    const { action, reason, insuranceExpiryDate, driverLicenseExpiryDate, idExpiryDate } = req.body;
+    const { action, reason, insuranceExpiryDate, driverLicenseExpiryDate, idExpiryDate, goodConductCertExpiryDate } = req.body;
 
     // 1. Check if transporter exists
     const transporter = await Transporter.get(transporterId);
@@ -772,7 +772,7 @@ exports.reviewTransporter = async (req, res) => {
 exports.reviewCompany = async (req, res) => {
   try {
     const companyId = req.params.companyId;
-    const { action, reason, insuranceExpiryDate, driverLicenseExpiryDate, idExpiryDate, driverId, vehicleId } = req.body;
+    const { action, reason, insuranceExpiryDate, driverLicenseExpiryDate, idExpiryDate, driverId, vehicleId, goodConductCertExpiryDate, goodsServiceLicenseExpiryDate } = req.body;
     console.log(`Reviewing company ${companyId} with action ${action} and vehicleId ${vehicleId} and driverId ${driverId}`);
 
     // 1. Check if transporter exists
@@ -782,7 +782,7 @@ exports.reviewCompany = async (req, res) => {
     }
 
     // 2. Check if already approved/rejected
-    if (!company.status === 'approved' && (action === 'approve-dl' || action === 'approve-insurance' || action === 'approve-id')) {
+    if (!company.status === 'approved' && (action === 'approve-dl' || action === 'approve-insurance' || action === 'approve-id' || action === 'approve-goodconduct' || action === 'approve-gsl')) {
       return res.status(400).json({ message: 'Company already not approved' });
     }
     if (company.status === 'rejected' && action === 'reject') {
@@ -796,13 +796,13 @@ exports.reviewCompany = async (req, res) => {
         return res.status(400).json({ message: 'driverId and driverLicenseExpiryDate is required' });
       }
       updates = {
-        driverLicenseExpiryDate: admin.firestore.Timestamp.fromDate(new Date(driverLicenseExpiryDate)),
+        driverLicenseExpiryDate,
         driverLicenseapproved: true,
         status: 'approved',
         updatedAt: admin.firestore.Timestamp.now(),
       };
-      await Driver.update(companyId, driverId, updates);
-
+      await Driver.update(driverId, updates);
+      
       // await sendEmail({
       //   to: company.companyEmail,
       //   subject: 'Company Driver Approved',
@@ -834,7 +834,7 @@ exports.reviewCompany = async (req, res) => {
         status: 'approved',
         updatedAt: admin.firestore.Timestamp.now(),
       };
-      await Vehicle.update(companyId, vehicleId, updates);
+      await Vehicle.update(vehicleId, updates);
 
       // await sendEmail({
       //   to: company.companyEmail,
@@ -859,17 +859,16 @@ exports.reviewCompany = async (req, res) => {
     if (action === 'approve-id') {
       if (idExpiryDate) {
         updates = {
-          idExpiryDate: admin.firestore.Timestamp.fromDate(new Date(idExpiryDate)),
-          idapproved: true,
-          updatedAt: admin.firestore.Timestamp.now(),
+          idExpiryDate,
+          idapproved: true
         };
-        await Driver.update(companyId, driverId, updates);
+        await Driver.update(driverId, updates);
       }
       updates = {
         idapproved: true,
         updatedAt: admin.firestore.Timestamp.now(),
       };
-      await Driver.update(companyId, driverId, updates);
+      await Driver.update(driverId, updates);
 
       // await sendEmail({
       //   to: company.companyEmail,
@@ -891,6 +890,68 @@ exports.reviewCompany = async (req, res) => {
       return res.status(200).json({ message: 'ID approved', updates });
     }
 
+    if (action === 'approve-goodconduct') {
+      if (!goodConductCertExpiryDate) {
+        return res.status(400).json({ message: 'goodConductCertExpiryDate is required' });
+      }
+      updates = {
+        goodConductapproved: true,
+        goodConductCertExpiryDate,
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+      await Driver.update(driverId, updates);
+
+      await sendEmail({
+        to: company.companyEmail,
+        subject: 'Good Conduct Approved',
+        text: 'Your Good Conduct has been approved. Welcome to Truk!'
+      });
+
+      const formattedPhone = formatPhoneNumber(company.companyContact);
+      const smsMessage = 'Your Truk documents have been approved. Welcome aboard!';
+      //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+      await logAdminActivity(
+        req.user.uid,
+        'approve_driver',
+        req,
+        { type: 'company', id: companyId }
+      );
+
+      return res.status(200).json({ message: 'Good Conduct approved', updates });
+    }
+
+    if (action === 'approve-gsl') {
+      if (!goodsServiceLicenseExpiryDate) {
+        return res.status(400).json({ message: 'goodsServiceLicenseExpiryDate is required' });
+      }
+      updates = {
+        goodsServiceLicenseApproved: true,
+        goodsServiceLicenseExpiryDate,
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+      await Driver.update(driverId, updates);
+
+      await sendEmail({
+        to: company.companyEmail,
+        subject: 'GSL Approved',
+        text: 'Your GSL has been approved. Welcome to Truk!'
+      });
+
+      const formattedPhone = formatPhoneNumber(company.companyContact);
+      const smsMessage = 'Your Truk documents have been approved. Welcome aboard!';
+      //await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+
+      await logAdminActivity(
+        req.user.uid,
+        'approve_driver',
+        req,
+        { type: 'company', id: companyId }
+      );
+
+      return res.status(200).json({ message: 'GSL approved', updates });
+    }
+
     if (action === 'reject-driver') {
       updates = {
         status: 'rejected',
@@ -898,13 +959,13 @@ exports.reviewCompany = async (req, res) => {
         updatedAt: admin.firestore.Timestamp.now(),
       };
 
-      await Driver.update(companyId, driverId, updates);
+      await Driver.update(driverId, updates);
 
-      // await sendEmail({
-      //   to: company.companyEmail,
-      //   subject: 'DriverRejected',
-      //   text: `Your Driver has been rejected. Reason: ${reason || 'Unqualified'}`
-      // });
+      await sendEmail({
+        to: company.companyEmail,
+        subject: 'DriverRejected',
+        text: `Your Driver has been rejected. Reason: ${reason || 'Unqualified'}`
+      });
 
       const formattedPhone = formatPhoneNumber(company.companyContact);
       const smsMessage = `Your Truk documents have been rejected. Reason: ${reason || 'Unqualified'}.`;
@@ -927,13 +988,13 @@ exports.reviewCompany = async (req, res) => {
         updatedAt: admin.firestore.Timestamp.now(),
       };
 
-      await Vehicle.update(companyId, vehicleId, updates);
+      await Vehicle.update(vehicleId, updates);
 
-      // await sendEmail({
-      //   to: company.companyEmail,
-      //   subject: 'Vehicle Rejected',
-      //   text: `Your vehicle has been rejected. Reason: ${reason || 'Unqualified'}`
-      // });
+      await sendEmail({
+        to: company.companyEmail,
+        subject: 'Vehicle Rejected',
+        text: `Your vehicle has been rejected. Reason: ${reason || 'Unqualified'}`
+      });
 
       const formattedPhone = formatPhoneNumber(company.companyContact);
       const smsMessage = `Your Truk documents have been rejected. Reason: ${reason || 'Unqualified'}.`;

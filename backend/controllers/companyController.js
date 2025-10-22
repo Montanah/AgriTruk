@@ -285,7 +285,15 @@ exports.rejectCompany = async (req, res) => {
 exports.getAllCompanies = async (req, res) => {
   try {
     const companies = await Company.getAll();
-
+    
+    for (const company of companies) {
+      const driver = await Driver.getByCompanyId(company.companyId);
+      const vehicle = await Vehicle.getByCompanyId(company.companyId);
+      company.driver = driver;
+      company.vehicle = vehicle;
+      company.fleet =vehicle.length;
+      company.drivers = driver.length;
+    }
     await logAdminActivity(req.user.uid, 'get_all_companies', req);
     res.status(200).json({
       message: 'Companies fetched successfully',
@@ -925,10 +933,21 @@ exports.approveCompanyDriver = async (req, res) => {
   try {
     const companyId = req.params.companyId;
     const driverId = req.params.driverId;
+
+    //See if companyId and driverId are valid
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({ success: false, message: 'Company not found' });
+    }
+
     // Get driver Data
-    const driver = await Driver.get(companyId, driverId);
+    const driver = await Driver.get(driverId);
     if (!driver) {
       return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    if (driver.companyId !== companyId) {
+      return res.status(403).json({ success: false, message: 'Invalid company for driver' });
     }
 
     console.log('Driver Data:', driver);
@@ -938,7 +957,7 @@ exports.approveCompanyDriver = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Driver is already approved' });
     }
 
-    await Driver.approve(companyId, driverId);
+    await Driver.approve(driverId);
     const pass =  generateRandomPassword(); 
     const signInLink = generateSignInLink(driver.email);
 
@@ -1435,3 +1454,134 @@ exports.uploadVehicleDocuments = async (req, res) => {
     });
   }
 };
+
+exports.reviewDriver = async (req, res) => {
+  try {
+    const { driverId, companyId } = req.params;
+    const { action, reason, expiryDate } = req.body;
+
+    // 1. Check if driver exists
+    const driver = await Driver.get(driverId);
+    if (!driver) {
+      return res.status(404).json({ message: 'Driver not found' });
+    }
+
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    if (driver.companyId !== companyId) {
+      return res.status(400).json({ message: 'Driver does not belong to this company' });
+    }
+
+    // 2. Check if already fully approved or rejected
+    const isFullyApproved = driver.status === 'approved';
+    if (isFullyApproved && ['approve-id', 'approve-dl', 'approve-goodconduct', 'approve-gsl'].includes(action)) {
+      return res.status(400).json({ message: 'Driver already fully approved' });
+    }
+    if (driver.status === 'rejected' && action === 'reject') {
+      return res.status(400).json({ message: 'Driver already rejected' });
+    }
+
+    let updates = {};
+
+    // Handle individual document approvals
+    const documentActions = {
+      'approve-id': 'idDocumentUrl',
+      'approve-dl': 'driverLicenseUrl',
+      'approve-goodconduct': 'goodConductCertUrl',
+      'approve-gsl': 'goodsServiceLicenseUrl'
+    };
+
+    const docType = documentActions[action];
+    if (docType) {
+      if (!expiryDate) {
+        return res.status(400).json({ message: `${action.split('-')[1]} expiryDate is required` });
+      }
+      const expiryFieldMap = {
+        'approve-id': 'idExpiryDate',
+        'approve-dl': 'driverLicenseExpiryDate',
+        'approve-goodconduct': 'goodConductCertExpiryDate',
+        'approve-gsl': 'goodsServiceLicenseExpiryDate'
+      };
+      const expiryField = expiryFieldMap[action];
+
+      updates = {
+        documents: {
+          ...driver.documents,
+          [docType]: {
+            ...(driver.documents?.[docType] || {}),
+            status: 'approved',
+            verifiedBy: req.user.uid,
+            verifiedAt: admin.firestore.Timestamp.now(),
+            expiryDate: admin.firestore.Timestamp.fromDate(new Date(expiryDate)),
+          },
+        },
+        [expiryField]: admin.firestore.Timestamp.fromDate(new Date(expiryDate)), // Update expiry field
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+
+      await Driver.update(driverId, updates);
+
+      // Check if all critical documents are approved
+      const requiredDocs = ['idDocumentUrl', 'driverLicenseUrl', 'insuranceUrl', 'goodConductCertUrl', 'goodsServiceLicenseUrl'];
+      const allApproved = requiredDocs.every(doc =>
+        updates.documents?.[doc]?.status === 'approved'
+      );
+      if (allApproved) {
+        updates = {
+          ...updates,
+          status: 'approved',
+          approvedAt: admin.firestore.Timestamp.now(),
+          approvedBy: req.user.uid,
+        };
+        await Driver.update(driverId, updates);
+
+        await sendEmail({
+          to: company.companyEmail,
+          subject: 'Driver Account Approved',
+          html: `<p>Your driver account has been approved. Thank you for using our services.</p><p>Best regards,<br>${process.env.APP_NAME}</p>`,
+          text: 'Your driver account has been approved. Welcome to our platform!',
+        });
+
+        const formattedPhone = formatPhoneNumber(company.companyPhone);
+        await smsService.sendSMS('TRUK LTD', 'Your driver account has been approved. Welcome aboard!', formattedPhone);
+
+        await logAdminActivity(req.user.uid, 'approve_driver', req, { type: 'driver', id: driverId });
+      }
+      return res.status(200).json({ message: `${action.split('-')[1]} approved`, updates });
+    }
+
+    // Handle rejection
+    if (action === 'reject') {
+      updates = {
+        status: 'rejected',
+        rejectionReason: reason || 'Not specified',
+        updatedAt: admin.firestore.Timestamp.now(),
+      };
+
+      await Driver.update(driverId, updates);
+
+      await sendEmail({
+        to: company.companyEmail,
+        subject: 'Driver Account Rejected',
+        html: `<p>Your driver account has been rejected. Reason: ${reason || 'Not specified'}</p>`,
+        text: `Your driver account has been rejected. Reason: ${reason || 'Not specified'}`,
+      });
+
+      const formattedPhone = formatPhoneNumber(company.companyPhone);
+      await smsService.sendSMS('TRUK LTD', `Your driver account has been rejected. Reason: ${reason || 'Not specified'}.`, formattedPhone);
+
+      await logAdminActivity(req.user.uid, 'reject_driver', req, { type: 'driver', id: driverId });
+
+      return res.status(200).json({ message: 'Driver rejected', updates });
+    }
+
+    return res.status(400).json({ message: 'Invalid action, must be approve-id, approve-dl, approve-insurance, approve-goodconduct, approve-gsl, or reject' });
+  } catch (error) {
+    console.error('Review driver error:', error);
+    res.status(500).json({ message: 'Failed to review driver' });
+  }
+};
+

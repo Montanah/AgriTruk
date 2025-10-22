@@ -1,14 +1,13 @@
 const admin = require("../config/firebase");
-const { approve, reject } = require("./Transporter");
+const { getByCompanyId } = require("./Driver");
 const db = admin.firestore();
 
 const Vehicle = {
-  async create(companyId, vehicleData) {
-    const vehicleId = vehicleData.vehicleId || db.collection('companies').doc(companyId).collection('vehicles').doc().id;
-    console.log('Generating vehicleId:', vehicleId); // Debug vehicleId
-    console.log('Document path:', `companies/${companyId}/vehicles/${vehicleId}`);
+  async create(vehicleData) {
+    const vehicleId = vehicleData.vehicleId || db.collection('vehicles').doc().id; 
     const vehicle = {
       vehicleId,
+      companyId: vehicleData.companyId,
       type: vehicleData.type || null,
       make: vehicleData.make || null, // Add make field
       vehicleRegistration: vehicleData.vehicleRegistration || null,
@@ -34,69 +33,76 @@ const Vehicle = {
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
     };
-    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).set(vehicle);
+    await db.collection('vehicles').doc(vehicleId).set(vehicle);
     return vehicle;
   },
 
-  async get(companyId, vehicleId) {
-    const doc = await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).get();
+  async get(vehicleId) {
+    const doc = await db.collection('vehicles').doc(vehicleId).get();
     if (!doc.exists) throw new Error('Vehicle not found');
     return { id: doc.id, ...doc.data() };
   },
 
-  async update(companyId, vehicleId, updates) {
+  async update( vehicleId, updates) {
     const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
-    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).update(updated);
+    await db.collection('vehicles').doc(vehicleId).update(updated);
     return updated;
   },
 
-  async getAll(companyId) {
-    const snapshot = await db.collection('companies').doc(companyId).collection('vehicles').get();
+  async getAll() {
+    const snapshot = await db.collection('vehicles').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
 
-  async assignDriver(companyId, vehicleId, driverId) {
+  async assignDriver(vehicleId, driverId) {
     console.log(`Assigning driver ${driverId} to vehicle ${vehicleId}`);
-    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).update({ assignedDriverId: driverId });
+    await db.collection('vehicles').doc(vehicleId).update({ assignedDriverId: driverId });
     console.log(`Driver ${driverId} assigned to vehicle ${vehicleId}`);
   },
 
-  async unassignDriver(companyId, vehicleId) {
-    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).update({ assignedDriverId: null });
+  async unassignDriver(vehicleId) {
+    await db.collection('vehicles').doc(vehicleId).update({ assignedDriverId: null });
   },
 
-  async delete(companyId, vehicleId) {
-    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).delete();
+  async delete(vehicleId) {
+    await db.collection('vehicles').doc(vehicleId).delete();
   },
 
-  async updateAvailability(companyId, vehicleId, availability) {
-    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).update({ availability });
+  async updateAvailability(vehicleId, availability) {
+    await db.collection('vehicles').doc(vehicleId).update({ availability });
   },
 
-  async getByRegistration(companyId, reg) {
-    const snapshot = await db.collection('companies').doc(companyId).collection('vehicles').where('reg', '==', reg).get();
+  async getByRegistration(reg) {
+    const snapshot = await db.collection('vehicles').where('reg', '==', reg).get();
     // return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return snapshot.empty ? null : snapshot.docs[0].data();
   },
 
-  async approve(companyId, vehicleId) {
+  async approve(vehicleId) {
     const updates = {
+      availability: true,
+      insuranceExpiry,
       status: 'approved',
       updatedAt: admin.firestore.Timestamp.now(),
     }
-    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).update(updates);
+    await db.collection('vehicles').doc(vehicleId).update(updates);
     return updates;
   },
 
-  async reject(companyId, vehicleId, reason) {
+  async reject(vehicleId, reason) {
     const updates = {
       status: 'rejected',
       rejectionReason: reason || 'Not specified',
       updatedAt: admin.firestore.Timestamp.now(),
     }
-    await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).update(updates);
+    await db.collection('vehicles').doc(vehicleId).update(updates);
     return updates;
-  }
+  },
+
+  async getByCompanyId(companyId) {
+    const snapshot = await db.collection('vehicles').where('companyId', '==', companyId).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = Vehicle;
