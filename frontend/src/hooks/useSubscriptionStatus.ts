@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import { getAuth } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 import subscriptionService from '../services/subscriptionService';
 
 interface SubscriptionStatus {
@@ -30,6 +33,39 @@ export const useSubscriptionStatus = (): UseSubscriptionStatusReturn => {
       setLoading(true);
       setError(null);
       
+      // Check user role first - only transporters and brokers need subscriptions
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      // Get user role from Firestore
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        setLoading(false);
+        return;
+      }
+
+      const userData = userDoc.data();
+      const userRole = userData.role;
+
+      // Only check subscription for transporters and brokers
+      if (userRole === 'job_seeker' || userRole === 'driver' || userRole === 'business' || userRole === 'shipper') {
+        console.log(`useSubscriptionStatus: Skipping subscription check for ${userRole} user`);
+        setSubscriptionStatus({
+          hasActiveSubscription: false,
+          isTrialActive: false,
+          needsTrialActivation: false,
+          currentPlan: null,
+          daysRemaining: 0,
+          subscriptionStatus: 'none',
+        });
+        setLoading(false);
+        return;
+      }
+
       const status = await subscriptionService.getSubscriptionStatus();
       setSubscriptionStatus(status);
       
