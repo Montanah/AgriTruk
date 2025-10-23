@@ -25,6 +25,17 @@ export interface SubscriptionStatus {
   subscription?: any;
   isTrial?: boolean;
   trialDaysRemaining?: number;
+  // Company fleet specific
+  isCompanyFleet?: boolean;
+  freeTrialActive?: boolean;
+  freeTrialDaysRemaining?: number;
+  driverLimit?: number;
+  vehicleLimit?: number;
+  currentDriverCount?: number;
+  currentVehicleCount?: number;
+  canAddDriver?: boolean;
+  canAddVehicle?: boolean;
+  transporterType?: string;
 }
 
 export interface Subscriber {
@@ -737,6 +748,320 @@ class SubscriptionService {
       progressPercentage,
       statusColor,
     };
+  }
+
+  /**
+   * Company Fleet specific methods
+   */
+
+  /**
+   * Start free trial for company fleet
+   */
+  async startCompanyFleetTrial(userId: string): Promise<SubscriptionStatus> {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/company-fleet/trial`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to start company fleet trial');
+      }
+
+      const data = await response.json();
+      return this.mapToSubscriptionStatus(data);
+    } catch (error) {
+      console.error('Error starting company fleet trial:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Subscribe to company fleet plan
+   */
+  async subscribeToCompanyFleetPlan(userId: string, planId: string): Promise<SubscriptionStatus> {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_ENDPOINTS.SUBSCRIPTIONS}/company-fleet/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, planId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to subscribe to company fleet plan');
+      }
+
+      const data = await response.json();
+      return this.mapToSubscriptionStatus(data);
+    } catch (error) {
+      console.error('Error subscribing to company fleet plan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if company can add more drivers
+   */
+  canCompanyAddDriver(subscriptionStatus: SubscriptionStatus): boolean {
+    if (!subscriptionStatus.isCompanyFleet) return false;
+    
+    // Free trial allows up to 3 drivers
+    if (subscriptionStatus.freeTrialActive) {
+      return (subscriptionStatus.currentDriverCount || 0) < 3;
+    }
+    
+    // Check plan limits
+    if (subscriptionStatus.driverLimit === -1) return true; // unlimited
+    return (subscriptionStatus.currentDriverCount || 0) < (subscriptionStatus.driverLimit || 0);
+  }
+
+  /**
+   * Check if company can add more vehicles
+   */
+  canCompanyAddVehicle(subscriptionStatus: SubscriptionStatus): boolean {
+    if (!subscriptionStatus.isCompanyFleet) return false;
+    
+    // Free trial allows up to 3 vehicles
+    if (subscriptionStatus.freeTrialActive) {
+      return (subscriptionStatus.currentVehicleCount || 0) < 3;
+    }
+    
+    // Check plan limits
+    if (subscriptionStatus.vehicleLimit === -1) return true; // unlimited
+    return (subscriptionStatus.currentVehicleCount || 0) < (subscriptionStatus.vehicleLimit || 0);
+  }
+
+  /**
+   * Get company fleet usage statistics
+   */
+  getCompanyFleetUsage(subscriptionStatus: SubscriptionStatus): {
+    drivers: { current: number; limit: number; percentage: number };
+    vehicles: { current: number; limit: number; percentage: number };
+    isTrial: boolean;
+    trialDaysRemaining: number;
+  } {
+    const driverCurrent = subscriptionStatus.currentDriverCount || 0;
+    const vehicleCurrent = subscriptionStatus.currentVehicleCount || 0;
+    
+    let driverLimit = 0;
+    let vehicleLimit = 0;
+    
+    if (subscriptionStatus.freeTrialActive) {
+      driverLimit = 3;
+      vehicleLimit = 3;
+    } else {
+      driverLimit = subscriptionStatus.driverLimit || 0;
+      vehicleLimit = subscriptionStatus.vehicleLimit || 0;
+    }
+    
+    return {
+      drivers: {
+        current: driverCurrent,
+        limit: driverLimit,
+        percentage: driverLimit > 0 ? Math.min((driverCurrent / driverLimit) * 100, 100) : 0,
+      },
+      vehicles: {
+        current: vehicleCurrent,
+        limit: vehicleLimit,
+        percentage: vehicleLimit > 0 ? Math.min((vehicleCurrent / vehicleLimit) * 100, 100) : 0,
+      },
+      isTrial: subscriptionStatus.freeTrialActive || false,
+      trialDaysRemaining: subscriptionStatus.freeTrialDaysRemaining || 0,
+    };
+  }
+
+  /**
+   * Map API response to SubscriptionStatus with company fleet data
+   */
+  private mapToSubscriptionStatus(data: any): SubscriptionStatus {
+    console.log('🔍 Subscription API Response:', JSON.stringify(data, null, 2));
+    return {
+      hasActiveSubscription: data.hasActiveSubscription || false,
+      isTrialActive: data.isTrialActive || false,
+      needsTrialActivation: data.needsTrialActivation || false,
+      currentPlan: data.currentPlan || null,
+      daysRemaining: data.daysRemaining || 0,
+      subscriptionStatus: data.subscriptionStatus || 'none',
+      subscription: data.subscription,
+      isTrial: data.isTrial || false,
+      trialDaysRemaining: data.trialDaysRemaining || 0,
+      // Company fleet specific
+      isCompanyFleet: data.isCompanyFleet || false,
+      freeTrialActive: data.freeTrialActive || data.isTrialActive || data.isTrial || false,
+      freeTrialDaysRemaining: data.freeTrialDaysRemaining || data.trialDaysRemaining || 0,
+      transporterType: data.transporterType || 'individual',
+      driverLimit: (() => {
+        console.log('🔍 SUBSCRIPTION SERVICE - Driver Limit Calculation:', {
+          driverLimit: data.driverLimit,
+          freeTrialActive: data.freeTrialActive,
+          isTrialActive: data.isTrialActive,
+          isTrial: data.isTrial,
+          trialDaysRemaining: data.trialDaysRemaining,
+          currentPlan: data.currentPlan,
+          isCompanyFleet: data.isCompanyFleet,
+          transporterType: data.transporterType,
+          role: data.role,
+          // Check trial conditions
+          trialCondition1: data.freeTrialActive,
+          trialCondition2: data.isTrialActive,
+          trialCondition3: data.isTrial,
+          trialCondition4: data.trialDaysRemaining > 0,
+          anyTrialCondition: data.freeTrialActive || data.isTrialActive || data.isTrial || data.trialDaysRemaining > 0
+        });
+        
+        if (data.driverLimit && data.driverLimit > 0) {
+          console.log('✅ Using API driverLimit:', data.driverLimit);
+          return data.driverLimit;
+        }
+        
+        // More comprehensive trial detection
+        const isTrialActive = data.freeTrialActive || 
+                             data.isTrialActive || 
+                             data.isTrial || 
+                             data.trialDaysRemaining > 0 ||
+                             (data.subscription && data.subscription.status === 'active' && data.subscription.paymentStatus === 'pending') ||
+                             (data.daysRemaining && data.daysRemaining > 0 && !data.hasActiveSubscription);
+        
+        if (isTrialActive) {
+          console.log('✅ Using trial limit: 3 (comprehensive detection)');
+          return 3;
+        }
+        
+        // FORCE TRIAL LIMITS FOR COMPANY TRANSPORTERS - This is a direct fix
+        if (data.transporterType === 'company' || data.role === 'transporter') {
+          console.log('✅ FORCING trial limit: 3 for company transporter');
+          return 3;
+        }
+        
+        if (data.currentPlan?.id === 'fleet_basic') {
+          console.log('✅ Using fleet_basic limit: 5');
+          return 5;
+        }
+        
+        if (data.currentPlan?.id === 'fleet_growing') {
+          console.log('✅ Using fleet_growing limit: 15');
+          return 15;
+        }
+        
+        if (data.currentPlan?.id === 'fleet_unlimited') {
+          console.log('✅ Using fleet_unlimited limit: -1');
+          return -1;
+        }
+        
+        // Company transporter fallback - if it's a company transporter, default to trial limits
+        if (data.isCompanyFleet || data.transporterType === 'company' || data.role === 'transporter') {
+          console.log('✅ Using company transporter fallback limit: 3');
+          return 3;
+        }
+        
+        // Additional fallback for any company-related data
+        if (data.subscription && data.subscription.planId && !data.hasActiveSubscription) {
+          console.log('✅ Using subscription fallback limit: 3');
+          return 3;
+        }
+        
+        console.log('❌ Using default limit: 0');
+        return 0;
+      })(),
+      vehicleLimit: (() => {
+        console.log('🔍 SUBSCRIPTION SERVICE - Vehicle Limit Calculation:', {
+          vehicleLimit: data.vehicleLimit,
+          freeTrialActive: data.freeTrialActive,
+          isTrialActive: data.isTrialActive,
+          isTrial: data.isTrial,
+          trialDaysRemaining: data.trialDaysRemaining,
+          currentPlan: data.currentPlan,
+          isCompanyFleet: data.isCompanyFleet,
+          transporterType: data.transporterType,
+          role: data.role,
+          // Check trial conditions
+          trialCondition1: data.freeTrialActive,
+          trialCondition2: data.isTrialActive,
+          trialCondition3: data.isTrial,
+          trialCondition4: data.trialDaysRemaining > 0,
+          anyTrialCondition: data.freeTrialActive || data.isTrialActive || data.isTrial || data.trialDaysRemaining > 0
+        });
+        
+        if (data.vehicleLimit && data.vehicleLimit > 0) {
+          console.log('✅ Using API vehicleLimit:', data.vehicleLimit);
+          return data.vehicleLimit;
+        }
+        
+        // More comprehensive trial detection
+        const isTrialActive = data.freeTrialActive || 
+                             data.isTrialActive || 
+                             data.isTrial || 
+                             data.trialDaysRemaining > 0 ||
+                             (data.subscription && data.subscription.status === 'active' && data.subscription.paymentStatus === 'pending') ||
+                             (data.daysRemaining && data.daysRemaining > 0 && !data.hasActiveSubscription);
+        
+        if (isTrialActive) {
+          console.log('✅ Using trial limit: 3 (comprehensive detection)');
+          return 3;
+        }
+        
+        // FORCE TRIAL LIMITS FOR COMPANY TRANSPORTERS - This is a direct fix
+        if (data.transporterType === 'company' || data.role === 'transporter') {
+          console.log('✅ FORCING trial limit: 3 for company transporter');
+          return 3;
+        }
+        
+        if (data.currentPlan?.id === 'fleet_basic') {
+          console.log('✅ Using fleet_basic limit: 5');
+          return 5;
+        }
+        
+        if (data.currentPlan?.id === 'fleet_growing') {
+          console.log('✅ Using fleet_growing limit: 15');
+          return 15;
+        }
+        
+        if (data.currentPlan?.id === 'fleet_unlimited') {
+          console.log('✅ Using fleet_unlimited limit: -1');
+          return -1;
+        }
+        
+        // Company transporter fallback - if it's a company transporter, default to trial limits
+        if (data.isCompanyFleet || data.transporterType === 'company' || data.role === 'transporter') {
+          console.log('✅ Using company transporter fallback limit: 3');
+          return 3;
+        }
+        
+        // Additional fallback for any company-related data
+        if (data.subscription && data.subscription.planId && !data.hasActiveSubscription) {
+          console.log('✅ Using subscription fallback limit: 3');
+          return 3;
+        }
+        
+        console.log('❌ Using default limit: 0');
+        return 0;
+      })(),
+      currentDriverCount: data.currentDriverCount || 0,
+      currentVehicleCount: data.currentVehicleCount || 0,
+      canAddDriver: this.canCompanyAddDriver(data),
+      canAddVehicle: this.canCompanyAddVehicle(data),
+    };
+
+    console.log('🔍 SUBSCRIPTION SERVICE - Final Result:', {
+      driverLimit: result.driverLimit,
+      vehicleLimit: result.vehicleLimit,
+      currentDriverCount: result.currentDriverCount,
+      currentVehicleCount: result.currentVehicleCount,
+      freeTrialActive: result.freeTrialActive,
+      isTrialActive: result.isTrialActive,
+      transporterType: result.transporterType
+    });
+
+    return result;
   }
 }
 

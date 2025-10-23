@@ -12,14 +12,16 @@ import {
   SafeAreaView,
 } from 'react-native';
 import colors from '../../constants/colors';
-import { transporterPlans, brokerPlans } from '../../constants/subscriptionPlans';
+import { INDIVIDUAL_PLANS, BROKER_PLANS, COMPANY_FLEET_PLANS } from '../../constants/subscriptionPlans';
 
 const SubscriptionModal = ({ selectedPlan, setSelectedPlan, onClose, onSubscribe, userType = 'transporter', isUpgrade = false, visible = true }) => {
   const navigation = useNavigation();
   const { height: screenHeight } = Dimensions.get('window');
 
   // Use proper subscription plans based on user type
-  const plans = userType === 'broker' ? brokerPlans : transporterPlans;
+  const plans = userType === 'broker' ? BROKER_PLANS : 
+                userType === 'company' ? COMPANY_FLEET_PLANS : 
+                INDIVIDUAL_PLANS;
 
   const handleSubscribe = () => {
     if (!selectedPlan) {

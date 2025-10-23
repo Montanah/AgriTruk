@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -15,33 +16,17 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 
-interface RecruitmentRequest {
-  id: string;
-  companyId: string;
-  companyName: string;
-  companyLogo?: string;
-  requestDate: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  message?: string;
-  salaryOffer?: {
-    min: number;
-    max: number;
-    currency: string;
-  };
-  jobDetails?: {
-    vehicleType: string;
-    route: string;
-    workingHours: string;
-  };
-}
+// Removed RecruitmentRequest interface - no longer needed
 
 interface DriverProfile {
   id: string;
   firstName: string;
   lastName: string;
+  name: string;
   email: string;
   phone: string;
-  status: 'pending' | 'approved' | 'rejected' | 'active' | 'inactive';
+  status: 'pending_approval' | 'approved' | 'rejected' | 'recruited' | 'active' | 'inactive';
+  profilePhoto?: string;
   profileImage?: string;
   experience: number;
   location: string;
@@ -51,17 +36,24 @@ interface DriverProfile {
     max: number;
     currency: string;
   };
+  recruitedBy?: string;
+  recruitedAt?: string;
+  documents?: {
+    idDoc?: { url: string; status: string };
+    drivingLicense?: { url: string; status: string };
+    goodConductCert?: { url: string; status: string };
+    goodsServiceLicense?: { url: string; status: string };
+  };
 }
 
 const DriverRecruitmentStatusScreen = () => {
   const navigation = useNavigation();
   const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
-  const [recruitmentRequests, setRecruitmentRequests] = useState<RecruitmentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDriverData = async () => {
+  const fetchDriverData = useCallback(async () => {
     try {
       setError(null);
       const { getAuth } = require('firebase/auth');
@@ -83,10 +75,10 @@ const DriverRecruitmentStatusScreen = () => {
         // Check if profile is complete
         if (!isProfileComplete(application)) {
           console.log('Job seeker profile incomplete - redirecting to profile completion');
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'TransporterCompletionScreen', params: { isJobSeeker: true } }]
-          });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'JobSeekerCompletionScreen' as never }]
+        });
           return;
         }
         
@@ -96,13 +88,12 @@ const DriverRecruitmentStatusScreen = () => {
         console.log('No job seeker application found - redirecting to profile completion');
         navigation.reset({
           index: 0,
-          routes: [{ name: 'TransporterCompletionScreen', params: { isJobSeeker: true } }]
+          routes: [{ name: 'JobSeekerCompletionScreen' as never }]
         });
         return;
       }
 
-      // No recruitment requests - companies handle recruitment themselves
-      setRecruitmentRequests([]);
+      // No recruitment requests needed - companies handle recruitment offline
     } catch (err: any) {
       console.error('Error fetching driver data:', err);
       setError(err.message || 'Failed to fetch data');
@@ -110,187 +101,251 @@ const DriverRecruitmentStatusScreen = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [navigation]);
 
   // Check if job seeker profile is complete
   const isProfileComplete = (profile: any) => {
     if (!profile) return false;
     
-    // Check required documents
+    console.log('Checking profile completeness:', {
+      profilePhoto: profile.profilePhoto,
+      documents: profile.documents,
+      dateOfBirth: profile.dateOfBirth,
+      vehicleClassesExperience: profile.experience?.vehicleClassesExperience || profile.vehicleClassesExperience,
+      specializations: profile.experience?.specializations || profile.specializations,
+      experienceObject: profile.experience
+    });
+    
+    // Check required documents - profile photo is at root level, others are in documents
+    const hasProfilePhoto = profile.profilePhoto && profile.profilePhoto.trim() !== '';
     const hasRequiredDocs = profile.documents && 
-      profile.documents.profilePhoto && 
-      profile.documents.driverLicense && 
+      profile.documents.drivingLicense && 
+      profile.documents.drivingLicense.url && 
       profile.documents.goodConductCert && 
-      profile.documents.idDoc;
+      profile.documents.goodConductCert.url && 
+      profile.documents.idDoc && 
+      profile.documents.idDoc.url;
     
-    // Check required profile fields
+    // Check required profile fields (check experience nested object first, then root level as fallback)
+    const vehicleClasses = profile.experience?.vehicleClassesExperience || profile.vehicleClassesExperience || [];
+    const specializations = profile.experience?.specializations || profile.specializations || [];
+    
     const hasRequiredFields = profile.dateOfBirth && 
-      profile.careerStartDate && 
-      profile.vehicleClasses && 
-      profile.vehicleClasses.length > 0 && 
-      profile.specializations && 
-      profile.specializations.length > 0;
+      vehicleClasses.length > 0 && 
+      specializations.length > 0;
     
-    return hasRequiredDocs && hasRequiredFields;
+    const isComplete = hasProfilePhoto && hasRequiredDocs && hasRequiredFields;
+    console.log('Profile completeness check:', {
+      hasProfilePhoto,
+      hasRequiredDocs,
+      hasRequiredFields,
+      isComplete
+    });
+    
+    return isComplete;
   };
 
   useEffect(() => {
     fetchDriverData();
-  }, []);
+  }, [fetchDriverData]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchDriverData();
   };
 
-  const handleRequestResponse = async (requestId: string, response: 'accepted' | 'rejected') => {
-    try {
-      const { getAuth } = require('firebase/auth');
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchDriverData();
+    setRefreshing(false);
+  };
 
-      const token = await user.getIdToken();
-      
-      const responseData = await fetch(`${API_ENDPOINTS.DRIVERS}/${user.uid}/requests/${requestId}/respond`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-        body: JSON.stringify({ response }),
-      });
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { getAuth, signOut } = require('firebase/auth');
+              const auth = getAuth();
+              await signOut(auth);
+              // Navigation will be handled by App.tsx based on auth state
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
-      if (responseData.ok) {
-        Alert.alert(
-          'Success',
-          response === 'accepted' 
-            ? 'You have accepted the recruitment request! You will now have access to company jobs.'
-            : 'You have rejected the recruitment request.'
-        );
-        
-        if (response === 'accepted') {
-          // Navigate to driver dashboard
-          navigation.navigate('DriverTabs');
-        } else {
-          // Refresh the data
-          fetchDriverData();
-        }
-      } else {
-        Alert.alert('Error', 'Failed to respond to request. Please try again.');
+  const getDocumentIcon = (docType: string) => {
+    const iconMap: { [key: string]: string } = {
+      'idDoc': 'card-account-details',
+      'drivingLicense': 'license',
+      'goodConductCert': 'certificate',
+      'goodsServiceLicense': 'file-document',
+      'profilePhoto': 'camera',
+    };
+    return iconMap[docType] || 'file-document';
+  };
+
+  const getDocumentName = (docType: string) => {
+    const nameMap: { [key: string]: string } = {
+      'idDoc': 'ID Document',
+      'drivingLicense': 'Driving License',
+      'goodConductCert': 'Good Conduct Certificate',
+      'goodsServiceLicense': 'Goods Service License',
+      'profilePhoto': 'Profile Photo',
+    };
+    return nameMap[docType] || docType;
+  };
+
+  // Removed hasDocumentIssues function - no longer needed
+
+  const hasRequiredDocumentIssues = (documents: any) => {
+    if (!documents) return false;
+    
+    // Only check required documents (exclude optional ones like goodsServiceLicense)
+    const requiredDocs = ['profilePhoto', 'idDoc', 'drivingLicense', 'goodConductCert'];
+    
+    return requiredDocs.some(docType => {
+      const docData = documents[docType];
+      if (!docData) return false;
+      return docData.status === 'rejected' || docData.status === 'pending';
+    });
+  };
+
+  const handleCorrectDocuments = () => {
+    Alert.alert(
+      'Correct Document Issues',
+      'You will be taken back to the profile completion form to correct any document issues. Your approved documents will be preserved.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Continue',
+          onPress: () => {
+            // Navigate to JobSeekerCompletionScreen with correction mode
+            (navigation as any).navigate('JobSeekerCompletion', { 
+              correctionMode: true,
+              approvedDocuments: getApprovedDocuments(driverProfile?.documents)
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  const getApprovedDocuments = (documents: any) => {
+    if (!documents) return {};
+    
+    const approvedDocs: any = {};
+    Object.entries(documents).forEach(([docType, docData]: [string, any]) => {
+      if (docData && docData.status === 'approved') {
+        approvedDocs[docType] = docData;
       }
-    } catch (error) {
-      console.error('Error responding to request:', error);
-      Alert.alert('Error', 'Failed to respond to request. Please try again.');
-    }
+    });
+    return approvedDocs;
+  };
+
+  const handleUpdateStatus = async () => {
+    Alert.alert(
+      'Update Recruitment Status',
+      'Have you been recruited by a company? This will mark you as recruited and you will no longer appear in job seeker listings.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, I\'ve been recruited',
+          onPress: async () => {
+            try {
+              const { getAuth } = require('firebase/auth');
+              const auth = getAuth();
+              const user = auth.currentUser;
+              if (!user) return;
+
+              const token = await user.getIdToken();
+              
+              const response = await fetch(`${API_ENDPOINTS.JOB_SEEKERS}/${driverProfile?.id}/status`, {
+                method: 'PATCH',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  status: 'recruited',
+                  recruitedAt: new Date().toISOString(),
+                  notes: 'Status updated by job seeker'
+                }),
+              });
+
+              if (response.ok) {
+                Alert.alert(
+                  'Success',
+                  'Your status has been updated to recruited. You will no longer appear in job seeker listings.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        // Refresh the data to show updated status
+                        fetchDriverData();
+                      }
+                    }
+                  ]
+                );
+              } else {
+                const errorData = await response.json();
+                Alert.alert('Error', errorData.message || 'Failed to update status. Please try again.');
+              }
+            } catch (error) {
+              console.error('Error updating status:', error);
+              Alert.alert('Error', 'Failed to update status. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return colors.warning;
-      case 'accepted': return colors.success;
+      case 'pending_approval': return colors.warning;
+      case 'approved': return colors.success;
       case 'rejected': return colors.error;
+      case 'recruited': return colors.primary;
+      case 'active': return colors.success;
+      case 'inactive': return colors.text.secondary;
       default: return colors.text.secondary;
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return 'clock-outline';
-      case 'accepted': return 'check-circle';
+      case 'pending_approval': return 'clock-outline';
+      case 'approved': return 'check-circle';
       case 'rejected': return 'close-circle';
+      case 'recruited': return 'account-check';
+      case 'active': return 'check-circle';
+      case 'inactive': return 'pause-circle';
       default: return 'help-circle';
     }
   };
 
-  const renderRecruitmentRequest = (request: RecruitmentRequest) => (
-    <View key={request.id} style={styles.requestCard}>
-      <View style={styles.requestHeader}>
-        <View style={styles.companyInfo}>
-          {request.companyLogo ? (
-            <View style={styles.companyLogo}>
-              <Text style={styles.companyLogoText}>
-                {request.companyName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.companyLogoPlaceholder}>
-              <MaterialCommunityIcons name="office-building" size={24} color={colors.primary} />
-            </View>
-          )}
-          <View style={styles.companyDetails}>
-            <Text style={styles.companyName}>{request.companyName}</Text>
-            <Text style={styles.requestDate}>
-              {new Date(request.requestDate).toLocaleDateString()}
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(request.status) }]}>
-          <MaterialCommunityIcons 
-            name={getStatusIcon(request.status)} 
-            size={16} 
-            color={colors.white} 
-          />
-          <Text style={styles.statusText}>
-            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-          </Text>
-        </View>
-      </View>
-
-      {request.message && (
-        <View style={styles.messageContainer}>
-          <Text style={styles.messageLabel}>Message:</Text>
-          <Text style={styles.messageText}>{request.message}</Text>
-        </View>
-      )}
-
-      {request.salaryOffer && (
-        <View style={styles.offerContainer}>
-          <Text style={styles.offerLabel}>Salary Offer:</Text>
-          <Text style={styles.offerText}>
-            {request.salaryOffer.currency} {request.salaryOffer.min.toLocaleString()} - {request.salaryOffer.max.toLocaleString()}
-          </Text>
-        </View>
-      )}
-
-      {request.jobDetails && (
-        <View style={styles.jobDetailsContainer}>
-          <Text style={styles.jobDetailsLabel}>Job Details:</Text>
-          <View style={styles.jobDetailsRow}>
-            <MaterialCommunityIcons name="truck" size={16} color={colors.primary} />
-            <Text style={styles.jobDetailsText}>{request.jobDetails.vehicleType}</Text>
-          </View>
-          <View style={styles.jobDetailsRow}>
-            <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-            <Text style={styles.jobDetailsText}>{request.jobDetails.route}</Text>
-          </View>
-          <View style={styles.jobDetailsRow}>
-            <MaterialCommunityIcons name="clock" size={16} color={colors.primary} />
-            <Text style={styles.jobDetailsText}>{request.jobDetails.workingHours}</Text>
-          </View>
-        </View>
-      )}
-
-      {request.status === 'pending' && (
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton]}
-            onPress={() => handleRequestResponse(request.id, 'rejected')}
-          >
-            <MaterialCommunityIcons name="close" size={16} color={colors.white} />
-            <Text style={styles.actionButtonText}>Reject</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.acceptButton]}
-            onPress={() => handleRequestResponse(request.id, 'accepted')}
-          >
-            <MaterialCommunityIcons name="check" size={16} color={colors.white} />
-            <Text style={styles.actionButtonText}>Accept</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-  );
+  // Removed renderRecruitmentRequest function - no longer needed
 
   if (loading) {
     return (
@@ -323,7 +378,26 @@ const DriverRecruitmentStatusScreen = () => {
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Recruitment Status</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={handleRefresh}
+            disabled={refreshing}
+          >
+            <MaterialCommunityIcons 
+              name="refresh" 
+              size={24} 
+              color={colors.white} 
+              style={refreshing ? styles.refreshingIcon : null}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <MaterialCommunityIcons name="logout" size={24} color={colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -341,10 +415,16 @@ const DriverRecruitmentStatusScreen = () => {
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
             <View style={styles.profileImageContainer}>
-              {driverProfile?.profileImage ? (
+              {driverProfile?.profilePhoto ? (
+                <Image 
+                  source={{ uri: driverProfile.profilePhoto }} 
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                />
+              ) : driverProfile?.name ? (
                 <View style={styles.profileImage}>
                   <Text style={styles.profileImageText}>
-                    {driverProfile.firstName.charAt(0)}{driverProfile.lastName.charAt(0)}
+                    {driverProfile.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2)}
                   </Text>
                 </View>
               ) : (
@@ -355,7 +435,7 @@ const DriverRecruitmentStatusScreen = () => {
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>
-                {driverProfile?.firstName} {driverProfile?.lastName}
+                {driverProfile?.name || 'Job Seeker'}
               </Text>
               <Text style={styles.profileEmail}>{driverProfile?.email}</Text>
               <View style={[styles.profileStatusBadge, { backgroundColor: getStatusColor(driverProfile?.status || 'pending') }]}>
@@ -371,32 +451,177 @@ const DriverRecruitmentStatusScreen = () => {
             </View>
           </View>
           
-          {driverProfile?.status === 'approved' && (
-            <View style={styles.waitingMessage}>
-              <MaterialCommunityIcons name="clock-outline" size={24} color={colors.warning} />
-              <Text style={styles.waitingText}>
-                Your profile has been approved! You're now visible to companies and can receive recruitment requests.
-              </Text>
+          {/* Enhanced Status Indicator */}
+          <View style={styles.statusIndicatorContainer}>
+            <View style={[
+              styles.statusIndicator,
+              driverProfile?.status === 'pending_approval' && styles.statusIndicatorPending,
+              driverProfile?.status === 'approved' && styles.statusIndicatorApproved,
+              driverProfile?.status === 'rejected' && styles.statusIndicatorRejected,
+              driverProfile?.status === 'recruited' && styles.statusIndicatorRecruited,
+            ]}>
+              <View style={styles.statusIconContainer}>
+                {driverProfile?.status === 'pending_approval' && (
+                  <MaterialCommunityIcons name="clock-outline" size={28} color={colors.warning} />
+                )}
+                {driverProfile?.status === 'approved' && (
+                  <MaterialCommunityIcons name="check-circle" size={28} color={colors.success} />
+                )}
+                {driverProfile?.status === 'rejected' && (
+                  <MaterialCommunityIcons name="close-circle" size={28} color={colors.error} />
+                )}
+                {driverProfile?.status === 'recruited' && (
+                  <MaterialCommunityIcons name="account-check" size={28} color={colors.primary} />
+                )}
+              </View>
+              <View style={styles.statusContent}>
+                <Text style={[
+                  styles.statusTitle,
+                  driverProfile?.status === 'pending_approval' && styles.statusTitlePending,
+                  driverProfile?.status === 'approved' && styles.statusTitleApproved,
+                  driverProfile?.status === 'rejected' && styles.statusTitleRejected,
+                  driverProfile?.status === 'recruited' && styles.statusTitleRecruited,
+                ]}>
+                  {driverProfile?.status === 'pending_approval' && 'Profile Under Review'}
+                  {driverProfile?.status === 'approved' && 'Profile Approved!'}
+                  {driverProfile?.status === 'rejected' && 'Profile Rejected'}
+                  {driverProfile?.status === 'recruited' && 'Successfully Recruited!'}
+                </Text>
+                <Text style={styles.statusDescription}>
+                  {driverProfile?.status === 'pending_approval' && 
+                    'Your application is being reviewed by our team. You\'ll be notified once approved.'}
+                  {driverProfile?.status === 'approved' && 
+                    'Your profile is now visible to companies. You can receive recruitment requests.'}
+                  {driverProfile?.status === 'rejected' && 
+                    'Your application was not approved. Please contact support for more information.'}
+                  {driverProfile?.status === 'recruited' && 
+                    'Congratulations! You have been recruited by a company. You will no longer appear in job seeker listings.'}
+                </Text>
+                {driverProfile?.status === 'pending_approval' && (
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressBar}>
+                      <View style={styles.progressFill} />
+                    </View>
+                    <Text style={styles.progressText}>Review in progress...</Text>
+                  </View>
+                )}
+                {driverProfile?.status === 'approved' && (
+                  <View style={styles.approvedActions}>
+                    <View style={styles.readyIndicator}>
+                      <MaterialCommunityIcons name="account-check" size={16} color={colors.success} />
+                      <Text style={styles.readyText}>Profile visible to companies</Text>
+                    </View>
+                    <TouchableOpacity 
+                      style={styles.updateStatusButton}
+                      onPress={handleUpdateStatus}
+                    >
+                      <MaterialCommunityIcons name="account-plus" size={16} color={colors.white} />
+                      <Text style={styles.updateStatusText}>Mark as Recruited</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                
+                {driverProfile?.status === 'recruited' && (
+                  <View style={styles.recruitedActions}>
+                    <MaterialCommunityIcons name="check-circle" size={16} color={colors.primary} />
+                    <Text style={styles.recruitedText}>Recruitment Complete</Text>
+                  </View>
+                )}
+                
+                {/* Document Status Details - Only show if there are issues with required documents */}
+                {driverProfile?.documents && hasRequiredDocumentIssues(driverProfile.documents) && (
+                  <View style={styles.documentStatusContainer}>
+                    <Text style={styles.documentStatusTitle}>Document Issues</Text>
+                    {Object.entries(driverProfile.documents).map(([docType, docData]: [string, any]) => {
+                      // Only show required documents with issues
+                      if (!docData || docType === 'backgroundCheck' || docType === 'goodsServiceLicense') return null;
+                      if (docData.status === 'approved') return null; // Don't show approved documents
+                      
+                      const isPending = docData.status === 'pending';
+                      const isRejected = docData.status === 'rejected';
+                      
+                      return (
+                        <View key={docType} style={styles.documentStatusItem}>
+                          <View style={styles.documentStatusLeft}>
+                            <MaterialCommunityIcons 
+                              name={getDocumentIcon(docType) as any} 
+                              size={20} 
+                              color={isRejected ? colors.error : colors.warning} 
+                            />
+                            <Text style={styles.documentStatusName}>{getDocumentName(docType)}</Text>
+                          </View>
+                          <View style={styles.documentStatusRight}>
+                            <View style={[
+                              styles.documentStatusBadge,
+                              isPending && styles.documentStatusPending,
+                              isRejected && styles.documentStatusRejected,
+                            ]}>
+                              <Text style={[
+                                styles.documentStatusText,
+                                isPending && styles.documentStatusTextPending,
+                                isRejected && styles.documentStatusTextRejected,
+                              ]}>
+                                {isRejected ? 'Rejected' : 'Pending'}
+                              </Text>
+                            </View>
+                            {isRejected && docData.rejectionReason && (
+                              <Text style={styles.documentRejectionReason}>{docData.rejectionReason}</Text>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    })}
+                    
+                    {/* Action buttons for document issues */}
+                    <View style={styles.documentActions}>
+                      <TouchableOpacity 
+                        style={styles.correctDocumentsButton}
+                        onPress={handleCorrectDocuments}
+                      >
+                        <MaterialCommunityIcons name="pencil" size={16} color={colors.white} />
+                        <Text style={styles.correctDocumentsText}>Correct Issues</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+                {driverProfile?.status === 'rejected' && (
+                  <View style={styles.rejectionActions}>
+                    <TouchableOpacity style={styles.contactSupportButton}>
+                      <MaterialCommunityIcons name="help-circle" size={16} color={colors.white} />
+                      <Text style={styles.contactSupportText}>Contact Support</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
             </View>
-          )}
+          </View>
         </View>
 
-        {/* Recruitment Requests */}
-        <View style={styles.requestsSection}>
-          <Text style={styles.sectionTitle}>Recruitment Requests</Text>
-          
-          {recruitmentRequests.length === 0 ? (
-            <View style={styles.emptyRequests}>
-              <MaterialCommunityIcons name="account-search" size={64} color={colors.text.secondary} />
-              <Text style={styles.emptyTitle}>No Recruitment Requests</Text>
-              <Text style={styles.emptySubtitle}>
-                Companies will send you recruitment requests here once your profile is approved
+        {/* Contact Information for Companies */}
+        {driverProfile?.status === 'approved' && (
+          <View style={styles.contactSection}>
+            <Text style={styles.sectionTitle}>Contact Information</Text>
+            <View style={styles.contactCard}>
+              <View style={styles.contactItem}>
+                <MaterialCommunityIcons name="email" size={20} color={colors.primary} />
+                <Text style={styles.contactLabel}>Email:</Text>
+                <Text style={styles.contactValue}>{driverProfile.email}</Text>
+              </View>
+              <View style={styles.contactItem}>
+                <MaterialCommunityIcons name="phone" size={20} color={colors.primary} />
+                <Text style={styles.contactLabel}>Phone:</Text>
+                <Text style={styles.contactValue}>{driverProfile.phone}</Text>
+              </View>
+            </View>
+            <View style={styles.contactNote}>
+              <MaterialCommunityIcons name="information" size={16} color={colors.primary} />
+              <Text style={styles.contactNoteText}>
+                Companies can contact you directly using the information above. 
+                All discussions and negotiations happen outside the app.
               </Text>
             </View>
-          ) : (
-            recruitmentRequests.map(renderRecruitmentRequest)
-          )}
-        </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -418,6 +643,24 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  logoutButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  refreshingIcon: {
+    transform: [{ rotate: '180deg' }],
   },
   headerTitle: {
     fontSize: 20,
@@ -470,7 +713,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -550,7 +793,7 @@ const styles = StyleSheet.create({
     color: colors.warning,
     marginLeft: 12,
   },
-  requestsSection: {
+  contactSection: {
     marginBottom: 20,
   },
   sectionTitle: {
@@ -559,172 +802,313 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: 16,
   },
-  emptyRequests: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontFamily: fonts.family.bold,
-    color: colors.text.primary,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    fontFamily: fonts.family.regular,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  requestCard: {
+  contactCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: colors.shadow,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  requestHeader: {
+  contactItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  companyInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  companyLogo: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  companyLogoText: {
-    color: colors.white,
-    fontSize: 16,
-    fontFamily: fonts.family.bold,
-  },
-  companyLogoPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  companyDetails: {
-    flex: 1,
-  },
-  companyName: {
-    fontSize: 16,
-    fontFamily: fonts.family.bold,
-    color: colors.text.primary,
-    marginBottom: 2,
-  },
-  requestDate: {
-    fontSize: 12,
-    fontFamily: fonts.family.regular,
-    color: colors.text.secondary,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: colors.white,
-    fontSize: 12,
-    fontFamily: fonts.family.medium,
-    marginLeft: 4,
-  },
-  messageContainer: {
-    marginBottom: 12,
-  },
-  messageLabel: {
+  contactLabel: {
     fontSize: 14,
     fontFamily: fonts.family.medium,
     color: colors.text.primary,
-    marginBottom: 4,
+    marginLeft: 12,
+    marginRight: 8,
+    minWidth: 50,
   },
-  messageText: {
+  contactValue: {
+    fontSize: 14,
+    fontFamily: fonts.family.regular,
+    color: colors.text.secondary,
+    flex: 1,
+  },
+  contactNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.primary + '10',
+    padding: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  contactNoteText: {
+    fontSize: 14,
+    fontFamily: fonts.family.regular,
+    color: colors.text.secondary,
+    marginLeft: 12,
+    flex: 1,
+    lineHeight: 20,
+  },
+  // Removed old recruitment request styles - no longer needed
+  // Enhanced Status Indicator Styles
+  statusIndicatorContainer: {
+    marginTop: 16,
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statusIndicatorPending: {
+    backgroundColor: colors.warning + '15',
+    borderColor: colors.warning + '40',
+  },
+  statusIndicatorApproved: {
+    backgroundColor: colors.success + '15',
+    borderColor: colors.success + '40',
+  },
+  statusIndicatorRejected: {
+    backgroundColor: colors.error + '15',
+    borderColor: colors.error + '40',
+  },
+  statusIndicatorRecruited: {
+    backgroundColor: colors.primary + '15',
+    borderColor: colors.primary + '40',
+  },
+  statusIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statusContent: {
+    flex: 1,
+  },
+  statusTitle: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    marginBottom: 8,
+  },
+  statusTitlePending: {
+    color: colors.warning,
+  },
+  statusTitleApproved: {
+    color: colors.success,
+  },
+  statusTitleRejected: {
+    color: colors.error,
+  },
+  statusTitleRecruited: {
+    color: colors.primary,
+  },
+  statusDescription: {
     fontSize: 14,
     fontFamily: fonts.family.regular,
     color: colors.text.secondary,
     lineHeight: 20,
-  },
-  offerContainer: {
     marginBottom: 12,
   },
-  offerLabel: {
-    fontSize: 14,
-    fontFamily: fonts.family.medium,
-    color: colors.text.primary,
-    marginBottom: 4,
-  },
-  offerText: {
-    fontSize: 14,
-    fontFamily: fonts.family.regular,
-    color: colors.success,
-  },
-  jobDetailsContainer: {
-    marginBottom: 12,
-  },
-  jobDetailsLabel: {
-    fontSize: 14,
-    fontFamily: fonts.family.medium,
-    color: colors.text.primary,
-    marginBottom: 8,
-  },
-  jobDetailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  jobDetailsText: {
-    fontSize: 14,
-    fontFamily: fonts.family.regular,
-    color: colors.text.secondary,
-    marginLeft: 8,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  progressContainer: {
     marginTop: 8,
   },
-  actionButton: {
+  progressBar: {
+    height: 4,
+    backgroundColor: colors.warning + '30',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.warning,
+    borderRadius: 2,
+    width: '70%',
+  },
+  progressText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.warning,
+  },
+  approvedActions: {
+    marginTop: 12,
+  },
+  readyIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    backgroundColor: colors.success + '20',
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 6,
-    flex: 1,
-    marginHorizontal: 4,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
   },
-  rejectButton: {
+  readyText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.success,
+    marginLeft: 6,
+  },
+  rejectionActions: {
+    marginTop: 8,
+  },
+  contactSupportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.error,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
   },
-  acceptButton: {
-    backgroundColor: colors.success,
-  },
-  actionButtonText: {
-    color: colors.white,
+  contactSupportText: {
     fontSize: 14,
     fontFamily: fonts.family.medium,
-    marginLeft: 4,
+    color: colors.white,
+    marginLeft: 6,
+  },
+  // Document Status Styles
+  documentStatusContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  documentStatusTitle: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 12,
+  },
+  documentStatusItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border + '30',
+  },
+  documentStatusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  documentStatusName: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.primary,
+    marginLeft: 8,
+  },
+  documentStatusRight: {
+    alignItems: 'flex-end',
+  },
+  documentStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  documentStatusApproved: {
+    backgroundColor: colors.success + '20',
+  },
+  documentStatusPending: {
+    backgroundColor: colors.warning + '20',
+  },
+  documentStatusRejected: {
+    backgroundColor: colors.error + '20',
+  },
+  documentStatusText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+  },
+  documentStatusTextApproved: {
+    color: colors.success,
+  },
+  documentStatusTextPending: {
+    color: colors.warning,
+  },
+  documentStatusTextRejected: {
+    color: colors.error,
+  },
+  documentRejectionReason: {
+    fontSize: 11,
+    fontFamily: fonts.family.regular,
+    color: colors.text.secondary,
+    marginTop: 4,
+    textAlign: 'right',
+    maxWidth: 150,
+  },
+  documentActions: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border + '30',
+  },
+  correctDocumentsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  correctDocumentsText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.white,
+    marginLeft: 6,
+  },
+  // Removed empty requests styles - no longer needed
+  // Update Status Button Styles
+  updateStatusButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  updateStatusText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.white,
+    marginLeft: 6,
+  },
+  // Recruited Status Styles
+  recruitedActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  recruitedText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.primary,
+    marginLeft: 6,
   },
 });
 

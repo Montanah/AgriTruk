@@ -96,8 +96,8 @@ const TrackingScreen = () => {
             setTrackingData(trackingData);
         } catch (error) {
             console.error('Error loading tracking data:', error);
-            // Fallback to mock data if needed
-            setTrackingData(generateMockTrackingData(booking));
+            // No fallback to mock data - handle error gracefully
+            setTrackingData(null);
         } finally {
             setLoading(false);
         }
@@ -156,6 +156,7 @@ const TrackingScreen = () => {
         };
     }, [booking?.id]);
 
+    // No mock data generation - use real API data only
     const generateMockTrackingData = (booking: any): TrackingData => {
         const now = new Date();
         const pickupDate = new Date(booking.pickUpDate || now);
@@ -267,9 +268,8 @@ const TrackingScreen = () => {
     const fetchTrackingData = useCallback(async (bookingId: string) => {
         setLoading(true);
         try {
-            // Generate mock tracking data based on booking information
-            const trackingData = generateMockTrackingData(booking);
-            setTrackingData(trackingData);
+            // No mock data - use real API data only
+            setTrackingData(null);
         } catch {
             // Handle error silently
         } finally {

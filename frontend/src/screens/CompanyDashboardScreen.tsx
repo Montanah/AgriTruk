@@ -17,7 +17,9 @@ import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
-import { transporterPlans } from '../constants/subscriptionPlans';
+import { COMPANY_FLEET_PLANS } from '../constants/subscriptionPlans';
+import subscriptionService, { SubscriptionStatus } from '../services/subscriptionService';
+import companyFleetValidationService from '../services/companyFleetValidationService';
 
 interface FleetStats {
   totalVehicles: number;
@@ -61,8 +63,24 @@ const CompanyDashboardScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Subscription state
+  const [featureAccess, setFeatureAccess] = useState<any>(null);
+  
   // Use the subscription hook for better subscription management
   const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
+
+  const validateFeatureAccess = async () => {
+    if (subscriptionStatus) {
+      const access = {
+        jobSeekers: companyFleetValidationService.validateJobSeekersAccess(subscriptionStatus),
+        analytics: companyFleetValidationService.validateAdvancedAnalyticsAccess(subscriptionStatus),
+        routeOptimization: companyFleetValidationService.validateRouteOptimizationAccess(subscriptionStatus),
+        accountManager: companyFleetValidationService.validateAccountManagerAccess(subscriptionStatus),
+        customIntegrations: companyFleetValidationService.validateCustomIntegrationsAccess(subscriptionStatus),
+      };
+      setFeatureAccess(access);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -163,6 +181,10 @@ const CompanyDashboardScreen = () => {
     fetchDashboardData();
   }, []);
 
+  useEffect(() => {
+    validateFeatureAccess();
+  }, [subscriptionStatus]);
+
   const renderStatCard = (title: string, value: string | number, icon: string, color: string, onPress?: () => void) => (
     <TouchableOpacity
       style={[styles.statCard, { borderLeftColor: color }]}
@@ -239,7 +261,7 @@ const CompanyDashboardScreen = () => {
             subscriptionStatus={subscriptionStatus || {
               hasActiveSubscription: true,
               isTrialActive: false,
-              currentPlan: transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1],
+              currentPlan: COMPANY_FLEET_PLANS.find(plan => plan.id === 'fleet_growing') || COMPANY_FLEET_PLANS[1],
               daysRemaining: 15,
               subscriptionStatus: 'active'
             }}
@@ -354,6 +376,41 @@ const CompanyDashboardScreen = () => {
             >
               <MaterialCommunityIcons name="chart-line" size={32} color={colors.primary} />
               <Text style={styles.actionText}>Analytics</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                (!featureAccess?.jobSeekers?.hasAccess) && styles.actionButtonDisabled
+              ]}
+              onPress={() => {
+                if (featureAccess?.jobSeekers?.hasAccess) {
+                  navigation.navigate('JobSeekersMarketplace');
+                } else {
+                  Alert.alert(
+                    'Feature Not Available',
+                    featureAccess?.jobSeekers?.reason || 'Job Seekers Marketplace is not available in your current plan.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Upgrade Plan', 
+                        onPress: () => navigation.navigate('CompanyFleetPlans' as never)
+                      }
+                    ]
+                  );
+                }
+              }}
+            >
+              <MaterialCommunityIcons 
+                name="account-search" 
+                size={32} 
+                color={featureAccess?.jobSeekers?.hasAccess ? colors.primary : colors.text.secondary} 
+              />
+              <Text style={[
+                styles.actionText,
+                (!featureAccess?.jobSeekers?.hasAccess) && styles.actionTextDisabled
+              ]}>
+                Browse Job Seekers
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionButton}
@@ -476,7 +533,7 @@ const styles = StyleSheet.create({
   actionButton: {
     width: '48%',
     backgroundColor: colors.white,
-    padding: 20,
+    padding: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
@@ -486,11 +543,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  actionButtonDisabled: {
+    backgroundColor: colors.background.light,
+    opacity: 0.6,
+  },
   actionText: {
     fontSize: 14,
     fontFamily: fonts.family.medium,
     color: colors.text.primary,
     marginTop: 8,
+  },
+  actionTextDisabled: {
+    color: colors.text.secondary,
   },
   activityList: {
     backgroundColor: colors.white,

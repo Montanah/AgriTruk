@@ -114,7 +114,7 @@ const EnhancedSubscriptionProgressBar: React.FC<EnhancedSubscriptionProgressBarP
     if (isAlmostFull) {
       return isTrial ? 'Trial just started' : 'Subscription active';
     }
-    return isTrial ? `Trial ends in ${daysRemaining} days` : `${daysRemaining} days remaining`;
+    return isTrial ? 'Free trial active' : 'Subscription active';
   };
 
   const getUrgencyLevel = () => {

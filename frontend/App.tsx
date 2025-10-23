@@ -16,12 +16,14 @@ import PhoneOTPScreen from './src/screens/auth/PhoneOTPScreen';
 import SignupScreen from './src/screens/auth/SignupScreen';
 import SignupSelectionScreen from './src/screens/auth/SignupSelectionScreen';
 import TransporterCompletionScreen from './src/screens/auth/TransporterCompletionScreen';
+import JobSeekerCompletionScreen from './src/screens/auth/JobSeekerCompletionScreen';
 import VerifyIdentificationDocumentScreen from './src/screens/VerifyIdentificationDocumentScreen';
 import BookingConfirmationScreen from './src/screens/BookingConfirmationScreen';
 import ConsolidationScreen from './src/screens/business/ConsolidationScreen';
 import ServiceRequestScreen from './src/screens/ServiceRequestScreen';
 import SubscriptionExpiredScreen from './src/screens/SubscriptionExpiredScreen';
 import SubscriptionTrialScreen from './src/screens/SubscriptionTrialScreen';
+import CompanyFleetPlansScreen from './src/screens/subscription/CompanyFleetPlansScreen';
 import TransporterProcessingScreen from './src/screens/TransporterProcessingScreen';
 import TripDetailsScreen from './src/screens/TripDetailsScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
@@ -412,7 +414,78 @@ export default function App() {
             } else if (data.role === 'job_seeker' || data.role === 'driver') {
               // Job seekers don't need subscriptions - they're just applying for jobs
               console.log('App.tsx: Job seeker detected - skipping subscription checks');
-              setProfileCompleted(!!data.profileCompleted);
+              
+              // Check job seeker profile completeness
+              try {
+                const { getAuth } = require('firebase/auth');
+                const auth = getAuth();
+                const firebaseUser = auth.currentUser;
+                
+                if (!firebaseUser) {
+                  console.log('App.tsx: No Firebase user found for job seeker profile check');
+                  setProfileCompleted(false);
+                  return;
+                }
+                
+                const token = await firebaseUser.getIdToken();
+                const jobSeekerResponse = await fetch(`${API_ENDPOINTS.JOB_SEEKERS}/user/${firebaseUser.uid}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (jobSeekerResponse.ok) {
+                  const jobSeekerData = await jobSeekerResponse.json();
+                  const application = jobSeekerData.application;
+                  
+                  console.log('App.tsx: Raw job seeker API response:', jobSeekerData);
+                  console.log('App.tsx: Application data:', application);
+                  
+                  // Check if job seeker profile is complete
+                  // Handle both possible field names for vehicle classes (check experience nested object first, then root level as fallback)
+                  const vehicleClasses = application?.experience?.vehicleClassesExperience || application?.vehicleClassesExperience || application?.vehicleClasses || [];
+                  const specializations = application?.experience?.specializations || application?.specializations || [];
+                  
+                  const isJobSeekerProfileComplete = application && 
+                    application.profilePhoto && 
+                    application.profilePhoto.trim() !== '' &&
+                    application.documents && 
+                    application.documents.drivingLicense && 
+                    application.documents.drivingLicense.url && 
+                    application.documents.goodConductCert && 
+                    application.documents.goodConductCert.url && 
+                    application.documents.idDoc && 
+                    application.documents.idDoc.url &&
+                    application.dateOfBirth && 
+                    vehicleClasses.length > 0 && 
+                    specializations.length > 0;
+                  
+                  console.log('App.tsx: Job seeker profile completeness check:', {
+                    hasProfilePhoto: application?.profilePhoto && application.profilePhoto.trim() !== '',
+                    hasDocuments: application?.documents && 
+                      application.documents.drivingLicense?.url && 
+                      application.documents.goodConductCert?.url && 
+                      application.documents.idDoc?.url,
+                    hasRequiredFields: application?.dateOfBirth && 
+                      vehicleClasses.length > 0 && 
+                      specializations.length > 0,
+                    isComplete: isJobSeekerProfileComplete,
+                    // Debug the actual values
+                    dateOfBirth: application?.dateOfBirth,
+                    vehicleClasses: vehicleClasses,
+                    vehicleClassesLength: vehicleClasses.length,
+                    specializations: specializations,
+                    specializationsLength: specializations.length
+                  });
+                  
+                  setProfileCompleted(isJobSeekerProfileComplete);
+                } else {
+                  console.log('App.tsx: Job seeker profile not found - setting incomplete');
+                  setProfileCompleted(false);
+                }
+              } catch (error) {
+                console.log('App.tsx: Error checking job seeker profile:', error);
+                setProfileCompleted(false);
+              }
+              
               setIsDriver(false); // Job seekers are not active drivers yet
             } else {
               // For other users (shippers), use the profileCompleted field
@@ -530,6 +603,13 @@ export default function App() {
   let screens = null;
   
   console.log('App.tsx: Routing decision - user:', !!user, 'role:', role, 'isVerified:', isVerified, 'profileCompleted:', profileCompleted);
+  console.log('App.tsx: User data:', userData);
+  console.log('App.tsx: Role type:', typeof role, 'Role value:', role);
+  
+  // CRITICAL: Job seekers should NEVER access shipper, broker, business, or transporter screens
+  if (role === 'job_seeker') {
+    console.log('App.tsx: CRITICAL - Job seeker detected, ensuring proper routing to job seeker screens only');
+  }
 
   // Navigation state
 
@@ -657,8 +737,14 @@ export default function App() {
     // Verified user detected - routing based on role
     console.log('App.tsx: Verified user detected with role:', role);
     
+    // Safety check: Job seekers should NEVER be routed to shipper screens
+    if (role === 'job_seeker') {
+      console.log('App.tsx: Job seeker detected in verified section - ensuring proper routing');
+    }
+    
     if (role === 'shipper') {
       // Routing shipper to main tabs
+      console.log('App.tsx: Shipper detected - routing to main tabs');
       initialRouteName = 'MainTabs';
       screens = (
         <>
@@ -826,7 +912,7 @@ export default function App() {
                 name="SubscriptionTrial"
                 component={SubscriptionTrialScreen as any}
                 initialParams={{
-                  userType: userData?.transporterType || 'transporter',
+                  userType: userData?.transporterType === 'company' ? 'company' : 'individual',
                   subscriptionStatus: subscriptionStatus
                 }}
               />
@@ -846,7 +932,7 @@ export default function App() {
                 name="SubscriptionExpired"
                 component={require('./src/screens/SubscriptionExpiredScreen').default}
                 initialParams={{
-                  userType: userData?.transporterType || 'transporter',
+                  userType: userData?.transporterType === 'company' ? 'company' : 'individual',
                   userId: 'current_user',
                   expiredDate: new Date().toISOString()
                 }}
@@ -867,7 +953,7 @@ export default function App() {
                 name="SubscriptionTrial"
                 component={SubscriptionTrialScreen as any}
                 initialParams={{
-                  userType: userData?.transporterType || 'transporter',
+                  userType: userData?.transporterType === 'company' ? 'company' : 'individual',
                   subscriptionStatus: subscriptionStatus
                 }}
               />
@@ -912,34 +998,73 @@ export default function App() {
           );
         }
       }
-    } else if (role === 'driver' || role === 'job_seeker') {
-      // Job seekers should only access their recruitment status screen
-      // They should NEVER have access to service requests or job management
-      console.log('App.tsx: Job seeker detected - routing to recruitment status screen only');
-      initialRouteName = 'DriverRecruitmentStatusScreen';
-      screens = (
-        <>
-          <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
-          <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
-          {/* Add verification screens for secondary verification */}
-          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
-        </>
-      );
+            } else if (role === 'driver' || role === 'job_seeker') {
+              // Job seekers should only access their recruitment status screen
+              // They should NEVER have access to service requests or job management
+              console.log('App.tsx: Job seeker detected - routing to recruitment status screen only');
+              
+              // Check if job seeker has completed their profile
+              if (!profileCompleted) {
+                console.log('App.tsx: Job seeker profile incomplete - routing to job seeker completion screen');
+                initialRouteName = 'JobSeekerCompletionScreen';
+                screens = (
+                  <>
+                    <Stack.Screen 
+                      name="JobSeekerCompletionScreen" 
+                      component={JobSeekerCompletionScreen}
+                    />
+                    <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
+                    {/* Add verification screens for secondary verification */}
+                    <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+                    <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+                  </>
+                );
+              } else {
+                console.log('App.tsx: Job seeker profile complete - routing to recruitment status');
+                initialRouteName = 'DriverRecruitmentStatusScreen';
+                screens = (
+                  <>
+                    <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
+                    <Stack.Screen name="JobSeekerCompletionScreen" component={JobSeekerCompletionScreen} />
+                    {/* Add verification screens for secondary verification */}
+                    <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+                    <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+                  </>
+                );
+              }
     } else {
-      // Fallback for other roles
-      // Routing unknown role to main tabs
-      initialRouteName = 'MainTabs';
-      screens = (
-        <>
-          <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-          <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
-          <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
-          {/* Add verification screens for secondary verification */}
-          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
-        </>
-      );
+      // Fallback for other roles - but NEVER route job_seeker here
+      console.log('App.tsx: Fallback routing for role:', role);
+      if (role === 'job_seeker') {
+        console.error('App.tsx: ERROR - Job seeker should not reach fallback routing!');
+        // Force job seeker to recruitment status
+        initialRouteName = 'DriverRecruitmentStatusScreen';
+        screens = (
+          <>
+            <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
+            <Stack.Screen 
+              name="TransporterCompletionScreen" 
+              component={TransporterCompletionScreen}
+              initialParams={{ isJobSeeker: true }}
+            />
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          </>
+        );
+      } else {
+        // Routing unknown role to main tabs (shippers only)
+        initialRouteName = 'MainTabs';
+        screens = (
+          <>
+            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+            <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
+            <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+            {/* Add verification screens for secondary verification */}
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+          </>
+        );
+      }
     }
   } else if (user && !isVerified) {
     // Handle unverified users based on their role
@@ -976,20 +1101,23 @@ export default function App() {
           </>
         );
       }
-    } else if (role === 'driver' || role === 'job_seeker') {
-      // Unverified job seekers should go to verification, then profile completion
-      console.log('App.tsx: Unverified job seeker detected - routing to verification');
-      const preferredMethod = userData?.preferredVerificationMethod || 'phone';
-      initialRouteName = preferredMethod === 'phone' ? 'PhoneOTPScreen' : 'EmailVerification';
-      screens = (
-        <>
-          <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-          <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
-          <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />
-          <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
-        </>
-      );
-    } else {
+            } else if (role === 'driver' || role === 'job_seeker') {
+              // Unverified job seekers should go to verification, then profile completion
+              console.log('App.tsx: Unverified job seeker detected - routing to verification');
+              const preferredMethod = userData?.preferredVerificationMethod || 'phone';
+              initialRouteName = preferredMethod === 'phone' ? 'PhoneOTPScreen' : 'EmailVerification';
+              screens = (
+                <>
+                  <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+                  <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+                  <Stack.Screen 
+                    name="JobSeekerCompletionScreen" 
+                    component={JobSeekerCompletionScreen}
+                  />
+                  <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
+                </>
+              );
+            } else {
       // Fallback: Any other authenticated user who is not verified should go to verification options
       // Fallback: authenticated but unverified user - routing to verification options
       const preferredMethod = userData?.preferredVerificationMethod || 'phone';
@@ -1137,6 +1265,7 @@ export default function App() {
           <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
           <Stack.Screen name="TransporterBookingManagement" component={require('./src/screens/TransporterBookingManagementScreen').default} />
           <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+          <Stack.Screen name="CompanyFleetPlans" component={CompanyFleetPlansScreen} />
           <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
           <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
           <Stack.Screen name="SubscriptionManagement" component={require('./src/screens/SubscriptionManagementScreen').default} />
@@ -1163,6 +1292,7 @@ export default function App() {
           <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
           <Stack.Screen name="TransporterBookingManagement" component={require('./src/screens/TransporterBookingManagementScreen').default} />
           <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
+          <Stack.Screen name="CompanyFleetPlans" component={CompanyFleetPlansScreen} />
           <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
           <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
           <Stack.Screen name="SubscriptionManagement" component={require('./src/screens/SubscriptionManagementScreen').default} />
@@ -1183,7 +1313,7 @@ export default function App() {
               name="SubscriptionExpired"
               component={SubscriptionExpiredScreen as any}
               initialParams={{
-                userType: userData?.transporterType || 'transporter',
+                userType: userData?.transporterType === 'company' ? 'company' : 'individual',
                 userId: user.uid,
                 expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
               }}
@@ -1203,7 +1333,7 @@ export default function App() {
               name="SubscriptionTrial"
               component={SubscriptionTrialScreen as any}
               initialParams={{
-                userType: userData?.transporterType || 'transporter',
+                userType: userData?.transporterType === 'company' ? 'company' : 'individual',
                 subscriptionStatus: subscriptionStatus
               }}
             />

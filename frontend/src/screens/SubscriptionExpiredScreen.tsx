@@ -17,7 +17,7 @@ import spacing from '../constants/spacing';
 interface SubscriptionExpiredScreenProps {
     route: {
         params: {
-            userType: 'transporter' | 'broker';
+            userType: 'individual' | 'broker' | 'company';
             userId: string;
             expiredDate: string;
         };

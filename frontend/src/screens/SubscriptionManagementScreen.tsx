@@ -16,7 +16,7 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 import subscriptionService from '../services/subscriptionService';
-import { transporterPlans, brokerPlans, trialPlan } from '../constants/subscriptionPlans';
+import { INDIVIDUAL_PLANS, BROKER_PLANS, COMPANY_FLEET_PLANS } from '../constants/subscriptionPlans';
 import SubscriptionModal from '../components/TransporterService/SubscriptionModal';
 
 const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
@@ -48,7 +48,9 @@ const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
     };
     
     const currentUserType = getUserType();
-    const availablePlans = currentUserType === 'broker' ? brokerPlans : transporterPlans;
+    const availablePlans = currentUserType === 'broker' ? BROKER_PLANS : 
+                          currentUserType === 'company' ? COMPANY_FLEET_PLANS : 
+                          INDIVIDUAL_PLANS;
     
     // Debug logging
     console.log('SubscriptionManagementScreen - currentUserType:', currentUserType);
@@ -63,6 +65,37 @@ const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
         
         if (subscriptionStatus?.isTrialActive) {
             console.log('Using trial subscription');
+            
+            // Get trial features based on user type
+            const getTrialFeatures = () => {
+                if (currentUserType === 'company') {
+                    return [
+                        'Up to 3 drivers',
+                        'Up to 3 vehicles',
+                        'Unlimited bookings',
+                        'Full app access',
+                        'Basic reporting',
+                        '24/7 support'
+                    ];
+                } else if (currentUserType === 'broker') {
+                    return [
+                        'Up to 5 clients',
+                        'Unlimited bookings',
+                        'Basic analytics',
+                        'Email support',
+                        'Mobile app access'
+                    ];
+                } else {
+                    return [
+                        'Up to 2 vehicles',
+                        'Unlimited bookings',
+                        'Basic tracking',
+                        'Email support',
+                        'Mobile app access'
+                    ];
+                }
+            };
+            
             return {
                 name: 'Free Trial',
                 type: currentUserType,
@@ -71,7 +104,7 @@ const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
                     `${subscriptionStatus.daysRemaining} days remaining` : 'N/A',
                 amount: 0,
                 period: 'trial',
-                features: trialPlan.features
+                features: getTrialFeatures()
             };
         } else if (subscriptionStatus?.hasActiveSubscription && subscriptionStatus?.currentPlan) {
             console.log('Using active subscription:', subscriptionStatus.currentPlan);

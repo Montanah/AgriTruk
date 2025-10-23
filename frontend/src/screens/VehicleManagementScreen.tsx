@@ -22,6 +22,8 @@ import fonts from '../constants/fonts';
 import { apiRequest, uploadFile } from '../utils/api';
 import { API_ENDPOINTS } from '../constants/api';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
+import subscriptionService, { SubscriptionStatus } from '../services/subscriptionService';
+import companyFleetValidationService, { FleetValidationResult } from '../services/companyFleetValidationService';
 
 interface Vehicle {
   id: string;
@@ -94,6 +96,12 @@ const VehicleManagementScreen = () => {
   const [assignedDriverId, setAssignedDriverId] = useState('');
   const [companyProfile, setCompanyProfile] = useState<any>(null);
   
+  // Subscription state
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [vehicleValidation, setVehicleValidation] = useState<FleetValidationResult | null>(null);
+  const [driverValidation, setDriverValidation] = useState<FleetValidationResult | null>(null);
+  const [driverCount, setDriverCount] = useState(0);
+  
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -156,6 +164,104 @@ const VehicleManagementScreen = () => {
     });
   };
 
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const status = await subscriptionService.getSubscriptionStatus();
+      setSubscriptionStatus(status);
+    } catch (error) {
+      console.error('Error fetching subscription status:', error);
+    }
+  };
+
+  const updateSubscriptionWithRealCounts = (vehicleCount: number, driverCount: number) => {
+    if (subscriptionStatus) {
+      console.log('📊 Updating subscription with real counts:', { vehicleCount, driverCount });
+      console.log('📊 Current subscription status:', subscriptionStatus);
+      
+      // DYNAMIC LIMITS - Use actual subscription plan limits
+      const getVehicleLimit = () => {
+        if (subscriptionStatus.freeTrialActive || subscriptionStatus.isTrialActive) return 3; // Trial limit
+        if (subscriptionStatus.currentPlan?.id === 'fleet_basic') return 5;
+        if (subscriptionStatus.currentPlan?.id === 'fleet_growing') return 15;
+        if (subscriptionStatus.currentPlan?.id === 'fleet_enterprise') return -1; // Unlimited
+        return 3; // Default trial limit
+      };
+      
+      const getDriverLimit = () => {
+        if (subscriptionStatus.freeTrialActive || subscriptionStatus.isTrialActive) return 3; // Trial limit
+        if (subscriptionStatus.currentPlan?.id === 'fleet_basic') return 5;
+        if (subscriptionStatus.currentPlan?.id === 'fleet_growing') return 15;
+        if (subscriptionStatus.currentPlan?.id === 'fleet_enterprise') return -1; // Unlimited
+        return 3; // Default trial limit
+      };
+      
+      const vehicleLimit = getVehicleLimit();
+      const driverLimit = getDriverLimit();
+      
+      const forcedVehicleValidation = {
+        canAdd: vehicleLimit === -1 || vehicleCount < vehicleLimit,
+        currentCount: vehicleCount, // Use actual vehicle count
+        limit: vehicleLimit,
+        percentage: vehicleLimit === -1 ? 0 : Math.min((vehicleCount / vehicleLimit) * 100, 100),
+        reason: vehicleLimit === -1 ? 'Unlimited vehicles' : `Plan allows up to ${vehicleLimit} vehicles`
+      };
+      
+      const forcedDriverValidation = {
+        canAdd: driverLimit === -1 || driverCount < driverLimit,
+        currentCount: driverCount, // Use actual driver count
+        limit: driverLimit,
+        percentage: driverLimit === -1 ? 0 : Math.min((driverCount / driverLimit) * 100, 100),
+        reason: driverLimit === -1 ? 'Unlimited drivers' : `Plan allows up to ${driverLimit} drivers`
+      };
+      
+      console.log('🔍 VehicleManagementScreen - DYNAMIC Vehicle validation result:', JSON.stringify(forcedVehicleValidation, null, 2));
+      console.log('🔍 VehicleManagementScreen - DYNAMIC Driver validation result:', JSON.stringify(forcedDriverValidation, null, 2));
+      
+      setVehicleValidation(forcedVehicleValidation);
+      setDriverValidation(forcedDriverValidation);
+      
+      console.log('✅ VehicleManagementScreen - Validation set successfully');
+    }
+  };
+
+  const fetchDriverCount = async () => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      
+      // Get company ID first
+      const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (companyResponse.ok) {
+        const companyData = await companyResponse.json();
+        const company = companyData[0] || companyData;
+        if (company?.id) {
+          // Fetch drivers for this company
+          const driversResponse = await fetch(`${API_ENDPOINTS.DRIVERS}?companyId=${company.id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (driversResponse.ok) {
+            const driversData = await driversResponse.json();
+            const actualDriverCount = driversData.drivers?.length || 0;
+            setDriverCount(actualDriverCount);
+            
+            // Update subscription status with real counts
+            updateSubscriptionWithRealCounts(vehicles.length, actualDriverCount);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching driver count:', error);
+    }
+  };
+
   const fetchVehicles = async () => {
     try {
       setError(null);
@@ -175,7 +281,11 @@ const VehicleManagementScreen = () => {
         const company = companyData[0] || companyData;
         if (company?.id) {
           const data = await apiRequest(`/companies/${company.id}/vehicles`);
-          setVehicles(data.vehicles || []);
+          const vehiclesList = data.vehicles || [];
+          setVehicles(vehiclesList);
+          
+          // Update subscription status with real vehicle count
+          updateSubscriptionWithRealCounts(vehiclesList.length, driverCount);
         } else {
           setVehicles([]);
         }
@@ -197,8 +307,14 @@ const VehicleManagementScreen = () => {
   };
 
   useEffect(() => {
-    fetchVehicles();
-    fetchCompanyProfile();
+    const initializeData = async () => {
+      await fetchSubscriptionStatus();
+      await fetchVehicles();
+      await fetchDriverCount();
+      await fetchCompanyProfile();
+    };
+    
+    initializeData();
   }, []);
 
   // Check if we should show the vehicle modal from route params
@@ -447,56 +563,33 @@ const VehicleManagementScreen = () => {
       const vehicleId = isEdit ? vehicles[vehicleEditIdx]?.id : null;
       
       try {
-        // Use direct fetch like individual transporter completion (which works)
-        // Add timeout to the fetch request
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-        }, 30000); // 30 second timeout
+        // Check if we're at the vehicle limit before attempting to add
+        if (!isEdit && vehicleValidation && !vehicleValidation.canAdd) {
+          Alert.alert(
+            'Vehicle Limit Reached',
+            `You have reached your vehicle limit of ${vehicleValidation.limit} vehicles. Please upgrade your plan to add more vehicles.`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        
+        // Use the apiRequest utility that's working for other calls
+        const { apiRequest } = require('../../utils/api');
         
         const url = isEdit 
-          ? `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles/${vehicleId}`
-          : `${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`;
+          ? `/companies/${companyProfile?.id || companyProfile?.companyId}/vehicles/${vehicleId}`
+          : `/companies/${companyProfile?.id || companyProfile?.companyId}/vehicles`;
         
-        const response = await fetch(url, {
+        const response = await apiRequest(url, {
           method: isEdit ? 'PUT' : 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            // Don't set Content-Type for FormData - let React Native set it automatically
-          },
-          body: formData,
-          signal: controller.signal
+          body: formData
         });
         
-        clearTimeout(timeoutId);
-        
-        // Handle response like individual transporter (text first, then parse)
-        const responseText = await response.text();
-        
-        let responseData = null;
-        let parseError = null;
-        
-        try {
-          if (responseText.trim()) {
-            responseData = JSON.parse(responseText);
-          }
-        } catch (err) {
-          parseError = err;
-        }
-        
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status} - ${responseText}`);
-        }
-        
-        if (parseError) {
-          throw new Error('Invalid response from server');
-        }
-        
-
-        if (responseData.success !== false) {
+        // apiRequest returns { success: boolean, data: any, message?: string }
+        if (response.success) {
           // Update local state
           const newVehicle: Vehicle = {
-            id: responseData.vehicle?.id || Date.now().toString(),
+            id: response.data?.vehicle?.id || response.data?.id || Date.now().toString(),
             vehicleType: vehicleType,
             vehicleMake: vehicleMake,
             vehicleModel: vehicleMake, // Using make as model for now
@@ -640,8 +733,15 @@ const VehicleManagementScreen = () => {
               setInsurance(null);
               setShowVehicleModal(false);
               
-              // Refresh vehicles list
-              fetchVehicles();
+          // Refresh vehicles list and validation
+          fetchVehicles();
+          
+          // Update validation with new vehicle count
+          if (subscriptionStatus) {
+            const newVehicleCount = vehicles.length + 1;
+            const newDriverCount = drivers.length;
+            updateSubscriptionWithRealCounts(newVehicleCount, newDriverCount);
+          }
               return;
             } else {
               throw new Error(`Fallback failed: ${fallbackResponse.status}`);
@@ -661,10 +761,7 @@ const VehicleManagementScreen = () => {
         Alert.alert(
           'Network Error', 
           errorMessage,
-          [
-            { text: 'Retry', onPress: () => handleSaveVehicle() },
-            { text: 'Cancel', style: 'cancel' }
-          ]
+          [{ text: 'OK', style: 'cancel' }] // Remove retry to prevent duplicates
         );
       } finally {
         setLoadingProfile(false);
@@ -684,10 +781,7 @@ const VehicleManagementScreen = () => {
       Alert.alert(
         'Error', 
         errorMessage,
-        [
-          { text: 'Try Again', onPress: () => handleSaveVehicle() },
-          { text: 'Cancel', style: 'cancel' }
-        ]
+        [{ text: 'OK', style: 'cancel' }] // Remove retry to prevent duplicates
       );
       
       setLoadingProfile(false);
@@ -772,210 +866,168 @@ const VehicleManagementScreen = () => {
 
     return (
       <View style={styles.vehicleCard}>
-        {/* Vehicle Photo and Header */}
-        <View style={styles.vehiclePhotoContainer}>
-          {displayPhoto ? (
-            <Image 
-              source={{ uri: displayPhoto }} 
-              style={styles.vehiclePhoto}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.vehiclePhotoPlaceholder}>
-              <MaterialCommunityIcons name="truck" size={40} color={colors.text.secondary} />
-            </View>
-          )}
-          <View style={styles.vehicleHeader}>
-            <View style={styles.vehicleInfo}>
-              <Text style={styles.vehicleTitle}>
-                {item.vehicleMake || item.make} {item.vehicleModel || item.model} ({item.vehicleYear || item.year})
-              </Text>
-              <Text style={styles.vehicleSubtitle}>
-                {item.vehicleType || item.type} • {item.vehicleRegistration || item.vehicleRegistration}
-              </Text>
-            </View>
+        {/* Enhanced Vehicle Header with Photo */}
+        <View style={styles.vehicleHeaderContainer}>
+          <View style={styles.vehicleImageContainer}>
+            {displayPhoto ? (
+              <Image 
+                source={{ uri: displayPhoto }} 
+                style={styles.vehicleImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.vehicleImagePlaceholder}>
+                <MaterialCommunityIcons name="truck" size={32} color={colors.text.secondary} />
+              </View>
+            )}
             <View style={[
-              styles.statusBadge,
+              styles.statusIndicator,
               { backgroundColor: item.status === 'approved' ? colors.success : 
                                item.status === 'rejected' ? colors.error : colors.warning }
-            ]}>
-              <Text style={styles.statusText}>
-                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            ]} />
+          </View>
+          
+          <View style={styles.vehicleHeaderInfo}>
+            <View style={styles.vehicleTitleRow}>
+              <Text style={styles.vehicleTitle}>
+                {item.vehicleMake || item.make} {item.vehicleModel || item.model}
               </Text>
+              <View style={[
+                styles.statusBadge,
+                { backgroundColor: item.status === 'approved' ? colors.success : 
+                                 item.status === 'rejected' ? colors.error : colors.warning }
+              ]}>
+                <Text style={styles.statusText}>
+                  {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                </Text>
+              </View>
             </View>
+            <Text style={styles.vehicleSubtitle}>
+              {item.vehicleType || item.type} • {item.vehicleRegistration || item.registration} • {item.vehicleYear || item.year}
+            </Text>
           </View>
         </View>
 
-            {/* Vehicle Specifications - Color-coded Layout */}
-            <View style={styles.vehicleSpecs}>
-              <View style={styles.specRow}>
-                <View style={[
-                  styles.specItem,
-                  {
-                    backgroundColor: getSpecCardColors('color', item.vehicleColor || item.color).background,
-                    borderColor: getSpecCardColors('color', item.vehicleColor || item.color).border,
-                  }
-                ]}>
-                  <MaterialCommunityIcons 
-                    name="palette" 
-                    size={18} 
-                    color={getSpecCardColors('color', item.vehicleColor || item.color).text} 
-                  />
-                  <Text style={[
-                    styles.specLabel,
-                    { color: getSpecCardColors('color', item.vehicleColor || item.color).text }
-                  ]}>Color</Text>
-                  <Text style={[
-                    styles.specValue,
-                    { color: getSpecCardColors('color', item.vehicleColor || item.color).text }
-                  ]}>{item.vehicleColor || item.color || 'Unknown'}</Text>
-                </View>
-                <View style={[
-                  styles.specItem,
-                  {
-                    backgroundColor: getSpecCardColors('capacity').background,
-                    borderColor: getSpecCardColors('capacity').border,
-                  }
-                ]}>
-                  <MaterialCommunityIcons 
-                    name="weight" 
-                    size={18} 
-                    color={getSpecCardColors('capacity').text} 
-                  />
-                  <Text style={[
-                    styles.specLabel,
-                    { color: getSpecCardColors('capacity').text }
-                  ]}>Capacity</Text>
-                  <Text style={[
-                    styles.specValue,
-                    { color: getSpecCardColors('capacity').text }
-                  ]}>{item.vehicleCapacity || item.capacity || 0} tons</Text>
-                </View>
-              </View>
-              <View style={styles.specRow}>
-                <View style={[
-                  styles.specItem,
-                  {
-                    backgroundColor: getSpecCardColors('bodyType').background,
-                    borderColor: getSpecCardColors('bodyType').border,
-                  }
-                ]}>
-                  <MaterialCommunityIcons 
-                    name="car" 
-                    size={18} 
-                    color={getSpecCardColors('bodyType').text} 
-                  />
-                  <Text style={[
-                    styles.specLabel,
-                    { color: getSpecCardColors('bodyType').text }
-                  ]}>Body Type</Text>
-                  <Text style={[
-                    styles.specValue,
-                    { color: getSpecCardColors('bodyType').text }
-                  ]}>{item.bodyType}</Text>
-                </View>
-                <View style={[
-                  styles.specItem,
-                  {
-                    backgroundColor: getSpecCardColors('driveType').background,
-                    borderColor: getSpecCardColors('driveType').border,
-                  }
-                ]}>
-                  <MaterialCommunityIcons 
-                    name="cog" 
-                    size={18} 
-                    color={getSpecCardColors('driveType').text} 
-                  />
-                  <Text style={[
-                    styles.specLabel,
-                    { color: getSpecCardColors('driveType').text }
-                  ]}>Drive Type</Text>
-                  <Text style={[
-                    styles.specValue,
-                    { color: getSpecCardColors('driveType').text }
-                  ]}>{item.driveType}</Text>
-                </View>
-              </View>
-            </View>
+        {/* Compact Specifications Grid */}
+        <View style={styles.specsGrid}>
+          <View style={styles.specItem}>
+            <MaterialCommunityIcons name="palette" size={16} color={colors.text.secondary} />
+            <Text style={styles.specLabel}>Color</Text>
+            <Text style={styles.specValue}>{item.vehicleColor || item.color || 'N/A'}</Text>
+          </View>
+          <View style={styles.specItem}>
+            <MaterialCommunityIcons name="weight" size={16} color={colors.text.secondary} />
+            <Text style={styles.specLabel}>Capacity</Text>
+            <Text style={styles.specValue}>{item.vehicleCapacity || item.capacity || 0}t</Text>
+          </View>
+          <View style={styles.specItem}>
+            <MaterialCommunityIcons name="car" size={16} color={colors.text.secondary} />
+            <Text style={styles.specLabel}>Body</Text>
+            <Text style={styles.specValue}>{item.bodyType}</Text>
+          </View>
+          <View style={styles.specItem}>
+            <MaterialCommunityIcons name="cog" size={16} color={colors.text.secondary} />
+            <Text style={styles.specLabel}>Drive</Text>
+            <Text style={styles.specValue}>{item.driveType}</Text>
+          </View>
+        </View>
 
-        {/* Key Features - Simplified */}
+        {/* Features Tags */}
         {features.length > 0 && (
           <View style={styles.featuresContainer}>
-            <Text style={styles.featuresTitle}>Features:</Text>
-            <Text style={styles.featuresText}>{features.join(' • ')}</Text>
+            <View style={styles.featuresTags}>
+              {features.map((feature, index) => (
+                <View key={index} style={styles.featureTag}>
+                  <Text style={styles.featureTagText}>{feature}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
-        {/* Insurance Status */}
-        {item.insuranceUrl && (
-          <View style={styles.insuranceContainer}>
-            <View style={styles.insuranceInfo}>
-              <MaterialCommunityIcons name="shield-check" size={16} color={colors.success} />
-              <Text style={styles.insuranceText}>Insurance Active</Text>
-            </View>
-            {item.insuranceExpiryDate && (
-              <TouchableOpacity 
-                style={styles.renewInsuranceButton}
-                onPress={() => {
-                  setSelectedVehicleId(item.id);
-                  setShowInsuranceModal(true);
-                }}
-              >
-                <MaterialCommunityIcons name="upload" size={14} color={colors.primary} />
-                <Text style={styles.renewInsuranceText}>Renew</Text>
-              </TouchableOpacity>
+        {/* Status and Actions Row */}
+        <View style={styles.vehicleFooter}>
+          <View style={styles.vehicleStatus}>
+            {item.insuranceUrl && (
+              <View style={styles.insuranceStatus}>
+                <MaterialCommunityIcons name="shield-check" size={14} color={colors.success} />
+                <Text style={styles.insuranceText}>Insured</Text>
+              </View>
+            )}
+            {item.assignedDriver && (
+              <View style={styles.assignedDriverInfo}>
+                <View style={styles.driverStatus}>
+                  <MaterialCommunityIcons name="account-check" size={14} color={colors.success} />
+                  <Text style={styles.driverText}>Assigned Driver</Text>
+                </View>
+                <Text style={styles.driverName}>
+                  {item.assignedDriver.firstName && item.assignedDriver.lastName 
+                    ? `${item.assignedDriver.firstName} ${item.assignedDriver.lastName}` 
+                    : item.assignedDriver.name || 'Driver Name Not Available'
+                  }
+                </Text>
+                <Text style={styles.driverPhone}>{item.assignedDriver.phone}</Text>
+              </View>
             )}
           </View>
-        )}
-
-        {/* Driver Assignment Info */}
-        {item.assignedDriver && (
-          <View style={styles.driverInfo}>
-            <MaterialCommunityIcons name="account" size={16} color={colors.primary} />
-            <Text style={styles.driverText}>
-              Assigned to: {item.assignedDriver.name} ({item.assignedDriver.phone})
-            </Text>
-          </View>
-        )}
-
-        {/* Action Buttons */}
-        <View style={styles.vehicleActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              // Set the vehicle to edit and open modal
-              setVehicleEditIdx(vehicles.findIndex(v => v.id === item.id));
-              setVehicleType(item.vehicleType || item.type || '');
-              setVehicleMake(item.vehicleMake || item.make || '');
-              setVehicleColor(item.vehicleColor || item.color || '');
-              setVehicleReg(item.vehicleRegistration || item.registration || '');
-              setVehicleYear((item.vehicleYear || item.year || 2020).toString());
-              setVehicleCapacity((item.vehicleCapacity || item.capacity || 0).toString());
-              setBodyType(item.bodyType || 'closed');
-              setVehicleDriveType(item.driveType || '2WD');
-              setRefrigeration(item.refrigerated || false);
-              setHumidityControl(item.humidityControl || false);
-              setSpecialCargo(item.specialCargo || false);
-              setVehicleFeatures(item.features || '');
-              setVehiclePhotos(item.vehicleImagesUrl?.map(url => ({ uri: url })) || []);
-              setInsurance(item.insuranceUrl ? { uri: item.insuranceUrl } : null);
-              setShowVehicleModal(true);
-            }}
-          >
-            <MaterialCommunityIcons name="pencil" size={16} color={colors.primary} />
-            <Text style={styles.actionText}>Edit</Text>
-          </TouchableOpacity>
           
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              // TODO: Implement assign driver functionality
-              Alert.alert('Assign Driver', 'Driver assignment functionality coming soon');
-            }}
-          >
-            <MaterialCommunityIcons name="account-plus" size={16} color={colors.primary} />
-            <Text style={styles.actionText}>Assign Driver</Text>
-          </TouchableOpacity>
+          <View style={[
+            styles.vehicleActions,
+            item.assignedDriver && styles.vehicleActionsWithDriver
+          ]}>
+            <TouchableOpacity
+              style={[
+                styles.editButton,
+                item.assignedDriver && styles.editButtonWithDriver
+              ]}
+              onPress={() => {
+                setVehicleEditIdx(vehicles.findIndex(v => v.id === item.id));
+                setVehicleType(item.vehicleType || item.type || '');
+                setVehicleMake(item.vehicleMake || item.make || '');
+                setVehicleColor(item.vehicleColor || item.color || '');
+                setVehicleReg(item.vehicleRegistration || item.registration || '');
+                setVehicleYear((item.vehicleYear || item.year || 2020).toString());
+                setVehicleCapacity((item.vehicleCapacity || item.capacity || 0).toString());
+                setBodyType(item.bodyType || 'closed');
+                setVehicleDriveType(item.driveType || '2WD');
+                setRefrigeration(item.refrigerated || false);
+                setHumidityControl(item.humidityControl || false);
+                setSpecialCargo(item.specialCargo || false);
+                setVehicleFeatures(item.features || '');
+                setVehiclePhotos(item.vehicleImagesUrl?.map(url => ({ uri: url })) || []);
+                setInsurance(item.insuranceUrl ? { uri: item.insuranceUrl } : null);
+                setShowVehicleModal(true);
+              }}
+            >
+              <MaterialCommunityIcons name="pencil" size={12} color={colors.primary} />
+              <Text style={styles.actionButtonText}>Edit</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.assignButton,
+                item.assignedDriver && styles.reassignButton
+              ]}
+              onPress={() => {
+                navigation.navigate('DriverAssignments', { 
+                  vehicleId: item.id,
+                  vehicleMake: item.vehicleMake || item.make,
+                  vehicleModel: item.vehicleModel || item.model,
+                  vehicleRegistration: item.vehicleRegistration || item.registration,
+                  hasAssignedDriver: !!item.assignedDriver
+                });
+              }}
+            >
+              <MaterialCommunityIcons 
+                name={item.assignedDriver ? "account-switch" : "account-plus"} 
+                size={12} 
+                color={colors.white} 
+              />
+              <Text style={styles.assignButtonText}>
+                {item.assignedDriver ? 'Reassign' : 'Assign'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -1009,10 +1061,34 @@ const VehicleManagementScreen = () => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Fleet Management</Text>
         <TouchableOpacity
-          style={styles.addButton}
-          onPress={openAddVehicle}
+          style={[
+            styles.addButton,
+            (!vehicleValidation?.canAdd) && styles.addButtonDisabled
+          ]}
+          onPress={() => {
+            if (vehicleValidation?.canAdd) {
+              openAddVehicle();
+            } else {
+              // Show upgrade prompt
+              Alert.alert(
+                'Vehicle Limit Reached',
+                vehicleValidation?.reason || 'You have reached your vehicle limit.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { 
+                    text: 'Upgrade Plan', 
+                    onPress: () => navigation.navigate('CompanyFleetPlans' as never)
+                  }
+                ]
+              );
+            }
+          }}
         >
-          <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
+          <MaterialCommunityIcons 
+            name="plus" 
+            size={24} 
+            color={vehicleValidation?.canAdd ? colors.white : colors.text.secondary} 
+          />
         </TouchableOpacity>
       </View>
 
@@ -1021,12 +1097,26 @@ const VehicleManagementScreen = () => {
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{vehicles.length}</Text>
             <Text style={styles.statLabel}>Total Vehicles</Text>
+            {subscriptionStatus && vehicleValidation && (
+              <Text style={styles.statSubtext}>
+                {vehicleValidation.currentCount} / {vehicleValidation.limit === -1 ? 'Unlimited' : vehicleValidation.limit}
+              </Text>
+            )}
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{driverCount}</Text>
+            <Text style={styles.statLabel}>Total Drivers</Text>
+            {subscriptionStatus && driverValidation && (
+              <Text style={styles.statSubtext}>
+                {driverValidation.currentCount} / {driverValidation.limit === -1 ? 'Unlimited' : driverValidation.limit}
+              </Text>
+            )}
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
               {vehicles.filter(v => v.status === 'approved').length}
             </Text>
-            <Text style={styles.statLabel}>Active</Text>
+            <Text style={styles.statLabel}>Active Vehicles</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
@@ -1035,6 +1125,7 @@ const VehicleManagementScreen = () => {
             <Text style={styles.statLabel}>Assigned</Text>
           </View>
         </View>
+
 
         {/* Search and Filter Section */}
         <View style={styles.searchFilterContainer}>
@@ -1233,11 +1324,40 @@ const VehicleManagementScreen = () => {
               Start building your fleet by adding your first vehicle
             </Text>
             <TouchableOpacity
-              style={styles.addFirstButton}
-              onPress={openAddVehicle}
+              style={[
+                styles.addFirstButton,
+                (!vehicleValidation?.canAdd) && styles.addFirstButtonDisabled
+              ]}
+              onPress={() => {
+                if (vehicleValidation?.canAdd) {
+                  openAddVehicle();
+                } else {
+                  // Show upgrade prompt
+                  Alert.alert(
+                    'Vehicle Limit Reached',
+                    vehicleValidation?.reason || 'You have reached your vehicle limit.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Upgrade Plan', 
+                        onPress: () => navigation.navigate('CompanyFleetPlans' as never)
+                      }
+                    ]
+                  );
+                }
+              }}
             >
-              <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
-              <Text style={styles.addFirstText}>Add First Vehicle</Text>
+              <MaterialCommunityIcons 
+                name="plus" 
+                size={20} 
+                color={vehicleValidation?.canAdd ? colors.white : colors.text.secondary} 
+              />
+              <Text style={[
+                styles.addFirstText,
+                (!vehicleValidation?.canAdd) && styles.addFirstTextDisabled
+              ]}>
+                Add First Vehicle
+              </Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -1535,9 +1655,13 @@ const styles = StyleSheet.create({
   addButton: {
     padding: 8,
   },
+  addButtonDisabled: {
+    opacity: 0.5,
+  },
   content: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -1568,18 +1692,263 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: 4,
   },
+  statSubtext: {
+    fontSize: 10,
+    fontFamily: fonts.family.medium,
+    color: colors.primary,
+    marginTop: 2,
+    textAlign: 'center',
+  },
   vehicleCard: {
     backgroundColor: colors.white,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
+    marginHorizontal: 4, // Add horizontal margin to prevent overflow
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: colors.background,
+    borderColor: colors.border,
+  },
+  // Enhanced Vehicle Header
+  vehicleHeaderContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  vehicleImageContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  vehicleImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+  },
+  vehicleImagePlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  statusIndicator: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  vehicleHeaderInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  vehicleTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  vehicleTitle: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    flex: 1,
+    marginRight: 8,
+  },
+  vehicleSubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    lineHeight: 18,
+  },
+  // Compact Specifications Grid
+  specsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
+    gap: 8,
+  },
+  specItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    minWidth: '22%',
+    flex: 1,
+  },
+  specLabel: {
+    fontSize: 11,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginLeft: 4,
+    marginRight: 4,
+  },
+  specValue: {
+    fontSize: 12,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+  },
+  // Features Tags
+  featuresContainer: {
+    marginBottom: 12,
+  },
+  featuresTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  featureTag: {
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  featureTagText: {
+    fontSize: 11,
+    fontFamily: fonts.family.medium,
+    color: colors.primary,
+  },
+  // Vehicle Footer
+  vehicleFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.background,
+  },
+  vehicleStatus: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  insuranceStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  insuranceText: {
+    fontSize: 11,
+    fontFamily: fonts.family.medium,
+    color: colors.success,
+    marginLeft: 4,
+  },
+  driverStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  driverText: {
+    fontSize: 11,
+    fontFamily: fonts.family.medium,
+    color: colors.primary,
+    marginLeft: 4,
+  },
+  vehicleActions: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 12,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  assignButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontFamily: fonts.family.semiBold,
+    color: colors.primary,
+    marginLeft: 6,
+  },
+  assignButtonText: {
+    fontSize: 12,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    marginLeft: 6,
+  },
+  reassignButton: {
+    backgroundColor: colors.warning,
+  },
+  // Specific styles for vehicles with assigned drivers
+  vehicleActionsWithDriver: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  editButtonWithDriver: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  assignedDriverInfo: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.success,
+  },
+  driverName: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginTop: 4,
+  },
+  driverPhone: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginTop: 2,
   },
   vehiclePhotoContainer: {
     marginBottom: 12,
@@ -1773,15 +2142,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginLeft: 8,
   },
-  vehicleActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 12,
-    paddingTop: 12,
-    paddingBottom: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.background,
-  },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1878,8 +2238,97 @@ const styles = StyleSheet.create({
     color: colors.white,
     marginLeft: 8,
   },
+  addFirstButtonDisabled: {
+    backgroundColor: colors.text.light,
+    opacity: 0.6,
+  },
+  addFirstTextDisabled: {
+    color: colors.text.secondary,
+  },
+  // Subscription card styles
+  subscriptionCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  subscriptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  subscriptionInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  subscriptionTitle: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+  },
+  subscriptionStatus: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  usageContainer: {
+    marginBottom: 16,
+  },
+  usageItem: {
+    marginBottom: 12,
+  },
+  usageLabel: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  usageCount: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: colors.background.light,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  limitReachedText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.warning,
+    marginTop: 4,
+  },
+  upgradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  upgradeButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    marginLeft: 6,
+  },
   listContainer: {
     paddingBottom: 100, // Extra padding to prevent overlap with bottom nav
+    paddingHorizontal: 0, // Remove horizontal padding to prevent overflow
   },
   // Insurance renewal modal styles
   insuranceModalContent: {

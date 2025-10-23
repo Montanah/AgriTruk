@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { transporterPlans, brokerPlans } from '../constants/subscriptionPlans';
+import { INDIVIDUAL_PLANS, BROKER_PLANS, COMPANY_FLEET_PLANS } from '../constants/subscriptionPlans';
 import subscriptionService from '../services/subscriptionService';
 
 interface RouteParams {
@@ -30,7 +30,9 @@ const SubscriptionPlansScreen: React.FC = () => {
     const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     
-    const plans = userType === 'broker' ? brokerPlans : transporterPlans;
+    const plans = userType === 'broker' ? BROKER_PLANS : 
+                  userType === 'company' ? COMPANY_FLEET_PLANS : 
+                  INDIVIDUAL_PLANS;
 
     const handleSelectPlan = (planId: string) => {
         setSelectedPlan(planId);

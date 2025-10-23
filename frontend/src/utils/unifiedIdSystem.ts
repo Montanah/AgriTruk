@@ -115,11 +115,11 @@ export function parseUnifiedBookingId(bookingId: string): BookingIdComponents | 
   try {
     // Validate format: [TYPE][YYMMDD][MODE][SEQUENCE]
     const match = bookingId.match(/^([AC])(\d{6})([IBS])(\d{3})$/);
-    
-    if (!match) {
-      return null;
-    }
-    
+  
+  if (!match) {
+    return null;
+  }
+  
     const [, typePrefix, dateStr, modePrefix, sequenceStr] = match;
     
     // Parse type
@@ -140,13 +140,13 @@ export function parseUnifiedBookingId(bookingId: string): BookingIdComponents | 
       default:
         return null;
     }
-    
-    // Parse date
+  
+  // Parse date
     const year = parseInt('20' + dateStr.substring(0, 2));
-    const month = parseInt(dateStr.substring(2, 4)) - 1; // Month is 0-indexed
-    const day = parseInt(dateStr.substring(4, 6));
-    const date = new Date(year, month, day);
-    
+  const month = parseInt(dateStr.substring(2, 4)) - 1; // Month is 0-indexed
+  const day = parseInt(dateStr.substring(4, 6));
+  const date = new Date(year, month, day);
+  
     // Validate date
     if (isNaN(date.getTime())) {
       return null;
@@ -154,14 +154,14 @@ export function parseUnifiedBookingId(bookingId: string): BookingIdComponents | 
     
     // Parse sequence number
     const sequenceNumber = parseInt(sequenceStr);
-    
-    return {
-      type,
-      mode,
+  
+  return {
+    type,
+    mode,
       date,
       sequenceNumber,
       isConsolidated: mode === 'consolidated'
-    };
+  };
   } catch (error) {
     console.error('Error parsing booking ID:', error);
     return null;
@@ -333,7 +333,7 @@ export function formatBookingIdForDisplay(
   const parsed = parseUnifiedBookingId(bookingId);
   
   if (!parsed) {
-    return bookingId;
+        return bookingId;
   }
   
   let display = bookingId;

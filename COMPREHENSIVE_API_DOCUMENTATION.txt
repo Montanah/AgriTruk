@@ -1,0 +1,555 @@
+TRUK APP - COMPREHENSIVE API DOCUMENTATION & DRIVER MARKETPLACE
+================================================================
+
+TABLE OF CONTENTS
+=================
+1. System Overview
+2. Role Architecture
+3. Driver Marketplace Feature
+4. API Requirements
+5. Frontend Implementation Status
+6. Backend Implementation Requirements
+7. Data Models
+8. Integration Points
+9. Testing & Validation
+
+SYSTEM OVERVIEW
+===============
+
+Core Concept
+------------
+TRUK is a comprehensive logistics platform that connects shippers, brokers, business users, transporters, and drivers to facilitate efficient cargo transportation across Kenya.
+
+Key Features
+------------
+- Multi-role Platform: Supports shippers, brokers, business users, transporters, and drivers
+- Driver Marketplace: Companies can recruit drivers from a pool of verified job seekers
+- Real-time Tracking: Live location tracking and status updates
+- Consolidation: Smart request consolidation for cost optimization
+- Route Management: Route validation and conflict prevention
+- Document Management: Secure document upload and verification
+
+ROLE ARCHITECTURE
+=================
+
+User Roles & Responsibilities
+-----------------------------
+
+1. SHIPPER
+   - Creates instant requests and bookings
+   - Tracks shipments in real-time
+   - Manages delivery confirmations
+
+2. BROKER
+   - Manages multiple client requests
+   - Consolidates requests for cost savings
+   - Provides client relationship management
+   - Tracks client performance metrics
+
+3. BUSINESS/CORPORATE
+   - Creates business requests and bookings
+   - Manages department-based consolidation
+   - Tracks business performance analytics
+   - Handles cost center management
+
+4. TRANSPORTER (COMPANY)
+   - Recruits and manages drivers
+   - Assigns vehicles to drivers
+   - Monitors driver performance
+   - Receives revenue from driver operations
+
+5. DRIVER
+   - Self-registered: Job seekers who get recruited by companies
+   - Company-created: Directly created by companies
+   - Active drivers: Assigned to vehicles and managing jobs
+   - Full autonomy in job selection and management
+
+6. ADMIN
+   - Verifies job seeker applications
+   - Manages platform-wide operations
+   - Handles document verification
+
+DRIVER MARKETPLACE FEATURE
+==========================
+
+Core Concept
+------------
+The Driver Marketplace allows companies to discover, recruit, and manage drivers through a comprehensive platform that handles both self-registered job seekers and company-created drivers.
+
+Key Principles
+--------------
+1. Company-Centric Model: All drivers must operate under a company
+2. No TRUK Liability: Companies handle all background checks and verification
+3. Unified Recruitment: Single API for both manual and job seeker recruitment
+4. Document Security: Secure document access for company HR teams
+
+Driver Lifecycle
+----------------
+
+Self-Registered Drivers (Job Seekers)
+1. Signup: User selects "Driver" role → Backend creates as job_seeker
+2. Profile Completion: Uploads documents and completes profile
+3. Admin Verification: Admin reviews and approves application
+4. Waiting Status: Shows waiting screen until company recruitment
+5. Company Recruitment: Company recruits through platform
+6. Vehicle Assignment: Company assigns vehicle to driver
+7. Active Driver: Can now manage jobs and access driver features
+
+Company-Created Drivers
+1. Direct Creation: Company creates driver account directly
+2. Profile Setup: Company provides basic information
+3. Vehicle Assignment: Company assigns vehicle immediately
+4. Active Driver: Can immediately manage jobs
+
+Document Requirements
+---------------------
+
+Job Seekers (Required)
+- ID Document: National ID or Passport
+- Driver's License: Valid driving license
+- Profile Photo: Professional headshot
+- Good Conduct Certificate: Police clearance certificate
+- Goods Service License (Optional): For commercial transport
+
+Job Seekers (Step 2)
+- Career Start Date: Date when driving career began (for automatic experience calculation)
+- Date of Birth: For age verification and vehicle class eligibility
+- Vehicle Classes: NTSA vehicle classes they can drive (age-restricted)
+- Specializations: Areas of expertise (long haul, container transport, etc.)
+- Assignment Description: Brief description of previous/current work
+
+Company Vehicles (Required)
+- TLB (Transport License Book): Vehicle-specific transport license
+- Insurance: Vehicle insurance documentation
+- Registration: Vehicle registration certificate
+
+NTSA Vehicle Class Age Requirements
+===================================
+
+The system automatically validates driver eligibility based on age requirements for different vehicle classes:
+
+Motorcycle Classes
+- Class A1 (Moped): Minimum age 16
+- Class A2 (Light Motorcycle): Minimum age 18
+- Class A3 (Motorcycle Taxi/Couriers): Minimum age 21, requires 1 year A2 experience
+
+Light Vehicle Classes
+- Class B1 (Light Vehicle): Minimum age 18
+- Class B2 (Light Vehicle Automatic): Minimum age 18
+- Class B3 (Professional Light Vehicle): Minimum age 21
+
+Truck Classes
+- Class C1 (Light Truck): Minimum age 22
+- Class C (Medium Truck): Minimum age 24, requires 2 years C1 experience
+- Class CE (Heavy Truck with Trailer): Minimum age 28, requires 4 years C experience
+- Class CD (Hazardous Materials): Minimum age 30, requires 2 years CE experience
+
+Passenger Vehicle Classes
+- Class D1 (Van): Minimum age 22
+- Class D2 (Mini-bus): Minimum age 25, requires 3 years D1 experience
+- Class D3 (Large Bus): Minimum age 30, requires 3 years D2 experience
+
+Special Classes
+- Class E (Special Professional): Minimum age 21
+- Class F (PWD): Minimum age 18
+- Class G (Industrial/Agricultural): Minimum age 18
+
+Backend Implementation Notes:
+- Calculate age from dateOfBirth to current date
+- Calculate yearsOfExperience from careerStartDate to current date
+- Validate vehicle class selection against age and experience requirements
+- Return appropriate error messages for invalid combinations
+
+Frontend Update Required:
+- Update job seeker profile completion form to use date pickers for careerStartDate and dateOfBirth
+- Remove manual yearsOfExperience input field
+- Add age and experience validation on the frontend
+- Display calculated age and experience in job seeker profiles
+
+API REQUIREMENTS
+================
+
+1. JOB SEEKER PLATFORM APIs
+---------------------------
+
+1.1 Submit Job Seeker Application
+POST /api/job-seekers
+Body:
+{
+  "userId": "string",
+  "profilePhoto": "string",
+  "driverLicense": "string", 
+  "goodConductCert": "string",
+  "goodsServiceLicense": "string", // Optional
+  "idDoc": "string"
+}
+
+1.2 Complete Job Seeker Profile
+PATCH /api/job-seekers/{jobSeekerId}
+Body:
+{
+  "careerStartDate": "string", // ISO date string
+  "dateOfBirth": "string", // ISO date string
+  "vehicleClasses": ["string"],
+  "specializations": ["string"],
+  "assignmentDescription": "string"
+}
+
+1.3 Get Job Seeker Status
+GET /api/job-seekers/{jobSeekerId}/status
+
+1.4 Get Job Seeker Documents
+GET /api/job-seekers/{jobSeekerId}/documents
+
+1.5 Get All Approved Job Seekers (for companies)
+GET /api/job-seekers/approved
+Query Parameters:
+- vehicleClass: Filter by vehicle class
+- minExperience: Minimum years of experience (calculated from careerStartDate)
+- maxAge: Maximum age for certain vehicle classes
+- location: Geographic location filter
+
+2. COMPANY DRIVER MANAGEMENT APIs
+---------------------------------
+
+2.1 Recruit Driver (Unified API)
+POST /api/companies/{companyId}/drivers
+Body:
+{
+  "name": "string",
+  "email": "string",
+  "phone": "string",
+  "profilePhoto": "string",
+  "jobSeekerId": "string" // Optional - if recruiting from job seekers
+}
+
+2.2 Get Company Drivers
+GET /api/companies/{companyId}/drivers
+
+2.3 Assign Vehicle to Driver
+PATCH /api/companies/{companyId}/drivers/{driverId}/assign-vehicle
+Body:
+{
+  "vehicleId": "string"
+}
+
+2.4 Get Driver Performance
+GET /api/companies/{companyId}/drivers/{driverId}/performance
+
+2.5 Browse Job Seekers (for companies)
+GET /api/companies/{companyId}/job-seekers
+Query Parameters:
+- vehicleClass: Filter by vehicle class
+- minExperience: Minimum years of experience (calculated from careerStartDate)
+- maxAge: Maximum age for certain vehicle classes
+- search: Search by name or email
+
+2.6 Get Job Seeker Documents (for companies)
+GET /api/companies/{companyId}/job-seekers/{jobSeekerId}/documents
+
+3. UNIFIED BOOKING & TRACKING APIs
+----------------------------------
+
+3.1 Get Bookings by Role
+GET /api/bookings/{role}
+Roles: shipper, broker, business, transporter, driver
+
+3.2 Accept Booking
+POST /api/bookings/{bookingId}/accept
+
+3.3 Update Booking Status
+PATCH /api/bookings/{bookingId}/status
+
+3.4 Consolidate Requests
+POST /api/bookings/consolidate
+
+3.5 Get Tracking Data
+GET /api/bookings/{bookingId}/track
+
+3.6 Send Location Update
+POST /api/bookings/{bookingId}/location
+
+4. ROUTE VALIDATION APIs
+------------------------
+
+4.1 Validate Job Acceptance
+POST /api/route-validation/validate-acceptance
+
+4.2 Get Current Active Trip
+GET /api/route-validation/current-trip/{userId}
+
+4.3 Get Compatible Route Loads
+GET /api/route-validation/route-loads/{userId}
+
+FRONTEND IMPLEMENTATION STATUS
+==============================
+
+COMPLETED FEATURES
+------------------
+
+Core Infrastructure
+- Unified Booking Service: Centralized booking management across all roles
+- Unified Tracking Service: Real-time tracking with location updates
+- Unified ID System: Consistent booking/request ID generation
+- Route Validation Service: Prevents route conflicts and validates job acceptance
+
+Driver Marketplace
+- Job Seeker Registration: Complete signup and profile completion flow
+- Document Upload: iOS-safe file upload with validation
+- NTSA Vehicle Classes: Comprehensive vehicle class selection
+- Company Driver Management: Driver recruitment and management interface
+- Job Seeker Browsing: Company interface to browse and recruit job seekers
+
+Enhanced UI/UX
+- Consolidation Manager: Unified consolidation interface for brokers and business
+- Client Performance Metrics: Detailed request counters and success rates
+- Real-time Tracking: Live location updates and status management
+- Route Conflict Prevention: Smart job acceptance validation
+
+Role-Based Features
+- Broker Management: Enhanced client management with detailed metrics
+- Business Management: Corporate request management and consolidation
+- Driver Management: Job selection and management interface
+- Transporter Management: Company driver and vehicle management
+
+TECHNICAL IMPLEMENTATIONS
+-------------------------
+
+Services Created
+1. unifiedBookingService.ts: Centralized booking management
+2. unifiedTrackingService.ts: Real-time tracking and location updates
+3. routeValidationService.ts: Route conflict prevention and validation
+4. unifiedIdSystem.ts: Consistent ID generation and parsing
+
+Components Created
+1. ConsolidationManager.tsx: Unified consolidation interface
+2. CurrentRouteStatus.tsx: Active trip status display
+3. Enhanced client cards: Detailed request counters and metrics
+
+Screens Enhanced
+1. TransporterCompletionScreen.tsx: iOS-safe file uploads, NTSA classes
+2. BrokerManagementScreen.tsx: Enhanced client management
+3. BusinessManageScreen.tsx: Corporate consolidation features
+4. TrackingScreen.tsx: Unified tracking integration
+5. MapViewScreen.tsx: Real-time map tracking
+
+BACKEND IMPLEMENTATION REQUIREMENTS
+===================================
+
+CRITICAL MISSING APIs
+---------------------
+The following APIs are MISSING and causing 404 errors in the frontend:
+
+Job Seeker APIs
+- POST /api/job-seekers
+- PATCH /api/job-seekers/{jobSeekerId}
+- GET /api/job-seekers/{jobSeekerId}/status
+- GET /api/job-seekers/{jobSeekerId}/documents
+- GET /api/job-seekers/approved
+
+Company Driver APIs
+- POST /api/companies/{companyId}/drivers
+- GET /api/companies/{companyId}/drivers
+- PATCH /api/companies/{companyId}/drivers/{driverId}/assign-vehicle
+- GET /api/companies/{companyId}/drivers/{driverId}/performance
+- GET /api/companies/{companyId}/job-seekers
+- GET /api/companies/{companyId}/job-seekers/{jobSeekerId}/documents
+
+Route Validation APIs
+- POST /api/route-validation/validate-acceptance
+- GET /api/route-validation/current-trip/{userId}
+- GET /api/route-validation/route-loads/{userId}
+
+Enhanced Tracking APIs
+- GET /api/bookings/{bookingId}/track
+- POST /api/bookings/{bookingId}/location
+
+IMPLEMENTATION PRIORITY
+-----------------------
+
+Phase 1: Core Driver Marketplace (HIGH PRIORITY)
+1. Job seeker application submission
+2. Job seeker profile completion
+3. Job seeker status management
+4. Company driver recruitment
+5. Vehicle assignment
+
+Phase 2: Enhanced Features (MEDIUM PRIORITY)
+1. Route validation and conflict prevention
+2. Real-time tracking enhancements
+3. Performance metrics and analytics
+4. Document security and access control
+
+Phase 3: Advanced Features (LOW PRIORITY)
+1. Advanced consolidation algorithms
+2. Predictive analytics
+3. Advanced reporting and insights
+
+DATA MODELS
+===========
+
+Job Seeker Model
+----------------
+interface JobSeeker {
+  id: string;
+  userId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  profilePhoto: string;
+  driverLicense: string;
+  goodConductCert: string;
+  goodsServiceLicense?: string;
+  idDoc: string;
+  careerStartDate: string; // ISO date string
+  dateOfBirth: string; // ISO date string
+  yearsOfExperience: number; // Calculated from careerStartDate to current date
+  age: number; // Calculated from dateOfBirth to current date
+  vehicleClasses: string[];
+  specializations: string[];
+  assignmentDescription: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+Driver Model
+------------
+interface Driver {
+  id: string;
+  companyId: string;
+  name: string;
+  email: string;
+  phone: string;
+  profilePhoto: string;
+  status: 'pending' | 'active' | 'inactive';
+  assignedVehicleId?: string;
+  jobSeekerId?: string; // If recruited from job seekers
+  performance: {
+    totalJobs: number;
+    completedJobs: number;
+    successRate: number;
+    averageRating: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+Unified Booking Model
+---------------------
+interface UnifiedBooking {
+  id: string;
+  displayId: string;
+  type: 'instant' | 'booking' | 'consolidated';
+  status: 'pending' | 'accepted' | 'in_progress' | 'picked_up' | 'in_transit' | 'delivered' | 'cancelled';
+  fromLocation: { address: string; latitude: number; longitude: number };
+  toLocation: { address: string; latitude: number; longitude: number };
+  productType: string;
+  weight: number;
+  volume?: number;
+  pickupDate: string;
+  deliveryDate?: string;
+  urgency: 'low' | 'medium' | 'high';
+  price?: number;
+  currency?: string;
+  description?: string;
+  isConsolidated?: boolean;
+  consolidatedBookings?: UnifiedBooking[];
+  shipperInfo?: { id: string; name: string; phone: string; email: string; company?: string };
+  brokerInfo?: { id: string; name: string; phone: string; email: string; company?: string };
+  businessInfo?: { id: string; name: string; phone: string; email: string; company?: string };
+  transporterInfo?: { id: string; name: string; phone: string; email: string; company?: string; vehicle?: any; driver?: any };
+  driverInfo?: { id: string; name: string; phone: string; email: string; vehicle?: any };
+  createdAt: string;
+  updatedAt: string;
+}
+
+Tracking Data Model
+-------------------
+interface TrackingData {
+  bookingId: string;
+  currentLocation: TrackingLocation | null;
+  routeCoordinates: Array<{ latitude: number; longitude: number }>;
+  estimatedTimeOfArrival: string;
+  distanceRemaining: number;
+  status: 'pending' | 'accepted' | 'in_progress' | 'picked_up' | 'in_transit' | 'delivered' | 'cancelled';
+  transporterInfo?: { id: string; name: string; phone: string; profilePhoto?: string; rating?: number };
+  driverInfo?: { id: string; name: string; phone: string; profilePhoto?: string; rating?: number };
+  trafficAlerts: TrafficAlert[];
+  routeDeviations: RouteDeviation[];
+  lastUpdateTime: string;
+}
+
+INTEGRATION POINTS
+==================
+
+Frontend-Backend Integration
+----------------------------
+1. Authentication: Firebase Auth integration
+2. File Uploads: Multipart form data with iOS compatibility
+3. Real-time Updates: WebSocket or polling for live data
+4. Error Handling: Consistent error response format
+5. Caching: Frontend caching with backend invalidation
+
+Third-party Integrations
+------------------------
+1. Google Maps: Location services and mapping
+2. Firebase: Authentication and real-time database
+3. File Storage: Document and image storage
+4. Push Notifications: Real-time alerts and updates
+
+Security Considerations
+-----------------------
+1. Document Access: Signed URLs for secure document access
+2. Role-based Access: Proper authorization for all endpoints
+3. Data Validation: Input validation and sanitization
+4. Rate Limiting: API rate limiting and abuse prevention
+
+TESTING & VALIDATION
+====================
+
+Frontend Testing
+----------------
+- Unit Tests: Component and service testing
+- Integration Tests: API integration testing
+- E2E Tests: Complete user flow testing
+- Device Testing: iOS and Android compatibility
+
+Backend Testing
+---------------
+- API Testing: Endpoint functionality and response validation
+- Database Testing: Data integrity and performance
+- Security Testing: Authentication and authorization
+- Load Testing: Performance under high load
+
+Validation Checklist
+--------------------
+- [ ] All job seeker APIs implemented and tested
+- [ ] Company driver management APIs working
+- [ ] Route validation and conflict prevention functional
+- [ ] Real-time tracking and location updates working
+- [ ] Document upload and access secure
+- [ ] Role-based access control implemented
+- [ ] Error handling consistent across all endpoints
+- [ ] Performance meets requirements
+- [ ] Security measures in place
+
+CONCLUSION
+==========
+
+The TRUK app frontend is FULLY IMPLEMENTED with comprehensive driver marketplace features, unified booking management, real-time tracking, and advanced consolidation capabilities. The backend team needs to implement the missing APIs to support these features and ensure a seamless user experience.
+
+Key Success Factors
+-------------------
+1. Complete API Implementation: All missing APIs must be implemented
+2. Data Consistency: Unified data models across all endpoints
+3. Real-time Capabilities: Live tracking and status updates
+4. Security: Proper authentication and document access control
+5. Performance: Fast response times and efficient data handling
+
+Next Steps
+----------
+1. Implement Phase 1 APIs (Core Driver Marketplace)
+2. Test integration with frontend
+3. Implement Phase 2 APIs (Enhanced Features)
+4. Conduct comprehensive testing
+5. Deploy and monitor performance
+
+The frontend is ready and waiting for the backend implementation to complete the full driver marketplace ecosystem.

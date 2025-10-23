@@ -184,14 +184,14 @@ const MapViewScreen = () => {
                     });
                 }
             } else {
-                // Fallback to mock data if backend doesn't have location
-                const mockLocation = generateMockTransporterLocation();
-                setTransporterLocation(mockLocation);
+                // No location data available from backend
+                console.log('No location data available from backend');
+                setTransporterLocation(null);
             }
         } catch (error) {
-            // Fallback to mock data
-            const mockLocation = generateMockTransporterLocation();
-            setTransporterLocation(mockLocation);
+            // No fallback to mock data - handle error gracefully
+            console.error('Error fetching transporter location:', error);
+            setTransporterLocation(null);
         }
     };
 

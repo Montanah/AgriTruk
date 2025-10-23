@@ -7,35 +7,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 
-// Mock data for shipments
-const shipments = [
-  {
-    id: 'SHIP-001',
-    from: 'Nairobi',
-    to: 'Mombasa',
-    status: 'In Transit',
-    date: '2024-06-11',
-    type: 'Cargo',
-  },
-  {
-    id: 'SHIP-002',
-    from: 'Eldoret',
-    to: 'Kisumu',
-    status: 'Delivered',
-    date: '2024-06-09',
-    type: 'Agri',
-  },
-  {
-    id: 'SHIP-003',
-    from: 'Nakuru',
-    to: 'Thika',
-    status: 'Pending',
-    date: '2024-06-12',
-    type: 'Cargo',
-  },
-];
+// Real data from API - no mock data
 
 const TrackingManagementScreen = ({ navigation }: any) => {
+  // TODO: Implement real data fetching from API
+  const shipments: any[] = [];
+  
   const renderShipment = ({ item }: any) => (
     <TouchableOpacity style={styles.itemRow} activeOpacity={0.85}>
       <Card style={styles.itemCard}>

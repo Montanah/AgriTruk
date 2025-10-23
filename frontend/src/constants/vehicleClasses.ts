@@ -79,3 +79,102 @@ export const getSpecializationLabel = (value: string): string => {
   const specialization = VEHICLE_SPECIALIZATIONS.find(spec => spec === value);
   return specialization || value;
 };
+
+// Simplified vehicle classes for UI display (shorter labels)
+export const NTSA_VEHICLE_CLASSES_SIMPLE = [
+  // Category A - Motorcycles
+  { value: 'A1', label: 'A1 - Moped', category: 'A', minAge: 16 },
+  { value: 'A2', label: 'A2 - Motorcycle', category: 'A', minAge: 18 },
+  { value: 'A3', label: 'A3 - Motorcycle Taxi', category: 'A', minAge: 21 },
+  
+  // Category B - Light Vehicles
+  { value: 'B1', label: 'B1 - Light Vehicle', category: 'B', minAge: 18 },
+  { value: 'B2', label: 'B2 - Auto Light Vehicle', category: 'B', minAge: 18 },
+  { value: 'B3', label: 'B3 - Professional Vehicle', category: 'B', minAge: 21 },
+  
+  // Category C - Trucks
+  { value: 'C1', label: 'C1 - Light Truck', category: 'C', minAge: 22 },
+  { value: 'C', label: 'C - Medium Truck', category: 'C', minAge: 24 },
+  { value: 'CE', label: 'CE - Heavy Truck', category: 'C', minAge: 28 },
+  { value: 'CD', label: 'CD - Hazardous Materials', category: 'C', minAge: 30 },
+  
+  // Category D - Passenger Vehicles
+  { value: 'D1', label: 'D1 - Van', category: 'D', minAge: 22 },
+  { value: 'D2', label: 'D2 - Mini-bus', category: 'D', minAge: 25 },
+  { value: 'D3', label: 'D3 - Large Bus', category: 'D', minAge: 30 },
+  
+  // Category E - Special Professional
+  { value: 'E', label: 'E - Professional License', category: 'E', minAge: 21 },
+  
+  // Category F - Persons with Disability
+  { value: 'F', label: 'F - PWD License', category: 'F', minAge: 18 },
+  
+  // Category G - Industrial/Construction
+  { value: 'G', label: 'G - Industrial Equipment', category: 'G', minAge: 18 }
+];
+
+// Enhanced specializations with better structure
+export const VEHICLE_SPECIALIZATIONS_ENHANCED = [
+  { value: 'general-cargo', label: 'General Cargo', icon: 'truck' },
+  { value: 'refrigerated', label: 'Refrigerated', icon: 'snowflake' },
+  { value: 'hazardous', label: 'Hazardous Materials', icon: 'alert-circle' },
+  { value: 'construction', label: 'Construction', icon: 'hammer' },
+  { value: 'passenger', label: 'Passenger Transport', icon: 'bus' },
+  { value: 'long-distance', label: 'Long Distance', icon: 'map-marker-distance' },
+  { value: 'local-delivery', label: 'Local Delivery', icon: 'package-variant' },
+  { value: 'agricultural', label: 'Agricultural', icon: 'leaf' },
+  { value: 'heavy-machinery', label: 'Heavy Machinery', icon: 'crane' },
+  { value: 'container', label: 'Container', icon: 'cube' },
+  { value: 'courier', label: 'Courier', icon: 'email-fast' },
+  { value: 'emergency', label: 'Emergency', icon: 'ambulance' },
+  { value: 'waste-management', label: 'Waste Management', icon: 'trash-can' },
+  { value: 'fuel', label: 'Fuel Transport', icon: 'gas-station' },
+  { value: 'livestock', label: 'Livestock', icon: 'cow' }
+];
+
+// Mapping between API specializations and filter values
+export const SPECIALIZATION_MAPPING = {
+  // API Value -> Filter Value
+  'General Cargo Transport': 'general-cargo',
+  'Refrigerated Transport': 'refrigerated',
+  'Hazardous Materials Transport': 'hazardous',
+  'Construction Equipment Transport': 'construction',
+  'Passenger Transport': 'passenger',
+  'Long Distance Haulage': 'long-distance',
+  'Local Delivery Services': 'local-delivery',
+  'Agricultural Transport': 'agricultural',
+  'Heavy Machinery Transport': 'heavy-machinery',
+  'Container Transport': 'container',
+  'Courier Services': 'courier',
+  'Emergency Transport': 'emergency',
+  'Waste Management Transport': 'waste-management',
+  'Fuel Transport': 'fuel',
+  'Livestock Transport': 'livestock',
+  
+  // Reverse mapping for display
+  'general-cargo': 'General Cargo Transport',
+  'refrigerated': 'Refrigerated Transport',
+  'hazardous': 'Hazardous Materials Transport',
+  'construction': 'Construction Equipment Transport',
+  'passenger': 'Passenger Transport',
+  'long-distance': 'Long Distance Haulage',
+  'local-delivery': 'Local Delivery Services',
+  'agricultural': 'Agricultural Transport',
+  'heavy-machinery': 'Heavy Machinery Transport',
+  'container': 'Container Transport',
+  'courier': 'Courier Services',
+  'emergency': 'Emergency Transport',
+  'waste-management': 'Waste Management Transport',
+  'fuel': 'Fuel Transport',
+  'livestock': 'Livestock Transport'
+};
+
+// Helper function to map API specialization to filter value
+export const mapApiSpecializationToFilter = (apiSpecialization: string): string => {
+  return SPECIALIZATION_MAPPING[apiSpecialization as keyof typeof SPECIALIZATION_MAPPING] || apiSpecialization;
+};
+
+// Helper function to map filter value to API specialization
+export const mapFilterToApiSpecialization = (filterValue: string): string => {
+  return SPECIALIZATION_MAPPING[filterValue as keyof typeof SPECIALIZATION_MAPPING] || filterValue;
+};

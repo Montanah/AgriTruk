@@ -380,53 +380,15 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
           
           if (testResponse.status === 409) {
             // Broker already exists - this means the broker lookup failed but broker exists
-            console.log('Broker exists but lookup failed - creating mock data for testing');
+            console.log('Broker exists but lookup failed - no mock data, using real API');
             
-            // Create mock broker data based on the known broker information
-            if (user.uid === 'hWxh3EhQkjTsXNz4k4NW8gxwHwl1') {
-              brokerData = {
-                brokerId: 'Qqw5QjctSGHbQ9InZ1Lp',
-                userId: 'hWxh3EhQkjTsXNz4k4NW8gxwHwl1',
-                status: 'pending',
-                idVerified: false,
-                brokerIdUrl: 'https://res.cloudinary.com/trukapp/image/upload/v1759259586/9a63b7a35090ef397166e04946d7dfdc.jpg',
-                idType: 'national',
-                accountStatus: true,
-                approvedBy: null,
-                commission: 5,
-                rating: 0,
-                rejectionReason: null,
-                type: 'individual',
-                createdAt: '2025-09-30T19:13:06.000Z',
-                updatedAt: '2025-09-30T19:13:06.000Z'
-              };
-              console.log('Created mock broker data for testing:', brokerData);
-            } else if (user.uid === 'eOP0dCinC1WqsCxaAMY7cvCD7Lo1') {
-              // Kevin Macho's broker data based on the database info provided
-              brokerData = {
-                brokerId: 'u6QJnpSlLOgWz0zbevyo',
-                userId: 'eOP0dCinC1WqsCxaAMY7cvCD7Lo1',
-                status: 'pending',
-                idVerified: false,
-                brokerIdUrl: null, // No document uploaded yet
-                idType: 'national',
-                accountStatus: true,
-                approvedBy: null,
-                commission: 5,
-                rating: 0,
-                rejectionReason: null,
-                type: 'individual',
-                createdAt: '2025-10-02T11:56:38.000Z',
-                updatedAt: '2025-10-02T11:56:38.000Z'
-              };
-              console.log('Created mock broker data for Kevin Macho:', brokerData);
-            } else {
-              Alert.alert(
-                'Account Issue',
-                'Your broker account exists but there\'s a technical issue accessing it. Please contact support or try logging out and back in.',
-                [
-                  { text: 'Contact Support', onPress: () => {
-                    // You could add a contact support function here
+            // No mock data - use real API response
+            Alert.alert(
+              'Account Issue',
+              'Your broker account exists but there\'s a technical issue accessing it. Please contact support or try logging out and back in.',
+              [
+                { text: 'Contact Support', onPress: () => {
+                  // You could add a contact support function here
                     console.log('User wants to contact support');
                   }},
                   { text: 'Logout', onPress: () => {
@@ -441,7 +403,6 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                 ]
               );
               return;
-            }
           } else if (testResponse.ok) {
             // Broker was created successfully - this shouldn't happen if we're here
             console.log('Broker created successfully in fallback - this is unexpected');

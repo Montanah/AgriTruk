@@ -46,16 +46,29 @@ const FormKeyboardWrapper: React.FC<FormKeyboardWrapperProps> = ({
     // This was causing the transporter completion screen to start at bottom
   };
 
-  const Wrapper = enableDismissOnTap ? TouchableWithoutFeedback : React.Fragment;
-  const wrapperProps = enableDismissOnTap ? { onPress: dismissKeyboard } : {};
-
   return (
     <KeyboardAvoidingView
       style={[styles.container, style]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={calculatedOffset}
     >
-      <Wrapper {...wrapperProps}>
+      {enableDismissOnTap ? (
+        <TouchableWithoutFeedback onPress={dismissKeyboard}>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            onContentSizeChange={handleContentSizeChange}
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+            refreshControl={refreshControl}
+          >
+            {children}
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      ) : (
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
@@ -69,7 +82,7 @@ const FormKeyboardWrapper: React.FC<FormKeyboardWrapperProps> = ({
         >
           {children}
         </ScrollView>
-      </Wrapper>
+      )}
     </KeyboardAvoidingView>
   );
 };

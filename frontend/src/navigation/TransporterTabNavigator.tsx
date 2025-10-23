@@ -28,6 +28,7 @@ import DriverAssignmentsScreen from '../screens/DriverAssignmentsScreen';
 import FleetAnalyticsScreen from '../screens/FleetAnalyticsScreen';
 import FleetReportsScreen from '../screens/FleetReportsScreen';
 import FleetMaintenanceScreen from '../screens/FleetMaintenanceScreen';
+import JobSeekersMarketplaceScreen from '../screens/JobSeekersMarketplaceScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -52,11 +53,13 @@ const HomeStack = ({ transporterType }) => {
         <Stack.Screen name="FleetAnalytics" component={FleetAnalyticsScreen} />
         <Stack.Screen name="FleetReports" component={FleetReportsScreen} />
         <Stack.Screen name="FleetMaintenance" component={FleetMaintenanceScreen} />
+        <Stack.Screen name="JobSeekersMarketplace" component={JobSeekersMarketplaceScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
         <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
         <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
         <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
         <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+        <Stack.Screen name="CompanyFleetPlans" component={require('../screens/subscription/CompanyFleetPlansScreen').default} />
         <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
         <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
         <Stack.Screen name="TripNavigationScreen" component={require('../screens/TripNavigationScreen').default} />
@@ -80,6 +83,7 @@ const HomeStack = ({ transporterType }) => {
         <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
         <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
         <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+        <Stack.Screen name="CompanyFleetPlans" component={require('../screens/subscription/CompanyFleetPlansScreen').default} />
         <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
         <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
         <Stack.Screen name="TripNavigationScreen" component={require('../screens/TripNavigationScreen').default} />
@@ -103,11 +107,13 @@ const ManageStack = ({ transporterType }) => (
         <Stack.Screen name="FleetAnalytics" component={FleetAnalyticsScreen} />
         <Stack.Screen name="FleetReports" component={FleetReportsScreen} />
         <Stack.Screen name="FleetMaintenance" component={FleetMaintenanceScreen} />
+        <Stack.Screen name="JobSeekersMarketplace" component={JobSeekersMarketplaceScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={require('../screens/auth/TransporterCompletionScreen').default} />
         <Stack.Screen name="PaymentScreen" component={require('../screens/PaymentScreen').default} />
         <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
         <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
         <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+        <Stack.Screen name="CompanyFleetPlans" component={require('../screens/subscription/CompanyFleetPlansScreen').default} />
         <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
         <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
         <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
@@ -129,6 +135,7 @@ const ManageStack = ({ transporterType }) => (
         <Stack.Screen name="PaymentSuccess" component={require('../screens/PaymentSuccessScreen').default} />
         <Stack.Screen name="SubscriptionManagement" component={require('../screens/SubscriptionManagementScreen').default} />
         <Stack.Screen name="SubscriptionPlans" component={require('../screens/SubscriptionPlansScreen').default} />
+        <Stack.Screen name="CompanyFleetPlans" component={require('../screens/subscription/CompanyFleetPlansScreen').default} />
         <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
         <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
         <Stack.Screen name="TripNavigationScreen" component={require('../screens/TripNavigationScreen').default} />

@@ -20,7 +20,7 @@ import Toast, { ToastProps } from '../components/common/Toast';
 import ModernToggle from '../components/common/ModernToggle';
 import locationService from '../services/locationService';
 import subscriptionService from '../services/subscriptionService';
-import { transporterPlans } from '../constants/subscriptionPlans';
+import { INDIVIDUAL_PLANS, COMPANY_FLEET_PLANS } from '../constants/subscriptionPlans';
 import { apiRequest, uploadFile } from '../utils/api';
 
 export default function ManageTransporterScreen({ route }: any) {
@@ -1767,7 +1767,7 @@ export default function ManageTransporterScreen({ route }: any) {
                 hasActiveSubscription: true,
                 isTrialActive: false,
                 needsTrialActivation: false,
-                currentPlan: transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1],
+                currentPlan: (transporterType === 'company' ? COMPANY_FLEET_PLANS : INDIVIDUAL_PLANS)?.find(plan => plan.id === (transporterType === 'company' ? 'fleet_growing' : 'individual_pro')) || (transporterType === 'company' ? COMPANY_FLEET_PLANS : INDIVIDUAL_PLANS)?.[1],
                 daysRemaining: 15,
                 subscriptionStatus: 'active'
               }}
@@ -2556,7 +2556,7 @@ export default function ManageTransporterScreen({ route }: any) {
                 hasActiveSubscription: true,
                 isTrialActive: false,
                 needsTrialActivation: false,
-                currentPlan: transporterPlans.find(plan => plan.id === 'transporter-pro') || transporterPlans[1],
+                currentPlan: (transporterType === 'company' ? COMPANY_FLEET_PLANS : INDIVIDUAL_PLANS)?.find(plan => plan.id === (transporterType === 'company' ? 'fleet_growing' : 'individual_pro')) || (transporterType === 'company' ? COMPANY_FLEET_PLANS : INDIVIDUAL_PLANS)?.[1],
                 daysRemaining: 15,
                 subscriptionStatus: 'active'
               }}

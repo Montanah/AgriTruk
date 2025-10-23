@@ -16,6 +16,8 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 import { getAuth } from 'firebase/auth';
+import subscriptionService, { SubscriptionStatus } from '../services/subscriptionService';
+import companyFleetValidationService from '../services/companyFleetValidationService';
 
 const FleetManagementScreen = () => {
   const navigation = useNavigation();
@@ -29,6 +31,86 @@ const FleetManagementScreen = () => {
     activeDrivers: 0,
     assignedDrivers: 0,
   });
+  
+  // Subscription state
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
+  const [jobSeekersAccess, setJobSeekersAccess] = useState<any>(null);
+  const [vehicleValidation, setVehicleValidation] = useState<any>(null);
+  const [driverValidation, setDriverValidation] = useState<any>(null);
+  const [showSubscriptionDetails, setShowSubscriptionDetails] = useState(false);
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const status = await subscriptionService.getSubscriptionStatus();
+      console.log('🔍 FleetManagementScreen - Raw subscription status:', JSON.stringify(status, null, 2));
+      
+      // Add transporterType to the status for proper plan detection
+      const statusWithType = {
+        ...status,
+        transporterType: 'company'
+      };
+      console.log('🔍 FleetManagementScreen - Status with transporterType:', JSON.stringify(statusWithType, null, 2));
+      setSubscriptionStatus(statusWithType);
+      
+      // Validate job seekers marketplace access
+      const access = companyFleetValidationService.validateJobSeekersAccess(status);
+      setJobSeekersAccess(access);
+      
+      // Store subscription status for later use
+      setSubscriptionStatus(status);
+    } catch (error) {
+      console.error('Error fetching subscription status:', error);
+    }
+  };
+
+  const updateSubscriptionWithRealCounts = (vehicleCount: number, driverCount: number) => {
+    if (subscriptionStatus) {
+      console.log('📊 Updating subscription with real counts:', { vehicleCount, driverCount });
+      console.log('📊 Current subscription status:', subscriptionStatus);
+      
+      // DYNAMIC LIMITS - Use actual subscription plan limits
+      const getVehicleLimit = () => {
+        if (subscriptionStatus.freeTrialActive || subscriptionStatus.isTrialActive) return 3; // Trial limit
+        if (subscriptionStatus.currentPlan?.id === 'fleet_basic') return 5;
+        if (subscriptionStatus.currentPlan?.id === 'fleet_growing') return 15;
+        if (subscriptionStatus.currentPlan?.id === 'fleet_enterprise') return -1; // Unlimited
+        return 3; // Default trial limit
+      };
+      
+      const getDriverLimit = () => {
+        if (subscriptionStatus.freeTrialActive || subscriptionStatus.isTrialActive) return 3; // Trial limit
+        if (subscriptionStatus.currentPlan?.id === 'fleet_basic') return 5;
+        if (subscriptionStatus.currentPlan?.id === 'fleet_growing') return 15;
+        if (subscriptionStatus.currentPlan?.id === 'fleet_enterprise') return -1; // Unlimited
+        return 3; // Default trial limit
+      };
+      
+      const vehicleLimit = getVehicleLimit();
+      const driverLimit = getDriverLimit();
+      
+      const forcedVehicleValidation = {
+        canAdd: vehicleLimit === -1 || vehicleCount < vehicleLimit,
+        currentCount: vehicleCount, // Use actual vehicle count
+        limit: vehicleLimit,
+        percentage: vehicleLimit === -1 ? 0 : Math.min((vehicleCount / vehicleLimit) * 100, 100),
+        reason: vehicleLimit === -1 ? 'Unlimited vehicles' : `Plan allows up to ${vehicleLimit} vehicles`
+      };
+      
+      const forcedDriverValidation = {
+        canAdd: driverLimit === -1 || driverCount < driverLimit,
+        currentCount: driverCount, // Use actual driver count
+        limit: driverLimit,
+        percentage: driverLimit === -1 ? 0 : Math.min((driverCount / driverLimit) * 100, 100),
+        reason: driverLimit === -1 ? 'Unlimited drivers' : `Plan allows up to ${driverLimit} drivers`
+      };
+      
+      console.log('🔍 FleetManagementScreen - DYNAMIC Vehicle validation result:', JSON.stringify(forcedVehicleValidation, null, 2));
+      console.log('🔍 FleetManagementScreen - DYNAMIC Driver validation result:', JSON.stringify(forcedDriverValidation, null, 2));
+      
+      setVehicleValidation(forcedVehicleValidation);
+      setDriverValidation(forcedDriverValidation);
+    }
+  };
 
   const fetchFleetStats = async () => {
     try {
@@ -51,13 +133,19 @@ const FleetManagementScreen = () => {
       const vehiclesData = vehiclesRes.ok ? await vehiclesRes.json() : { vehicles: [] };
       const driversData = driversRes.ok ? await driversRes.json() : { drivers: [] };
 
+      const vehicleCount = vehiclesData.vehicles.length;
+      const driverCount = driversData.drivers.length;
+
       setFleetStats({
-        totalVehicles: vehiclesData.vehicles.length,
+        totalVehicles: vehicleCount,
         activeVehicles: vehiclesData.vehicles.filter(v => v.status === 'approved' && !v.assignedDriverId).length,
-        totalDrivers: driversData.drivers.length,
+        totalDrivers: driverCount,
         activeDrivers: driversData.drivers.filter(d => d.status === 'active').length,
         assignedDrivers: driversData.drivers.filter(d => d.assignedVehicleId).length,
       });
+
+      // Update subscription status with real counts
+      updateSubscriptionWithRealCounts(vehicleCount, driverCount);
     } catch (err: any) {
       console.error('Error fetching fleet stats:', err);
       // Don't show alert for 404 errors - just set empty stats
@@ -82,7 +170,12 @@ const FleetManagementScreen = () => {
   };
 
   useEffect(() => {
-    fetchFleetStats();
+    const initializeData = async () => {
+      await fetchSubscriptionStatus();
+      await fetchFleetStats();
+    };
+    
+    initializeData();
   }, []);
 
   const fleetOptions = [
@@ -109,6 +202,30 @@ const FleetManagementScreen = () => {
       icon: 'account-arrow-right',
       color: colors.success,
       onPress: () => navigation.navigate('DriverAssignments')
+    },
+    {
+      id: 'job-seekers',
+      title: 'Browse Job Seekers',
+      subtitle: 'Find and recruit qualified drivers',
+      icon: 'account-search',
+      color: colors.primary,
+      onPress: () => {
+        if (jobSeekersAccess?.hasAccess) {
+          navigation.navigate('JobSeekersMarketplace');
+        } else {
+          Alert.alert(
+            'Feature Not Available',
+            jobSeekersAccess?.reason || 'Job Seekers Marketplace is not available in your current plan.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Upgrade Plan', 
+                onPress: () => navigation.navigate('CompanyFleetPlans' as never)
+              }
+            ]
+          );
+        }
+      }
     },
     {
       id: 'analytics',
@@ -182,7 +299,7 @@ const FleetManagementScreen = () => {
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+        contentContainerStyle={{ paddingBottom: 80 + insets.bottom }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -210,6 +327,12 @@ const FleetManagementScreen = () => {
               <MaterialCommunityIcons name="truck" size={24} color={colors.primary} />
               <Text style={styles.statNumber}>{fleetStats.totalVehicles}</Text>
               <Text style={styles.statLabel}>Total Vehicles</Text>
+              {subscriptionStatus && vehicleValidation && (
+                <Text style={styles.statSubtext}>
+                  {vehicleValidation.currentCount} / {vehicleValidation.limit === -1 ? 'Unlimited' : vehicleValidation.limit}
+                </Text>
+              )}
+              {console.log('🚛 Vehicle Validation:', vehicleValidation)}
             </View>
             <View style={styles.statCard}>
               <MaterialCommunityIcons name="truck-check" size={24} color={colors.success} />
@@ -220,6 +343,12 @@ const FleetManagementScreen = () => {
               <MaterialCommunityIcons name="account-group" size={24} color={colors.warning} />
               <Text style={styles.statNumber}>{fleetStats.totalDrivers}</Text>
               <Text style={styles.statLabel}>Total Drivers</Text>
+              {subscriptionStatus && driverValidation && (
+                <Text style={styles.statSubtext}>
+                  {driverValidation.currentCount} / {driverValidation.limit === -1 ? 'Unlimited' : driverValidation.limit}
+                </Text>
+              )}
+              {console.log('👥 Driver Validation:', driverValidation)}
             </View>
             <View style={styles.statCard}>
               <MaterialCommunityIcons name="account-check" size={24} color={colors.success} />
@@ -228,6 +357,103 @@ const FleetManagementScreen = () => {
             </View>
           </View>
         </View>
+
+        {/* Collapsible Subscription Section */}
+        {subscriptionStatus && (vehicleValidation || driverValidation) && (
+          <View style={styles.subscriptionSection}>
+            <TouchableOpacity 
+              style={styles.subscriptionToggle}
+              onPress={() => setShowSubscriptionDetails(!showSubscriptionDetails)}
+            >
+              <View style={styles.subscriptionToggleContent}>
+                <MaterialCommunityIcons 
+                  name="truck" 
+                  size={20} 
+                  color={subscriptionStatus.freeTrialActive ? colors.warning : colors.primary} 
+                />
+                <View style={styles.subscriptionToggleInfo}>
+                  <Text style={styles.subscriptionToggleTitle}>
+                    {subscriptionStatus.freeTrialActive ? 'Free Trial' : subscriptionStatus.currentPlan?.name || 'Subscription'}
+                  </Text>
+                  <Text style={styles.subscriptionToggleSubtitle}>
+                    {subscriptionStatus.freeTrialActive 
+                      ? `${subscriptionStatus.freeTrialDaysRemaining} days remaining`
+                      : 'Active Plan'
+                    }
+                  </Text>
+                </View>
+                <MaterialCommunityIcons 
+                  name={showSubscriptionDetails ? "chevron-up" : "chevron-down"} 
+                  size={20} 
+                  color={colors.text.secondary} 
+                />
+              </View>
+            </TouchableOpacity>
+            
+            {showSubscriptionDetails && (
+              <View style={styles.subscriptionDetails}>
+                <View style={styles.usageContainer}>
+                  {vehicleValidation && (
+                    <View style={styles.usageItem}>
+                      <Text style={styles.usageLabel}>Vehicles</Text>
+                      <Text style={styles.usageCount}>
+                        {vehicleValidation.currentCount} / {vehicleValidation.limit === -1 ? 'Unlimited' : vehicleValidation.limit}
+                      </Text>
+                      <View style={styles.progressBar}>
+                        <View 
+                          style={[
+                            styles.progressFill, 
+                            { 
+                              width: `${vehicleValidation.percentage}%`,
+                              backgroundColor: vehicleValidation.canAdd ? colors.success : colors.warning
+                            }
+                          ]} 
+                        />
+                      </View>
+                      {!vehicleValidation.canAdd && (
+                        <Text style={styles.limitReachedText}>Vehicle limit reached</Text>
+                      )}
+                    </View>
+                  )}
+                  
+                  {driverValidation && (
+                    <View style={styles.usageItem}>
+                      <Text style={styles.usageLabel}>Drivers</Text>
+                      <Text style={styles.usageCount}>
+                        {driverValidation.currentCount} / {driverValidation.limit === -1 ? 'Unlimited' : driverValidation.limit}
+                      </Text>
+                      <View style={styles.progressBar}>
+                        <View 
+                          style={[
+                            styles.progressFill, 
+                            { 
+                              width: `${driverValidation.percentage}%`,
+                              backgroundColor: driverValidation.canAdd ? colors.success : colors.warning
+                            }
+                          ]} 
+                        />
+                      </View>
+                      {!driverValidation.canAdd && (
+                        <Text style={styles.limitReachedText}>Driver limit reached</Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+                
+                {((vehicleValidation && !vehicleValidation.canAdd) || (driverValidation && !driverValidation.canAdd)) && (
+                  <TouchableOpacity 
+                    style={styles.upgradeButton}
+                    onPress={() => navigation.navigate('CompanyFleetPlans' as never)}
+                  >
+                    <MaterialCommunityIcons name="arrow-up" size={16} color={colors.white} />
+                    <Text style={styles.upgradeButtonText}>Upgrade Plan</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
       </ScrollView>
     </View>
   );
@@ -356,6 +582,105 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     color: colors.text.secondary,
     textAlign: 'center',
+  },
+  statSubtext: {
+    fontSize: 10,
+    fontFamily: fonts.family.medium,
+    color: colors.primary,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  // Collapsible Subscription Section
+  subscriptionSection: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  subscriptionToggle: {
+    padding: 16,
+  },
+  subscriptionToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subscriptionToggleInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  subscriptionToggleTitle: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+  },
+  subscriptionToggleSubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  subscriptionDetails: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  usageContainer: {
+    marginTop: 16,
+  },
+  usageItem: {
+    marginBottom: 16,
+  },
+  usageLabel: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  usageCount: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: colors.background.light,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  limitReachedText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.warning,
+    marginTop: 4,
+  },
+  upgradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  upgradeButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    marginLeft: 6,
   },
 });
 

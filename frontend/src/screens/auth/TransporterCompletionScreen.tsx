@@ -1,13 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import * as DocumentPicker from 'expo-document-picker';
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useCameraPermissions, useMediaLibraryPermissions } from 'expo-image-picker';
 import { handleImagePicker } from '../../utils/permissionUtils';
 import { getAuth } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import {
   ActivityIndicator,
   Image,
@@ -16,20 +14,14 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
-  Modal,
-  FlatList,
-  ScrollView
+  Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FormKeyboardWrapper from '../../components/common/FormKeyboardWrapper';
 import { API_ENDPOINTS } from '../../constants/api';
-import VehicleDetailsForm from '../../components/VehicleDetailsForm';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 import { useSubscriptionStatus } from '../../hooks/useSubscriptionStatus';
-import { NTSA_VEHICLE_CLASSES, VEHICLE_SPECIALIZATIONS, getVehicleClassLabel } from '../../constants/vehicleClasses';
-import { validateImageAsset, safeAppendFile, getIOSErrorMessage, getMimeType } from '../../utils/iosFileUtils';
 
 // Vehicle types removed as they're not used in this component
 
@@ -101,16 +93,16 @@ function isTransporterProfileComplete(transporter: any) {
 
 export default function TransporterCompletionScreen() {
   const navigation = useNavigation();
-  const route = useRoute();
   const [transporterType, setTransporterType] = useState('individual'); // 'individual' or 'company'
   const [checkingProfile, setCheckingProfile] = useState(true);
   const [profileCheckError, setProfileCheckError] = useState('');
   const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
   
-  // Check if this is a job seeker (driver) from route params
-  const isJobSeeker = (route.params as any)?.isJobSeeker || false;
+  // This screen is only for individual and company transporters
+  // Job seekers have their own dedicated screen
 
   const runProfileCheck = React.useCallback(() => {
+    
     setCheckingProfile(true);
     setProfileCheckError('');
     let didTimeout = false;
@@ -331,26 +323,27 @@ export default function TransporterCompletionScreen() {
 
     return () => clearTimeout(fallbackTimer);
   }, [checkingProfile, subscriptionStatus, subscriptionLoading]);
-  const [vehicleType, setVehicleType] = useState('');
-  const [vehicleMake, setVehicleMake] = useState('');
-  const [vehicleColor, setVehicleColor] = useState('');
-  const [maxCapacity, setMaxCapacity] = useState('');
-  const [year, setYear] = useState('');
-  const [driveType, setDriveType] = useState('');
-  const [bodyType, setBodyType] = useState('closed');
-  const [vehicleFeatures, setVehicleFeatures] = useState('');
-  const [registration, setRegistration] = useState('');
-  const [humidityControl, setHumidityControl] = useState(false);
-  const [refrigeration, setRefrigeration] = useState(false);
+  // Individual transporter form is currently disabled
+  // const [vehicleType, setVehicleType] = useState('');
+  // const [vehicleMake, setVehicleMake] = useState('');
+  // const [vehicleColor, setVehicleColor] = useState('');
+  // const [maxCapacity, setMaxCapacity] = useState('');
+  // const [year, setYear] = useState('');
+  // const [driveType, setDriveType] = useState('');
+  // const [bodyType, setBodyType] = useState('closed');
+  // const [vehicleFeatures, setVehicleFeatures] = useState('');
+  // const [registration, setRegistration] = useState('');
+  // const [humidityControl, setHumidityControl] = useState(false);
+  // const [refrigeration, setRefrigeration] = useState(false);
+  // const [vehiclePhotos, setVehiclePhotos] = useState<any[]>([]);
+  // const [photoJustAdded, setPhotoJustAdded] = useState(false);
+  // const [dlFile, setDlFile] = useState<any>(null);
+  // const [idFile, setIdFile] = useState<any>(null);
+  // const [insuranceFile, setInsuranceFile] = useState<any>(null);
+  
   const [profilePhoto, setProfilePhoto] = useState<any>(null);
-  const [vehiclePhotos, setVehiclePhotos] = useState<any[]>([]);
-  const [photoJustAdded, setPhotoJustAdded] = useState(false);
-  const [dlFile, setDlFile] = useState<any>(null); // can be image or pdf
-  const [idFile, setIdFile] = useState<any>(null); // driver's ID
-  const [insuranceFile, setInsuranceFile] = useState<any>(null); // insurance
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  // Logbook file removed as it's not used in current implementation
   const [companyName, setCompanyName] = useState('');
   const [companyReg, setCompanyReg] = useState('');
   const [companyContact, setCompanyContact] = useState('');
@@ -358,19 +351,8 @@ export default function TransporterCompletionScreen() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftSaved, setDraftSaved] = useState(false);
 
-  // Job Seeker specific state variables
-  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
-  const [careerStartDate, setCareerStartDate] = useState<Date | null>(null);
-  const [selectedVehicleClasses, setSelectedVehicleClasses] = useState<string[]>([]);
-  const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([]);
-  const [assignmentDescription, setAssignmentDescription] = useState('');
-  const [goodConductCert, setGoodConductCert] = useState<any>(null);
-  const [gslLicence, setGslLicence] = useState<any>(null);
-  const [showDateOfBirthPicker, setShowDateOfBirthPicker] = useState(false);
-  const [showCareerStartDatePicker, setShowCareerStartDatePicker] = useState(false);
-  const [vehicleClassModal, setVehicleClassModal] = useState(false);
-  const [specializationModal, setSpecializationModal] = useState(false);
-  const [mediaLibraryPermission, requestMediaLibraryPermission] = useMediaLibraryPermissions();
+  // Individual transporter form is currently disabled
+  // const [individualFormEnabled, setIndividualFormEnabled] = useState(false);
 
   // Prefill company name and contact from Firebase Auth on mount and when user changes
   // Prefill company name and contact from backend user document on company tab select
@@ -404,64 +386,11 @@ export default function TransporterCompletionScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transporterType]);
 
-  // Image picker modal state (keeping for compatibility but not using)
+  // Image picker permissions for profile photo
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = useMediaLibraryPermissions();
 
-  const handleAddVehiclePhoto = async () => {
-    Alert.alert(
-      'Add Vehicle Photos',
-      'Choose how you want to add vehicle photos. You can select multiple photos at once from your gallery.',
-      [
-        { text: 'Take Photo', onPress: () => handleVehiclePhotoCamera() },
-        { text: 'Choose from Gallery (Multi-select)', onPress: () => handleVehiclePhotoGallery() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
-
-  const handleVehiclePhotoCamera = async () => {
-    try {
-      const result = await handleImagePicker('camera', {
-        allowsEditing: true,
-        quality: 0.8,
-      });
-      
-      if (result && !result.canceled && result.assets && result.assets.length > 0) {
-        setVehiclePhotos((prev) => [...prev, result.assets[0]]);
-        setPhotoJustAdded(true);
-        setError('');
-      }
-    } catch (err) {
-      setError('Failed to open camera.');
-      console.error('Camera error:', err);
-    }
-  };
-
-  const handleVehiclePhotoGallery = async () => {
-    try {
-      const result = await handleImagePicker('gallery', {
-        allowsMultipleSelection: true,
-        allowsEditing: false,
-        quality: 0.8,
-      });
-      
-      if (result && !result.canceled && result.assets && result.assets.length > 0) {
-        // Add all selected photos up to the limit (4 photos max)
-        const newPhotos = result.assets.slice(0, 4 - vehiclePhotos.length);
-        setVehiclePhotos((prev) => [...prev, ...newPhotos]);
-        setPhotoJustAdded(true);
-        setError('');
-      }
-    } catch (err) {
-      setError('Failed to open gallery.');
-      console.error('Gallery error:', err);
-    }
-  };
-
-  const handleRemoveVehiclePhoto = (idx: number) => {
-    setVehiclePhotos((prev) => prev.filter((_, i) => i !== idx));
-  };
+  // Individual transporter photo handlers are currently disabled
 
   const handleProfilePhoto = async () => {
     Alert.alert(
@@ -511,13 +440,7 @@ export default function TransporterCompletionScreen() {
     }
   };
 
-  // Debounce submit after adding a photo
-  React.useEffect(() => {
-    if (photoJustAdded) {
-      const timer = setTimeout(() => setPhotoJustAdded(false), 350);
-      return () => clearTimeout(timer);
-    }
-  }, [photoJustAdded]);
+  // Individual transporter photo logic is disabled
 
   const validatePhone = (phone: string): boolean => {
     if (!phone) return false;
@@ -541,35 +464,17 @@ export default function TransporterCompletionScreen() {
 
   // Get validation status for each section
   const getValidationStatus = () => {
-    if (transporterType === 'individual') {
-      return {
-        profilePhoto: !!profilePhoto,
-        vehicleDetails: !!(vehicleType && registration),
-        documents: !!(dlFile && insuranceFile && idFile),
-        vehiclePhotos: vehiclePhotos.length > 0,
-        allValid: !!(
-          vehicleType &&
-          registration &&
-          profilePhoto &&
-          dlFile &&
-          insuranceFile &&
-          idFile &&
-          vehiclePhotos.length > 0
-        )
-      };
-    } else {
-      return {
-        companyDetails: !!(companyName && companyReg && companyContact && validatePhone(companyContact)),
-        profilePhoto: !!profilePhoto,
-        allValid: !!(
-          companyName &&
-          companyReg &&
-          companyContact &&
-          validatePhone(companyContact) &&
-          profilePhoto
-        )
-      };
-    }
+    return {
+      companyDetails: !!(companyName && companyReg && companyContact && validatePhone(companyContact)),
+      profilePhoto: !!profilePhoto,
+      allValid: !!(
+        companyName &&
+        companyReg &&
+        companyContact &&
+        validatePhone(companyContact) &&
+        profilePhoto
+      )
+    };
   };
 
   const isValid = () => {
@@ -577,923 +482,31 @@ export default function TransporterCompletionScreen() {
     return status.allValid;
   };
 
-  // Job Seeker validation functions
-
-  const getJobSeekerValidationStatus = () => {
-    return {
-      profilePhoto: !!profilePhoto,
-      driverLicense: !!dlFile,
-      goodConductCert: !!goodConductCert,
-      idDoc: !!idFile,
-      dateOfBirth: !!dateOfBirth,
-      careerStartDate: !!careerStartDate,
-      vehicleClasses: selectedVehicleClasses.length > 0,
-      specializations: selectedSpecializations.length > 0,
-      allValid: !!profilePhoto && !!dlFile && !!goodConductCert && !!idFile && 
-                !!dateOfBirth && !!careerStartDate && 
-                selectedVehicleClasses.length > 0 && selectedSpecializations.length > 0
-    };
-  };
-
-  const calculateAge = (birthDate: Date): number => {
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
-  const calculateExperience = (startDate: Date): number => {
-    const today = new Date();
-    let experience = today.getFullYear() - startDate.getFullYear();
-    const monthDiff = today.getMonth() - startDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < startDate.getDate())) {
-      experience--;
-    }
-    return Math.max(0, experience);
-  };
-
-  const validateVehicleClassEligibility = (vehicleClass: string, age: number, experience: number): boolean => {
-    const classInfo = NTSA_VEHICLE_CLASSES.find(cls => cls.value === vehicleClass);
-    if (!classInfo) return false;
-    
-    if (age < classInfo.minAge) return false;
-    
-    // Check experience requirements for specific classes
-    if (vehicleClass === 'A3' && experience < 1) return false;
-    if (vehicleClass === 'C' && experience < 2) return false;
-    if (vehicleClass === 'CE' && experience < 4) return false;
-    if (vehicleClass === 'CD' && experience < 2) return false;
-    if (vehicleClass === 'D2' && experience < 3) return false;
-    if (vehicleClass === 'D3' && experience < 3) return false;
-    
-    return true;
-  };
+  // Individual transporter form is currently disabled
 
 
-  const handleDlFile = async () => {
-    Alert.alert(
-      'Select Document',
-      'Choose how you want to add your driver&apos;s license',
-      [
-        { text: 'Take Photo', onPress: () => handleDlCamera() },
-        { text: 'Choose from Gallery', onPress: () => handleDlGallery() },
-        { text: 'Upload PDF', onPress: () => handleDlPDF() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
-
-  const handleDlCamera = async () => {
-    try {
-      const result = await handleImagePicker('camera', {
-        allowsEditing: true,
-        quality: 0.8,
-      });
-      
-      if (result && !result.canceled && result.assets && result.assets.length > 0) {
-        setDlFile({
-          ...result.assets[0],
-          name: 'driver_license.jpg',
-          mimeType: 'image/jpeg'
-        });
-        setError('');
-      }
-    } catch (err) {
-      setError('Failed to open camera.');
-      console.error('Camera error:', err);
-    }
-  };
-
-  const handleDlGallery = async () => {
-    try {
-      const result = await handleImagePicker('gallery', {
-        allowsEditing: true,
-        quality: 0.8,
-      });
-      
-      if (result && !result.canceled && result.assets && result.assets.length > 0) {
-        setDlFile({
-          ...result.assets[0],
-          name: 'driver_license.jpg',
-          mimeType: 'image/jpeg'
-        });
-        setError('');
-      }
-    } catch (err) {
-      setError('Failed to open gallery.');
-      console.error('Gallery error:', err);
-    }
-  };
-
-  const handleDlPDF = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf'],
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setDlFile(result.assets[0]);
-    }
-  };
-
-  const handleIdFile = async () => {
-    Alert.alert(
-      'Select Document',
-      'Choose how you want to add your driver&apos;s ID',
-      [
-        { text: 'Take Photo', onPress: () => handleIdCamera() },
-        { text: 'Choose from Gallery', onPress: () => handleIdGallery() },
-        { text: 'Upload PDF', onPress: () => handleIdPDF() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
-
-  const handleIdCamera = async () => {
-    try {
-      if (!cameraPermission?.granted) {
-        const { status } = await requestCameraPermission();
-        if (status !== 'granted') {
-          setError('Permission to access camera is required!');
-          return;
-        }
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        // No aspect ratio constraint - allows free-form cropping for documents
-        quality: 0.8, // Higher quality for document clarity
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setIdFile({
-          ...result.assets[0],
-          name: 'driver_id.jpg',
-          mimeType: 'image/jpeg'
-        });
-      }
-    } catch (err) {
-      setError('Failed to open camera.');
-      console.error('Camera error:', err);
-    }
-  };
-
-  const handleIdGallery = async () => {
-    try {
-      if (!mediaPermission?.granted) {
-        const { status } = await requestMediaPermission();
-        if (status !== 'granted') {
-          setError('Permission to access media library is required!');
-          return;
-        }
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        // No aspect ratio constraint - allows free-form cropping for documents
-        quality: 0.8, // Higher quality for document clarity
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setIdFile({
-          ...result.assets[0],
-          name: 'driver_id.jpg',
-          mimeType: 'image/jpeg'
-        });
-      }
-    } catch (err) {
-      setError('Failed to open gallery.');
-      console.error('Gallery error:', err);
-    }
-  };
-
-  const handleIdPDF = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf'],
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setIdFile(result.assets[0]);
-    }
-  };
-
-  const handleInsuranceFile = async () => {
-    Alert.alert(
-      'Select Document',
-      'Choose how you want to add your insurance document',
-      [
-        { text: 'Take Photo', onPress: () => handleInsuranceCamera() },
-        { text: 'Choose from Gallery', onPress: () => handleInsuranceGallery() },
-        { text: 'Upload PDF', onPress: () => handleInsurancePDF() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
-
-  const handleInsuranceCamera = async () => {
-    try {
-      if (!cameraPermission?.granted) {
-        const { status } = await requestCameraPermission();
-        if (status !== 'granted') {
-          setError('Permission to access camera is required!');
-          return;
-        }
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        // No aspect ratio constraint - allows free-form cropping for documents
-        quality: 0.8, // Higher quality for document clarity
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setInsuranceFile({
-          ...result.assets[0],
-          name: 'insurance.jpg',
-          mimeType: 'image/jpeg'
-        });
-      }
-    } catch (err) {
-      setError('Failed to open camera.');
-      console.error('Camera error:', err);
-    }
-  };
-
-  const handleInsuranceGallery = async () => {
-    try {
-      if (!mediaPermission?.granted) {
-        const { status } = await requestMediaPermission();
-        if (status !== 'granted') {
-          setError('Permission to access media library is required!');
-          return;
-        }
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        // No aspect ratio constraint - allows free-form cropping for documents
-        quality: 0.8, // Higher quality for document clarity
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setInsuranceFile({
-          ...result.assets[0],
-          name: 'insurance.jpg',
-          mimeType: 'image/jpeg'
-        });
-      }
-    } catch (err) {
-      setError('Failed to open gallery.');
-      console.error('Gallery error:', err);
-    }
-  };
-
-  const handleInsurancePDF = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf'],
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      setInsuranceFile(result.assets[0]);
-    }
-  };
+  // Individual transporter document handlers are currently disabled
 
   // Logbook file handlers removed as they're not used in the current implementation
 
-  // Job Seeker specific handler functions
-  const handleGoodConductCamera = async () => {
-    try {
-      if (!cameraPermission?.granted) {
-        const permission = await requestCameraPermission();
-        if (!permission.granted) {
-          Alert.alert('Permission Required', 'Camera permission is required to take photos.');
-          return;
-        }
-      }
-      
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        if (validateImageAsset(asset)) {
-          setGoodConductCert({
-            ...asset,
-            name: 'good_conduct_certificate.jpg',
-            mimeType: 'image/jpeg'
-          });
-          setError('');
-        } else {
-          const errorMsg = getIOSErrorMessage(new Error('Invalid image asset')) || 'Invalid image. Please try again.';
-          setError(errorMsg);
-        }
-      }
-    } catch (err: any) {
-      const errorMsg = getIOSErrorMessage(err) || 'Failed to take photo. Please try again.';
-      setError(errorMsg);
-    }
-  };
-
-  const handleGoodConductGallery = async () => {
-    try {
-      if (!mediaLibraryPermission?.granted) {
-        const permission = await requestMediaLibraryPermission();
-        if (!permission.granted) {
-          Alert.alert('Permission Required', 'Media library permission is required to select photos.');
-          return;
-        }
-      }
-      
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        if (validateImageAsset(asset)) {
-          setGoodConductCert({
-            ...asset,
-            name: 'good_conduct_certificate.jpg',
-            mimeType: 'image/jpeg'
-          });
-          setError('');
-        } else {
-          const errorMsg = getIOSErrorMessage(new Error('Invalid image asset')) || 'Invalid image. Please try again.';
-          setError(errorMsg);
-        }
-      }
-    } catch (err: any) {
-      const errorMsg = getIOSErrorMessage(err) || 'Failed to select photo. Please try again.';
-      setError(errorMsg);
-    }
-  };
-
-  const handleGslLicence = async () => {
-    Alert.alert(
-      'Select Document',
-      'Choose how you want to add your Goods Service License (Optional)',
-      [
-        { text: 'Take Photo', onPress: () => handleGslCamera() },
-        { text: 'Choose from Gallery', onPress: () => handleGslGallery() },
-        { text: 'Upload PDF', onPress: () => handleGslPDF() },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
-
-  const handleGslCamera = async () => {
-    try {
-      if (!cameraPermission?.granted) {
-        const permission = await requestCameraPermission();
-        if (!permission.granted) {
-          Alert.alert('Permission Required', 'Camera permission is required to take photos.');
-          return;
-        }
-      }
-      
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        if (validateImageAsset(asset)) {
-          setGslLicence({
-            ...asset,
-            name: 'goods_service_license.jpg',
-            mimeType: 'image/jpeg'
-          });
-          setError('');
-        } else {
-          const errorMsg = getIOSErrorMessage(new Error('Invalid image asset')) || 'Invalid image. Please try again.';
-          setError(errorMsg);
-        }
-      }
-    } catch (err: any) {
-      const errorMsg = getIOSErrorMessage(err) || 'Failed to take photo. Please try again.';
-      setError(errorMsg);
-    }
-  };
-
-  const handleGslGallery = async () => {
-    try {
-      if (!mediaLibraryPermission?.granted) {
-        const permission = await requestMediaLibraryPermission();
-        if (!permission.granted) {
-          Alert.alert('Permission Required', 'Media library permission is required to select photos.');
-          return;
-        }
-      }
-      
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        if (validateImageAsset(asset)) {
-          setGslLicence({
-            ...asset,
-            name: 'goods_service_license.jpg',
-            mimeType: 'image/jpeg'
-          });
-          setError('');
-        } else {
-          const errorMsg = getIOSErrorMessage(new Error('Invalid image asset')) || 'Invalid image. Please try again.';
-          setError(errorMsg);
-        }
-      }
-    } catch (err: any) {
-      const errorMsg = getIOSErrorMessage(err) || 'Failed to select photo. Please try again.';
-      setError(errorMsg);
-    }
-  };
-
-  const handleGslPDF = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        setGslLicence({
-          ...result.assets[0],
-          name: 'goods_service_license.pdf',
-          mimeType: 'application/pdf'
-        });
-        setError('');
-      }
-    } catch (err: any) {
-      const errorMsg = getIOSErrorMessage(err) || 'Failed to select PDF. Please try again.';
-      setError(errorMsg);
-    }
-  };
-
-  const handleVehicleClassToggle = (vehicleClass: string) => {
-    if (selectedVehicleClasses.includes(vehicleClass)) {
-      setSelectedVehicleClasses(prev => prev.filter(cls => cls !== vehicleClass));
-    } else {
-      // Validate eligibility before adding
-      if (dateOfBirth && careerStartDate) {
-        const age = calculateAge(dateOfBirth);
-        const experience = calculateExperience(careerStartDate);
-        
-        if (!validateVehicleClassEligibility(vehicleClass, age, experience)) {
-          const classInfo = NTSA_VEHICLE_CLASSES.find(cls => cls.value === vehicleClass);
-          Alert.alert(
-            'Not Eligible',
-            `You are not eligible for ${classInfo?.label}. Age: ${age}, Experience: ${experience} years. Minimum requirements: Age ${classInfo?.minAge}${classInfo?.minAge && classInfo.minAge > 18 ? `, Experience: ${classInfo.minAge === 21 ? '1' : classInfo.minAge === 24 ? '2' : classInfo.minAge === 28 ? '4' : '0'} years` : ''}.`
-          );
-          return;
-        }
-      }
-      setSelectedVehicleClasses(prev => [...prev, vehicleClass]);
-    }
-  };
-
-  const handleSpecializationToggle = (specialization: string) => {
-    if (selectedSpecializations.includes(specialization)) {
-      setSelectedSpecializations(prev => prev.filter(spec => spec !== specialization));
-    } else {
-      setSelectedSpecializations(prev => [...prev, specialization]);
-    }
-  };
+  // Individual transporter form is currently disabled
 
   const handleSubmit = async () => {
     setError('');
 
-    // Validation
-    if (isJobSeeker) {
-      // Job seeker validation
-      if (!profilePhoto) { setError('Please upload a profile photo.'); return false; }
-      if (!dlFile) { setError("Please upload the driver's license."); return false; }
-      if (!goodConductCert) { setError('Please upload the good conduct certificate.'); return false; }
-      if (!idFile) { setError("Please upload your ID document."); return false; }
-      if (!dateOfBirth) { setError('Please select your date of birth.'); return false; }
-      if (!careerStartDate) { setError('Please select your career start date.'); return false; }
-      if (selectedVehicleClasses.length === 0) { setError('Please select at least one vehicle class.'); return false; }
-      if (selectedSpecializations.length === 0) { setError('Please select at least one specialization.'); return false; }
-      
-      // Validate age and experience requirements
-      const age = calculateAge(dateOfBirth);
-      const experience = calculateExperience(careerStartDate);
-      
-      // Check if selected vehicle classes are eligible
-      for (const vehicleClass of selectedVehicleClasses) {
-        if (!validateVehicleClassEligibility(vehicleClass, age, experience)) {
-          const classInfo = NTSA_VEHICLE_CLASSES.find(cls => cls.value === vehicleClass);
-          setError(`You are not eligible for ${classInfo?.label}. Please check age and experience requirements.`);
-          return false;
-        }
-      }
-    } else if (transporterType === 'individual') {
-      if (!vehicleType) { setError('Please select a vehicle type.'); return false; }
-      if (!registration) { setError('Please enter the vehicle registration number.'); return false; }
-      if (!profilePhoto) { setError('Please upload a profile photo.'); return false; }
-      if (!dlFile) { setError("Please upload the driver's license."); return false; }
-      if (!insuranceFile) { setError('Please upload the insurance document.'); return false; }
-      if (!idFile) { setError("Please upload the driver's ID."); return false; }
-      if (!vehiclePhotos || vehiclePhotos.length === 0) { setError('Please add at least one vehicle photo.'); return false; }
-    } else {
-      if (!companyName) { setError('Please enter the company name.'); return false; }
-      if (!companyReg) { setError('Please enter the company registration number.'); return false; }
-      if (!companyContact) { setError('Please enter the company contact number.'); return false; }
-      if (!profilePhoto) { setError('Please upload a company logo.'); return false; }
-    }
+    // Validation for company transporters only
+    if (!companyName) { setError('Please enter the company name.'); return false; }
+    if (!companyReg) { setError('Please enter the company registration number.'); return false; }
+    if (!companyContact) { setError('Please enter the company contact number.'); return false; }
+    if (!profilePhoto) { setError('Please upload a company logo.'); return false; }
 
     try {
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) throw new Error('Not authenticated');
 
-      if (isJobSeeker) {
-        // Job seeker submission
-        setUploading(true);
-        
-        const token = await user.getIdToken();
-        
-        // Create FormData for job seeker submission
-        const formData = new FormData();
-        
-        // Add text fields
-        formData.append('dateOfBirth', dateOfBirth!.toISOString());
-        formData.append('careerStartDate', careerStartDate!.toISOString());
-        formData.append('vehicleClasses', JSON.stringify(selectedVehicleClasses));
-        formData.append('specializations', JSON.stringify(selectedSpecializations));
-        if (assignmentDescription) {
-          formData.append('assignmentDescription', assignmentDescription);
-        }
-        
-        // Add files with iOS-safe handling
-        if (profilePhoto && profilePhoto.uri) {
-          const fileType = getMimeType(profilePhoto.uri, 'image/jpeg');
-          const success = safeAppendFile(formData, 'profilePhoto', profilePhoto, 'profile-photo.jpg', fileType);
-          if (!success) {
-            console.warn('Failed to append profile photo to FormData');
-          }
-        }
-        
-        if (dlFile && dlFile.uri) {
-          const fileType = getMimeType(dlFile.uri, 'image/jpeg');
-          const success = safeAppendFile(formData, 'driverLicense', dlFile, 'driver-license.jpg', fileType);
-          if (!success) {
-            console.warn('Failed to append driver license to FormData');
-          }
-        }
-        
-        if (goodConductCert && goodConductCert.uri) {
-          const fileType = getMimeType(goodConductCert.uri, 'image/jpeg');
-          const success = safeAppendFile(formData, 'goodConductCert', goodConductCert, 'good-conduct-certificate.jpg', fileType);
-          if (!success) {
-            console.warn('Failed to append good conduct certificate to FormData');
-          }
-        }
-        
-        if (idFile && idFile.uri) {
-          const fileType = getMimeType(idFile.uri, 'image/jpeg');
-          const success = safeAppendFile(formData, 'idDoc', idFile, 'id-document.jpg', fileType);
-          if (!success) {
-            console.warn('Failed to append ID document to FormData');
-          }
-        }
-        
-        if (gslLicence && gslLicence.uri) {
-          const fileType = getMimeType(gslLicence.uri, gslLicence.mimeType || 'application/pdf');
-          const success = safeAppendFile(formData, 'goodsServiceLicense', gslLicence, 'goods-service-license.pdf', fileType);
-          if (!success) {
-            console.warn('Failed to append goods service license to FormData');
-          }
-        }
-        
-        // Submit job seeker application
-        const response = await fetch(API_ENDPOINTS.JOB_SEEKERS, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-          body: formData,
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Job seeker application submitted successfully:', data);
-          
-          // Clear draft data
-          await AsyncStorage.removeItem('transporterDraft');
-          
-          // Navigate to job seeker status screen
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'DriverRecruitmentStatusScreen' }]
-          });
-        } else {
-          const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-          throw new Error(errorData.message || `HTTP ${response.status}`);
-        }
-      } else if (transporterType === 'individual') {
-        // Files will be sent directly in FormData - no need to pre-upload
-
-        // Create FormData for multipart/form-data request
-        const formData = new FormData();
-        
-        // Add text fields
-        formData.append('vehicleType', vehicleType);
-        formData.append('vehicleRegistration', registration);
-        formData.append('vehicleMake', vehicleMake);
-        formData.append('vehicleColor', vehicleColor);
-        formData.append('vehicleModel', vehicleMake); // Use vehicleMake as vehicleModel
-        formData.append('vehicleYear', year ? String(year) : '2020'); // Default year if not provided
-        formData.append('vehicleCapacity', maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? String(parseInt(maxCapacity, 10)) : '5'); // Default capacity if not provided
-        formData.append('driveType', driveType || '');
-        formData.append('bodyType', bodyType || '');
-        formData.append('vehicleFeatures', vehicleFeatures || '');
-        formData.append('humidityControl', humidityControl ? 'true' : 'false');
-        formData.append('refrigerated', refrigeration ? 'true' : 'false');
-        formData.append('transporterType', transporterType);
-        
-        // Add files directly to FormData
-        // Add files directly to FormData with proper logging
-        console.log('=== ADDING FILES TO FORMDATA ===');
-        
-        if (profilePhoto && profilePhoto.uri) {
-          console.log('Adding profile photo:', {
-            uri: profilePhoto.uri,
-            type: profilePhoto.type || 'image/jpeg',
-            name: 'profile-photo.jpg',
-          });
-          formData.append('profilePhoto', {
-            uri: profilePhoto.uri,
-            type: profilePhoto.type || 'image/jpeg',
-            name: 'profile-photo.jpg',
-          } as any);
-        } else {
-          console.log('No profile photo to add');
-        }
-        
-        if (dlFile && dlFile.uri) {
-          console.log('Adding driver license:', {
-            uri: dlFile.uri,
-            type: dlFile.type || 'image/jpeg',
-            name: 'drivers-license.jpg',
-          });
-          formData.append('dlFile', {
-            uri: dlFile.uri,
-            type: dlFile.type || 'image/jpeg',
-            name: 'drivers-license.jpg',
-          } as any);
-        } else {
-          console.log('No driver license to add');
-        }
-        
-        if (insuranceFile && insuranceFile.uri) {
-          console.log('Adding insurance file:', {
-            uri: insuranceFile.uri,
-            type: insuranceFile.type || 'image/jpeg',
-            name: 'insurance.jpg',
-          });
-          formData.append('insuranceFile', {
-            uri: insuranceFile.uri,
-            type: insuranceFile.type || 'image/jpeg',
-            name: 'insurance.jpg',
-          } as any);
-        } else {
-          console.log('No insurance file to add');
-        }
-        
-        // Note: Logbook files are not currently required for individual transporters
-        
-        if (idFile && idFile.uri) {
-          console.log('Adding driver ID:', {
-            uri: idFile.uri,
-            type: idFile.type || 'image/jpeg',
-            name: 'driver-id.jpg',
-          });
-          formData.append('idFile', {
-            uri: idFile.uri,
-            type: idFile.type || 'image/jpeg',
-            name: 'driver-id.jpg',
-          } as any);
-        } else {
-          console.log('No driver ID to add');
-        }
-        
-        // Add vehicle photos
-        if (vehiclePhotos && vehiclePhotos.length > 0) {
-          console.log(`Adding ${vehiclePhotos.length} vehicle photos`);
-          vehiclePhotos.forEach((img, idx) => {
-            if (img.uri) {
-              console.log(`Adding vehicle photo ${idx + 1}:`, {
-                uri: img.uri,
-                type: img.type || 'image/jpeg',
-                name: `vehicle-photo-${idx}.jpg`,
-              });
-              formData.append('vehiclePhoto', {
-                uri: img.uri,
-                type: img.type || 'image/jpeg',
-                name: `vehicle-photo-${idx}.jpg`,
-              } as any);
-            }
-          });
-        } else {
-          console.log('No vehicle photos to add');
-        }
-        
-        console.log('=== INDIVIDUAL TRANSPORTER SUBMISSION DEBUG ===');
-        console.log('FormData contents before sending:', {
-          vehicleType,
-          vehicleRegistration: registration,
-          vehicleMake,
-          vehicleColor,
-          vehicleModel: vehicleMake, // Use vehicleMake as vehicleModel
-          vehicleYear: year ? String(year) : '2020',
-          vehicleCapacity: maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? String(parseInt(maxCapacity, 10)) : '5',
-          driveType: driveType || '',
-          bodyType: bodyType || '',
-          vehicleFeatures: vehicleFeatures || '',
-          humidityControl: humidityControl ? 'true' : 'false',
-          refrigerated: refrigeration ? 'true' : 'false',
-          transporterType,
-          hasProfilePhoto: !!(profilePhoto && profilePhoto.uri),
-          hasDlFile: !!(dlFile && dlFile.uri),
-          hasInsuranceFile: !!(insuranceFile && insuranceFile.uri),
-          hasLogbookFile: false, // Logbook not currently required
-          hasIdFile: !!(idFile && idFile.uri),
-          vehiclePhotosCount: vehiclePhotos ? vehiclePhotos.length : 0
-        });
-        
-
-        const token = await user.getIdToken();
-        
-        // Create FormData for transporter submission
-        const transporterFormData = new FormData();
-        transporterFormData.append('vehicleType', vehicleType);
-        transporterFormData.append('vehicleRegistration', registration);
-        transporterFormData.append('vehicleMake', vehicleMake);
-        transporterFormData.append('vehicleModel', vehicleMake); // Use make as model
-        transporterFormData.append('vehicleCapacity', maxCapacity || '5');
-        transporterFormData.append('vehicleColor', vehicleColor);
-        transporterFormData.append('vehicleYear', year || '2020');
-        transporterFormData.append('driveType', driveType);
-        transporterFormData.append('bodyType', bodyType);
-        transporterFormData.append('vehicleFeatures', vehicleFeatures || '');
-        transporterFormData.append('humidityControl', humidityControl ? 'true' : 'false');
-        transporterFormData.append('refrigerated', refrigeration ? 'true' : 'false');
-        transporterFormData.append('transporterType', 'individual');
-        
-        // Add files to FormData
-        if (profilePhoto && profilePhoto.uri) {
-          const fileType = profilePhoto.type === 'image' ? 'image/jpeg' : (profilePhoto.type || 'image/jpeg');
-          transporterFormData.append('profilePhoto', {
-            uri: profilePhoto.uri,
-            type: fileType,
-            name: 'profile-photo.jpg',
-          } as any);
-        }
-        
-        if (dlFile && dlFile.uri) {
-          const fileType = dlFile.type === 'image' ? 'image/jpeg' : (dlFile.type || 'image/jpeg');
-          transporterFormData.append('dlFile', {
-            uri: dlFile.uri,
-            type: fileType,
-            name: 'drivers-license.jpg',
-          } as any);
-        }
-        
-        if (insuranceFile && insuranceFile.uri) {
-          const fileType = insuranceFile.type === 'image' ? 'image/jpeg' : (insuranceFile.type || 'image/jpeg');
-          transporterFormData.append('insuranceFile', {
-            uri: insuranceFile.uri,
-            type: fileType,
-            name: 'insurance.jpg',
-          } as any);
-        }
-        
-        if (idFile && idFile.uri) {
-          const fileType = idFile.type === 'image' ? 'image/jpeg' : (idFile.type || 'image/jpeg');
-          transporterFormData.append('idFile', {
-            uri: idFile.uri,
-            type: fileType,
-            name: 'driver-id.jpg',
-          } as any);
-        }
-        
-        // Add vehicle photos
-        if (vehiclePhotos && vehiclePhotos.length > 0) {
-          vehiclePhotos.forEach((img, idx) => {
-            if (img.uri) {
-              const fileType = img.type === 'image' ? 'image/jpeg' : (img.type || 'image/jpeg');
-              transporterFormData.append('vehiclePhoto', {
-                uri: img.uri,
-                type: fileType,
-                name: `vehicle-photo-${idx}.jpg`,
-              } as any);
-            }
-          });
-        }
-        
-        let res;
-        try {
-          res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            body: transporterFormData,
-          });
-        } catch (fetchError: any) {
-          console.error('Fetch request failed:', fetchError);
-          throw new Error(`Network error: ${fetchError.message}. Please check your internet connection and try again.`);
-        }
-
-        const responseText = await res.text();
-        
-        let data = null;
-        let parseError = null;
-        try {
-          if (responseText.trim()) {
-            data = JSON.parse(responseText);
-          }
-        } catch (e) {
-          parseError = e;
-          console.error('Failed to parse response as JSON:', e);
-        }
-
-        
-        // Check if the request was successful (200-299 status codes)
-        const isSuccess = res.status >= 200 && res.status < 300;
-        
-        if (isSuccess) {
-          console.log('✅ Individual transporter created successfully:', data);
-          // Send profile submission notification
-          try {
-            const { NotificationHelper } = await import('../../services/notificationHelper');
-            await NotificationHelper.sendProfileNotification('submitted', {
-              userId: user.uid,
-              role: 'transporter',
-              transporterType,
-              vehicleType: vehicleType || 'N/A',
-              registration: registration || 'N/A'
-            });
-          } catch (notificationError) {
-            console.warn('Failed to send profile submission notification:', notificationError);
-          }
-
-          // Success: navigate to processing screen
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'TransporterProcessingScreen', params: { transporterType } }]
-          });
-          return true;
-        } else {
-          console.log('❌ Response not OK, showing error');
-          // Try to show backend error message if available
-          let errorMsg = 'Failed to submit profile. Please try again.';
-          
-          if (data && data.message) {
-            // Make backend errors more user-friendly
-            if (data.message.includes('Required fields are missing')) {
-              errorMsg = 'Please fill in all required fields and try again.';
-            } else if (data.message.includes('Invalid vehicle registration')) {
-              errorMsg = 'Please enter a valid vehicle registration number (e.g., KDA 123A).';
-            } else if (data.message.includes('No files uploaded')) {
-              errorMsg = 'Please upload all required documents and photos.';
-            } else if (data.message.includes('already exists')) {
-              errorMsg = 'A transporter profile already exists for this account.';
-            } else {
-              errorMsg = data.message;
-            }
-          } else if (parseError) {
-            errorMsg = 'Server error: Unable to process your request. Please try again.';
-          } else if (res.status === 400) {
-            errorMsg = 'Please check your information and try again.';
-          } else if (res.status === 401) {
-            errorMsg = 'Session expired. Please sign in again.';
-          } else if (res.status === 403) {
-            errorMsg = 'Access denied. Please contact support.';
-          } else if (res.status === 500) {
-            errorMsg = 'Server error. Please try again later.';
-          } else if (res.statusText) {
-            errorMsg = `Error: ${res.statusText}`;
-          }
-          
-          setError(errorMsg);
-          // Log for debugging
-          console.error('Individual transporter submit error:', { status: res.status, data, parseError });
-          return false;
-        }
-      } else {
+      // Company submission only
+      {
         // Company submission - create FormData for multipart/form-data request
         // TEMPORARY WORKAROUND: Use transporter API format for company creation
         const formData = new FormData();
@@ -1799,46 +812,17 @@ export default function TransporterCompletionScreen() {
       const user = auth.currentUser;
       if (!user) throw new Error('Not authenticated');
 
-      // Prepare draft data based on transporter type
-      let draftData;
-      
-      if (transporterType === 'individual') {
-        draftData = {
-          transporterType: 'individual',
-          vehicleType,
-          vehicleRegistration: registration,
-          vehicleMake,
-          vehicleColor,
-          vehicleModel: vehicleMake,
-          vehicleYear: year ? String(year) : '2020',
-          vehicleCapacity: maxCapacity && !isNaN(parseInt(maxCapacity, 10)) ? String(parseInt(maxCapacity, 10)) : '5',
-          driveType: driveType || '',
-          bodyType: bodyType || '',
-          vehicleFeatures: vehicleFeatures || '',
-          humidityControl: humidityControl ? 'true' : 'false',
-          refrigerated: refrigeration ? 'true' : 'false',
-          // Note: Files cannot be saved in draft - user will need to re-upload them
-          hasProfilePhoto: !!(profilePhoto && profilePhoto.uri),
-          hasDlFile: !!(dlFile && dlFile.uri),
-          hasInsuranceFile: !!(insuranceFile && insuranceFile.uri),
-          hasIdFile: !!(idFile && idFile.uri),
-          hasLogbookFile: false, // Logbook not currently required
-          vehiclePhotosCount: vehiclePhotos ? vehiclePhotos.length : 0,
-          isDraft: true,
-          savedAt: new Date().toISOString()
-        };
-      } else {
-        draftData = {
-          transporterType: 'company',
-          companyName,
-          companyReg,
-          companyContact,
-          companyAddress,
-          hasLogo: !!(profilePhoto && profilePhoto.uri),
-          isDraft: true,
-          savedAt: new Date().toISOString()
-        };
-      }
+      // Prepare draft data for company transporters only
+      const draftData = {
+        transporterType: 'company',
+        companyName,
+        companyReg,
+        companyContact,
+        companyAddress,
+        hasLogo: !!(profilePhoto && profilePhoto.uri),
+        isDraft: true,
+        savedAt: new Date().toISOString()
+      };
 
       // Save draft to localStorage
       const draftKey = `transporter_draft_${user.uid}`;
@@ -1875,20 +859,8 @@ export default function TransporterCompletionScreen() {
         const parsedDraft = JSON.parse(draftData);
         console.log('📄 Loading draft data:', parsedDraft);
         
-        // Restore form data based on transporter type
-        if (parsedDraft.transporterType === 'individual') {
-          setVehicleType(parsedDraft.vehicleType || '');
-          setRegistration(parsedDraft.vehicleRegistration || '');
-          setVehicleMake(parsedDraft.vehicleMake || '');
-          setVehicleColor(parsedDraft.vehicleColor || '');
-          setYear(parsedDraft.vehicleYear || '');
-          setMaxCapacity(parsedDraft.vehicleCapacity || '');
-          setDriveType(parsedDraft.driveType || '');
-          setBodyType(parsedDraft.bodyType || 'closed');
-          setVehicleFeatures(parsedDraft.vehicleFeatures || '');
-          setHumidityControl(parsedDraft.humidityControl === 'true');
-          setRefrigeration(parsedDraft.refrigerated === 'true');
-        } else if (parsedDraft.transporterType === 'company') {
+        // Only restore company data (individual transporters are disabled)
+        if (parsedDraft.transporterType === 'company') {
           setCompanyName(parsedDraft.companyName || '');
           setCompanyReg(parsedDraft.companyReg || '');
           setCompanyContact(parsedDraft.companyContact || '');
@@ -1943,539 +915,78 @@ export default function TransporterCompletionScreen() {
           <MaterialCommunityIcons name="truck-delivery" size={32} color={colors.primary} />
         </View>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.modernHeaderTitle}>
-            {isJobSeeker ? 'Complete Your Job Application' : 'Complete Your Profile'}
-          </Text>
+          <Text style={styles.modernHeaderTitle}>Complete Your Profile</Text>
           <Text style={styles.modernHeaderSubtitle}>
-            {isJobSeeker 
-              ? 'Apply to become a driver and get recruited by companies'
-              : transporterType === 'individual' 
-                ? 'Set up your individual transporter account' 
-                : 'Set up your company transporter account'
+            {transporterType === 'individual' 
+              ? 'Set up your individual transporter account' 
+              : 'Set up your company transporter account'
             }
           </Text>
         </View>
       </View>
 
-      {/* Full-width Role Selector - Hidden for job seekers */}
-      {!isJobSeeker && (
+      {/* Full-width Role Selector */}
+      {(
         <>
-          <Text style={styles.roleSelectorTitle}>Account Type</Text>
-          <View style={styles.roleSelector}>
-            <TouchableOpacity
-              style={[
-                styles.roleButton,
-                transporterType === 'individual' && styles.roleButtonActive
-              ]}
-              onPress={() => setTransporterType('individual')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons 
-                name="account" 
-                size={20} 
-                color={transporterType === 'individual' ? colors.white : colors.primary} 
-              />
-              <Text style={[
-                styles.roleButtonText,
-                transporterType === 'individual' && styles.roleButtonTextActive
-              ]}>
-                Individual
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[
-                styles.roleButton,
-                transporterType === 'company' && styles.roleButtonActive
-              ]}
-              onPress={() => setTransporterType('company')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons 
-                name="office-building" 
-                size={20} 
-                color={transporterType === 'company' ? colors.white : colors.primary} 
-              />
-              <Text style={[
-                styles.roleButtonText,
-                transporterType === 'company' && styles.roleButtonTextActive
-              ]}>
-                Corporate
-              </Text>
-            </TouchableOpacity>
-          </View>
+      <Text style={styles.roleSelectorTitle}>Account Type</Text>
+      <View style={styles.roleSelector}>
+        <TouchableOpacity
+          style={[
+            styles.roleButton,
+            transporterType === 'individual' && styles.roleButtonActive
+          ]}
+          onPress={() => setTransporterType('individual')}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons 
+            name="account" 
+            size={20} 
+            color={transporterType === 'individual' ? colors.white : colors.primary} 
+          />
+          <Text style={[
+            styles.roleButtonText,
+            transporterType === 'individual' && styles.roleButtonTextActive
+          ]}>
+            Individual
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.roleButton,
+            transporterType === 'company' && styles.roleButtonActive
+          ]}
+          onPress={() => setTransporterType('company')}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons 
+            name="office-building" 
+            size={20} 
+            color={transporterType === 'company' ? colors.white : colors.primary} 
+          />
+          <Text style={[
+            styles.roleButtonText,
+            transporterType === 'company' && styles.roleButtonTextActive
+          ]}>
+            Corporate
+          </Text>
+        </TouchableOpacity>
+      </View>
         </>
       )}
 
-      {/* JOB SEEKER FORM */}
-      {isJobSeeker && (
-        <ScrollView style={styles.formContainer} showsVerticalScrollIndicator={false}>
-          {/* Step 1: Personal Information & Documents */}
-          <View style={styles.stepContainer}>
-            <View style={styles.stepHeader}>
-              <Text style={styles.stepNumber}>1</Text>
-              <Text style={styles.stepTitle}>Personal Information & Documents</Text>
-            </View>
-
-            {/* Profile Photo Section */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Profile Photo</Text>
-              {getJobSeekerValidationStatus().profilePhoto && (
-                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-              )}
-            </View>
-            <TouchableOpacity 
-              style={[styles.documentUploader, profilePhoto && styles.documentUploaderFilled]} 
-              onPress={handleProfilePhoto}
-              activeOpacity={0.7}
-            >
-              {profilePhoto ? (
-                <Image source={{ uri: profilePhoto.uri }} style={styles.documentPreview} />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                  Profile Photo
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Date of Birth */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Date of Birth</Text>
-              {getJobSeekerValidationStatus().dateOfBirth && (
-                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-              )}
-            </View>
-            <TouchableOpacity 
-              style={styles.dateInput}
-              onPress={() => setShowDateOfBirthPicker(true)}
-            >
-              <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.dateInputText}>
-                {dateOfBirth ? dateOfBirth.toLocaleDateString() : 'Select your date of birth'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Career Start Date */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Career Start Date</Text>
-              {getJobSeekerValidationStatus().careerStartDate && (
-                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-              )}
-            </View>
-            <TouchableOpacity 
-              style={styles.dateInput}
-              onPress={() => setShowCareerStartDatePicker(true)}
-            >
-              <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.dateInputText}>
-                {careerStartDate ? careerStartDate.toLocaleDateString() : 'Select when you started driving professionally'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Age and Experience Display */}
-            {dateOfBirth && careerStartDate && (
-              <View style={styles.infoCard}>
-                <Text style={styles.infoTitle}>Your Profile</Text>
-                <Text style={styles.infoText}>Age: {calculateAge(dateOfBirth)} years</Text>
-                <Text style={styles.infoText}>Experience: {calculateExperience(careerStartDate)} years</Text>
-              </View>
-            )}
-
-            {/* Documents Section */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Required Documents</Text>
-              {getJobSeekerValidationStatus().driverLicense && 
-               getJobSeekerValidationStatus().goodConductCert && 
-               getJobSeekerValidationStatus().idDoc && (
-                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-              )}
-            </View>
-
-            {/* Driver's License */}
-            <TouchableOpacity 
-              style={[styles.documentUploader, dlFile && styles.documentUploaderFilled]} 
-              onPress={handleDlFile}
-              activeOpacity={0.7}
-            >
-              {dlFile ? (
-                <Image source={{ uri: dlFile.uri }} style={styles.documentPreview} />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                  Driver&apos;s License
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Good Conduct Certificate */}
-            <TouchableOpacity 
-              style={[styles.documentUploader, goodConductCert && styles.documentUploaderFilled]} 
-              onPress={() => Alert.alert(
-                'Select Document',
-                'Choose how you want to add your Good Conduct Certificate',
-                [
-                  { text: 'Take Photo', onPress: () => handleGoodConductCamera() },
-                  { text: 'Choose from Gallery', onPress: () => handleGoodConductGallery() },
-                  { text: 'Cancel', style: 'cancel' }
-                ]
-              )}
-              activeOpacity={0.7}
-            >
-              {goodConductCert ? (
-                <Image source={{ uri: goodConductCert.uri }} style={styles.documentPreview} />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                  Good Conduct Certificate
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* ID Document */}
-            <TouchableOpacity 
-              style={[styles.documentUploader, idFile && styles.documentUploaderFilled]} 
-              onPress={handleIdFile}
-              activeOpacity={0.7}
-            >
-              {idFile ? (
-                <Image source={{ uri: idFile.uri }} style={styles.documentPreview} />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                  ID Document
-                </>
-              )}
-            </TouchableOpacity>
-
-            {/* Goods Service License (Optional) */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Goods Service License (Optional)</Text>
-            </View>
-            <TouchableOpacity 
-              style={[styles.documentUploader, gslLicence && styles.documentUploaderFilled]} 
-              onPress={handleGslLicence}
-              activeOpacity={0.7}
-            >
-              {gslLicence ? (
-                <Image source={{ uri: gslLicence.uri }} style={styles.documentPreview} />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                  Goods Service License (Optional)
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Step 2: Vehicle Classes & Specializations */}
-          <View style={styles.stepContainer}>
-            <View style={styles.stepHeader}>
-              <Text style={styles.stepNumber}>2</Text>
-              <Text style={styles.stepTitle}>Vehicle Classes & Specializations</Text>
-            </View>
-
-            {/* Vehicle Classes */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Vehicle Classes You Can Drive</Text>
-              {getJobSeekerValidationStatus().vehicleClasses && (
-                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-              )}
-            </View>
-            <TouchableOpacity 
-              style={styles.selectionButton}
-              onPress={() => setVehicleClassModal(true)}
-            >
-              <Text style={styles.selectionButtonText}>
-                {selectedVehicleClasses.length > 0 
-                  ? `${selectedVehicleClasses.length} class(es) selected`
-                  : 'Select vehicle classes'
-                }
-              </Text>
-              <MaterialCommunityIcons name="chevron-down" size={20} color={colors.primary} />
-            </TouchableOpacity>
-
-            {/* Selected Vehicle Classes */}
-            {selectedVehicleClasses.length > 0 && (
-              <View style={styles.selectedItemsContainer}>
-                {selectedVehicleClasses.map((vehicleClass) => (
-                  <View key={vehicleClass} style={styles.selectedItem}>
-                    <Text style={styles.selectedItemText}>{getVehicleClassLabel(vehicleClass)}</Text>
-                    <TouchableOpacity onPress={() => handleVehicleClassToggle(vehicleClass)}>
-                      <MaterialCommunityIcons name="close" size={16} color={colors.text.secondary} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Specializations */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Specializations</Text>
-              {getJobSeekerValidationStatus().specializations && (
-                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-              )}
-            </View>
-            <TouchableOpacity 
-              style={styles.selectionButton}
-              onPress={() => setSpecializationModal(true)}
-            >
-              <Text style={styles.selectionButtonText}>
-                {selectedSpecializations.length > 0 
-                  ? `${selectedSpecializations.length} specialization(s) selected`
-                  : 'Select specializations'
-                }
-              </Text>
-              <MaterialCommunityIcons name="chevron-down" size={20} color={colors.primary} />
-            </TouchableOpacity>
-
-            {/* Selected Specializations */}
-            {selectedSpecializations.length > 0 && (
-              <View style={styles.selectedItemsContainer}>
-                {selectedSpecializations.map((specialization) => (
-                  <View key={specialization} style={styles.selectedItem}>
-                    <Text style={styles.selectedItemText}>{specialization}</Text>
-                    <TouchableOpacity onPress={() => handleSpecializationToggle(specialization)}>
-                      <MaterialCommunityIcons name="close" size={16} color={colors.text.secondary} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Assignment Description */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Previous/Current Assignment (Optional)</Text>
-            </View>
-            <TextInput
-              style={styles.textArea}
-              placeholder="Describe your previous or current driving assignments..."
-              value={assignmentDescription}
-              onChangeText={setAssignmentDescription}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={[styles.submitButton, !getJobSeekerValidationStatus().allValid && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={!getJobSeekerValidationStatus().allValid || uploading}
-          >
-            {uploading ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={styles.submitButtonText}>Submit Application</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Validation Summary */}
-          {!getJobSeekerValidationStatus().allValid && (
-            <View style={styles.validationContainer}>
-              <Text style={styles.validationTitle}>Complete these sections to submit:</Text>
-              {!getJobSeekerValidationStatus().profilePhoto && (
-                <Text style={styles.validationItem}>• Upload profile photo</Text>
-              )}
-              {!getJobSeekerValidationStatus().dateOfBirth && (
-                <Text style={styles.validationItem}>• Select date of birth</Text>
-              )}
-              {!getJobSeekerValidationStatus().careerStartDate && (
-                <Text style={styles.validationItem}>• Select career start date</Text>
-              )}
-              {!getJobSeekerValidationStatus().driverLicense && (
-                <Text style={styles.validationItem}>• Upload driver&apos;s license</Text>
-              )}
-              {!getJobSeekerValidationStatus().goodConductCert && (
-                <Text style={styles.validationItem}>• Upload good conduct certificate</Text>
-              )}
-              {!getJobSeekerValidationStatus().idDoc && (
-                <Text style={styles.validationItem}>• Upload ID document</Text>
-              )}
-              {!getJobSeekerValidationStatus().vehicleClasses && (
-                <Text style={styles.validationItem}>• Select vehicle classes</Text>
-              )}
-              {!getJobSeekerValidationStatus().specializations && (
-                <Text style={styles.validationItem}>• Select specializations</Text>
-              )}
-            </View>
-          )}
-        </ScrollView>
-      )}
-
-      {/* INDIVIDUAL FORM */}
+      {/* INDIVIDUAL FORM - Currently Disabled */}
       {transporterType === 'individual' && (
-        <>
-          {/* Profile Photo Section */}
-          <View style={styles.modernSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.modernSectionTitle}>
-                <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                Profile Photo
+        <View style={styles.disabledMessageContainer}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={48} color={colors.warning} />
+          <Text style={styles.disabledMessageTitle}>Individual Transporters Currently Disabled</Text>
+          <Text style={styles.disabledMessageText}>
+            Individual transporter registration is temporarily disabled. Please select &quot;Corporate&quot; to register as a company transporter.
               </Text>
-              {getValidationStatus().profilePhoto && (
-                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-              )}
-            </View>
-            <TouchableOpacity 
-              style={styles.modernPhotoPicker} 
-              onPress={handleProfilePhoto}
-              activeOpacity={0.7}
-            >
-              {profilePhoto ? (
-                <Image source={{ uri: profilePhoto.uri }} style={styles.modernProfilePhoto} />
-              ) : (
-                <View style={styles.photoPlaceholder}>
-                  <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
-                  <Text style={styles.photoPlaceholderText}>Tap to add photo</Text>
                 </View>
               )}
-              <View style={styles.photoOverlay}>
-                <MaterialCommunityIcons name="camera-plus" size={20} color={colors.white} />
-              </View>
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Vehicle Details</Text>
-            {getValidationStatus().vehicleDetails && (
-              <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-            )}
-          </View>
-          <VehicleDetailsForm
-            initial={{ vehicleType, vehicleMake, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures }}
-            onChange={({ vehicleType, vehicleMake, vehicleModel, vehicleColor, registration, maxCapacity, year, driveType, bodyType, vehicleFeatures, humidityControl, refrigeration }) => {
-              setVehicleType(vehicleType);
-              setVehicleMake(vehicleMake);
-              // vehicleModel is automatically set to vehicleMake in VehicleDetailsForm
-              setVehicleColor(vehicleColor);
-              setRegistration(registration);
-              setMaxCapacity(maxCapacity);
-              setYear(year);
-              setDriveType(driveType);
-              setBodyType(bodyType);
-              setVehicleFeatures(vehicleFeatures);
-              setHumidityControl(humidityControl);
-              setRefrigeration(refrigeration);
-            }}
-            onPhotoAdd={handleAddVehiclePhoto}
-            onPhotoRemove={handleRemoveVehiclePhoto}
-            vehiclePhotos={vehiclePhotos}
-            error={error}
-          />
-
-          {/* Documents Section */}
-          <View style={styles.modernSection}>
-            <Text style={styles.modernSectionTitle}>
-              <MaterialCommunityIcons name="file-document-multiple" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-              Required Documents
-            </Text>
-            <Text style={styles.modernSectionDescription}>
-              Upload clear photos or PDFs of your documents
-            </Text>
-            
-            {/* First Row - 2 Documents */}
-            <View style={styles.documentsRow}>
-              {/* Driver's License */}
-              <View style={styles.documentCardRow}>
-                <Text style={styles.documentTitle}>Driver&apos;s License</Text>
-                <TouchableOpacity 
-                  style={[styles.documentUploader, dlFile && styles.documentUploaderFilled]} 
-                  onPress={handleDlFile}
-                  activeOpacity={0.7}
-                >
-                  {dlFile ? (
-                    dlFile.mimeType && dlFile.mimeType.startsWith('image/') ? (
-                      <Image source={{ uri: dlFile.uri }} style={styles.documentImage} />
-                    ) : (
-                      <View style={styles.documentFileContainer}>
-                        <MaterialCommunityIcons name="file-pdf-box" size={32} color={colors.primary} />
-                        <Text style={styles.documentFileName}>{dlFile.name || 'PDF File'}</Text>
-                      </View>
-                    )
-                  ) : (
-                    <View style={styles.documentPlaceholder}>
-                      <MaterialCommunityIcons name="card-account-details-outline" size={32} color={colors.text.light} />
-                      <Text style={styles.documentPlaceholderText}>Tap to upload</Text>
-                    </View>
-                  )}
-                  {dlFile && (
-                    <View style={styles.documentCheckmark}>
-                      <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {/* Driver's ID */}
-              <View style={styles.documentCardRow}>
-                <Text style={styles.documentTitle}>Driver&apos;s ID</Text>
-                <TouchableOpacity 
-                  style={[styles.documentUploader, idFile && styles.documentUploaderFilled]} 
-                  onPress={handleIdFile}
-                  activeOpacity={0.7}
-                >
-                  {idFile ? (
-                    idFile.mimeType && idFile.mimeType.startsWith('image/') ? (
-                      <Image source={{ uri: idFile.uri }} style={styles.documentImage} />
-                    ) : (
-                      <View style={styles.documentFileContainer}>
-                        <MaterialCommunityIcons name="file-pdf-box" size={32} color={colors.primary} />
-                        <Text style={styles.documentFileName}>{idFile.name || 'PDF File'}</Text>
-                      </View>
-                    )
-                  ) : (
-                    <View style={styles.documentPlaceholder}>
-                      <MaterialCommunityIcons name="card-account-details-outline" size={32} color={colors.text.light} />
-                      <Text style={styles.documentPlaceholderText}>Tap to upload</Text>
-                    </View>
-                  )}
-                  {idFile && (
-                    <View style={styles.documentCheckmark}>
-                      <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Second Row - 1 Document */}
-            <View style={styles.documentsRowSingle}>
-              {/* Insurance */}
-              <View style={styles.documentCardSingle}>
-                <Text style={styles.documentTitle}>Vehicle Insurance</Text>
-                <TouchableOpacity 
-                  style={[styles.documentUploader, insuranceFile && styles.documentUploaderFilled]} 
-                  onPress={handleInsuranceFile}
-                  activeOpacity={0.7}
-                >
-                  {insuranceFile ? (
-                    insuranceFile.mimeType && insuranceFile.mimeType.startsWith('image/') ? (
-                      <Image source={{ uri: insuranceFile.uri }} style={styles.documentImage} />
-                    ) : (
-                      <View style={styles.documentFileContainer}>
-                        <MaterialCommunityIcons name="file-pdf-box" size={32} color={colors.primary} />
-                        <Text style={styles.documentFileName}>{insuranceFile.name || 'PDF File'}</Text>
-                      </View>
-                    )
-                  ) : (
-                    <View style={styles.documentPlaceholder}>
-                      <MaterialCommunityIcons name="shield-check-outline" size={32} color={colors.text.light} />
-                      <Text style={styles.documentPlaceholderText}>Tap to upload</Text>
-                    </View>
-                  )}
-                  {insuranceFile && (
-                    <View style={styles.documentCheckmark}>
-                      <Ionicons name="checkmark-circle" size={18} color={colors.success} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </>
-      )}
+      {/* Individual transporter form is currently disabled */}
 
       {/* COMPANY FORM */}
       {transporterType === 'company' && (
@@ -2569,30 +1080,11 @@ export default function TransporterCompletionScreen() {
       {!isValid() && (
         <View style={styles.validationSummary}>
           <Text style={styles.validationTitle}>Complete these sections to submit:</Text>
-          {transporterType === 'individual' ? (
-            <>
-              {!getValidationStatus().profilePhoto && (
-                <Text style={styles.validationItem}>• Upload profile photo</Text>
-              )}
-              {!getValidationStatus().vehicleDetails && (
-                <Text style={styles.validationItem}>• Fill vehicle details</Text>
-              )}
-              {!getValidationStatus().documents && (
-                <Text style={styles.validationItem}>• Upload all required documents</Text>
-              )}
-              {!getValidationStatus().vehiclePhotos && (
-                <Text style={styles.validationItem}>• Upload vehicle photos</Text>
-              )}
-            </>
-          ) : (
-            <>
-              {!getValidationStatus().companyDetails && (
-                <Text style={styles.validationItem}>• Fill company details</Text>
-              )}
-              {!getValidationStatus().profilePhoto && (
-                <Text style={styles.validationItem}>• Upload company logo</Text>
-              )}
-            </>
+          {!getValidationStatus().companyDetails && (
+            <Text style={styles.validationItem}>• Fill company details</Text>
+          )}
+          {!getValidationStatus().profilePhoto && (
+            <Text style={styles.validationItem}>• Upload company logo</Text>
           )}
         </View>
       )}
@@ -2621,9 +1113,9 @@ export default function TransporterCompletionScreen() {
 
           {/* Submit Profile Button */}
           <TouchableOpacity
-            style={[styles.submitBtn, { backgroundColor: isValid() && !photoJustAdded ? colors.primary : colors.text.light }]}
+            style={[styles.submitBtn, { backgroundColor: isValid() ? colors.primary : colors.text.light }]}
             onPress={async () => {
-              if (uploading || !isValid() || photoJustAdded) return;
+              if (uploading || !isValid()) return;
 
               setUploading(true);
               try {
@@ -2637,138 +1129,13 @@ export default function TransporterCompletionScreen() {
                 setUploading(false);
               }
             }}
-            disabled={!isValid() || uploading || photoJustAdded}
+            disabled={!isValid() || uploading}
           >
             {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
           </TouchableOpacity>
         </View>
       </View>
-      {/* Date Pickers */}
-      <DateTimePickerModal
-        isVisible={showDateOfBirthPicker}
-        mode="date"
-        date={dateOfBirth || new Date()}
-        onConfirm={(date) => {
-          setDateOfBirth(date);
-          setShowDateOfBirthPicker(false);
-        }}
-        onCancel={() => setShowDateOfBirthPicker(false)}
-        maximumDate={new Date()}
-        minimumDate={new Date(1900, 0, 1)}
-      />
-
-      <DateTimePickerModal
-        isVisible={showCareerStartDatePicker}
-        mode="date"
-        date={careerStartDate || new Date()}
-        onConfirm={(date) => {
-          setCareerStartDate(date);
-          setShowCareerStartDatePicker(false);
-        }}
-        onCancel={() => setShowCareerStartDatePicker(false)}
-        maximumDate={new Date()}
-        minimumDate={new Date(1900, 0, 1)}
-      />
-
-      {/* Vehicle Class Selection Modal */}
-      <Modal
-        visible={vehicleClassModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Vehicle Classes</Text>
-            <TouchableOpacity onPress={() => setVehicleClassModal(false)}>
-              <MaterialCommunityIcons name="close" size={24} color={colors.text.primary} />
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={NTSA_VEHICLE_CLASSES}
-            keyExtractor={(item) => item.value}
-            renderItem={({ item }) => {
-              const isSelected = selectedVehicleClasses.includes(item.value);
-              const isEligible = dateOfBirth && careerStartDate ? 
-                validateVehicleClassEligibility(item.value, calculateAge(dateOfBirth), calculateExperience(careerStartDate)) : 
-                true;
-              
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.modalItem,
-                    isSelected && styles.modalItemSelected,
-                    !isEligible && styles.modalItemDisabled
-                  ]}
-                  onPress={() => isEligible && handleVehicleClassToggle(item.value)}
-                  disabled={!isEligible}
-                >
-                  <View style={styles.modalItemContent}>
-                    <Text style={[
-                      styles.modalItemTitle,
-                      !isEligible && styles.modalItemTextDisabled
-                    ]}>
-                      {item.label}
-                    </Text>
-                    <Text style={[
-                      styles.modalItemSubtitle,
-                      !isEligible && styles.modalItemTextDisabled
-                    ]}>
-                      {item.label}
-                    </Text>
-                    <Text style={[
-                      styles.modalItemRequirements,
-                      !isEligible && styles.modalItemTextDisabled
-                    ]}>
-                      Min Age: {item.minAge} years
-                    </Text>
-                  </View>
-                  {isSelected && (
-                    <MaterialCommunityIcons name="check-circle" size={24} color={colors.success} />
-                  )}
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </View>
-      </Modal>
-
-      {/* Specialization Selection Modal */}
-      <Modal
-        visible={specializationModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Specializations</Text>
-            <TouchableOpacity onPress={() => setSpecializationModal(false)}>
-              <MaterialCommunityIcons name="close" size={24} color={colors.text.primary} />
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={VEHICLE_SPECIALIZATIONS}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => {
-              const isSelected = selectedSpecializations.includes(item);
-              
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.modalItem,
-                    isSelected && styles.modalItemSelected
-                  ]}
-                  onPress={() => handleSpecializationToggle(item)}
-                >
-                  <Text style={styles.modalItemTitle}>{item}</Text>
-                  {isSelected && (
-                    <MaterialCommunityIcons name="check-circle" size={24} color={colors.success} />
-                  )}
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </View>
-      </Modal>
+      {/* Job seeker specific modals removed - they have their own screen */}
 
       {/* ImagePickerModal removed - using new permission utility instead */}
     </FormKeyboardWrapper>
@@ -3663,5 +2030,28 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 8,
     resizeMode: 'cover',
+  },
+  disabledMessageContainer: {
+    backgroundColor: colors.warningLight,
+    borderRadius: 16,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
+  },
+  disabledMessageTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.warning,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  disabledMessageText: {
+    fontSize: fonts.size.md,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

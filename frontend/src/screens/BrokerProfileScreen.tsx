@@ -188,21 +188,12 @@ export default function BrokerProfileScreen() {
             setEmailVerified(data.emailVerified || false);
             setPhoneVerified(data.phoneVerified || false);
 
-            // Load payment methods from user data or use mock data
+            // Load payment methods from user data only
             if (data.paymentMethods && Array.isArray(data.paymentMethods)) {
               setPaymentMethods(data.paymentMethods);
             } else {
-              // Use mock data with actual phone number from profile
-              const defaultMpesaNumber = data.phone || user.phoneNumber || '+254 712 345 678';
-              setPaymentMethods([
-                {
-                  id: 'mpesa-1',
-                  type: 'mpesa',
-                  name: 'MPESA',
-                  details: defaultMpesaNumber,
-                  isDefault: true
-                }
-              ]);
+              // No mock data - use empty array until real data is available
+              setPaymentMethods([]);
             }
 
             if (data.createdAt) {

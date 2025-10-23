@@ -28,7 +28,7 @@ import { NotificationHelper } from '../services/notificationHelper';
 interface SubscriptionTrialScreenProps {
     route: {
         params: {
-            userType: 'transporter' | 'broker' | 'business';
+            userType: 'individual' | 'broker' | 'company';
             transporterType?: 'individual' | 'company';
             subscriptionStatus?: {
                 daysRemaining: number;
@@ -156,7 +156,19 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
             console.log('User type:', userType);
             console.log('Subscription status:', subscriptionStatus);
             
-            const result = await subscriptionService.activateTrial(userType as 'transporter' | 'broker');
+            let result;
+            if (userType === 'company') {
+                // Use company fleet trial activation
+                const auth = getAuth();
+                const user = auth.currentUser;
+                if (!user) throw new Error('User not authenticated');
+                
+                const subscriptionStatus = await subscriptionService.startCompanyFleetTrial(user.uid);
+                result = { success: true, data: subscriptionStatus, existingSubscription: false };
+            } else {
+                // Use regular trial activation for individual transporters and brokers
+                result = await subscriptionService.activateTrial(userType as 'individual' | 'broker');
+            }
             console.log('Trial activation result:', result);
             
             if (result.success) {
@@ -287,16 +299,6 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 'Advanced analytics & insights',
                 'Commission tracking',
                 'Client management tools',
-            ];
-        } else if (userType === 'business') {
-            return [
-                'Unlimited transport requests',
-                'Advanced consolidation tools',
-                'Real-time shipment tracking',
-                'Priority customer support',
-                'Business analytics & insights',
-                'Fleet management access',
-                'Bulk booking discounts',
             ];
         } else {
             return [];
