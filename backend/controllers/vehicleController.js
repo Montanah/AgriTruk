@@ -289,15 +289,28 @@ const assignDriverToVehicle = async (req, res) => {
 
     // Unassign current driver from this vehicle if any
     if (vehicleData.assignedDriverId) {
+      // Update the previously assigned driver to remove vehicle assignment
+      await db.collection('drivers').doc(vehicleData.assignedDriverId).update({
+        assignedVehicleId: null,
+        updatedAt: new Date()
+      });
+      
+      // Update the vehicle to remove driver assignment
       await db.collection('vehicles').doc(vehicleId).update({
         assignedDriverId: null,
         updatedAt: new Date()
       });
     }
 
-    // Assign new driver
+    // Assign new driver to vehicle
     await db.collection('vehicles').doc(vehicleId).update({
       assignedDriverId: driverId,
+      updatedAt: new Date()
+    });
+
+    // Update the driver to reflect vehicle assignment
+    await db.collection('drivers').doc(driverId).update({
+      assignedVehicleId: vehicleId,
       updatedAt: new Date()
     });
 
@@ -331,9 +344,15 @@ const unassignDriverFromVehicle = async (req, res) => {
       return res.status(400).json({ message: 'No driver assigned to this vehicle' });
     }
 
-    // Unassign driver
+    // Unassign driver from vehicle
     await db.collection('vehicles').doc(vehicleId).update({
       assignedDriverId: null,
+      updatedAt: new Date()
+    });
+
+    // Update the driver to remove vehicle assignment
+    await db.collection('drivers').doc(vehicleData.assignedDriverId).update({
+      assignedVehicleId: null,
       updatedAt: new Date()
     });
 
