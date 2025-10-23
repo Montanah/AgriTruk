@@ -662,7 +662,7 @@ router.get('/schema', jobSeekerController.getSchema);
  * /api/job-seekers/{jobSeekerId}:
  *   delete:
  *     summary: Delete job seeker
- *     tags: [Admin Actions]
+ *     tags: [Admin]
  *     parameters:
  *       - in: path
  *         name: jobSeekerId

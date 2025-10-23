@@ -94,6 +94,7 @@ const JobSeeker = {
         gender: data.gender,
         age,
         address: data.address || { street: '', city: '', county: '', country: '' },
+        religion: data.religion || '',
         profilePhoto: data.profilePhoto || null,
         documents: initializeDocuments(data.documents || {}, timestamp),
         experience: data.experience || {

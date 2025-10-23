@@ -15,6 +15,7 @@ const JobSeekerSchema = {
     county: "string",
     country: "string"
   },
+  religion: "string | null",
   profilePhoto: "string | null",
 
   // Company Associations
