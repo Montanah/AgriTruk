@@ -31,11 +31,13 @@ const alertRoutes = require('./routes/alertRoutes');
 const trafficRoutes = require('./routes/trafficRoutes');
 const jobSeekerRoutes = require('./routes/jobSeekerRoutes');
 const subscriberRoutes = require('./routes/companySubscriptionRoutes');
+const recruiterRoutes = require('./routes/recruiterRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
 const requestMetadata = require('./middlewares/requestMetadata');
 const healthMonitor = require('./utils/healthMonitor');
+
 // const { testJob } = require('./jobs/companyDocumentExpiryJob');
 
 //app.use(helmet());
@@ -111,7 +113,7 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/traffic', trafficRoutes);
 app.use('/api/job-seekers', jobSeekerRoutes);
 app.use('/api/subscriber', subscriberRoutes);
-
+app.use('/api/recruiter', recruiterRoutes);
 // Health and test endpoints
 app.get('/api/health', (req, res) => {
     res.status(200).json({

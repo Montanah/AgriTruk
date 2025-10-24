@@ -258,7 +258,7 @@ const createDriver = async (req, res) => {
         jobSeekerQuery.docs.find(doc => doc.id === req.body.jobSeekerId) : 
         jobSeekerQuery.docs[0];
       if (jobSeekerDoc) {
-        const jobSeekerData = jobSeekerDoc.data();
+       
         firebaseUser = await admin.auth().getUserByEmail(req.body.email);
         userIdFromJobSeeker = firebaseUser.uid;
         // Update user role and job seeker status

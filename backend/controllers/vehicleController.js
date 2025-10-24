@@ -2,6 +2,7 @@ const admin = require('../config/firebase');
 const db = admin.firestore();
 const { uploadVehicleDocuments } = require('./transporterController');
 const { adminNotification } = require('../utils/sendMailTemplate');
+const cloudinary = require('cloudinary').v2;
 
 // Create a new vehicle for a company
 const createVehicle = async (req, res) => {
@@ -43,19 +44,47 @@ const createVehicle = async (req, res) => {
       updatedAt: new Date(),
     };
 
-    // Handle file uploads - check for both multipart files and URL fields
-    
+    // Handle file uploads using the same working pattern as driver recruitment
     if (req.files && req.files.length > 0) {
-      // Handle multipart form data (original approach)
       try {
-        const uploadResults = await uploadVehicleDocuments(req.files, 'vehicles');
+        const uploadResults = {
+          vehicleImages: [],
+          insurance: []
+        };
         
-        if (uploadResults.vehicleImages && uploadResults.vehicleImages.length > 0) {
+        for (const file of req.files) {
+          try {
+            // Upload to Cloudinary using the same working pattern as driver recruitment
+            const result = await cloudinary.uploader.upload(file.path, {
+              folder: 'vehicles',
+              resource_type: 'auto',
+            });
+            
+            // Categorize based on fieldname
+            const fieldName = file.fieldname;
+            if (fieldName === 'vehicleImages') {
+              uploadResults.vehicleImages.push(result.secure_url);
+            } else if (fieldName === 'insurance') {
+              uploadResults.insurance.push(result.secure_url);
+            }
+            
+            // Clean up temporary file
+            const fs = require('fs');
+            fs.unlinkSync(file.path);
+            
+          } catch (uploadError) {
+            console.error(`Error uploading ${file.fieldname}:`, uploadError);
+            throw new Error(`Failed to upload ${file.fieldname}`);
+          }
+        }
+        
+        if (uploadResults.vehicleImages.length > 0) {
           vehicleData.vehicleImagesUrl = uploadResults.vehicleImages;
         }
-        if (uploadResults.insurance && uploadResults.insurance.length > 0) {
+        if (uploadResults.insurance.length > 0) {
           vehicleData.insuranceUrl = uploadResults.insurance[0];
         }
+        
       } catch (uploadError) {
         console.error('Error uploading vehicle documents:', uploadError);
         return res.status(500).json({ message: 'Failed to upload vehicle documents' });
@@ -289,15 +318,28 @@ const assignDriverToVehicle = async (req, res) => {
 
     // Unassign current driver from this vehicle if any
     if (vehicleData.assignedDriverId) {
+      // Update the previously assigned driver to remove vehicle assignment
+      await db.collection('drivers').doc(vehicleData.assignedDriverId).update({
+        assignedVehicleId: null,
+        updatedAt: new Date()
+      });
+      
+      // Update the vehicle to remove driver assignment
       await db.collection('vehicles').doc(vehicleId).update({
         assignedDriverId: null,
         updatedAt: new Date()
       });
     }
 
-    // Assign new driver
+    // Assign new driver to vehicle
     await db.collection('vehicles').doc(vehicleId).update({
       assignedDriverId: driverId,
+      updatedAt: new Date()
+    });
+
+    // Update the driver to reflect vehicle assignment
+    await db.collection('drivers').doc(driverId).update({
+      assignedVehicleId: vehicleId,
       updatedAt: new Date()
     });
 
@@ -331,9 +373,15 @@ const unassignDriverFromVehicle = async (req, res) => {
       return res.status(400).json({ message: 'No driver assigned to this vehicle' });
     }
 
-    // Unassign driver
+    // Unassign driver from vehicle
     await db.collection('vehicles').doc(vehicleId).update({
       assignedDriverId: null,
+      updatedAt: new Date()
+    });
+
+    // Update the driver to remove vehicle assignment
+    await db.collection('drivers').doc(vehicleData.assignedDriverId).update({
+      assignedVehicleId: null,
       updatedAt: new Date()
     });
 
