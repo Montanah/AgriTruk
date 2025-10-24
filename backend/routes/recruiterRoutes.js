@@ -7,7 +7,7 @@ const { requireRole } = require('../middlewares/requireRole');
 const { authorize } = require('../middlewares/adminAuth');
 const { 
   subscriptionAccess, 
-} = require('../middleware/subscriptionAccess');
+} = require('../middlewares/subscriptionAccess');
 const jobSeekerController = require('../controllers/jobSeekerController');
 
 /**
