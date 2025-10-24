@@ -1072,8 +1072,8 @@ router.patch('/:companyId/upload', authenticateToken, requireRole('transporter')
  *       500:
  *         description: Internal server error
  */
-// TODO: Implement uploadVehicleDocuments function in companyController
-// router.patch('/:companyId/vehicle/:vehicleId/upload', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, uploadVehicleDocuments);
+// Vehicle document upload endpoint
+router.patch('/:companyId/vehicle/:vehicleId/upload', authenticateToken, requireRole(['transporter', 'admin', 'business']), uploadAny, require('../controllers/companyController').uploadVehicleDocuments);
 
 /**
  * @swagger
