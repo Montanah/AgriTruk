@@ -5,7 +5,9 @@ const RecruiterSubscriptionController = require('../controllers/recruiterSubscri
 const { authenticateToken } = require("../middlewares/authMiddleware");
 const { requireRole } = require('../middlewares/requireRole');
 const { authorize } = require('../middlewares/adminAuth');
-const { subscriptionAccess } = require('../middlewares/SubscriptionAccess');
+const { 
+  subscriptionAccess, 
+} = require('../middleware/subscriptionAccess');
 const jobSeekerController = require('../controllers/jobSeekerController');
 
 /**
