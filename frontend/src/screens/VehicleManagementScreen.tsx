@@ -19,7 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
-import { apiRequest, uploadFile } from '../utils/api';
+import { apiRequest } from '../utils/api';
 import { API_ENDPOINTS } from '../constants/api';
 import VehicleDetailsForm from '../components/VehicleDetailsForm';
 import subscriptionService, { SubscriptionStatus } from '../services/subscriptionService';
@@ -101,6 +101,7 @@ const VehicleManagementScreen = () => {
   const [vehicleValidation, setVehicleValidation] = useState<FleetValidationResult | null>(null);
   const [driverValidation, setDriverValidation] = useState<FleetValidationResult | null>(null);
   const [driverCount, setDriverCount] = useState(0);
+  const [loadingCompanyProfile, setLoadingCompanyProfile] = useState(false);
   
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -166,10 +167,102 @@ const VehicleManagementScreen = () => {
 
   const fetchSubscriptionStatus = async () => {
     try {
-      const status = await subscriptionService.getSubscriptionStatus();
-      setSubscriptionStatus(status);
+      // IMMEDIATE TRIAL LIMITS - Set default trial limits immediately for company transporters
+      const immediateTrialStatus: SubscriptionStatus = {
+        hasActiveSubscription: false,
+        isTrialActive: true,
+        needsTrialActivation: false,
+        currentPlan: null,
+        daysRemaining: 30,
+        subscriptionStatus: 'trial',
+        freeTrialActive: true,
+        freeTrialDaysRemaining: 30,
+        driverLimit: 3,
+        vehicleLimit: 3,
+        currentDriverCount: 0,
+        currentVehicleCount: 0,
+        canAddDriver: true,
+        canAddVehicle: true,
+        transporterType: 'company'
+      };
+      
+      // Set immediate trial limits
+      setSubscriptionStatus(immediateTrialStatus);
+      
+      // Set immediate validation with trial limits
+      const immediateVehicleValidation = {
+        canAdd: true,
+        currentCount: 0,
+        limit: 3,
+        percentage: 0,
+        reason: 'Free trial allows up to 3 vehicles'
+      };
+      
+      const immediateDriverValidation = {
+        canAdd: true,
+        currentCount: 0,
+        limit: 3,
+        percentage: 0,
+        reason: 'Free trial allows up to 3 drivers'
+      };
+      
+      setVehicleValidation(immediateVehicleValidation);
+      setDriverValidation(immediateDriverValidation);
+      
+      console.log('✅ IMMEDIATE TRIAL LIMITS SET - Company can add vehicles immediately');
+      
+      // Then fetch real subscription status in background
+      try {
+        const realStatus = await subscriptionService.getSubscriptionStatus();
+        console.log('📊 Real subscription status loaded:', realStatus);
+        
+             // Update with real data if available
+             if (realStatus && ((realStatus.driverLimit && realStatus.driverLimit > 0) || (realStatus.vehicleLimit && realStatus.vehicleLimit > 0))) {
+          setSubscriptionStatus(realStatus);
+          console.log('✅ Real subscription data applied');
+        }
+      } catch (realError) {
+        console.warn('Real subscription fetch failed, keeping trial limits:', realError);
+        // Keep the immediate trial limits if real fetch fails
+      }
     } catch (error) {
-      console.error('Error fetching subscription status:', error);
+      console.error('Error in subscription handling:', error);
+      // Fallback to trial limits even on error
+      const fallbackTrialStatus: SubscriptionStatus = {
+        hasActiveSubscription: false,
+        isTrialActive: true,
+        needsTrialActivation: false,
+        currentPlan: null,
+        daysRemaining: 30,
+        subscriptionStatus: 'trial',
+        freeTrialActive: true,
+        freeTrialDaysRemaining: 30,
+        driverLimit: 3,
+        vehicleLimit: 3,
+        currentDriverCount: 0,
+        currentVehicleCount: 0,
+        canAddDriver: true,
+        canAddVehicle: true,
+        transporterType: 'company'
+      };
+      
+      setSubscriptionStatus(fallbackTrialStatus);
+      
+      // Set fallback validation with trial limits
+      setVehicleValidation({
+        canAdd: true,
+        currentCount: 0,
+        limit: 3,
+        percentage: 0,
+        reason: 'Free trial allows up to 3 vehicles'
+      });
+      setDriverValidation({
+        canAdd: true,
+        currentCount: 0,
+        limit: 3,
+        percentage: 0,
+        reason: 'Free trial allows up to 3 drivers'
+      });
     }
   };
 
@@ -329,12 +422,22 @@ const VehicleManagementScreen = () => {
   }, [navigation]);
 
   const fetchCompanyProfile = async () => {
+    if (loadingCompanyProfile) {
+      console.log('🏢 Company profile already loading, skipping...');
+      return false;
+    }
+
     try {
+      setLoadingCompanyProfile(true);
       const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        console.error('🏢 No authenticated user');
+        return false;
+      }
 
+      console.log('🏢 Fetching company profile for user:', user.uid);
       const token = await user.getIdToken();
       const response = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
         headers: {
@@ -350,15 +453,62 @@ const VehicleManagementScreen = () => {
         console.log('🏢 Setting company profile:', profile);
         console.log('🏢 Company ID:', profile?.id);
         setCompanyProfile(profile);
+        return true;
       } else {
         console.error('🏢 Failed to load company profile:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('🏢 Error response:', errorText);
+        return false;
       }
     } catch (error) {
       console.error('Error fetching company profile:', error);
+      return false;
+    } finally {
+      setLoadingCompanyProfile(false);
     }
   };
 
-  const openAddVehicle = () => {
+  const openAddVehicle = async () => {
+    console.log('🚗 Opening add vehicle modal...');
+    console.log('🏢 Current company profile:', companyProfile);
+    console.log('🏢 Company profile ID:', companyProfile?.id);
+    console.log('🏢 Company profile companyId:', companyProfile?.companyId);
+    
+    // Ensure company profile is loaded before opening modal
+    if (!companyProfile?.id && !companyProfile?.companyId) {
+      console.log('🏢 Company profile not loaded, fetching...');
+      
+      const success = await fetchCompanyProfile();
+      console.log('🏢 Fetch result:', success);
+      console.log('🏢 Company profile after fetch:', companyProfile);
+      
+      // Check again after fetching
+      if (!success || (!companyProfile?.id && !companyProfile?.companyId)) {
+        Alert.alert(
+          'Company Profile Error',
+          'Unable to load your company profile. This might be a temporary issue.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Retry', 
+              onPress: async () => {
+                const retrySuccess = await fetchCompanyProfile();
+                if (retrySuccess && (companyProfile?.id || companyProfile?.companyId)) {
+                  setVehicleEditIdx(null);
+                  resetVehicleForm();
+                  setShowVehicleModal(true);
+                } else {
+                  Alert.alert('Error', 'Unable to load company profile. Please refresh the app and try again.');
+                }
+              }
+            }
+          ]
+        );
+        return;
+      }
+    }
+    
+    console.log('✅ Company profile loaded, opening modal');
     setVehicleEditIdx(null);
     resetVehicleForm();
     setShowVehicleModal(true);
@@ -505,48 +655,6 @@ const VehicleManagementScreen = () => {
     try {
       setLoadingProfile(true);
       
-      // Create FormData for multipart upload (like individual transporter)
-      const formData = new FormData();
-      
-      // Add vehicle data fields
-      formData.append('companyId', companyProfile?.id || companyProfile?.companyId || '');
-      formData.append('vehicleType', vehicleType);
-      formData.append('vehicleMake', vehicleMake);
-      formData.append('vehicleModel', vehicleMake); // Use vehicleMake as model
-      formData.append('vehicleColor', vehicleColor);
-      formData.append('vehicleYear', vehicleYear.toString());
-      formData.append('vehicleRegistration', vehicleReg);
-      formData.append('vehicleCapacity', vehicleCapacity.toString());
-      formData.append('bodyType', bodyType);
-      formData.append('driveType', vehicleDriveType);
-      
-      // Add special features (as strings like individual transporter)
-      formData.append('refrigerated', refrigeration ? 'true' : 'false'); // Use 'refrigerated' to match backend
-      formData.append('humidityControl', humidityControl ? 'true' : 'false');
-      formData.append('specialCargo', specialCargo ? 'true' : 'false');
-      formData.append('features', vehicleFeatures);
-      
-      // Add files directly to FormData (like individual transporter)
-      if (insurance) {
-        formData.append('insurance', {
-          uri: insurance.uri,
-          type: insurance.type || 'image/jpeg',
-          name: insurance.fileName || 'insurance.jpg',
-        } as any);
-      }
-      
-      if (vehiclePhotos.length > 0) {
-        vehiclePhotos.forEach((photo, index) => {
-          formData.append('vehicleImages', {
-            uri: photo.uri,
-            type: photo.type || 'image/jpeg',
-            name: photo.fileName || `vehicle_${index + 1}.jpg`,
-          } as any);
-        });
-      }
-      
-
-      
       // Get auth token
       const { getAuth } = require('firebase/auth');
       const auth = getAuth();
@@ -557,59 +665,143 @@ const VehicleManagementScreen = () => {
       
       const token = await user.getIdToken();
       
-      
       // Create or update vehicle via API with FormData
       const isEdit = vehicleEditIdx !== null;
       const vehicleId = isEdit ? vehicles[vehicleEditIdx]?.id : null;
       
+      // Check if we're at the vehicle limit before attempting to add
+      if (!isEdit && vehicleValidation && !vehicleValidation.canAdd) {
+        Alert.alert(
+          'Vehicle Limit Reached',
+          `You have reached your vehicle limit of ${vehicleValidation.limit} vehicles. Please upgrade your plan to add more vehicles.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+        
+      // Use the correct endpoint structure
+      const companyId = companyProfile?.id || companyProfile?.companyId;
+      console.log('🏢 Using company ID for vehicle endpoint:', companyId);
+      console.log('🏢 Full company profile structure:', JSON.stringify(companyProfile, null, 2));
+      
+      if (!companyId) {
+        throw new Error('Company ID not found in profile. Please refresh and try again.');
+      }
+      
+      const url = isEdit 
+        ? `${API_ENDPOINTS.COMPANIES}/${companyId}/vehicles/${vehicleId}`
+        : `${API_ENDPOINTS.COMPANIES}/${companyId}/vehicles`;
+      
+      // Create FormData for multipart upload (original working approach)
+      const formData = new FormData();
+      
+      // Add vehicle data fields
+      formData.append('companyId', companyId);
+      formData.append('vehicleType', vehicleType);
+      formData.append('vehicleMake', vehicleMake);
+      formData.append('vehicleModel', vehicleMake);
+      formData.append('vehicleColor', vehicleColor);
+      formData.append('vehicleRegistration', vehicleReg);
+      formData.append('vehicleYear', vehicleYear);
+      formData.append('vehicleCapacity', vehicleCapacity);
+      formData.append('vehicleFeatures', vehicleFeatures);
+      formData.append('specialCargo', specialCargo.toString());
+      formData.append('refrigerated', refrigeration.toString());
+      formData.append('humidityControl', humidityControl.toString());
+      formData.append('bodyType', bodyType);
+      formData.append('driveType', vehicleDriveType);
+      if (assignedDriverId) {
+        formData.append('assignedDriverId', assignedDriverId);
+      }
+      
+      // Add vehicle photos with proper file structure
+      if (vehiclePhotos.length > 0) {
+        vehiclePhotos.forEach((photo, index) => {
+          formData.append('vehicleImages', {
+            uri: photo.uri,
+            type: photo.type || 'image/jpeg',
+            name: photo.fileName || `vehicle_${index}.jpg`
+          } as any);
+        });
+        console.log(`🚗 Added ${vehiclePhotos.length} vehicle photos to FormData`);
+      }
+      
+      // Add insurance document with proper file structure
+      if (insurance) {
+        formData.append('insurance', {
+          uri: insurance.uri,
+          type: insurance.type || 'application/pdf',
+          name: insurance.fileName || 'insurance.pdf'
+        } as any);
+        console.log('🚗 Added insurance file to FormData');
+      }
+      
+      console.log('🚗 FormData created with vehicle data and files');
+      
       try {
-        // Check if we're at the vehicle limit before attempting to add
-        if (!isEdit && vehicleValidation && !vehicleValidation.canAdd) {
-          Alert.alert(
-            'Vehicle Limit Reached',
-            `You have reached your vehicle limit of ${vehicleValidation.limit} vehicles. Please upgrade your plan to add more vehicles.`,
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-        
-        // Use the apiRequest utility that's working for other calls
-        const { apiRequest } = require('../../utils/api');
-        
-        const url = isEdit 
-          ? `/companies/${companyProfile?.id || companyProfile?.companyId}/vehicles/${vehicleId}`
-          : `/companies/${companyProfile?.id || companyProfile?.companyId}/vehicles`;
-        
-        const response = await apiRequest(url, {
+        // Create vehicle with FormData (original working approach)
+        const response = await fetch(url, {
           method: isEdit ? 'PUT' : 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            // Don't set Content-Type for FormData - let React Native set it automatically
+          },
           body: formData
         });
         
-        // apiRequest returns { success: boolean, data: any, message?: string }
-        if (response.success) {
-          // Update local state
-          const newVehicle: Vehicle = {
-            id: response.data?.vehicle?.id || response.data?.id || Date.now().toString(),
-            vehicleType: vehicleType,
-            vehicleMake: vehicleMake,
-            vehicleModel: vehicleMake, // Using make as model for now
-            vehicleYear: parseInt(vehicleYear) || 2020,
-            vehicleColor: vehicleColor,
-            vehicleRegistration: vehicleReg,
-            vehicleCapacity: parseFloat(vehicleCapacity) || 5,
-            bodyType: bodyType,
-            driveType: vehicleDriveType,
-            vehicleImagesUrl: vehiclePhotos.map(photo => photo.uri),
-            insuranceUrl: insurance?.uri || '',
-            insuranceExpiryDate: '',
-            refrigerated: refrigeration,
-            humidityControl: humidityControl,
-            specialCargo: specialCargo,
-            features: vehicleFeatures,
-            status: 'pending',
-            assignedDriver: assignedDriverId ? { id: assignedDriverId, name: '', phone: '' } : undefined,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+          console.log('🚗 Fetch request completed successfully');
+          console.log('🚗 Response status:', response.status);
+          console.log('🚗 Response ok:', response.ok);
+          
+          // Handle response like working version (text first, then parse)
+          const responseText = await response.text();
+          console.log('🚗 Response text:', responseText);
+          
+          let responseData = null;
+          let parseError = null;
+          
+          try {
+            if (responseText.trim()) {
+              responseData = JSON.parse(responseText);
+            }
+          } catch (parseErr) {
+            parseError = parseErr;
+            console.error('🚗 JSON parse error:', parseErr);
+          }
+          
+          if (parseError) {
+            console.error('🚗 Failed to parse response as JSON:', responseText);
+            throw new Error(`Invalid response format: ${responseText}`);
+          }
+          
+          console.log('🚗 Response data:', responseData);
+          
+          if (response.ok && responseData && responseData.success) {
+            console.log('✅ Vehicle created successfully with files:', responseData);
+            
+            // Update local state
+            const newVehicle: Vehicle = {
+              id: responseData.data?.vehicle?.id || responseData.data?.id || Date.now().toString(),
+              vehicleType: vehicleType,
+              vehicleMake: vehicleMake,
+              vehicleModel: vehicleMake, // Using make as model for now
+              vehicleYear: parseInt(vehicleYear) || 2020,
+              vehicleColor: vehicleColor,
+              vehicleRegistration: vehicleReg,
+              vehicleCapacity: parseFloat(vehicleCapacity) || 5,
+              bodyType: bodyType,
+              driveType: vehicleDriveType,
+              vehicleImagesUrl: vehiclePhotos.map(photo => photo.uri),
+              insuranceUrl: insurance?.uri || '',
+              insuranceExpiryDate: '',
+              refrigerated: refrigeration,
+              humidityControl: humidityControl,
+              specialCargo: specialCargo,
+              features: vehicleFeatures,
+              status: 'pending',
+              assignedDriver: assignedDriverId ? { id: assignedDriverId, name: '', phone: '' } : undefined,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
           };
           
           let updated;
@@ -654,102 +846,14 @@ const VehicleManagementScreen = () => {
             [{ text: 'OK', style: 'default' }]
           );
         } else {
-          const errorMessage = responseData.message || responseData.error || 'Failed to create vehicle';
-          throw new Error(errorMessage);
+          const errorMessage = responseData?.message || `Server error: ${response.status} - ${response.statusText}`;
+          console.error('❌ Vehicle creation failed:', responseData);
+          Alert.alert('Error', errorMessage);
         }
       } catch (error: any) {
+        console.error('❌ Vehicle creation error:', error);
         
-        // Try fallback: Upload files separately, then create vehicle with URLs
-        if (error.message === 'Network request failed') {
-          try {
-            // Upload files separately first
-            let insuranceUrl = null;
-            let vehicleImageUrls = [];
-
-            if (insurance) {
-              const { uploadFile } = await import('../utils/api');
-              insuranceUrl = await uploadFile(insurance.uri, 'document');
-            }
-
-            if (vehiclePhotos.length > 0) {
-              const { uploadFile } = await import('../utils/api');
-              for (const photo of vehiclePhotos) {
-                const photoUrl = await uploadFile(photo.uri, 'transporter');
-                vehicleImageUrls.push(photoUrl);
-              }
-            }
-            
-            const fallbackData = {
-              companyId: companyProfile?.id || companyProfile?.companyId,
-              vehicleType,
-              vehicleMake,
-              vehicleModel: vehicleMake,
-              vehicleColor,
-              vehicleYear: parseInt(vehicleYear),
-              vehicleRegistration: vehicleReg,
-              vehicleCapacity: parseFloat(vehicleCapacity),
-              bodyType,
-              driveType: vehicleDriveType,
-              refrigerated: refrigeration,
-              humidityControl,
-              specialCargo,
-              features: vehicleFeatures,
-              ...(insuranceUrl && { insuranceUrl }),
-              ...(vehicleImageUrls.length > 0 && { vehicleImageUrls })
-            };
-            
-            
-            const fallbackResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(fallbackData)
-            });
-            
-            if (fallbackResponse.ok) {
-              await fallbackResponse.json();
-              
-              Alert.alert(
-                'Vehicle Created', 
-                'Vehicle created successfully with files!',
-                [{ text: 'OK' }]
-              );
-              
-              // Reset form
-              setVehicleType('');
-              setVehicleReg('');
-              setVehicleMake('');
-              setVehicleColor('');
-              setVehicleYear('');
-              setVehicleCapacity('');
-              setVehicleDriveType('2WD');
-              setRefrigeration(false);
-              setHumidityControl(false);
-              setSpecialCargo(false);
-              setVehicleFeatures('');
-              setVehiclePhotos([]);
-              setInsurance(null);
-              setShowVehicleModal(false);
-              
-          // Refresh vehicles list and validation
-          fetchVehicles();
-          
-          // Update validation with new vehicle count
-          if (subscriptionStatus) {
-            const newVehicleCount = vehicles.length + 1;
-            const newDriverCount = drivers.length;
-            updateSubscriptionWithRealCounts(newVehicleCount, newDriverCount);
-          }
-              return;
-            } else {
-              throw new Error(`Fallback failed: ${fallbackResponse.status}`);
-            }
-          } catch {
-            // Fallback failed
-          }
-        }
+        // No fallback needed - the main FormData approach should work with the fixed backend
         
         let errorMessage = 'Network connection failed. Please check your internet connection and try again.';
         if (error.name === 'AbortError') {
@@ -766,24 +870,9 @@ const VehicleManagementScreen = () => {
       } finally {
         setLoadingProfile(false);
       }
-    } catch (outerError: any) {
-      console.error('❌ Error creating vehicle:', outerError);
-      
-      let errorMessage = 'An unexpected error occurred. Please try again.';
-      if (outerError.message && outerError.message.includes('User not authenticated')) {
-        errorMessage = 'Session expired. Please log in again.';
-      } else if (outerError.message && outerError.message.includes('Company profile')) {
-        errorMessage = 'Company profile error. Please refresh the page and try again.';
-      } else if (outerError.message) {
-        errorMessage = outerError.message;
-      }
-      
-      Alert.alert(
-        'Error', 
-        errorMessage,
-        [{ text: 'OK', style: 'cancel' }] // Remove retry to prevent duplicates
-      );
-      
+    } catch (error: any) {
+      console.error('❌ Error creating vehicle:', error);
+      Alert.alert('Error', 'Failed to create vehicle. Please try again.');
       setLoadingProfile(false);
     }
   };
@@ -1063,10 +1152,10 @@ const VehicleManagementScreen = () => {
         <TouchableOpacity
           style={[
             styles.addButton,
-            (!vehicleValidation?.canAdd) && styles.addButtonDisabled
+            (vehicleValidation && !vehicleValidation.canAdd) && styles.addButtonDisabled
           ]}
           onPress={() => {
-            if (vehicleValidation?.canAdd) {
+            if (vehicleValidation?.canAdd || !vehicleValidation) {
               openAddVehicle();
             } else {
               // Show upgrade prompt
@@ -1087,7 +1176,7 @@ const VehicleManagementScreen = () => {
           <MaterialCommunityIcons 
             name="plus" 
             size={24} 
-            color={vehicleValidation?.canAdd ? colors.white : colors.text.secondary} 
+            color={(vehicleValidation?.canAdd || !vehicleValidation) ? colors.white : colors.text.secondary} 
           />
         </TouchableOpacity>
       </View>
@@ -1097,18 +1186,26 @@ const VehicleManagementScreen = () => {
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{vehicles.length}</Text>
             <Text style={styles.statLabel}>Total Vehicles</Text>
-            {subscriptionStatus && vehicleValidation && (
+            {subscriptionStatus && vehicleValidation ? (
               <Text style={styles.statSubtext}>
                 {vehicleValidation.currentCount} / {vehicleValidation.limit === -1 ? 'Unlimited' : vehicleValidation.limit}
+              </Text>
+            ) : (
+              <Text style={styles.statSubtext}>
+                {vehicles.length} / 3 (Trial)
               </Text>
             )}
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{driverCount}</Text>
             <Text style={styles.statLabel}>Total Drivers</Text>
-            {subscriptionStatus && driverValidation && (
+            {subscriptionStatus && driverValidation ? (
               <Text style={styles.statSubtext}>
                 {driverValidation.currentCount} / {driverValidation.limit === -1 ? 'Unlimited' : driverValidation.limit}
+              </Text>
+            ) : (
+              <Text style={styles.statSubtext}>
+                {driverCount} / 3 (Trial)
               </Text>
             )}
           </View>
@@ -1326,10 +1423,10 @@ const VehicleManagementScreen = () => {
             <TouchableOpacity
               style={[
                 styles.addFirstButton,
-                (!vehicleValidation?.canAdd) && styles.addFirstButtonDisabled
+                (vehicleValidation && !vehicleValidation.canAdd) && styles.addFirstButtonDisabled
               ]}
               onPress={() => {
-                if (vehicleValidation?.canAdd) {
+                if (vehicleValidation?.canAdd || !vehicleValidation) {
                   openAddVehicle();
                 } else {
                   // Show upgrade prompt
@@ -1350,11 +1447,11 @@ const VehicleManagementScreen = () => {
               <MaterialCommunityIcons 
                 name="plus" 
                 size={20} 
-                color={vehicleValidation?.canAdd ? colors.white : colors.text.secondary} 
+                color={(vehicleValidation?.canAdd || !vehicleValidation) ? colors.white : colors.text.secondary} 
               />
               <Text style={[
                 styles.addFirstText,
-                (!vehicleValidation?.canAdd) && styles.addFirstTextDisabled
+                (vehicleValidation && !vehicleValidation.canAdd) && styles.addFirstTextDisabled
               ]}>
                 Add First Vehicle
               </Text>
@@ -1577,23 +1674,23 @@ const VehicleManagementScreen = () => {
                         throw new Error('User not authenticated');
                       }
                       
-                      // Upload the new insurance document
-                      const uploadResult = await uploadFile(newInsuranceDocument);
+                      // Update the vehicle with new insurance using FormData
+                      const token = await user.getIdToken();
+                      const formData = new FormData();
+                      formData.append('insurance', {
+                        uri: newInsuranceDocument.uri,
+                        type: newInsuranceDocument.type || 'application/pdf',
+                        name: newInsuranceDocument.fileName || 'insurance.pdf'
+                      } as any);
                       
-                      if (uploadResult) {
-                        // Update the vehicle with new insurance
-                        const token = await user.getIdToken();
-                        const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles/${selectedVehicleId}/insurance`, {
-                          method: 'PUT',
-                          headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            insuranceUrl: uploadResult,
-                            updatedAt: new Date().toISOString()
-                          })
-                        });
+                      const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile?.id || companyProfile?.companyId}/vehicles/${selectedVehicleId}/insurance`, {
+                        method: 'PUT',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          // Don't set Content-Type for FormData
+                        },
+                        body: formData
+                      });
 
                         if (response.ok) {
                           Alert.alert(
