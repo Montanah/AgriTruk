@@ -1706,7 +1706,6 @@ const VehicleManagementScreen = () => {
                         } else {
                           throw new Error('Failed to update insurance');
                         }
-                      }
                     } catch (error) {
                       console.error('Error updating insurance:', error);
                       Alert.alert('Error', 'Failed to update insurance document');
