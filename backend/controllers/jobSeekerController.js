@@ -737,7 +737,28 @@ const jobSeekerController = {
       res.status(500).json({ message: 'Failed to fetch approved job seekers' });
     }
   },
+ 
+  async getApprovedDrivers(req, res) {
+  try {
+    const allJobSeekers = await JobSeeker.getApprovedJobSeekers();
 
+    // If subscription info is attached
+    let limitedJobSeekers = allJobSeekers;
+    if (req.subscription && req.subscription.limits?.visibleDrivers) {
+      const limit = req.subscription.limits.visibleDrivers;
+      limitedJobSeekers = allJobSeekers.slice(0, limit);
+    }
+
+    res.status(200).json({
+      success: true,
+      jobSeekers: formatTimestamps(limitedJobSeekers),
+      subscription: req.subscription
+    });
+  } catch (error) {
+    console.error('Error fetching approved job seekers:', error);
+    res.status(500).json({ message: 'Failed to fetch approved job seekers' });
+  }
+},
   
 async browseJobSeekers (req, res) {
   try {
