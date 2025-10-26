@@ -330,12 +330,23 @@ const createDriver = async (req, res) => {
       updatedAt: new Date(),
     };
 
-    // Handle optional fields
+    // Handle optional fields with proper defaults
     if (req.body.driverLicenseExpiryDate) {
       driverData.driverLicenseExpiryDate = req.body.driverLicenseExpiryDate;
+    } else {
+      // Set default expiry to 1 year from now
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      driverData.driverLicenseExpiryDate = oneYearFromNow.toISOString();
     }
+    
     if (req.body.idExpiryDate) {
       driverData.idExpiryDate = req.body.idExpiryDate;
+    } else {
+      // Set default expiry to 1 year from now
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      driverData.idExpiryDate = oneYearFromNow.toISOString();
     }
     
     console.log('🚗 Prepared driver data:', driverData);
