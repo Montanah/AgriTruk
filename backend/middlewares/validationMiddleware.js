@@ -82,10 +82,11 @@ exports.validateDriverCreation = [
   body('lastName').notEmpty().withMessage('Last name is required'),
   body('email').isEmail().withMessage('Valid email is required'),
   body('phone').notEmpty().withMessage('Phone number is required'),
-  body('driverLicense').notEmpty().withMessage('Driver license number is required'),
-  body('driverLicenseExpiryDate').isISO8601().withMessage('Valid license expiry date is required'),
+  body('driverLicenseNumber').notEmpty().withMessage('Driver license number is required'),
   body('idNumber').notEmpty().withMessage('ID number is required'),
-  body('idExpiryDate').isISO8601().withMessage('Valid ID expiry date is required'),
+  // Make date fields optional for recruitment - can be added later
+  body('driverLicenseExpiryDate').optional().isISO8601().withMessage('Valid license expiry date format required if provided'),
+  body('idExpiryDate').optional().isISO8601().withMessage('Valid ID expiry date format required if provided'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

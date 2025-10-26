@@ -9,6 +9,8 @@ const Notification = require('../models/Notification');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const Action = require('../models/Action');
 const Company = require('../models/Company');
+const { uploadImage } = require('../utils/upload');
+const fs = require('fs');
 
 
 // Utility function to upload driver documents
@@ -215,17 +217,28 @@ const uploadDriverDocuments = async (files) => {
 // Create a new driver for a company
 const createDriver = async (req, res) => {
   try {
+    console.log('🚗 ===== DRIVER CREATION REQUEST =====');
+    console.log('🚗 Request body:', req.body);
+    console.log('🚗 Request files:', req.files?.length || 0);
+    console.log('🚗 User ID:', req.user.uid);
+    
     const userId = req.user.uid;
     const companyId = req.body.companyId;
+    
+    console.log('🚗 Company ID from request:', companyId);
 
     // Verify the user owns the company
     const companyDoc = await db.collection('companies').doc(companyId).get();
     if (!companyDoc.exists) {
+      console.log('🚗 Company not found:', companyId);
       return res.status(404).json({ message: 'Company not found' });
     }
 
     const companyData = companyDoc.data();
+    console.log('🚗 Company data:', companyData);
+    
     if (companyData.transporterId !== userId) {
+      console.log('🚗 Unauthorized: user', userId, 'does not own company', companyId);
       return res.status(403).json({ message: 'Unauthorized to add drivers to this company' });
     }
 
@@ -324,18 +337,55 @@ const createDriver = async (req, res) => {
     if (req.body.idExpiryDate) {
       driverData.idExpiryDate = req.body.idExpiryDate;
     }
+    
+    console.log('🚗 Prepared driver data:', driverData);
 
-    // Handle file uploads
+    // Handle file uploads using the same working pattern as vehicle creation
     if (req.files && req.files.length > 0) {
-      try {
-        const uploadResults = await uploadDriverDocuments(req.files);
-        if (uploadResults.profileImage) driverData.profileImage = uploadResults.profileImage[0];
-        if (uploadResults.driverLicense) driverData.driverLicenseUrl = uploadResults.driverLicense[0];
-        if (uploadResults.idDocument) driverData.idDocumentUrl = uploadResults.idDocument[0];
-      } catch (uploadError) {
-        console.error('Error uploading driver documents:', uploadError);
-        return res.status(500).json({ message: 'Failed to upload driver documents' });
-      }
+      console.log('🚗 Processing driver files:', req.files.length);
+      
+      const uploadTasks = req.files.map(async file => {
+        const fieldName = file.fieldname;
+        console.log(`🚗 Processing driver file: ${fieldName}, path: ${file.path}`);
+        
+        try {
+          const publicId = await uploadImage(file.path);
+          if (publicId) {
+            switch (fieldName) {
+              case 'profileImage':
+                driverData.profileImage = publicId;
+                console.log(`🚗 Added profile image: ${publicId}`);
+                break;
+              case 'driverLicense':
+                driverData.driverLicenseUrl = publicId;
+                console.log(`🚗 Added driver license: ${publicId}`);
+                break;
+              case 'idDocument':
+                driverData.idDocumentUrl = publicId;
+                console.log(`🚗 Added ID document: ${publicId}`);
+                break;
+              default:
+                console.log(`🚗 Ignoring unexpected field: ${fieldName}`);
+            }
+            fs.unlinkSync(file.path);
+          } else {
+            console.error(`🚗 Failed to upload ${fieldName}`);
+            fs.unlinkSync(file.path);
+          }
+        } catch (uploadError) {
+          console.error(`🚗 Error uploading ${fieldName}:`, uploadError);
+          fs.unlinkSync(file.path);
+          throw new Error(`Failed to upload ${fieldName}`);
+        }
+      });
+      
+      await Promise.all(uploadTasks);
+      
+      console.log('🚗 Driver file upload completed:', {
+        profileImage: !!driverData.profileImage,
+        driverLicense: !!driverData.driverLicenseUrl,
+        idDocument: !!driverData.idDocumentUrl
+      });
     }
 
     // Create driver document
@@ -389,9 +439,14 @@ const createDriver = async (req, res) => {
     }
 
     res.status(201).json({
+      success: true,
       message: 'Driver created successfully',
-      driver: { id: driverRef.id, ...driverData, defaultPassword }
+      data: {
+        driver: { id: driverRef.id, ...driverData, defaultPassword }
+      }
     });
+    
+    console.log('🚗 ===== DRIVER CREATION COMPLETED =====');
 
   } catch (error) {
     console.error('Error creating driver:', error);
