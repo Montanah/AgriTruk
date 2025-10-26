@@ -89,6 +89,21 @@ const VehicleManagementScreen = () => {
     isFormValid();
   }, [vehicleType, vehicleReg, vehicleMake, vehicleColor, vehicleYear, vehicleCapacity, insurance]);
   
+  // Debug component rendering
+  useEffect(() => {
+    console.log('🚗 VehicleManagementScreen component mounted/rendered');
+    console.log('🚗 Current form state:', {
+      vehicleType,
+      vehicleReg,
+      vehicleMake,
+      vehicleColor,
+      vehicleYear,
+      vehicleCapacity,
+      insurance: !!insurance,
+      showVehicleModal
+    });
+  }, []);
+  
   // Vehicle form state
   const [vehicleType, setVehicleType] = useState('');
   const [vehicleMake, setVehicleMake] = useState('');
@@ -1646,6 +1661,7 @@ const VehicleManagementScreen = () => {
               >
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
+              {console.log('🚗 RENDERING SAVE VEHICLE BUTTON - isFormValid():', isFormValid(), 'loadingProfile:', loadingProfile)}
               <TouchableOpacity
                 style={[
                   styles.saveBtn, 
