@@ -401,10 +401,12 @@ const VehicleManagementScreen = () => {
         if (company?.id) {
           const data = await apiRequest(`/companies/${company.id}/vehicles`);
           const vehiclesList = data.vehicles || [];
-          setVehicles(vehiclesList);
+          // Only show verified and approved vehicles for companies
+          const approvedVehicles = vehiclesList.filter(v => v.status === 'approved');
+          setVehicles(approvedVehicles);
           
-          // Update subscription status with real vehicle count
-          updateSubscriptionWithRealCounts(vehiclesList.length, driverCount);
+          // Update subscription status with real vehicle count (only approved vehicles)
+          updateSubscriptionWithRealCounts(approvedVehicles.length, driverCount);
         } else {
           setVehicles([]);
         }

@@ -115,14 +115,18 @@ const DriverAssignmentsScreen = ({ route }: any) => {
       // Handle different response structures
       const driversList = driversData.drivers || driversData || [];
       const vehiclesList = vehiclesData.vehicles || vehiclesData || [];
+      
+      // Only show approved vehicles and active drivers for assignment
+      const approvedVehicles = vehiclesList.filter((v: any) => v.status === 'approved');
+      const activeDrivers = driversList.filter((d: any) => d.status === 'active');
 
-      console.log('🔍 Parsed drivers list:', driversList);
-      console.log('🔍 Parsed vehicles list:', vehiclesList);
-      console.log('🔍 Drivers count:', driversList.length);
-      console.log('🔍 Vehicles count:', vehiclesList.length);
+      console.log('🔍 Parsed drivers list:', activeDrivers);
+      console.log('🔍 Parsed vehicles list:', approvedVehicles);
+      console.log('🔍 Active drivers count:', activeDrivers.length);
+      console.log('🔍 Approved vehicles count:', approvedVehicles.length);
 
-      setDrivers(driversList);
-      setVehicles(vehiclesList);
+      setDrivers(activeDrivers);
+      setVehicles(approvedVehicles);
     } catch (err: any) {
       console.error('Error fetching data:', err);
       Alert.alert('Error', 'Failed to fetch drivers and vehicles');

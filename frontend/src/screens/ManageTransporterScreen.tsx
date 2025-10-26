@@ -164,11 +164,15 @@ export default function ManageTransporterScreen({ route }: any) {
         if (transporterType === 'company' && companyProfile?.companyId) {
           // Fetch drivers using company-specific endpoint
           const driversData = await apiRequest(`/companies/${companyProfile.companyId}/drivers`);
-          setDrivers(driversData?.drivers || []);
+          // Only show active drivers for companies
+          const activeDrivers = driversData?.drivers?.filter(d => d.status === 'active') || [];
+          setDrivers(activeDrivers);
 
           // Fetch vehicles using company-specific endpoint
           const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
-          setVehicles(vehiclesData?.vehicles || []);
+          // Only show approved vehicles for companies
+          const approvedVehicles = vehiclesData?.vehicles?.filter(v => v.status === 'approved') || [];
+          setVehicles(approvedVehicles);
         } else {
           // For individual transporters, set empty arrays
           setDrivers([]);

@@ -133,18 +133,20 @@ const FleetManagementScreen = () => {
       const vehiclesData = vehiclesRes.ok ? await vehiclesRes.json() : { vehicles: [] };
       const driversData = driversRes.ok ? await driversRes.json() : { drivers: [] };
 
-      const vehicleCount = vehiclesData.vehicles.length;
+      // Only count approved vehicles for companies
+      const approvedVehicles = vehiclesData.vehicles.filter(v => v.status === 'approved');
+      const vehicleCount = approvedVehicles.length;
       const driverCount = driversData.drivers.length;
 
       setFleetStats({
         totalVehicles: vehicleCount,
-        activeVehicles: vehiclesData.vehicles.filter(v => v.status === 'approved' && !v.assignedDriverId).length,
+        activeVehicles: approvedVehicles.filter(v => !v.assignedDriverId).length,
         totalDrivers: driverCount,
         activeDrivers: driversData.drivers.filter(d => d.status === 'active').length,
         assignedDrivers: driversData.drivers.filter(d => d.assignedVehicleId).length,
       });
 
-      // Update subscription status with real counts
+      // Update subscription status with real counts (only approved vehicles)
       updateSubscriptionWithRealCounts(vehicleCount, driverCount);
     } catch (err: any) {
       console.error('Error fetching fleet stats:', err);

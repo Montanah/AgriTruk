@@ -82,9 +82,12 @@ const FleetAnalyticsScreen = () => {
       const drivers = driversData.drivers || [];
       const analytics = jobsData.analytics || {};
 
+      // Only count approved vehicles for companies
+      const approvedVehicles = vehicles.filter(v => v.status === 'approved');
+
       setStats({
-        totalVehicles: vehicles.length,
-        activeVehicles: vehicles.filter(v => v.status === 'approved' && !v.assignedDriverId).length,
+        totalVehicles: approvedVehicles.length,
+        activeVehicles: approvedVehicles.filter(v => !v.assignedDriverId).length,
         totalDrivers: drivers.length,
         activeDrivers: drivers.filter(d => d.status === 'active').length,
         assignedDrivers: drivers.filter(d => d.assignedVehicleId).length,
