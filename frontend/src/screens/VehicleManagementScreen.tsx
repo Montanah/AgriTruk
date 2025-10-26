@@ -766,50 +766,32 @@ const VehicleManagementScreen = () => {
       // Add vehicle photos with proper file structure
       if (vehiclePhotos.length > 0) {
         vehiclePhotos.forEach((photo, index) => {
-          formData.append('vehicleImages', {
+          const fileData = {
             uri: photo.uri,
             type: photo.type || 'image/jpeg',
             name: photo.fileName || `vehicle_${index}.jpg`
-          } as any);
+          };
+          formData.append('vehicleImages', fileData as any);
+          console.log(`🚗 Added vehicle photo ${index + 1}:`, fileData.name);
         });
         console.log(`🚗 Added ${vehiclePhotos.length} vehicle photos to FormData`);
       }
       
       // Add insurance document with proper file structure
       if (insurance) {
-        formData.append('insurance', {
+        const insuranceData = {
           uri: insurance.uri,
           type: insurance.type || 'application/pdf',
           name: insurance.fileName || 'insurance.pdf'
-        } as any);
-        console.log('🚗 Added insurance file to FormData');
+        };
+        formData.append('insurance', insuranceData as any);
+        console.log('🚗 Added insurance file to FormData:', insuranceData.name);
       }
       
       console.log('🚗 FormData created with vehicle data and files');
       
-      // Test connectivity to the vehicles endpoint first
-      console.log('🚗 Testing vehicles endpoint connectivity...');
-      try {
-        const testResponse = await fetch(`${API_ENDPOINTS.VEHICLES}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        console.log('🚗 Vehicles endpoint test status:', testResponse.status);
-        console.log('🚗 Vehicles endpoint test ok:', testResponse.ok);
-        
-        if (!testResponse.ok) {
-          const testErrorText = await testResponse.text();
-          console.error('🚗 Vehicles endpoint test failed:', testErrorText);
-          throw new Error(`Vehicles endpoint test failed: ${testResponse.status} - ${testErrorText}`);
-        }
-        
-        console.log('🚗 Vehicles endpoint connectivity test PASSED');
-      } catch (testError) {
-        console.error('🚗 Vehicles endpoint connectivity test failed:', testError);
-        throw new Error(`Vehicles endpoint connectivity test failed: ${testError.message}`);
-      }
+      // Skip connectivity test - it's causing issues
+      console.log('🚗 Skipping connectivity test, proceeding with vehicle creation...');
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
@@ -821,12 +803,18 @@ const VehicleManagementScreen = () => {
       try {
         // Create vehicle with FormData (original working approach)
         console.log('🚗 Sending request to:', url);
+        console.log('🚗 Request method:', isEdit ? 'PUT' : 'POST');
         console.log('🚗 FormData entries:');
         for (let [key, value] of formData.entries()) {
           console.log(`🚗 ${key}:`, typeof value === 'object' ? '[File]' : value);
         }
         
         console.log('🚗 About to make fetch request...');
+        console.log('🚗 Request headers:', {
+          'Authorization': `Bearer ${token.substring(0, 20)}...`,
+          'Content-Type': 'multipart/form-data (auto-set by React Native)'
+        });
+        
         const response = await fetch(url, {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
@@ -839,7 +827,6 @@ const VehicleManagementScreen = () => {
         
         clearTimeout(timeoutId);
         console.log('🚗 Fetch request completed successfully');
-        
         console.log('🚗 Response status:', response.status);
         console.log('🚗 Response ok:', response.ok);
           
