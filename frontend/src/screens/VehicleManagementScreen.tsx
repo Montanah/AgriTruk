@@ -695,10 +695,11 @@ const VehicleManagementScreen = () => {
       // Create FormData for multipart upload (original working approach)
       const formData = new FormData();
       
-      // Add vehicle data fields - match backend field names
+      // Add vehicle data fields - match backend field names and validation requirements
       formData.append('companyId', companyId);
       formData.append('vehicleType', vehicleType);
       formData.append('vehicleMake', vehicleMake);
+      formData.append('vehicleModel', vehicleMake); // Backend validation requires this field
       formData.append('vehicleColor', vehicleColor);
       formData.append('vehicleRegistration', vehicleReg);
       formData.append('vehicleYear', vehicleYear);
@@ -737,16 +738,32 @@ const VehicleManagementScreen = () => {
       
       console.log('🚗 FormData created with vehicle data and files');
       
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('🚗 Request timeout after 60 seconds');
+        controller.abort();
+      }, 60000); // 60 second timeout
+      
       try {
         // Create vehicle with FormData (original working approach)
+        console.log('🚗 Sending request to:', url);
+        console.log('🚗 FormData entries:');
+        for (let [key, value] of formData.entries()) {
+          console.log(`🚗 ${key}:`, typeof value === 'object' ? '[File]' : value);
+        }
+        
         const response = await fetch(url, {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             // Don't set Content-Type for FormData - let React Native set it automatically
           },
-          body: formData
+          body: formData,
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
           console.log('🚗 Fetch request completed successfully');
           console.log('🚗 Response status:', response.status);
