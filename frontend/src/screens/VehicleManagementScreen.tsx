@@ -640,6 +640,9 @@ const VehicleManagementScreen = () => {
   };
 
   const handleSaveVehicle = async () => {
+    console.log('🚗 ===== HANDLE SAVE VEHICLE CALLED =====');
+    console.log('🚗 Function start - loadingProfile:', loadingProfile);
+    console.log('🚗 Function start - isFormValid():', isFormValid());
     
     // Enhanced validation with detailed error messages
     const validationErrors = [];
@@ -801,6 +804,8 @@ const VehicleManagementScreen = () => {
           console.error('🚗 Vehicles endpoint test failed:', testErrorText);
           throw new Error(`Vehicles endpoint test failed: ${testResponse.status} - ${testErrorText}`);
         }
+        
+        console.log('🚗 Vehicles endpoint connectivity test PASSED');
       } catch (testError) {
         console.error('🚗 Vehicles endpoint connectivity test failed:', testError);
         throw new Error(`Vehicles endpoint connectivity test failed: ${testError.message}`);
@@ -821,6 +826,7 @@ const VehicleManagementScreen = () => {
           console.log(`🚗 ${key}:`, typeof value === 'object' ? '[File]' : value);
         }
         
+        console.log('🚗 About to make fetch request...');
         const response = await fetch(url, {
           method: isEdit ? 'PUT' : 'POST',
           headers: {
@@ -832,10 +838,10 @@ const VehicleManagementScreen = () => {
         });
         
         clearTimeout(timeoutId);
+        console.log('🚗 Fetch request completed successfully');
         
-          console.log('🚗 Fetch request completed successfully');
-          console.log('🚗 Response status:', response.status);
-          console.log('🚗 Response ok:', response.ok);
+        console.log('🚗 Response status:', response.status);
+        console.log('🚗 Response ok:', response.ok);
           
           // Handle response like working version (text first, then parse)
           const responseText = await response.text();
@@ -951,6 +957,12 @@ const VehicleManagementScreen = () => {
         }
       } catch (error: any) {
         console.error('❌ Vehicle creation error:', error);
+        console.error('❌ Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          type: typeof error
+        });
         
         // No fallback needed - the main FormData approach should work with the fixed backend
         
@@ -959,7 +971,11 @@ const VehicleManagementScreen = () => {
           errorMessage = 'Request timed out. Please try again with a better connection.';
         } else if (error.message.includes('fetch')) {
           errorMessage = 'Unable to connect to server. Please try again later.';
+        } else if (error.message.includes('Network request failed')) {
+          errorMessage = 'Network request failed. Please check your internet connection.';
         }
+        
+        console.error('❌ Showing error alert:', errorMessage);
         
         Alert.alert(
           'Network Error', 
@@ -1672,7 +1688,15 @@ const VehicleManagementScreen = () => {
                   console.log('🚗 Button press - loadingProfile:', loadingProfile);
                   console.log('🚗 Button press - isFormValid():', isFormValid());
                   console.log('🚗 Button press - disabled:', loadingProfile || !isFormValid());
-                  handleSaveVehicle();
+                  
+                  // Test if function call works
+                  try {
+                    console.log('🚗 About to call handleSaveVehicle...');
+                    handleSaveVehicle();
+                    console.log('🚗 handleSaveVehicle called successfully');
+                  } catch (error) {
+                    console.error('🚗 Error calling handleSaveVehicle:', error);
+                  }
                 }}
                 disabled={loadingProfile || !isFormValid()}
               >
