@@ -768,10 +768,10 @@ const VehicleManagementScreen = () => {
         vehiclePhotos.forEach((photo, index) => {
           formData.append('vehicleImages', {
             uri: photo.uri,
-            type: photo.type || 'image/jpeg',
-            name: photo.fileName || `vehicle_${index}.jpg`
+            type: photo.mimeType || 'image/jpeg',
+            name: photo.fileName || `vehicle_photo_${index + 1}.jpg`,
           } as any);
-          console.log(`🚗 Added vehicle photo ${index + 1}:`, photo.fileName || `vehicle_${index}.jpg`);
+          console.log(`🚗 Added vehicle photo ${index + 1}:`, photo.fileName || `vehicle_photo_${index + 1}.jpg`);
         });
         console.log(`🚗 Added ${vehiclePhotos.length} vehicle photos to FormData`);
       }
@@ -780,70 +780,16 @@ const VehicleManagementScreen = () => {
       if (insurance) {
         formData.append('insurance', {
           uri: insurance.uri,
-          type: insurance.type || 'application/pdf',
-          name: insurance.fileName || 'insurance.pdf'
+          type: insurance.mimeType || 'image/jpeg',
+          name: insurance.fileName || 'insurance.pdf',
         } as any);
         console.log('🚗 Added insurance file to FormData:', insurance.fileName || 'insurance.pdf');
       }
       
       console.log('🚗 FormData created with vehicle data and files');
       
-      // Test with JSON first (no files) to isolate the issue
-      console.log('🚗 Testing with JSON request first (no files)...');
-      
-      const testData = {
-        companyId: companyId,
-        vehicleType: vehicleType,
-        vehicleMake: vehicleMake,
-        vehicleModel: vehicleMake, // Use make as model
-        vehicleColor: vehicleColor,
-        vehicleRegistration: vehicleReg,
-        vehicleYear: vehicleYear,
-        vehicleCapacity: vehicleCapacity,
-        features: vehicleFeatures,
-        specialCargo: specialCargo,
-        refrigerated: refrigeration,
-        humidityControl: humidityControl,
-        bodyType: bodyType,
-        driveType: vehicleDriveType,
-        assignedDriverId: assignedDriverId || null
-      };
-      
-      console.log('🚗 Test JSON data:', testData);
-      
       try {
-        const testResponse = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(testData)
-        });
-        
-        console.log('🚗 JSON test response status:', testResponse.status);
-        console.log('🚗 JSON test response ok:', testResponse.ok);
-        
-        if (testResponse.ok) {
-          const testResult = await testResponse.json();
-          console.log('🚗 JSON test successful:', testResult);
-          Alert.alert('Success', 'Vehicle created successfully (without files)!');
-          setShowVehicleModal(false);
-          resetVehicleForm();
-          await fetchVehicles();
-          return;
-        } else {
-          const testError = await testResponse.text();
-          console.error('🚗 JSON test failed:', testError);
-        }
-      } catch (testError) {
-        console.error('🚗 JSON test error:', testError);
-      }
-      
-      console.log('🚗 JSON test completed, now trying with FormData...');
-      
-      try {
-        // Create vehicle with FormData (original working approach)
+        // Create vehicle with FormData (using working driver recruitment pattern)
         console.log('🚗 Sending request to:', url);
         console.log('🚗 Request method:', isEdit ? 'PUT' : 'POST');
         console.log('🚗 FormData entries:');
