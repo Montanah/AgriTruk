@@ -2062,19 +2062,73 @@ export default function ManageTransporterScreen({ route }: any) {
                   (item.phone && item.phone.toLowerCase().includes(driverSearch.toLowerCase()))
                 ).map((item, index) => (
                   <View style={styles.driverListItem} key={item.id}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Image source={{ uri: item.photo?.uri }} style={styles.driverPhoto} />
-                      <View style={{ marginLeft: 10, flex: 1 }}>
-                        <Text style={styles.value}>{item.name}</Text>
-                        <Text style={styles.value}>{item.email}</Text>
-                        <Text style={styles.value}>{item.phone}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
+                      {/* Driver Profile Photo */}
+                      <View style={{ marginRight: 12 }}>
+                        {item.profileImage ? (
+                          <Image source={{ uri: item.profileImage }} style={styles.driverPhoto} />
+                        ) : (
+                          <View style={[styles.driverPhoto, { backgroundColor: colors.background.secondary, justifyContent: 'center', alignItems: 'center' }]}>
+                            <MaterialCommunityIcons name="account" size={24} color={colors.text.secondary} />
+                          </View>
+                        )}
                       </View>
-                      <TouchableOpacity style={styles.editBtn} onPress={() => openEditDriver(index)}>
-                        <Ionicons name="create-outline" size={18} color={colors.secondary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveDriver(index)}>
-                        <Ionicons name="trash" size={18} color={colors.error} />
-                      </TouchableOpacity>
+                      
+                      {/* Driver Info */}
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.value, { fontWeight: 'bold', fontSize: 16, marginBottom: 2 }]}>
+                          {item.firstName && item.lastName ? `${item.firstName} ${item.lastName}` : item.name || 'Unknown Driver'}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                          <MaterialCommunityIcons name="phone" size={14} color={colors.text.secondary} />
+                          <Text style={[styles.value, { fontSize: 12, marginLeft: 4, color: colors.text.secondary }]}>
+                            {item.phone || 'No phone'}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={[
+                            { 
+                              paddingHorizontal: 6, 
+                              paddingVertical: 2, 
+                              borderRadius: 8,
+                              backgroundColor: item.status === 'active' ? colors.success + '20' : 
+                                             item.status === 'pending' ? colors.warning + '20' : 
+                                             colors.text.secondary + '20'
+                            }
+                          ]}>
+                            <Text style={[
+                              styles.value, 
+                              { 
+                                fontSize: 10, 
+                                fontWeight: 'bold',
+                                color: item.status === 'active' ? colors.success : 
+                                       item.status === 'pending' ? colors.warning : 
+                                       colors.text.secondary
+                              }
+                            ]}>
+                              {item.status?.toUpperCase() || 'UNKNOWN'}
+                            </Text>
+                          </View>
+                          {item.assignedVehicleId && (
+                            <View style={{ marginLeft: 8, flexDirection: 'row', alignItems: 'center' }}>
+                              <MaterialCommunityIcons name="truck" size={12} color={colors.primary} />
+                              <Text style={[styles.value, { fontSize: 10, marginLeft: 2, color: colors.primary }]}>
+                                ASSIGNED
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      
+                      {/* Action Buttons */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity style={styles.editBtn} onPress={() => openEditDriver(index)}>
+                          <Ionicons name="create-outline" size={18} color={colors.secondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveDriver(index)}>
+                          <Ionicons name="trash" size={18} color={colors.error} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
                 ))}
