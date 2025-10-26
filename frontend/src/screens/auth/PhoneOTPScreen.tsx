@@ -164,7 +164,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
       }
 
       // Show success animation briefly, then navigate directly
-      setTimeout(() => {
+      setTimeout(async () => {
         // Phone verification complete - navigating to appropriate screen for role
         
         // Navigate directly based on role

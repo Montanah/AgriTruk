@@ -201,7 +201,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
       }
 
       // Show success animation briefly, then navigate directly
-      setTimeout(() => {
+      setTimeout(async () => {
         // Email verification complete - navigating to appropriate screen for role
         
         // Navigate directly based on role
