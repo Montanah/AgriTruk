@@ -689,22 +689,21 @@ const VehicleManagementScreen = () => {
       }
       
       const url = isEdit 
-        ? `${API_ENDPOINTS.COMPANIES}/${companyId}/vehicles/${vehicleId}`
-        : `${API_ENDPOINTS.COMPANIES}/${companyId}/vehicles`;
+        ? `${API_ENDPOINTS.VEHICLES}/${vehicleId}`
+        : `${API_ENDPOINTS.VEHICLES}`;
       
       // Create FormData for multipart upload (original working approach)
       const formData = new FormData();
       
-      // Add vehicle data fields
+      // Add vehicle data fields - match backend field names
       formData.append('companyId', companyId);
       formData.append('vehicleType', vehicleType);
       formData.append('vehicleMake', vehicleMake);
-      formData.append('vehicleModel', vehicleMake);
       formData.append('vehicleColor', vehicleColor);
       formData.append('vehicleRegistration', vehicleReg);
       formData.append('vehicleYear', vehicleYear);
       formData.append('vehicleCapacity', vehicleCapacity);
-      formData.append('vehicleFeatures', vehicleFeatures);
+      formData.append('features', vehicleFeatures);
       formData.append('specialCargo', specialCargo.toString());
       formData.append('refrigerated', refrigeration.toString());
       formData.append('humidityControl', humidityControl.toString());
