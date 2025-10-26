@@ -1,24 +1,34 @@
 const admin = require('../config/firebase');
 const db = admin.firestore();
-const { uploadVehicleDocuments } = require('./transporterController');
+const { uploadImage } = require('../utils/upload');
 const { adminNotification } = require('../utils/sendMailTemplate');
-const cloudinary = require('cloudinary').v2;
+const fs = require('fs');
 
 // Create a new vehicle for a company
 const createVehicle = async (req, res) => {
   try {
+    console.log('🚗 ===== VEHICLE CREATION REQUEST =====');
+    console.log('🚗 Request body:', req.body);
+    console.log('🚗 Request files:', req.files?.length || 0);
+    console.log('🚗 User ID:', req.user.uid);
     
     const userId = req.user.uid;
     const companyId = req.body.companyId;
+    
+    console.log('🚗 Company ID from request:', companyId);
 
     // Verify the user owns the company
     const companyDoc = await db.collection('companies').doc(companyId).get();
     if (!companyDoc.exists) {
+      console.log('🚗 Company not found:', companyId);
       return res.status(404).json({ message: 'Company not found' });
     }
 
     const companyData = companyDoc.data();
+    console.log('🚗 Company data:', companyData);
+    
     if (companyData.transporterId !== userId) {
+      console.log('🚗 Unauthorized: user', userId, 'does not own company', companyId);
       return res.status(403).json({ message: 'Unauthorized to add vehicles to this company' });
     }
 
@@ -43,68 +53,61 @@ const createVehicle = async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+    
+    console.log('🚗 Prepared vehicle data:', vehicleData);
 
-    // Handle file uploads using the same working pattern as driver recruitment
+    // Handle file uploads using the same working pattern as individual transporters
+    let vehicleImagesUrl = [];
+    let insuranceUrl = null;
+    
     if (req.files && req.files.length > 0) {
-      try {
-        const uploadResults = {
-          vehicleImages: [],
-          insurance: []
-        };
+      console.log('🚗 Processing vehicle files:', req.files.length);
+      
+      const uploadTasks = req.files.map(async file => {
+        const fieldName = file.fieldname;
+        console.log(`🚗 Processing file: ${fieldName}, path: ${file.path}`);
         
-        for (const file of req.files) {
-          try {
-            // Upload to Cloudinary using the same working pattern as driver recruitment
-            const result = await cloudinary.uploader.upload(file.path, {
-              folder: 'vehicles',
-              resource_type: 'auto',
-            });
-            
-            // Categorize based on fieldname
-            const fieldName = file.fieldname;
-            if (fieldName === 'vehicleImages') {
-              uploadResults.vehicleImages.push(result.secure_url);
-            } else if (fieldName === 'insurance') {
-              uploadResults.insurance.push(result.secure_url);
-            }
-            
-            // Clean up temporary file
-            const fs = require('fs');
-            fs.unlinkSync(file.path);
-            
-          } catch (uploadError) {
-            console.error(`Error uploading ${file.fieldname}:`, uploadError);
-            throw new Error(`Failed to upload ${file.fieldname}`);
-          }
-        }
-        
-        if (uploadResults.vehicleImages.length > 0) {
-          vehicleData.vehicleImagesUrl = uploadResults.vehicleImages;
-        }
-        if (uploadResults.insurance.length > 0) {
-          vehicleData.insuranceUrl = uploadResults.insurance[0];
-        }
-        
-      } catch (uploadError) {
-        console.error('Error uploading vehicle documents:', uploadError);
-        return res.status(500).json({ message: 'Failed to upload vehicle documents' });
-      }
-    } else if (req.body.insuranceUrl || req.body.vehicleImageUrls) {
-      // Handle pre-uploaded file URLs (new approach)
-      if (req.body.insuranceUrl) {
-        vehicleData.insuranceUrl = req.body.insuranceUrl;
-      }
-      if (req.body.vehicleImageUrls) {
         try {
-          // Handle both string (from FormData) and array (from JSON) formats
-          const imageUrls = typeof req.body.vehicleImageUrls === 'string'
-            ? JSON.parse(req.body.vehicleImageUrls)
-            : req.body.vehicleImageUrls;
-          vehicleData.vehicleImagesUrl = imageUrls;
-        } catch (parseError) {
-          console.error('Error parsing vehicle image URLs:', parseError);
+          const publicId = await uploadImage(file.path);
+          if (publicId) {
+            switch (fieldName) {
+              case 'vehicleImages':
+                vehicleImagesUrl.push(publicId);
+                console.log(`🚗 Added vehicle image: ${publicId}`);
+                break;
+              case 'insurance':
+                insuranceUrl = publicId;
+                console.log(`🚗 Added insurance: ${publicId}`);
+                break;
+              default:
+                console.log(`🚗 Ignoring unexpected field: ${fieldName}`);
+            }
+            fs.unlinkSync(file.path);
+          } else {
+            console.error(`🚗 Failed to upload ${fieldName}`);
+            fs.unlinkSync(file.path);
+          }
+        } catch (uploadError) {
+          console.error(`🚗 Error uploading ${fieldName}:`, uploadError);
+          fs.unlinkSync(file.path);
+          throw new Error(`Failed to upload ${fieldName}`);
         }
+      });
+      
+      await Promise.all(uploadTasks);
+      
+      // Add uploaded files to vehicle data
+      if (vehicleImagesUrl.length > 0) {
+        vehicleData.vehicleImagesUrl = vehicleImagesUrl;
       }
+      if (insuranceUrl) {
+        vehicleData.insuranceUrl = insuranceUrl;
+      }
+      
+      console.log('🚗 File upload completed:', {
+        vehicleImages: vehicleImagesUrl.length,
+        insurance: !!insuranceUrl
+      });
     }
 
     // Create vehicle document
@@ -132,9 +135,14 @@ const createVehicle = async (req, res) => {
     });
 
     res.status(201).json({
+      success: true,
       message: 'Vehicle created successfully',
-      vehicle: { id: vehicleRef.id, ...vehicleData }
+      data: {
+        vehicle: { id: vehicleRef.id, ...vehicleData }
+      }
     });
+    
+    console.log('🚗 ===== VEHICLE CREATION COMPLETED =====');
 
   } catch (error) {
     console.error('Error creating vehicle:', error);
