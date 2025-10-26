@@ -738,6 +738,28 @@ const VehicleManagementScreen = () => {
       
       console.log('🚗 FormData created with vehicle data and files');
       
+      // Test connectivity to the vehicles endpoint first
+      console.log('🚗 Testing vehicles endpoint connectivity...');
+      try {
+        const testResponse = await fetch(`${API_ENDPOINTS.VEHICLES}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        console.log('🚗 Vehicles endpoint test status:', testResponse.status);
+        console.log('🚗 Vehicles endpoint test ok:', testResponse.ok);
+        
+        if (!testResponse.ok) {
+          const testErrorText = await testResponse.text();
+          console.error('🚗 Vehicles endpoint test failed:', testErrorText);
+          throw new Error(`Vehicles endpoint test failed: ${testResponse.status} - ${testErrorText}`);
+        }
+      } catch (testError) {
+        console.error('🚗 Vehicles endpoint connectivity test failed:', testError);
+        throw new Error(`Vehicles endpoint connectivity test failed: ${testError.message}`);
+      }
+      
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -791,6 +813,21 @@ const VehicleManagementScreen = () => {
           }
           
           console.log('🚗 Response data:', responseData);
+          
+          // Check for validation errors
+          if (!response.ok) {
+            console.error('🚗 Request failed with status:', response.status);
+            console.error('🚗 Error response:', responseData);
+            
+            if (response.status === 400 && responseData?.errors) {
+              const errorMessages = responseData.errors.map((err: any) => err.msg || err.message).join(', ');
+              throw new Error(`Validation failed: ${errorMessages}`);
+            } else if (responseData?.message) {
+              throw new Error(responseData.message);
+            } else {
+              throw new Error(`Request failed: ${response.status} - ${response.statusText}`);
+            }
+          }
           
           if (response.ok && responseData && responseData.success) {
             console.log('✅ Vehicle created successfully with files:', responseData);
