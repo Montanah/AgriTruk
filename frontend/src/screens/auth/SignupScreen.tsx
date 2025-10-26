@@ -287,19 +287,23 @@ const SignupScreen = () => {
         
         if (signupMethod === 'phone') {
           console.log('📱 Navigating to PhoneOTPScreen');
+          console.log('📱 Role being passed to PhoneOTPScreen:', role || 'shipper');
           navigation.navigate('PhoneOTPScreen', {
             email: finalEmail,
             phone: finalPhone,
             role: role || 'shipper',
-            userId: userCredential.user.uid
+            userId: userCredential.user.uid,
+            password: password
           });
         } else {
           console.log('📧 Navigating to EmailVerification');
+          console.log('📧 Role being passed to EmailVerification:', role || 'shipper');
           navigation.navigate('EmailVerification', {
             email: finalEmail,
             phone: finalPhone,
             role: role || 'shipper',
-            userId: userCredential.user.uid
+            userId: userCredential.user.uid,
+            password: password
           });
         }
         

@@ -25,12 +25,19 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
   const [countdown, setCountdown] = useState(0);
   const [verified, setVerified] = useState(false);
   const [userData, setUserData] = useState<any>(null);
-  const { phone: routePhone, role: routeRole, userId: routeUserId } = (route.params as any) || {};
+  const { email: routeEmail, phone: routePhone, role: routeRole, userId: routeUserId, password: routePassword } = (route.params as any) || {};
+  
+  // Debug logging for role verification
+  console.log('📱 PhoneOTPScreen received params:', { routeEmail, routePhone, routeRole, routeUserId });
   
   // Get user data from route params or fetch from Firestore
+  const email = routeEmail || userData?.email;
   const phone = routePhone || userData?.phone;
   const role = routeRole || userData?.role;
   const userId = routeUserId;
+  const password = routePassword;
+  
+  console.log('📱 PhoneOTPScreen processed role:', role);
 
   // Animation refs
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -189,13 +196,33 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             role: role
           });
         } else if (role === 'driver' || role === 'job_seeker') {
-          // Navigating job seeker to completion screen
-          console.log('Phone verification complete - navigating job seeker to completion screen');
-          navigation.navigate('JobSeekerCompletionScreen', {
-            userId: userId,
-            phone: phone,
-            role: role
-          });
+          // For job seekers, sign out and sign in again to get correct navigation stack
+          console.log('Phone verification complete - signing out job seeker to get correct navigation stack');
+          
+          try {
+            const { getAuth, signOut } = require('firebase/auth');
+            const auth = getAuth();
+            
+            // Sign out current user
+            await signOut(auth);
+            console.log('Job seeker signed out successfully');
+            
+            // Sign in again to trigger correct role-based navigation
+            const { signInWithEmailAndPassword } = require('firebase/auth');
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log('Job seeker signed in again with correct role:', userCredential.user.uid);
+            
+            // The App.tsx will automatically route to the correct job seeker screens
+            // No manual navigation needed - the auth state change will trigger the correct routing
+            
+          } catch (signInError) {
+            console.error('Error signing in job seeker after verification:', signInError);
+            // Fallback: navigate to signup selection
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'SignupSelectionScreen' }]
+            });
+          }
         } else {
           // Unknown role - show error and redirect to signup
           console.error('Unknown role after verification:', role);

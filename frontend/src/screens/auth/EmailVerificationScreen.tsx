@@ -26,12 +26,17 @@ const EmailVerificationScreen = ({ navigation, route }) => {
   const [userData, setUserData] = useState(null);
   const { email: routeEmail, phone: routePhone, role: routeRole, password: routePassword, userId: routeUserId } = route.params || {};
   
+  // Debug logging for role verification
+  console.log('📧 EmailVerificationScreen received params:', { routeEmail, routePhone, routeRole, routeUserId });
+  
   // Get user data from route params or fetch from Firestore
   const email = routeEmail || userData?.email;
   const phone = routePhone || userData?.phone;
   const role = routeRole || userData?.role;
   const password = routePassword;
   const userId = routeUserId;
+  
+  console.log('📧 EmailVerificationScreen processed role:', role);
 
   // Animation refs
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -228,13 +233,33 @@ const EmailVerificationScreen = ({ navigation, route }) => {
             role: role
           });
         } else if (role === 'driver' || role === 'job_seeker') {
-          // Navigating job seeker to completion screen
-          console.log('Email verification complete - navigating job seeker to completion screen');
-          navigation.navigate('JobSeekerCompletionScreen', {
-            userId: userId,
-            phone: phone,
-            role: role
-          });
+          // For job seekers, sign out and sign in again to get correct navigation stack
+          console.log('Email verification complete - signing out job seeker to get correct navigation stack');
+          
+          try {
+            const { getAuth, signOut } = require('firebase/auth');
+            const auth = getAuth();
+            
+            // Sign out current user
+            await signOut(auth);
+            console.log('Job seeker signed out successfully');
+            
+            // Sign in again to trigger correct role-based navigation
+            const { signInWithEmailAndPassword } = require('firebase/auth');
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log('Job seeker signed in again with correct role:', userCredential.user.uid);
+            
+            // The App.tsx will automatically route to the correct job seeker screens
+            // No manual navigation needed - the auth state change will trigger the correct routing
+            
+          } catch (signInError) {
+            console.error('Error signing in job seeker after verification:', signInError);
+            // Fallback: navigate to signup selection
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'SignupSelectionScreen' }]
+            });
+          }
         } else {
           // Unknown role - show error and redirect to signup
           console.error('Unknown role after verification:', role);
