@@ -38,6 +38,7 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
   const password = routePassword;
   
   console.log('📱 PhoneOTPScreen processed role:', role);
+  console.log('📱 PhoneOTPScreen password available:', !!password);
 
   // Animation refs
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -199,6 +200,17 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
           // For job seekers, sign out and sign in again to get correct navigation stack
           console.log('Phone verification complete - signing out job seeker to get correct navigation stack');
           
+          // Check if we have the necessary credentials for re-authentication
+          if (!email || !password) {
+            console.error('Missing email or password for job seeker re-authentication');
+            console.log('Email available:', !!email, 'Password available:', !!password);
+            
+            // If we don't have credentials, just let App.tsx handle the routing
+            // The user is already verified, so App.tsx should route correctly
+            console.log('Proceeding without re-authentication - App.tsx will handle routing');
+            return;
+          }
+          
           try {
             const { getAuth, signOut } = require('firebase/auth');
             const auth = getAuth();
@@ -217,11 +229,10 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             
           } catch (signInError) {
             console.error('Error signing in job seeker after verification:', signInError);
-            // Fallback: navigate to signup selection
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'SignupSelectionScreen' }]
-            });
+            
+            // If sign-in fails, try to navigate directly to job seeker screens
+            // Since the user is verified, App.tsx should handle the routing
+            console.log('Sign-in failed, but user is verified - App.tsx should handle routing');
           }
         } else {
           // Unknown role - show error and redirect to signup

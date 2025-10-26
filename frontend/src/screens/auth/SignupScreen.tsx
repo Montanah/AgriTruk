@@ -285,27 +285,30 @@ const SignupScreen = () => {
         console.log('🔍 Phone number:', selectedCountry.code + phone.trim());
         console.log('🔍 Email:', email.trim());
         
-        if (signupMethod === 'phone') {
-          console.log('📱 Navigating to PhoneOTPScreen');
-          console.log('📱 Role being passed to PhoneOTPScreen:', role || 'shipper');
-          navigation.navigate('PhoneOTPScreen', {
-            email: finalEmail,
-            phone: finalPhone,
-            role: role || 'shipper',
-            userId: userCredential.user.uid,
-            password: password
-          });
-        } else {
-          console.log('📧 Navigating to EmailVerification');
-          console.log('📧 Role being passed to EmailVerification:', role || 'shipper');
-          navigation.navigate('EmailVerification', {
-            email: finalEmail,
-            phone: finalPhone,
-            role: role || 'shipper',
-            userId: userCredential.user.uid,
-            password: password
-          });
-        }
+        // Add a small delay to ensure Firebase sign-in is complete before navigation
+        setTimeout(() => {
+          if (signupMethod === 'phone') {
+            console.log('📱 Navigating to PhoneOTPScreen');
+            console.log('📱 Role being passed to PhoneOTPScreen:', role || 'shipper');
+            navigation.navigate('PhoneOTPScreen', {
+              email: finalEmail,
+              phone: finalPhone,
+              role: role || 'shipper',
+              userId: userCredential.user.uid,
+              password: password
+            });
+          } else {
+            console.log('📧 Navigating to EmailVerification');
+            console.log('📧 Role being passed to EmailVerification:', role || 'shipper');
+            navigation.navigate('EmailVerification', {
+              email: finalEmail,
+              phone: finalPhone,
+              role: role || 'shipper',
+              userId: userCredential.user.uid,
+              password: password
+            });
+          }
+        }, 100);
         
       } catch (backendError) {
         console.warn('Backend signup failed:', backendError);
