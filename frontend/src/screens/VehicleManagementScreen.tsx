@@ -78,6 +78,17 @@ const VehicleManagementScreen = () => {
   const [newInsuranceDocument, setNewInsuranceDocument] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   
+  // Debug insurance state changes
+  useEffect(() => {
+    console.log('🚗 Insurance state changed:', insurance);
+  }, [insurance]);
+  
+  // Debug form validation whenever any field changes
+  useEffect(() => {
+    console.log('🚗 Form fields changed - running validation check');
+    isFormValid();
+  }, [vehicleType, vehicleReg, vehicleMake, vehicleColor, vehicleYear, vehicleCapacity, insurance]);
+  
   // Vehicle form state
   const [vehicleType, setVehicleType] = useState('');
   const [vehicleMake, setVehicleMake] = useState('');
@@ -561,7 +572,7 @@ const VehicleManagementScreen = () => {
 
   // Form validation function - require insurance as mandatory
   const isFormValid = () => {
-    return !!(
+    const isValid = !!(
       vehicleType && 
       vehicleReg && 
       vehicleMake && 
@@ -570,22 +581,42 @@ const VehicleManagementScreen = () => {
       vehicleCapacity &&
       insurance
     );
+    
+    console.log('🚗 Form validation check:', {
+      vehicleType: !!vehicleType,
+      vehicleReg: !!vehicleReg,
+      vehicleMake: !!vehicleMake,
+      vehicleColor: !!vehicleColor,
+      vehicleYear: !!vehicleYear,
+      vehicleCapacity: !!vehicleCapacity,
+      insurance: !!insurance,
+      isValid
+    });
+    
+    return isValid;
   };
 
   const pickInsurance = async () => {
     try {
+      console.log('🚗 Starting insurance document picker...');
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
       });
 
+      console.log('🚗 Document picker result:', result);
+      
       if (!result.canceled && result.assets) {
         const asset = result.assets[0];
+        console.log('🚗 Selected insurance asset:', asset);
         setInsurance({
           uri: asset.uri,
           type: asset.mimeType || 'application/pdf',
           fileName: asset.name,
         });
+        console.log('🚗 Insurance set successfully');
+      } else {
+        console.log('🚗 Document picker was canceled');
       }
     } catch (error) {
       console.error('Error picking insurance document:', error);
@@ -1621,6 +1652,10 @@ const VehicleManagementScreen = () => {
                   (loadingProfile || !isFormValid()) && styles.disabledBtn
                 ]}
                 onPress={() => {
+                  console.log('🚗 ===== SAVE VEHICLE BUTTON PRESSED =====');
+                  console.log('🚗 Button press - loadingProfile:', loadingProfile);
+                  console.log('🚗 Button press - isFormValid():', isFormValid());
+                  console.log('🚗 Button press - disabled:', loadingProfile || !isFormValid());
                   handleSaveVehicle();
                 }}
                 disabled={loadingProfile || !isFormValid()}
