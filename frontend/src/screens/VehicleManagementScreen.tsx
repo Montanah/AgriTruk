@@ -766,26 +766,24 @@ const VehicleManagementScreen = () => {
       // Add vehicle photos with proper file structure
       if (vehiclePhotos.length > 0) {
         vehiclePhotos.forEach((photo, index) => {
-          const fileData = {
+          formData.append('vehicleImages', {
             uri: photo.uri,
             type: photo.type || 'image/jpeg',
             name: photo.fileName || `vehicle_${index}.jpg`
-          };
-          formData.append('vehicleImages', fileData as any);
-          console.log(`🚗 Added vehicle photo ${index + 1}:`, fileData.name);
+          } as any);
+          console.log(`🚗 Added vehicle photo ${index + 1}:`, photo.fileName || `vehicle_${index}.jpg`);
         });
         console.log(`🚗 Added ${vehiclePhotos.length} vehicle photos to FormData`);
       }
       
       // Add insurance document with proper file structure
       if (insurance) {
-        const insuranceData = {
+        formData.append('insurance', {
           uri: insurance.uri,
           type: insurance.type || 'application/pdf',
           name: insurance.fileName || 'insurance.pdf'
-        };
-        formData.append('insurance', insuranceData as any);
-        console.log('🚗 Added insurance file to FormData:', insuranceData.name);
+        } as any);
+        console.log('🚗 Added insurance file to FormData:', insurance.fileName || 'insurance.pdf');
       }
       
       console.log('🚗 FormData created with vehicle data and files');
@@ -793,12 +791,24 @@ const VehicleManagementScreen = () => {
       // Skip connectivity test - it's causing issues
       console.log('🚗 Skipping connectivity test, proceeding with vehicle creation...');
       
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log('🚗 Request timeout after 60 seconds');
-        controller.abort();
-      }, 60000); // 60 second timeout
+      // Test basic fetch first
+      console.log('🚗 Testing basic fetch to vehicles endpoint...');
+      try {
+        const testResponse = await fetch(`${API_ENDPOINTS.VEHICLES}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        console.log('🚗 Basic fetch test status:', testResponse.status);
+        console.log('🚗 Basic fetch test ok:', testResponse.ok);
+      } catch (testError) {
+        console.error('🚗 Basic fetch test failed:', testError);
+        throw new Error(`Basic fetch test failed: ${testError.message}`);
+      }
+      
+      // Simplified request without AbortController for testing
+      console.log('🚗 Using simplified request structure...');
       
       try {
         // Create vehicle with FormData (original working approach)
@@ -821,11 +831,9 @@ const VehicleManagementScreen = () => {
             'Authorization': `Bearer ${token}`,
             // Don't set Content-Type for FormData - let React Native set it automatically
           },
-          body: formData,
-          signal: controller.signal
+          body: formData
         });
         
-        clearTimeout(timeoutId);
         console.log('🚗 Fetch request completed successfully');
         console.log('🚗 Response status:', response.status);
         console.log('🚗 Response ok:', response.ok);
