@@ -66,6 +66,7 @@ interface Vehicle {
 const VehicleManagementScreen = () => {
   const navigation = useNavigation();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]); // Store all vehicles for statistics
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -401,11 +402,13 @@ const VehicleManagementScreen = () => {
         if (company?.id) {
           const data = await apiRequest(`/companies/${company.id}/vehicles`);
           const vehiclesList = data.vehicles || [];
-          // Only show verified and approved vehicles for companies
+          // Store all vehicles for statistics, but only show approved vehicles in the list
+          const allVehicles = vehiclesList;
           const approvedVehicles = vehiclesList.filter(v => v.status === 'approved');
+          setAllVehicles(allVehicles);
           setVehicles(approvedVehicles);
           
-          // Update subscription status with real vehicle count (only approved vehicles)
+          // Update subscription status with real vehicle count (only approved vehicles for limits)
           updateSubscriptionWithRealCounts(approvedVehicles.length, driverCount);
         } else {
           setVehicles([]);
@@ -1274,7 +1277,7 @@ const VehicleManagementScreen = () => {
       <View style={styles.content}>
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{vehicles.length}</Text>
+            <Text style={styles.statNumber}>{allVehicles.length}</Text>
             <Text style={styles.statLabel}>Total Vehicles</Text>
             {subscriptionStatus && vehicleValidation ? (
               <Text style={styles.statSubtext}>
@@ -1282,7 +1285,7 @@ const VehicleManagementScreen = () => {
               </Text>
             ) : (
               <Text style={styles.statSubtext}>
-                {vehicles.length} / 3 (Trial)
+                {allVehicles.length} / 3 (Trial)
               </Text>
             )}
           </View>
@@ -1301,13 +1304,13 @@ const VehicleManagementScreen = () => {
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
-              {vehicles.filter(v => v.status === 'approved').length}
+              {allVehicles.filter(v => v.status === 'approved').length}
             </Text>
             <Text style={styles.statLabel}>Active Vehicles</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>
-              {vehicles.filter(v => v.assignedDriver).length}
+              {allVehicles.filter(v => v.assignedDriver).length}
             </Text>
             <Text style={styles.statLabel}>Assigned</Text>
           </View>

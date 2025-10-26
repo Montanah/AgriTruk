@@ -124,11 +124,12 @@ const CompanyDashboardScreen = () => {
       if (vehiclesRes.ok) {
         const vehiclesData = await vehiclesRes.json();
         const vehicles = vehiclesData.vehicles || [];
-        // Only count approved vehicles for companies
+        // Count all vehicles for total, but only approved for active
+        const allVehicles = vehicles;
         const approvedVehicles = vehicles.filter((v: any) => v.status === 'approved');
         setStats(prev => ({
           ...prev,
-          totalVehicles: approvedVehicles.length,
+          totalVehicles: allVehicles.length,
           activeVehicles: approvedVehicles.length,
         }));
       }
