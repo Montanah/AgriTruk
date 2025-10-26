@@ -788,27 +788,59 @@ const VehicleManagementScreen = () => {
       
       console.log('🚗 FormData created with vehicle data and files');
       
-      // Skip connectivity test - it's causing issues
-      console.log('🚗 Skipping connectivity test, proceeding with vehicle creation...');
+      // Test with JSON first (no files) to isolate the issue
+      console.log('🚗 Testing with JSON request first (no files)...');
       
-      // Test basic fetch first
-      console.log('🚗 Testing basic fetch to vehicles endpoint...');
+      const testData = {
+        companyId: companyId,
+        vehicleType: vehicleType,
+        vehicleMake: vehicleMake,
+        vehicleModel: vehicleMake, // Use make as model
+        vehicleColor: vehicleColor,
+        vehicleRegistration: vehicleReg,
+        vehicleYear: vehicleYear,
+        vehicleCapacity: vehicleCapacity,
+        features: vehicleFeatures,
+        specialCargo: specialCargo,
+        refrigerated: refrigeration,
+        humidityControl: humidityControl,
+        bodyType: bodyType,
+        driveType: vehicleDriveType,
+        assignedDriverId: assignedDriverId || null
+      };
+      
+      console.log('🚗 Test JSON data:', testData);
+      
       try {
-        const testResponse = await fetch(`${API_ENDPOINTS.VEHICLES}`, {
-          method: 'GET',
+        const testResponse = await fetch(url, {
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify(testData)
         });
-        console.log('🚗 Basic fetch test status:', testResponse.status);
-        console.log('🚗 Basic fetch test ok:', testResponse.ok);
+        
+        console.log('🚗 JSON test response status:', testResponse.status);
+        console.log('🚗 JSON test response ok:', testResponse.ok);
+        
+        if (testResponse.ok) {
+          const testResult = await testResponse.json();
+          console.log('🚗 JSON test successful:', testResult);
+          Alert.alert('Success', 'Vehicle created successfully (without files)!');
+          setShowVehicleModal(false);
+          resetVehicleForm();
+          await fetchVehicles();
+          return;
+        } else {
+          const testError = await testResponse.text();
+          console.error('🚗 JSON test failed:', testError);
+        }
       } catch (testError) {
-        console.error('🚗 Basic fetch test failed:', testError);
-        throw new Error(`Basic fetch test failed: ${testError.message}`);
+        console.error('🚗 JSON test error:', testError);
       }
       
-      // Simplified request without AbortController for testing
-      console.log('🚗 Using simplified request structure...');
+      console.log('🚗 JSON test completed, now trying with FormData...');
       
       try {
         // Create vehicle with FormData (original working approach)
