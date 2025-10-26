@@ -11,7 +11,7 @@ import subscriptionService from '../services/subscriptionService';
 
 export default function TransporterProcessingScreen({ route }) {
   // route.params?.transporterType can be 'individual' or 'company'
-  const transporterType = route?.params?.transporterType || 'individual';
+  const transporterType = route?.params?.transporterType || 'company';
   const navigation = useNavigation();
   const [profilePhotoUrl, setProfilePhotoUrl] = React.useState(null);
   const [loadingProfile, setLoadingProfile] = React.useState(true);

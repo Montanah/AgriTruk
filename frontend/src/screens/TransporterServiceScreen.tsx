@@ -105,6 +105,13 @@ const TransporterServiceScreen = () => {
           }
         } else {
           console.error('Failed to fetch transporter profile:', transporterRes.status, transporterRes.statusText);
+          
+          // If profile doesn't exist (404), redirect to completion screen
+          if (transporterRes.status === 404) {
+            console.log('Transporter profile not found, redirecting to completion screen');
+            navigation.navigate('TransporterCompletionScreen', { transporterType });
+            return;
+          }
         }
         
         // Handle user profile response

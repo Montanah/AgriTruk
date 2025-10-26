@@ -190,7 +190,7 @@ const FleetManagementScreen = () => {
     {
       id: 'drivers',
       title: 'Driver Management',
-      subtitle: 'Recruit, manage, and assign drivers',
+      subtitle: 'Recruit and manage your driver team',
       icon: 'account-group',
       color: colors.warning,
       onPress: () => navigation.navigate('DriverManagement')

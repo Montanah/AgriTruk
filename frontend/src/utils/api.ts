@@ -140,22 +140,31 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     // API request details
 
     // Making fetch request
-    console.log('🌐 Making API request to:', `${API_BASE}${endpoint}`);
+    const fullUrl = `${API_BASE}${endpoint}`;
+    console.log('🌐 Making API request to:', fullUrl);
     console.log('📝 Request options:', {
       method: options.method || 'GET',
       headers: headers,
       bodyLength: options.body ? options.body.length : 0
     });
+    console.log('🔗 Full URL constructed:', fullUrl);
     
     // Log the actual request body for debugging
     if (options.body) {
       console.log('📦 Request body:', options.body);
     }
 
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
+    const res = await fetch(fullUrl, {
       ...options,
       headers,
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     // API response details
     console.log('📡 Response status:', res.status, res.statusText);
@@ -243,6 +252,76 @@ export async function uploadFile(uri: string, type: 'profile' | 'logo' | 'docume
   return placeholderUrl;
 }
 
+// Upload to backend instead of Cloudinary
+async function uploadToBackend(uri: string, type: 'profile' | 'logo' | 'document' | 'transporter' = 'profile', resourceId?: string) {
+  try {
+    console.log(`📤 Uploading ${type} to backend...`);
+    console.log(`📤 File URI:`, uri);
+    console.log(`📤 Resource ID:`, resourceId);
+    
+    // Get Firebase Auth token for backend authentication
+    const { getAuth } = require('firebase/auth');
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    
+    const token = await user.getIdToken();
+    console.log(`📤 Using Firebase token for authentication`);
+    
+    const formData = new FormData();
+    formData.append('file', {
+      uri,
+      type: 'image/jpeg',
+      name: `${type}_${Date.now()}.jpg`,
+    } as any);
+    formData.append('type', type);
+    if (resourceId) {
+      formData.append('resourceId', resourceId);
+    }
+    
+    // Try different upload endpoints
+    const uploadUrl = `${API_BASE}/upload`;
+    console.log(`📤 Upload URL:`, uploadUrl);
+    
+    // If /upload doesn't exist, we might need to use a different approach
+    // Let's try the vehicles endpoint with file upload
+    console.log(`📤 Note: If /upload fails, we may need to use vehicle endpoint with FormData`);
+    
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Don't set Content-Type for FormData
+      },
+    });
+    
+    console.log(`📤 Upload response status:`, response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`📤 Upload failed:`, errorText);
+      throw new Error(`Backend upload failed: ${response.status} - ${response.statusText} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log(`📤 Upload response data:`, data);
+    
+    if (!data.url) {
+      throw new Error('No URL returned from backend upload');
+    }
+    
+    console.log(`✅ Backend upload successful:`, data.url);
+    return data.url;
+  } catch (error) {
+    console.error('❌ Backend upload error:', error);
+    throw error;
+  }
+}
+
 // Internal function to attempt a single upload
 async function attemptUpload(uri: string, type: 'profile' | 'logo' | 'document' | 'transporter' = 'profile', resourceId?: string) {
   // Fallback to Cloudinary direct upload using actual credentials
@@ -267,6 +346,19 @@ async function attemptUpload(uri: string, type: 'profile' | 'logo' | 'document' 
     }
     if (!cloudinaryPreset || cloudinaryPreset === 'trukapp_unsigned') {
       console.warn('Using default Cloudinary preset. Please set EXPO_PUBLIC_CLOUDINARY_PRESET');
+    }
+    
+    // Always use backend upload since Cloudinary credentials are on the backend
+    console.log('📤 Using backend upload (Cloudinary credentials are on backend)...');
+    try {
+      const backendResult = await uploadToBackend(uri, type, resourceId);
+      console.log('✅ Backend upload successful:', backendResult);
+      return backendResult;
+    } catch (backendError) {
+      console.error('❌ Backend upload failed:', backendError);
+      console.warn('⚠️ Using placeholder URL as final fallback');
+      const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
+      return placeholderUrl;
     }
     
     const formData = new FormData();

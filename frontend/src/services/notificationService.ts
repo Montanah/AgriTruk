@@ -17,7 +17,7 @@ try {
     Device = require('expo-device');
     Constants = require('expo-constants');
   } catch (moduleError) {
-    console.warn('expo-notifications not available in this build environment. Using fallback notification service.');
+    // expo-notifications not available in this build environment. Using fallback notification service.
     Notifications = null;
     Device = null;
     Constants = null;

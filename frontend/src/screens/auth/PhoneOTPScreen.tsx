@@ -181,20 +181,36 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             routes: [{ name: 'BrokerTabs' }]
           });
         } else if (role === 'transporter') {
-          // Navigating transporter to dashboard (secondary verification)
-          console.log('Phone verification complete - navigating transporter to dashboard');
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'TransporterTabs' }]
+          // Navigating transporter to completion screen for company profile setup
+          console.log('Phone verification complete - navigating transporter to completion screen');
+          navigation.navigate('TransporterCompletionScreen', {
+            userId: userId,
+            phone: phone,
+            role: role
+          });
+        } else if (role === 'driver' || role === 'job_seeker') {
+          // Navigating job seeker to completion screen
+          console.log('Phone verification complete - navigating job seeker to completion screen');
+          navigation.navigate('JobSeekerCompletionScreen', {
+            userId: userId,
+            phone: phone,
+            role: role
           });
         } else {
-          // Navigating unknown role to MainTabs
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'MainTabs' }]
-          });
+          // Unknown role - show error and redirect to signup
+          console.error('Unknown role after verification:', role);
+          Alert.alert(
+            'Verification Error',
+            'Unable to determine your account type. Please contact support.',
+            [
+              {
+                text: 'Try Again',
+                onPress: () => navigation.navigate('SignupSelectionScreen')
+              }
+            ]
+          );
         }
-      }, 2000);
+      }, 1000);
     } catch (err: any) {
       console.error('Phone verification error:', err);
       let errorMessage = 'Verification failed. Please try again.';

@@ -60,6 +60,8 @@ interface FilterOptions {
   ageRange: { min: number; max: number };
   location: string;
   status: string;
+  gender: string[];
+  religion: string[];
 }
 
 const JobSeekersMarketplaceScreen = () => {
@@ -88,7 +90,9 @@ const JobSeekersMarketplaceScreen = () => {
     experienceMin: 0,
     ageRange: { min: 18, max: 65 },
     location: '',
-    status: 'approved'
+    status: 'approved',
+    gender: [],
+    religion: []
   });
 
   const fetchSubscriptionStatus = async () => {
@@ -354,6 +358,16 @@ const JobSeekersMarketplaceScreen = () => {
           return seeker.experience.specializations.includes(apiSpec);
         });
         if (!hasMatchingSpecialization) return false;
+      }
+      
+      // Gender filter
+      if (filters.gender.length > 0) {
+        if (!filters.gender.includes(seeker.gender)) return false;
+      }
+      
+      // Religion filter
+      if (filters.religion.length > 0) {
+        if (!filters.religion.includes(seeker.religion)) return false;
       }
       
       return true;
@@ -686,6 +700,64 @@ const JobSeekersMarketplaceScreen = () => {
             />
           </View>
 
+          {/* Gender Filter */}
+          <View style={styles.filterSection}>
+            <View style={styles.filterSectionHeader}>
+              <MaterialCommunityIcons name="gender-male-female" size={20} color={colors.primary} />
+              <Text style={styles.filterSectionTitle}>Gender</Text>
+            </View>
+            <View style={styles.checkboxContainer}>
+              {['male', 'female', 'other'].map((gender) => (
+                <TouchableOpacity
+                  key={`gender-${gender}`}
+                  style={styles.checkboxItem}
+                  onPress={() => {
+                    const updated = filters.gender.includes(gender)
+                      ? filters.gender.filter(g => g !== gender)
+                      : [...filters.gender, gender];
+                    setFilters({ ...filters, gender: updated });
+                  }}
+                >
+                  <MaterialCommunityIcons 
+                    name={filters.gender.includes(gender) ? "checkbox-marked" : "checkbox-blank-outline"} 
+                    size={24} 
+                    color={filters.gender.includes(gender) ? colors.primary : colors.text.secondary} 
+                  />
+                  <Text style={styles.checkboxText}>{gender.charAt(0).toUpperCase() + gender.slice(1)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Religion Filter */}
+          <View style={styles.filterSection}>
+            <View style={styles.filterSectionHeader}>
+              <MaterialCommunityIcons name="church" size={20} color={colors.primary} />
+              <Text style={styles.filterSectionTitle}>Religion</Text>
+            </View>
+            <View style={styles.checkboxContainer}>
+              {['Christianity', 'Islam', 'Hinduism', 'Buddhism', 'Judaism', 'Sikhism', 'Jainism', 'Baháʼí Faith', 'Traditional African Religions', 'Other', 'Prefer not to say'].map((religion) => (
+                <TouchableOpacity
+                  key={`religion-${religion}`}
+                  style={styles.checkboxItem}
+                  onPress={() => {
+                    const updated = filters.religion.includes(religion)
+                      ? filters.religion.filter(r => r !== religion)
+                      : [...filters.religion, religion];
+                    setFilters({ ...filters, religion: updated });
+                  }}
+                >
+                  <MaterialCommunityIcons 
+                    name={filters.religion.includes(religion) ? "checkbox-marked" : "checkbox-blank-outline"} 
+                    size={24} 
+                    color={filters.religion.includes(religion) ? colors.primary : colors.text.secondary} 
+                  />
+                  <Text style={styles.checkboxText}>{religion}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           {/* Location Filter */}
           <View style={styles.filterSection}>
             <Text style={styles.filterSectionTitle}>Location</Text>
@@ -707,7 +779,9 @@ const JobSeekersMarketplaceScreen = () => {
               experienceMin: 0,
               ageRange: { min: 18, max: 65 },
               location: '',
-              status: 'approved'
+              status: 'approved',
+              gender: [],
+              religion: []
             })}
           >
             <Text style={styles.clearFiltersText}>Clear All</Text>

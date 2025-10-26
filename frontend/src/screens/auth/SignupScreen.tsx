@@ -159,20 +159,28 @@ const SignupScreen = () => {
       return;
     }
 
-    // Always require both email and phone for backend
-    if (!email.trim() && signupMethod === 'phone') {
-      setError('Please provide an email address for account recovery.');
-      return;
+    // Generate placeholder values for the non-primary method
+    // This allows users to sign up with just one method and add the other later
+    let finalEmail = email.trim();
+    let finalPhone = selectedCountry.code + phone.trim();
+    
+    if (signupMethod === 'phone' && !finalEmail) {
+      // Generate a unique temporary email that won't conflict with real emails
+      // Using a real domain that Firebase will accept
+      const timestamp = Date.now();
+      const random = Math.floor(Math.random() * 10000);
+      finalEmail = `temp_${timestamp}_${random}@trukapp.com`;
+    }
+    
+    if (signupMethod === 'email' && !phone.trim()) {
+      // Generate a unique temporary phone that won't conflict with real numbers
+      // Format: +254000000000[random] (Kenya placeholder) - backend requires 14+ characters
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      finalPhone = `+2540000000${random}`;
     }
 
-    if (!phone.trim() && signupMethod === 'email') {
-      setError('Please provide a phone number for account security.');
-      return;
-    }
-
-    // Validate phone number format
-    const fullPhoneNumber = selectedCountry.code + phone.trim();
-    if (phone.trim() && !/^\+?[1-9]\d{1,14}$/.test(fullPhoneNumber)) {
+    // Validate phone number format only if user provided a real phone number
+    if (signupMethod === 'phone' && phone.trim() && !/^\+?[1-9]\d{1,14}$/.test(finalPhone)) {
       setError('Please enter a valid phone number.');
       return;
     }
@@ -211,8 +219,8 @@ const SignupScreen = () => {
       
       const userData = {
         name: name.trim(),
-        email: email.trim(),
-        phone: selectedCountry.code + phone.trim(),
+        email: finalEmail,
+        phone: finalPhone,
         password: password,
         role: backendRoleMap[role || 'shipper'],
         preferredVerificationMethod: signupMethod,
@@ -220,6 +228,9 @@ const SignupScreen = () => {
         languagePreference: 'en',
         location: null,
         profilePhotoUrl: null,
+        // Add flags to indicate which contact methods are real vs placeholder
+        hasRealEmail: signupMethod === 'email',
+        hasRealPhone: signupMethod === 'phone',
       };
 
       console.log('Registering user via backend signup with data:', userData);
@@ -247,7 +258,7 @@ const SignupScreen = () => {
         
         // Sign in the user with Firebase after successful backend registration
         console.log('Signing in user with Firebase after backend registration');
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, finalEmail, password);
         console.log('Firebase sign-in successful:', userCredential.user.uid);
         
         // Store Firebase token for future requests
@@ -277,16 +288,16 @@ const SignupScreen = () => {
         if (signupMethod === 'phone') {
           console.log('📱 Navigating to PhoneOTPScreen');
           navigation.navigate('PhoneOTPScreen', {
-            email: email.trim(),
-            phone: selectedCountry.code + phone.trim(),
+            email: finalEmail,
+            phone: finalPhone,
             role: role || 'shipper',
             userId: userCredential.user.uid
           });
         } else {
           console.log('📧 Navigating to EmailVerification');
           navigation.navigate('EmailVerification', {
-            email: email.trim(),
-            phone: selectedCountry.code + phone.trim(),
+            email: finalEmail,
+            phone: finalPhone,
             role: role || 'shipper',
             userId: userCredential.user.uid
           });
@@ -483,71 +494,68 @@ const SignupScreen = () => {
                 </View>
               </View>
 
-              {/* Email Input - Always show but highlight based on method */}
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={[
-                    styles.input,
-                    signupMethod === 'email' && styles.inputActive,
-                  ]}
-                  placeholder="Email Address"
-                  value={email}
-                  onChangeText={setEmail}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  placeholderTextColor={colors.text.light}
-                />
-                {signupMethod === 'email' && (
-                  <View style={[styles.inputBadge, { backgroundColor: accent }]}>
-                    <Text style={styles.inputBadgeText}>Primary</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Phone Input - Always show but highlight based on method */}
-              <View style={styles.inputContainer}>
-                <View style={styles.phoneRow}>
-                  <TouchableOpacity
-                    style={styles.countryCodeBtn}
-                    activeOpacity={0.8}
-                    onPress={() => setShowCountryDropdown((v) => !v)}
-                  >
-                    <Text style={styles.countryCodeText}>
-                      {selectedCountry.flag} {selectedCountry.code}
-                    </Text>
-                    <Ionicons
-                      name={showCountryDropdown ? 'chevron-up' : 'chevron-down'}
-                      size={18}
-                      color={colors.text.secondary}
-                      style={{ marginLeft: 4 }}
-                    />
-                  </TouchableOpacity>
+              {/* Email Input - Show only when email is selected or always show with conditional styling */}
+              {signupMethod === 'email' && (
+                <View style={styles.inputContainer}>
                   <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        flex: 1,
-                        marginBottom: 0,
-                        borderTopLeftRadius: 0,
-                        borderBottomLeftRadius: 0,
-                        borderLeftWidth: 0,
-                      },
-                      signupMethod === 'phone' && styles.inputActive,
-                    ]}
-                    placeholder="Phone Number"
-                    value={phone}
-                    onChangeText={setPhone}
+                    style={[styles.input, styles.inputActive]}
+                    placeholder="Email Address"
+                    value={email}
+                    onChangeText={setEmail}
                     autoCapitalize="none"
-                    keyboardType="phone-pad"
+                    keyboardType="email-address"
                     placeholderTextColor={colors.text.light}
                   />
-                </View>
-                {signupMethod === 'phone' && (
                   <View style={[styles.inputBadge, { backgroundColor: accent }]}>
                     <Text style={styles.inputBadgeText}>Primary</Text>
                   </View>
-                )}
-              </View>
+                </View>
+              )}
+
+              {/* Phone Input - Show only when phone is selected */}
+              {signupMethod === 'phone' && (
+                <View style={styles.inputContainer}>
+                  <View style={styles.phoneRow}>
+                    <TouchableOpacity
+                      style={styles.countryCodeBtn}
+                      activeOpacity={0.8}
+                      onPress={() => setShowCountryDropdown((v) => !v)}
+                    >
+                      <Text style={styles.countryCodeText}>
+                        {selectedCountry.flag} {selectedCountry.code}
+                      </Text>
+                      <Ionicons
+                        name={showCountryDropdown ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={colors.text.secondary}
+                        style={{ marginLeft: 4 }}
+                      />
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          flex: 1,
+                          marginBottom: 0,
+                          borderTopLeftRadius: 0,
+                          borderBottomLeftRadius: 0,
+                          borderLeftWidth: 0,
+                        },
+                        styles.inputActive,
+                      ]}
+                      placeholder="Phone Number"
+                      value={phone}
+                      onChangeText={setPhone}
+                      autoCapitalize="none"
+                      keyboardType="phone-pad"
+                      placeholderTextColor={colors.text.light}
+                    />
+                  </View>
+                  <View style={[styles.inputBadge, { backgroundColor: accent }]}>
+                    <Text style={styles.inputBadgeText}>Primary</Text>
+                  </View>
+                </View>
+              )}
 
 
               {/* Password Input */}
@@ -623,6 +631,17 @@ const SignupScreen = () => {
                 You are signing up as{' '}
                 <Text style={{ fontWeight: 'bold', color: accent }}>{label}</Text>
               </Text>
+
+              {/* Information about adding contact methods later */}
+              <View style={styles.contactInfoContainer}>
+                <Ionicons name="information-circle" size={16} color={colors.text.secondary} />
+                <Text style={styles.contactInfoText}>
+                  {signupMethod === 'phone' 
+                    ? "You can add an email address later in your profile for account recovery and easier login."
+                    : "You can add a phone number later in your profile for account security and easier login."
+                  }
+                </Text>
+              </View>
 
               <Text style={styles.signInText}>
                 Already have an account?{' '}
@@ -1042,6 +1061,23 @@ const styles = StyleSheet.create({
   signInLink: {
     fontWeight: '700',
     textDecorationLine: 'underline',
+  },
+  contactInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.background,
+    padding: spacing.md,
+    borderRadius: 12,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.text.light + '30',
+  },
+  contactInfoText: {
+    flex: 1,
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginLeft: spacing.sm,
+    lineHeight: 20,
   },
 });
 

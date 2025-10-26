@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
+import EnhancedSmartCardInput from '../components/common/EnhancedSmartCardInput';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
@@ -56,6 +57,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
     const [cardholderName, setCardholderName] = useState('');
     const [activatingTrial, setActivatingTrial] = useState(false);
     const [trialPlan, setTrialPlan] = useState<any>(null);
+    const [isCardValid, setIsCardValid] = useState(false);
     // const [trialActivated, setTrialActivated] = useState(false);
     
     // Ref for scrolling to payment section
@@ -64,6 +66,21 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
 
     // Get trial duration from subscription status or default to 30 days
     const trialDuration = subscriptionStatus?.daysRemaining || 30;
+
+    // Validation functions
+    const isMpesaValid = () => {
+        return selectedPaymentMethod === 'mpesa' && mpesaPhone.trim().length >= 10;
+    };
+
+    const isCardValidLocal = () => {
+        if (selectedPaymentMethod !== 'stripe') return false;
+        return isCardValid; // Use the enhanced validation from the smart card input
+    };
+
+    const isPaymentValid = () => {
+        if (!selectedPaymentMethod) return false;
+        return isMpesaValid() || isCardValidLocal();
+    };
 
     // Function to scroll to payment section
     const scrollToPaymentSection = () => {
@@ -158,13 +175,19 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
             
             let result;
             if (userType === 'company') {
-                // Use company fleet trial activation
+                // Use company fleet trial activation (separate API for company plans)
                 const auth = getAuth();
                 const user = auth.currentUser;
                 if (!user) throw new Error('User not authenticated');
                 
-                const subscriptionStatus = await subscriptionService.startCompanyFleetTrial(user.uid);
-                result = { success: true, data: subscriptionStatus, existingSubscription: false };
+                try {
+                    const subscriptionStatus = await subscriptionService.startCompanyFleetTrial(user.uid);
+                    result = { success: true, data: subscriptionStatus, existingSubscription: false };
+                } catch (error) {
+                    console.error('Company fleet trial failed, trying regular trial:', error);
+                    // Fallback to regular trial if company fleet trial fails
+                    result = await subscriptionService.activateTrial('transporter');
+                }
             } else {
                 // Use regular trial activation for individual transporters and brokers
                 result = await subscriptionService.activateTrial(userType as 'individual' | 'broker');
@@ -328,50 +351,18 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
         if (selectedPaymentMethod === 'stripe') {
             return (
                 <View style={styles.paymentForm}>
-                    <Text style={styles.formLabel}>Cardholder Name *</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={cardholderName}
-                        onChangeText={setCardholderName}
-                        placeholder="Name on card"
-                        autoCapitalize="words"
+                    <EnhancedSmartCardInput
+                        onCardChange={(cardData) => {
+                            setCardNumber(cardData.number);
+                            setExpiryDate(cardData.expiry);
+                            setCvv(cardData.cvv);
+                            setCardholderName(cardData.cardholderName);
+                            setIsCardValid(cardData.isValid);
+                        }}
+                        onValidationChange={setIsCardValid}
+                        showVirtualCard={true}
+                        disabled={activatingTrial}
                     />
-
-                    <Text style={styles.formLabel}>Card Number *</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={cardNumber}
-                        onChangeText={setCardNumber}
-                        placeholder="1234 5678 9012 3456"
-                        keyboardType="numeric"
-                        maxLength={19}
-                    />
-
-                    <View style={styles.cardRow}>
-                        <View style={styles.cardColumn}>
-                            <Text style={styles.formLabel}>Expiry Date *</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={expiryDate}
-                                onChangeText={setExpiryDate}
-                                placeholder="MM/YY"
-                                keyboardType="numeric"
-                                maxLength={5}
-                            />
-                        </View>
-                        <View style={styles.cardColumn}>
-                            <Text style={styles.formLabel}>CVV *</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={cvv}
-                                onChangeText={setCvv}
-                                placeholder="123"
-                                keyboardType="numeric"
-                                maxLength={4}
-                                secureTextEntry
-                            />
-                        </View>
-                    </View>
                 </View>
             );
         }
@@ -618,23 +609,25 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 <TouchableOpacity
                     style={[
                         styles.activateButton,
-                        (activatingTrial || !selectedPaymentMethod) && styles.activateButtonDisabled
+                        (activatingTrial || !isPaymentValid()) && styles.activateButtonDisabled
                     ]}
                     onPress={handleActivateTrial}
-                    disabled={activatingTrial || !selectedPaymentMethod}
+                    disabled={activatingTrial || !isPaymentValid()}
                 >
                     {activatingTrial ? (
                         <ActivityIndicator size="small" color={colors.white} />
                     ) : (
                         <View style={styles.activateButtonContent}>
                             <MaterialCommunityIcons
-                                name={selectedPaymentMethod ? "rocket-launch" : "credit-card-outline"}
+                                name={isPaymentValid() ? "rocket-launch" : "credit-card-outline"}
                                 size={18}
                                 color={colors.white}
                             />
                             <Text style={styles.activateButtonText}>
                                 {!selectedPaymentMethod 
                                     ? 'Select Payment Method' 
+                                    : !isPaymentValid()
+                                    ? 'Complete Payment Details'
                                     : `Activate Trial`
                                 }
                             </Text>

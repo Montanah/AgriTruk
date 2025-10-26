@@ -1,318 +1,480 @@
-/**
- * Smart Credit/Debit Card Validation Utility
- * Provides comprehensive card validation including CVC, expiry, and card type detection
- */
-
 export interface CardValidationResult {
   isValid: boolean;
-  cardType: string;
-  errors: string[];
-  warnings: string[];
+  cardType: string | null;
+  formattedNumber: string;
+  cvvLength: number;
+  color: string;
+  icon: string;
+  errorMessage?: string;
 }
 
 export interface CardData {
   number: string;
   expiry: string;
-  cvc: string;
+  cvv: string;
   cardholderName: string;
 }
 
-// Card type patterns
-const CARD_PATTERNS = {
-  visa: /^4[0-9]{12}(?:[0-9]{3})?$/,
-  mastercard: /^5[1-5][0-9]{14}$|^2(?:2(?:2[1-9]|[3-9][0-9])|[3-6][0-9][0-9]|7(?:[01][0-9]|20))[0-9]{12}$/,
-  amex: /^3[47][0-9]{13}$/,
-  discover: /^6(?:011|5[0-9]{2})[0-9]{12}$/,
-  diners: /^3[0689][0-9]{12}$/,
-  jcb: /^(?:2131|1800|35\d{3})\d{11}$/,
-  unionpay: /^(62[0-9]{14,17})$/,
-};
-
-// CVC length requirements by card type
-const CVC_LENGTHS = {
-  visa: 3,
-  mastercard: 3,
-  amex: 4,
-  discover: 3,
-  diners: 3,
-  jcb: 3,
-  unionpay: 3,
-};
-
-export class CardValidator {
-  /**
-   * Validates a complete card data object
-   */
-  static validateCard(cardData: CardData): CardValidationResult {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-    
-    // Clean and validate card number
-    const cleanNumber = cardData.number.replace(/\s/g, '');
-    const cardType = this.detectCardType(cleanNumber);
-    
-    // Validate card number
-    if (!this.validateCardNumber(cleanNumber)) {
-      errors.push('Invalid card number');
-    }
-    
-    // Validate card type
-    if (cardType === 'unknown') {
-      errors.push('Unsupported card type');
-    }
-    
-    // Validate expiry date
-    if (!this.validateExpiryDate(cardData.expiry)) {
-      errors.push('Invalid expiry date');
-    }
-    
-    // Validate CVC
-    const cvcValidation = this.validateCVC(cardData.cvc, cardType);
-    if (!cvcValidation.isValid) {
-      errors.push(...cvcValidation.errors);
-    }
-    
-    // Validate cardholder name
-    if (!this.validateCardholderName(cardData.cardholderName)) {
-      errors.push('Cardholder name is required');
-    }
-    
-    // Check if card is expired
-    if (this.isCardExpired(cardData.expiry)) {
-      errors.push('Card has expired');
-    }
-    
-    // Add warnings for security
-    if (cardData.number.length < 13) {
-      warnings.push('Card number seems too short');
-    }
-    
-    if (cardData.cvc.length < 3) {
-      warnings.push('CVC seems too short');
-    }
-    
-    return {
-      isValid: errors.length === 0,
-      cardType,
-      errors,
-      warnings,
-    };
-  }
-  
-  /**
-   * Validates card number using Luhn algorithm
-   */
-  static validateCardNumber(number: string): boolean {
-    const cleanNumber = number.replace(/\s/g, '');
-    
-    // Check if it's all digits and proper length
-    if (!/^\d{13,19}$/.test(cleanNumber)) {
-      return false;
-    }
-    
-    // Luhn algorithm
-    let sum = 0;
-    let isEven = false;
-    
-    for (let i = cleanNumber.length - 1; i >= 0; i--) {
-      let digit = parseInt(cleanNumber[i]);
-      
-      if (isEven) {
-        digit *= 2;
-        if (digit > 9) {
-          digit -= 9;
-        }
-      }
-      
-      sum += digit;
-      isEven = !isEven;
-    }
-    
-    return sum % 10 === 0;
-  }
-  
-  /**
-   * Detects card type based on number pattern
-   */
-  static detectCardType(number: string): string {
-    const cleanNumber = number.replace(/\s/g, '');
-    
-    for (const [type, pattern] of Object.entries(CARD_PATTERNS)) {
-      if (pattern.test(cleanNumber)) {
-        return type;
-      }
-    }
-    
-    return 'unknown';
-  }
-  
-  /**
-   * Validates CVC based on card type
-   */
-  static validateCVC(cvc: string, cardType: string): { isValid: boolean; errors: string[] } {
-    const errors: string[] = [];
-    const cleanCVC = cvc.replace(/\s/g, '');
-    
-    if (!/^\d+$/.test(cleanCVC)) {
-      errors.push('CVC must contain only numbers');
-      return { isValid: false, errors };
-    }
-    
-    const requiredLength = CVC_LENGTHS[cardType as keyof typeof CVC_LENGTHS] || 3;
-    
-    if (cleanCVC.length !== requiredLength) {
-      errors.push(`CVC must be ${requiredLength} digits for ${cardType} cards`);
-      return { isValid: false, errors };
-    }
-    
-    return { isValid: true, errors: [] };
-  }
-  
-  /**
-   * Validates expiry date format and future date
-   */
-  static validateExpiryDate(expiry: string): boolean {
-    const cleanExpiry = expiry.replace(/\s/g, '');
-    
-    // Check format MM/YY or MM/YYYY
-    if (!/^\d{2}\/\d{2,4}$/.test(cleanExpiry)) {
-      return false;
-    }
-    
-    const [month, year] = cleanExpiry.split('/');
-    const monthNum = parseInt(month);
-    const yearNum = parseInt(year.length === 2 ? `20${year}` : year);
-    
-    // Validate month
-    if (monthNum < 1 || monthNum > 12) {
-      return false;
-    }
-    
-    // Validate year (not too far in the future)
-    const currentYear = new Date().getFullYear();
-    if (yearNum < currentYear || yearNum > currentYear + 20) {
-      return false;
-    }
-    
-    return true;
-  }
-  
-  /**
-   * Checks if card is expired
-   */
-  static isCardExpired(expiry: string): boolean {
-    if (!this.validateExpiryDate(expiry)) {
-      return true;
-    }
-    
-    const cleanExpiry = expiry.replace(/\s/g, '');
-    const [month, year] = cleanExpiry.split('/');
-    const monthNum = parseInt(month);
-    const yearNum = parseInt(year.length === 2 ? `20${year}` : year);
-    
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-    
-    if (yearNum < currentYear) {
-      return true;
-    }
-    
-    if (yearNum === currentYear && monthNum < currentMonth) {
-      return true;
-    }
-    
-    return false;
-  }
-  
-  /**
-   * Validates cardholder name
-   */
-  static validateCardholderName(name: string): boolean {
-    if (!name || name.trim().length < 2) {
-      return false;
-    }
-    
-    // Check for valid characters (letters, spaces, hyphens, apostrophes)
-    if (!/^[a-zA-Z\s\-']+$/.test(name.trim())) {
-      return false;
-    }
-    
-    return true;
-  }
-  
-  /**
-   * Formats card number with spaces for display
-   */
-  static formatCardNumber(number: string): string {
-    const cleanNumber = number.replace(/\s/g, '');
-    const cardType = this.detectCardType(cleanNumber);
-    
-    // Different spacing for different card types
-    if (cardType === 'amex') {
-      // Amex: XXXX XXXXXX XXXXX
-      return cleanNumber.replace(/(\d{4})(\d{6})(\d{5})/, '$1 $2 $3');
-    } else {
-      // Most cards: XXXX XXXX XXXX XXXX
-      return cleanNumber.replace(/(\d{4})/g, '$1 ').trim();
-    }
-  }
-  
-  /**
-   * Masks card number for display (shows only last 4 digits)
-   */
-  static maskCardNumber(number: string): string {
-    const cleanNumber = number.replace(/\s/g, '');
-    const cardType = this.detectCardType(cleanNumber);
-    
-    if (cleanNumber.length < 4) {
-      return cleanNumber;
-    }
-    
-    const lastFour = cleanNumber.slice(-4);
-    const masked = '*'.repeat(cleanNumber.length - 4);
-    
-    if (cardType === 'amex') {
-      return `${masked.slice(0, 4)} ${masked.slice(4, 10)} ${lastFour}`;
-    } else {
-      return `${masked.slice(0, 4)} ${masked.slice(4, 8)} ${masked.slice(8, 12)} ${lastFour}`;
-    }
-  }
-  
-  /**
-   * Gets card type icon name for UI
-   */
-  static getCardTypeIcon(cardType: string): string {
-    const iconMap: { [key: string]: string } = {
-      visa: 'cc-visa',
-      mastercard: 'cc-mastercard',
-      amex: 'cc-amex',
-      discover: 'cc-discover',
-      diners: 'cc-diners-club',
-      jcb: 'cc-jcb',
-      unionpay: 'credit-card',
-    };
-    
-    return iconMap[cardType] || 'credit-card';
-  }
-  
-  /**
-   * Gets card type color for UI
-   */
-  static getCardTypeColor(cardType: string): string {
-    const colorMap: { [key: string]: string } = {
-      visa: '#1A1F71',
-      mastercard: '#EB001B',
-      amex: '#006FCF',
-      discover: '#FF6000',
-      diners: '#0079BE',
-      jcb: '#003B7C',
-      unionpay: '#E21836',
-    };
-    
-    return colorMap[cardType] || '#666666';
-  }
+export interface FullCardValidationResult {
+  number: CardValidationResult;
+  expiry: { isValid: boolean; errorMessage?: string };
+  cvv: { isValid: boolean; errorMessage?: string };
+  cardholderName: { isValid: boolean; errorMessage?: string };
+  overall: { isValid: boolean; errorMessage?: string };
 }
 
-export default CardValidator;
+const CARD_TYPES = [
+  // Major International Cards
+  {
+    name: 'Visa',
+    pattern: /^4/,
+    color: '#1A1F71',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'Mastercard',
+    pattern: /^5[1-5]/,
+    color: '#EB001B',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'American Express',
+    pattern: /^3[47]/,
+    color: '#006FCF',
+    icon: 'credit-card',
+    cvvLength: 4,
+    format: /^(\d{4})(\d{6})(\d{5})$/,
+    maxLength: 15,
+  },
+  {
+    name: 'Discover',
+    pattern: /^6(?:011|5)/,
+    color: '#FF6000',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  
+  // International Cards
+  {
+    name: 'JCB',
+    pattern: /^35/,
+    color: '#007B49',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'Diners Club',
+    pattern: /^3[0689]/,
+    color: '#0079BE',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{6})(\d{4})$/,
+    maxLength: 14,
+  },
+  {
+    name: 'UnionPay',
+    pattern: /^62/,
+    color: '#E21836',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  
+  // European Cards
+  {
+    name: 'Maestro',
+    pattern: /^(5[0678]|6[0-9])/,
+    color: '#009639',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'Dankort',
+    pattern: /^5019/,
+    color: '#0066CC',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'Carte Bancaire',
+    pattern: /^4[0-9]{12}(?:[0-9]{3})?$/,
+    color: '#003399',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  
+  // Asian Cards
+  {
+    name: 'China UnionPay',
+    pattern: /^62/,
+    color: '#E21836',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'BC Card',
+    pattern: /^9[0-9]{15}$/,
+    color: '#FF6600',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  
+  // Regional Cards
+  {
+    name: 'RuPay',
+    pattern: /^6[0-9]{15}$/,
+    color: '#FF6B35',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'Elo',
+    pattern: /^(4011|4312|4389|4514|4573|5041|5067|5090|6277|6362|6363|6504|6505|6506|6507|6508|6509|6510|6511|6550)/,
+    color: '#00A651',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'Hipercard',
+    pattern: /^606282/,
+    color: '#FF6600',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  
+  // Corporate Cards
+  {
+    name: 'Corporate Visa',
+    pattern: /^4[0-9]{12}(?:[0-9]{3})?$/,
+    color: '#1A1F71',
+    icon: 'briefcase',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'Corporate Mastercard',
+    pattern: /^5[1-5][0-9]{14}$/,
+    color: '#EB001B',
+    icon: 'briefcase',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  
+  // Debit Cards
+  {
+    name: 'Visa Debit',
+    pattern: /^4[0-9]{12}(?:[0-9]{3})?$/,
+    color: '#1A1F71',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'Mastercard Debit',
+    pattern: /^5[1-5][0-9]{14}$/,
+    color: '#EB001B',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  
+  // Prepaid Cards
+  {
+    name: 'Visa Prepaid',
+    pattern: /^4[0-9]{12}(?:[0-9]{3})?$/,
+    color: '#1A1F71',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  {
+    name: 'Mastercard Prepaid',
+    pattern: /^5[1-5][0-9]{14}$/,
+    color: '#EB001B',
+    icon: 'credit-card',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 16,
+  },
+  
+  // Store Cards
+  {
+    name: 'Store Card',
+    pattern: /^[0-9]{13,19}$/,
+    color: '#666666',
+    icon: 'store',
+    cvvLength: 3,
+    format: /^(\d{4})(\d{4})(\d{4})(\d{4})$/,
+    maxLength: 19,
+  },
+];
 
+// Luhn algorithm for card validation
+export const luhnCheck = (num: string): boolean => {
+  const digits = num.replace(/\D/g, '');
+  let sum = 0;
+  let isEven = false;
+
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = parseInt(digits[i]);
+
+    if (isEven) {
+      digit *= 2;
+      if (digit > 9) {
+        digit -= 9;
+      }
+    }
+
+    sum += digit;
+    isEven = !isEven;
+  }
+
+  return sum % 10 === 0;
+};
+
+// Detect card type
+export const detectCardType = (number: string) => {
+  const cleanNumber = number.replace(/\D/g, '');
+  return CARD_TYPES.find(type => type.pattern.test(cleanNumber)) || null;
+};
+
+// Format card number
+export const formatCardNumber = (number: string, cardType: any = null): string => {
+  const cleanNumber = number.replace(/\D/g, '');
+  
+  if (!cardType) {
+    // Default formatting for unknown cards
+    return cleanNumber.replace(/(\d{4})(?=\d)/g, '$1 ');
+  }
+
+  if (cardType.name === 'American Express') {
+    return cleanNumber.replace(/(\d{4})(\d{6})(\d{5})/, '$1 $2 $3');
+  } else if (cardType.name === 'Diners Club') {
+    return cleanNumber.replace(/(\d{4})(\d{6})(\d{4})/, '$1 $2 $3');
+  } else {
+    return cleanNumber.replace(/(\d{4})(?=\d)/g, '$1 ');
+  }
+};
+
+// Validate card number
+export const validateCardNumber = (number: string): CardValidationResult => {
+  const cleanNumber = number.replace(/\D/g, '');
+  const cardType = detectCardType(cleanNumber);
+  
+  if (!cardType) {
+    return {
+      isValid: false,
+      cardType: null,
+      formattedNumber: formatCardNumber(cleanNumber),
+      cvvLength: 3,
+      color: '#666666',
+      icon: 'credit-card',
+      errorMessage: 'Unsupported card type',
+    };
+  }
+
+  // Check length
+  if (cleanNumber.length !== cardType.maxLength) {
+    return {
+      isValid: false,
+      cardType: cardType.name,
+      formattedNumber: formatCardNumber(cleanNumber, cardType),
+      cvvLength: cardType.cvvLength,
+      color: cardType.color,
+      icon: cardType.icon,
+      errorMessage: `Card number must be ${cardType.maxLength} digits`,
+    };
+  }
+
+  // Luhn algorithm check
+  const luhnValid = luhnCheck(cleanNumber);
+  
+  return {
+    isValid: luhnValid,
+    cardType: cardType.name,
+    formattedNumber: formatCardNumber(cleanNumber, cardType),
+    cvvLength: cardType.cvvLength,
+    color: cardType.color,
+    icon: cardType.icon,
+    errorMessage: luhnValid ? undefined : 'Invalid card number',
+  };
+};
+
+// Validate expiry date
+export const validateExpiryDate = (expiry: string): { isValid: boolean; errorMessage?: string } => {
+  const cleanExpiry = expiry.replace(/\D/g, '');
+  
+  if (cleanExpiry.length !== 4) {
+    return {
+      isValid: false,
+      errorMessage: 'Expiry date must be in MM/YY format',
+    };
+  }
+
+  const month = parseInt(cleanExpiry.substring(0, 2));
+  const year = parseInt(cleanExpiry.substring(2, 4));
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear() % 100;
+  const currentMonth = currentDate.getMonth() + 1;
+
+  if (month < 1 || month > 12) {
+    return {
+      isValid: false,
+      errorMessage: 'Invalid month',
+    };
+  }
+
+  if (year < currentYear || (year === currentYear && month < currentMonth)) {
+    return {
+      isValid: false,
+      errorMessage: 'Card has expired',
+    };
+  }
+
+  return { isValid: true };
+};
+
+// Validate CVV
+export const validateCVV = (cvv: string, cardType: string | null): { isValid: boolean; errorMessage?: string } => {
+  const cleanCVV = cvv.replace(/\D/g, '');
+  const expectedLength = cardType === 'American Express' ? 4 : 3;
+  
+  if (cleanCVV.length !== expectedLength) {
+    return {
+      isValid: false,
+      errorMessage: `CVV must be ${expectedLength} digits`,
+    };
+  }
+
+  return { isValid: true };
+};
+
+// Validate cardholder name
+export const validateCardholderName = (name: string): { isValid: boolean; errorMessage?: string } => {
+  if (!name.trim()) {
+    return {
+      isValid: false,
+      errorMessage: 'Cardholder name is required',
+    };
+  }
+
+  if (name.trim().length < 2) {
+    return {
+      isValid: false,
+      errorMessage: 'Cardholder name must be at least 2 characters',
+    };
+  }
+
+  if (!/^[a-zA-Z\s]+$/.test(name.trim())) {
+    return {
+      isValid: false,
+      errorMessage: 'Cardholder name can only contain letters and spaces',
+    };
+  }
+
+  return { isValid: true };
+};
+
+// Full card validation
+export const validateFullCard = (cardData: CardData): FullCardValidationResult => {
+  const numberResult = validateCardNumber(cardData.number);
+  const expiryResult = validateExpiryDate(cardData.expiry);
+  const cvvResult = validateCVV(cardData.cvv, numberResult.cardType);
+  const cardholderResult = validateCardholderName(cardData.cardholderName);
+
+  const overallValid = numberResult.isValid && 
+                      expiryResult.isValid && 
+                      cvvResult.isValid && 
+                      cardholderResult.isValid;
+
+  return {
+    number: numberResult,
+    expiry: expiryResult,
+    cvv: cvvResult,
+    cardholderName: cardholderResult,
+    overall: {
+      isValid: overallValid,
+      errorMessage: overallValid ? undefined : 'Please fix the errors above',
+    },
+  };
+};
+
+// Get card type color
+export const getCardTypeColor = (cardType: string | null): string => {
+  if (!cardType) return '#666666';
+  const type = CARD_TYPES.find(t => t.name === cardType);
+  return type?.color || '#666666';
+};
+
+// Get card type icon
+export const getCardTypeIcon = (cardType: string | null): string => {
+  if (!cardType) return 'credit-card';
+  const type = CARD_TYPES.find(t => t.name === cardType);
+  return type?.icon || 'credit-card';
+};
+
+// Format expiry date
+export const formatExpiryDate = (expiry: string): string => {
+  const cleanExpiry = expiry.replace(/\D/g, '');
+  
+  if (cleanExpiry.length >= 2) {
+    return cleanExpiry.substring(0, 2) + '/' + cleanExpiry.substring(2, 4);
+  }
+  
+  return cleanExpiry;
+};
+
+// Mask card number for display
+export const maskCardNumber = (number: string, visibleDigits: number = 4): string => {
+  const cleanNumber = number.replace(/\D/g, '');
+  const masked = '*'.repeat(cleanNumber.length - visibleDigits);
+  const visible = cleanNumber.slice(-visibleDigits);
+  return masked + visible;
+};
+
+export default {
+  luhnCheck,
+  detectCardType,
+  formatCardNumber,
+  validateCardNumber,
+  validateExpiryDate,
+  validateCVV,
+  validateCardholderName,
+  validateFullCard,
+  getCardTypeColor,
+  getCardTypeIcon,
+  formatExpiryDate,
+  maskCardNumber,
+};

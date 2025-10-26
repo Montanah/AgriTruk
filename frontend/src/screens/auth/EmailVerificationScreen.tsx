@@ -24,13 +24,14 @@ const EmailVerificationScreen = ({ navigation, route }) => {
   const [countdown, setCountdown] = useState(0);
   const [verified, setVerified] = useState(false);
   const [userData, setUserData] = useState(null);
-  const { email: routeEmail, phone: routePhone, role: routeRole, password: routePassword } = route.params || {};
+  const { email: routeEmail, phone: routePhone, role: routeRole, password: routePassword, userId: routeUserId } = route.params || {};
   
   // Get user data from route params or fetch from Firestore
   const email = routeEmail || userData?.email;
   const phone = routePhone || userData?.phone;
   const role = routeRole || userData?.role;
   const password = routePassword;
+  const userId = routeUserId;
 
   // Animation refs
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -153,7 +154,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
       console.log('Waiting for Firestore update...');
       
       // Wait a moment for the backend to update Firestore
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Verify that the user is now verified in Firestore
       try {
@@ -174,7 +175,7 @@ const EmailVerificationScreen = ({ navigation, route }) => {
             } else {
               console.log('User not yet verified in Firestore - waiting a bit more...');
               // Wait a bit more and try again
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
         }
@@ -219,27 +220,36 @@ const EmailVerificationScreen = ({ navigation, route }) => {
             routes: [{ name: 'BrokerTabs' }]
           });
         } else if (role === 'transporter') {
-          // Navigating transporter to dashboard (secondary verification)
-          console.log('Email verification complete - navigating transporter to dashboard');
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'TransporterTabs' }]
+          // Navigating transporter to completion screen for company profile setup
+          console.log('Email verification complete - navigating transporter to completion screen');
+          navigation.navigate('TransporterCompletionScreen', {
+            userId: userId,
+            phone: phone,
+            role: role
           });
-        } else if (role === 'driver') {
-          // Navigating job seeker (who selected "Driver" in UI) to completion screen for job application
+        } else if (role === 'driver' || role === 'job_seeker') {
+          // Navigating job seeker to completion screen
           console.log('Email verification complete - navigating job seeker to completion screen');
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'TransporterCompletionScreen', params: { isJobSeeker: true } }]
+          navigation.navigate('JobSeekerCompletionScreen', {
+            userId: userId,
+            phone: phone,
+            role: role
           });
         } else {
-          // Navigating unknown role to MainTabs
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'MainTabs' }]
-          });
+          // Unknown role - show error and redirect to signup
+          console.error('Unknown role after verification:', role);
+          Alert.alert(
+            'Verification Error',
+            'Unable to determine your account type. Please contact support.',
+            [
+              {
+                text: 'Try Again',
+                onPress: () => navigation.navigate('SignupSelectionScreen')
+              }
+            ]
+          );
         }
-      }, 2000);
+      }, 1000);
 
     } catch (err) {
       console.error('Email verification error:', err);

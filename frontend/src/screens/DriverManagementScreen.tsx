@@ -82,18 +82,107 @@ const DriverManagementScreen = () => {
 
   const fetchSubscriptionStatus = async () => {
     try {
-      const status = await subscriptionService.getSubscriptionStatus();
-      setSubscriptionStatus(status);
+      // IMMEDIATE TRIAL LIMITS - Set default trial limits immediately for company transporters
+      const immediateTrialStatus: SubscriptionStatus = {
+        hasActiveSubscription: false,
+        isTrialActive: true,
+        needsTrialActivation: false,
+        currentPlan: null,
+        daysRemaining: 30,
+        subscriptionStatus: 'trial',
+        freeTrialActive: true,
+        freeTrialDaysRemaining: 30,
+        driverLimit: 3,
+        vehicleLimit: 3,
+        currentDriverCount: 0,
+        currentVehicleCount: 0,
+        canAddDriver: true,
+        canAddVehicle: true,
+        transporterType: 'company'
+      };
       
-      // Validate driver addition capability
-      const driverValidation = companyFleetValidationService.validateDriverAddition(status);
-      setDriverValidation(driverValidation);
+      // Set immediate trial limits
+      setSubscriptionStatus(immediateTrialStatus);
       
-      // Validate vehicle addition capability
-      const vehicleValidation = companyFleetValidationService.validateVehicleAddition(status);
-      setVehicleValidation(vehicleValidation);
+      // Set immediate validation with trial limits
+      const immediateDriverValidation = {
+        canAdd: true,
+        currentCount: 0,
+        limit: 3,
+        percentage: 0,
+        reason: 'Free trial allows up to 3 drivers'
+      };
+      
+      const immediateVehicleValidation = {
+        canAdd: true,
+        currentCount: 0,
+        limit: 3,
+        percentage: 0,
+        reason: 'Free trial allows up to 3 vehicles'
+      };
+      
+      setDriverValidation(immediateDriverValidation);
+      setVehicleValidation(immediateVehicleValidation);
+      
+      console.log('✅ IMMEDIATE TRIAL LIMITS SET - Company can add drivers/vehicles immediately');
+      
+      // Then fetch real subscription status in background
+      try {
+        const realStatus = await subscriptionService.getSubscriptionStatus();
+        console.log('📊 Real subscription status loaded:', realStatus);
+        
+        // Update with real data if available
+        if (realStatus && (realStatus.driverLimit > 0 || realStatus.vehicleLimit > 0)) {
+          setSubscriptionStatus(realStatus);
+          
+          const driverValidation = companyFleetValidationService.validateDriverAddition(realStatus);
+          setDriverValidation(driverValidation);
+          
+          const vehicleValidation = companyFleetValidationService.validateVehicleAddition(realStatus);
+          setVehicleValidation(vehicleValidation);
+          
+          console.log('✅ Real subscription data applied');
+        }
+      } catch (realError) {
+        console.warn('Real subscription fetch failed, keeping trial limits:', realError);
+        // Keep the immediate trial limits if real fetch fails
+      }
     } catch (error) {
-      console.error('Error fetching subscription status:', error);
+      console.error('Error in subscription handling:', error);
+      // Fallback to trial limits even on error
+      const fallbackTrialStatus: SubscriptionStatus = {
+        hasActiveSubscription: false,
+        isTrialActive: true,
+        needsTrialActivation: false,
+        currentPlan: null,
+        daysRemaining: 30,
+        subscriptionStatus: 'trial',
+        freeTrialActive: true,
+        freeTrialDaysRemaining: 30,
+        driverLimit: 3,
+        vehicleLimit: 3,
+        currentDriverCount: 0,
+        currentVehicleCount: 0,
+        canAddDriver: true,
+        canAddVehicle: true,
+        transporterType: 'company'
+      };
+      
+      setSubscriptionStatus(fallbackTrialStatus);
+      setDriverValidation({
+        canAdd: true,
+        currentCount: 0,
+        limit: 3,
+        percentage: 0,
+        reason: 'Free trial allows up to 3 drivers'
+      });
+      setVehicleValidation({
+        canAdd: true,
+        currentCount: 0,
+        limit: 3,
+        percentage: 0,
+        reason: 'Free trial allows up to 3 vehicles'
+      });
     }
   };
 
@@ -525,7 +614,6 @@ const DriverManagementScreen = () => {
       formData.append('phone', recruitPhone.trim());
       formData.append('driverLicenseNumber', 'DL-' + Date.now()); // Temporary license number
       formData.append('idNumber', 'ID-' + Date.now()); // Temporary ID number
-      formData.append('companyId', companyInfo?.id || ''); // Add company ID
       
       // Add files
       if (recruitPhoto) {
@@ -557,17 +645,32 @@ const DriverManagementScreen = () => {
       console.log('Form data prepared for:', firstName, lastName, recruitEmail);
 
       setRecruitmentStep('Submitting driver application...');
+      console.log('🚗 About to submit driver recruitment request...');
+      
       const response = await fetch(`${API_ENDPOINTS.DRIVERS}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
+          // Don't set Content-Type for FormData - let React Native handle it automatically
         },
         body: formData,
       });
 
-      const result = await response.json();
-      console.log('Driver recruitment response:', result);
+      console.log('🚗 Driver recruitment response status:', response.status);
+      console.log('🚗 Driver recruitment response ok:', response.ok);
+      
+      const responseText = await response.text();
+      console.log('🚗 Driver recruitment response text:', responseText);
+      
+      let result = null;
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('🚗 Failed to parse driver recruitment response:', parseError);
+        throw new Error('Invalid response format from server');
+      }
+      
+      console.log('🚗 Driver recruitment parsed result:', result);
 
       if (response.ok) {
         setRecruitmentStep('Driver recruited successfully!');
@@ -576,11 +679,27 @@ const DriverManagementScreen = () => {
         resetRecruitForm();
         await fetchDrivers(); // Refresh the list
       } else {
-        Alert.alert('Error', result.message || 'Failed to recruit driver');
+        console.error('🚗 Driver recruitment failed:', result);
+        const errorMessage = result?.message || result?.errors?.map((err: any) => err.msg || err.message).join(', ') || 'Failed to recruit driver';
+        Alert.alert('Error', errorMessage);
       }
-    } catch (error) {
-      console.error('Error recruiting driver:', error);
-      Alert.alert('Error', 'Failed to recruit driver. Please try again.');
+    } catch (error: any) {
+      console.error('🚗 Driver recruitment error:', error);
+      console.error('🚗 Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        type: typeof error
+      });
+      
+      let errorMessage = 'Failed to recruit driver. Please try again.';
+      if (error.message.includes('Invalid response format')) {
+        errorMessage = 'Server returned invalid response. Please try again.';
+      } else if (error.message.includes('Network request failed')) {
+        errorMessage = 'Network connection failed. Please check your internet connection.';
+      }
+      
+      Alert.alert('Error', errorMessage);
     } finally {
       setRecruiting(false);
       setRecruitmentStep('');
@@ -827,16 +946,17 @@ const DriverManagementScreen = () => {
         <TouchableOpacity
           style={[
             styles.addButton,
-            (!driverValidation?.canAdd) && styles.addButtonDisabled
+            (!driverValidation?.canAdd && drivers.length >= 3) && styles.addButtonDisabled
           ]}
           onPress={() => {
-            if (driverValidation?.canAdd) {
+            // Allow adding drivers if under trial limit (3) or if validation allows
+            if (drivers.length < 3 || (driverValidation?.canAdd)) {
               setRecruitModal(true);
             } else {
               // Show upgrade prompt
               Alert.alert(
                 'Driver Limit Reached',
-                driverValidation?.reason || 'You have reached your driver limit.',
+                driverValidation?.reason || 'You have reached your driver limit. Upgrade to add more drivers.',
                 [
                   { text: 'Cancel', style: 'cancel' },
                   { 
@@ -851,7 +971,7 @@ const DriverManagementScreen = () => {
           <MaterialCommunityIcons 
             name="plus" 
             size={24} 
-            color={driverValidation?.canAdd ? colors.white : colors.text.secondary} 
+            color={(drivers.length < 3 || driverValidation?.canAdd) ? colors.white : colors.text.secondary} 
           />
         </TouchableOpacity>
       </View>
@@ -861,18 +981,26 @@ const DriverManagementScreen = () => {
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{drivers.length}</Text>
             <Text style={styles.statLabel}>Total Drivers</Text>
-            {subscriptionStatus && driverValidation && (
+            {subscriptionStatus && driverValidation ? (
               <Text style={styles.statSubtext}>
                 {driverValidation.currentCount} / {driverValidation.limit === -1 ? 'Unlimited' : driverValidation.limit}
+              </Text>
+            ) : (
+              <Text style={styles.statSubtext}>
+                {drivers.length} / 3 (Trial)
               </Text>
             )}
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>{vehicleCount}</Text>
             <Text style={styles.statLabel}>Total Vehicles</Text>
-            {subscriptionStatus && vehicleValidation && (
+            {subscriptionStatus && vehicleValidation ? (
               <Text style={styles.statSubtext}>
                 {vehicleValidation.currentCount} / {vehicleValidation.limit === -1 ? 'Unlimited' : vehicleValidation.limit}
+              </Text>
+            ) : (
+              <Text style={styles.statSubtext}>
+                {vehicleCount} / 3 (Trial)
               </Text>
             )}
           </View>
@@ -909,16 +1037,17 @@ const DriverManagementScreen = () => {
             <TouchableOpacity
               style={[
                 styles.addFirstButton,
-                (!driverValidation?.canAdd) && styles.addFirstButtonDisabled
+                (drivers.length >= 3 && !driverValidation?.canAdd) && styles.addFirstButtonDisabled
               ]}
               onPress={() => {
-                if (driverValidation?.canAdd) {
+                // Allow adding first driver under trial limit
+                if (drivers.length < 3 || driverValidation?.canAdd) {
                   setRecruitModal(true);
                 } else {
                   // Show upgrade prompt
                   Alert.alert(
                     'Driver Limit Reached',
-                    driverValidation?.reason || 'You have reached your driver limit.',
+                    driverValidation?.reason || 'You have reached your driver limit. Upgrade to add more drivers.',
                     [
                       { text: 'Cancel', style: 'cancel' },
                       { 
@@ -933,11 +1062,11 @@ const DriverManagementScreen = () => {
               <MaterialCommunityIcons 
                 name="plus" 
                 size={20} 
-                color={driverValidation?.canAdd ? colors.white : colors.text.secondary} 
+                color={(drivers.length < 3 || driverValidation?.canAdd) ? colors.white : colors.text.secondary} 
               />
               <Text style={[
                 styles.addFirstText,
-                (!driverValidation?.canAdd) && styles.addFirstTextDisabled
+                (drivers.length >= 3 && !driverValidation?.canAdd) && styles.addFirstTextDisabled
               ]}>
                 Recruit First Driver
               </Text>

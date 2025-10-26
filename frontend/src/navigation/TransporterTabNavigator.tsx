@@ -168,7 +168,7 @@ const ProfileStack = ({ transporterType }) => (
 const TransporterTabNavigator = () => {
   const insets = useSafeAreaInsets();
   const route = useRoute();
-  const [transporterType, setTransporterType] = React.useState(route?.params?.transporterType || 'individual');
+  const [transporterType, setTransporterType] = React.useState(route?.params?.transporterType || 'company');
   const [loading, setLoading] = React.useState(true);
   const isCompany = transporterType === 'company';
 

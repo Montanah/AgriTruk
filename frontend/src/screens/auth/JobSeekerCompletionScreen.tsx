@@ -34,6 +34,9 @@ interface JobSeekerCompletionScreenProps {
     params?: {
       correctionMode?: boolean;
       approvedDocuments?: any;
+      userId?: string;
+      phone?: string;
+      role?: string;
     };
   };
 }
@@ -46,9 +49,25 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
   const [careerStartDate, setCareerStartDate] = useState<Date | null>(null);
   const [gender, setGender] = useState<string>('');
+  const [religion, setReligion] = useState<string>('');
   const [selectedVehicleClasses, setSelectedVehicleClasses] = useState<string[]>([]);
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([]);
   const [assignmentDescription, setAssignmentDescription] = useState('');
+
+  // Religion options
+  const religionOptions = [
+    'Christianity',
+    'Islam',
+    'Hinduism',
+    'Buddhism',
+    'Judaism',
+    'Sikhism',
+    'Jainism',
+    'Baháʼí Faith',
+    'Traditional African Religions',
+    'Other',
+    'Prefer not to say'
+  ];
   
   // Address fields
   const [address, setAddress] = useState({
@@ -689,6 +708,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     if (!dateOfBirth) { setError('Please select your date of birth.'); return false; }
     if (!careerStartDate) { setError('Please select your career start date.'); return false; }
     if (!gender) { setError('Please select your gender.'); return false; }
+    if (!religion) { setError('Please select your religion.'); return false; }
     if (!address.street || !address.city || !address.county) { setError('Please fill in your address information.'); return false; }
     if (selectedVehicleClasses.length === 0) { setError('Please select at least one vehicle class.'); return false; }
     if (selectedSpecializations.length === 0) { setError('Please select at least one specialization.'); return false; }
@@ -726,6 +746,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
       formData.append('name', user.displayName || ''); // Add name field
       formData.append('dateOfBirth', dateOfBirth!.toISOString());
       formData.append('gender', gender);
+      formData.append('religion', religion);
       
       // Add address as JSON string (required by backend)
       const addressData = {
@@ -1064,6 +1085,30 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
                   gender === option && styles.genderOptionTextSelected
                 ]}>
                   {option.charAt(0).toUpperCase() + option.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Religion Selection */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Religion</Text>
+          </View>
+          <View style={styles.religionContainer}>
+            {religionOptions.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.religionOption,
+                  religion === option && styles.religionOptionSelected
+                ]}
+                onPress={() => setReligion(option)}
+              >
+                <Text style={[
+                  styles.religionOptionText,
+                  religion === option && styles.religionOptionTextSelected
+                ]}>
+                  {option}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -1435,17 +1480,21 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
 
           {/* Assignment Description */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Previous/Current Assignment (Optional)</Text>
+            <Text style={styles.sectionTitle}>Profile Summary (100 characters max)</Text>
           </View>
           <TextInput
             style={styles.textArea}
-            placeholder="Describe your previous or current driving assignments..."
+            placeholder="Brief summary of your driving experience and skills..."
             value={assignmentDescription}
             onChangeText={setAssignmentDescription}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
+            maxLength={100}
           />
+          <Text style={styles.characterCount}>
+            {assignmentDescription.length}/100 characters
+          </Text>
         </View>
         )}
       </ScrollView>
@@ -2435,6 +2484,42 @@ const styles = StyleSheet.create({
   },
   genderOptionTextSelected: {
     color: colors.white,
+  },
+  religionContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+  },
+  religionOption: {
+    width: '48%',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.border.light,
+    backgroundColor: colors.background.light,
+    alignItems: 'center',
+  },
+  religionOptionSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  religionOptionText: {
+    fontSize: fonts.size.sm,
+    fontWeight: '500',
+    color: colors.text.primary,
+    textAlign: 'center',
+  },
+  religionOptionTextSelected: {
+    color: colors.white,
+  },
+  characterCount: {
+    fontSize: fonts.size.xs,
+    color: colors.text.light,
+    textAlign: 'right',
+    marginTop: spacing.xs,
   },
 });
 

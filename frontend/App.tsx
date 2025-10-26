@@ -163,7 +163,7 @@ const checkTransporterProfileComplete = (transporterData: any) => {
     'status'
   ];
 
-  const transporterType = transporterData.transporterType || 'individual';
+  const transporterType = transporterData.transporterType || 'company';
   const requiredFields = transporterType === 'company' ? companyRequiredFields : individualRequiredFields;
 
   // Check if all required fields are present and not empty
@@ -353,46 +353,38 @@ export default function App() {
                     const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
                     setSubscriptionStatus(subStatus);
                   } else {
-                    // No company found, check for individual transporter
-                    const transporterSnap = await getDoc(firestoreDoc(db, 'transporters', firebaseUser.uid));
-                    const transporterData = transporterSnap.exists() ? transporterSnap.data() : null;
-                    
-                    if (transporterData) {
-                      const isProfileComplete = checkTransporterProfileComplete(transporterData);
-                      setProfileCompleted(isProfileComplete);
-                      data.transporterStatus = transporterData.status || 'pending';
-                      data.transporterType = 'individual';
-                      
-                      // Check subscription status for individual transporter
-                      const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
-                      setSubscriptionStatus(subStatus);
-                    } else {
-                      // No profile found
-                      setProfileCompleted(false);
-                      data.transporterStatus = 'incomplete';
-                      data.transporterType = 'individual'; // Default to individual
-                    }
-                  }
-                } else {
-                  // Company API failed, check for individual transporter
-                  const transporterSnap = await getDoc(firestoreDoc(db, 'transporters', firebaseUser.uid));
-                  const transporterData = transporterSnap.exists() ? transporterSnap.data() : null;
-                  
-                  if (transporterData) {
-                    const isProfileComplete = checkTransporterProfileComplete(transporterData);
-                    setProfileCompleted(isProfileComplete);
-                    data.transporterStatus = transporterData.status || 'pending';
-                    data.transporterType = 'individual';
-                    
-                    // Check subscription status for individual transporter
-                    const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
-                    setSubscriptionStatus(subStatus);
-                  } else {
-                    // No profile found
+                    // No company found - this is a new transporter
                     setProfileCompleted(false);
                     data.transporterStatus = 'incomplete';
-                    data.transporterType = 'individual'; // Default to individual
+                    data.transporterType = 'company';
+                    
+                    // Set default subscription status for new company transporters
+                    setSubscriptionStatus({
+                      hasActiveSubscription: false,
+                      isTrialActive: false,
+                      needsTrialActivation: true,
+                      currentPlan: null,
+                      daysRemaining: 0,
+                      subscriptionStatus: 'none',
+                      transporterType: 'company'
+                    });
                   }
+                } else {
+                  // Company API failed - treat as new transporter
+                  setProfileCompleted(false);
+                  data.transporterStatus = 'incomplete';
+                  data.transporterType = 'company';
+                  
+                  // Set default subscription status for new company transporters
+                  setSubscriptionStatus({
+                    hasActiveSubscription: false,
+                    isTrialActive: false,
+                    needsTrialActivation: true,
+                    currentPlan: null,
+                    daysRemaining: 0,
+                    subscriptionStatus: 'none',
+                    transporterType: 'company'
+                  });
                 }
               } catch (e) {
                 setProfileCompleted(false);
@@ -841,7 +833,7 @@ export default function App() {
       console.log('App.tsx: Verified transporter detected - checking profile, approval, and subscription status');
       
       const transporterStatus = userData?.transporterStatus || 'incomplete';
-      const transporterType = userData?.transporterType || 'individual';
+      const transporterType = userData?.transporterType || 'company';
       console.log('App.tsx: Transporter status:', transporterStatus, 'Type:', transporterType);
       
       if (!profileCompleted) {
@@ -1280,7 +1272,7 @@ export default function App() {
           <Stack.Screen 
             name="TransporterProcessingScreen" 
             component={TransporterProcessingScreen}
-            initialParams={{ transporterType: userData?.transporterType || 'individual' }}
+            initialParams={{ transporterType: userData?.transporterType || 'company' }}
           />
           <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
           <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
