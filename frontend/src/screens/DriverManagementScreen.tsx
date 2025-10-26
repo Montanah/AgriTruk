@@ -68,6 +68,8 @@ const DriverManagementScreen = () => {
   const [recruitName, setRecruitName] = useState('');
   const [recruitEmail, setRecruitEmail] = useState('');
   const [recruitPhone, setRecruitPhone] = useState('');
+  const [recruitLicenseNumber, setRecruitLicenseNumber] = useState('');
+  const [recruitIdNumber, setRecruitIdNumber] = useState('');
   const [recruitPhoto, setRecruitPhoto] = useState<any>(null);
   const [recruitIdDoc, setRecruitIdDoc] = useState<any>(null);
   const [recruitLicense, setRecruitLicense] = useState<any>(null);
@@ -612,8 +614,14 @@ const DriverManagementScreen = () => {
       formData.append('lastName', lastName);
       formData.append('email', recruitEmail.trim());
       formData.append('phone', recruitPhone.trim());
-      formData.append('driverLicenseNumber', 'DL-' + Date.now()); // Temporary license number
-      formData.append('idNumber', 'ID-' + Date.now()); // Temporary ID number
+      formData.append('driverLicenseNumber', recruitLicenseNumber.trim() || 'DL-' + Date.now()); // Use provided or generate temporary
+      formData.append('idNumber', recruitIdNumber.trim() || 'ID-' + Date.now()); // Use provided or generate temporary
+      
+      // Set expiry dates to 1 year from now (proper default)
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      formData.append('driverLicenseExpiryDate', oneYearFromNow.toISOString());
+      formData.append('idExpiryDate', oneYearFromNow.toISOString());
       
       // Add files
       if (recruitPhoto) {
@@ -710,6 +718,8 @@ const DriverManagementScreen = () => {
     setRecruitName('');
     setRecruitEmail('');
     setRecruitPhone('');
+    setRecruitLicenseNumber('');
+    setRecruitIdNumber('');
     setRecruitPhoto(null);
     setRecruitIdDoc(null);
     setRecruitLicense(null);
@@ -1147,6 +1157,20 @@ const DriverManagementScreen = () => {
                 value={recruitPhone}
                 onChangeText={setRecruitPhone}
                 keyboardType="phone-pad"
+              />
+              
+              {/* License and ID Number Fields */}
+              <TextInput
+                style={styles.input}
+                placeholder="Driver License Number"
+                value={recruitLicenseNumber}
+                onChangeText={setRecruitLicenseNumber}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="ID Number"
+                value={recruitIdNumber}
+                onChangeText={setRecruitIdNumber}
               />
 
               {/* ID Document */}
