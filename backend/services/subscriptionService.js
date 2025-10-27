@@ -157,7 +157,7 @@ const SubscriptionService = {
       }
 
       const plan = await SubscriptionPlans.getSubscriptionPlan(subscription.planId);
-      const maxVehicles = plan.features.maxVehicles;
+      const maxVehicles = plan.maxVehicles;
 
       if (SubscriptionPlans.isUnlimited(maxVehicles)) {
         return { allowed: true };

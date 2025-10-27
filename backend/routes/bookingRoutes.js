@@ -6,6 +6,7 @@ const { requireRole } = require('../middlewares/requireRole');
 const { authorize } = require('../middlewares/adminAuth');
 const bookingController = require('../controllers/bookingController');
 const driverController = require('../controllers/driverController');
+const validateBookingAccess = require('../middlewares/validateBookingAccess');
 
 /**
  * @swagger
@@ -208,7 +209,7 @@ const driverController = require('../controllers/driverController');
 router.get('/requests', (req, res, next) => {
   console.log('🚨 BOOKING ROUTES /requests HIT - URL:', req.originalUrl, 'User:', req.user?.uid);
   next();
-}, authenticateToken, requireRole(['transporter', 'business']), bookingController.getAllAvailableBookings);
+}, authenticateToken, requireRole(['transporter', 'business', 'driver']), validateBookingAccess, bookingController.getAllAvailableBookings);
 
 /**
  * @swagger

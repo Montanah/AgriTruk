@@ -726,6 +726,7 @@ const jobSeekerController = {
 
   async getApprovedJobSeekers(req, res) {
     try {
+      console.log('Fetching approved job seekers...');
       const jobSeekers = await JobSeeker.getApprovedJobSeekers();
       
       res.status(200).json({ 
