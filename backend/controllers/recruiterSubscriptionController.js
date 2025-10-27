@@ -2,6 +2,8 @@ const RecruiterSubscriptionService = require('../services/RecruiterSubscriptionS
 const RecruiterPlans = require('../models/RecruiterPlans');
 const RecruiterSubscribers = require('../models/RecruiterSubscribers');
 const User = require('../models/User');
+const JobSeeker = require('../models/JobSeeker');
+const {formatTimestamps } = require('../utils/formatData');
 
 const RecruiterSubscriptionController = {
 
@@ -404,6 +406,73 @@ const RecruiterSubscriptionController = {
       });
     }
   },
+
+  async getDriverDetails(req, res) {
+    try {
+      const { jobSeekerId } = req.params;
+      const userId = req.user.uid;
+      const userRole = req.user.role;
+
+      const jobSeeker = await JobSeeker.get(jobSeekerId);
+      if (!jobSeeker) {
+        return res.status(404).json({
+          success: false,
+          message: 'Job seeker not found',
+          code: 'JOB_SEEKER_NOT_FOUND'
+      });
+    }
+    // Skip contact limit for admins
+    if (userRole !== 'admin') {
+      // Check if user can contact this driver
+      const canContact = await RecruiterSubscriptionService.canContactDriver(userId);
+      if (!canContact.allowed) {
+        return res.status(403).json({
+          success: false,
+          message: canContact.reason,
+          code: 'DRIVER_CONTACT_LIMIT_REACHED',
+          limit: canContact.maxAllowed,
+          used: canContact.currentCount,
+          remaining: 0
+        });
+      }
+
+      // Record contact usage
+      await RecruiterSubscriptionService.incrementUsage(userId, 'driverContacts');
+
+      // Refresh subscription data to update contactsRemaining
+      const updatedCanContact = await RecruiterSubscriptionService.canContactDriver(userId);
+      req.subscription.contactsRemaining = updatedCanContact.remaining || 'unlimited';
+    }
+
+    // Fetch signed document URLs
+    const documents = await JobSeeker.getDocumentUrls(jobSeekerId);
+
+    // Combine job seeker details and documents
+    const driverDetails = {
+      ...formatTimestamps([jobSeeker])[0], // Format timestamps for consistency
+      documents
+    };
+
+    res.status(200).json({
+      success: true,
+      driver: driverDetails,
+      subscription: req.subscription
+        ? {
+            contactsRemaining: req.subscription.contactsRemaining,
+            daysRemaining: req.subscription.daysRemaining,
+            plan: req.subscription.plan?.name
+          }
+        : null
+    });
+  } catch (error) {
+    console.error('Error fetching driver details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+}
 };
 
 module.exports = RecruiterSubscriptionController;
