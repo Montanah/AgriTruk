@@ -29,6 +29,7 @@ router.delete('/:id', authenticateToken, requireRole('transporter'), deleteDrive
 // Driver status management
 router.patch('/:id/approve', authenticateToken, requireRole('transporter'), approveDriver);
 router.patch('/:id/reject', authenticateToken, requireRole('transporter'), rejectDriver);
+// Activate driver - expects body with { emailType, companyEmail, sendCredentials }
 router.patch('/:id/activate', authenticateToken, requireRole('transporter'), activateDriver);
 router.patch('/:id/deactivate', authenticateToken, requireRole('transporter'), deactivateDriver);
 

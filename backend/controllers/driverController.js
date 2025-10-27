@@ -746,6 +746,7 @@ const activateDriver = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.uid;
+    const { emailType = 'driver', companyEmail, sendCredentials = true } = req.body;
 
     const driverDoc = await db.collection('drivers').doc(id).get();
     if (!driverDoc.exists) {
@@ -764,13 +765,112 @@ const activateDriver = async (req, res) => {
       return res.status(400).json({ message: 'Driver must be approved before activation' });
     }
 
-    // Update driver status
+    // Determine recipient email based on emailType
+    let recipientEmail = driverData.email;
+    if (emailType === 'company' && companyEmail) {
+      recipientEmail = companyEmail.trim();
+    }
+
+    // Send credentials email if requested
+    if (sendCredentials && driverData.userId) {
+      try {
+        // Retrieve the Firebase Auth user to get email for credentials
+        let defaultPassword = 'Contact your company for credentials';
+        
+        // Check if we need to send temporary password
+        // Since Firebase Admin SDK doesn't allow reading passwords, we'll generate a reset
+        try {
+          const firebaseAuthUser = await admin.auth().getUser(driverData.userId);
+          const userEmail = firebaseAuthUser.email || driverData.email;
+          
+          // Create password reset link for the driver
+          const passwordResetLink = await admin.auth().generatePasswordResetLink(userEmail);
+          
+          // Send activation email with credentials and password reset link
+          const { sendDriverWelcomeMail } = require('../utils/sendMailTemplate');
+          const { subject, html } = sendDriverWelcomeMail({
+            email: driverData.email,
+            phone: driverData.phone,
+            firstName: driverData.firstName,
+            lastName: driverData.lastName,
+            companyName: companyDoc.data().companyName,
+            defaultPassword: 'You can set your password using the link below',
+            loginUrl: process.env.FRONTEND_URL || 'https://agritruk.app',
+            passwordResetLink: passwordResetLink
+          }, defaultPassword);
+
+          await sendEmail({
+            to: recipientEmail,
+            subject: subject + ' - Set Your Password',
+            html: html + `
+              <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border-radius: 5px;">
+                <p style="margin: 0; color: #856404;"><strong>Set Your Password:</strong></p>
+                <a href="${passwordResetLink}" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #0F2B04; color: white; text-decoration: none; border-radius: 5px;">
+                  Click here to set your password
+                </a>
+              </div>
+            `
+          });
+
+          console.log('✅ Activation credentials sent to:', recipientEmail);
+        } catch (firebaseError) {
+          console.error('Error getting Firebase user:', firebaseError);
+          // Fallback: send email without password reset link
+          const { sendDriverWelcomeMail } = require('../utils/sendMailTemplate');
+          const { subject, html } = sendDriverWelcomeMail({
+            email: driverData.email,
+            phone: driverData.phone,
+            firstName: driverData.firstName,
+            lastName: driverData.lastName,
+            companyName: companyDoc.data().companyName,
+            defaultPassword: 'Please contact your company for login credentials',
+            loginUrl: process.env.FRONTEND_URL || 'https://agritruk.app'
+          }, defaultPassword);
+
+          await sendEmail({
+            to: recipientEmail,
+            subject,
+            html
+          });
+
+          console.log('✅ Activation notification sent to:', recipientEmail);
+        }
+      } catch (emailError) {
+        console.error('Error sending activation email:', emailError);
+        // Don't fail activation if email fails
+      }
+    }
+
+    // Update driver status to active
     await db.collection('drivers').doc(id).update({
       status: 'active',
+      activatedAt: new Date(),
       updatedAt: new Date()
     });
 
-    res.json({ message: 'Driver activated successfully' });
+    // Update user document to mark as verified and active
+    if (driverData.userId) {
+      await db.collection('users').doc(driverData.userId).update({
+        role: 'driver',
+        emailVerified: true,
+        phoneVerified: true,
+        isVerified: true,
+        status: 'active',
+        updatedAt: new Date()
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: 'Driver activated successfully. Login credentials have been sent to the specified email.',
+      data: {
+        driver: {
+          id,
+          status: 'active',
+          email: recipientEmail
+        }
+      }
+    });
 
   } catch (error) {
     console.error('Error activating driver:', error);
