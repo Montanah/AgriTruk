@@ -48,32 +48,32 @@ const subscriptionAccess = async (req, res, next) => {
     }
 
     // Check driver contact limits
-    const canContact = await RecruiterSubscriptionService.canContactDriver(userId);
+    // const canContact = await RecruiterSubscriptionService.canContactDriver(userId);
     
-    if (!canContact.allowed) {
-      return res.status(403).json({
-        success: false,
-        message: canContact.reason,
-        code: 'DRIVER_CONTACT_LIMIT_REACHED',
-        limit: canContact.maxAllowed,
-        used: canContact.currentCount,
-        remaining: 0,
-        subscription: {
-          plan: plan.name,
-          daysRemaining: daysRemaining
-        }
-      });
-    }
+    // if (!canContact.allowed) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: canContact.reason,
+    //     code: 'DRIVER_CONTACT_LIMIT_REACHED',
+    //     limit: canContact.maxAllowed,
+    //     used: canContact.currentCount,
+    //     remaining: 0,
+    //     subscription: {
+    //       plan: plan.name,
+    //       daysRemaining: daysRemaining
+    //     }
+    //   });
+    // }
 
     // Attach subscription info to request for use in controller
     req.subscription = {
       plan: plan,
       userSubscription: subscription,
       usage: usage,
-      contactsUsed: usage.driverContacts.current,
-      contactsRemaining: canContact.remaining || 'unlimited',
+      // contactsUsed: usage.driverContacts.current,
+      // contactsRemaining: canContact.remaining || 'unlimited',
       daysRemaining: daysRemaining,
-      canContactDrivers: canContact.allowed
+      // canContactDrivers: canContact.allowed
     };
 
     next();
