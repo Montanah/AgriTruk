@@ -797,7 +797,7 @@ exports.reviewCompany = async (req, res) => {
       }
       updates = {
         driverLicenseExpiryDate,
-        driverLicenseapproved: true,
+        driverLicenseApproved: true,
         status: 'approved',
         updatedAt: admin.firestore.Timestamp.now(),
       };
@@ -830,7 +830,7 @@ exports.reviewCompany = async (req, res) => {
       }
       updates = {
         insuranceExpiryDate: admin.firestore.Timestamp.fromDate(new Date(insuranceExpiryDate)),
-        insuranceapproved: true,
+        insuranceApproved: true,
         status: 'approved',
         updatedAt: admin.firestore.Timestamp.now(),
       };
@@ -860,12 +860,12 @@ exports.reviewCompany = async (req, res) => {
       if (idExpiryDate) {
         updates = {
           idExpiryDate,
-          idapproved: true
+          idApproved: true
         };
         await Driver.update(driverId, updates);
       }
       updates = {
-        idapproved: true,
+        idApproved: true,
         updatedAt: admin.firestore.Timestamp.now(),
       };
       await Driver.update(driverId, updates);
@@ -895,7 +895,7 @@ exports.reviewCompany = async (req, res) => {
         return res.status(400).json({ message: 'goodConductCertExpiryDate is required' });
       }
       updates = {
-        goodConductapproved: true,
+        goodConductApproved: true,
         goodConductCertExpiryDate,
         updatedAt: admin.firestore.Timestamp.now(),
       };

@@ -26,6 +26,8 @@ const adminController = require("../controllers/adminController");
 const jobSeekerController = require('../controllers/jobSeekerController');
 const vehicleController = require('../controllers/vehicleController');
 const driverController = require('../controllers/driverController');
+const { requireActiveSubscription, validateDriverAddition, validateVehicleAddition } = require('../middlewares/subscriptionMiddleware');
+const { canAddDriver } = require('../services/subscriptionService');
 
 /**
  * @swagger
@@ -322,7 +324,11 @@ router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'
   });
   console.log('🚗 ===== END ROUTE DEBUG =====');
   next();
-}, authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
+}, authenticateToken,
+ requireRole('transporter'), 
+ requireActiveSubscription,
+ validateVehicleAddition,
+ uploadAny, require('../controllers/vehicleController').createVehicle);
 
 /**
  * @swagger
@@ -492,6 +498,8 @@ router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'
 router.post(
   '/:companyId/drivers',
   authenticateToken,
+  requireActiveSubscription,
+  validateDriverAddition,
   requireRole('transporter'),
   uploadAny,
   require('../controllers/driverController').createDriver
