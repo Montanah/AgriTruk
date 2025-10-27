@@ -6,7 +6,8 @@ const { authenticateToken } = require("../middlewares/authMiddleware");
 const { requireRole } = require('../middlewares/requireRole');
 const { authorize } = require('../middlewares/adminAuth');
 const { 
-  subscriptionAccess, 
+  subscriptionAccess,
+  recruiterAccess, 
 } = require('../middlewares/subscriptionAccess');
 const jobSeekerController = require('../controllers/jobSeekerController');
 
@@ -191,6 +192,28 @@ router.post('/resend-verification', RecruiterAuthController.resendVerificationCo
  *         description: Internal server error
  */
 router.get('/plans', RecruiterSubscriptionController.getPlans);
+
+/**
+ * @swagger
+ * /api/recruiter/drivers/approved:
+ *   get:
+ *     summary: Get approved job seekers
+ *     tags: [Recruiter]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of approved job seekers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/JobSeeker'
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/drivers/approved', authenticateToken, requireRole(['recruiter', 'admin']), recruiterAccess,  jobSeekerController.getApprovedJobSeekersPreview);
 
 /**
  * @route   GET /api/recruiter/plans/:planId
@@ -607,26 +630,34 @@ router.delete(
   RecruiterSubscriptionController.deletePlan
 )
 
+
 /**
  * @swagger
- * /api/recruiter/drivers/approved:
+ * /api/recruiter/{jobSeekerId}/details:
  *   get:
- *     summary: Get approved job seekers
+ *     summary: Get driver details
  *     tags: [Recruiter]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobSeekerId
+ *         required: true
+ *         description: ID of the job seeker
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
- *         description: List of approved job seekers
+ *         description: Driver details retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/JobSeeker'
+ *               $ref: '#/components/schemas/JobSeeker'
+ *       400:
+ *         description: Invalid input
  *       500:
  *         description: Internal server error
  */
-router.get('/drivers/approved', authenticateToken, requireRole(['recruiter', 'admin']), subscriptionAccess, jobSeekerController.getApprovedDrivers);
+router.get('/:jobSeekerId/details', authenticateToken, requireRole(['recruiter', 'admin']), subscriptionAccess, RecruiterSubscriptionController.getDriverDetails);
 
 module.exports = router;

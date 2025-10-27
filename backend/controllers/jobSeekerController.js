@@ -915,6 +915,61 @@ async getJobSeekerDocuments (req, res) {
   }
 },
 
+async getApprovedJobSeekersPreview(req, res) {
+  try {
+    // Fetch all approved job seekers
+    const approvedJobSeekers = await JobSeeker.getPreview();
+    if (!approvedJobSeekers || approvedJobSeekers.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No approved job seekers found',
+        code: 'NO_APPROVED_JOB_SEEKERS',
+      });
+    }
+
+    // Apply subscription limits if not admin
+    let limitedJobSeekers = approvedJobSeekers;
+    if (req.subscription && !req.subscription.unrestricted && req.subscription.visibleDrivers) {
+      limitedJobSeekers = approvedJobSeekers.slice(0, req.subscription.visibleDrivers);
+    }
+
+    // Format timestamps and add detailsLink
+    const formattedJobSeekers = formatTimestamps(limitedJobSeekers).map((jobSeeker) => ({
+      jobSeekerId: jobSeeker.jobSeekerId,
+      userId: jobSeeker.userId,
+      firstName: jobSeeker.firstName,
+      dateOfBirth: jobSeeker.dateOfBirth,
+      gender: jobSeeker.gender,
+      age: jobSeeker.age,
+      address: jobSeeker.address,
+      religion: jobSeeker.religion,
+      profilePhoto: jobSeeker.profilePhoto,
+      experience: jobSeeker.experience,
+      detailsLink: `/api/recruiter/${jobSeeker.jobSeekerId}/details`,
+    }));
+
+    res.status(200).json({
+      success: true,
+      jobSeekers: formattedJobSeekers,
+      subscription: req.subscription
+        ? {
+            plan: req.subscription.plan?.name,
+            contactsRemaining: req.subscription.contactsRemaining,
+            daysRemaining: req.subscription.daysRemaining,
+            visibleDrivers: req.subscription.visibleDrivers,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error('Error fetching approved job seekers preview:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      code: 'INTERNAL_ERROR',
+    });
+  }
+}
+
 };
 
 module.exports = jobSeekerController;

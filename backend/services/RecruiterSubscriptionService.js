@@ -230,6 +230,9 @@ const RecruiterSubscriptionService = {
 
       const currentPlan = await RecruiterPlans.get(currentSubscription.planId);
       const newPlan = await RecruiterPlans.get(newPlanId);
+      if (!currentPlan || !newPlan) {
+        throw new Error('Invalid plan ID');
+      }
      
       // Calculate prorated amount
       const daysRemaining = this.calculateDaysRemaining(currentSubscription.endDate);
@@ -251,6 +254,13 @@ const RecruiterSubscriptionService = {
         throw new Error('Failed to create payment for prorated amount');
       }
 
+      // Calculate new endDate based on new plan's duration
+      const newStartDate = new Date(); // Start from today
+      const newEndDate = new Date(newStartDate);
+      const durationMs = newPlan.duration * 24 * 60 * 60 * 1000; // duration in days to ms
+      newEndDate.setTime(newStartDate.getTime() + durationMs);
+      // newEndDate.setDate(newStartDate.getDate() + newPlan.duration); // Extend by new plan's duration
+
       // Update subscription
       const updatedSubscription = await RecruiterSubscribers.update(currentSubscription.subscriberId, {
         previousPlanId: currentSubscription.planId,
@@ -260,6 +270,7 @@ const RecruiterSubscriptionService = {
         proratedAmount,
         paymentStatus: payment.status,
         transactionId: payment.paymentId,
+        endDate: newEndDate.toISOString(),
       });
 
       return {
@@ -307,10 +318,13 @@ const RecruiterSubscriptionService = {
    * Helper: Calculate days remaining
    */
   calculateDaysRemaining(endDate) {
-    const end = endDate.toDate ? endDate.toDate() : new Date(endDate);
+    // const end = endDate.toDate ? endDate.toDate() : new Date(endDate);
+    const end = endDate instanceof Date ? endDate : new Date(endDate);
     const now = new Date();
     const diff = end - now;
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    if (diff <= 0) return 0;
+    return diff / (1000 * 60 * 60 * 24); // Return fractional days
+    // return Math.ceil(diff / (1000 * 60 * 60 * 24));
   },
 
   /**
