@@ -10,8 +10,8 @@ const User = {
     const user = {
       uid: userData.uid,
       name: userData.name,
-      email: userData.email,
-      phone: userData.phone,
+      email: userData.email || null,
+      phone: userData.phone || null,
       role: userData.role || 'shipper',
       profilePhotoUrl: userData.profilePhotoUrl || null,
       languagePreference: userData.languagePreference || 'en',
