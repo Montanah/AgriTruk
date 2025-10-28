@@ -222,34 +222,6 @@ const jobSeekerController = {
     }
   },
 
-  // PATCH /api/job-seekers/{jobSeekerId}/upload - Upload documents (multipart/form-data)
-  // async uploadDocuments(req, res) {
-  //   try {
-  //     const userId = req.user.uid;
-  //     const jobseeker = await JobSeeker.getByUserId(userId);
-  //     if (!jobseeker) {
-  //       return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
-  //     }
-  //     const jobSeekerId  = jobseeker.id;
-  //     if (!req.files || Object.keys(req.files).length === 0) {
-  //       return res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "No files uploaded" } });
-  //     }
-  //     const uploadedFiles = await JobSeeker.uploadDocuments(jobSeekerId, req.files);
-  //     res.status(200).json({
-  //       success: true,
-  //       uploadedFiles
-  //     });
-  //   } catch (error) {
-  //     console.error("Error uploading documents:", error);
-  //     res.status(400).json({
-  //       success: false,
-  //       error: {
-  //         code: "BAD_REQUEST",
-  //         message: error.message
-  //       }
-  //     });
-  //   }
-  // },
   async uploadDocuments(req, res) {
     try {
       const userId = req.user.uid;
