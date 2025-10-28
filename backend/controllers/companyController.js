@@ -112,7 +112,7 @@ exports.createCompany = async (req, res) => {
     await sendEmail({
         to: "support@trukafrica.com",
         subject: 'New Company Needs Review',
-        html: adminNotification('Company Needs Review', `A new company needs review. Company ID: ${company.id}`),
+        html: adminNotification('Company Needs Review', `A new company needs review. Company Name: ${company.companyName}`),
       });
 
     res.status(201).json({ 

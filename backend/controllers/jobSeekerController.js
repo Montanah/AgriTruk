@@ -110,6 +110,13 @@ const jobSeekerController = {
 
       await logActivity(uid, "Job Seeker Application", "Submitted");
 
+      await sendEmail({
+        to: "support@trukafrica.com",
+        subject: 'New Job Seeker Needs Review',
+        html: adminNotification('Job Seeker Needs Review', `A new job seeker needs review. Job Seeker Id: ${jobSeeker.id} Name: ${jobSeeker.name}`),
+      });
+
+
       await Action.create({
         type: 'jobSeekerApplication',
         entityId: jobSeeker.id,
@@ -624,7 +631,7 @@ const jobSeekerController = {
         await JobSeeker.update(jobSeekerId, updates);
 
         // Check if all critical documents are approved
-        const allApproved = ['idDoc', 'drivingLicense', 'goodConductCert', 'goodsServiceLicense'].every(
+        const allApproved = ['idDoc', 'drivingLicense', 'goodConductCert'].every(
           doc => updates.documents[doc]?.status === 'approved'
         );
         if (allApproved) {
