@@ -626,7 +626,7 @@ router.get('/:jobSeekerId/documents', authenticateToken, requireRole(['job_seeke
  *       500:
  *         description: Internal server error
  */
-router.patch('/:jobSeekerId/status', authenticateToken, requireRole('admin'), authorize(['manage-job-seekers', 'super_admin']), jobSeekerController.updateApplicationStatus);
+router.patch('/:jobSeekerId/status', authenticateToken, requireRole(['job_seeker', 'transporter', 'admin']), requireRole('admin'), authorize(['manage-job-seekers', 'super_admin']), jobSeekerController.updateStatus);
 
 /**
  * @swagger

@@ -13,6 +13,7 @@ const { formatTimestamps } = require('../utils/formatData');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const Notification = require('../models/Notification');
 const Company = require('../models/Company');
+const { updateStatus } = require('../models/Payment');
 const cloudinary = require('cloudinary').v2;
 const db = admin.firestore();
 
@@ -366,6 +367,27 @@ const jobSeekerController = {
       const { status, adminNotes } = req.body;
       const adminId = req.user.id; // Assuming auth middleware provides req.user
       const updatedJobSeeker = await JobSeeker.updateApplicationStatus(jobSeekerId, status, adminNotes, adminId);
+      res.status(200).json({
+        success: true,
+        application: updatedJobSeeker
+      });
+    } catch (error) {
+      console.error("Error updating status:", error);
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: error.message
+        }
+      });
+    }
+  },
+
+  async updateStatus(req, res) {
+    try {
+      const { jobSeekerId } = req.params;
+      const { status } = req.body;
+      const updatedJobSeeker = await JobSeeker.updateStatus(jobSeekerId, status);
       res.status(200).json({
         success: true,
         application: updatedJobSeeker
