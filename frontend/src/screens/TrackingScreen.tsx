@@ -655,7 +655,7 @@ const TrackingScreen = () => {
                 </View>
 
                 {/* Transporter/Driver Information */}
-                {(booking.transporterId || booking.transporter) && (
+                {(booking.transporterId || booking.transporter) ? (
                     <View style={styles.card}>
                         <View style={styles.cardHeader}>
                             <MaterialCommunityIcons name="account-tie" size={24} color={colors.tertiary} />
@@ -721,7 +721,8 @@ const TrackingScreen = () => {
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    ) : (
+                    </View>
+                ) : (
                         <View style={styles.noTransporterInfo}>
                             <MaterialCommunityIcons name="clock-outline" size={32} color={colors.text.light} />
                             <Text style={styles.noTransporterText}>Awaiting Transporter Assignment</Text>
@@ -729,8 +730,7 @@ const TrackingScreen = () => {
                                 A transporter will be assigned to your booking soon
                             </Text>
                         </View>
-                    )}
-                </View>
+                )}
 
                 {booking.transporterId && ['started', 'in_progress', 'in_transit', 'enroute', 'picked_up'].includes(booking.status?.toLowerCase()) && (
                     <TouchableOpacity
