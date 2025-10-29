@@ -1448,12 +1448,155 @@ exports.getAcceptedBookings = async (req, res) => {
       ['accepted', 'in_progress', 'started', 'picked-up'].includes(b.status)
     );
     
+    // Enrich bookings with customer details and vehicle info
+    const enrichedBookings = await Promise.all(acceptedBookings.map(async (booking) => {
+      const enriched = { ...booking };
+      
+      // Fetch customer details from users collection using userId
+      if (booking.userId) {
+        try {
+          const userDoc = await admin.firestore().collection('users').doc(booking.userId).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            enriched.client = {
+              id: userDoc.id,
+              name: userData.name || userData.displayName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown Customer',
+              email: userData.email || null,
+              phone: userData.phone || userData.phoneNumber || null,
+              rating: userData.rating || 0,
+              completedOrders: userData.completedOrders || 0
+            };
+            // Also add legacy fields for compatibility
+            enriched.customerName = enriched.client.name;
+            enriched.customerEmail = enriched.client.email;
+            enriched.customerPhone = enriched.client.phone;
+          }
+        } catch (userError) {
+          console.error('Error fetching customer details:', userError);
+          // Set default customer if fetch fails
+          enriched.client = {
+            name: 'Unknown Customer',
+            email: null,
+            phone: null
+          };
+        }
+      }
+      
+      // For drivers, get vehicle details from driver profile
+      if (userRole === 'driver' && transporterId) {
+        try {
+          const driverQuery = await admin.firestore().collection('drivers')
+            .where('userId', '==', transporterId)
+            .limit(1)
+            .get();
+          
+          if (!driverQuery.empty) {
+            const driverData = driverQuery.docs[0].data();
+            if (driverData.assignedVehicleId) {
+              // Try to get vehicle from main vehicles collection
+              const vehicleDoc = await admin.firestore().collection('vehicles')
+                .doc(driverData.assignedVehicleId)
+                .get();
+              
+              if (vehicleDoc.exists) {
+                const vehicleData = vehicleDoc.data();
+                enriched.vehicle = {
+                  id: vehicleDoc.id,
+                  make: vehicleData.make,
+                  model: vehicleData.model,
+                  year: vehicleData.year,
+                  registration: vehicleData.registration || vehicleData.vehicleRegistration,
+                  type: vehicleData.type || vehicleData.vehicleType,
+                  capacity: vehicleData.capacity || vehicleData.vehicleCapacity || vehicleData.capacityKg || 0,
+                  color: vehicleData.color || vehicleData.vehicleColor
+                };
+              } else if (driverData.companyId) {
+                // Try company vehicles subcollection
+                const companyVehicleDoc = await admin.firestore()
+                  .collection('companies')
+                  .doc(driverData.companyId)
+                  .collection('vehicles')
+                  .doc(driverData.assignedVehicleId)
+                  .get();
+                
+                if (companyVehicleDoc.exists) {
+                  const vehicleData = companyVehicleDoc.data();
+                  enriched.vehicle = {
+                    id: companyVehicleDoc.id,
+                    make: vehicleData.make || vehicleData.vehicleMake,
+                    model: vehicleData.model || vehicleData.vehicleModel,
+                    year: vehicleData.year || vehicleData.vehicleYear,
+                    registration: vehicleData.vehicleRegistration || vehicleData.reg || vehicleData.registration,
+                    type: vehicleData.vehicleType || vehicleData.type,
+                    capacity: vehicleData.vehicleCapacity || vehicleData.capacityKg || vehicleData.capacity || 0,
+                    color: vehicleData.vehicleColor || vehicleData.color
+                  };
+                }
+              }
+              
+              // Use assignedVehicleDetails as fallback
+              if (!enriched.vehicle && driverData.assignedVehicleDetails) {
+                enriched.vehicle = driverData.assignedVehicleDetails;
+              }
+            }
+          }
+        } catch (vehicleError) {
+          console.error('Error fetching vehicle details:', vehicleError);
+        }
+      }
+      
+      // Ensure readableId is included (use bookingId if readableId doesn't exist)
+      if (!enriched.readableId && enriched.bookingId) {
+        // Generate readableId from booking data if missing
+        const bookingDate = enriched.createdAt?.toDate ? enriched.createdAt.toDate() : new Date(enriched.createdAt);
+        enriched.readableId = generateReadableId(
+          enriched.bookingType || 'Agri',
+          enriched.bookingMode || 'booking',
+          enriched.consolidated || false
+        );
+      }
+      
+      // Ensure costBreakdown is included and properly formatted
+      if (enriched.costBreakdown) {
+        enriched.pricing = {
+          basePrice: enriched.costBreakdown.baseFare || 0,
+          distanceCost: enriched.costBreakdown.distanceCost || 0,
+          weightCost: enriched.costBreakdown.weightCost || 0,
+          urgencySurcharge: enriched.costBreakdown.urgencySurcharge || 0,
+          perishableSurcharge: enriched.costBreakdown.perishableSurcharge || 0,
+          refrigerationSurcharge: enriched.costBreakdown.refrigerationSurcharge || 0,
+          humiditySurcharge: enriched.costBreakdown.humiditySurcharge || 0,
+          insuranceFee: enriched.costBreakdown.insuranceFee || 0,
+          priorityFee: enriched.costBreakdown.priorityFee || 0,
+          waitTimeFee: enriched.costBreakdown.waitTimeFee || 0,
+          tollFee: enriched.costBreakdown.tollFee || 0,
+          nightSurcharge: enriched.costBreakdown.nightSurcharge || 0,
+          fuelSurcharge: enriched.costBreakdown.fuelSurcharge || 0,
+          subtotal: enriched.costBreakdown.subtotal || enriched.cost || 0,
+          total: enriched.costBreakdown.total || enriched.cost || 0
+        };
+      }
+      
+      // Ensure weight is displayed properly (use weightKg)
+      if (enriched.weightKg && !enriched.weight) {
+        enriched.weight = `${enriched.weightKg} kg`;
+      }
+      
+      // Ensure estimatedValue or paymentAmount is set from cost
+      if (enriched.cost && !enriched.estimatedValue && !enriched.paymentAmount) {
+        enriched.estimatedValue = enriched.cost;
+        enriched.paymentAmount = enriched.cost;
+      }
+      
+      return enriched;
+    }));
+    
     await logActivity(userId, 'get_accepted_bookings', req);
     res.status(200).json({
       success: true,
       message: 'Accepted bookings retrieved successfully',
-      jobs: formatTimestamps(acceptedBookings),
-      bookings: formatTimestamps(acceptedBookings) // Support both keys
+      jobs: formatTimestamps(enrichedBookings),
+      bookings: formatTimestamps(enrichedBookings) // Support both keys
     });
   } catch (err) {
     console.error('Get accepted bookings error:', err);
