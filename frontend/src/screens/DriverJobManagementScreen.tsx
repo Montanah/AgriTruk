@@ -171,8 +171,12 @@ const DriverJobManagementScreen = () => {
             
             return {
               ...job,
+              // IMPORTANT: Keep the original ID fields from the backend response
+              // Don't override id - it's likely the Firestore document ID
+              id: job.id || job._id || job.bookingId, // Firestore doc ID
+              // bookingId might be different from id (could be a readableId or another field)
+              bookingId: job.bookingId || job.requestId || job.id,
               readableId: job.readableId || job.bookingId,
-              bookingId: job.bookingId || job.readableId || job.id,
               productType: job.productType || job.cargoDetails,
               weight: job.weightKg || job.weight,
               specialRequirements: job.specialCargo || job.specialRequirements || [],
@@ -313,9 +317,10 @@ const DriverJobManagementScreen = () => {
 
       const token = await user.getIdToken();
       
-      // CRITICAL: For API calls, always use the raw database ID (bookingId or id)
-      // Do NOT use readableId for API calls - it's only for display
-      const bookingId = job.bookingId || job.id;
+      // CRITICAL: For API calls, always use the raw database ID
+      // The backend likely expects the Firestore document ID, which is typically in the 'id' field
+      // bookingId might be a different field (like requestId or readableId)
+      const bookingId = job.id || job._id || job.bookingId;
       
       if (!bookingId) {
         throw new Error('Booking ID not found. Cannot start trip.');
@@ -323,9 +328,11 @@ const DriverJobManagementScreen = () => {
       
       console.log('Starting trip for job:', {
         rawId: job.id,
-        bookingId: job.bookingId,
+        rawBookingId: job.bookingId,
+        requestId: (job as any).requestId,
         displayId: (job as any).readableId || getDisplayBookingId(job),
-        usingForAPI: bookingId
+        usingForAPI: bookingId,
+        fullJobObject: JSON.stringify(job, null, 2).substring(0, 500) // First 500 chars for debugging
       });
       
       // Use the correct endpoint for updating booking status
