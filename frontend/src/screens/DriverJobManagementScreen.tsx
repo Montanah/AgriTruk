@@ -169,7 +169,18 @@ const DriverJobManagementScreen = () => {
             const clientPhone = job.clientPhone || job.phone || job.contactPhone || job.client?.phone || job.client?.contactPhone;
             const clientEmail = job.clientEmail || job.email || job.contactEmail || job.client?.email;
             
-            return {
+            // Debug: Log what backend returned for ID fields
+            console.log('DriverJobManagement - Raw job from backend:', {
+              id: job.id,
+              bookingId: job.bookingId,
+              readableId: job.readableId,
+              createdAt: job.createdAt,
+              pickUpDate: job.pickUpDate,
+              bookingType: job.bookingType,
+              bookingMode: job.bookingMode,
+            });
+            
+            const processed = {
               ...job, // Spread first to preserve ALL original fields from backend
               // IMPORTANT: Keep the original ID fields from the backend response
               // Don't override id - it's likely the Firestore document ID
@@ -193,6 +204,18 @@ const DriverJobManagementScreen = () => {
               transporterName: job.transporterName,
               transporterPhone: job.transporterPhone,
             };
+            
+            // Debug: Log what getDisplayBookingId will see
+            console.log('DriverJobManagement - Processed job for ID display:', {
+              readableId: processed.readableId,
+              bookingId: processed.bookingId,
+              createdAt: processed.createdAt,
+              bookingType: processed.bookingType,
+              bookingMode: processed.bookingMode,
+              displayId: getDisplayBookingId(processed),
+            });
+            
+            return processed;
           });
           setJobs(processedJobs);
         }
