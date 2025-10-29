@@ -44,10 +44,36 @@ const TransporterJobDetailsScreen = () => {
   const [cancellationReason, setCancellationReason] = useState('');
   const [showChat, setShowChat] = useState(false);
   const [showCall, setShowCall] = useState(false);
+  const [vehicleDetails, setVehicleDetails] = useState<any>(null);
 
   useEffect(() => {
     fetchJobDetails();
+    fetchVehicleDetails();
   }, [params.jobId, params.bookingId]);
+
+  const fetchVehicleDetails = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      // Fetch driver profile to get vehicle details
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/drivers/profile`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const driver = data.driver || data;
+        if (driver.assignedVehicle || driver.assignedVehicleDetails) {
+          setVehicleDetails(driver.assignedVehicle || driver.assignedVehicleDetails);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching vehicle details:', err);
+    }
+  };
 
   const fetchJobDetails = async () => {
     try {
@@ -67,7 +93,9 @@ const TransporterJobDetailsScreen = () => {
         });
 
         if (response.ok) {
-          const jobData = await response.json();
+          const responseData = await response.json();
+          // Handle response structure: { booking: {...}, message: "..." }
+          const jobData = responseData.booking || responseData;
           setJob(jobData);
           console.log('Fetched job details:', jobData);
         } else {
@@ -294,7 +322,7 @@ const TransporterJobDetailsScreen = () => {
             <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.text.secondary} />
             <Text style={styles.infoLabel}>Weight:</Text>
             <Text style={styles.infoValue}>
-              {job.weight || job.weightKg ? `${job.weightKg || job.weight}kg` : 'Not specified'}
+              {job.weightKg || job.weight ? `${job.weightKg || job.weight} kg` : 'Not specified'}
             </Text>
           </View>
           <View style={styles.infoRow}>

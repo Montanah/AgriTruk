@@ -227,7 +227,10 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                         {(item.urgency || item.urgencyLevel || 'low').toUpperCase()} PRIORITY
                     </Text>
                 </View>
-                <Text style={styles.requestId}>#{item.id || item.bookingId || 'Unknown'}</Text>
+                <Text style={styles.requestId}>#{(() => {
+                  const { getDisplayBookingId } = require('../../utils/unifiedIdSystem');
+                  return getDisplayBookingId(item);
+                })()}</Text>
             </View>
 
             {/* Route information */}
@@ -351,35 +354,60 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
 
             {/* Action buttons */}
             <View style={styles.actionContainer}>
-                <TouchableOpacity
-                    style={[styles.actionButton, styles.rejectButton]}
-                    onPress={() => handleReject(item)}
-                    disabled={rejectingId === item.id}
-                >
-                    {rejectingId === item.id ? (
-                        <Text style={styles.buttonText}>Rejecting...</Text>
-                    ) : (
-                        <>
-                            <MaterialCommunityIcons name="close" size={16} color={colors.error} />
-                            <Text style={[styles.buttonText, { color: colors.error }]}>Reject</Text>
-                        </>
-                    )}
-                </TouchableOpacity>
+                {customTitle === 'My Accepted Jobs' ? (
+                    // For accepted jobs, show navigation button instead of accept/reject
+                    <TouchableOpacity
+                        style={[styles.actionButton, styles.acceptButton]}
+                        onPress={() => {
+                            if (onJobPress) {
+                                onJobPress(item);
+                            } else {
+                                // Navigate to job management screen
+                                const navigation = require('@react-navigation/native').useNavigation();
+                                (navigation as any).navigate('Jobs', { 
+                                    screen: 'DriverJobManagement',
+                                    params: { jobId: item.id || item.bookingId }
+                                });
+                            }
+                        }}
+                    >
+                        <MaterialCommunityIcons name="briefcase" size={16} color={colors.white} />
+                        <Text style={styles.buttonText}>View Details</Text>
+                    </TouchableOpacity>
+                ) : (
+                    // For incoming requests, show accept/reject buttons
+                    <>
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.rejectButton]}
+                            onPress={() => handleReject(item)}
+                            disabled={rejectingId === item.id}
+                        >
+                            {rejectingId === item.id ? (
+                                <Text style={styles.buttonText}>Rejecting...</Text>
+                            ) : (
+                                <>
+                                    <MaterialCommunityIcons name="close" size={16} color={colors.error} />
+                                    <Text style={[styles.buttonText, { color: colors.error }]}>Reject</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
 
-                <TouchableOpacity
-                    style={[styles.actionButton, styles.acceptButton]}
-                    onPress={() => handleAccept(item)}
-                    disabled={acceptingId === item.id}
-                >
-                    {acceptingId === item.id ? (
-                        <Text style={styles.buttonText}>Accepting...</Text>
-                    ) : (
-                        <>
-                            <MaterialCommunityIcons name="check" size={16} color={colors.white} />
-                            <Text style={styles.buttonText}>Accept Request</Text>
-                        </>
-                    )}
-                </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.acceptButton]}
+                            onPress={() => handleAccept(item)}
+                            disabled={acceptingId === item.id}
+                        >
+                            {acceptingId === item.id ? (
+                                <Text style={styles.buttonText}>Accepting...</Text>
+                            ) : (
+                                <>
+                                    <MaterialCommunityIcons name="check" size={16} color={colors.white} />
+                                    <Text style={styles.buttonText}>Accept Request</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </>
+                )}
             </View>
         </View>
         );

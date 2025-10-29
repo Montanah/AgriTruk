@@ -150,15 +150,17 @@ const DriverProfileScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.DRIVERS}/availability`, {
-        method: 'PATCH',
+      
+      // Use the same endpoint as transporters: /toggle-availability with POST method
+      // Backend expects: { availability: boolean }
+      const response = await fetch(`${API_ENDPOINTS.DRIVERS}/toggle-availability`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          isAcceptingRequests: newStatus,
-          isOnline: newStatus, // If accepting, must be online
+          availability: newStatus,
         }),
       });
 

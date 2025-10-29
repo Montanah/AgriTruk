@@ -21,6 +21,7 @@ import AvailableJobsCard from '../components/TransporterService/AvailableJobsCar
 import IncomingRequestsCard from '../components/TransporterService/IncomingRequestsCard';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
+import LocationDisplay from '../components/common/LocationDisplay';
 
 interface DriverProfile {
   id: string;
@@ -172,7 +173,13 @@ const DriverHomeScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setCurrentTrip(data.trip);
+        const trip = data.trip || data;
+        // Only set current trip if status is 'started' or 'in_progress'
+        if (trip && ['started', 'in_progress'].includes(trip.status)) {
+          setCurrentTrip(trip);
+        } else {
+          setCurrentTrip(null);
+        }
       }
     } catch (err) {
       console.error('Error fetching current trip:', err);
@@ -356,12 +363,18 @@ const DriverHomeScreen = () => {
         {driverProfile.assignedVehicle && (
           <View style={styles.vehicleInfo}>
             <MaterialCommunityIcons name="truck" size={16} color={colors.white + 'DD'} />
-            <Text style={styles.vehicleText}>
-              {driverProfile.assignedVehicle.make || 'Vehicle'} {driverProfile.assignedVehicle.model || ''}
-            </Text>
-            {driverProfile.assignedVehicle.registration && (
-              <Text style={styles.vehicleReg}>{driverProfile.assignedVehicle.registration}</Text>
-            )}
+            <View style={styles.vehicleDetails}>
+              <Text style={styles.vehicleText}>
+                {driverProfile.assignedVehicle.make || 'Vehicle'} {driverProfile.assignedVehicle.model || ''}
+                {driverProfile.assignedVehicle.year && ` • ${driverProfile.assignedVehicle.year}`}
+              </Text>
+              {driverProfile.assignedVehicle.registration && (
+                <Text style={styles.vehicleReg}>{driverProfile.assignedVehicle.registration}</Text>
+              )}
+              {driverProfile.assignedVehicle.capacity && (
+                <Text style={styles.vehicleCapacity}>{driverProfile.assignedVehicle.capacity} kg capacity</Text>
+              )}
+            </View>
           </View>
         )}
       </LinearGradient>
@@ -381,8 +394,8 @@ const DriverHomeScreen = () => {
         />
       )}
 
-      {/* Current Trip Status */}
-      {currentTrip && (
+      {/* Current Trip Status - Only show when started or in_progress */}
+      {currentTrip && ['started', 'in_progress'].includes(currentTrip.status) && (
         <View style={styles.tripStatusCard}>
           <View style={styles.tripStatusHeader}>
             <MaterialCommunityIcons name="map-marker-path" size={24} color={colors.primary} />
@@ -393,9 +406,11 @@ const DriverHomeScreen = () => {
               </Text>
             </View>
           </View>
-          <Text style={styles.tripRoute}>
-            {currentTrip.fromLocation?.address || 'Pickup Location'} → {currentTrip.toLocation?.address || 'Delivery Location'}
-          </Text>
+          <View style={styles.tripRouteContainer}>
+            <LocationDisplay location={currentTrip.fromLocation} iconColor={colors.primary} />
+            <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} style={styles.tripRouteArrow} />
+            <LocationDisplay location={currentTrip.toLocation} iconColor={colors.success} />
+          </View>
           <TouchableOpacity 
             style={styles.viewTripButton}
             onPress={() => {
@@ -434,11 +449,14 @@ const DriverHomeScreen = () => {
         jobs={acceptedJobs}
         loading={loadingAcceptedJobs}
         onJobPress={(job) => {
+          // Navigate to Job Management screen on My Jobs tab with the specific job highlighted
           try {
-            (navigation as any).navigate('TransporterJobDetailsScreen', { 
-              jobId: job.id,
-              bookingId: job.bookingId,
-              job: job
+            (navigation as any).navigate('Jobs', { 
+              screen: 'DriverJobManagement',
+              params: { 
+                jobId: job.id || job.bookingId,
+                highlightJobId: job.id || job.bookingId
+              }
             });
           } catch {
             console.error('Navigation error');
@@ -644,7 +662,7 @@ const styles = StyleSheet.create({
   },
   vehicleInfo: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: colors.white + '15',
     padding: 12,
     borderRadius: 10,
@@ -652,21 +670,27 @@ const styles = StyleSheet.create({
     borderColor: colors.white + '30',
     marginTop: 8,
   },
+  vehicleDetails: {
+    flex: 1,
+    marginLeft: 8,
+  },
   vehicleText: {
     fontSize: 14,
     color: colors.white,
-    marginLeft: 8,
-    flex: 1,
     fontWeight: '600',
+    marginBottom: 2,
   },
   vehicleReg: {
+    fontSize: 13,
+    color: colors.white + 'DD',
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  vehicleCapacity: {
     fontSize: 12,
     color: colors.white + 'CC',
-    fontWeight: 'bold',
-    backgroundColor: colors.white + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    marginTop: 2,
   },
   tripStatusCard: {
     backgroundColor: colors.white,
@@ -701,10 +725,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
+  tripRouteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
   tripRoute: {
     fontSize: 14,
     color: colors.text.secondary,
     marginBottom: 12,
+  },
+  tripRouteArrow: {
+    marginHorizontal: 8,
   },
   viewTripButton: {
     flexDirection: 'row',

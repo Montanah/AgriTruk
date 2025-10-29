@@ -145,32 +145,11 @@ export const AssignedTransporterCard: React.FC<AssignedTransporterCardProps> = (
       {/* Vehicle details */}
       {transporter.vehicle && (
         <View style={styles.vehicleSection}>
-          <Text style={styles.sectionTitle}>Vehicle Details</Text>
-          <View style={styles.vehicleInfo}>
-            <View style={styles.vehicleImageContainer}>
-              {transporter.vehicle.photos && transporter.vehicle.photos.length > 0 ? (
-                <Image
-                  source={{ uri: transporter.vehicle.photos[0] }}
-                  style={styles.vehicleImage}
-                />
-              ) : (
-                <View style={styles.vehicleImagePlaceholder}>
-                  <MaterialCommunityIcons name="car" size={24} color="#666" />
-                </View>
-              )}
-            </View>
-            <View style={styles.vehicleDetails}>
-              <Text style={styles.vehicleMake}>
-                {transporter.vehicle.make} {transporter.vehicle.model}
-              </Text>
-              <Text style={styles.vehicleRegistration}>
-                {transporter.vehicle.registration}
-              </Text>
-              <Text style={styles.vehicleSpecs}>
-                {transporter.vehicle.capacity}kg • {transporter.vehicle.driveType} • {transporter.vehicle.color}
-              </Text>
-            </View>
-          </View>
+          <VehicleDisplayCard 
+            vehicle={transporter.vehicle}
+            showImages={true}
+            compact={false}
+          />
         </View>
       )}
 
