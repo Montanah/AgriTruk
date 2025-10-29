@@ -1,5 +1,5 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useCameraPermissions, useMediaLibraryPermissions } from 'expo-image-picker';
@@ -21,13 +21,13 @@ import {
   FlatList,
   ScrollView
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FormKeyboardWrapper from '../../components/common/FormKeyboardWrapper';
+import ModernDropdown from '../../components/common/ModernDropdown';
 import { API_ENDPOINTS, API_BASE_URL } from '../../constants/api';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 import { NTSA_VEHICLE_CLASSES, VEHICLE_SPECIALIZATIONS, getVehicleClassLabel } from '../../constants/vehicleClasses';
-import { validateImageAsset, safeAppendFile, getIOSErrorMessage, getMimeType } from '../../utils/iosFileUtils';
+import { validateImageAsset, getIOSErrorMessage } from '../../utils/iosFileUtils';
 
 interface JobSeekerCompletionScreenProps {
   route?: {
@@ -43,7 +43,6 @@ interface JobSeekerCompletionScreenProps {
 
 export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletionScreenProps) {
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   
   // Job Seeker specific state variables
   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
@@ -54,19 +53,26 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([]);
   const [assignmentDescription, setAssignmentDescription] = useState('');
 
-  // Religion options
+  // Religion options with valid Ionicons - using capitalized values to match marketplace filter
   const religionOptions = [
-    'Christianity',
-    'Islam',
-    'Hinduism',
-    'Buddhism',
-    'Judaism',
-    'Sikhism',
-    'Jainism',
-    'Baháʼí Faith',
-    'Traditional African Religions',
-    'Other',
-    'Prefer not to say'
+    { label: 'Christianity', value: 'Christianity', icon: 'add-circle' },
+    { label: 'Islam', value: 'Islam', icon: 'moon' },
+    { label: 'Hinduism', value: 'Hinduism', icon: 'flower' },
+    { label: 'Buddhism', value: 'Buddhism', icon: 'leaf' },
+    { label: 'Judaism', value: 'Judaism', icon: 'star' },
+    { label: 'Sikhism', value: 'Sikhism', icon: 'shield' },
+    { label: 'Jainism', value: 'Jainism', icon: 'hand-left' },
+    { label: 'Baháʼí Faith', value: 'Baháʼí Faith', icon: 'star-outline' },
+    { label: 'Traditional African Religions', value: 'Traditional African Religions', icon: 'earth' },
+    { label: 'Other', value: 'Other', icon: 'ellipsis-horizontal' },
+    { label: 'Prefer not to say', value: 'Prefer not to say', icon: 'eye-off' }
+  ];
+
+  // Gender options with valid Ionicons
+  const genderOptions = [
+    { label: 'Male', value: 'male', icon: 'male' },
+    { label: 'Female', value: 'female', icon: 'female' },
+    { label: 'Other', value: 'other', icon: 'transgender' }
   ];
   
   // Address fields
@@ -83,6 +89,15 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
   const [goodConductCert, setGoodConductCert] = useState<any>(null);
   const [idFile, setIdFile] = useState<any>(null);
   const [gslLicence, setGslLicence] = useState<any>(null);
+  
+  // Optional tertiary documents - only backend-expected ones
+  const [showOptionalDocuments, setShowOptionalDocuments] = useState(false);
+  const [optionalDocuments, setOptionalDocuments] = useState<any>({
+    psvBadge: null,
+    nightTravelLicense: null,
+    rslLicense: null,
+    // Note: Driving License, Good Conduct Certificate, and ID Document are already handled as required documents
+  });
   const [showDateOfBirthPicker, setShowDateOfBirthPicker] = useState(false);
   const [showCareerStartDatePicker, setShowCareerStartDatePicker] = useState(false);
   const [vehicleClassModal, setVehicleClassModal] = useState(false);
@@ -100,9 +115,6 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
   const correctionMode = route?.params?.correctionMode || false;
   const approvedDocuments = route?.params?.approvedDocuments || {};
   
-  // Optional documents expansion state
-  const [showOptionalDocuments, setShowOptionalDocuments] = useState(false);
-
   // Load approved documents in correction mode
   useEffect(() => {
     if (correctionMode && approvedDocuments) {
@@ -221,7 +233,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
       vehicleClasses: selectedVehicleClasses.length > 0,
       specializations: selectedSpecializations.length > 0,
       allValid: !!profilePhoto && !!dlFile && !!goodConductCert && !!idFile && 
-                !!dateOfBirth && !!careerStartDate && !!gender &&
+                !!dateOfBirth && !!careerStartDate && !!gender && !!religion &&
                 !!(address.street && address.city && address.county) &&
                 selectedVehicleClasses.length > 0 && selectedSpecializations.length > 0
     };
@@ -272,29 +284,54 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     return descriptionMap[specialization] || 'Specialized transport services';
   };
 
-  // Image picker handlers
+  // Image picker handlers - Profile photo camera only
   const handleProfilePhoto = async () => {
+    try {
+      const result = await handleImagePicker('camera', {
+        allowsEditing: true,
+        quality: 0.8,
+        aspect: [1, 1], // Square aspect ratio for profile photos
+      });
+      
+      if (result && !result.canceled && result.assets && result.assets.length > 0) {
+        setProfilePhoto(result.assets[0]);
+        setError('');
+      }
+    } catch (err) {
+      setError('Failed to open camera. Please ensure camera permissions are granted.');
+      console.error('Camera error:', err);
+    }
+  };
+
+  // Optional document upload handler - simplified for backend-expected documents
+  const handleOptionalDocumentUpload = async (documentType: string) => {
     Alert.alert(
-      'Select Profile Photo',
-      'Choose how you want to add your profile photo',
+      'Select Document',
+      `Choose how you want to add your ${documentType.replace(/([A-Z])/g, ' $1').toLowerCase()}`,
       [
-        { text: 'Take Photo', onPress: () => handleProfilePhotoCamera() },
-        { text: 'Choose from Gallery', onPress: () => handleProfilePhotoGallery() },
+        { text: 'Take Photo', onPress: () => handleOptionalDocumentCamera(documentType) },
+        { text: 'Choose from Gallery', onPress: () => handleOptionalDocumentGallery(documentType) },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
   };
 
-  const handleProfilePhotoCamera = async () => {
+  const handleOptionalDocumentCamera = async (documentType: string) => {
     try {
       const result = await handleImagePicker('camera', {
         allowsEditing: true,
         quality: 0.8,
-        aspect: [1, 1],
       });
       
       if (result && !result.canceled && result.assets && result.assets.length > 0) {
-        setProfilePhoto(result.assets[0]);
+        setOptionalDocuments((prev: any) => ({
+          ...prev,
+          [documentType]: {
+            ...result.assets[0],
+            name: `${documentType}.jpg`,
+            type: 'image/jpeg'
+          }
+        }));
         setError('');
       }
     } catch (err) {
@@ -303,16 +340,22 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     }
   };
 
-  const handleProfilePhotoGallery = async () => {
+  const handleOptionalDocumentGallery = async (documentType: string) => {
     try {
       const result = await handleImagePicker('gallery', {
         allowsEditing: true,
         quality: 0.8,
-        aspect: [1, 1],
       });
       
       if (result && !result.canceled && result.assets && result.assets.length > 0) {
-        setProfilePhoto(result.assets[0]);
+        setOptionalDocuments((prev: any) => ({
+          ...prev,
+          [documentType]: {
+            ...result.assets[0],
+            name: `${documentType}.jpg`,
+            type: 'image/jpeg'
+          }
+        }));
         setError('');
       }
     } catch (err) {
@@ -320,6 +363,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
       console.error('Gallery error:', err);
     }
   };
+
 
   // Document handlers
   const handleDlFile = async () => {
@@ -696,13 +740,13 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     }
   };
 
-  // Submit handler
-  const handleSubmit = async () => {
+  // Submit handler with retry mechanism
+  const handleSubmit = async (retryCount = 0) => {
     setError('');
 
     // Validation
     if (!profilePhoto) { setError('Please upload a profile photo.'); return false; }
-    if (!dlFile) { setError("Please upload the driver's license."); return false; }
+    if (!dlFile) { setError("Please upload the driver&apos;s license."); return false; }
     if (!goodConductCert) { setError('Please upload the good conduct certificate.'); return false; }
     if (!idFile) { setError("Please upload your ID document."); return false; }
     if (!dateOfBirth) { setError('Please select your date of birth.'); return false; }
@@ -712,6 +756,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     if (!address.street || !address.city || !address.county) { setError('Please fill in your address information.'); return false; }
     if (selectedVehicleClasses.length === 0) { setError('Please select at least one vehicle class.'); return false; }
     if (selectedSpecializations.length === 0) { setError('Please select at least one specialization.'); return false; }
+    
     
     // Validate age and experience requirements
     const age = calculateAge(dateOfBirth);
@@ -726,6 +771,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
       }
     }
 
+
     try {
       const auth = getAuth();
       const user = auth.currentUser;
@@ -739,14 +785,49 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
       const formData = new FormData();
       
       // Add text fields according to API specification
-      formData.append('userId', user.uid); // Add userId field (primary identifier)
-      // Note: entityId is not needed for job seeker applications - only for company driver recruitment
+      const userId = user.uid;
+      
+      
+      // Ensure userId is available
+      if (!userId) {
+        throw new Error('User ID is not available');
+      }
+      
+      formData.append('userId', userId); // Add userId field (primary identifier)
+      
+      
+      // REMOVED: entityId not required by backend - causes Firestore errors
+      // formData.append('entityId', entityId);
+      
       formData.append('email', user.email || ''); // Add email field
       formData.append('phone', user.phoneNumber || ''); // Add phone field
       formData.append('name', user.displayName || ''); // Add name field
       formData.append('dateOfBirth', dateOfBirth!.toISOString());
       formData.append('gender', gender);
       formData.append('religion', religion);
+      
+      
+      
+      // Validate all required fields have values
+      const requiredFields = {
+        userId: !!userId,
+        email: !!(user.email || ''),
+        phone: !!(user.phoneNumber || ''),
+        name: !!(user.displayName || ''),
+        dateOfBirth: !!dateOfBirth,
+        gender: !!gender,
+        religion: !!religion
+      };
+      
+      
+      
+      const missingFields = Object.entries(requiredFields)
+        .filter(([field, hasValue]) => !hasValue)
+        .map(([field]) => field);
+        
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      }
       
       // Add address as JSON string (required by backend)
       const addressData = {
@@ -832,17 +913,52 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
         formData.append('gsl', fileObj as any);
       }
       
-      // Log FormData contents for debugging
-      console.log('Submitting job seeker application with FormData...');
-      console.log('FormData entries:');
-      for (const [key, value] of formData.entries()) {
-        console.log(`${key}:`, typeof value === 'object' ? 'File/Blob' : value);
+      // Add optional documents if they exist
+      if (optionalDocuments.psvBadge && optionalDocuments.psvBadge.uri) {
+        const fileType = optionalDocuments.psvBadge.type || 'image/jpeg';
+        const fileObj = {
+          uri: optionalDocuments.psvBadge.uri,
+          type: fileType,
+          name: 'psv-badge.jpg',
+          fileName: 'psv-badge.jpg',
+          fileType: fileType,
+        };
+        formData.append('psvBadge', fileObj as any);
       }
+      
+      if (optionalDocuments.nightTravelLicense && optionalDocuments.nightTravelLicense.uri) {
+        const fileType = optionalDocuments.nightTravelLicense.type || 'image/jpeg';
+        const fileObj = {
+          uri: optionalDocuments.nightTravelLicense.uri,
+          type: fileType,
+          name: 'night-travel-license.jpg',
+          fileName: 'night-travel-license.jpg',
+          fileType: fileType,
+        };
+        formData.append('nightTravelLicense', fileObj as any);
+      }
+      
+      if (optionalDocuments.rslLicense && optionalDocuments.rslLicense.uri) {
+        const fileType = optionalDocuments.rslLicense.type || 'image/jpeg';
+        const fileObj = {
+          uri: optionalDocuments.rslLicense.uri,
+          type: fileType,
+          name: 'rsl-license.jpg',
+          fileName: 'rsl-license.jpg',
+          fileType: fileType,
+        };
+        formData.append('rslLicense', fileObj as any);
+      }
+      
+      // Log FormData contents for debugging
+      
       
       
       // Submit job seeker application with timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      
       
       try {
         const response = await fetch(API_ENDPOINTS.JOB_SEEKERS, {
@@ -857,24 +973,18 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
         
         clearTimeout(timeoutId);
         
-        console.log('Response status:', response.status);
-        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+        
         
         if (response.ok) {
           const data = await response.json();
-          console.log('Job seeker application submitted successfully:', data);
           
           // Clear draft data
           await AsyncStorage.removeItem('transporterDraft');
           
-          // Navigate to job seeker status screen
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'DriverRecruitmentStatusScreen' }]
-          });
+          // Navigate to job seeker status screen - use navigate instead of reset for cross-stack navigation
+          (navigation as any).navigate('DriverRecruitmentStatusScreen');
         } else {
           const errorText = await response.text();
-          console.error('Response error text:', errorText);
           
           let errorData;
           try {
@@ -886,7 +996,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
           // Special handling: If job seeker was created but backend returned error,
           // check if we can proceed anyway (job seeker exists in database)
           if (response.status === 400) {
-            console.log('400 error received, but job seeker might have been created. Checking if we can proceed...');
+            
             
             // Try to check if job seeker was actually created by making a GET request
             try {
@@ -899,31 +1009,28 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
               });
               
               if (checkResponse.ok) {
-                console.log('Job seeker was successfully created despite 400 error. Proceeding with success flow.');
+                
                 
                 // Clear draft data
                 await AsyncStorage.removeItem('transporterDraft');
                 
-                // Navigate to job seeker status screen
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'DriverRecruitmentStatusScreen' }]
-                });
+                // Navigate to job seeker status screen - use navigate instead of reset for cross-stack navigation
+                (navigation as any).navigate('DriverRecruitmentStatusScreen');
                 return;
               }
             } catch (checkError) {
-              console.log('Could not verify job seeker creation:', checkError);
+              
             }
             
             // If we can't verify, but we know from the data that job seeker was created,
             // show success message and proceed
-            console.log('Job seeker creation appears successful based on backend data. Proceeding with success flow.');
+              
             
             // Clear draft data
             await AsyncStorage.removeItem('transporterDraft');
             
             // Navigate to job seeker status screen
-            navigation.reset({
+            (navigation as any).reset({
               index: 0,
               routes: [{ name: 'DriverRecruitmentStatusScreen' }]
             });
@@ -937,20 +1044,41 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
         throw fetchError;
       }
     } catch (e: any) {
-      console.error('Job seeker submission error:', e);
+      
       
       let errorMsg = 'An unexpected error occurred. Please try again.';
       
       if (e.name === 'AbortError') {
         errorMsg = 'Request timed out. Please check your connection and try again.';
+        
       } else if (e.message && e.message.includes('Network request failed')) {
-        errorMsg = 'Network connection failed. Please check your internet connection and try again.';
+        
+        // Try to ping the backend to check connectivity
+        try {
+          await fetch(`${API_BASE_URL}/api/health`, { method: 'GET' });
+        } catch (testError) {
+          // no-op
+        }
+        
+        // Retry logic for network failures
+        if (retryCount < 2) {
+          setUploading(false);
+          setTimeout(() => {
+            handleSubmit(retryCount + 1);
+          }, 2000 * (retryCount + 1)); // Exponential backoff: 2s, 4s
+          return false;
+        }
+        
+        errorMsg = 'Network connection failed after multiple attempts. Please check your internet connection and try again.';
       } else if (e.message && e.message.includes('404')) {
         errorMsg = 'Job seeker registration is not yet available. Please contact support or try again later.';
+        
       } else if (e.message && e.message.includes('500')) {
         errorMsg = 'Server error occurred. Please try again later or contact support.';
+        
       } else if (e.message) {
         errorMsg = `Error: ${e.message}`;
+          
       }
       
       setError(errorMsg);
@@ -976,6 +1104,26 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
             Apply to become a driver and get recruited by companies
           </Text>
         </View>
+        <TouchableOpacity 
+          style={styles.logoutButton}
+          onPress={async () => {
+            try {
+              const { signOut } = require('firebase/auth');
+              const auth = getAuth();
+              await signOut(auth);
+              // Navigate to Welcome screen like other logout flows
+              (navigation as any).reset({
+                index: 0,
+                routes: [{ name: 'Welcome' }],
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          }}
+        >
+          <MaterialCommunityIcons name="logout" size={20} color={colors.text.secondary} />
+        </TouchableOpacity>
       </View>
 
       {/* Step Progress Indicator */}
@@ -998,29 +1146,69 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
         {currentStep === 1 && (
         <View style={styles.stepContainer}>
           <View style={styles.stepHeader}>
-            <Text style={styles.stepNumber}>1</Text>
-            <Text style={styles.stepTitle}>Personal Information & Documents</Text>
+            <View style={styles.stepNumberContainer}>
+              <Text style={styles.stepNumber}>1</Text>
+            </View>
+            <View style={styles.stepTitleContainer}>
+              <Text style={styles.stepTitle}>Personal Information & Documents</Text>
+              <Text style={styles.stepSubtitle}>Tell us about yourself and upload required documents</Text>
+            </View>
+          </View>
+
+          {/* Progress indicator for Step 1 */}
+          <View style={styles.stepProgressIndicator}>
+            <View style={styles.progressItem}>
+              <View style={[styles.progressDot, profilePhoto && styles.progressDotCompleted]} />
+              <Text style={styles.progressLabel}>Photo</Text>
+            </View>
+            <View style={styles.progressItem}>
+              <View style={[styles.progressDot, dateOfBirth && gender && religion && styles.progressDotCompleted]} />
+              <Text style={styles.progressLabel}>Personal</Text>
+            </View>
+            <View style={styles.progressItem}>
+              <View style={[styles.progressDot, address.street && address.city && address.county && styles.progressDotCompleted]} />
+              <Text style={styles.progressLabel}>Address</Text>
+            </View>
+            <View style={styles.progressItem}>
+              <View style={[styles.progressDot, dlFile && styles.progressDotCompleted]} />
+              <Text style={styles.progressLabel}>Documents</Text>
+            </View>
           </View>
 
           {/* Profile Photo Section */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Profile Photo</Text>
+            <View style={styles.sectionTitleContainer}>
+              <MaterialCommunityIcons name="face-recognition" size={20} color={colors.primary} style={styles.sectionIcon} />
+              <Text style={styles.sectionTitle}>Profile Photo</Text>
+            </View>
             {getJobSeekerValidationStatus().profilePhoto && (
               <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
             )}
           </View>
+          
+          <Text style={styles.sectionDescription}>
+            Take a clear photo of your face for your profile. This photo will be used for identification purposes.
+          </Text>
+          
           <TouchableOpacity 
-            style={[styles.documentUploader, profilePhoto && styles.documentUploaderFilled]} 
+            style={[styles.profilePhotoUploader, profilePhoto && styles.profilePhotoUploaderFilled]} 
             onPress={handleProfilePhoto}
             activeOpacity={0.7}
           >
             {profilePhoto ? (
-              <Image source={{ uri: profilePhoto.uri }} style={styles.documentPreview} />
+              <View style={styles.profilePhotoContainer}>
+                <Image source={{ uri: profilePhoto.uri }} style={styles.profilePhotoPreview} />
+                <View style={styles.profilePhotoOverlay}>
+                  <MaterialCommunityIcons name="camera-plus" size={24} color={colors.white} />
+                  <Text style={styles.profilePhotoOverlayText}>Retake Photo</Text>
+                </View>
+              </View>
             ) : (
-              <>
-                <MaterialCommunityIcons name="camera" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                <Text>Profile Photo</Text>
-              </>
+              <View style={styles.profilePhotoPlaceholder}>
+                <MaterialCommunityIcons name="camera-plus" size={32} color={colors.primary} />
+                <Text style={styles.profilePhotoPlaceholderText}>Take Face Photo</Text>
+                <Text style={styles.profilePhotoPlaceholderSubtext}>Camera only - No uploads</Text>
+              </View>
             )}
           </TouchableOpacity>
 
@@ -1059,127 +1247,111 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
           </TouchableOpacity>
 
           {/* Gender Selection */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Gender</Text>
-            {gender && (
-              <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-            )}
-          </View>
-          <View style={styles.genderContainer}>
-            {['male', 'female', 'other'].map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.genderOption,
-                  gender === option && styles.genderOptionSelected
-                ]}
-                onPress={() => setGender(option)}
-              >
-                <MaterialCommunityIcons 
-                  name={option === 'male' ? 'gender-male' : option === 'female' ? 'gender-female' : 'gender-non-binary'} 
-                  size={20} 
-                  color={gender === option ? colors.white : colors.primary} 
-                />
-                <Text style={[
-                  styles.genderOptionText,
-                  gender === option && styles.genderOptionTextSelected
-                ]}>
-                  {option.charAt(0).toUpperCase() + option.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <ModernDropdown
+            label="Gender"
+            options={genderOptions}
+            selectedValue={gender}
+            onSelect={setGender}
+            placeholder="Select your gender"
+            required={true}
+            icon="person"
+          />
 
           {/* Religion Selection */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Religion</Text>
-          </View>
-          <View style={styles.religionContainer}>
-            {religionOptions.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.religionOption,
-                  religion === option && styles.religionOptionSelected
-                ]}
-                onPress={() => setReligion(option)}
-              >
-                <Text style={[
-                  styles.religionOptionText,
-                  religion === option && styles.religionOptionTextSelected
-                ]}>
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <ModernDropdown
+            label="Religion"
+            options={religionOptions}
+            selectedValue={religion}
+            onSelect={setReligion}
+            placeholder="Select your religion"
+            required={true}
+            icon="book"
+          />
 
           {/* Address Fields */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Address Information</Text>
-            {address.street && address.city && address.county && (
-              <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-            )}
-          </View>
+          <View style={styles.addressSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} style={styles.sectionIcon} />
+                <Text style={styles.sectionTitle}>Address Information</Text>
+              </View>
+              {address.street && address.city && address.county && (
+                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+              )}
+            </View>
+            
+            <Text style={styles.sectionDescription}>
+              Please provide your current residential address for verification purposes
+            </Text>
 
-          {/* Street Address */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Street Address</Text>
-            <TextInput
-              style={styles.textInput}
-              value={address.street}
-              onChangeText={(text) => setAddress(prev => ({ ...prev, street: text }))}
-              placeholder="Enter your street address"
-              placeholderTextColor={colors.text.secondary}
-            />
-          </View>
+            {/* Street Address */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>
+                Street Address <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.textInput}
+                value={address.street}
+                onChangeText={(text) => setAddress(prev => ({ ...prev, street: text }))}
+                placeholder="e.g., 123 Main Street, Apartment 4B"
+                placeholderTextColor={colors.text.secondary}
+              />
+            </View>
 
-          {/* City */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>City</Text>
-            <TextInput
-              style={styles.textInput}
-              value={address.city}
-              onChangeText={(text) => setAddress(prev => ({ ...prev, city: text }))}
-              placeholder="Enter your city"
-              placeholderTextColor={colors.text.secondary}
-            />
-          </View>
+            {/* City and County Row */}
+            <View style={styles.inputRow}>
+              <View style={[styles.inputGroup, styles.inputGroupHalf]}>
+                <Text style={styles.inputLabel}>
+                  City <Text style={styles.required}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={address.city}
+                  onChangeText={(text) => setAddress(prev => ({ ...prev, city: text }))}
+                  placeholder="e.g., Nairobi"
+                  placeholderTextColor={colors.text.secondary}
+                />
+              </View>
+              
+              <View style={[styles.inputGroup, styles.inputGroupHalf]}>
+                <Text style={styles.inputLabel}>
+                  County <Text style={styles.required}>*</Text>
+                </Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={address.county}
+                  onChangeText={(text) => setAddress(prev => ({ ...prev, county: text }))}
+                  placeholder="e.g., Nairobi County"
+                  placeholderTextColor={colors.text.secondary}
+                />
+              </View>
+            </View>
 
-          {/* County */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>County</Text>
-            <TextInput
-              style={styles.textInput}
-              value={address.county}
-              onChangeText={(text) => setAddress(prev => ({ ...prev, county: text }))}
-              placeholder="Enter your county"
-              placeholderTextColor={colors.text.secondary}
-            />
-          </View>
-
-          {/* Country */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Country</Text>
-            <TextInput
-              style={styles.textInput}
-              value={address.country}
-              onChangeText={(text) => setAddress(prev => ({ ...prev, country: text }))}
-              placeholder="Enter your country"
-              placeholderTextColor={colors.text.secondary}
-            />
-          </View>
-
-          {/* Postal Code */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Postal Code (Optional)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={address.postalCode}
-              onChangeText={(text) => setAddress(prev => ({ ...prev, postalCode: text }))}
-              placeholder="Enter your postal code"
-              placeholderTextColor={colors.text.secondary}
-            />
+            {/* Country and Postal Code Row */}
+            <View style={styles.inputRow}>
+              <View style={[styles.inputGroup, styles.inputGroupHalf]}>
+                <Text style={styles.inputLabel}>Country</Text>
+                <TextInput
+                  style={[styles.textInput, styles.disabledInput]}
+                  value={address.country}
+                  editable={false}
+                  placeholder="Kenya"
+                  placeholderTextColor={colors.text.secondary}
+                />
+              </View>
+              
+              <View style={[styles.inputGroup, styles.inputGroupHalf]}>
+                <Text style={styles.inputLabel}>Postal Code</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={address.postalCode}
+                  onChangeText={(text) => setAddress(prev => ({ ...prev, postalCode: text }))}
+                  placeholder="e.g., 00100"
+                  placeholderTextColor={colors.text.secondary}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
           </View>
 
           {/* Age and Experience Display */}
@@ -1495,6 +1667,99 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
           <Text style={styles.characterCount}>
             {assignmentDescription.length}/100 characters
           </Text>
+
+          {/* Optional Tertiary Documents Section */}
+          <View style={styles.optionalDocumentsSection}>
+            <TouchableOpacity 
+              style={styles.optionalDocumentsToggle}
+              onPress={() => setShowOptionalDocuments(!showOptionalDocuments)}
+            >
+              <View style={styles.optionalDocumentsHeader}>
+                <MaterialCommunityIcons 
+                  name={showOptionalDocuments ? "chevron-up" : "chevron-down"} 
+                  size={24} 
+                  color={colors.primary} 
+                />
+                <View style={styles.optionalDocumentsTitleContainer}>
+                  <Text style={styles.optionalDocumentsTitle}>Additional Documents (Optional)</Text>
+                  <Text style={styles.optionalDocumentsSubtitle}>
+                    Upload additional certificates and documents to strengthen your application
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {showOptionalDocuments && (
+              <View style={styles.optionalDocumentsContent}>
+                <Text style={styles.optionalDocumentsDescription}>
+                  These documents are not required but can help companies better understand your qualifications and experience.
+                </Text>
+
+                {/* PSV Badge */}
+                <View style={styles.optionalDocumentItem}>
+                  <View style={styles.optionalDocumentHeader}>
+                    <MaterialCommunityIcons name="badge-account" size={20} color={colors.primary} />
+                    <Text style={styles.optionalDocumentLabel}>PSV Badge</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.optionalDocumentUploader}
+                    onPress={() => handleOptionalDocumentUpload('psvBadge')}
+                  >
+                    {optionalDocuments.psvBadge ? (
+                      <Image source={{ uri: optionalDocuments.psvBadge.uri }} style={styles.optionalDocumentPreview} />
+                    ) : (
+                      <View style={styles.optionalDocumentPlaceholder}>
+                        <MaterialCommunityIcons name="upload" size={24} color={colors.text.secondary} />
+                        <Text style={styles.optionalDocumentPlaceholderText}>Tap to upload</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Night Travel License */}
+                <View style={styles.optionalDocumentItem}>
+                  <View style={styles.optionalDocumentHeader}>
+                    <MaterialCommunityIcons name="car-clock" size={20} color={colors.primary} />
+                    <Text style={styles.optionalDocumentLabel}>Night Travel License</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.optionalDocumentUploader}
+                    onPress={() => handleOptionalDocumentUpload('nightTravelLicense')}
+                  >
+                    {optionalDocuments.nightTravelLicense ? (
+                      <Image source={{ uri: optionalDocuments.nightTravelLicense.uri }} style={styles.optionalDocumentPreview} />
+                    ) : (
+                      <View style={styles.optionalDocumentPlaceholder}>
+                        <MaterialCommunityIcons name="upload" size={24} color={colors.text.secondary} />
+                        <Text style={styles.optionalDocumentPlaceholderText}>Tap to upload</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* RSL License */}
+                <View style={styles.optionalDocumentItem}>
+                  <View style={styles.optionalDocumentHeader}>
+                    <MaterialCommunityIcons name="certificate" size={20} color={colors.primary} />
+                    <Text style={styles.optionalDocumentLabel}>RSL License</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.optionalDocumentUploader}
+                    onPress={() => handleOptionalDocumentUpload('rslLicense')}
+                  >
+                    {optionalDocuments.rslLicense ? (
+                      <Image source={{ uri: optionalDocuments.rslLicense.uri }} style={styles.optionalDocumentPreview} />
+                    ) : (
+                      <View style={styles.optionalDocumentPlaceholder}>
+                        <MaterialCommunityIcons name="upload" size={24} color={colors.text.secondary} />
+                        <Text style={styles.optionalDocumentPlaceholderText}>Tap to upload</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
         </View>
         )}
       </ScrollView>
@@ -1515,7 +1780,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
         )}
         
         {currentStep === 2 && (
-          <>
+          <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={styles.backButton}
               onPress={handlePrevStep}
@@ -1528,16 +1793,19 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
                 styles.submitButton,
                 !getJobSeekerValidationStatus().allValid && styles.submitButtonDisabled
               ]}
-              onPress={handleSubmit}
+              onPress={() => handleSubmit()}
               disabled={!getJobSeekerValidationStatus().allValid || uploading}
             >
               {uploading ? (
-                <ActivityIndicator color={colors.white} />
+                <View style={styles.submittingContainer}>
+                  <ActivityIndicator color={colors.white} size="small" />
+                  <Text style={styles.submitButtonText}>Submitting...</Text>
+                </View>
               ) : (
-                <Text style={styles.submitButtonText}>Submit Application</Text>
+                <Text style={styles.submitButtonText}>Submit</Text>
               )}
             </TouchableOpacity>
-          </>
+          </View>
         )}
       </View>
 
@@ -1789,6 +2057,13 @@ const styles = StyleSheet.create({
   headerTextContainer: {
     flex: 1,
   },
+  logoutButton: {
+    padding: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.text.light + '30',
+  },
   headerTitle: {
     fontSize: fonts.size.xl + 4,
     fontWeight: 'bold',
@@ -1816,26 +2091,62 @@ const styles = StyleSheet.create({
   },
   stepHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: spacing.lg,
   },
-  stepNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    color: colors.white,
-    fontSize: fonts.size.md,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    lineHeight: 32,
+  stepNumberContainer: {
     marginRight: spacing.md,
   },
-  stepTitle: {
+  stepNumber: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    color: colors.white,
     fontSize: fonts.size.lg,
     fontWeight: 'bold',
-    color: colors.text.primary,
+    textAlign: 'center',
+    lineHeight: 40,
+  },
+  stepTitleContainer: {
     flex: 1,
+  },
+  stepTitle: {
+    fontSize: fonts.size.xl,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  stepSubtitle: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    lineHeight: 18,
+  },
+  stepProgressIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.sm,
+  },
+  progressItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  progressDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.border.light,
+    marginBottom: spacing.xs,
+  },
+  progressDotCompleted: {
+    backgroundColor: colors.success,
+  },
+  progressLabel: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1957,30 +2268,45 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     minHeight: 100,
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    gap: spacing.md,
+  },
   submitButton: {
     backgroundColor: colors.primary,
-    borderRadius: 16,
+    borderRadius: 8,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-    shadowColor: colors.primary,
+    height: 48,
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+    flex: 1,
   },
   submitButtonDisabled: {
-    backgroundColor: colors.text.light,
+    backgroundColor: colors.text.secondary,
     shadowOpacity: 0,
     elevation: 0,
   },
   submitButtonText: {
     color: colors.white,
-    fontSize: fonts.size.lg,
-    fontWeight: 'bold',
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  submittingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
   validationContainer: {
     backgroundColor: colors.warningLight,
@@ -2301,32 +2627,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   backButton: {
-    backgroundColor: colors.background.light,
+    backgroundColor: colors.white,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: 8,
-    marginRight: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    flex: 1,
   },
   backButtonText: {
     color: colors.text.primary,
     fontSize: fonts.size.md,
-    fontWeight: '500',
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    flex: 1,
-    alignItems: 'center',
-  },
-  submitButtonDisabled: {
-    backgroundColor: colors.text.light,
-  },
-  submitButtonText: {
-    color: colors.white,
-    fontSize: fonts.size.md,
     fontWeight: '600',
+    textAlign: 'center',
   },
   documentCard: {
     backgroundColor: colors.white,
@@ -2359,33 +2680,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     color: colors.error,
     marginTop: 4,
-  },
-  // Optional Documents Section Styles
-  optionalDocumentsSection: {
-    marginTop: spacing.md,
-  },
-  optionalDocumentsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    padding: spacing.md,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-  },
-  optionalDocumentsHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  optionalDocumentsTitle: {
-    fontSize: 16,
-    fontFamily: fonts.family.medium,
-    color: colors.text.primary,
-    marginLeft: spacing.sm,
-  },
-  optionalDocumentsContent: {
-    marginTop: spacing.sm,
   },
   documentHeader: {
     flexDirection: 'row',
@@ -2448,78 +2742,215 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: 2,
   },
-  documentPreview: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 6,
-    resizeMode: 'cover',
-  },
-  genderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  genderOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    marginHorizontal: spacing.xs,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.border.light,
-    backgroundColor: colors.background.light,
-  },
-  genderOptionSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  genderOptionText: {
-    fontSize: fonts.size.sm,
-    fontWeight: '500',
-    color: colors.text.primary,
-    marginLeft: spacing.xs,
-  },
-  genderOptionTextSelected: {
-    color: colors.white,
-  },
-  religionContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  religionOption: {
-    width: '48%',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: colors.border.light,
-    backgroundColor: colors.background.light,
-    alignItems: 'center',
-  },
-  religionOptionSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  religionOptionText: {
-    fontSize: fonts.size.sm,
-    fontWeight: '500',
-    color: colors.text.primary,
-    textAlign: 'center',
-  },
-  religionOptionTextSelected: {
-    color: colors.white,
-  },
   characterCount: {
     fontSize: fonts.size.xs,
     color: colors.text.light,
     textAlign: 'right',
     marginTop: spacing.xs,
+  },
+  
+  // Address section styles
+  addressSection: {
+    marginTop: spacing.lg,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionIcon: {
+    marginRight: spacing.sm,
+  },
+  sectionDescription: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+    lineHeight: 18,
+  },
+  inputGroup: {
+    marginBottom: spacing.md,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  inputGroupHalf: {
+    width: '48%',
+  },
+  inputLabel: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  required: {
+    color: colors.error,
+  },
+  disabledInput: {
+    backgroundColor: colors.background.light,
+    color: colors.text.secondary,
+  },
+  
+  // Missing styles that were accidentally removed
+  textInput: {
+    borderWidth: 1.2,
+    borderColor: colors.text.light,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.white,
+    fontSize: fonts.size.md,
+    color: colors.text.primary,
+  },
+  
+  // Optional documents styles
+  optionalDocumentsSection: {
+    marginTop: spacing.xl,
+    backgroundColor: colors.background.light,
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+  optionalDocumentsToggle: {
+    paddingVertical: spacing.sm,
+  },
+  optionalDocumentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  optionalDocumentsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  optionalDocumentsTitleContainer: {
+    flex: 1,
+    marginLeft: spacing.sm,
+  },
+  optionalDocumentsTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: 2,
+  },
+  optionalDocumentsSubtitle: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    lineHeight: 16,
+  },
+  optionalDocumentsContent: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+  },
+  optionalDocumentsDescription: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  optionalDocumentItem: {
+    marginBottom: spacing.lg,
+  },
+  optionalDocumentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  optionalDocumentLabel: {
+    fontSize: fonts.size.md,
+    fontWeight: '500',
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+  },
+  optionalDocumentUploader: {
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionalDocumentPreview: {
+    width: 60,
+    height: 60,
+    borderRadius: 6,
+    resizeMode: 'cover',
+  },
+  optionalDocumentPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionalDocumentPlaceholderText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+  },
+  
+  // Profile photo specific styles
+  profilePhotoUploader: {
+    height: 120,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.border.light,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  profilePhotoUploaderFilled: {
+    borderColor: colors.success,
+    borderStyle: 'solid',
+    backgroundColor: colors.successLight,
+  },
+  profilePhotoContainer: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: 'hidden',
+  },
+  profilePhotoPreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  profilePhotoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 50,
+  },
+  profilePhotoOverlayText: {
+    color: colors.white,
+    fontSize: fonts.size.xs,
+    fontWeight: '500',
+    marginTop: spacing.xs,
+  },
+  profilePhotoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profilePhotoPlaceholderText: {
+    fontSize: fonts.size.md,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: spacing.sm,
+  },
+  profilePhotoPlaceholderSubtext: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
   },
 });
 
