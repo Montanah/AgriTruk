@@ -550,7 +550,14 @@ const SignupScreen = () => {
                         },
                         styles.inputActive,
                       ]}
-                      placeholder={selectedCountry.code === '+254' ? '712345678' : '712345678'}
+                      placeholder={(() => {
+                        // Show format based on country code
+                        if (selectedCountry.code === '+254') return '712345678'; // Kenya
+                        if (selectedCountry.code === '+255') return '712345678'; // Tanzania
+                        if (selectedCountry.code === '+256') return '712345678'; // Uganda
+                        if (selectedCountry.code === '+250') return '712345678'; // Rwanda
+                        return '712345678'; // Default
+                      })()}
                       value={phone}
                       onChangeText={setPhone}
                       autoCapitalize="none"
