@@ -426,14 +426,42 @@ exports.getAllBookings = async (req, res) => {
 
 exports.updateBooking = async (req, res) => {
   try {
-    const { bookingId } = req.params;
+    // Get bookingId from params (preferred) or body (fallback for compatibility)
+    const bookingId = req.params.bookingId || req.body.bookingId;
     let updates = req.body;
-    if (!bookingId || !updates) {
-      return res.status(400).json({ message: 'Booking ID and updates are required' });
+    
+    if (!bookingId) {
+      return res.status(400).json({ message: 'bookingId is required' });
+    }
+    
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'Updates are required' });
+    }
+    
+    // Remove bookingId from updates if it was in body (params take precedence)
+    delete updates.bookingId;
+    
+    // Convert ISO string timestamps to Firestore Timestamps if needed
+    if (updates.cancelledAt && typeof updates.cancelledAt === 'string') {
+      updates.cancelledAt = admin.firestore.Timestamp.fromDate(new Date(updates.cancelledAt));
+    }
+    if (updates.startedAt && typeof updates.startedAt === 'string') {
+      updates.startedAt = admin.firestore.Timestamp.fromDate(new Date(updates.startedAt));
+    }
+    if (updates.acceptedAt && typeof updates.acceptedAt === 'string') {
+      updates.acceptedAt = admin.firestore.Timestamp.fromDate(new Date(updates.acceptedAt));
+    }
+    if (updates.completedAt && typeof updates.completedAt === 'string') {
+      updates.completedAt = admin.firestore.Timestamp.fromDate(new Date(updates.completedAt));
     }
 
     // If status is being set to 'pending', clear transporter and vehicle assignments to make booking available again
+    // Preserve cancellationReason and cancelledAt if they're being set (for cancelling jobs)
     if (updates.status === 'pending') {
+      const preservedFields = {
+        cancellationReason: updates.cancellationReason,
+        cancelledAt: updates.cancelledAt,
+      };
       updates = {
         ...updates,
         transporterId: null,
@@ -446,6 +474,9 @@ exports.updateBooking = async (req, res) => {
         transporterPhone: null,
         transporterPhoto: null,
         startedAt: null, // Clear started timestamp
+        // Restore preserved fields if they were provided
+        ...(preservedFields.cancellationReason !== undefined && { cancellationReason: preservedFields.cancellationReason }),
+        ...(preservedFields.cancelledAt !== undefined && { cancelledAt: preservedFields.cancelledAt }),
       };
     }
 
@@ -922,7 +953,11 @@ exports.calculateStatusCounts = (fleet) => {
   return counts;
 };
 
-exports.updateBooking = async (req, res) => {
+// DUPLICATE FUNCTION REMOVED - This was overwriting the updateBooking function above
+// All routes now use the unified updateBooking at line 427 which handles both params and body
+// If waitMinutes functionality is needed, merge it into the function above
+/*
+exports.updateBooking_DUPLICATE_REMOVED = async (req, res) => {
   try {
     const { bookingId, waitMinutes, status, cancellationReason } = req.body;
 
@@ -1035,6 +1070,7 @@ exports.updateBooking = async (req, res) => {
     });
   }
 };
+*/
 
 // Accept a booking request
 exports.acceptBooking = async (req, res) => {
