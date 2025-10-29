@@ -518,7 +518,11 @@ const DriverJobManagementScreen = () => {
     <View style={styles.jobCard}>
       <View style={styles.jobHeader}>
         <View style={styles.jobInfo}>
-          <Text style={styles.jobId}>{getDisplayBookingId(item)}</Text>
+          <Text style={styles.jobId}>{getDisplayBookingId({
+            ...item,
+            bookingType: item.bookingType || item.type,
+            bookingMode: item.bookingMode || (item.type === 'instant' ? 'instant' : 'booking')
+          })}</Text>
           <Text style={styles.customerName}>{item.customerName}</Text>
           <Text style={styles.customerPhone}>{item.customerPhone}</Text>
         </View>

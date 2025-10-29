@@ -329,14 +329,13 @@ function generateDisplayIdFromObject(obj: any): string {
       ) ? 'AGR' : 'CAR';
     }
     
-    // Determine mode
-    const bookingType = obj.type || obj.bookingType || obj.bookingMode || 'booking';
-    const bookingTypeLower = String(bookingType).toLowerCase();
+    // Determine mode - prioritize bookingMode field
+    const bookingModeField = (obj.bookingMode || (obj.type === 'instant' ? 'instant' : 'booking') || 'booking').toString().toLowerCase();
     let mode: string;
     
-    if (bookingTypeLower === 'instant' || bookingTypeLower === 'inst') {
+    if (bookingModeField === 'instant' || bookingModeField === 'inst') {
       mode = 'INST';
-    } else if (obj.isConsolidated || bookingTypeLower === 'consolidated' || bookingTypeLower === 'cons') {
+    } else if (obj.isConsolidated || bookingModeField === 'consolidated' || bookingModeField === 'cons') {
       mode = 'CONS';
     } else {
       mode = 'BOOK';

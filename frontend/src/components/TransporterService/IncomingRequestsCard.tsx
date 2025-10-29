@@ -229,7 +229,11 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                 </View>
                 <Text style={styles.requestId}>#{(() => {
                   const { getDisplayBookingId } = require('../../utils/unifiedIdSystem');
-                  return getDisplayBookingId(item);
+                  return getDisplayBookingId({
+                    ...item,
+                    bookingType: item.bookingType || item.type,
+                    bookingMode: item.bookingMode || (item.type === 'instant' ? 'instant' : 'booking')
+                  });
                 })()}</Text>
             </View>
 

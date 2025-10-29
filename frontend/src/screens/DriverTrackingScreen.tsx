@@ -402,7 +402,11 @@ const DriverTrackingScreen = () => {
                             <Text style={styles.cardTitle}>Booking Information</Text>
                         </View>
                         <View style={styles.bookingInfo}>
-                            <Text style={styles.bookingId}>#{getDisplayBookingId(booking)}</Text>
+                            <Text style={styles.bookingId}>#{getDisplayBookingId({
+                              ...booking,
+                              bookingType: booking.bookingType || booking.type,
+                              bookingMode: booking.bookingMode || (booking.type === 'instant' ? 'instant' : 'booking')
+                            })}</Text>
                             <View style={[styles.statusBadge, { 
                                 backgroundColor: getStatusConfig(booking?.status || 'pending').color + '15',
                                 borderColor: getStatusConfig(booking?.status || 'pending').color + '50',
