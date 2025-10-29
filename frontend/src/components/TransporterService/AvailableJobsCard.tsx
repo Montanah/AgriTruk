@@ -140,6 +140,28 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                 });
                 
                 // Handle specific error cases
+                if (response.status === 403) {
+                    // Check for specific 403 error messages
+                    const errorMessage = errorData.message || '';
+                    if (errorMessage.includes('Driver not approved') || errorMessage.includes('license not verified')) {
+                        setJobs([]);
+                        setError('Your profile needs verification. Please contact your company administrator to approve your driver license and activate your account.');
+                        return;
+                    } else if (errorMessage.includes('vehicle') || errorMessage.includes('Vehicle')) {
+                        setJobs([]);
+                        setError('Your assigned vehicle needs verification. Please contact your company administrator.');
+                        return;
+                    } else if (errorMessage.includes('subscription')) {
+                        setJobs([]);
+                        setError('Your company subscription is inactive. Please contact your company administrator.');
+                        return;
+                    } else {
+                        setJobs([]);
+                        setError('Access denied. Please contact your company administrator for assistance.');
+                        return;
+                    }
+                }
+                
                 if (response.status === 404 && errorData.message?.includes('Transporter not found')) {
                     // Transporter profile doesn't exist yet - show empty state with helpful message
                     setJobs([]);
@@ -509,6 +531,8 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
 
     if (error) {
         const isProfileError = error.includes('complete your transporter profile');
+        const isVerificationError = error.includes('verification') || error.includes('approved') || error.includes('license');
+        const isNetworkError = error.includes('Network error') || error.includes('internet connection');
         
         return (
             <View style={styles.container}>
@@ -517,20 +541,37 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                 </View>
                 <View style={styles.errorContainer}>
                     <MaterialCommunityIcons 
-                        name={isProfileError ? "account-plus" : "alert-circle"} 
+                        name={
+                            isProfileError ? "account-plus" : 
+                            isVerificationError ? "account-alert" :
+                            isNetworkError ? "wifi-off" :
+                            "alert-circle"
+                        } 
                         size={48} 
-                        color={isProfileError ? colors.primary : colors.error} 
+                        color={
+                            isProfileError ? colors.primary : 
+                            isVerificationError ? colors.warning :
+                            isNetworkError ? colors.text.secondary :
+                            colors.error
+                        } 
                     />
+                    <Text style={styles.errorTitle}>
+                        {isNetworkError ? 'Connection Issue' : 
+                         isVerificationError ? 'Verification Required' :
+                         'Unable to Load Jobs'}
+                    </Text>
                     <Text style={styles.errorText}>{error}</Text>
                     {isProfileError ? (
                         <TouchableOpacity 
                             style={styles.profileButton} 
                             onPress={() => navigation.navigate('TransporterCompletion')}
                         >
+                            <MaterialCommunityIcons name="account-plus" size={16} color={colors.white} style={{ marginRight: 4 }} />
                             <Text style={styles.profileButtonText}>Complete Profile</Text>
                         </TouchableOpacity>
                     ) : (
                         <TouchableOpacity style={styles.retryButton} onPress={fetchAvailableJobs}>
+                            <MaterialCommunityIcons name="refresh" size={16} color={colors.white} style={{ marginRight: 4 }} />
                             <Text style={styles.retryButtonText}>Retry</Text>
                         </TouchableOpacity>
                     )}
@@ -621,34 +662,60 @@ const styles = StyleSheet.create({
     errorContainer: {
         alignItems: 'center',
         paddingVertical: spacing.xl,
+        paddingHorizontal: spacing.md,
     },
-    errorText: {
+    errorTitle: {
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
         marginTop: spacing.md,
-        fontSize: fonts.size.sm,
-        color: colors.error,
         textAlign: 'center',
     },
+    errorText: {
+        marginTop: spacing.sm,
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
+        lineHeight: 20,
+        paddingHorizontal: spacing.md,
+    },
     retryButton: {
-        marginTop: spacing.md,
+        marginTop: spacing.lg,
         paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.md,
         backgroundColor: colors.primary,
-        borderRadius: 8,
+        borderRadius: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     retryButtonText: {
         color: colors.white,
         fontWeight: '600',
+        fontSize: fonts.size.md,
     },
     profileButton: {
-        marginTop: spacing.md,
+        marginTop: spacing.lg,
         paddingHorizontal: spacing.lg,
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.md,
         backgroundColor: colors.primary,
-        borderRadius: 8,
+        borderRadius: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
     },
     profileButtonText: {
         color: colors.white,
         fontWeight: '600',
+        fontSize: fonts.size.md,
     },
     emptyContainer: {
         alignItems: 'center',

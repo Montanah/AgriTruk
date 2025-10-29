@@ -7,11 +7,13 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
-  Alert
+  Alert,
+  Image
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { getAuth } from 'firebase/auth';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
@@ -291,35 +293,63 @@ const DriverHomeScreen = () => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      {/* Driver Info Header */}
-      <View style={styles.driverInfoCard}>
+      {/* Driver Info Header with Gradient */}
+      <LinearGradient
+        colors={[colors.primary, colors.primary + 'DD']}
+        style={styles.gradientCard}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
         <View style={styles.driverInfo}>
-          <View style={styles.driverAvatar}>
-            <MaterialCommunityIcons name="account" size={32} color={colors.primary} />
+          <View style={styles.driverAvatarContainer}>
+            {driverProfile.profileImage ? (
+              <Image 
+                source={{ uri: driverProfile.profileImage }} 
+                style={styles.driverAvatarImage}
+              />
+            ) : (
+              <View style={styles.driverAvatar}>
+                <MaterialCommunityIcons name="account" size={32} color={colors.white} />
+              </View>
+            )}
+            <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(driverProfile.status) }]} />
           </View>
           <View style={styles.driverDetails}>
             <Text style={styles.driverName}>
               {driverProfile.firstName} {driverProfile.lastName}
             </Text>
-            <Text style={styles.driverCompany}>{driverProfile.company.name}</Text>
-            <Text style={styles.driverStatus}>
-              Status: <Text style={[styles.statusText, { color: getStatusColor(driverProfile.status) }]}>
-                {driverProfile.status.toUpperCase()}
-              </Text>
-            </Text>
+            <View style={styles.companyRow}>
+              <MaterialCommunityIcons name="office-building" size={14} color={colors.white + 'CC'} />
+              <Text style={styles.driverCompany}>{driverProfile.company.name}</Text>
+            </View>
+            <View style={styles.statusBadgeContainer}>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(driverProfile.status) + '30' }]}>
+                <MaterialCommunityIcons 
+                  name={driverProfile.status === 'active' ? 'check-circle' : 'clock-outline'} 
+                  size={12} 
+                  color={getStatusColor(driverProfile.status)} 
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={[styles.statusText, { color: getStatusColor(driverProfile.status) }]}>
+                  {driverProfile.status.toUpperCase()}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
         
         {driverProfile.assignedVehicle && (
           <View style={styles.vehicleInfo}>
-            <MaterialCommunityIcons name="truck" size={16} color={colors.text.secondary} />
+            <MaterialCommunityIcons name="truck" size={16} color={colors.white + 'DD'} />
             <Text style={styles.vehicleText}>
-              {driverProfile.assignedVehicle.make} {driverProfile.assignedVehicle.model}
+              {driverProfile.assignedVehicle.make || 'Vehicle'} {driverProfile.assignedVehicle.model || ''}
             </Text>
-            <Text style={styles.vehicleReg}>{driverProfile.assignedVehicle.registration}</Text>
+            {driverProfile.assignedVehicle.registration && (
+              <Text style={styles.vehicleReg}>{driverProfile.assignedVehicle.registration}</Text>
+            )}
           </View>
         )}
-      </View>
+      </LinearGradient>
 
       {/* Offline Instructions Card - Show when not accepting requests */}
       {!acceptingBooking && (
@@ -485,69 +515,112 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: 'bold',
   },
-  driverInfoCard: {
-    backgroundColor: colors.white,
+  gradientCard: {
     margin: 16,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
+    borderRadius: 16,
+    padding: 20,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
   driverInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
+  driverAvatarContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
   driverAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primary + '20',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: colors.white + '20',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    borderWidth: 3,
+    borderColor: colors.white,
+  },
+  driverAvatarImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: colors.white,
+  },
+  statusIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 3,
+    borderColor: colors.white,
   },
   driverDetails: {
     flex: 1,
   },
   driverName: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: 4,
+    color: colors.white,
+    marginBottom: 6,
+  },
+  companyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   driverCompany: {
     fontSize: 14,
-    color: colors.text.secondary,
-    marginBottom: 4,
+    color: colors.white + 'DD',
+    marginLeft: 6,
   },
-  driverStatus: {
-    fontSize: 12,
-    color: colors.text.secondary,
+  statusBadgeContainer: {
+    marginTop: 4,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusText: {
+    fontSize: 11,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   vehicleInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.white + '15',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.white + '30',
+    marginTop: 8,
   },
   vehicleText: {
     fontSize: 14,
-    color: colors.text.primary,
+    color: colors.white,
     marginLeft: 8,
     flex: 1,
+    fontWeight: '600',
   },
   vehicleReg: {
     fontSize: 12,
-    color: colors.text.secondary,
+    color: colors.white + 'CC',
     fontWeight: 'bold',
+    backgroundColor: colors.white + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   tripStatusCard: {
     backgroundColor: colors.white,
