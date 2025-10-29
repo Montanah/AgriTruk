@@ -42,7 +42,8 @@ interface DriverProfile {
     model: string;
     registration: string;
     type: string;
-    capacity: string;
+    capacity: string | number;
+    year?: number;
   };
   company: {
     id: string;
