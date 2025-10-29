@@ -176,7 +176,10 @@ const DriverJobManagementScreen = () => {
               id: job.id || job._id || job.bookingId, // Firestore doc ID
               // bookingId might be different from id (could be a readableId or another field)
               bookingId: job.bookingId || job.requestId || job.id,
-              readableId: job.readableId || job.bookingId,
+              readableId: job.readableId, // Preserve exactly like ActivityScreen - don't fallback to bookingId
+              createdAt: job.createdAt, // CRITICAL: Preserve createdAt for correct ID generation
+              bookingType: job.bookingType, // Preserve bookingType
+              bookingMode: job.bookingMode, // Preserve bookingMode
               productType: job.productType || job.cargoDetails,
               weight: job.weightKg || job.weight,
               specialRequirements: job.specialCargo || job.specialRequirements || [],

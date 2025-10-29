@@ -215,7 +215,15 @@ const DriverHomeScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setAcceptedJobs(data.jobs || data.bookings || []);
+        // Preserve readableId, createdAt, bookingType, bookingMode like ActivityScreen does
+        const jobs = (data.jobs || data.bookings || []).map((job: any) => ({
+          ...job,
+          readableId: job.readableId,
+          createdAt: job.createdAt,
+          bookingType: job.bookingType,
+          bookingMode: job.bookingMode,
+        }));
+        setAcceptedJobs(jobs);
       } else {
         // If endpoint doesn't exist or permission denied, try alternative
         const altResponse = await fetch(`${API_ENDPOINTS.BOOKINGS}/driver/accepted`, {
@@ -226,7 +234,15 @@ const DriverHomeScreen = () => {
         });
         if (altResponse.ok) {
           const altData = await altResponse.json();
-          setAcceptedJobs(altData.jobs || altData.bookings || []);
+          // Preserve readableId, createdAt, bookingType, bookingMode like ActivityScreen does
+          const jobs = (altData.jobs || altData.bookings || []).map((job: any) => ({
+            ...job,
+            readableId: job.readableId,
+            createdAt: job.createdAt,
+            bookingType: job.bookingType,
+            bookingMode: job.bookingMode,
+          }));
+          setAcceptedJobs(jobs);
         } else {
           setAcceptedJobs([]);
         }

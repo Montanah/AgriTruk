@@ -315,37 +315,13 @@ function generateDisplayIdFromObject(obj: any): string {
     }
     
     // Use the parsed createdAt date for ID generation (NOT current time)
-    // Always compute in Africa/Nairobi (UTC+3) so IDs are consistent across devices
-    const computeNairobiParts = (d: Date) => {
-      try {
-        if (typeof Intl !== 'undefined' && (Intl as any).DateTimeFormat) {
-          const fmt = new Intl.DateTimeFormat('en-GB', {
-            timeZone: 'Africa/Nairobi',
-            year: '2-digit', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit', hour12: false,
-          });
-          const parts = (fmt as any).formatToParts(d);
-          const pick = (type: string) => parts.find((p: any) => p.type === type)?.value || '00';
-          return {
-            year: pick('year'),
-            month: pick('month'),
-            day: pick('day'),
-            hour: pick('hour'),
-            minute: pick('minute'),
-          };
-        }
-      } catch {}
-      const nairobi = new Date(d.getTime() + 3 * 60 * 60 * 1000);
-      return {
-        year: nairobi.getFullYear().toString().slice(-2),
-        month: (nairobi.getMonth() + 1).toString().padStart(2, '0'),
-        day: nairobi.getDate().toString().padStart(2, '0'),
-        hour: nairobi.getHours().toString().padStart(2, '0'),
-        minute: nairobi.getMinutes().toString().padStart(2, '0'),
-      };
-    };
-
-    const { year, month, day, hour, minute } = computeNairobiParts(bookingDate);
+    // Use the date components directly from createdAt - it already represents the correct local time when created
+    // This matches how BookingConfirmationScreen generates readableId using new Date() at creation time
+    const year = bookingDate.getFullYear().toString().slice(-2);
+    const month = (bookingDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = bookingDate.getDate().toString().padStart(2, '0');
+    const hour = bookingDate.getHours().toString().padStart(2, '0');
+    const minute = bookingDate.getMinutes().toString().padStart(2, '0');
     
     // Determine type - PRIORITIZE bookingType over product name to avoid "Carrots" -> CAR mistakes
     // bookingType is set explicitly to 'Agri' or 'Cargo' at creation time
