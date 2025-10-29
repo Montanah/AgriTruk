@@ -426,11 +426,20 @@ exports.getAllBookings = async (req, res) => {
 
 exports.updateBooking = async (req, res) => {
   try {
-    const { bookingId } = req.params;
+    // Get bookingId from params (preferred) or body (fallback for compatibility)
+    const bookingId = req.params.bookingId || req.body.bookingId;
     let updates = req.body;
-    if (!bookingId || !updates) {
-      return res.status(400).json({ message: 'Booking ID and updates are required' });
+    
+    if (!bookingId) {
+      return res.status(400).json({ message: 'bookingId is required' });
     }
+    
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'Updates are required' });
+    }
+    
+    // Remove bookingId from updates if it was in body (params take precedence)
+    delete updates.bookingId;
 
     // If status is being set to 'pending', clear transporter and vehicle assignments to make booking available again
     if (updates.status === 'pending') {
@@ -922,7 +931,11 @@ exports.calculateStatusCounts = (fleet) => {
   return counts;
 };
 
-exports.updateBooking = async (req, res) => {
+// DUPLICATE FUNCTION REMOVED - This was overwriting the updateBooking function above
+// All routes now use the unified updateBooking at line 427 which handles both params and body
+// If waitMinutes functionality is needed, merge it into the function above
+/*
+exports.updateBooking_DUPLICATE_REMOVED = async (req, res) => {
   try {
     const { bookingId, waitMinutes, status, cancellationReason } = req.body;
 
@@ -1035,6 +1048,7 @@ exports.updateBooking = async (req, res) => {
     });
   }
 };
+*/
 
 // Accept a booking request
 exports.acceptBooking = async (req, res) => {
