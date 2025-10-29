@@ -107,6 +107,7 @@ const DriverTabNavigator = () => {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarShowLabel: true,
+        tabBarShowIcon: true,
         tabBarLabelStyle: {
           fontSize: 12,
           fontFamily: fonts.family.medium,

@@ -458,6 +458,9 @@ const DriverHomeScreen = () => {
           )}
         </View>
       </View>
+
+      {/* Bottom padding to prevent cut-off */}
+      <View style={styles.bottomPadding} />
     </ScrollView>
   );
 };
@@ -709,6 +712,9 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginTop: 8,
     textAlign: 'center',
+  },
+  bottomPadding: {
+    height: 100,
   },
 });
 

@@ -514,17 +514,22 @@ const DriverProfileScreen = () => {
                 }
               </Text>
             </View>
-            <Switch
-              value={acceptingBooking}
-              onValueChange={updateAcceptingBookingStatus}
-              disabled={updatingBookingStatus}
-              trackColor={{ false: colors.text.light, true: colors.primary + '40' }}
-              thumbColor={acceptingBooking ? colors.primary : colors.text.light}
-              ios_backgroundColor={colors.text.light}
-            />
+            <View style={styles.switchContainer}>
+              <Switch
+                value={acceptingBooking}
+                onValueChange={updateAcceptingBookingStatus}
+                disabled={updatingBookingStatus}
+                trackColor={{ false: colors.text.light, true: colors.primary + '40' }}
+                thumbColor={acceptingBooking ? colors.primary : colors.text.light}
+                ios_backgroundColor={colors.text.light}
+              />
+            </View>
           </View>
         </View>
       </View>
+
+      {/* Bottom padding to prevent cut-off */}
+      <View style={styles.bottomPadding} />
 
       {/* Document Upload Modal */}
       <Modal visible={showDocumentModal} transparent animationType="slide">
@@ -914,6 +919,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.secondary,
     lineHeight: 20,
+  },
+  switchContainer: {
+    padding: 8,
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomPadding: {
+    height: 100,
   },
 });
 

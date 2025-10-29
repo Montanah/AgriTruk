@@ -1000,7 +1000,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   listContainer: {
-    paddingBottom: 20,
+    paddingBottom: 100,
+    paddingHorizontal: 16,
   },
   // New styles for enhanced functionality
   routeInfo: {
