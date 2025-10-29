@@ -444,18 +444,22 @@ const DriverHomeScreen = () => {
         </View>
       )}
 
-      {/* Incoming Requests - Instant requests that are pending acceptance */}
-      <IncomingRequestsCard
-        title="Incoming Requests"
-        onViewAll={handleViewAllJobs}
-      />
+      {/* Incoming Requests - Instant requests that are pending acceptance - Only show when accepting jobs */}
+      {acceptingBooking && (
+        <IncomingRequestsCard
+          title="Incoming Requests"
+          onViewAll={handleViewAllJobs}
+        />
+      )}
 
-      {/* Available Jobs - All available jobs (both instant and booking) */}
-      <AvailableJobsCard
-        onJobAccepted={handleJobAccepted}
-        onJobRejected={handleJobRejected}
-        onViewAll={handleViewAllJobs}
-      />
+      {/* Available Jobs - All available jobs (both instant and booking) - Only show when accepting jobs */}
+      {acceptingBooking && (
+        <AvailableJobsCard
+          onJobAccepted={handleJobAccepted}
+          onJobRejected={handleJobRejected}
+          onViewAll={handleViewAllJobs}
+        />
+      )}
 
       {/* My Accepted Jobs - Drivers choose and accept jobs themselves */}
       <IncomingRequestsCard
