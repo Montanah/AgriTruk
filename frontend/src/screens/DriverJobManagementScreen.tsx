@@ -494,12 +494,33 @@ const DriverJobManagementScreen = () => {
       const token = await user.getIdToken();
       const bookingId = job.id || job._id || job.bookingId;
       
+      console.log('🔄 Cancelling job:', { bookingId, jobId: job.id, reason });
+      
       if (!bookingId) {
         throw new Error('Booking ID not found. Cannot cancel job.');
       }
 
       // When cancelling, set status back to 'pending' so it becomes available again
       // Clear transporter assignment and acceptance timestamp
+      const updatePayload = { 
+        status: 'pending',
+        cancellationReason: reason,
+        cancelledAt: new Date().toISOString(),
+        transporterId: null,
+        acceptedAt: null,
+        vehicleId: null,
+        vehicleMake: null,
+        vehicleModel: null,
+        vehicleRegistration: null,
+        transporterName: null,
+        transporterPhone: null,
+        transporterPhoto: null,
+        startedAt: null,
+      };
+
+      console.log('🔄 Sending cancel request to:', `${API_ENDPOINTS.BOOKINGS}/update/${bookingId}`);
+      console.log('🔄 Payload:', JSON.stringify(updatePayload, null, 2));
+
       let response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${bookingId}`, {
         method: 'PATCH',
         headers: {
@@ -542,7 +563,7 @@ const DriverJobManagementScreen = () => {
         console.error('❌ Cancel failed:', { status: response.status, statusText: response.statusText, errorData });
         throw new Error(errorData.message || `Failed to cancel job (${response.status}: ${response.statusText})`);
       }
-    } catch (err: anyё) {
+    } catch (err: any) {
       console.error('❌ Error cancelling job:', err);
       Alert.alert('Error Cancelling Job', err.message || 'Failed to cancel job. Please try again.');
     } finally {
