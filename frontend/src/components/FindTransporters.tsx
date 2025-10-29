@@ -379,9 +379,21 @@ const FindTransporters: React.FC<FindTransportersProps> = ({ requests, distance 
             }
           };
 
+          // Generate readable ID for instant requests in format: YYMMDD-HHMM-TYPE-MODE
+          const { generateReadableId } = require('../utils/idUtils');
+          const bookingType = base.type === 'agriTRUK' ? 'Agri' : 'Cargo';
+          const readableId = generateReadableId({
+            bookingType: bookingType,
+            bookingMode: 'instant',
+            isConsolidated: false,
+            timestamp: new Date()
+          });
+
           const instantRequestData = {
+            // IMPORTANT: Add readableId so backend can store it
+            readableId: readableId,
             // Core booking fields
-            type: base.type === 'agriTRUK' ? 'Agri' : 'Cargo',
+            type: bookingType,
             fromLocation: formatLocation(base.fromLocation),
             toLocation: formatLocation(base.toLocation),
             productType: base.productType,

@@ -158,7 +158,35 @@ const DriverJobManagementScreen = () => {
         if (selectedTab === 'route_loads') {
           setRouteLoads(data.routeLoads || data.loads || data || []);
         } else {
-          setJobs(data.jobs || data.bookings || []);
+          // Handle both array and object responses
+          const jobsData = Array.isArray(data) ? data : (data.jobs || data.bookings || []);
+          // Ensure all jobs have proper readableId/bookingId
+          // IMPORTANT: customerName/customerPhone should be the CLIENT/SHIPPER who created the booking, NOT the driver/transporter
+          const processedJobs = jobsData.map((job: any) => {
+            // The userId field refers to the user who created the booking (shipper/broker/business)
+            // The transporterName/transporterPhone are the DRIVER who accepted it
+            const clientName = job.clientName || job.shipperName || job.userName || job.client?.name || 'Customer';
+            const clientPhone = job.clientPhone || job.phone || job.contactPhone || job.client?.phone || job.client?.contactPhone;
+            const clientEmail = job.clientEmail || job.email || job.contactEmail || job.client?.email;
+            
+            return {
+              ...job,
+              readableId: job.readableId || job.bookingId,
+              bookingId: job.bookingId || job.readableId || job.id,
+              productType: job.productType || job.cargoDetails,
+              weight: job.weightKg || job.weight,
+              specialRequirements: job.specialCargo || job.specialRequirements || [],
+              // Customer/Client details - the person who created the booking
+              customerName: clientName,
+              customerPhone: clientPhone,
+              customerEmail: clientEmail,
+              clientId: job.userId || job.clientId || job.shipperId,
+              // Keep transporter info separate for reference
+              transporterName: job.transporterName,
+              transporterPhone: job.transporterPhone,
+            };
+          });
+          setJobs(processedJobs);
         }
       } else {
         const statusCode = response.status;
@@ -281,31 +309,57 @@ const DriverJobManagementScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${job.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'in_progress' })
-      });
+      
+      // Try multiple endpoints for starting trip
+      const endpoints = [
+        `${API_ENDPOINTS.BOOKINGS}/${job.id}/start`,
+        `${API_ENDPOINTS.BOOKINGS}/${job.id}/status`,
+        `${API_ENDPOINTS.BOOKINGS}/update/${job.id}`,
+      ];
 
-      if (response.ok) {
-        Alert.alert('Success', 'Trip started successfully!');
-        fetchJobs();
-        fetchCurrentTrip();
-        // Navigate to trip navigation screen
-        (navigation as any).navigate('TripNavigationScreen', { 
-          jobId: job.id,
-          bookingId: job.bookingId,
-          job: job
-        });
-      } else {
-        throw new Error('Failed to start trip');
+      let response;
+      let lastError;
+
+      for (const endpoint of endpoints) {
+        try {
+          response = await fetch(endpoint, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              status: 'started',
+              startedAt: new Date().toISOString()
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            Alert.alert('Success', 'Trip started successfully!');
+            fetchJobs();
+            fetchCurrentTrip();
+            // Navigate to trip navigation screen
+            (navigation as any).navigate('TripNavigationScreen', { 
+              jobId: job.id,
+              bookingId: job.bookingId || job.readableId,
+              job: job
+            });
+            return;
+          } else {
+            const errorData = await response.json().catch(() => ({}));
+            lastError = errorData.message || `Status: ${response.status}`;
+          }
+        } catch (err: any) {
+          lastError = err.message;
+          continue;
+        }
       }
+
+      throw new Error(lastError || 'Failed to start trip');
     } catch (err: any) {
       console.error('Error starting trip:', err);
-      Alert.alert('Error', err.message || 'Failed to start trip');
+      Alert.alert('Error', err.message || 'Failed to start trip. Please try again.');
     }
   };
 
@@ -515,6 +569,96 @@ const DriverJobManagementScreen = () => {
             Payment: KES {(item.paymentAmount || item.cost || item.estimatedValue || 0).toLocaleString('en-KE')}
           </Text>
         </View>
+        
+        {/* Additional Details for My Jobs */}
+        {selectedTab === 'my_jobs' && (
+          <>
+            {/* Weight */}
+            {item.weight && (
+              <View style={styles.detailRow}>
+                <MaterialCommunityIcons name="weight-kilogram" size={16} color={colors.text.secondary} />
+                <Text style={styles.detailText}>
+                  Weight: {typeof item.weight === 'number' ? `${item.weight} kg` : item.weight}
+                </Text>
+              </View>
+            )}
+            
+            {/* Product Type / Cargo Details */}
+            {item.productType && (
+              <View style={styles.detailRow}>
+                <MaterialCommunityIcons name="package-variant" size={16} color={colors.text.secondary} />
+                <Text style={styles.detailText}>
+                  Cargo: {item.productType}
+                </Text>
+              </View>
+            )}
+            
+            {/* Special Requirements */}
+            {((item.specialRequirements && item.specialRequirements.length > 0) || 
+              (item.specialCargo && item.specialCargo.length > 0)) && (
+              <View style={styles.specialRequirementsContainer}>
+                <Text style={styles.specialRequirementsTitle}>Special Requirements:</Text>
+                <View style={styles.specialRequirementsList}>
+                  {(item.specialCargo || item.specialRequirements || []).map((req: string, index: number) => (
+                    <View key={index} style={styles.requirementTag}>
+                      <MaterialCommunityIcons name="check-circle" size={12} color={colors.primary} />
+                      <Text style={styles.requirementText}>{req}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+            
+            {/* Customer Contact Details - Enhanced UI */}
+            <View style={styles.customerDetailsCard}>
+              <View style={styles.customerDetailsHeader}>
+                <MaterialCommunityIcons name="account-circle" size={24} color={colors.primary} />
+                <Text style={styles.customerDetailsTitle}>Customer Information</Text>
+              </View>
+              <View style={styles.customerDetailsContent}>
+                {item.customerName && (
+                  <View style={styles.customerDetailItem}>
+                    <View style={styles.customerIconContainer}>
+                      <MaterialCommunityIcons name="account" size={20} color={colors.primary} />
+                    </View>
+                    <View style={styles.customerDetailContent}>
+                      <Text style={styles.customerDetailLabel}>Name</Text>
+                      <Text style={styles.customerDetailValue}>{item.customerName}</Text>
+                    </View>
+                  </View>
+                )}
+                {item.customerPhone && (
+                  <View style={styles.customerDetailItem}>
+                    <View style={styles.customerIconContainer}>
+                      <MaterialCommunityIcons name="phone" size={20} color={colors.success} />
+                    </View>
+                    <View style={styles.customerDetailContent}>
+                      <Text style={styles.customerDetailLabel}>Phone</Text>
+                      <Text style={styles.customerDetailValue}>{item.customerPhone}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.contactActionButton}
+                      onPress={() => handleCall(item.customerPhone)}
+                    >
+                      <MaterialCommunityIcons name="phone-outline" size={18} color={colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {(item.customerEmail || item.client?.email) && (
+                  <View style={styles.customerDetailItem}>
+                    <View style={styles.customerIconContainer}>
+                      <MaterialCommunityIcons name="email" size={20} color={colors.secondary} />
+                    </View>
+                    <View style={styles.customerDetailContent}>
+                      <Text style={styles.customerDetailLabel}>Email</Text>
+                      <Text style={styles.customerDetailValue}>{item.customerEmail || item.client?.email}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          </>
+        )}
       </View>
 
       <View style={styles.jobActions}>
@@ -1278,6 +1422,75 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: 'bold',
     fontFamily: 'monospace',
+  },
+  // Enhanced Customer Details Styles
+  customerDetailsCard: {
+    marginTop: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: spacing.lg,
+    elevation: 2,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  customerDetailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  customerDetailsTitle: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+  },
+  customerDetailsContent: {
+    gap: spacing.md,
+  },
+  customerDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  customerIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  customerDetailContent: {
+    flex: 1,
+  },
+  customerDetailLabel: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  customerDetailValue: {
+    fontSize: 15,
+    fontFamily: fonts.family.medium,
+    color: colors.text.primary,
+  },
+  contactActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.sm,
   },
 });
 

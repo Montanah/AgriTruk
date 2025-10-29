@@ -156,11 +156,24 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           }
         };
 
+        // Generate readable booking ID in format: YYMMDD-HHMM-TYPE-MODE
+        // This will be stored in the backend so drivers can easily fetch it
+        const { generateReadableId } = require('../utils/idUtils');
+        const bookingType = req.bookingType || (req.type === 'agriTRUK' ? 'Agri' : 'Cargo');
+        const readableId = generateReadableId({
+          bookingType: bookingType,
+          bookingMode: 'booking',
+          isConsolidated: false,
+          timestamp: new Date() // Use current time for ID generation
+        });
+
         // Complete payload with all required fields for backend
         // Based on the database record structure you provided
         const bookingData = {
+          // IMPORTANT: Add readableId so backend can store it
+          readableId: readableId,
           // Core booking fields - match database structure
-          bookingType: req.bookingType || (req.type === 'agriTRUK' ? 'Agri' : 'Cargo'),
+          bookingType: bookingType,
           bookingMode: 'booking',
           fromLocation: formatLocation(req.fromLocation),
           toLocation: formatLocation(req.toLocation),

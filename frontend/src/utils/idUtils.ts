@@ -24,7 +24,7 @@ export const generateReadableId = (options: ReadableIdOptions): string => {
   const hour = now.getHours().toString().padStart(2, '0');
   const minute = now.getMinutes().toString().padStart(2, '0');
   
-  const type = options.bookingType === 'Agri' ? 'AGR' : 'CRG';
+  const type = options.bookingType === 'Agri' ? 'AGR' : 'CAR';
   const mode = options.isConsolidated ? 'CONS' : (options.bookingMode === 'instant' ? 'INST' : 'BOOK');
   
   return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
