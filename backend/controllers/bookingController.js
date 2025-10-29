@@ -442,7 +442,12 @@ exports.updateBooking = async (req, res) => {
     delete updates.bookingId;
 
     // If status is being set to 'pending', clear transporter and vehicle assignments to make booking available again
+    // Preserve cancellationReason and cancelledAt if they're being set (for cancelling jobs)
     if (updates.status === 'pending') {
+      const preservedFields = {
+        cancellationReason: updates.cancellationReason,
+        cancelledAt: updates.cancelledAt,
+      };
       updates = {
         ...updates,
         transporterId: null,
@@ -455,6 +460,9 @@ exports.updateBooking = async (req, res) => {
         transporterPhone: null,
         transporterPhoto: null,
         startedAt: null, // Clear started timestamp
+        // Restore preserved fields if they were provided
+        ...(preservedFields.cancellationReason !== undefined && { cancellationReason: preservedFields.cancellationReason }),
+        ...(preservedFields.cancelledAt !== undefined && { cancelledAt: preservedFields.cancelledAt }),
       };
     }
 
