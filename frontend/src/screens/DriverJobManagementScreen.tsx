@@ -135,8 +135,8 @@ const DriverJobManagementScreen = () => {
           endpoint = `${API_ENDPOINTS.BOOKINGS}/available`;
           break;
         case 'my_jobs':
-          // Drivers fetch their accepted jobs (same as transporters)
-          endpoint = `${API_ENDPOINTS.BOOKINGS}/transporter/accepted`;
+          // Try driver/accepted first, fallback to transporter/accepted
+          endpoint = `${API_ENDPOINTS.BOOKINGS}/driver/accepted`;
           break;
         case 'route_loads':
           if (currentTrip) {
@@ -148,12 +148,28 @@ const DriverJobManagementScreen = () => {
           break;
       }
 
-      const response = await fetch(endpoint, {
+      console.log('🔄 Fetching jobs from endpoint:', endpoint);
+      let response = await fetch(endpoint, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
+
+      console.log('🔄 Jobs response status:', response.status, response.statusText);
+
+      // For my_jobs, try fallback if first endpoint fails
+      if (!response.ok && selectedTab === 'my_jobs' && endpoint.includes('/driver/accepted')) {
+        console.log('🔄 Driver endpoint failed, trying transporter endpoint...');
+        const fallbackEndpoint = `${API_ENDPOINTS.BOOKINGS}/transporter/accepted`;
+        response = await fetch(fallbackEndpoint, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        console.log('🔄 Fallback response status:', response.status, response.statusText);
+      }
 
       if (response.ok) {
         const data = await response.json();
@@ -490,25 +506,14 @@ const DriverJobManagementScreen = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          status: 'pending',
-          cancellationReason: reason,
-          cancelledAt: new Date().toISOString(),
-          transporterId: null, // Clear transporter assignment to make it available
-          acceptedAt: null, // Clear acceptance timestamp
-          vehicleId: null, // Clear vehicle assignment
-          vehicleMake: null,
-          vehicleModel: null,
-          vehicleRegistration: null,
-          transporterName: null,
-          transporterPhone: null,
-          transporterPhoto: null,
-          startedAt: null, // Clear started timestamp if it was started
-        })
+        body: JSON.stringify(updatePayload)
       });
+
+      console.log('🔄 Cancel response status:', response.status, response.statusText);
 
       // Fallback to /status endpoint if /update doesn't work
       if (!response.ok && response.status === 404) {
+        console.log('🔄 Primary endpoint 404, trying /status endpoint...');
         response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}/status`, {
           method: 'PATCH',
           headers: {
@@ -520,21 +525,26 @@ const DriverJobManagementScreen = () => {
             cancellationReason: reason,
             transporterId: null,
             acceptedAt: null,
+            startedAt: null,
           })
         });
+        console.log('🔄 Fallback response status:', response.status, response.statusText);
       }
 
       if (response.ok) {
+        const responseData = await response.json().catch(() => ({}));
+        console.log('✅ Cancel successful:', responseData);
         Alert.alert('Success', 'Job cancelled successfully! The job is now available for other drivers.');
-        fetchJobs();
-        fetchCurrentTrip();
+        // Refresh jobs and current trip
+        await Promise.all([fetchJobs(), fetchCurrentTrip()]);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to cancel job');
+        console.error('❌ Cancel failed:', { status: response.status, statusText: response.statusText, errorData });
+        throw new Error(errorData.message || `Failed to cancel job (${response.status}: ${response.statusText})`);
       }
-    } catch (err: any) {
-      console.error('Error cancelling job:', err);
-      Alert.alert('Error', err.message || 'Failed to cancel job');
+    } catch (err: anyё) {
+      console.error('❌ Error cancelling job:', err);
+      Alert.alert('Error Cancelling Job', err.message || 'Failed to cancel job. Please try again.');
     } finally {
       // Clear loading state
       setCancellingJobId(null);

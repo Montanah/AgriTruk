@@ -20,6 +20,7 @@ const HomeStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="DriverHome" component={DriverHomeScreen} />
     <Stack.Screen name="TransporterJobDetailsScreen" component={require('../screens/TransporterJobDetailsScreen').default} />
+    <Stack.Screen name="DriverTripNavigation" component={require('../screens/DriverTripNavigationScreen').default} />
     <Stack.Screen name="TripDetailsScreen" component={require('../screens/TripDetailsScreen').default} />
     <Stack.Screen name="RouteLoadsScreen" component={require('../screens/RouteLoadsScreen').default} />
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
