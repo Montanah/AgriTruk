@@ -654,29 +654,53 @@ const TrackingScreen = () => {
                     </View>
                 </View>
 
-                {/* Transporter Information */}
-                <View style={styles.card}>
-                    <View style={styles.cardHeader}>
-                        <MaterialCommunityIcons name="account-tie" size={24} color={colors.tertiary} />
-                        <Text style={styles.cardTitle}>Transporter</Text>
-                    </View>
-                    {trackingData.transporter?.name && trackingData.transporter.name !== 'N/A' ? (
+                {/* Transporter/Driver Information */}
+                {(booking.transporterId || booking.transporter) && (
+                    <View style={styles.card}>
+                        <View style={styles.cardHeader}>
+                            <MaterialCommunityIcons name="account-tie" size={24} color={colors.tertiary} />
+                            <Text style={styles.cardTitle}>Assigned Driver</Text>
+                        </View>
                         <View style={styles.transporterInfo}>
-                            <View style={styles.transporterDetailRow}>
-                                <MaterialCommunityIcons name="account" size={16} color={colors.text.secondary} />
-                                <Text style={styles.transporterLabel}>Name:</Text>
-                                <Text style={styles.transporterValue}>{trackingData.transporter.name}</Text>
-                            </View>
-                            <View style={styles.transporterDetailRow}>
-                                <MaterialCommunityIcons name="phone" size={16} color={colors.text.secondary} />
-                                <Text style={styles.transporterLabel}>Phone:</Text>
-                                <Text style={styles.transporterValue}>{trackingData.transporter.phone}</Text>
-                            </View>
-                            <View style={styles.transporterDetailRow}>
-                                <MaterialCommunityIcons name="truck" size={16} color={colors.text.secondary} />
-                                <Text style={styles.transporterLabel}>Vehicle:</Text>
-                                <Text style={styles.transporterValue}>{trackingData.transporter.vehicle}</Text>
-                            </View>
+                            {(booking.transporter?.name || booking.transporterName) && (
+                                <View style={styles.transporterDetailRow}>
+                                    <MaterialCommunityIcons name="account" size={16} color={colors.text.secondary} />
+                                    <Text style={styles.transporterLabel}>Name:</Text>
+                                    <Text style={styles.transporterValue}>
+                                        {booking.transporter?.name || booking.transporterName || 'N/A'}
+                                    </Text>
+                                </View>
+                            )}
+                            {(booking.transporter?.phone || booking.transporterPhone || booking.transporter?.phoneNumber) && (
+                                <View style={styles.transporterDetailRow}>
+                                    <MaterialCommunityIcons name="phone" size={16} color={colors.text.secondary} />
+                                    <Text style={styles.transporterLabel}>Phone:</Text>
+                                    <Text style={styles.transporterValue}>
+                                        {booking.transporter?.phone || booking.transporterPhone || booking.transporter?.phoneNumber || 'N/A'}
+                                    </Text>
+                                </View>
+                            )}
+                            {booking.transporter?.rating && (
+                                <View style={styles.transporterDetailRow}>
+                                    <MaterialCommunityIcons name="star" size={16} color={colors.warning} />
+                                    <Text style={styles.transporterLabel}>Rating:</Text>
+                                    <Text style={styles.transporterValue}>
+                                        {booking.transporter?.rating.toFixed(1)} ⭐
+                                    </Text>
+                                </View>
+                            )}
+                            
+                            {/* Vehicle Information */}
+                            {booking.transporter?.vehicle && (
+                                <View style={styles.vehicleSection}>
+                                    <Text style={styles.vehicleSectionTitle}>Vehicle Details</Text>
+                                    <VehicleDisplayCard 
+                                        vehicle={booking.transporter.vehicle}
+                                        showImages={false}
+                                        compact={true}
+                                    />
+                                </View>
+                            )}
                             
                             {/* Communication Buttons */}
                             <View style={styles.communicationButtons}>
