@@ -263,8 +263,8 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                     </View>
                 )}
                 <View style={styles.cargoItem}>
-                    <MaterialCommunityIcons name="currency-usd" size={14} color={colors.text.secondary} />
-                    <Text style={styles.cargoText}>
+                    <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
+                    <Text style={styles.costText}>
                       KES {(item.estimatedValue || item.paymentAmount || item.cost || item.pricing?.total || 0).toLocaleString('en-KE')}
                     </Text>
                 </View>
@@ -371,8 +371,9 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                             }
                         }}
                     >
-                        <MaterialCommunityIcons name="briefcase" size={16} color={colors.white} />
-                        <Text style={styles.buttonText}>View Details</Text>
+                        <MaterialCommunityIcons name="eye" size={18} color={colors.white} />
+                        <Text style={styles.viewDetailsButtonText}>View Job Details</Text>
+                        <MaterialCommunityIcons name="chevron-right" size={18} color={colors.white} style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
                 ) : (
                     // For incoming requests, show accept/reject buttons
@@ -577,6 +578,13 @@ const styles = StyleSheet.create({
         color: colors.text.secondary,
         marginLeft: spacing.xs,
     },
+    costText: {
+        fontSize: fonts.size.md,
+        fontFamily: fonts.family.bold,
+        color: colors.success,
+        marginLeft: spacing.xs,
+        fontWeight: '700',
+    },
     requirementsContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -701,6 +709,13 @@ const styles = StyleSheet.create({
     buttonText: {
         fontSize: fonts.size.sm,
         fontWeight: '600',
+        marginLeft: spacing.xs,
+    },
+    viewDetailsButtonText: {
+        fontSize: fonts.size.md,
+        fontFamily: fonts.family.bold,
+        color: colors.white,
+        fontWeight: '700',
         marginLeft: spacing.xs,
     },
     separator: {
