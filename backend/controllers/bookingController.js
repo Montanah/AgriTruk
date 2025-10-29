@@ -21,12 +21,13 @@ const google_key = process.env.GOOGLE_MAPS_API_KEY;
 // Generate readable ID (unique) aligned with mobile: YYMMDD-HHMMSS-TYPE-[BIC]SUF
 const generateReadableId = (bookingType, bookingMode, isConsolidated = false, timestamp = new Date(), seed = '') => {
   const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-  const year = date.getFullYear().toString().slice(-2);
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  const hour = date.getHours().toString().padStart(2, '0');
-  const minute = date.getMinutes().toString().padStart(2, '0');
-  const second = date.getSeconds().toString().padStart(2, '0');
+  // Use UTC methods to ensure consistent timezone handling across servers and clients
+  const year = date.getUTCFullYear().toString().slice(-2);
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = date.getUTCDate().toString().padStart(2, '0');
+  const hour = date.getUTCHours().toString().padStart(2, '0');
+  const minute = date.getUTCMinutes().toString().padStart(2, '0');
+  const second = date.getUTCSeconds().toString().padStart(2, '0');
   const type = bookingType === 'Agri' ? 'AGR' : 'CAR';
   const letter = isConsolidated ? 'C' : (bookingMode === 'instant' ? 'I' : 'B');
   const suffix = computeShortToken(seed || `${date.getTime()}-${Math.random()}`);
@@ -1582,13 +1583,17 @@ exports.getAcceptedBookings = async (req, res) => {
       
       // Ensure readableId is included (use bookingId if readableId doesn't exist)
       if (!enriched.readableId && enriched.bookingId) {
-        // Generate readableId from booking data if missing
-        const bookingDate = enriched.createdAt?.toDate ? enriched.createdAt.toDate() : new Date(enriched.createdAt);
-        enriched.readableId = generateReadableId(
-          enriched.bookingType || 'Agri',
-          enriched.bookingMode || 'booking',
-          enriched.consolidated || false
-        );
+        // Generate readableId from booking data if missing - MUST use createdAt, not current time!
+        const bookingDate = enriched.createdAt?.toDate ? enriched.createdAt.toDate() : (enriched.createdAt ? new Date(enriched.createdAt) : null);
+        if (bookingDate) {
+          enriched.readableId = generateReadableId(
+            enriched.bookingType || 'Agri',
+            enriched.bookingMode || 'booking',
+            enriched.consolidated || false,
+            bookingDate, // CRITICAL: Pass createdAt timestamp (not current time!)
+            enriched.bookingId // Pass bookingId as seed for uniqueness
+          );
+        }
       }
       
       // Ensure costBreakdown is included and properly formatted
