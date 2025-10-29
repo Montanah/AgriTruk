@@ -131,34 +131,14 @@ const TrackingScreen = () => {
                 const bookingData = data.booking || data;
                 setBooking(bookingData);
                 
-                // Also try to load tracking data
-                try {
-                    const tracking = await unifiedTrackingService.getTrackingData(bookingId, bookingData.userId || 'current-user');
-                    if (tracking) {
-                        setTrackingData(tracking);
-                    } else {
-                        // Fallback: derive minimal tracking from booking object when backend has no tracking yet
-                        setTrackingData({
-                            bookingId: bookingId,
-                            status: bookingData.status || 'pending',
-                            fromLocation: bookingData.fromLocation || bookingData.from,
-                            toLocation: bookingData.toLocation || bookingData.to,
-                            productType: bookingData.productType || 'Cargo',
-                            weight: (bookingData.weightKg ? `${bookingData.weightKg}kg` : (bookingData.weight ? `${bookingData.weight}kg` : 'Unknown')),
-                            route: [],
-                            currentLocation: null,
-                            estimatedDelivery: bookingData.estimatedDuration || 'TBD',
-                            transporter: bookingData.transporter ? {
-                                name: bookingData.transporter.name || 'Transporter',
-                                phone: bookingData.transporter.phone || 'N/A',
-                                vehicle: bookingData.transporter.vehicle?.registration || bookingData.transporter.vehicle?.make || 'N/A'
-                            } : null,
-                        } as any);
-                    }
-                    } catch (trackingError: any) {
-                        // Silently handle 404 - tracking endpoint may not exist yet for pending bookings
-                        // Only set fallback tracking data if we don't have any yet
-                        if (!trackingData || trackingData.bookingId !== bookingId) {
+                // Only try to load tracking data once - don't retry on 404
+                if (!trackingData || trackingData.bookingId !== bookingId) {
+                    try {
+                        const tracking = await unifiedTrackingService.getTrackingData(bookingId, bookingData.userId || 'current-user');
+                        if (tracking) {
+                            setTrackingData(tracking);
+                        } else {
+                            // Fallback: derive minimal tracking from booking object
                             setTrackingData({
                                 bookingId: bookingId,
                                 status: bookingData.status || 'pending',
@@ -176,6 +156,33 @@ const TrackingScreen = () => {
                                 } : null,
                             } as any);
                         }
+                    } catch (trackingError: any) {
+                        // Silently handle 404 - tracking endpoint may not exist yet for pending bookings
+                        setTrackingData({
+                            bookingId: bookingId,
+                            status: bookingData.status || 'pending',
+                            fromLocation: bookingData.fromLocation || bookingData.from,
+                            toLocation: bookingData.toLocation || bookingData.to,
+                            productType: bookingData.productType || 'Cargo',
+                            weight: (bookingData.weightKg ? `${bookingData.weightKg}kg` : (bookingData.weight ? `${bookingData.weight}kg` : 'Unknown')),
+                            route: [],
+                            currentLocation: null,
+                            estimatedDelivery: bookingData.estimatedDuration || 'TBD',
+                            transporter: bookingData.transporter ? {
+                                name: bookingData.transporter.name || 'Transporter',
+                                phone: bookingData.transporter.phone || 'N/A',
+                                vehicle: bookingData.transporter.vehicle?.registration || bookingData.transporter.vehicle?.make || 'N/A'
+                            } : null,
+                        } as any);
+                    }
+                    
+                    // Start auto-refresh only if trip is active
+                    const isActiveTrip = bookingData.status && ['started', 'in_progress', 'in_transit', 'enroute', 'picked_up'].includes(bookingData.status.toLowerCase());
+                    if (isActiveTrip && !refreshInterval) {
+                        const interval = setInterval(() => {
+                            loadBookingData();
+                        }, 30000); // Refresh every 30 seconds for active trips
+                        setRefreshInterval(interval);
                     }
                 }
             } else {
