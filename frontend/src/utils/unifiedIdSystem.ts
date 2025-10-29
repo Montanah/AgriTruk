@@ -316,14 +316,14 @@ function generateDisplayIdFromObject(obj: any): string {
     }
     
     // Use the parsed createdAt date for ID generation (NOT current time)
-    // CRITICAL: Use UTC methods to get the exact time from timestamp regardless of local timezone
-    // This ensures IDs match backend generation which uses createdAt directly
-    const year = bookingDate.getUTCFullYear().toString().slice(-2);
-    const month = (bookingDate.getUTCMonth() + 1).toString().padStart(2, '0');
-    const day = bookingDate.getUTCDate().toString().padStart(2, '0');
-    const hour = bookingDate.getUTCHours().toString().padStart(2, '0');
-    const minute = bookingDate.getUTCMinutes().toString().padStart(2, '0');
-    const second = bookingDate.getUTCSeconds().toString().padStart(2, '0');
+    // Use local time methods to display the time as it appears in the local timezone (UTC+3)
+    // This ensures the ID shows the same time as the createdAt timestamp display (e.g., 21:57:20 UTC+3)
+    const year = bookingDate.getFullYear().toString().slice(-2);
+    const month = (bookingDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = bookingDate.getDate().toString().padStart(2, '0');
+    const hour = bookingDate.getHours().toString().padStart(2, '0');
+    const minute = bookingDate.getMinutes().toString().padStart(2, '0');
+    const second = bookingDate.getSeconds().toString().padStart(2, '0');
     
     // Determine type - PRIORITIZE bookingType over product name to avoid "Carrots" -> CAR mistakes
     // bookingType is set explicitly to 'Agri' or 'Cargo' at creation time
