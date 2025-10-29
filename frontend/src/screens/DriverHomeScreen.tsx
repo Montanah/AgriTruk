@@ -72,6 +72,14 @@ const DriverHomeScreen = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Refresh driver profile when screen comes into focus (e.g., after toggling availability in Profile tab)
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchDriverProfile();
+      fetchAcceptedJobs();
+    }, [])
+  );
+
   const fetchDriverProfile = async () => {
     try {
       setLoading(true);
