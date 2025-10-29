@@ -314,8 +314,8 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                 </View>
             )}
 
-            {/* Customer information - Show if we have client data or customer fields */}
-            {(item.client || item.customerName || item.userId) && (
+            {/* Customer information - Only show if NOT "My Accepted Jobs" (hide on home screen) */}
+            {(item.client || item.customerName || item.userId) && customTitle !== 'My Accepted Jobs' && (
                 <View style={styles.customerDetailsCard}>
                     <View style={styles.customerDetailsHeader}>
                         <MaterialCommunityIcons name="account-circle" size={24} color={colors.primary} />

@@ -303,6 +303,40 @@ class UnifiedTrackingService {
   }
 
   /**
+   * Send route deviation alert to customer
+   */
+  async sendRouteDeviationAlert(
+    bookingId: string,
+    deviation: RouteDeviation
+  ): Promise<boolean> {
+    try {
+      const token = await this.getAuthToken();
+      
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}/route-deviation`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId,
+          deviation,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to send route deviation alert: ${response.status}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error sending route deviation alert:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get traffic conditions for a route
    */
   async getTrafficConditions(

@@ -12,7 +12,8 @@ import {
     Modal,
     Linking,
 } from 'react-native';
-import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { googleMapsService } from '../services/googleMapsService';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
@@ -31,13 +32,15 @@ const MapViewScreen = () => {
     const { booking, trackingData, isConsolidated, consolidatedRequests, isInstant, userType } = route.params || {};
     const [loading, setLoading] = useState(true);
     const [currentLocation, setCurrentLocation] = useState(null);
-    const [routeCoordinates, setRouteCoordinates] = useState([]);
+    const [routeCoordinates, setRouteCoordinates] = useState<Array<{ latitude: number; longitude: number }>>([]);
     const [estimatedTime, setEstimatedTime] = useState('2 hours 30 minutes');
     const [isTracking, setIsTracking] = useState(false);
-    const [transporterLocation, setTransporterLocation] = useState(null);
+    const [transporterLocation, setTransporterLocation] = useState<any>(null);
     const [unifiedTrackingData, setUnifiedTrackingData] = useState<UnifiedTrackingData | null>(null);
     const [chatVisible, setChatVisible] = useState(false);
     const [callVisible, setCallVisible] = useState(false);
+    const [routePolyline, setRoutePolyline] = useState<Array<{ latitude: number; longitude: number }>>([]);
+    const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
 
     // Get transporter info for communication
     const transporter = booking?.transporter;
@@ -52,8 +55,9 @@ const MapViewScreen = () => {
         initializeMap();
         if (booking?.id) {
             loadUnifiedTrackingData();
+            calculateRoute();
         }
-    }, [booking?.id]);
+    }, [booking?.id, booking?.fromLocation, booking?.toLocation, transporterLocation]);
 
     useEffect(() => {
         return () => {
@@ -300,58 +304,10 @@ const MapViewScreen = () => {
 
             {/* Map Container */}
             <View style={styles.mapContainer}>
-                <ExpoCompatibleMap
+                <MapView
+                    provider={PROVIDER_GOOGLE}
                     style={styles.map}
-                    showUserLocation={true}
-                    markers={[
-                        // Pickup location marker
-                        ...(booking && booking.fromLocation ? [{
-                            id: 'pickup',
-                            coordinate: {
-                                latitude: typeof booking.fromLocation === 'object' 
-                                    ? (booking.fromLocation.latitude || -1.2921)
-                                    : -1.2921,
-                                longitude: typeof booking.fromLocation === 'object' 
-                                    ? (booking.fromLocation.longitude || 36.8219)
-                                    : 36.8219,
-                            },
-                            title: 'Pickup Location',
-                            description: typeof booking.fromLocation === 'object' 
-                                ? (booking.fromLocation.address || booking.fromLocationAddress || 'Pickup point')
-                                : booking.fromLocation || 'Pickup point',
-                            pinColor: colors.primary,
-                        }] : []),
-                        // Delivery location marker
-                        ...(booking && booking.toLocation ? [{
-                            id: 'delivery',
-                            coordinate: {
-                                latitude: typeof booking.toLocation === 'object' 
-                                    ? (booking.toLocation.latitude || -1.2921)
-                                    : -1.2921,
-                                longitude: typeof booking.toLocation === 'object' 
-                                    ? (booking.toLocation.longitude || 36.8219)
-                                    : 36.8219,
-                            },
-                            title: 'Delivery Location',
-                            description: typeof booking.toLocation === 'object' 
-                                ? (booking.toLocation.address || booking.toLocationAddress || 'Delivery point')
-                                : booking.toLocation || 'Delivery point',
-                            pinColor: colors.secondary,
-                        }] : []),
-                        // Real-time transporter location marker
-                        ...(transporterLocation ? [{
-                            id: 'transporter',
-                            coordinate: {
-                                latitude: transporterLocation.latitude,
-                                longitude: transporterLocation.longitude,
-                            },
-                            title: 'Transporter Location',
-                            description: transporterLocation.address || 'Current position',
-                            pinColor: colors.success,
-                        }] : []),
-                    ]}
                     initialRegion={(() => {
-                        // Try to center the map between pickup and delivery locations
                         if (booking && booking.fromLocation && booking.toLocation) {
                             const fromLat = typeof booking.fromLocation === 'object' 
                                 ? booking.fromLocation.latitude 
@@ -373,8 +329,6 @@ const MapViewScreen = () => {
                                 longitudeDelta: Math.abs(fromLng - toLng) + 0.1,
                             };
                         }
-                        
-                        // Default to Nairobi
                         return {
                             latitude: -1.2921,
                             longitude: 36.8219,
@@ -382,20 +336,70 @@ const MapViewScreen = () => {
                             longitudeDelta: 0.0421,
                         };
                     })()}
-                />
+                    showsUserLocation={true}
+                    showsMyLocationButton={false}
+                >
+                    {/* Pickup location marker */}
+                    {booking?.fromLocation && (
+                        <Marker
+                            coordinate={{
+                                latitude: typeof booking.fromLocation === 'object' 
+                                    ? (booking.fromLocation.latitude || -1.2921)
+                                    : -1.2921,
+                                longitude: typeof booking.fromLocation === 'object' 
+                                    ? (booking.fromLocation.longitude || 36.8219)
+                                    : 36.8219,
+                            }}
+                            title="Pickup Location"
+                            description={typeof booking.fromLocation === 'object' 
+                                ? (booking.fromLocation.address || booking.fromLocationAddress || 'Pickup point')
+                                : booking.fromLocation || 'Pickup point'}
+                            pinColor={colors.primary}
+                        />
+                    )}
 
-                {/* Map Controls */}
-                <View style={styles.mapControls}>
-                    <TouchableOpacity style={styles.mapControlButton}>
-                        <MaterialCommunityIcons name="crosshairs-gps" size={20} color={colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.mapControlButton}>
-                        <MaterialCommunityIcons name="plus" size={20} color={colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.mapControlButton}>
-                        <MaterialCommunityIcons name="minus" size={20} color={colors.primary} />
-                    </TouchableOpacity>
-                </View>
+                    {/* Delivery location marker */}
+                    {booking?.toLocation && (
+                        <Marker
+                            coordinate={{
+                                latitude: typeof booking.toLocation === 'object' 
+                                    ? (booking.toLocation.latitude || -1.2921)
+                                    : -1.2921,
+                                longitude: typeof booking.toLocation === 'object' 
+                                    ? (booking.toLocation.longitude || 36.8219)
+                                    : 36.8219,
+                            }}
+                            title="Delivery Location"
+                            description={typeof booking.toLocation === 'object' 
+                                ? (booking.toLocation.address || booking.toLocationAddress || 'Delivery point')
+                                : booking.toLocation || 'Delivery point'}
+                            pinColor={colors.secondary}
+                        />
+                    )}
+
+                    {/* Real-time transporter location marker */}
+                    {transporterLocation && (
+                        <Marker
+                            coordinate={{
+                                latitude: transporterLocation.latitude,
+                                longitude: transporterLocation.longitude,
+                            }}
+                            title="Transporter Location"
+                            description={transporterLocation.address || 'Current position'}
+                            pinColor={colors.success}
+                        />
+                    )}
+
+                    {/* Route Polyline */}
+                    {routePolyline.length > 0 && (
+                        <Polyline
+                            coordinates={routePolyline}
+                            strokeColor={colors.primary}
+                            strokeWidth={4}
+                            lineDashPattern={[5, 5]}
+                        />
+                    )}
+                </MapView>
             </View>
 
             {/* Tracking Info Panel */}

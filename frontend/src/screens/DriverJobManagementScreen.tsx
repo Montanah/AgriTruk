@@ -306,60 +306,62 @@ const DriverJobManagementScreen = () => {
     try {
       const auth = getAuth();
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        Alert.alert('Error', 'Please log in to start a trip.');
+        return;
+      }
 
       const token = await user.getIdToken();
       
-      // Try multiple endpoints for starting trip
-      const endpoints = [
-        `${API_ENDPOINTS.BOOKINGS}/${job.id}/start`,
-        `${API_ENDPOINTS.BOOKINGS}/${job.id}/status`,
-        `${API_ENDPOINTS.BOOKINGS}/update/${job.id}`,
-      ];
+      // Use the correct endpoint for updating booking status
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          status: 'started',
+          startedAt: new Date().toISOString()
+        })
+      });
 
-      let response;
-      let lastError;
-
-      for (const endpoint of endpoints) {
-        try {
-          response = await fetch(endpoint, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-              status: 'started',
-              startedAt: new Date().toISOString()
-            })
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            Alert.alert('Success', 'Trip started successfully!');
-            fetchJobs();
-            fetchCurrentTrip();
-            // Navigate to trip navigation screen
-            (navigation as any).navigate('TripNavigationScreen', { 
-              jobId: job.id,
-              bookingId: job.bookingId || job.readableId,
-              job: job
-            });
-            return;
-          } else {
-            const errorData = await response.json().catch(() => ({}));
-            lastError = errorData.message || `Status: ${response.status}`;
-          }
-        } catch (err: any) {
-          lastError = err.message;
-          continue;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          throw new Error('Authorization failed. Please log out and log back in.');
+        } else if (response.status === 403) {
+          throw new Error('You do not have permission to start this trip. Please contact support.');
+        } else if (response.status === 404) {
+          throw new Error('Booking not found.');
+        } else {
+          throw new Error(errorData.message || `Failed to start trip (${response.status})`);
         }
       }
 
-      throw new Error(lastError || 'Failed to start trip');
+      const data = await response.json();
+      
+      // Successfully started trip - navigate to driver trip navigation screen
+      Alert.alert('Trip Started', 'You can now navigate to the pickup location.', [
+        {
+          text: 'OK',
+          onPress: () => {
+            fetchJobs();
+            fetchCurrentTrip();
+            // Navigate to driver trip navigation screen
+            (navigation as any).navigate('DriverTripNavigation', { 
+              jobId: job.id,
+              bookingId: job.bookingId || job.id,
+              job: job
+            });
+          }
+        }
+      ]);
     } catch (err: any) {
       console.error('Error starting trip:', err);
-      Alert.alert('Error', err.message || 'Failed to start trip. Please try again.');
+      Alert.alert('Error Starting Trip', err.message || 'Failed to start trip. Please try again.');
     }
   };
 
@@ -399,16 +401,19 @@ const DriverJobManagementScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${job.id}`, {
+      // When cancelling, set status back to 'pending' so it becomes available again
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          status: 'cancelled',
+          status: 'pending',
           cancellationReason: reason,
-          cancelledAt: new Date().toISOString()
+          cancelledAt: new Date().toISOString(),
+          transporterId: null, // Clear transporter assignment
+          acceptedAt: null, // Clear acceptance
         })
       });
 
