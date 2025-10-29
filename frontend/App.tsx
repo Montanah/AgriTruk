@@ -57,8 +57,29 @@ const checkIfDriver = async (userId: string) => {
 
     const token = await user.getIdToken();
     
-    // First check if user is a company driver
+    // First check if user is a company driver - try multiple endpoints
     try {
+      // Method 1: Try /api/drivers/check/{userId} (NEW BACKEND ENDPOINT - queries drivers collection directly)
+      const checkResponse = await fetch(`${API_ENDPOINTS.DRIVERS}/check/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('App.tsx: Driver check endpoint response status:', checkResponse.status);
+      if (checkResponse.ok) {
+        const checkData = await checkResponse.json();
+        console.log('App.tsx: Driver check API response:', JSON.stringify(checkData, null, 2));
+        
+        if (checkData.success && checkData.isDriver && checkData.driver) {
+          console.log('App.tsx: Found company driver via drivers/check endpoint');
+          return { isDriver: true, driverType: 'company', driverData: checkData.driver };
+        }
+      }
+
+      // Method 2: Try /api/companies/driver/{userId} (fallback)
       const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/driver/${userId}`, {
         method: 'GET',
         headers: {
@@ -67,14 +88,18 @@ const checkIfDriver = async (userId: string) => {
         },
       });
 
+      console.log('App.tsx: Company driver check response status:', companyResponse.status);
       if (companyResponse.ok) {
         const companyData = await companyResponse.json();
+        console.log('App.tsx: Company driver API response:', JSON.stringify(companyData, null, 2));
+        
         if (companyData.success && companyData.driver) {
+          console.log('App.tsx: Found company driver via companies/driver endpoint');
           return { isDriver: true, driverType: 'company', driverData: companyData.driver };
         }
       }
-    } catch (companyError) {
-      console.log('Not a company driver, checking individual transporter...');
+    } catch (companyError: any) {
+      console.log('App.tsx: Company driver check error:', companyError.message);
     }
 
     // Check if user is an individual transporter
