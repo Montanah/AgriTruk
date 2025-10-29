@@ -237,13 +237,72 @@ function generateDisplayIdFromString(input: string): string {
 }
 
 /**
+ * Parse Firestore timestamp or date string to Date object
+ */
+function parseFirestoreTimestamp(timestamp: any): Date | null {
+  if (!timestamp) return null;
+  
+  try {
+    // Firestore timestamp object: { _seconds: 1234567890, _nanoseconds: 0 }
+    if (timestamp._seconds !== undefined) {
+      return new Date(timestamp._seconds * 1000);
+    }
+    
+    // Firestore Timestamp object with toDate method
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate();
+    }
+    
+    // ISO string
+    if (typeof timestamp === 'string') {
+      const parsed = new Date(timestamp);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    
+    // Date object
+    if (timestamp instanceof Date) {
+      return timestamp;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error parsing timestamp:', error);
+    return null;
+  }
+}
+
+/**
  * Generate display ID from object properties
  * Format: YYMMDD-HHMM-TYPE-MODE (e.g., 251029-1758-AGR-BOOK)
+ * IMPORTANT: Uses createdAt from the booking object, never current time
  */
 function generateDisplayIdFromObject(obj: any): string {
   try {
-    // Get date from createdAt or use current date
-    const bookingDate = obj.createdAt ? new Date(obj.createdAt) : new Date();
+    // CRITICAL: Parse createdAt properly from various formats (Firestore timestamp, ISO string, etc.)
+    let bookingDate: Date | null = null;
+    
+    // Try to get createdAt from various possible fields
+    const createdAtSource = obj.createdAt || obj.created_at || obj.timestamp || obj.dateCreated;
+    
+    if (createdAtSource) {
+      bookingDate = parseFirestoreTimestamp(createdAtSource);
+    }
+    
+    // If we couldn't parse createdAt, use the raw database ID instead of generating a new one
+    // This prevents IDs from changing with time
+    if (!bookingDate || isNaN(bookingDate.getTime())) {
+      // Return a short version of the database ID instead of generating a time-based ID
+      const rawId = obj.id || obj.bookingId || obj._id || '';
+      if (rawId && rawId.length > 8) {
+        // Use last 8 characters of database ID for display
+        return `#${rawId.slice(-8).toUpperCase()}`;
+      }
+      return `#${rawId || 'UNKNOWN'}`;
+    }
+    
+    // Use the parsed createdAt date for ID generation (NOT current time)
     const year = bookingDate.getFullYear().toString().slice(-2);
     const month = (bookingDate.getMonth() + 1).toString().padStart(2, '0');
     const day = bookingDate.getDate().toString().padStart(2, '0');
@@ -275,7 +334,9 @@ function generateDisplayIdFromObject(obj: any): string {
     return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
   } catch (error) {
     console.error('Error generating display ID from object:', error);
-    return `ID-${Date.now()}`;
+    // Fallback to database ID if generation fails
+    const rawId = obj.id || obj.bookingId || obj._id || '';
+    return rawId && rawId.length > 8 ? `#${rawId.slice(-8).toUpperCase()}` : `#${rawId || 'UNKNOWN'}`;
   }
 }
 

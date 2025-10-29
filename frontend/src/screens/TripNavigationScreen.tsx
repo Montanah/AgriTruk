@@ -131,7 +131,8 @@ const TripNavigationScreen = () => {
       jobId: params.jobId,
       bookingId: params.bookingId,
       clientId: job.client?.id || job.userId,
-      clientName: job.client?.name || job.customerName
+      clientName: job.client?.name || job.customerName,
+      job: job // Pass full job object for proper ID generation
     });
   };
 

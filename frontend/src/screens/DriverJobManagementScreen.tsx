@@ -313,8 +313,23 @@ const DriverJobManagementScreen = () => {
 
       const token = await user.getIdToken();
       
+      // CRITICAL: For API calls, always use the raw database ID (bookingId or id)
+      // Do NOT use readableId for API calls - it's only for display
+      const bookingId = job.bookingId || job.id;
+      
+      if (!bookingId) {
+        throw new Error('Booking ID not found. Cannot start trip.');
+      }
+      
+      console.log('Starting trip for job:', {
+        rawId: job.id,
+        bookingId: job.bookingId,
+        displayId: (job as any).readableId || getDisplayBookingId(job),
+        usingForAPI: bookingId
+      });
+      
       // Use the correct endpoint for updating booking status
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/status`, {
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -352,8 +367,8 @@ const DriverJobManagementScreen = () => {
             fetchCurrentTrip();
             // Navigate to driver trip navigation screen
             (navigation as any).navigate('DriverTripNavigation', { 
-              jobId: job.id,
-              bookingId: job.bookingId || job.id,
+              jobId: bookingId,
+              bookingId: bookingId,
               job: job
             });
           }
@@ -461,11 +476,13 @@ const DriverJobManagementScreen = () => {
 
   const handleChat = (job: Job) => {
     // Navigate to chat screen or open chat modal
+    // IMPORTANT: Pass the full job object so ChatScreen can use createdAt for consistent ID generation
     (navigation as any).navigate('ChatScreen', { 
       jobId: job.id,
-      bookingId: job.bookingId,
+      bookingId: job.bookingId || job.id,
       clientId: job.client?.id || job.customerPhone,
-      clientName: job.client?.name || job.customerName
+      clientName: job.client?.name || job.customerName,
+      job: job // Pass full job object for proper ID generation
     });
   };
 

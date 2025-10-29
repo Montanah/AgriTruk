@@ -22,6 +22,7 @@ interface ChatParams {
   bookingId: string;
   clientId: string;
   clientName: string;
+  job?: any; // Full job object with createdAt for proper ID generation
 }
 
 interface Message {
@@ -299,7 +300,7 @@ const ChatScreen = () => {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>Chat with {params.clientName}</Text>
-          <Text style={styles.headerSubtitle}>Job #{getDisplayBookingId({ id: params.bookingId })}</Text>
+          <Text style={styles.headerSubtitle}>Job #{getDisplayBookingId(params.job || { id: params.bookingId, bookingId: params.bookingId })}</Text>
         </View>
         <View style={styles.headerRight} />
       </View>
