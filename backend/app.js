@@ -6,6 +6,7 @@ const { subscriptionNotificationsJob } = require('./jobs/subscriptionNotificatio
 const cronService = require('./services/cronService');
 const { documentExpiryJob } = require('./jobs/documentExpiryJob');
 const { systemAlertsJob, documentExpiryJobAlert } = require('./jobs/systemAlertsJob');
+const { companyDocumentExpiryJob } = require('./jobs/companyDocumentExpiryJob');
 
 const transporterRoutes = require('./routes/transportRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -37,6 +38,7 @@ const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
 const requestMetadata = require('./middlewares/requestMetadata');
 const healthMonitor = require('./utils/healthMonitor');
+const CronScheduler = require('./jobs/cronScheduler');
 
 // const { testJob } = require('./jobs/companyDocumentExpiryJob');
 
@@ -160,6 +162,10 @@ documentExpiryJob.start();
 console.log('✅ Document expiry cron job started');
 
 // testJob.start();
+// companyDocumentExpiryJob.start();
+CronScheduler.init();
+CronScheduler.testNotifications();
+console.log('✅ Company document expiry cron job started');
 // console.log('✅ Test cron job started');
 
 // Graceful shutdown

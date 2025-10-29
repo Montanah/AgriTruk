@@ -149,13 +149,17 @@ const RecruiterSubscribers = {
 
   async getExpiredSubscriptions() {
     try {
-      const now = admin.firestore.Timestamp.now();
-      const snapshot = await db.collection('recruiter_subscribers')
+      const allDocs = await db.collection('recruiter_subscribers')
         .where('isActive', '==', true)
-        .where('endDate', '<', now)
         .get();
+        const now = new Date();
+        const expired = allDocs.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(sub => new Date(sub.endDate) < now);
 
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('Number of expired subscriptions:', expired.length);
+        return expired;
+
     } catch (error) {
       console.error('Error getting expired subscriptions:', error);
       return [];

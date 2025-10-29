@@ -57,13 +57,6 @@ const Driver = {
     return {
       id: doc.id,
       ...data,
-      idExpiryDate: data.idExpiryDate ? data.idExpiryDate.toDate().toISOString() : null,
-      driverLicenseExpiryDate: data.driverLicenseExpiryDate ? data.driverLicenseExpiryDate.toDate().toISOString() : null,
-      createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
-      updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null,
-      lastActiveAt: data.lastActiveAt ? data.lastActiveAt.toDate().toISOString() : null,
-      acceptedAt: data.acceptedLoads?.map(load => load.acceptedAt ? load.acceptedAt.toDate().toISOString() : null) || null,
-      pickUpDate: data.acceptedLoads?.map(load => load.pickUpDate ? load.pickUpDate.toDate().toISOString() : null) || null,
     };
   },
 
@@ -93,14 +86,7 @@ const Driver = {
       return {
         id: doc.id,
         ...data,
-        idExpiryDate: data.idExpiryDate ? data.idExpiryDate.toDate().toISOString() : null,
-        driverLicenseExpiryDate: data.driverLicenseExpiryDate ? data.driverLicenseExpiryDate.toDate().toISOString() : null,
-        createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
-        updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null,
-        lastActiveAt: data.lastActiveAt ? data.lastActiveAt.toDate().toISOString() : null,
-        acceptedAt: data.acceptedLoads?.map(load => load.acceptedAt ? load.acceptedAt.toDate().toISOString() : null) || null,
-        pickUpDate: data.acceptedLoads?.map(load => load.pickUpDate ? load.pickUpDate.toDate().toISOString() : null) || null,
-      };
+       };
     });
   },
 

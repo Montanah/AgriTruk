@@ -13,7 +13,7 @@ const companyDocumentExpiryJob = cron.schedule('0 8 * * *', async () => {
   }
 });
 const testJob = cron.schedule('*/1 * * * *', async () => {
-   console.log('🧪 Test run...');
+  //  console.log('🧪 Test run...');
 //   const results = await CompanyDocumentExpiryCronService.runDocumentExpiryNotifications();
 //   // const results_2 = await processExpiryNotifications();
 //   // TODO: send notifications or deactivate transporters
@@ -23,3 +23,4 @@ const testJob = cron.schedule('*/1 * * * *', async () => {
 module.exports = {
   companyDocumentExpiryJob, testJob
 };
+

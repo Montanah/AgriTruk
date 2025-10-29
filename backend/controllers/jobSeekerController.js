@@ -634,28 +634,36 @@ const jobSeekerController = {
 
       const docType = documentActions[action];
       if (docType) {
-        if (!expiryDate) {
+        if (docType !== 'idDoc' && !expiryDate) {
           return res.status(400).json({ message: `${docType} expiryDate is required` });
         }
+
+        const docUpdate = {
+          ...jobSeeker.documents[docType],
+          status: 'approved',
+          verifiedBy: req.user.uid,
+          verifiedAt: admin.firestore.Timestamp.now(),
+        };
+
+        if (expiryDate) {
+          docUpdate.expiryDate = admin.firestore.Timestamp.fromDate(new Date(expiryDate));
+        }
+
         updates = {
           documents: {
             ...jobSeeker.documents,
-            [docType]: {
-              ...jobSeeker.documents[docType],
-              status: 'approved',
-              verifiedBy: req.user.uid,
-              verifiedAt: admin.firestore.Timestamp.now(),
-              expiryDate: admin.firestore.Timestamp.fromDate(new Date(expiryDate)),
-            },
+            [docType]: docUpdate,
           },
           updatedAt: admin.firestore.Timestamp.now(),
         };
+
         await JobSeeker.update(jobSeekerId, updates);
 
         // Check if all critical documents are approved
         const allApproved = ['idDoc', 'drivingLicense', 'goodConductCert'].every(
           doc => updates.documents[doc]?.status === 'approved'
         );
+        
         if (allApproved) {
           updates = {
             ...updates,

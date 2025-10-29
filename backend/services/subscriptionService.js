@@ -4,6 +4,7 @@ const Company = require('../models/Company');
 const Driver = require('../models/Driver');
 const Vehicle = require('../models/Vehicle');
 const Payment = require('../models/Payment');
+const NotificationService = require('./notificationService');
 
 const SubscriptionService = {
   
@@ -364,6 +365,16 @@ const SubscriptionService = {
   async sendExpiryNotification(subscription) {
     // TODO: Implement email/SMS notification
     console.log(`Subscription expired for user ${subscription.userId}`);
+    await NotificationService.sendExpiryNotification(subscription);
+  },
+
+  /**
+   * Send expiring soon notification
+   */
+  async sendExpiringNotification(subscription, daysRemaining) {
+    // TODO: Implement email/SMS notification
+    console.log(`Subscription expiring soon for user ${subscription.userId}`);
+    await NotificationService.sendExpiringNotification(subscription, daysRemaining);
   },
   
 };
