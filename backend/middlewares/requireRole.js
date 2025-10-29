@@ -18,7 +18,9 @@ const requireRole = (allowedRoles) => {
       if (userDoc.exists) {
         userData = userDoc.data();
         userRole = userData?.role;
+        console.log("User found in users collection, role:", userRole);
       } else {
+        console.log("User not found in users collection, checking drivers/admins/transporters...");
         // If not found in users, check admins
         const adminData = await Admin.getByUserId(uid);
         // console.log("Admin:", adminData);
@@ -36,6 +38,7 @@ const requireRole = (allowedRoles) => {
           if (!driverQuery.empty) {
             userData = driverQuery.docs[0].data();
             userRole = "driver"; // Company-recruited drivers have driver role
+            console.log("Driver found in drivers collection");
           } else {
             // Check if user is a company transporter
             const companyQuery = await admin.firestore().collection("companies")
@@ -57,11 +60,17 @@ const requireRole = (allowedRoles) => {
                 userData = transporterQuery.docs[0].data();
                 userRole = "transporter"; // Individual transporters have transporter role
               } else {
+                console.log("User not found in any collection");
                 return res.status(404).json({ message: "User profile not found" });
               }
             }
           }
         }
+      }
+
+      if (!userRole) {
+        console.error("ERROR: userRole is undefined after all lookups!");
+        return res.status(500).json({ message: "Could not determine user role" });
       }
 
       if (!Array.isArray(allowedRoles)) {
