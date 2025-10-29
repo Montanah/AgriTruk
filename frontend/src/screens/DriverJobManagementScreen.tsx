@@ -170,14 +170,15 @@ const DriverJobManagementScreen = () => {
             const clientEmail = job.clientEmail || job.email || job.contactEmail || job.client?.email;
             
             return {
-              ...job,
+              ...job, // Spread first to preserve ALL original fields from backend
               // IMPORTANT: Keep the original ID fields from the backend response
               // Don't override id - it's likely the Firestore document ID
               id: job.id || job._id || job.bookingId, // Firestore doc ID
               // bookingId might be different from id (could be a readableId or another field)
               bookingId: job.bookingId || job.requestId || job.id,
-              readableId: job.readableId, // Preserve exactly like ActivityScreen - don't fallback to bookingId
-              createdAt: job.createdAt, // CRITICAL: Preserve createdAt for correct ID generation
+              readableId: job.readableId, // CRITICAL: This is the source of truth - backend stores this at creation
+              createdAt: job.createdAt, // CRITICAL: Preserve createdAt for correct ID generation if readableId missing
+              pickUpDate: job.pickUpDate || job.pickupDate, // CRITICAL: Preserve pickup date (database uses pickUpDate)
               bookingType: job.bookingType, // Preserve bookingType
               bookingMode: job.bookingMode, // Preserve bookingMode
               productType: job.productType || job.cargoDetails,
@@ -565,26 +566,26 @@ const DriverJobManagementScreen = () => {
           <MaterialCommunityIcons name="clock" size={16} color={colors.text.secondary} />
           <Text style={styles.detailText}>
             Pickup: {(() => {
-              if (!item.pickupTime && !item.pickupDate) return 'Not specified';
+              // Check pickUpDate first (database field name), then fallback aliases
+              const pickupDateSource = item.pickUpDate || item.pickupDate || item.pickupTime || item.pickUpTime;
+              if (!pickupDateSource) return 'Not specified';
+              
               try {
-                const pickupDate = item.pickupTime || item.pickupDate || item.createdAt;
-                if (!pickupDate) return 'Not specified';
-                
                 // Handle Firestore timestamp
                 let date: Date;
-                if (pickupDate._seconds) {
-                  date = new Date(pickupDate._seconds * 1000);
-                } else if (pickupDate.toDate && typeof pickupDate.toDate === 'function') {
-                  date = pickupDate.toDate();
-                } else if (typeof pickupDate === 'string') {
-                  date = new Date(pickupDate);
-                } else if (pickupDate instanceof Date) {
-                  date = pickupDate;
+                if (pickupDateSource._seconds !== undefined) {
+                  date = new Date(pickupDateSource._seconds * 1000);
+                } else if (pickupDateSource.toDate && typeof pickupDateSource.toDate === 'function') {
+                  date = pickupDateSource.toDate();
+                } else if (typeof pickupDateSource === 'string') {
+                  date = new Date(pickupDateSource);
+                } else if (pickupDateSource instanceof Date) {
+                  date = pickupDateSource;
                 } else {
-                  return 'Invalid date';
+                  return 'Not specified';
                 }
                 
-                if (isNaN(date.getTime())) return 'Invalid date';
+                if (isNaN(date.getTime())) return 'Not specified';
                 
                 return date.toLocaleString('en-KE', {
                   year: 'numeric',

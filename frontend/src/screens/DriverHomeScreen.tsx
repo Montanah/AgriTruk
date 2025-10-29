@@ -215,11 +215,12 @@ const DriverHomeScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // Preserve readableId, createdAt, bookingType, bookingMode like ActivityScreen does
+        // Preserve ALL fields exactly as ActivityScreen does - especially readableId, createdAt, pickUpDate
         const jobs = (data.jobs || data.bookings || []).map((job: any) => ({
-          ...job,
-          readableId: job.readableId,
-          createdAt: job.createdAt,
+          ...job, // Spread first to keep all original fields
+          readableId: job.readableId, // This is the source of truth for display ID
+          createdAt: job.createdAt, // For ID generation fallback
+          pickUpDate: job.pickUpDate || job.pickupDate, // Preserve pickup date
           bookingType: job.bookingType,
           bookingMode: job.bookingMode,
         }));
@@ -234,11 +235,12 @@ const DriverHomeScreen = () => {
         });
         if (altResponse.ok) {
           const altData = await altResponse.json();
-          // Preserve readableId, createdAt, bookingType, bookingMode like ActivityScreen does
+          // Preserve ALL fields exactly as ActivityScreen does - especially readableId, createdAt, pickUpDate
           const jobs = (altData.jobs || altData.bookings || []).map((job: any) => ({
-            ...job,
-            readableId: job.readableId,
-            createdAt: job.createdAt,
+            ...job, // Spread first to keep all original fields
+            readableId: job.readableId, // This is the source of truth for display ID
+            createdAt: job.createdAt, // For ID generation fallback
+            pickUpDate: job.pickUpDate || job.pickupDate, // Preserve pickup date
             bookingType: job.bookingType,
             bookingMode: job.bookingMode,
           }));
