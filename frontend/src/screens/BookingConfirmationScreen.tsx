@@ -18,26 +18,40 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const mode = params.mode || 'shipper'; // shipper, broker, business
   // Initialize pickup date from request data
   const getInitialPickupDate = () => {
+    const now = new Date();
+    let initialDate: Date;
+    
     if (isConsolidated && requests.length > 0) {
       // For consolidated bookings, use the pickup date from the last item
       const lastRequest = requests[requests.length - 1];
       if (lastRequest.pickUpDate) {
-        return new Date(lastRequest.pickUpDate);
-      }
-      if (lastRequest.date) {
-        return new Date(lastRequest.date);
+        initialDate = new Date(lastRequest.pickUpDate);
+      } else if (lastRequest.date) {
+        initialDate = new Date(lastRequest.date);
+      } else {
+        initialDate = new Date(now.getTime() + 60 * 60 * 1000); // Default: 1 hour from now
       }
     } else if (requests.length > 0) {
       // For single bookings, use the pickup date from the request
       const request = requests[0];
       if (request.pickUpDate) {
-        return new Date(request.pickUpDate);
+        initialDate = new Date(request.pickUpDate);
+      } else if (request.date) {
+        initialDate = new Date(request.date);
+      } else {
+        initialDate = new Date(now.getTime() + 60 * 60 * 1000); // Default: 1 hour from now
       }
-      if (request.date) {
-        return new Date(request.date);
-      }
+    } else {
+      initialDate = new Date(now.getTime() + 60 * 60 * 1000); // Default: 1 hour from now
     }
-    return new Date();
+    
+    // Ensure the date is not in the past
+    if (initialDate < now) {
+      // If the date from request is in the past, set to 1 hour from now
+      return new Date(now.getTime() + 60 * 60 * 1000);
+    }
+    
+    return initialDate;
   };
   
   const [pickupDate, setPickupDate] = useState(getInitialPickupDate());
