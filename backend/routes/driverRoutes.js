@@ -36,7 +36,8 @@ router.patch('/:id/deactivate', authenticateToken, requireRole('transporter'), d
 
 // Driver authentication and profile routes
 router.post('/verify', authenticateToken, verifyDriver);
-router.get('/profile', authenticateToken, getDriverProfile);
+// Driver profile - allow both driver and transporter roles (drivers access their own profile)
+router.get('/profile', authenticateToken, requireRole(['driver', 'transporter']), getDriverProfile);
 // Check if user is a driver (for routing - requires authentication but no specific role)
 router.get('/check/:userId', authenticateToken, checkIfDriver);
 

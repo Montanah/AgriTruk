@@ -213,6 +213,76 @@ router.get('/requests', (req, res, next) => {
 
 /**
  * @swagger
+ * /api/bookings/available:
+ *   get:
+ *     summary: Get available bookings
+ *     description: Returns a list of available bookings (alias for /requests)
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of available bookings
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/available', authenticateToken, requireRole(['driver', 'transporter', 'business']), bookingController.getAvailable);
+
+/**
+ * @swagger
+ * /api/bookings/transporter/accepted:
+ *   get:
+ *     summary: Get accepted bookings for transporter/driver
+ *     description: Returns bookings accepted by the transporter or driver
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Accepted bookings retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/transporter/accepted', authenticateToken, requireRole(['driver', 'transporter']), bookingController.getAcceptedBookings);
+
+/**
+ * @swagger
+ * /api/bookings/driver/accepted:
+ *   get:
+ *     summary: Get accepted bookings for driver (alias)
+ *     description: Returns bookings accepted by the driver
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Accepted bookings retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/driver/accepted', authenticateToken, requireRole(['driver', 'transporter']), bookingController.getAcceptedBookings);
+
+/**
+ * @swagger
+ * /api/bookings/driver/active-trip:
+ *   get:
+ *     summary: Get active trip for driver
+ *     description: Returns the current active trip for a driver
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Active trip retrieved successfully
+ *       404:
+ *         description: No active trip found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/driver/active-trip', authenticateToken, requireRole(['driver', 'transporter']), bookingController.getDriverActiveTrip);
+
+/**
+ * @swagger
  * /api/bookings/transporters/route-loads:
  *   get:
  *     summary: Get available bookings for transporters
@@ -226,7 +296,7 @@ router.get('/requests', (req, res, next) => {
  *       500:
  *         description: Internal server error
  */
-router.get('/transporters/route-loads', authenticateToken, requireRole('transporter'), bookingController.getTransporterRouteLoads);
+router.get('/transporters/route-loads', authenticateToken, requireRole(['driver', 'transporter']), bookingController.getTransporterRouteLoads);
 
 /**
  * @swagger
@@ -263,7 +333,7 @@ router.get('/companies/route-loads', authenticateToken, requireRole('driver'), b
  *       500:
  *         description: Internal server error
  */
-router.get('/fleet', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker', 'admin']), bookingController.getFleetStatus);
+router.get('/fleet', authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker', 'admin']), bookingController.getFleetStatus);
 
 /**
  * @swagger
@@ -301,7 +371,7 @@ router.get('/fleet', authenticateToken, requireRole(['transporter', 'shipper', '
  */
 router
   .route('/')
-  .get(authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getAllBookings)
+  .get(authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), bookingController.getAllBookings)
   .post(authenticateToken, requireRole(['shipper', 'business', 'broker']), bookingController.createBooking);
 
 /**
@@ -383,7 +453,7 @@ router
  */
 router
   .route('/:bookingId')
-  .get(authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingById)
+  .get(authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), bookingController.getBookingById)
   .patch(authenticateToken, requireRole(['shipper', 'business', 'broker']), bookingController.updateBooking)
   .delete(authenticateToken, requireRole('admin'), authorize(['manage_bookings', 'super_admin']), bookingController.deleteBooking);
 
@@ -420,7 +490,7 @@ router
 router.get(
   '/shipper/:userId',
   authenticateToken,
-  requireRole(['transporter', 'shipper', 'business', 'broker']),
+  requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']),
   bookingController.getBookingsByUserId
 );
 
@@ -450,7 +520,7 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.get('/transporter/:transporterId', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingsByTransporterId);
+router.get('/transporter/:transporterId', authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), bookingController.getBookingsByTransporterId);
 
 /**
  * @swagger
@@ -526,7 +596,7 @@ router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'bro
  *       409:
  *         description: Booking already accepted
  */
-router.post('/:bookingId/accept', authenticateToken, requireRole('transporter'), bookingController.acceptBooking);
+router.post('/:bookingId/accept', authenticateToken, requireRole(['driver', 'transporter']), bookingController.acceptBooking);
 
 /**
  * @swagger
@@ -569,7 +639,7 @@ router.post('/:bookingId/accept', authenticateToken, requireRole('transporter'),
  *       404:
  *         description: Booking not found
  */
-router.post('/:bookingId/reject', authenticateToken, requireRole('transporter'), bookingController.rejectBooking);
+router.post('/:bookingId/reject', authenticateToken, requireRole(['driver', 'transporter']), bookingController.rejectBooking);
 
 /**
  * @swagger
@@ -621,7 +691,7 @@ router.get('/client/:userId', authenticateToken, requireRole(['shipper', 'busine
  *       404:
  *         description: Booking not found
  */
-router.get('/:bookingId/status', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingStatus);
+router.get('/:bookingId/status', authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), bookingController.getBookingStatus);
 
 /**
  * @swagger
