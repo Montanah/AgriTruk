@@ -316,14 +316,15 @@ function generateDisplayIdFromObject(obj: any): string {
     }
     
     // Use the parsed createdAt date for ID generation (NOT current time)
-    // Use local time methods to display the time as it appears in the local timezone (UTC+3)
-    // This ensures the ID shows the same time as the createdAt timestamp display (e.g., 21:57:20 UTC+3)
-    const year = bookingDate.getFullYear().toString().slice(-2);
-    const month = (bookingDate.getMonth() + 1).toString().padStart(2, '0');
-    const day = bookingDate.getDate().toString().padStart(2, '0');
-    const hour = bookingDate.getHours().toString().padStart(2, '0');
-    const minute = bookingDate.getMinutes().toString().padStart(2, '0');
-    const second = bookingDate.getSeconds().toString().padStart(2, '0');
+    // CRITICAL: Convert to UTC+3 timezone explicitly (Kenya time)
+    // Firestore timestamps are in UTC, so we need to add 3 hours to get UTC+3
+    const utcPlus3 = new Date(bookingDate.getTime() + (3 * 60 * 60 * 1000)); // Add 3 hours
+    const year = utcPlus3.getUTCFullYear().toString().slice(-2);
+    const month = (utcPlus3.getUTCMonth() + 1).toString().padStart(2, '0');
+    const day = utcPlus3.getUTCDate().toString().padStart(2, '0');
+    const hour = utcPlus3.getUTCHours().toString().padStart(2, '0');
+    const minute = utcPlus3.getUTCMinutes().toString().padStart(2, '0');
+    const second = utcPlus3.getUTCSeconds().toString().padStart(2, '0');
     
     // Determine type - PRIORITIZE bookingType over product name to avoid "Carrots" -> CAR mistakes
     // bookingType is set explicitly to 'Agri' or 'Cargo' at creation time
