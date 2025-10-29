@@ -21,14 +21,15 @@ const google_key = process.env.GOOGLE_MAPS_API_KEY;
 // Generate readable ID (unique) aligned with mobile: YYMMDD-HHMMSS-TYPE-[BIC]SUF
 const generateReadableId = (bookingType, bookingMode, isConsolidated = false, timestamp = new Date(), seed = '') => {
   const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-  // Use local time methods to display the time as it appears in the local timezone (UTC+3)
-  // This ensures the ID shows the same time as the createdAt timestamp display (e.g., 21:57:20 UTC+3)
-  const year = date.getFullYear().toString().slice(-2);
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  const hour = date.getHours().toString().padStart(2, '0');
-  const minute = date.getMinutes().toString().padStart(2, '0');
-  const second = date.getSeconds().toString().padStart(2, '0');
+  // CRITICAL: Convert to UTC+3 timezone explicitly (Kenya time)
+  // Firestore timestamps are in UTC, so we need to add 3 hours to get UTC+3
+  const utcPlus3 = new Date(date.getTime() + (3 * 60 * 60 * 1000)); // Add 3 hours
+  const year = utcPlus3.getUTCFullYear().toString().slice(-2);
+  const month = (utcPlus3.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = utcPlus3.getUTCDate().toString().padStart(2, '0');
+  const hour = utcPlus3.getUTCHours().toString().padStart(2, '0');
+  const minute = utcPlus3.getUTCMinutes().toString().padStart(2, '0');
+  const second = utcPlus3.getUTCSeconds().toString().padStart(2, '0');
   const type = bookingType === 'Agri' ? 'AGR' : 'CAR';
   const letter = isConsolidated ? 'C' : (bookingMode === 'instant' ? 'I' : 'B');
   const suffix = computeShortToken(seed || `${date.getTime()}-${Math.random()}`);
