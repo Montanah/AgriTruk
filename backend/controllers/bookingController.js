@@ -270,13 +270,10 @@ exports.createBooking = async (req, res) => {
     };
     const { cost, transporterPayment, costBreakdown, paymentBreakdown } = calculateTransportCost(bookingDataForCost);
     
-    // Provisional readableId (will recompute after we know bookingId)
-    const provisionalReadableId = readableId || null;
-
-    // Prepare booking data
+    // Prepare booking data (readableId will be generated after booking is created)
     const bookingData = {
       requestId,
-      readableId: finalReadableId, // Store readableId in booking document
+      readableId: null, // Will be generated after booking creation using createdAt and bookingId
       bookingType,
       bookingMode,
       userId: user,
@@ -1121,7 +1118,23 @@ exports.acceptBooking = async (req, res) => {
           // Individual transporter - vehicle data is already in transporter document
           console.log('✅ Individual transporter detected, vehicle data should be in transporter document');
           // For individual transporters, vehicle data is embedded in the transporter document
-          // We'll extract it from the transporter data below
+          // Extract it from the transporter data
+          if (transporter) {
+            vehicle = {
+              vehicleMake: transporter.vehicleMake,
+              vehicleModel: transporter.vehicleModel,
+              vehicleYear: transporter.vehicleYear,
+              vehicleType: transporter.vehicleType,
+              vehicleRegistration: transporter.vehicleRegistration,
+              vehicleColor: transporter.vehicleColor,
+              vehicleCapacity: transporter.vehicleCapacity
+            };
+            console.log('✅ Extracted vehicle from transporter:', {
+              make: vehicle.vehicleMake,
+              model: vehicle.vehicleModel,
+              registration: vehicle.vehicleRegistration
+            });
+          }
         }
       } catch (error) {
         console.log('Error determining transporter type, continuing without vehicle details:', error.message);
