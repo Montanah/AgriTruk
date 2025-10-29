@@ -606,19 +606,50 @@ const DriverTripNavigationScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/transporters/route-loads`, {
+      
+      // Try the route loads endpoint
+      let response = await fetch(`${API_ENDPOINTS.BOOKINGS}/transporters/route-loads`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
+      // If 404, try alternative endpoint with bookingId as query param
+      if (!response.ok && response.status === 404) {
+        const actualBookingId = job.id || params.bookingId || params.jobId;
+        if (actualBookingId) {
+          response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${actualBookingId}/route-loads`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+      }
+
+      // If still not found, try drivers endpoint
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${API_ENDPOINTS.DRIVERS}/route-loads`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+
       if (response.ok) {
         const data = await response.json();
         setRouteLoads(data.routeLoads || data.loads || []);
+      } else if (response.status === 404) {
+        // Endpoint doesn't exist - this is OK, just set empty array
+        console.log('Route loads endpoint not available - feature may not be implemented yet');
+        setRouteLoads([]);
       }
     } catch (err) {
       console.error('Error fetching route loads:', err);
+      // On error, set empty array so UI doesn't break
+      setRouteLoads([]);
     }
   };
 

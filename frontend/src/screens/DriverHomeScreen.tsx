@@ -185,8 +185,8 @@ const DriverHomeScreen = () => {
       if (response.ok) {
         const data = await response.json();
         const trip = data.trip || data;
-        // Only set current trip if status is 'started' or 'in_progress'
-        if (trip && ['started', 'in_progress'].includes(trip.status)) {
+        // Set current trip if status is 'started', 'in_progress', 'picked_up', or 'enroute' (active trip states)
+        if (trip && ['started', 'in_progress', 'picked_up', 'picked-up', 'enroute', 'in-transit'].includes(trip.status)) {
           setCurrentTrip(trip);
         } else {
           setCurrentTrip(null);
@@ -455,8 +455,8 @@ const DriverHomeScreen = () => {
         />
       )}
 
-      {/* Current Trip Status - Only show when started or in_progress */}
-      {currentTrip && ['started', 'in_progress'].includes(currentTrip.status) && (
+      {/* Current Trip Status - Show when trip is active (started, in_progress, picked_up, enroute) */}
+      {currentTrip && ['started', 'in_progress', 'picked_up', 'picked-up', 'enroute', 'in-transit'].includes(currentTrip.status) && (
         <View style={styles.tripStatusCard}>
           <View style={styles.tripStatusHeader}>
             <MaterialCommunityIcons name="map-marker-path" size={24} color={colors.primary} />
@@ -472,23 +472,44 @@ const DriverHomeScreen = () => {
             <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} style={styles.tripRouteArrow} />
             <LocationDisplay location={currentTrip.toLocation} iconColor={colors.success} />
           </View>
-          <TouchableOpacity 
-            style={styles.viewTripButton}
-            onPress={() => {
-              try {
-                (navigation as any).navigate('TransporterJobDetailsScreen', { 
-                  jobId: currentTrip.id,
-                  bookingId: currentTrip.bookingId,
-                  job: currentTrip
-                });
-              } catch {
-                console.error('Navigation error');
-              }
-            }}
-          >
-            <Text style={styles.viewTripButtonText}>View Trip Details</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity 
+              style={[styles.viewTripButton, { flex: 1 }]}
+              onPress={() => {
+                try {
+                  // Resume navigation to active trip
+                  (navigation as any).navigate('DriverTripNavigation', { 
+                    jobId: currentTrip.id || currentTrip.bookingId,
+                    bookingId: currentTrip.bookingId || currentTrip.id,
+                    job: currentTrip
+                  });
+                } catch {
+                  console.error('Navigation error');
+                }
+              }}
+            >
+              <MaterialCommunityIcons name="navigation" size={18} color={colors.white} />
+              <Text style={styles.viewTripButtonText}>Resume Navigation</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.viewTripButton, { flex: 1, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.primary }]}
+              onPress={() => {
+                try {
+                  // View trip details
+                  (navigation as any).navigate('TransporterJobDetailsScreen', { 
+                    jobId: currentTrip.id || currentTrip.bookingId,
+                    bookingId: currentTrip.bookingId || currentTrip.id,
+                    job: currentTrip
+                  });
+                } catch {
+                  console.error('Navigation error');
+                }
+              }}
+            >
+              <MaterialCommunityIcons name="information-outline" size={18} color={colors.primary} />
+              <Text style={[styles.viewTripButtonText, { color: colors.primary }]}>Details</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -532,7 +553,7 @@ const DriverHomeScreen = () => {
       />
 
       {/* Route Loads - Only show if on active trip */}
-      {currentTrip && ['started', 'in_progress'].includes(currentTrip.status) && (
+      {currentTrip && ['started', 'in_progress', 'picked_up', 'picked-up', 'enroute', 'in-transit'].includes(currentTrip.status) && (
         <AvailableLoadsAlongRoute
           tripId={currentTrip.id}
           onViewAll={handleViewAllLoads}

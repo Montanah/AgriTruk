@@ -503,6 +503,7 @@ const DriverJobManagementScreen = () => {
           transporterName: null,
           transporterPhone: null,
           transporterPhoto: null,
+          startedAt: null, // Clear started timestamp if it was started
         })
       });
 
