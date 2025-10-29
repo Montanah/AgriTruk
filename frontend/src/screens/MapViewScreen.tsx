@@ -462,9 +462,11 @@ const MapViewScreen = () => {
                         <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
                         <View style={styles.detailText}>
                             <Text style={styles.detailLabel}>Route</Text>
-                            <Text style={styles.detailValue}>
-                                {formatRoute(booking?.fromLocation, booking?.toLocation)}
-                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+                                <LocationDisplay location={booking?.fromLocation} showIcon={false} />
+                                <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} style={{ marginHorizontal: 8 }} />
+                                <LocationDisplay location={booking?.toLocation} showIcon={false} />
+                            </View>
                         </View>
                     </View>
 
