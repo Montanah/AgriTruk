@@ -102,7 +102,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
 
     // Form state
     const [activeTab, setActiveTab] = useState('agriTRUK');
-    const [requestType, setRequestType] = useState<'instant' | 'booking'>('instant');
+    const [requestType, setRequestType] = useState<'instant' | 'booking'>('booking');
     const [fromLocation, setFromLocation] = useState('');
     const [toLocation, setToLocation] = useState('');
     const [fromLocationCoords, setFromLocationCoords] = useState<{latitude: number, longitude: number} | null>(null);
