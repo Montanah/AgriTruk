@@ -1582,13 +1582,17 @@ exports.getAcceptedBookings = async (req, res) => {
       
       // Ensure readableId is included (use bookingId if readableId doesn't exist)
       if (!enriched.readableId && enriched.bookingId) {
-        // Generate readableId from booking data if missing
-        const bookingDate = enriched.createdAt?.toDate ? enriched.createdAt.toDate() : new Date(enriched.createdAt);
-        enriched.readableId = generateReadableId(
-          enriched.bookingType || 'Agri',
-          enriched.bookingMode || 'booking',
-          enriched.consolidated || false
-        );
+        // Generate readableId from booking data if missing - MUST use createdAt, not current time!
+        const bookingDate = enriched.createdAt?.toDate ? enriched.createdAt.toDate() : (enriched.createdAt ? new Date(enriched.createdAt) : null);
+        if (bookingDate) {
+          enriched.readableId = generateReadableId(
+            enriched.bookingType || 'Agri',
+            enriched.bookingMode || 'booking',
+            enriched.consolidated || false,
+            bookingDate, // CRITICAL: Pass createdAt timestamp (not current time!)
+            enriched.bookingId // Pass bookingId as seed for uniqueness
+          );
+        }
       }
       
       // Ensure costBreakdown is included and properly formatted
