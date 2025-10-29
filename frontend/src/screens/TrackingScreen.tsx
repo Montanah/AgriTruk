@@ -732,7 +732,6 @@ const TrackingScreen = () => {
                     )}
                 </View>
 
-                {/* Real-time Tracking Button - Only show if driver has started trip */}
                 {booking.transporterId && ['started', 'in_progress', 'in_transit', 'enroute', 'picked_up'].includes(booking.status?.toLowerCase()) && (
                     <TouchableOpacity
                         style={styles.trackingButton}
