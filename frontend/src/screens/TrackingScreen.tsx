@@ -91,15 +91,16 @@ const TrackingScreen = () => {
     useEffect(() => {
         if (booking?.id || initialBooking?.id) {
             loadBookingData();
-            // Set up auto-refresh every 10 seconds for real-time updates
-            const interval = setInterval(() => {
-                loadBookingData();
-            }, 10000);
-            setRefreshInterval(interval);
-            return () => {
-                clearInterval(interval);
-            };
+            // Only auto-refresh if trip is active (started/in transit)
+            // We'll check this after initial load and set up interval if needed
         }
+        
+        // Cleanup function
+        return () => {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        };
     }, [initialBooking?.id]);
 
     const loadBookingData = async () => {
@@ -154,25 +155,28 @@ const TrackingScreen = () => {
                             } : null,
                         } as any);
                     }
-                } catch (trackingError) {
-                    console.error('Error loading tracking data:', trackingError);
-                    // Same fallback if tracking endpoint fails (e.g., 404)
-                    setTrackingData({
-                        bookingId: bookingId,
-                        status: bookingData.status || 'pending',
-                        fromLocation: bookingData.fromLocation || bookingData.from,
-                        toLocation: bookingData.toLocation || bookingData.to,
-                        productType: bookingData.productType || 'Cargo',
-                        weight: (bookingData.weightKg ? `${bookingData.weightKg}kg` : (bookingData.weight ? `${bookingData.weight}kg` : 'Unknown')),
-                        route: [],
-                        currentLocation: null,
-                        estimatedDelivery: bookingData.estimatedDuration || 'TBD',
-                        transporter: bookingData.transporter ? {
-                            name: bookingData.transporter.name || 'Transporter',
-                            phone: bookingData.transporter.phone || 'N/A',
-                            vehicle: bookingData.transporter.vehicle?.registration || bookingData.transporter.vehicle?.make || 'N/A'
-                        } : null,
-                    } as any);
+                    } catch (trackingError: any) {
+                        // Silently handle 404 - tracking endpoint may not exist yet for pending bookings
+                        // Only set fallback tracking data if we don't have any yet
+                        if (!trackingData || trackingData.bookingId !== bookingId) {
+                            setTrackingData({
+                                bookingId: bookingId,
+                                status: bookingData.status || 'pending',
+                                fromLocation: bookingData.fromLocation || bookingData.from,
+                                toLocation: bookingData.toLocation || bookingData.to,
+                                productType: bookingData.productType || 'Cargo',
+                                weight: (bookingData.weightKg ? `${bookingData.weightKg}kg` : (bookingData.weight ? `${bookingData.weight}kg` : 'Unknown')),
+                                route: [],
+                                currentLocation: null,
+                                estimatedDelivery: bookingData.estimatedDuration || 'TBD',
+                                transporter: bookingData.transporter ? {
+                                    name: bookingData.transporter.name || 'Transporter',
+                                    phone: bookingData.transporter.phone || 'N/A',
+                                    vehicle: bookingData.transporter.vehicle?.registration || bookingData.transporter.vehicle?.make || 'N/A'
+                                } : null,
+                            } as any);
+                        }
+                    }
                 }
             } else {
                 console.error('Failed to fetch booking:', response.status);
@@ -499,23 +503,6 @@ const TrackingScreen = () => {
         };
     };
 
-    const fetchTrackingData = useCallback(async (bookingId: string) => {
-        setLoading(true);
-        try {
-            // No mock data - use real API data only
-            setTrackingData(null);
-        } catch {
-            // Handle error silently
-        } finally {
-            setLoading(false);
-        }
-    }, [booking]);
-
-    useEffect(() => {
-        if (booking?.id) {
-            fetchTrackingData(booking.id);
-        }
-    }, [booking, fetchTrackingData]);
 
     const getStatusConfig = (status: string) => {
         return statusConfig[status] || statusConfig.pending;
@@ -559,11 +546,12 @@ const TrackingScreen = () => {
         );
     }
 
-    if (!trackingData) {
+    // Show booking info even without tracking data (for pending bookings)
+    if (!trackingData && !booking) {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
-                    <Text style={styles.loadingText}>No tracking data available</Text>
+                    <Text style={styles.loadingText}>Loading booking information...</Text>
                 </View>
             </SafeAreaView>
         );
@@ -597,7 +585,11 @@ const TrackingScreen = () => {
                     </View>
                     <View style={styles.bookingInfo}>
                         <View style={styles.bookingIdContainer}>
-                            <Text style={styles.bookingId}>#{getDisplayBookingId(booking)}</Text>
+                            <Text style={styles.bookingId}>#{getDisplayBookingId({
+                                ...booking,
+                                bookingType: booking.bookingType || booking.type,
+                                bookingMode: booking.bookingMode || (booking.type === 'instant' ? 'instant' : 'booking')
+                            })}</Text>
                             <Text style={styles.bookingDate}>
                                 Created: {new Date(booking.createdAt || new Date()).toLocaleDateString()}
                             </Text>
