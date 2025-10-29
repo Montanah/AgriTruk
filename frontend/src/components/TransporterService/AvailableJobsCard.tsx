@@ -599,19 +599,13 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                     </Text>
                 </View>
             ) : (
-                <FlatList
-                    data={jobs.slice(0, 3)} // Show only first 3 jobs
-                    renderItem={renderJobItem}
-                    keyExtractor={(item) => item.id}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            colors={[colors.primary]}
-                        />
-                    }
-                />
+                <View style={styles.jobsListContainer}>
+                    {jobs.slice(0, 3).map((job) => (
+                        <View key={job.id}>
+                            {renderJobItem({ item: job })}
+                        </View>
+                    ))}
+                </View>
             )}
         </View>
     );
@@ -733,6 +727,9 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: spacing.sm,
         paddingHorizontal: spacing.lg,
+    },
+    jobsListContainer: {
+        // Container for non-virtualized list when nested in ScrollView
     },
     jobCard: {
         backgroundColor: colors.white,

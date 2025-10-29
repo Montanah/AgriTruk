@@ -16,12 +16,10 @@ import { getAuth } from 'firebase/auth';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import colors from '../constants/colors';
-import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 import AvailableJobsCard from '../components/TransporterService/AvailableJobsCard';
 import IncomingRequestsCard from '../components/TransporterService/IncomingRequestsCard';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
-import { useAssignedJobs } from '../hooks/UseAssignedJobs';
 import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
 
 interface DriverProfile {
@@ -67,6 +65,7 @@ const DriverHomeScreen = () => {
   useEffect(() => {
     fetchDriverProfile();
     fetchAcceptedJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchDriverProfile = async () => {
@@ -250,16 +249,32 @@ const DriverHomeScreen = () => {
   };
 
   const handleViewAllJobs = () => {
-    navigation.navigate('DriverJobManagement');
+    // Navigate to Jobs tab and then to the job management screen
+    try {
+      (navigation as any).navigate('Jobs', { screen: 'DriverJobManagement' });
+    } catch (e) {
+      // Fallback navigation
+      (navigation as any).navigate('DriverJobManagement');
+    }
   };
 
   const handleViewAllRequests = () => {
-    navigation.navigate('DriverJobManagement');
+    // Navigate to Jobs tab and then to the job management screen
+    try {
+      (navigation as any).navigate('Jobs', { screen: 'DriverJobManagement' });
+    } catch (e) {
+      // Fallback navigation
+      (navigation as any).navigate('DriverJobManagement');
+    }
   };
 
   const handleViewAllLoads = () => {
     if (currentTrip) {
-      navigation.navigate('RouteLoadsScreen', { tripId: currentTrip.id });
+      try {
+        (navigation as any).navigate('RouteLoadsScreen', { tripId: currentTrip.id });
+      } catch (e) {
+        Alert.alert('Navigation Error', 'Unable to navigate to route loads.');
+      }
     } else {
       Alert.alert('No Active Trip', 'You need to be on an active trip to view route loads.');
     }
@@ -368,8 +383,8 @@ const DriverHomeScreen = () => {
           <View style={styles.tripStatusHeader}>
             <MaterialCommunityIcons name="map-marker-path" size={24} color={colors.primary} />
             <Text style={styles.tripStatusTitle}>Active Trip</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(currentTrip.status) + '20' }]}>
-              <Text style={[styles.statusBadgeText, { color: getStatusColor(currentTrip.status) }]}>
+            <View style={[styles.tripStatusBadge, { backgroundColor: getStatusColor(currentTrip.status) + '20' }]}>
+              <Text style={[styles.tripStatusBadgeText, { color: getStatusColor(currentTrip.status) }]}>
                 {currentTrip.status.toUpperCase()}
               </Text>
             </View>
@@ -379,11 +394,17 @@ const DriverHomeScreen = () => {
           </Text>
           <TouchableOpacity 
             style={styles.viewTripButton}
-            onPress={() => navigation.navigate('TransporterJobDetailsScreen', { 
-              jobId: currentTrip.id,
-              bookingId: currentTrip.bookingId,
-              job: currentTrip
-            })}
+            onPress={() => {
+              try {
+                (navigation as any).navigate('TransporterJobDetailsScreen', { 
+                  jobId: currentTrip.id,
+                  bookingId: currentTrip.bookingId,
+                  job: currentTrip
+                });
+              } catch (e) {
+                console.error('Navigation error:', e);
+              }
+            }}
           >
             <Text style={styles.viewTripButtonText}>View Trip Details</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
@@ -402,11 +423,17 @@ const DriverHomeScreen = () => {
       <IncomingRequestsCard
         jobs={acceptedJobs}
         loading={loadingAcceptedJobs}
-        onJobPress={(job) => navigation.navigate('TransporterJobDetailsScreen', { 
-          jobId: job.id,
-          bookingId: job.bookingId,
-          job: job
-        })}
+        onJobPress={(job) => {
+          try {
+            (navigation as any).navigate('TransporterJobDetailsScreen', { 
+              jobId: job.id,
+              bookingId: job.bookingId,
+              job: job
+            });
+          } catch (e) {
+            console.error('Navigation error:', e);
+          }
+        }}
         onViewAll={handleViewAllRequests}
         title="My Accepted Jobs"
       />
@@ -425,7 +452,7 @@ const DriverHomeScreen = () => {
         <View style={styles.quickActionsGrid}>
           <TouchableOpacity 
             style={styles.quickActionButton}
-            onPress={() => navigation.navigate('DriverJobManagement')}
+            onPress={() => (navigation as any).navigate('Jobs', { screen: 'DriverJobManagement' })}
           >
             <MaterialCommunityIcons name="briefcase" size={24} color={colors.primary} />
             <Text style={styles.quickActionText}>My Jobs</Text>
@@ -433,7 +460,7 @@ const DriverHomeScreen = () => {
           
           <TouchableOpacity 
             style={styles.quickActionButton}
-            onPress={() => navigation.navigate('DriverProfile')}
+            onPress={() => (navigation as any).navigate('Profile', { screen: 'DriverProfile' })}
           >
             <MaterialCommunityIcons name="account" size={24} color={colors.secondary} />
             <Text style={styles.quickActionText}>Profile</Text>
@@ -441,7 +468,7 @@ const DriverHomeScreen = () => {
           
           <TouchableOpacity 
             style={styles.quickActionButton}
-            onPress={() => navigation.navigate('DriverSettings')}
+            onPress={() => (navigation as any).navigate('Profile', { screen: 'DriverSettings' })}
           >
             <MaterialCommunityIcons name="cog" size={24} color={colors.tertiary} />
             <Text style={styles.quickActionText}>Settings</Text>
@@ -649,12 +676,12 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
-  statusBadge: {
+  tripStatusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  statusBadgeText: {
+  tripStatusBadgeText: {
     fontSize: 10,
     fontWeight: 'bold',
   },

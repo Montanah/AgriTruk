@@ -75,6 +75,23 @@ const DriverProfileScreen = () => {
   const [acceptingBooking, setAcceptingBooking] = useState(false);
   const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
 
+  // Helper to convert Firestore timestamp to Date or string
+  const parseTimestamp = (ts: any): Date | null => {
+    if (!ts) return null;
+    if (ts instanceof Date) return ts;
+    if (typeof ts === 'string') {
+      const parsed = new Date(ts);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+    if (ts._seconds) {
+      return new Date(ts._seconds * 1000);
+    }
+    if (ts.toDate && typeof ts.toDate === 'function') {
+      return ts.toDate();
+    }
+    return null;
+  };
+
   useEffect(() => {
     fetchDriverProfile();
   }, []);
@@ -133,18 +150,20 @@ const DriverProfileScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.DRIVERS}/toggle-availability`, {
-        method: 'POST',
+      const response = await fetch(`${API_ENDPOINTS.DRIVERS}/availability`, {
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          availability: newStatus,
+          isAcceptingRequests: newStatus,
+          isOnline: newStatus, // If accepting, must be online
         }),
       });
 
       if (response.ok) {
+        const data = await response.json();
         setAcceptingBooking(newStatus);
         setDriverProfile((prev: any) => ({ ...prev, availability: newStatus }));
         Alert.alert(
@@ -152,11 +171,12 @@ const DriverProfileScreen = () => {
           `You are now ${newStatus ? 'accepting' : 'not accepting'} new job requests.`
         );
       } else {
-        throw new Error('Failed to update status');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to update status');
       }
     } catch (err: any) {
       console.error('Error updating accepting booking status:', err);
-      Alert.alert('Error', 'Failed to update status. Please try again.');
+      Alert.alert('Error', err.message || 'Failed to update status. Please try again.');
     } finally {
       setUpdatingBookingStatus(false);
     }
@@ -274,17 +294,19 @@ const DriverProfileScreen = () => {
     }
   };
 
-  const isDocumentExpiring = (expiryDate: string) => {
+  const isDocumentExpiring = (expiryDate: any) => {
     if (!expiryDate) return false;
-    const expiry = new Date(expiryDate);
+    const expiry = parseTimestamp(expiryDate);
+    if (!expiry) return false;
     const now = new Date();
     const daysUntilExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
   };
 
-  const isDocumentExpired = (expiryDate: string) => {
+  const isDocumentExpired = (expiryDate: any) => {
     if (!expiryDate) return false;
-    const expiry = new Date(expiryDate);
+    const expiry = parseTimestamp(expiryDate);
+    if (!expiry) return false;
     const now = new Date();
     return expiry.getTime() < now.getTime();
   };
@@ -413,9 +435,11 @@ const DriverProfileScreen = () => {
           <View style={styles.documentInfo}>
             <Text style={styles.documentNumber}>License: {driverProfile.driverLicense}</Text>
             <Text style={styles.documentExpiry}>
-              Expires: {driverProfile.driverLicenseExpiryDate ? 
-                new Date(driverProfile.driverLicenseExpiryDate).toLocaleDateString() : 'N/A'
-              }
+              Expires: {(() => {
+                if (!driverProfile.driverLicenseExpiryDate) return 'N/A';
+                const date = parseTimestamp(driverProfile.driverLicenseExpiryDate);
+                return date ? date.toLocaleDateString() : 'N/A';
+              })()}
             </Text>
             {(isDocumentExpiring(driverProfile.driverLicenseExpiryDate) || isDocumentExpired(driverProfile.driverLicenseExpiryDate)) && (
               <Text style={[styles.expiryWarning, { 
@@ -455,11 +479,13 @@ const DriverProfileScreen = () => {
           </View>
           
           <View style={styles.documentInfo}>
-            <Text style={styles.documentNumber}>ID: {driverProfile.idNumber}</Text>
+            <Text style={styles.documentNumber}>ID: {driverProfile.idNumber || 'Not provided'}</Text>
             <Text style={styles.documentExpiry}>
-              Expires: {driverProfile.idExpiryDate ? 
-                new Date(driverProfile.idExpiryDate).toLocaleDateString() : 'N/A'
-              }
+              Expires: {(() => {
+                if (!driverProfile.idExpiryDate) return 'N/A';
+                const date = parseTimestamp(driverProfile.idExpiryDate);
+                return date ? date.toLocaleDateString() : 'N/A';
+              })()}
             </Text>
             {(isDocumentExpiring(driverProfile.idExpiryDate) || isDocumentExpired(driverProfile.idExpiryDate)) && (
               <Text style={[styles.expiryWarning, { 

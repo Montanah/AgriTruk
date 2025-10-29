@@ -17,6 +17,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 import { API_ENDPOINTS } from '../constants/api';
+import LocationDisplay from '../components/common/LocationDisplay';
 
 interface Job {
   id: string;
@@ -433,7 +434,7 @@ const DriverJobManagementScreen = () => {
     <View style={styles.jobCard}>
       <View style={styles.jobHeader}>
         <View style={styles.jobInfo}>
-          <Text style={styles.jobId}>Job #{item.bookingId}</Text>
+          <Text style={styles.jobId}>{getDisplayBookingId(item)}</Text>
           <Text style={styles.customerName}>{item.customerName}</Text>
           <Text style={styles.customerPhone}>{item.customerPhone}</Text>
         </View>
@@ -453,22 +454,20 @@ const DriverJobManagementScreen = () => {
         </View>
       </View>
 
-      {/* Job ID */}
-      <View style={styles.jobIdSection}>
-        <MaterialCommunityIcons name="identifier" size={16} color={colors.primary} />
-        <Text style={styles.jobIdLabel}>Job ID:</Text>
-        <Text style={styles.jobIdValue}>{getDisplayBookingId(item)}</Text>
-      </View>
-
       <View style={styles.jobDetails}>
         <View style={styles.routeInfo}>
-          <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-            <Text style={styles.detailText}>From: {item.fromLocation?.address || 'Pickup Location'}</Text>
+          <View style={styles.locationRow}>
+            <LocationDisplay 
+              location={item.fromLocation} 
+              iconColor={colors.primary} 
+            />
           </View>
-          <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
-            <Text style={styles.detailText}>To: {item.toLocation?.address || 'Delivery Location'}</Text>
+          <View style={styles.locationRow}>
+            <LocationDisplay 
+              location={item.toLocation} 
+              iconColor={colors.success}
+              iconName="map-marker-outline"
+            />
           </View>
         </View>
         <View style={styles.detailRow}>
@@ -1006,6 +1005,9 @@ const styles = StyleSheet.create({
   // New styles for enhanced functionality
   routeInfo: {
     marginBottom: 12,
+  },
+  locationRow: {
+    marginBottom: 8,
   },
   locationText: {
     fontSize: 14,
