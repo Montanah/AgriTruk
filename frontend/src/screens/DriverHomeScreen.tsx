@@ -252,7 +252,7 @@ const DriverHomeScreen = () => {
     // Navigate to Jobs tab and then to the job management screen
     try {
       (navigation as any).navigate('Jobs', { screen: 'DriverJobManagement' });
-    } catch (e) {
+    } catch {
       // Fallback navigation
       (navigation as any).navigate('DriverJobManagement');
     }
@@ -262,7 +262,7 @@ const DriverHomeScreen = () => {
     // Navigate to Jobs tab and then to the job management screen
     try {
       (navigation as any).navigate('Jobs', { screen: 'DriverJobManagement' });
-    } catch (e) {
+    } catch {
       // Fallback navigation
       (navigation as any).navigate('DriverJobManagement');
     }
@@ -272,7 +272,7 @@ const DriverHomeScreen = () => {
     if (currentTrip) {
       try {
         (navigation as any).navigate('RouteLoadsScreen', { tripId: currentTrip.id });
-      } catch (e) {
+      } catch {
         Alert.alert('Navigation Error', 'Unable to navigate to route loads.');
       }
     } else {
@@ -371,7 +371,11 @@ const DriverHomeScreen = () => {
         <OfflineInstructionsCard
           onToggleAccepting={() => {
             // Navigate to profile tab to show the toggle
-            navigation.navigate('Profile');
+            try {
+              (navigation as any).navigate('Profile', { screen: 'DriverProfile' });
+            } catch {
+              (navigation as any).navigate('Profile');
+            }
           }}
           isFirstTime={isFirstTimeUser}
         />
@@ -401,8 +405,8 @@ const DriverHomeScreen = () => {
                   bookingId: currentTrip.bookingId,
                   job: currentTrip
                 });
-              } catch (e) {
-                console.error('Navigation error:', e);
+              } catch {
+                console.error('Navigation error');
               }
             }}
           >
@@ -430,8 +434,8 @@ const DriverHomeScreen = () => {
               bookingId: job.bookingId,
               job: job
             });
-          } catch (e) {
-            console.error('Navigation error:', e);
+          } catch {
+            console.error('Navigation error');
           }
         }}
         onViewAll={handleViewAllRequests}
@@ -477,7 +481,13 @@ const DriverHomeScreen = () => {
           {currentTrip && (
             <TouchableOpacity 
               style={styles.quickActionButton}
-              onPress={() => navigation.navigate('RouteLoadsScreen', { tripId: currentTrip.id })}
+              onPress={() => {
+                try {
+                  (navigation as any).navigate('RouteLoadsScreen', { tripId: currentTrip.id });
+                } catch {
+                  console.error('Navigation error');
+                }
+              }}
             >
               <MaterialCommunityIcons name="map-marker-path" size={24} color={colors.success} />
               <Text style={styles.quickActionText}>Route Loads</Text>
