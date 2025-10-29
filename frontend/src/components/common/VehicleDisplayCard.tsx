@@ -85,7 +85,15 @@ const VehicleDisplayCard: React.FC<VehicleDisplayCardProps> = ({
               <View style={styles.detailItem}>
                 <MaterialCommunityIcons name="weight-kilogram" size={18} color={colors.text.secondary} />
                 <Text style={styles.detailLabel}>Capacity</Text>
-                <Text style={styles.detailValue}>{capacity} kg</Text>
+                <Text style={styles.detailValue}>
+                  {(() => {
+                    // Capacity should be in tons from backend, but handle legacy kg values
+                    const cap = typeof capacity === 'number' ? capacity : parseFloat(String(capacity)) || 0;
+                    // If capacity > 1000, it's likely in kg (legacy), convert to tons
+                    const capacityInTons = cap > 1000 ? (cap / 1000).toFixed(2) : cap.toFixed(2);
+                    return `${capacityInTons} tons`;
+                  })()}
+                </Text>
               </View>
             )}
 
@@ -122,7 +130,15 @@ const VehicleDisplayCard: React.FC<VehicleDisplayCardProps> = ({
             {capacity > 0 && (
               <>
                 <Text style={styles.compactSeparator}>•</Text>
-                <Text style={styles.compactCapacity}>{capacity} kg</Text>
+                <Text style={styles.compactCapacity}>
+                  {(() => {
+                    // Capacity should be in tons from backend, but handle legacy kg values
+                    const cap = typeof capacity === 'number' ? capacity : parseFloat(String(capacity)) || 0;
+                    // If capacity > 1000, it's likely in kg (legacy), convert to tons
+                    const capacityInTons = cap > 1000 ? (cap / 1000).toFixed(2) : cap.toFixed(2);
+                    return `${capacityInTons} tons`;
+                  })()}
+                </Text>
               </>
             )}
           </View>

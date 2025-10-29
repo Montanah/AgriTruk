@@ -16,6 +16,7 @@ import { getAuth } from 'firebase/auth';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import colors from '../constants/colors';
+import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
 import AvailableJobsCard from '../components/TransporterService/AvailableJobsCard';
 import IncomingRequestsCard from '../components/TransporterService/IncomingRequestsCard';
@@ -369,9 +370,6 @@ const DriverHomeScreen = () => {
                 {driverProfile.assignedVehicle.year && ` • ${driverProfile.assignedVehicle.year}`}
               </Text>
               {driverProfile.assignedVehicle.registration && (
-                <Text style={styles.vehicleReg}>{driverProfile.assignedVehicle.registration}</Text>
-              )}
-              {driverProfile.assignedVehicle.registration && (
                 <Text style={styles.vehicleReg}>Reg: {driverProfile.assignedVehicle.registration}</Text>
               )}
               {driverProfile.assignedVehicle.capacity && (
@@ -695,17 +693,12 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   vehicleReg: {
-    fontSize: 13,
-    color: colors.white + 'DD',
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  vehicleReg: {
     fontSize: 12,
     color: colors.white + 'CC',
     marginTop: 2,
     fontFamily: fonts.family.medium,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   vehicleCapacity: {
     fontSize: 12,
