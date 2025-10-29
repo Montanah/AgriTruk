@@ -201,12 +201,12 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
             <View style={styles.requestHeader}>
                 <View style={styles.urgencyContainer}>
                     <MaterialCommunityIcons
-                        name={getUrgencyIcon(item.urgency)}
+                        name={getUrgencyIcon(item.urgency || item.urgencyLevel || 'low')}
                         size={16}
-                        color={getUrgencyColor(item.urgency)}
+                        color={getUrgencyColor(item.urgency || item.urgencyLevel || 'low')}
                     />
-                    <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency) }]}>
-                        {item.urgency.toUpperCase()} PRIORITY
+                    <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency || item.urgencyLevel || 'low') }]}>
+                        {(item.urgency || item.urgencyLevel || 'low').toUpperCase()} PRIORITY
                     </Text>
                 </View>
                 <Text style={styles.requestId}>#{item.id}</Text>
@@ -239,12 +239,14 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                 </View>
                 <View style={styles.cargoItem}>
                     <MaterialCommunityIcons name="currency-usd" size={14} color={colors.text.secondary} />
-                    <Text style={styles.cargoText}>Ksh {item.estimatedValue.toLocaleString()}</Text>
+                    <Text style={styles.cargoText}>
+                      KES {(item.estimatedValue || item.paymentAmount || item.cost || item.pricing?.total || 0).toLocaleString('en-KE')}
+                    </Text>
                 </View>
             </View>
 
             {/* Special requirements */}
-            {item.specialRequirements.length > 0 && (
+            {(item.specialRequirements && item.specialRequirements.length > 0) && (
                 <View style={styles.requirementsContainer}>
                     {item.specialRequirements.map((req, index) => (
                         <View key={index} style={styles.requirementBadge}>
@@ -289,28 +291,32 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
 
             {/* Pricing breakdown */}
             <View style={styles.pricingContainer}>
-                <View style={styles.pricingRow}>
-                    <Text style={styles.pricingLabel}>Base Price:</Text>
-                    <Text style={styles.pricingValue}>Ksh {item.pricing.basePrice.toLocaleString()}</Text>
-                </View>
-                {item.pricing.urgencyBonus > 0 && (
+                {item.pricing && (
+                  <>
                     <View style={styles.pricingRow}>
-                        <Text style={styles.pricingLabel}>Urgency Bonus:</Text>
-                        <Text style={[styles.pricingValue, { color: colors.success }]}>
-                            +Ksh {item.pricing.urgencyBonus.toLocaleString()}
-                        </Text>
+                        <Text style={styles.pricingLabel}>Base Price:</Text>
+                        <Text style={styles.pricingValue}>KES {(item.pricing.basePrice || 0).toLocaleString('en-KE')}</Text>
                     </View>
-                )}
-                {item.pricing.specialHandling > 0 && (
-                    <View style={styles.pricingRow}>
-                        <Text style={styles.pricingLabel}>Special Handling:</Text>
-                        <Text style={styles.pricingValue}>Ksh {item.pricing.specialHandling.toLocaleString()}</Text>
+                    {(item.pricing.urgencyBonus || 0) > 0 && (
+                        <View style={styles.pricingRow}>
+                            <Text style={styles.pricingLabel}>Urgency Bonus:</Text>
+                            <Text style={[styles.pricingValue, { color: colors.success }]}>
+                                +KES {(item.pricing.urgencyBonus || 0).toLocaleString('en-KE')}
+                            </Text>
+                        </View>
+                    )}
+                    {(item.pricing.specialHandling || 0) > 0 && (
+                        <View style={styles.pricingRow}>
+                            <Text style={styles.pricingLabel}>Special Handling:</Text>
+                            <Text style={styles.pricingValue}>KES {(item.pricing.specialHandling || 0).toLocaleString('en-KE')}</Text>
+                        </View>
+                    )}
+                    <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>Total Earnings:</Text>
+                        <Text style={styles.totalValue}>KES {(item.pricing.total || item.pricing.basePrice || 0).toLocaleString('en-KE')}</Text>
                     </View>
+                  </>
                 )}
-                <View style={styles.totalRow}>
-                    <Text style={styles.totalLabel}>Total Earnings:</Text>
-                    <Text style={styles.totalValue}>Ksh {item.pricing.total.toLocaleString()}</Text>
-                </View>
             </View>
 
             {/* Action buttons */}

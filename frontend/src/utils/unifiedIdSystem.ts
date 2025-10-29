@@ -219,31 +219,41 @@ function generateDisplayIdFromString(input: string): string {
 
 /**
  * Generate display ID from object properties
+ * Format: YYMMDD-HHMM-TYPE-MODE (e.g., 251029-1758-AGR-BOOK)
  */
 function generateDisplayIdFromObject(obj: any): string {
   try {
+    // Get date from createdAt or use current date
+    const bookingDate = obj.createdAt ? new Date(obj.createdAt) : new Date();
+    const year = bookingDate.getFullYear().toString().slice(-2);
+    const month = (bookingDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = bookingDate.getDate().toString().padStart(2, '0');
+    const hour = bookingDate.getHours().toString().padStart(2, '0');
+    const minute = bookingDate.getMinutes().toString().padStart(2, '0');
+    
     // Determine type based on product type or other indicators
-    const productType = obj.productType || obj.cargoType || obj.cargoDetails || '';
-    const type = productType.toLowerCase().includes('agricultural') || 
-                 productType.toLowerCase().includes('crop') || 
-                 productType.toLowerCase().includes('farm') ? 'agri' : 'cargo';
+    const productType = obj.productType || obj.cargoType || obj.cargoDetails || obj.bookingType || '';
+    const productTypeLower = productType.toLowerCase();
+    const type = productTypeLower.includes('agricultural') || 
+                 productTypeLower.includes('crop') || 
+                 productTypeLower.includes('farm') || 
+                 productTypeLower.includes('agri') ||
+                 productTypeLower === 'agri' ? 'AGR' : 'CAR';
     
     // Determine mode
-    const bookingType = obj.type || obj.bookingType || 'booking';
-    let mode: 'instant' | 'booking' | 'consolidated';
+    const bookingType = obj.type || obj.bookingType || obj.bookingMode || 'booking';
+    const bookingTypeLower = String(bookingType).toLowerCase();
+    let mode: string;
     
-    if (bookingType === 'instant') {
-      mode = 'instant';
-    } else if (obj.isConsolidated || bookingType === 'consolidated') {
-      mode = 'consolidated';
+    if (bookingTypeLower === 'instant' || bookingTypeLower === 'inst') {
+      mode = 'INST';
+    } else if (obj.isConsolidated || bookingTypeLower === 'consolidated' || bookingTypeLower === 'cons') {
+      mode = 'CONS';
     } else {
-      mode = 'booking';
+      mode = 'BOOK';
     }
     
-    // Use current date and a random sequence number
-    const sequenceNumber = Math.floor(Math.random() * 999) + 1;
-    
-    return generateUnifiedBookingId(type, mode, sequenceNumber);
+    return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
   } catch (error) {
     console.error('Error generating display ID from object:', error);
     return `ID-${Date.now()}`;

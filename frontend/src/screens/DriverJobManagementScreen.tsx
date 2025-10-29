@@ -473,12 +473,46 @@ const DriverJobManagementScreen = () => {
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="clock" size={16} color={colors.text.secondary} />
           <Text style={styles.detailText}>
-            Pickup: {new Date(item.pickupTime).toLocaleString()}
+            Pickup: {(() => {
+              if (!item.pickupTime && !item.pickupDate) return 'Not specified';
+              try {
+                const pickupDate = item.pickupTime || item.pickupDate || item.createdAt;
+                if (!pickupDate) return 'Not specified';
+                
+                // Handle Firestore timestamp
+                let date: Date;
+                if (pickupDate._seconds) {
+                  date = new Date(pickupDate._seconds * 1000);
+                } else if (pickupDate.toDate && typeof pickupDate.toDate === 'function') {
+                  date = pickupDate.toDate();
+                } else if (typeof pickupDate === 'string') {
+                  date = new Date(pickupDate);
+                } else if (pickupDate instanceof Date) {
+                  date = pickupDate;
+                } else {
+                  return 'Invalid date';
+                }
+                
+                if (isNaN(date.getTime())) return 'Invalid date';
+                
+                return date.toLocaleString('en-KE', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
+              } catch {
+                return 'Date error';
+              }
+            })()}
           </Text>
         </View>
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
-          <Text style={styles.detailText}>Payment: ${item.paymentAmount}</Text>
+          <Text style={styles.detailText}>
+            Payment: KES {(item.paymentAmount || item.cost || item.estimatedValue || 0).toLocaleString('en-KE')}
+          </Text>
         </View>
       </View>
 
