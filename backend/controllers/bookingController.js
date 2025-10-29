@@ -18,20 +18,33 @@ require('dotenv').config();
 
 const google_key = process.env.GOOGLE_MAPS_API_KEY;
 
-// Generate readable ID for display purposes
-const generateReadableId = (bookingType, bookingMode, isConsolidated = false) => {
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const day = now.getDate().toString().padStart(2, '0');
-  const hour = now.getHours().toString().padStart(2, '0');
-  const minute = now.getMinutes().toString().padStart(2, '0');
-  
+// Generate readable ID (unique) aligned with mobile: YYMMDD-HHMMSS-TYPE-[BIC]SUF
+const generateReadableId = (bookingType, bookingMode, isConsolidated = false, timestamp = new Date(), seed = '') => {
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  const year = date.getFullYear().toString().slice(-2);
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const hour = date.getHours().toString().padStart(2, '0');
+  const minute = date.getMinutes().toString().padStart(2, '0');
+  const second = date.getSeconds().toString().padStart(2, '0');
   const type = bookingType === 'Agri' ? 'AGR' : 'CAR';
-  const mode = isConsolidated ? 'CONS' : (bookingMode === 'instant' ? 'INST' : 'BOOK');
-  
-  return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
+  const letter = isConsolidated ? 'C' : (bookingMode === 'instant' ? 'I' : 'B');
+  const suffix = computeShortToken(seed || `${date.getTime()}-${Math.random()}`);
+  return `${year}${month}${day}-${hour}${minute}${second}-${type}-${letter}${suffix}`;
 };
+
+function computeShortToken(seed) {
+  try {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    return (hash >>> 0).toString(36).toUpperCase().slice(-3).padStart(3, '0');
+  } catch {
+    return Math.random().toString(36).toUpperCase().slice(2, 5);
+  }
+}
 
 exports.createBooking = async (req, res) => {
   try {
@@ -257,9 +270,8 @@ exports.createBooking = async (req, res) => {
     };
     const { cost, transporterPayment, costBreakdown, paymentBreakdown } = calculateTransportCost(bookingDataForCost);
     
-    // Generate or use provided readableId
-    // If frontend provides readableId, use it; otherwise generate one
-    const finalReadableId = readableId || generateReadableId(bookingType, bookingMode, consolidated);
+    // Provisional readableId (will recompute after we know bookingId)
+    const provisionalReadableId = readableId || null;
 
     // Prepare booking data
     const bookingData = {
@@ -340,8 +352,18 @@ exports.createBooking = async (req, res) => {
     });
     // console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
 
-    // ReadableId is now stored in booking document, use it from there
-    const bookingReadableId = booking.readableId || finalReadableId;
+    // Compute final unique readableId using createdAt and bookingId as seed
+    const createdAtDate = booking.createdAt?.toDate ? booking.createdAt.toDate() : new Date();
+    const computedReadableId = generateReadableId(bookingType, bookingMode, !!consolidated, createdAtDate, booking.bookingId);
+    if (!booking.readableId || booking.readableId !== computedReadableId) {
+      try {
+        await Booking.update(booking.bookingId, { readableId: computedReadableId });
+        booking.readableId = computedReadableId;
+      } catch (e) {
+        console.warn('Failed to persist readableId:', e?.message);
+      }
+    }
+    const bookingReadableId = booking.readableId;
     
     if (bookingMode === 'instant') {
       const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
