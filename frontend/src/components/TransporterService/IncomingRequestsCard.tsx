@@ -76,7 +76,9 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
         
         // If jobs are provided as props, don't fetch
         if (providedJobs !== undefined) {
-            setRequests(providedJobs.slice(0, 3)); // Show only first 3
+            // Filter out invalid items and ensure they have required properties
+            const validJobs = (providedJobs || []).filter(job => job && (job.id || job.bookingId));
+            setRequests(validJobs.slice(0, 3)); // Show only first 3
             return;
         }
 
@@ -160,8 +162,8 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
             // Navigate to contact customer screen
             navigation.navigate('ContactCustomer', {
                 requestId: request.id,
-                customerName: request.client.name,
-                customerPhone: '+254700000000', // Mock phone number
+                customerName: request.client?.name || request.customerName || 'Unknown',
+                customerPhone: request.client?.phone || request.customerPhone || '+254700000000',
                 pickupLocation: request.fromLocation,
                 deliveryLocation: request.toLocation,
                 requestDetails: request
@@ -195,7 +197,13 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
         }
     };
 
-    const renderRequestItem = ({ item }: { item: IncomingRequest }) => (
+    const renderRequestItem = ({ item }: { item: any }) => {
+        // Skip rendering if item is invalid
+        if (!item || (!item.id && !item.bookingId)) {
+            return null;
+        }
+
+        return (
         <View style={styles.requestCard}>
             {/* Header with urgency indicator */}
             <View style={styles.requestHeader}>
@@ -209,7 +217,7 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                         {(item.urgency || item.urgencyLevel || 'low').toUpperCase()} PRIORITY
                     </Text>
                 </View>
-                <Text style={styles.requestId}>#{item.id}</Text>
+                <Text style={styles.requestId}>#{item.id || item.bookingId || 'Unknown'}</Text>
             </View>
 
             {/* Route information */}
@@ -229,14 +237,18 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
 
             {/* Cargo details */}
             <View style={styles.cargoContainer}>
-                <View style={styles.cargoItem}>
-                    <MaterialCommunityIcons name="package-variant" size={14} color={colors.text.secondary} />
-                    <Text style={styles.cargoText}>{item.productType}</Text>
-                </View>
-                <View style={styles.cargoItem}>
-                    <MaterialCommunityIcons name="weight-kilogram" size={14} color={colors.text.secondary} />
-                    <Text style={styles.cargoText}>{item.weight}</Text>
-                </View>
+                {item.productType && (
+                    <View style={styles.cargoItem}>
+                        <MaterialCommunityIcons name="package-variant" size={14} color={colors.text.secondary} />
+                        <Text style={styles.cargoText}>{item.productType}</Text>
+                    </View>
+                )}
+                {item.weight && (
+                    <View style={styles.cargoItem}>
+                        <MaterialCommunityIcons name="weight-kilogram" size={14} color={colors.text.secondary} />
+                        <Text style={styles.cargoText}>{item.weight}</Text>
+                    </View>
+                )}
                 <View style={styles.cargoItem}>
                     <MaterialCommunityIcons name="currency-usd" size={14} color={colors.text.secondary} />
                     <Text style={styles.cargoText}>
@@ -258,36 +270,44 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
             )}
 
             {/* Client information */}
-            <View style={styles.clientContainer}>
-                <View style={styles.clientInfo}>
-                    <Text style={styles.clientName}>{item.client.name}</Text>
-                    <View style={styles.clientRating}>
-                        <MaterialCommunityIcons name="star" size={12} color={colors.secondary} />
-                        <Text style={styles.ratingText}>{item.client.rating}</Text>
-                        <Text style={styles.ordersText}> • {item.client.completedOrders} orders</Text>
+            {item.client && (
+                <View style={styles.clientContainer}>
+                    <View style={styles.clientInfo}>
+                        <Text style={styles.clientName}>{item.client.name || item.customerName || 'Unknown Client'}</Text>
+                        <View style={styles.clientRating}>
+                            <MaterialCommunityIcons name="star" size={12} color={colors.secondary} />
+                            <Text style={styles.ratingText}>{item.client.rating || item.client.rating || '0.0'}</Text>
+                            <Text style={styles.ordersText}> • {(item.client.completedOrders || 0)} orders</Text>
+                        </View>
                     </View>
                 </View>
-            </View>
+            )}
 
             {/* Route details */}
-            <View style={styles.routeDetails}>
-                <View style={styles.routeDetail}>
-                    <MaterialCommunityIcons name="map-marker-distance" size={14} color={colors.text.secondary} />
-                    <Text style={styles.routeDetailText}>{item.route.distance}</Text>
+            {item.route && (
+                <View style={styles.routeDetails}>
+                    {item.route.distance && (
+                        <View style={styles.routeDetail}>
+                            <MaterialCommunityIcons name="map-marker-distance" size={14} color={colors.text.secondary} />
+                            <Text style={styles.routeDetailText}>{item.route.distance}</Text>
+                        </View>
+                    )}
+                    {item.route.estimatedTime && (
+                        <View style={styles.routeDetail}>
+                            <MaterialCommunityIcons name="clock-outline" size={14} color={colors.text.secondary} />
+                            <Text style={styles.routeDetailText}>{item.route.estimatedTime}</Text>
+                        </View>
+                    )}
+                    {item.route.detour && item.route.detour !== '0 km' && (
+                        <View style={styles.routeDetail}>
+                            <MaterialCommunityIcons name="map-marker-path" size={14} color={colors.warning} />
+                            <Text style={[styles.routeDetailText, { color: colors.warning }]}>
+                                Detour: {item.route.detour}
+                            </Text>
+                        </View>
+                    )}
                 </View>
-                <View style={styles.routeDetail}>
-                    <MaterialCommunityIcons name="clock-outline" size={14} color={colors.text.secondary} />
-                    <Text style={styles.routeDetailText}>{item.route.estimatedTime}</Text>
-                </View>
-                {item.route.detour !== '0 km' && (
-                    <View style={styles.routeDetail}>
-                        <MaterialCommunityIcons name="map-marker-path" size={14} color={colors.warning} />
-                        <Text style={[styles.routeDetailText, { color: colors.warning }]}>
-                            Detour: {item.route.detour}
-                        </Text>
-                    </View>
-                )}
-            </View>
+            )}
 
             {/* Pricing breakdown */}
             <View style={styles.pricingContainer}>
@@ -352,7 +372,8 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                 </TouchableOpacity>
             </View>
         </View>
-    );
+        );
+    };
 
     if (loading) {
         return (

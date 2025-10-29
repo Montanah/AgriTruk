@@ -178,27 +178,46 @@ export function getDisplayBookingId(input: any): string {
   
   // If it's already a formatted ID, return it
   if (typeof input === 'string') {
+    // Check if it's already in the correct format (YYMMDD-HHMM-TYPE-MODE)
+    if (/^\d{6}-\d{4}-(AGR|CAR)-(BOOK|INST|CONS)$/.test(input)) {
+      return input;
+    }
+    // Check if it matches old unified format
     const parsed = parseUnifiedBookingId(input);
     if (parsed) {
       return input;
     }
-    // If it's not a formatted ID, try to generate one
-    return generateDisplayIdFromString(input);
+    // Return as-is if it looks like a readable ID
+    return input;
   }
   
   // If it's an object, try to extract or generate ID
   if (typeof input === 'object') {
-    // Check for existing formatted ID
-    if (input.bookingId && parseUnifiedBookingId(input.bookingId)) {
-      return input.bookingId;
+    // PRIORITY 1: Use readableId from backend if it exists (this is the actual ID created by shipper/broker/business)
+    if (input.readableId) {
+      return input.readableId;
     }
     
-    // Check for existing ID and try to format it
-    if (input.id) {
-      return generateDisplayIdFromString(input.id);
+    // PRIORITY 2: Check if bookingId is already in correct format
+    if (input.bookingId) {
+      // Check if it's already in the correct format (YYMMDD-HHMM-TYPE-MODE)
+      if (/^\d{6}-\d{4}-(AGR|CAR)-(BOOK|INST|CONS)$/.test(input.bookingId)) {
+        return input.bookingId;
+      }
+      // Check if it matches old unified format
+      const parsed = parseUnifiedBookingId(input.bookingId);
+      if (parsed) {
+        return input.bookingId;
+      }
+      // If it's a readable ID format, use it
+      if (input.bookingId.length < 30 && !input.bookingId.includes('_') && !input.bookingId.includes('-')) {
+        // Might be a readable ID from backend
+        return input.bookingId;
+      }
     }
     
-    // Generate new ID based on object properties
+    // PRIORITY 3: Only generate if we don't have a readable ID
+    // Generate new ID based on object properties (this should only happen for old data without readableId)
     return generateDisplayIdFromObject(input);
   }
   

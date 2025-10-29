@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { getAuth } from 'firebase/auth';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import spacing from '../constants/spacing';
 import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 import { API_ENDPOINTS } from '../constants/api';
 import LocationDisplay from '../components/common/LocationDisplay';
@@ -155,7 +156,7 @@ const DriverJobManagementScreen = () => {
       if (response.ok) {
         const data = await response.json();
         if (selectedTab === 'route_loads') {
-          setRouteLoads(data || []);
+          setRouteLoads(data.routeLoads || data.loads || data || []);
         } else {
           setJobs(data.jobs || data.bookings || []);
         }
@@ -667,20 +668,26 @@ const DriverJobManagementScreen = () => {
         <View style={styles.headerRight} />
       </View>
 
-      {driverProfile && (
-        <View style={styles.driverInfo}>
-          <Text style={styles.driverName}>
-            {driverProfile.firstName} {driverProfile.lastName}
-          </Text>
-          <Text style={styles.vehicleInfo}>
-            {driverProfile.assignedVehicle.make} {driverProfile.assignedVehicle.model} 
-            ({driverProfile.assignedVehicle.registration})
-          </Text>
-          <Text style={styles.companyInfo}>
-            {driverProfile.company.name}
-          </Text>
+      {/* Job Summary Header */}
+      <View style={styles.summaryHeader}>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryItem}>
+            <MaterialCommunityIcons name="briefcase-check" size={20} color={colors.primary} />
+            <Text style={styles.summaryLabel}>Total Jobs</Text>
+            <Text style={styles.summaryValue}>{jobs.filter(j => ['accepted', 'in_progress'].includes(j.status)).length}</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <MaterialCommunityIcons name="truck-fast" size={20} color={colors.success} />
+            <Text style={styles.summaryLabel}>Active Trip</Text>
+            <Text style={styles.summaryValue}>{currentTrip ? '1' : '0'}</Text>
+          </View>
+          <View style={styles.summaryItem}>
+            <MaterialCommunityIcons name="package-variant" size={20} color={colors.secondary} />
+            <Text style={styles.summaryLabel}>Route Loads</Text>
+            <Text style={styles.summaryValue}>{routeLoads.length}</Text>
+          </View>
         </View>
-      )}
+      </View>
 
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -1132,6 +1139,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 4,
+  },
+  // Summary header styles
+  summaryHeader: {
+    backgroundColor: colors.white,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.background,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  summaryItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    fontFamily: fonts.family.medium,
+  },
+  summaryValue: {
+    fontSize: fonts.size.lg,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginTop: 2,
   },
   // Route loads styles
   loadCard: {
