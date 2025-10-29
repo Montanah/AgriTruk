@@ -131,7 +131,8 @@ const DriverJobManagementScreen = () => {
           endpoint = `${API_ENDPOINTS.BOOKINGS}/available`;
           break;
         case 'my_jobs':
-          endpoint = `${API_ENDPOINTS.BOOKINGS}/driver-jobs`;
+          // Drivers fetch their accepted jobs (same as transporters)
+          endpoint = `${API_ENDPOINTS.BOOKINGS}/transporter/accepted`;
           break;
         case 'route_loads':
           if (currentTrip) {
@@ -155,14 +156,39 @@ const DriverJobManagementScreen = () => {
         if (selectedTab === 'route_loads') {
           setRouteLoads(data || []);
         } else {
-          setJobs(data.jobs || []);
+          setJobs(data.jobs || data.bookings || []);
         }
       } else {
-        throw new Error('Failed to fetch jobs');
+        const statusCode = response.status;
+        if (statusCode === 403) {
+          // If transporter/accepted fails, try driver/accepted
+          if (selectedTab === 'my_jobs' && endpoint.includes('/transporter/accepted')) {
+            const altResponse = await fetch(`${API_ENDPOINTS.BOOKINGS}/driver/accepted`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (altResponse.ok) {
+              const altData = await altResponse.json();
+              setJobs(altData.jobs || altData.bookings || []);
+              return;
+            }
+          }
+          throw new Error('Insufficient permissions. Backend needs to allow driver role for this endpoint.');
+        } else if (statusCode === 401) {
+          throw new Error('Authentication failed. Please log out and log back in.');
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to fetch jobs: ${statusCode}`);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching jobs:', err);
       setError(err.message || 'Failed to fetch jobs');
+      // Set empty arrays on error
+      setJobs([]);
+      setRouteLoads([]);
     } finally {
       setLoading(false);
     }
@@ -211,20 +237,31 @@ const DriverJobManagementScreen = () => {
       setAcceptingJobId(job.id);
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/accept`, {
+      const jobId = job.bookingId || job.id; // Use bookingId if available
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${jobId}/accept`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          transporterId: user.uid, // Same as transporters - use userId
+        }),
       });
 
       if (response.ok) {
         Alert.alert('Success', 'Job accepted successfully!');
+        // Refresh jobs list - if on my_jobs tab, refresh accepted jobs
         fetchJobs();
         fetchCurrentTrip();
       } else {
-        throw new Error('Failed to accept job');
+        const statusCode = response.status;
+        if (statusCode === 403) {
+          throw new Error('Insufficient permissions. Backend needs to allow driver role for job acceptance.');
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to accept job: ${statusCode}`);
+        }
       }
     } catch (err: any) {
       console.error('Error accepting job:', err);

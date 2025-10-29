@@ -44,23 +44,42 @@ interface IncomingRequest {
 }
 
 interface IncomingRequestsCardProps {
+    jobs?: any[]; // Optional: if provided, use this instead of fetching
+    loading?: boolean; // Optional: loading state if jobs are provided
+    title?: string; // Optional: custom title
+    onJobPress?: (job: any) => void; // Optional: called when job is pressed
     onRequestAccepted?: (request: IncomingRequest) => void;
     onRequestRejected?: (request: IncomingRequest) => void;
     onViewAll?: () => void;
 }
 
 const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
+    jobs: providedJobs,
+    loading: providedLoading,
+    title: customTitle,
+    onJobPress,
     onRequestAccepted,
     onRequestRejected,
     onViewAll,
 }) => {
     const navigation = useNavigation<any>();
     const [requests, setRequests] = useState<IncomingRequest[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(providedLoading !== undefined ? providedLoading : true);
     const [acceptingId, setAcceptingId] = useState<string | null>(null);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
 
     useEffect(() => {
+        // If loading state is provided, use it
+        if (providedLoading !== undefined) {
+            setLoading(providedLoading);
+        }
+        
+        // If jobs are provided as props, don't fetch
+        if (providedJobs !== undefined) {
+            setRequests(providedJobs.slice(0, 3)); // Show only first 3
+            return;
+        }
+
         const fetchIncomingRequests = async () => {
             try {
                 setLoading(true);
@@ -97,7 +116,7 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
         };
 
         fetchIncomingRequests();
-    }, []);
+    }, [providedJobs]);
 
     const getUrgencyColor = (urgency: string) => {
         switch (urgency) {
@@ -357,7 +376,7 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <MaterialCommunityIcons name="package-variant" size={24} color={colors.primary} />
-                    <Text style={styles.headerTitle}>Incoming Requests</Text>
+                    <Text style={styles.headerTitle}>{customTitle || 'Incoming Requests'}</Text>
                     <View style={styles.badge}>
                         <Text style={styles.badgeText}>{requests.length}</Text>
                     </View>

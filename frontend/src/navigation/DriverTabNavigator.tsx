@@ -132,15 +132,15 @@ const DriverTabNavigator = () => {
         tabBarItemStyle: {
           marginTop: 0,
         },
-        tabBarIcon: ({ focused }) => {
-          const iconColor = focused ? colors.secondary : colors.white;
-          
+        tabBarActiveTintColor: colors.secondary,
+        tabBarInactiveTintColor: colors.white,
+        tabBarIcon: ({ focused, color }) => {
           if (route.name === 'Home') {
             return (
               <MaterialCommunityIcons
                 name={focused ? 'home' : 'home-outline'}
                 size={28}
-                color={iconColor}
+                color={color}
                 style={{ marginBottom: -2 }}
               />
             );
@@ -149,7 +149,7 @@ const DriverTabNavigator = () => {
               <MaterialCommunityIcons
                 name={focused ? 'briefcase' : 'briefcase-outline'}
                 size={28}
-                color={iconColor}
+                color={color}
                 style={{ marginBottom: -2 }}
               />
             );
@@ -158,7 +158,7 @@ const DriverTabNavigator = () => {
               <MaterialCommunityIcons
                 name={focused ? 'account' : 'account-outline'}
                 size={28}
-                color={iconColor}
+                color={color}
                 style={{ marginBottom: -2 }}
               />
             );

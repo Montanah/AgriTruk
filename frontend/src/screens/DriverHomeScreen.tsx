@@ -58,12 +58,13 @@ const DriverHomeScreen = () => {
   const [acceptingBooking, setAcceptingBooking] = useState(false);
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
 
-  // Use the same hook as transporters for assigned jobs
-  const { assignedJobs, loading: loadingJobs, fetchAssignedJobs } = useAssignedJobs();
+  // Drivers accept jobs themselves, so we fetch accepted jobs (not assigned)
+  const [acceptedJobs, setAcceptedJobs] = useState<any[]>([]);
+  const [loadingAcceptedJobs, setLoadingAcceptedJobs] = useState(false);
 
   useEffect(() => {
     fetchDriverProfile();
-    fetchAssignedJobs();
+    fetchAcceptedJobs();
   }, []);
 
   const fetchDriverProfile = async () => {
@@ -85,21 +86,66 @@ const DriverHomeScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setDriverProfile(data.driver);
-        setAcceptingBooking(data.driver?.acceptingBooking || false);
+        const driver = data.driver || data;
+        
+        if (!driver) {
+          throw new Error('Driver data not found in response');
+        }
+
+        // Helper to convert Firestore timestamp to string
+        const formatTimestamp = (ts: any): string => {
+          if (!ts) return '';
+          if (typeof ts === 'string') return ts;
+          if (ts._seconds) {
+            return new Date(ts._seconds * 1000).toISOString();
+          }
+          if (ts.toDate) {
+            return ts.toDate().toISOString();
+          }
+          return ts.toString();
+        };
+
+        // Map driver data to expected format
+        const profileData: DriverProfile = {
+          id: driver.id || driver.driverId || '',
+          firstName: driver.firstName || '',
+          lastName: driver.lastName || '',
+          email: driver.email || '',
+          phone: driver.phone || '',
+          driverLicense: driver.driverLicense || '',
+          driverLicenseExpiryDate: formatTimestamp(driver.driverLicenseExpiryDate),
+          idNumber: driver.idNumber || '',
+          idExpiryDate: formatTimestamp(driver.idExpiryDate),
+          profileImage: driver.profileImage || '',
+          status: driver.status || 'pending',
+          assignedVehicle: driver.assignedVehicle || driver.assignedVehicleDetails,
+          company: driver.company || { id: driver.companyId || '', name: driver.companyName || 'Unknown Company' },
+        };
+
+        setDriverProfile(profileData);
+        setAcceptingBooking(driver.acceptingBooking || driver.availability || false);
         
         // Check if this is a first-time user (newly approved, no previous activity)
-        const isNewUser = !data.driver?.hasAcceptedAnyJob && 
-                         data.driver?.status === 'approved' &&
-                         !data.driver?.acceptingBooking;
+        const isNewUser = !driver.hasAcceptedAnyJob && 
+                         driver.status === 'approved' &&
+                         !driver.acceptingBooking && !driver.availability;
         setIsFirstTimeUser(isNewUser);
         
         // Check for active trip
-        if (data.driver?.assignedVehicle) {
-          await fetchCurrentTrip(data.driver.assignedVehicle.id);
+        if (profileData.assignedVehicle?.id) {
+          await fetchCurrentTrip(profileData.assignedVehicle.id);
         }
       } else {
-        throw new Error('Failed to fetch driver profile');
+        const errorData = await response.json().catch(() => ({}));
+        const statusCode = response.status;
+        
+        if (statusCode === 403) {
+          throw new Error('Insufficient permissions. Please contact your company administrator.');
+        } else if (statusCode === 401) {
+          throw new Error('Authentication failed. Please log out and log back in.');
+        } else {
+          throw new Error(errorData.message || `Failed to fetch driver profile: ${statusCode}`);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching driver profile:', err);
@@ -132,11 +178,53 @@ const DriverHomeScreen = () => {
     }
   };
 
+  const fetchAcceptedJobs = async () => {
+    try {
+      setLoadingAcceptedJobs(true);
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      // Fetch jobs accepted by this driver (same endpoint as transporters)
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/transporter/accepted`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAcceptedJobs(data.jobs || data.bookings || []);
+      } else {
+        // If endpoint doesn't exist or permission denied, try alternative
+        const altResponse = await fetch(`${API_ENDPOINTS.BOOKINGS}/driver/accepted`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (altResponse.ok) {
+          const altData = await altResponse.json();
+          setAcceptedJobs(altData.jobs || altData.bookings || []);
+        } else {
+          setAcceptedJobs([]);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error fetching accepted jobs:', err);
+      setAcceptedJobs([]);
+    } finally {
+      setLoadingAcceptedJobs(false);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
       fetchDriverProfile(),
-      fetchAssignedJobs()
+      fetchAcceptedJobs()
     ]);
     setRefreshing(false);
   };
@@ -146,19 +234,17 @@ const DriverHomeScreen = () => {
       'Job Accepted',
       'You have successfully accepted this job. You can now start the trip when ready.',
       [
-        { text: 'OK', onPress: () => fetchAssignedJobs() }
+        { text: 'OK', onPress: () => {
+          fetchAcceptedJobs();
+          fetchDriverProfile();
+        }}
       ]
     );
   };
 
   const handleJobRejected = (job: any) => {
-    Alert.alert(
-      'Job Rejected',
-      'You have rejected this job. It will be available for other drivers.',
-      [
-        { text: 'OK', onPress: () => fetchAssignedJobs() }
-      ]
-    );
+    // Job rejected - just refresh available jobs
+    fetchAcceptedJobs();
   };
 
   const handleViewAllJobs = () => {
@@ -282,16 +368,17 @@ const DriverHomeScreen = () => {
         onViewAll={handleViewAllJobs}
       />
 
-      {/* Assigned Jobs */}
+      {/* My Accepted Jobs - Drivers choose and accept jobs themselves */}
       <IncomingRequestsCard
-        jobs={assignedJobs}
-        loading={loadingJobs}
+        jobs={acceptedJobs}
+        loading={loadingAcceptedJobs}
         onJobPress={(job) => navigation.navigate('TransporterJobDetailsScreen', { 
           jobId: job.id,
           bookingId: job.bookingId,
           job: job
         })}
         onViewAll={handleViewAllRequests}
+        title="My Accepted Jobs"
       />
 
       {/* Route Loads - Only show if on active trip */}

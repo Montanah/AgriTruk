@@ -77,6 +77,14 @@ const checkIfDriver = async (userId: string) => {
           console.log('App.tsx: Found company driver via drivers/check endpoint');
           return { isDriver: true, driverType: 'company', driverData: checkData.driver };
         }
+      } else {
+        // Log the error response for debugging
+        try {
+          const errorData = await checkResponse.json();
+          console.log('App.tsx: Driver check endpoint error response:', JSON.stringify(errorData, null, 2));
+        } catch (e) {
+          console.log('App.tsx: Driver check endpoint failed with status:', checkResponse.status);
+        }
       }
 
       // Method 2: Try /api/companies/driver/{userId} (fallback)
@@ -257,7 +265,7 @@ export default function App() {
   const [loading, setLoading] = React.useState(true);
   const [connectionError, setConnectionError] = React.useState<string | null>(null);
   const [userData, setUserData] = React.useState<any>(null);
-  const [isDriver, setIsDriver] = React.useState<boolean>(false);
+  const [isDriver, setIsDriver] = React.useState<any>(false);
 
   // Retry function for connection errors
   const retryConnection = React.useCallback(() => {
@@ -428,7 +436,7 @@ export default function App() {
               console.log('App.tsx: Business user detected - no subscription needed');
               setProfileCompleted(!!data.profileCompleted);
               setIsDriver(false); // Business users are not drivers
-            } else if (data.role === 'job_seeker' || data.role === 'driver') {
+            } else if (data.role === 'job_seeker') {
               // Job seekers don't need subscriptions - they're just applying for jobs
               console.log('App.tsx: Job seeker detected - skipping subscription checks');
               
@@ -503,7 +511,67 @@ export default function App() {
                 setProfileCompleted(false);
               }
               
-              setIsDriver(false); // Job seekers are not active drivers yet
+              // Only set isDriver to false if not already set as company driver
+              // Company drivers are checked earlier in the role === 'driver' block
+              if (!isDriver || typeof isDriver !== 'object' || !(isDriver as any)?.isDriver) {
+                setIsDriver(false); // Job seekers are not active drivers yet
+              }
+            } else if (data.role === 'driver') {
+              // Company-recruited drivers - check if they're actually a company driver first
+              console.log('App.tsx: ========== DRIVER ROLE DETECTED ==========');
+              console.log('App.tsx: Checking driver via Firestore fields first...');
+              
+              // Check Firestore user document for companyId/driverId fields (most reliable)
+              if (data.companyId || data.driverId) {
+                console.log('App.tsx: ✓ Company driver detected via Firestore user document');
+                console.log('App.tsx: companyId:', data.companyId, 'driverId:', data.driverId);
+                setIsDriver({ isDriver: true, driverType: 'company', driverData: data });
+                setProfileCompleted(true); // Company drivers are pre-verified
+                setIsVerified(true); // Company drivers are pre-verified
+                console.log('App.tsx: ✓ isDriver state set to company driver');
+              } else {
+                console.log('App.tsx: No companyId/driverId in Firestore - checking via API...');
+                // METHOD: Try API endpoint check - MUST complete before setLoading(false)
+                try {
+                  const { getAuth } = require('firebase/auth');
+                  const auth = getAuth();
+                  const firebaseUser = auth.currentUser;
+                  
+                  if (firebaseUser) {
+                    console.log('App.tsx: Calling checkIfDriver with userId:', firebaseUser.uid);
+                    console.log('App.tsx: API endpoint:', `${API_ENDPOINTS.DRIVERS}/check/${firebaseUser.uid}`);
+                    // Check if this is a company driver via API - THIS MUST COMPLETE
+                    const driverCheck = await checkIfDriver(firebaseUser.uid);
+                    console.log('App.tsx: ✓ Driver check completed');
+                    console.log('App.tsx: Driver check result type:', typeof driverCheck);
+                    console.log('App.tsx: Driver check result:', JSON.stringify(driverCheck, null, 2));
+                    
+                    if (driverCheck && typeof driverCheck === 'object' && driverCheck.isDriver && driverCheck.driverType === 'company') {
+                      console.log('App.tsx: ✓✓✓ COMPANY DRIVER CONFIRMED VIA API ✓✓✓');
+                      setIsDriver(driverCheck);
+                      setProfileCompleted(true);
+                      setIsVerified(true);
+                      console.log('App.tsx: ✓✓✓ isDriver state SET to company driver ✓✓✓');
+                    } else {
+                      // Not a company driver - treat as job seeker
+                      console.log('App.tsx: ✗ Not a company driver - treating as job seeker');
+                      setIsDriver(false);
+                      setProfileCompleted(false);
+                    }
+                  } else {
+                    console.log('App.tsx: ✗ No Firebase user for driver check');
+                    setIsDriver(false);
+                    setProfileCompleted(false);
+                  }
+                } catch (error: any) {
+                  console.error('App.tsx: ✗✗✗ ERROR checking driver status:', error);
+                  console.error('App.tsx: Error message:', error.message);
+                  console.error('App.tsx: Error stack:', error.stack);
+                  setIsDriver(false);
+                  setProfileCompleted(false);
+                }
+                console.log('App.tsx: ========== DRIVER CHECK COMPLETE ==========');
+              }
             } else {
               // For other users (shippers), use the profileCompleted field
               setProfileCompleted(!!data.profileCompleted);
@@ -622,10 +690,19 @@ export default function App() {
   console.log('App.tsx: Routing decision - user:', !!user, 'role:', role, 'isVerified:', isVerified, 'profileCompleted:', profileCompleted);
   console.log('App.tsx: User data:', userData);
   console.log('App.tsx: Role type:', typeof role, 'Role value:', role);
+  console.log('App.tsx: isDriver state:', isDriver, 'isDriver type:', typeof isDriver);
+  if (isDriver && typeof isDriver === 'object') {
+    console.log('App.tsx: isDriver details:', JSON.stringify(isDriver));
+  }
   
   // CRITICAL: Job seekers should NEVER access shipper, broker, business, or transporter screens
   if (role === 'job_seeker') {
     console.log('App.tsx: CRITICAL - Job seeker detected, ensuring proper routing to job seeker screens only');
+  }
+  
+  // CRITICAL: Drivers should be checked for company driver status
+  if (role === 'driver') {
+    console.log('App.tsx: Driver role detected in routing logic - isDriver:', isDriver);
   }
 
   // Navigation state
@@ -1015,7 +1092,32 @@ export default function App() {
           );
         }
       }
-            } else if (role === 'driver' || role === 'job_seeker') {
+    } else if (role === 'driver') {
+      // CRITICAL: Check if this is a company-recruited driver
+      // First check isDriver state that was set in onAuthStateChanged
+      console.log('App.tsx: Driver role in routing - checking isDriver state:', JSON.stringify(isDriver));
+      
+      if (isDriver && typeof isDriver === 'object' && (isDriver as any)?.isDriver && (isDriver as any)?.driverType === 'company') {
+        // Company-recruited driver - route to driver tabs
+        console.log('App.tsx: Company driver detected via state - routing to driver dashboard');
+        initialRouteName = 'DriverTabs';
+        screens = (
+          <>
+            <Stack.Screen name="DriverTabs" component={DriverTabNavigator} />
+            <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+            <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+            <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
+            <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
+            <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
+          </>
+        );
+      } else {
+        // Not a company driver - treat as job seeker (user signed up with 'driver' role in UI)
+        // This will fall through to the job_seeker block below
+        console.log('App.tsx: Driver role but isDriver state indicates not a company driver - will fall through to job seeker logic');
+      }
+    } else if (role === 'job_seeker' || (role === 'driver' && (!isDriver || typeof isDriver !== 'object' || !(isDriver as any)?.isDriver))) {
               // Job seekers should only access their recruitment status screen
               // They should NEVER have access to service requests or job management
               console.log('App.tsx: Job seeker detected - routing to recruitment status screen only');
@@ -1049,8 +1151,9 @@ export default function App() {
                   </>
                 );
               }
-    } else {
-      // Fallback for other roles - but NEVER route job_seeker here
+    } else if (role !== 'driver' && role !== 'job_seeker') {
+      // Fallback for other roles - but NEVER route driver or job_seeker here
+      // Drivers and job seekers are handled above
       console.log('App.tsx: Fallback routing for role:', role);
       if (role === 'job_seeker') {
         console.error('App.tsx: ERROR - Job seeker should not reach fallback routing!');
@@ -1118,7 +1221,7 @@ export default function App() {
           </>
         );
       }
-            } else if (role === 'driver' || role === 'job_seeker') {
+            } else if (role === 'job_seeker' || (role === 'driver' && (!isDriver || typeof isDriver !== 'object' || !(isDriver as any)?.isDriver))) {
               // Unverified job seekers should go to verification, then profile completion
               console.log('App.tsx: Unverified job seeker detected - routing to verification');
               const preferredMethod = userData?.preferredVerificationMethod || 'phone';

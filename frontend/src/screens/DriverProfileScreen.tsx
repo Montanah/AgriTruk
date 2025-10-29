@@ -101,7 +101,15 @@ const DriverProfileScreen = () => {
         setDriverProfile(data.driver);
         setAcceptingBooking(data.driver?.availability || false);
       } else {
-        throw new Error('Failed to fetch driver profile');
+        const statusCode = response.status;
+        if (statusCode === 403) {
+          throw new Error('Insufficient permissions. Please contact your company administrator.');
+        } else if (statusCode === 401) {
+          throw new Error('Authentication failed. Please log out and log back in.');
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Failed to fetch driver profile: ${statusCode}`);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching driver profile:', err);
