@@ -234,19 +234,49 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
             </View>
 
             {/* Route information */}
-            <View style={styles.routeContainer}>
-                <View style={styles.routeItem}>
-                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                    <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
+            {(item.fromLocation || item.toLocation) && (
+                <View style={styles.routeContainer}>
+                    {item.fromLocation && (
+                        <View style={styles.routeItem}>
+                            <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                            <LocationDisplay location={item.fromLocation} style={styles.routeText} showIcon={false} />
+                        </View>
+                    )}
+                    {item.fromLocation && item.toLocation && (
+                        <View style={styles.routeArrow}>
+                            <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
+                        </View>
+                    )}
+                    {item.toLocation && (
+                        <View style={styles.routeItem}>
+                            <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
+                            <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
+                        </View>
+                    )}
                 </View>
-                <View style={styles.routeArrow}>
-                    <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
+            )}
+            
+            {/* Distance and Duration */}
+            {(item.actualDistance || item.estimatedDuration) && (
+                <View style={styles.routeDetails}>
+                    {item.actualDistance && (
+                        <View style={styles.routeDetail}>
+                            <MaterialCommunityIcons name="map-marker-distance" size={14} color={colors.text.secondary} />
+                            <Text style={styles.routeDetailText}>
+                                {typeof item.actualDistance === 'number' 
+                                    ? `${item.actualDistance.toFixed(1)} km` 
+                                    : item.actualDistance}
+                            </Text>
+                        </View>
+                    )}
+                    {item.estimatedDuration && (
+                        <View style={styles.routeDetail}>
+                            <MaterialCommunityIcons name="clock-outline" size={14} color={colors.text.secondary} />
+                            <Text style={styles.routeDetailText}>{item.estimatedDuration}</Text>
+                        </View>
+                    )}
                 </View>
-                <View style={styles.routeItem}>
-                    <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
-                    <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
-                </View>
-            </View>
+            )}
 
             {/* Cargo details */}
             <View style={styles.cargoContainer}>
@@ -256,10 +286,12 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                         <Text style={styles.cargoText}>{item.productType}</Text>
                     </View>
                 )}
-                {item.weight && (
+                {(item.weight || item.weightKg) && (
                     <View style={styles.cargoItem}>
                         <MaterialCommunityIcons name="weight-kilogram" size={14} color={colors.text.secondary} />
-                        <Text style={styles.cargoText}>{item.weight}</Text>
+                        <Text style={styles.cargoText}>
+                            {item.weight || (item.weightKg ? `${item.weightKg} kg` : '')}
+                        </Text>
                     </View>
                 )}
                 <View style={styles.cargoItem}>
@@ -282,16 +314,64 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                 </View>
             )}
 
-            {/* Client information */}
-            {item.client && (
-                <View style={styles.clientContainer}>
-                    <View style={styles.clientInfo}>
-                        <Text style={styles.clientName}>{item.client.name || item.customerName || 'Unknown Client'}</Text>
-                        <View style={styles.clientRating}>
-                            <MaterialCommunityIcons name="star" size={12} color={colors.secondary} />
-                            <Text style={styles.ratingText}>{item.client.rating || item.client.rating || '0.0'}</Text>
-                            <Text style={styles.ordersText}> • {(item.client.completedOrders || 0)} orders</Text>
+            {/* Customer information - Show if we have client data or customer fields */}
+            {(item.client || item.customerName || item.userId) && (
+                <View style={styles.customerDetailsCard}>
+                    <View style={styles.customerDetailsHeader}>
+                        <MaterialCommunityIcons name="account-circle" size={24} color={colors.primary} />
+                        <Text style={styles.customerDetailsTitle}>Customer Information</Text>
+                    </View>
+                    <View style={styles.customerDetailsContent}>
+                        <View style={styles.customerDetailItem}>
+                            <View style={styles.customerIconContainer}>
+                                <MaterialCommunityIcons name="account" size={20} color={colors.primary} />
+                            </View>
+                            <View style={styles.customerDetailContent}>
+                                <Text style={styles.customerDetailLabel}>Name</Text>
+                                <Text style={styles.customerDetailValue}>
+                                    {item.client?.name || item.customerName || 'Unknown Customer'}
+                                </Text>
+                            </View>
                         </View>
+                        {(item.client?.phone || item.customerPhone) && (
+                            <View style={styles.customerDetailItem}>
+                                <View style={styles.customerIconContainer}>
+                                    <MaterialCommunityIcons name="phone" size={20} color={colors.success} />
+                                </View>
+                                <View style={styles.customerDetailContent}>
+                                    <Text style={styles.customerDetailLabel}>Phone</Text>
+                                    <Text style={styles.customerDetailValue}>
+                                        {item.client?.phone || item.customerPhone}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                        {(item.client?.email || item.customerEmail) && (
+                            <View style={styles.customerDetailItem}>
+                                <View style={styles.customerIconContainer}>
+                                    <MaterialCommunityIcons name="email" size={20} color={colors.secondary} />
+                                </View>
+                                <View style={styles.customerDetailContent}>
+                                    <Text style={styles.customerDetailLabel}>Email</Text>
+                                    <Text style={styles.customerDetailValue}>
+                                        {item.client?.email || item.customerEmail}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                        {item.client?.rating && (
+                            <View style={styles.customerDetailItem}>
+                                <View style={styles.customerIconContainer}>
+                                    <MaterialCommunityIcons name="star" size={20} color={colors.warning} />
+                                </View>
+                                <View style={styles.customerDetailContent}>
+                                    <Text style={styles.customerDetailLabel}>Rating</Text>
+                                    <Text style={styles.customerDetailValue}>
+                                        {item.client.rating.toFixed(1)} ({item.client.completedOrders || 0} orders)
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
                     </View>
                 </View>
             )}
@@ -632,6 +712,56 @@ const styles = StyleSheet.create({
     ordersText: {
         fontSize: fonts.size.xs,
         color: colors.text.secondary,
+    },
+    customerDetailsCard: {
+        backgroundColor: colors.background,
+        borderRadius: 12,
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.primary,
+    },
+    customerDetailsHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    customerDetailsTitle: {
+        fontSize: fonts.size.md,
+        fontFamily: fonts.family.bold,
+        color: colors.text.primary,
+        marginLeft: spacing.xs,
+    },
+    customerDetailsContent: {
+        marginTop: spacing.xs,
+    },
+    customerDetailItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    customerIconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.primary + '15',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.sm,
+    },
+    customerDetailContent: {
+        flex: 1,
+    },
+    customerDetailLabel: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        fontFamily: fonts.family.medium,
+        marginBottom: 2,
+    },
+    customerDetailValue: {
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
+        fontFamily: fonts.family.semiBold,
     },
     routeDetails: {
         flexDirection: 'row',
