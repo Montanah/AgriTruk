@@ -399,7 +399,14 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           isVisible={showDatePicker}
           mode="datetime"
           date={pickupDate}
+          minimumDate={new Date()} // Prevent selecting past dates
           onConfirm={date => {
+            // Ensure the selected date is not in the past
+            const now = new Date();
+            if (date < now) {
+              Alert.alert('Invalid Date', 'Pickup date must be in the future.');
+              return;
+            }
             setPickupDate(date);
             setShowDatePicker(false);
           }}

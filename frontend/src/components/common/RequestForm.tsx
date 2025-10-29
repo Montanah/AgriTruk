@@ -112,7 +112,14 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     const [productType, setProductType] = useState('');
     const [weight, setWeight] = useState('');
     const [urgency, setUrgency] = useState<'low' | 'medium' | 'high'>('medium');
-    const [pickupDate, setPickupDate] = useState(new Date());
+    // Initialize pickup date to current date/time, ensuring it's not in the past
+    const getInitialPickupDate = () => {
+      const now = new Date();
+      // Set to at least 1 hour from now to ensure future date
+      const futureDate = new Date(now.getTime() + 60 * 60 * 1000); // Add 1 hour
+      return futureDate;
+    };
+    const [pickupDate, setPickupDate] = useState(getInitialPickupDate());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showRecurringEndDatePicker, setShowRecurringEndDatePicker] = useState(false);
     const [showTransporters, setShowTransporters] = useState(false);
@@ -1170,7 +1177,14 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                 isVisible={showDatePicker}
                 mode="datetime"
                 date={pickupDate}
+                minimumDate={new Date()} // Prevent selecting past dates
                 onConfirm={(date) => {
+                    // Ensure the selected date is not in the past
+                    const now = new Date();
+                    if (date < now) {
+                        Alert.alert('Invalid Date', 'Pickup date must be in the future.');
+                        return;
+                    }
                     setPickupDate(date);
                     setShowDatePicker(false);
                 }}
