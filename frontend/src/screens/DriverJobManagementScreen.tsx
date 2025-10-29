@@ -362,8 +362,8 @@ const DriverJobManagementScreen = () => {
         fullJobObject: JSON.stringify(job, null, 2).substring(0, 500) // First 500 chars for debugging
       });
       
-      // Use the correct endpoint for updating booking status
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}/status`, {
+      // Use the correct endpoint for updating booking status - try /update/:bookingId endpoint
+      let response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${bookingId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -374,6 +374,21 @@ const DriverJobManagementScreen = () => {
           startedAt: new Date().toISOString()
         })
       });
+
+      // Fallback to /status endpoint if /update doesn't work
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            status: 'started',
+            startedAt: new Date().toISOString()
+          })
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -450,8 +465,15 @@ const DriverJobManagementScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
+      const bookingId = job.id || job._id || job.bookingId;
+      
+      if (!bookingId) {
+        throw new Error('Booking ID not found. Cannot cancel job.');
+      }
+
       // When cancelling, set status back to 'pending' so it becomes available again
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/status`, {
+      // Clear transporter assignment and acceptance timestamp
+      let response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${bookingId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -461,17 +483,42 @@ const DriverJobManagementScreen = () => {
           status: 'pending',
           cancellationReason: reason,
           cancelledAt: new Date().toISOString(),
-          transporterId: null, // Clear transporter assignment
-          acceptedAt: null, // Clear acceptance
+          transporterId: null, // Clear transporter assignment to make it available
+          acceptedAt: null, // Clear acceptance timestamp
+          vehicleId: null, // Clear vehicle assignment
+          vehicleMake: null,
+          vehicleModel: null,
+          vehicleRegistration: null,
+          transporterName: null,
+          transporterPhone: null,
+          transporterPhoto: null,
         })
       });
 
+      // Fallback to /status endpoint if /update doesn't work
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            status: 'pending',
+            cancellationReason: reason,
+            transporterId: null,
+            acceptedAt: null,
+          })
+        });
+      }
+
       if (response.ok) {
-        Alert.alert('Success', 'Job cancelled successfully!');
+        Alert.alert('Success', 'Job cancelled successfully! The job is now available for other drivers.');
         fetchJobs();
         fetchCurrentTrip();
       } else {
-        throw new Error('Failed to cancel job');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to cancel job');
       }
     } catch (err: any) {
       console.error('Error cancelling job:', err);
