@@ -133,12 +133,64 @@ const TrackingScreen = () => {
                 // Also try to load tracking data
                 try {
                     const tracking = await unifiedTrackingService.getTrackingData(bookingId, bookingData.userId || 'current-user');
-                    setTrackingData(tracking);
+                    if (tracking) {
+                        setTrackingData(tracking);
+                    } else {
+                        // Fallback: derive minimal tracking from booking object when backend has no tracking yet
+                        setTrackingData({
+                            bookingId: bookingId,
+                            status: bookingData.status || 'pending',
+                            fromLocation: bookingData.fromLocation || bookingData.from,
+                            toLocation: bookingData.toLocation || bookingData.to,
+                            productType: bookingData.productType || 'Cargo',
+                            weight: (bookingData.weightKg ? `${bookingData.weightKg}kg` : (bookingData.weight ? `${bookingData.weight}kg` : 'Unknown')),
+                            route: [],
+                            currentLocation: null,
+                            estimatedDelivery: bookingData.estimatedDuration || 'TBD',
+                            transporter: bookingData.transporter ? {
+                                name: bookingData.transporter.name || 'Transporter',
+                                phone: bookingData.transporter.phone || 'N/A',
+                                vehicle: bookingData.transporter.vehicle?.registration || bookingData.transporter.vehicle?.make || 'N/A'
+                            } : null,
+                        } as any);
+                    }
                 } catch (trackingError) {
                     console.error('Error loading tracking data:', trackingError);
+                    // Same fallback if tracking endpoint fails (e.g., 404)
+                    setTrackingData({
+                        bookingId: bookingId,
+                        status: bookingData.status || 'pending',
+                        fromLocation: bookingData.fromLocation || bookingData.from,
+                        toLocation: bookingData.toLocation || bookingData.to,
+                        productType: bookingData.productType || 'Cargo',
+                        weight: (bookingData.weightKg ? `${bookingData.weightKg}kg` : (bookingData.weight ? `${bookingData.weight}kg` : 'Unknown')),
+                        route: [],
+                        currentLocation: null,
+                        estimatedDelivery: bookingData.estimatedDuration || 'TBD',
+                        transporter: bookingData.transporter ? {
+                            name: bookingData.transporter.name || 'Transporter',
+                            phone: bookingData.transporter.phone || 'N/A',
+                            vehicle: bookingData.transporter.vehicle?.registration || bookingData.transporter.vehicle?.make || 'N/A'
+                        } : null,
+                    } as any);
                 }
             } else {
                 console.error('Failed to fetch booking:', response.status);
+                // As a last resort, render with existing booking object if we have it
+                if (booking) {
+                    setTrackingData({
+                        bookingId: booking.id,
+                        status: booking.status || 'pending',
+                        fromLocation: booking.fromLocation,
+                        toLocation: booking.toLocation,
+                        productType: booking.productType || 'Cargo',
+                        weight: booking.weight || 'Unknown',
+                        route: [],
+                        currentLocation: null,
+                        estimatedDelivery: booking.estimatedDuration || 'TBD',
+                        transporter: booking.transporter || null,
+                    } as any);
+                }
             }
         } catch (error) {
             console.error('Error loading booking data:', error);

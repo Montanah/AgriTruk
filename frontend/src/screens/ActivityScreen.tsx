@@ -181,9 +181,18 @@ const ActivityScreen = () => {
           const transformedBooking = {
             id: booking.bookingId || booking.id || `booking_${Date.now()}`,
             type: booking.bookingMode === 'instant' ? 'instant' : 'booking',
+            // Pass through bookingType and bookingMode so ID generation can prioritize correctly
+            bookingType: booking.bookingType || booking.type, // e.g. 'Agri' | 'Cargo'
+            bookingMode: booking.bookingMode || (booking.type === 'instant' ? 'instant' : 'booking'),
+            readableId: booking.readableId,
+            // Preserve backend booking type and mode for correct ID rendering
+            bookingType: booking.bookingType || booking.type || undefined,
+            bookingMode: booking.bookingMode || undefined,
             status: booking.status || 'pending',
             fromLocation: fromLocation,
             toLocation: toLocation,
+            fromLocationAddress: booking.fromLocationAddress,
+            toLocationAddress: booking.toLocationAddress,
             productType: booking.productType || booking.cargoDetails || 'Unknown',
             weight: booking.weightKg ? `${booking.weightKg}kg` : (booking.weight ? `${booking.weight}kg` : 'Unknown'),
             cargoDetails: booking.cargoDetails || booking.productType || 'Unknown',
