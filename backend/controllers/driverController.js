@@ -1061,9 +1061,13 @@ const buildDriverProfileResponse = async (driverId, driverData, res) => {
       // First try main vehicles collection
       const vehicleDoc = await db.collection('vehicles').doc(driverData.assignedVehicleId).get();
       if (vehicleDoc.exists) {
+        const vehicleData = vehicleDoc.data();
+        // Capacity is already stored in tons (frontend provides it in tons)
         assignedVehicle = {
           id: vehicleDoc.id,
-          ...vehicleDoc.data()
+          ...vehicleData,
+          capacity: vehicleData.capacity || vehicleData.capacityKg || vehicleData.vehicleCapacity || 0,
+          registration: vehicleData.registration || vehicleData.vehicleRegistration || vehicleData.reg || null,
         };
       } else if (driverData.companyId) {
         // Try company vehicles subcollection
@@ -1072,14 +1076,17 @@ const buildDriverProfileResponse = async (driverId, driverData, res) => {
             .collection('vehicles').doc(driverData.assignedVehicleId).get();
           if (companyVehicleDoc.exists) {
             const vehicleData = companyVehicleDoc.data();
+            // Capacity is already stored in tons (frontend provides it in tons)
             assignedVehicle = {
               id: companyVehicleDoc.id,
               make: vehicleData.vehicleMake || vehicleData.make,
               model: vehicleData.vehicleModel || vehicleData.model,
-              registration: vehicleData.vehicleRegistration || vehicleData.reg,
+              registration: vehicleData.vehicleRegistration || vehicleData.reg || vehicleData.registration || null,
               type: vehicleData.vehicleType || vehicleData.type,
-              capacity: vehicleData.vehicleCapacity || vehicleData.capacityKg || vehicleData.capacity,
-              ...vehicleData
+              capacity: vehicleData.vehicleCapacity || vehicleData.capacityKg || vehicleData.capacity || 0,
+              ...vehicleData,
+              // Ensure registration is always included
+              registration: vehicleData.vehicleRegistration || vehicleData.reg || vehicleData.registration || null,
             };
           }
         } catch (subcollectionError) {
@@ -1379,7 +1386,8 @@ const acceptBooking = async (req, res) => {
       vehicleType: vehicle?.vehicleType || vehicle?.type || (driver.assignedVehicleDetails?.type || null),
       vehicleRegistration: vehicle?.vehicleRegistration || vehicle?.reg || (driver.assignedVehicleDetails?.registration || null),
       vehicleColor: vehicle?.vehicleColor || vehicle?.color || (driver.assignedVehicleDetails?.color || null),
-      vehicleCapacity: vehicle?.vehicleCapacity || vehicle?.capacity || (driver.assignedVehicleDetails?.capacityKg || null),
+      // Capacity is already stored in tons (frontend provides it in tons)
+      vehicleCapacity: vehicle?.vehicleCapacity || vehicle?.capacity || (driver.assignedVehicleDetails?.capacityKg || driver.assignedVehicleDetails?.capacity || 0),
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
