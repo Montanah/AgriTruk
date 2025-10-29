@@ -78,17 +78,17 @@ const MapViewScreen = () => {
                     latitude: trackingData.currentLocation.latitude,
                     longitude: trackingData.currentLocation.longitude,
                     address: trackingData.currentLocation.address || 'Transporter Location',
-                    timestamp: trackingData.currentLocation.timestamp,
-                    speed: trackingData.currentLocation.speed || 0,
+                    timestamp: new Date().toISOString(),
+                    speed: 0,
                 });
             }
             
-            if (trackingData?.routeCoordinates) {
-                setRouteCoordinates(trackingData.routeCoordinates);
+            if (trackingData?.route && Array.isArray(trackingData.route)) {
+                setRouteCoordinates(trackingData.route);
             }
             
-            if (trackingData?.estimatedTimeOfArrival) {
-                setEstimatedTime(trackingData.estimatedTimeOfArrival);
+            if (trackingData?.estimatedArrival) {
+                setEstimatedTime(trackingData.estimatedArrival);
             }
         } catch (error) {
             console.error('Error loading unified tracking data:', error);
@@ -122,32 +122,27 @@ const MapViewScreen = () => {
         
         try {
             setIsTracking(true);
-            await unifiedTrackingService.startTracking(booking.id, booking.userId || 'current-user', 10000);
-            
-            // Set up listeners for real-time updates
-            unifiedTrackingService.onLocationUpdate(booking.id, (location) => {
-                setTransporterLocation({
-                    latitude: location.latitude,
-                    longitude: location.longitude,
-                    address: location.address || 'Transporter Location',
-                    timestamp: location.timestamp,
-                    speed: location.speed || 0,
-                });
-            });
-
-            unifiedTrackingService.onStatusUpdate(booking.id, (status) => {
-                // Handle status updates if needed
-                console.log('Status updated:', status);
-            });
-
-            unifiedTrackingService.onRouteDeviation(booking.id, (deviation) => {
-                // Handle route deviation alerts
-                console.log('Route deviation detected:', deviation);
-            });
-
-            unifiedTrackingService.onTrafficAlert(booking.id, (alert) => {
-                // Handle traffic alerts
-                console.log('Traffic alert:', alert);
+            await unifiedTrackingService.startTracking(booking.id, {
+                onLocationUpdate: (location) => {
+                    setTransporterLocation({
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                        address: location.address || 'Transporter Location',
+                        timestamp: new Date().toISOString(),
+                        speed: 0,
+                    });
+                    // Recalculate route when location updates
+                    calculateRoute();
+                },
+                onStatusUpdate: (data) => {
+                    console.log('Status updated:', data);
+                },
+                onRouteDeviation: (deviation) => {
+                    console.log('Route deviation detected:', deviation);
+                },
+                onTrafficAlert: (alert) => {
+                    console.log('Traffic alert:', alert);
+                },
             });
         } catch (error) {
             console.error('Error starting real-time tracking:', error);
@@ -235,42 +230,79 @@ const MapViewScreen = () => {
         };
     };
 
-    const updateEstimatedTime = () => {
-        // Calculate estimated time based on distance and speed
-        const fromLat = typeof booking?.fromLocation === 'object' 
-            ? booking.fromLocation.latitude 
-            : -0.0917016;
-        const fromLng = typeof booking?.fromLocation === 'object' 
-            ? booking.fromLocation.longitude 
-            : 34.7679568;
-        const toLat = typeof booking?.toLocation === 'object' 
-            ? booking.toLocation.latitude 
-            : -1.2920659;
-        const toLng = typeof booking?.toLocation === 'object' 
-            ? booking.toLocation.longitude 
-            : 36.8219462;
+    const decodePolyline = (encoded: string): Array<{ latitude: number; longitude: number }> => {
+        const coordinates: Array<{ latitude: number; longitude: number }> = [];
+        let index = 0;
+        let lat = 0;
+        let lng = 0;
 
-        // Calculate distance (simplified)
-        const distance = Math.sqrt(
-            Math.pow(toLat - fromLat, 2) + Math.pow(toLng - fromLng, 2)
-        ) * 111; // Rough conversion to km
+        while (index < encoded.length) {
+            let shift = 0;
+            let result = 0;
+            let byte;
 
-        const avgSpeed = 50; // km/h
-        const hours = distance / avgSpeed;
-        const minutes = Math.floor((hours % 1) * 60);
-        const hoursInt = Math.floor(hours);
+            do {
+                byte = encoded.charCodeAt(index++) - 63;
+                result |= (byte & 0x1f) << shift;
+                shift += 5;
+            } while (byte >= 0x20);
 
-        setEstimatedTime(`${hoursInt}h ${minutes}m`);
+            const deltaLat = ((result & 1) !== 0) ? ~(result >> 1) : (result >> 1);
+            lat += deltaLat;
+
+            shift = 0;
+            result = 0;
+
+            do {
+                byte = encoded.charCodeAt(index++) - 63;
+                result |= (byte & 0x1f) << shift;
+                shift += 5;
+            } while (byte >= 0x20);
+
+            const deltaLng = ((result & 1) !== 0) ? ~(result >> 1) : (result >> 1);
+            lng += deltaLng;
+
+            coordinates.push({
+                latitude: lat * 1e-5,
+                longitude: lng * 1e-5,
+            });
+        }
+
+        return coordinates;
     };
 
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (locationInterval) {
-                clearInterval(locationInterval);
-            }
-        };
-    }, [locationInterval]);
+    const calculateRoute = async () => {
+        if (!booking?.fromLocation || !booking?.toLocation) return;
+
+        try {
+            const fromLoc = typeof booking.fromLocation === 'object'
+                ? { latitude: booking.fromLocation.latitude, longitude: booking.fromLocation.longitude }
+                : null;
+            const toLoc = typeof booking.toLocation === 'object'
+                ? { latitude: booking.toLocation.latitude, longitude: booking.toLocation.longitude }
+                : null;
+
+            if (!fromLoc || !toLoc) return;
+
+            // If we have transporter location, calculate from current location to destination
+            const origin = transporterLocation 
+                ? { latitude: transporterLocation.latitude, longitude: transporterLocation.longitude }
+                : fromLoc;
+            const destination = transporterLocation?.latitude && transporterLocation?.longitude 
+                ? (transporterLocation.latitude === fromLoc.latitude ? toLoc : fromLoc)
+                : toLoc;
+
+            const route = await googleMapsService.getDirections(origin, destination);
+            const coordinates = decodePolyline(route.polyline);
+            
+            setRoutePolyline(coordinates);
+            setRouteInfo({ distance: route.distance, duration: route.duration });
+            setEstimatedTime(route.duration);
+        } catch (error) {
+            console.error('Error calculating route:', error);
+        }
+    };
+
 
     if (loading) {
         return (
