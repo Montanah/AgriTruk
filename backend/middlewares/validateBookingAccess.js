@@ -24,7 +24,9 @@ async function validateBookingAccess(req, res, next) {
     }
 
     // 2️⃣ Check driver approval and license
-    if (driver.status !== 'approved' || driver.driverLicenseApproved !== true) {
+    // For company drivers, status can be 'active' (pre-verified) or 'approved'
+    const isDriverApproved = driver.status === 'approved' || driver.status === 'active';
+    if (!isDriverApproved || driver.driverLicenseApproved !== true) {
       return res.status(403).json({
         success: false,
         message: 'Driver not approved or license not verified.',
@@ -40,7 +42,25 @@ async function validateBookingAccess(req, res, next) {
     }
 
     // 4️⃣ Get and validate vehicle insurance
-    const vehicle = await Vehicle.get(driver.assignedVehicleId);
+    // Try to get vehicle from main vehicles collection first, then company vehicles
+    let vehicle = await Vehicle.get(driver.assignedVehicleId);
+    
+    if (!vehicle && driver.companyId) {
+      // Try company vehicles subcollection
+      try {
+        const admin = require('../config/firebase');
+        const companyVehicleDoc = await admin.firestore()
+          .collection('companies').doc(driver.companyId)
+          .collection('vehicles').doc(driver.assignedVehicleId)
+          .get();
+        if (companyVehicleDoc.exists) {
+          vehicle = { id: companyVehicleDoc.id, ...companyVehicleDoc.data() };
+        }
+      } catch (subcollectionError) {
+        console.log('Could not fetch vehicle from company subcollection:', subcollectionError.message);
+      }
+    }
+    
     if (!vehicle) {
       return res.status(404).json({
         success: false,
@@ -48,9 +68,9 @@ async function validateBookingAccess(req, res, next) {
       });
     }
 
-    console.log('vehicle: ', vehicle);
-
-    if (vehicle.status !== 'approved' || vehicle.insuranceApproved !== true) {
+    // For company vehicles, status might be 'active' instead of 'approved'
+    const isVehicleApproved = vehicle.status === 'approved' || vehicle.status === 'active';
+    if (!isVehicleApproved || vehicle.insuranceApproved !== true) {
       return res.status(403).json({
         success: false,
         message: 'Vehicle insurance not approved or vehicle not verified.',
