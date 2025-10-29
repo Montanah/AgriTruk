@@ -193,12 +193,39 @@ export function getDisplayBookingId(input: any): string {
   
   // If it's an object, try to extract or generate ID
   if (typeof input === 'object') {
-    // PRIORITY 1: Use readableId (or known aliases) from backend if it exists
+    // PRIORITY 1: Use readableId from backend ONLY if it's correct for this booking
+    // Problem: Backend sometimes stores duplicate readableIds for different bookings
+    // Solution: Validate readableId matches createdAt before using it
     const aliasReadableId = input.readableId 
       || input.displayId 
       || input.userFriendlyId 
       || input.customerReadableId 
       || input.shipperReadableId;
+    
+    if (aliasReadableId && input.createdAt) {
+      // Validate: Generate ID from createdAt and compare with backend readableId
+      // If they match (allowing for format variations), use backend readableId
+      // Otherwise, generate from createdAt (this fixes duplicate readableIds)
+      const generatedFromCreatedAt = generateDisplayIdFromObject(input);
+      const normalizedBackend = aliasReadableId.replace(/^#/, '').trim();
+      const normalizedGenerated = generatedFromCreatedAt.replace(/^#/, '').trim();
+      
+      // Check if backend readableId matches what we'd generate from createdAt
+      if (normalizedBackend === normalizedGenerated) {
+        return normalizedBackend;
+      } else {
+        // Backend readableId is wrong/duplicate - use generated from createdAt
+        console.warn('⚠️ Backend readableId mismatch:', {
+          backendReadableId: aliasReadableId,
+          generatedFromCreatedAt: generatedFromCreatedAt,
+          createdAt: input.createdAt,
+          usingGenerated: true
+        });
+        return normalizedGenerated;
+      }
+    }
+    
+    // If no readableId or no createdAt, try to use readableId as-is (fallback)
     if (aliasReadableId) {
       return aliasReadableId;
     }
