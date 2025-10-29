@@ -105,7 +105,17 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
 
                 if (res.ok) {
                     const data = await res.json();
-                    setRequests(data.requests?.slice(0, 3) || []); // Show only first 3 requests
+                    // Get all requests (both instant and booking)
+                    const allRequests = data.requests || data.availableBookings || data.bookings || [];
+                    // Filter for pending requests that are instant mode (for "Incoming Requests" section)
+                    // If title is "Incoming Requests", show only instant requests
+                    const filteredRequests = customTitle === 'Incoming Requests' 
+                        ? allRequests.filter((req: any) => 
+                            (req.type === 'instant' || req.bookingMode === 'instant' || req.bookingType === 'instant')
+                            && req.status === 'pending'
+                          )
+                        : allRequests;
+                    setRequests(filteredRequests.slice(0, 3)); // Show only first 3 requests
                 } else {
                     setRequests([]);
                 }

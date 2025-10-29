@@ -416,7 +416,13 @@ const DriverHomeScreen = () => {
         </View>
       )}
 
-      {/* Available Jobs */}
+      {/* Incoming Requests - Instant requests that are pending acceptance */}
+      <IncomingRequestsCard
+        title="Incoming Requests"
+        onViewAll={handleViewAllJobs}
+      />
+
+      {/* Available Jobs - All available jobs (both instant and booking) */}
       <AvailableJobsCard
         onJobAccepted={handleJobAccepted}
         onJobRejected={handleJobRejected}
