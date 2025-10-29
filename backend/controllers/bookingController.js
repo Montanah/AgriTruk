@@ -1011,19 +1011,51 @@ exports.acceptBooking = async (req, res) => {
       });
     }
 
-    // Get transporter details first
+    // Get transporter/driver details first
     let transporter = null;
+    const userRole = req.user?.role;
+    
     try {
-      transporter = await Transporter.get(transporterId);
-      console.log('✅ Transporter found:', {
-        id: transporterId,
-        name: transporter?.name,
-        phone: transporter?.phone,
-        rating: transporter?.rating,
-        status: transporter?.status
-      });
+      if (userRole === 'driver') {
+        // For drivers, get from drivers collection
+        const driverSnapshot = await admin.firestore().collection('drivers')
+          .where('userId', '==', transporterId)
+          .limit(1)
+          .get();
+        
+        if (!driverSnapshot.empty) {
+          const driverData = driverSnapshot.docs[0].data();
+          transporter = {
+            name: `${driverData.firstName || ''} ${driverData.lastName || ''}`.trim(),
+            displayName: `${driverData.firstName || ''} ${driverData.lastName || ''}`.trim(),
+            phone: driverData.phone,
+            phoneNumber: driverData.phone,
+            rating: driverData.rating || 0,
+            status: driverData.status || 'active',
+            driverProfileImage: driverData.profileImage,
+            totalTrips: driverData.totalTrips || 0,
+            acceptingBooking: driverData.availability || false
+          };
+          console.log('✅ Driver found:', {
+            id: transporterId,
+            name: transporter.name,
+            phone: transporter.phone,
+            rating: transporter.rating
+          });
+        }
+      } else {
+        // For transporters, get from transporters collection
+        transporter = await Transporter.get(transporterId);
+        console.log('✅ Transporter found:', {
+          id: transporterId,
+          name: transporter?.name,
+          phone: transporter?.phone,
+          rating: transporter?.rating,
+          status: transporter?.status
+        });
+      }
     } catch (error) {
-      console.log('❌ Transporter not found, continuing without transporter details:', error.message);
+      console.log('❌ Transporter/Driver not found, continuing without details:', error.message);
     }
 
     // Get vehicle details - handle both individual transporters and company drivers
@@ -1367,6 +1399,119 @@ exports.getDriverRouteLoads = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+};
+
+// Get accepted bookings for transporter/driver
+exports.getAcceptedBookings = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const userRole = req.user.role;
+    
+    // For drivers, transporterId is the userId
+    // For transporters, check if they're in transporters or companies collection
+    let transporterId = userId;
+    
+    if (userRole === 'driver') {
+      // Driver's userId is their transporterId for bookings
+      transporterId = userId;
+    } else if (userRole === 'transporter') {
+      // Check if transporter is individual or company
+      const Transporter = require('../models/Transporter');
+      const transporter = await Transporter.get(userId);
+      if (transporter) {
+        transporterId = transporter.transporterId || userId;
+      } else {
+        // Check companies collection
+        const companyQuery = await admin.firestore().collection('companies')
+          .where('transporterId', '==', userId)
+          .limit(1)
+          .get();
+        if (!companyQuery.empty) {
+          transporterId = userId;
+        }
+      }
+    }
+    
+    // Get accepted bookings for this transporter/driver
+    const bookings = await Booking.getBookingsForTransporter(transporterId);
+    
+    // Filter to only accepted/in-progress bookings
+    const acceptedBookings = bookings.filter(b => 
+      ['accepted', 'in_progress', 'started', 'picked-up'].includes(b.status)
+    );
+    
+    await logActivity(userId, 'get_accepted_bookings', req);
+    res.status(200).json({
+      success: true,
+      message: 'Accepted bookings retrieved successfully',
+      jobs: formatTimestamps(acceptedBookings),
+      bookings: formatTimestamps(acceptedBookings) // Support both keys
+    });
+  } catch (err) {
+    console.error('Get accepted bookings error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch accepted bookings' 
+    });
+  }
+};
+
+// Get active trip for driver
+exports.getDriverActiveTrip = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const userRole = req.user.role;
+    
+    let transporterId = userId;
+    
+    if (userRole === 'driver') {
+      transporterId = userId;
+    }
+    
+    // Get active booking (accepted, in_progress, started)
+    const activeBooking = await Booking.getByTransporterId(transporterId);
+    
+    if (!activeBooking) {
+      return res.status(200).json({
+        success: true,
+        trip: null,
+        message: 'No active trip'
+      });
+    }
+    
+    await logActivity(userId, 'get_driver_active_trip', req);
+    res.status(200).json({
+      success: true,
+      trip: formatTimestamps(activeBooking),
+      message: 'Active trip retrieved successfully'
+    });
+  } catch (err) {
+    console.error('Get driver active trip error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch active trip' 
+    });
+  }
+};
+
+// Get available bookings (alias for getAllAvailableBookings for consistency)
+exports.getAvailable = async (req, res) => {
+  try {
+    const availableBookings = await Booking.getAllAvailable();
+    await logActivity(req.user.uid, 'get_available_bookings', req);
+    res.status(200).json({
+      success: true,
+      message: 'Available bookings retrieved successfully',
+      jobs: formatTimestamps(availableBookings),
+      bookings: formatTimestamps(availableBookings) // Support both keys
+    });
+  } catch (err) {
+    console.error('Get available bookings error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch available bookings' 
     });
   }
 };
