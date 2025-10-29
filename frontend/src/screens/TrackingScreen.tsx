@@ -21,6 +21,9 @@ import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 import ChatModal from '../components/Chat/ChatModal';
 import { unifiedTrackingService, TrackingData as UnifiedTrackingData } from '../services/unifiedTrackingService';
 import { unifiedBookingService } from '../services/unifiedBookingService';
+import { API_ENDPOINTS } from '../constants/api';
+import { getAuth } from 'firebase/auth';
+import VehicleDisplayCard from '../components/common/VehicleDisplayCard';
 // Mock data removed - now using real API calls
 
 interface TrackingData {
@@ -67,37 +70,78 @@ const statusConfig: { [key: string]: { color: string; icon: string; label: strin
 const TrackingScreen = () => {
     const route = useRoute();
     const navigation = useNavigation();
-    const { booking, isConsolidated, consolidatedRequests, userType } = (route.params as RouteParams) || {};
+    const { booking: initialBooking, isConsolidated, consolidatedRequests, userType } = (route.params as RouteParams) || {};
+    const [booking, setBooking] = useState<any>(initialBooking);
     const [trackingData, setTrackingData] = useState<UnifiedTrackingData | null>(null);
     const [loading, setLoading] = useState(false);
     const [chatVisible, setChatVisible] = useState(false);
     const [callVisible, setCallVisible] = useState(false);
     const [isTracking, setIsTracking] = useState(false);
+    const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
     // Get transporter info for communication
     const transporter = booking?.transporter || trackingData?.transporterInfo;
     const commTarget = transporter ? {
-        id: transporter.id || 'transporter-id',
-        name: transporter.name || 'Transporter',
-        phone: transporter.phone || '+254700000000',
+        id: transporter.id || transporter.transporterId || 'transporter-id',
+        name: transporter.name || transporter.transporterName || 'Transporter',
+        phone: transporter.phone || transporter.transporterPhone || transporter.phoneNumber || '+254700000000',
         role: 'Transporter'
     } : null;
 
     useEffect(() => {
-        if (booking?.id) {
-            loadTrackingData();
+        if (booking?.id || initialBooking?.id) {
+            loadBookingData();
+            // Set up auto-refresh every 10 seconds for real-time updates
+            const interval = setInterval(() => {
+                loadBookingData();
+            }, 10000);
+            setRefreshInterval(interval);
+            return () => {
+                clearInterval(interval);
+            };
         }
-    }, [booking?.id]);
+    }, [initialBooking?.id]);
 
-    const loadTrackingData = async () => {
+    const loadBookingData = async () => {
         try {
             setLoading(true);
-            const trackingData = await unifiedTrackingService.getTrackingData(booking.id, booking.userId || 'current-user');
-            setTrackingData(trackingData);
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const token = await user.getIdToken();
+            const bookingId = booking?.id || initialBooking?.id || booking?.bookingId || initialBooking?.bookingId;
+            
+            if (!bookingId) {
+                console.error('No booking ID available');
+                return;
+            }
+
+            // Fetch booking details from backend
+            const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const bookingData = data.booking || data;
+                setBooking(bookingData);
+                
+                // Also try to load tracking data
+                try {
+                    const tracking = await unifiedTrackingService.getTrackingData(bookingId, bookingData.userId || 'current-user');
+                    setTrackingData(tracking);
+                } catch (trackingError) {
+                    console.error('Error loading tracking data:', trackingError);
+                }
+            } else {
+                console.error('Failed to fetch booking:', response.status);
+            }
         } catch (error) {
-            console.error('Error loading tracking data:', error);
-            // No fallback to mock data - handle error gracefully
-            setTrackingData(null);
+            console.error('Error loading booking data:', error);
         } finally {
             setLoading(false);
         }
@@ -108,36 +152,174 @@ const TrackingScreen = () => {
         
         try {
             setIsTracking(true);
-            await unifiedTrackingService.startTracking(booking.id, booking.userId || 'current-user', 30000);
-            
-            // Set up listeners for real-time updates
-            unifiedTrackingService.onLocationUpdate(booking.id, (location) => {
-                setTrackingData(prev => prev ? {
-                    ...prev,
-                    currentLocation: location
-                } : null);
-            });
-
-            unifiedTrackingService.onStatusUpdate(booking.id, (status) => {
-                setTrackingData(prev => prev ? {
-                    ...prev,
-                    status
-                } : null);
-            });
-
-            unifiedTrackingService.onRouteDeviation(booking.id, (deviation) => {
-                // Handle route deviation alerts
-                console.log('Route deviation detected:', deviation);
-            });
-
-            unifiedTrackingService.onTrafficAlert(booking.id, (alert) => {
-                // Handle traffic alerts
-                console.log('Traffic alert:', alert);
+            // Navigate to MapViewScreen for real-time tracking
+            (navigation as any).navigate('MapViewScreen', {
+                booking: booking,
+                trackingData: trackingData,
+                isConsolidated: isConsolidated || false,
+                consolidatedRequests: consolidatedRequests || [],
+                isInstant: booking?.bookingMode === 'instant'
             });
         } catch (error) {
             console.error('Error starting real-time tracking:', error);
             setIsTracking(false);
         }
+    };
+
+    // Build status timeline from booking data
+    const buildStatusTimeline = (bookingData: any) => {
+        const timeline: Array<{ status: string; location: string; time: string; description: string }> = [];
+        const now = new Date();
+        const status = bookingData.status || 'pending';
+        const statusHistory = bookingData.statusHistory || [];
+        
+        // Sort status history by timestamp
+        const sortedHistory = [...statusHistory].sort((a: any, b: any) => {
+            const timeA = a.timestamp?._seconds ? a.timestamp._seconds * 1000 : new Date(a.timestamp || 0).getTime();
+            const timeB = b.timestamp?._seconds ? b.timestamp._seconds * 1000 : new Date(b.timestamp || 0).getTime();
+            return timeA - timeB;
+        });
+
+        // Add timeline entries from status history
+        sortedHistory.forEach((entry: any, index: number) => {
+            const timestamp = entry.timestamp?._seconds 
+                ? new Date(entry.timestamp._seconds * 1000)
+                : entry.timestamp 
+                ? new Date(entry.timestamp)
+                : new Date(bookingData.createdAt || now);
+            
+            let description = '';
+            let location = '';
+            
+            switch (entry.status?.toLowerCase()) {
+                case 'pending':
+                    description = 'Booking request has been submitted and is awaiting transporter confirmation.';
+                    location = 'Booking Created';
+                    break;
+                case 'accepted':
+                    description = 'A transporter has accepted your booking request.';
+                    location = 'Booking Accepted';
+                    break;
+                case 'confirmed':
+                    description = 'Booking has been confirmed by the transporter.';
+                    location = 'Booking Confirmed';
+                    break;
+                case 'started':
+                case 'picked_up':
+                case 'pickup':
+                    description = 'Package has been picked up from the origin location.';
+                    location = typeof bookingData.fromLocation === 'object' 
+                        ? (bookingData.fromLocation.address || 'Pickup Location')
+                        : bookingData.fromLocation || 'Pickup Location';
+                    break;
+                case 'in_progress':
+                case 'in_transit':
+                case 'enroute':
+                    description = 'Package is on its way to the destination.';
+                    location = 'In Transit';
+                    break;
+                case 'delivered':
+                    description = 'Package has been delivered successfully.';
+                    location = typeof bookingData.toLocation === 'object'
+                        ? (bookingData.toLocation.address || 'Delivery Location')
+                        : bookingData.toLocation || 'Delivery Location';
+                    break;
+                case 'cancelled':
+                    description = entry.reason || 'Booking has been cancelled.';
+                    location = 'Booking Cancelled';
+                    break;
+                default:
+                    description = `Status changed to ${entry.status}.`;
+                    location = 'Status Update';
+            }
+
+            timeline.push({
+                status: 'completed',
+                location,
+                time: timestamp.toLocaleString(),
+                description
+            });
+        });
+
+        // If no status history, create basic timeline from current status
+        if (timeline.length === 0) {
+            const createdAt = bookingData.createdAt?._seconds 
+                ? new Date(bookingData.createdAt._seconds * 1000)
+                : bookingData.createdAt 
+                ? new Date(bookingData.createdAt)
+                : now;
+            
+            timeline.push({
+                status: 'completed',
+                location: 'Booking Created',
+                time: createdAt.toLocaleString(),
+                description: 'Your booking request has been submitted and is being processed.'
+            });
+
+            if (['accepted', 'confirmed', 'started', 'picked_up', 'pickup', 'in_progress', 'in_transit', 'enroute', 'delivered'].includes(status)) {
+                const acceptedAt = bookingData.acceptedAt?._seconds 
+                    ? new Date(bookingData.acceptedAt._seconds * 1000)
+                    : bookingData.acceptedAt 
+                    ? new Date(bookingData.acceptedAt)
+                    : new Date(createdAt.getTime() + 30 * 60 * 1000); // 30 minutes after creation
+                
+                timeline.push({
+                    status: 'completed',
+                    location: 'Booking Accepted',
+                    time: acceptedAt.toLocaleString(),
+                    description: 'Your booking has been accepted by a transporter.'
+                });
+            }
+
+            if (['started', 'picked_up', 'pickup', 'in_progress', 'in_transit', 'enroute', 'delivered'].includes(status)) {
+                const pickupTime = bookingData.pickUpDate?._seconds
+                    ? new Date(bookingData.pickUpDate._seconds * 1000)
+                    : bookingData.pickUpDate
+                    ? new Date(bookingData.pickUpDate)
+                    : bookingData.startedAt?._seconds
+                    ? new Date(bookingData.startedAt._seconds * 1000)
+                    : bookingData.startedAt
+                    ? new Date(bookingData.startedAt)
+                    : new Date();
+                
+                timeline.push({
+                    status: 'completed',
+                    location: typeof bookingData.fromLocation === 'object'
+                        ? (bookingData.fromLocation.address || 'Pickup Location')
+                        : bookingData.fromLocation || 'Pickup Location',
+                    time: pickupTime.toLocaleString(),
+                    description: 'Package has been picked up from the origin location.'
+                });
+            }
+
+            if (['in_progress', 'in_transit', 'enroute', 'delivered'].includes(status)) {
+                timeline.push({
+                    status: status === 'delivered' ? 'completed' : 'in_progress',
+                    location: 'In Transit',
+                    time: status === 'delivered' ? new Date().toLocaleString() : 'Currently',
+                    description: 'Package is on its way to the destination.'
+                });
+            }
+
+            if (status === 'delivered') {
+                const deliveredTime = bookingData.completedAt?._seconds
+                    ? new Date(bookingData.completedAt._seconds * 1000)
+                    : bookingData.completedAt
+                    ? new Date(bookingData.completedAt)
+                    : new Date();
+                
+                timeline.push({
+                    status: 'completed',
+                    location: typeof bookingData.toLocation === 'object'
+                        ? (bookingData.toLocation.address || 'Delivery Location')
+                        : bookingData.toLocation || 'Delivery Location',
+                    time: deliveredTime.toLocaleString(),
+                    description: 'Package has been delivered successfully.'
+                });
+            }
+        }
+
+        return timeline;
     };
 
     const stopRealTimeTracking = () => {
@@ -288,8 +470,12 @@ const TrackingScreen = () => {
     };
 
     const renderStatusTimeline = () => {
-        if (!trackingData?.route) return null;
-        return trackingData.route.map((step: any, index: number) => (
+        if (!booking) return null;
+        
+        const timeline = buildStatusTimeline(booking);
+        if (timeline.length === 0) return null;
+        
+        return timeline.map((step: any, index: number) => (
             <View key={index} style={styles.timelineItem}>
                 <View style={styles.timelineDot}>
                     <MaterialCommunityIcons
@@ -303,7 +489,7 @@ const TrackingScreen = () => {
                     <Text style={styles.timelineTime}>{step.time}</Text>
                     <Text style={styles.timelineDescription}>{step.description}</Text>
                 </View>
-                {index < trackingData.route.length - 1 && (
+                {index < timeline.length - 1 && (
                     <View style={[styles.timelineLine, { backgroundColor: step.status === 'completed' ? colors.success : colors.text.light }]} />
                 )}
             </View>
@@ -365,20 +551,20 @@ const TrackingScreen = () => {
                             </Text>
                         </View>
                         <View style={[styles.statusBadge, { 
-                            backgroundColor: getStatusConfig(trackingData.status).color + '15',
-                            borderColor: getStatusConfig(trackingData.status).color + '50',
+                            backgroundColor: getStatusConfig(booking.status || 'pending').color + '15',
+                            borderColor: getStatusConfig(booking.status || 'pending').color + '50',
                             borderWidth: 1.5
                         }]}>
                             <MaterialCommunityIcons
-                                name={getStatusConfig(trackingData.status).icon as any}
+                                name={getStatusConfig(booking.status || 'pending').icon as any}
                                 size={18}
-                                color={getStatusConfig(trackingData.status).color}
+                                color={getStatusConfig(booking.status || 'pending').color}
                             />
                             <Text style={[styles.statusText, { 
-                                color: getStatusConfig(trackingData.status).color,
+                                color: getStatusConfig(booking.status || 'pending').color,
                                 fontWeight: '700'
                             }]}>
-                                {getStatusConfig(trackingData.status).label}
+                                {getStatusConfig(booking.status || 'pending').label}
                             </Text>
                         </View>
                     </View>
@@ -388,25 +574,38 @@ const TrackingScreen = () => {
                         <View style={styles.detailRow}>
                             <MaterialCommunityIcons name="package-variant" size={16} color={colors.text.secondary} />
                             <Text style={styles.detailLabel}>Product:</Text>
-                            <Text style={styles.detailValue}>{trackingData.productType}</Text>
+                            <Text style={styles.detailValue}>{booking.productType || 'Unknown'}</Text>
                         </View>
                         <View style={styles.detailRow}>
                             <MaterialCommunityIcons name="weight-kilogram" size={16} color={colors.text.secondary} />
                             <Text style={styles.detailLabel}>Weight:</Text>
-                            <Text style={styles.detailValue}>{trackingData.weight}</Text>
-                        </View>
-                        <View style={styles.detailRow}>
-                            <MaterialCommunityIcons name="calendar-clock" size={16} color={colors.text.secondary} />
-                            <Text style={styles.detailLabel}>Pickup Date:</Text>
                             <Text style={styles.detailValue}>
-                                {new Date(booking.pickUpDate || new Date()).toLocaleDateString()}
+                                {booking.weightKg ? `${booking.weightKg} kg` : booking.weight || 'Unknown'}
                             </Text>
                         </View>
-                        <View style={styles.detailRow}>
-                            <MaterialCommunityIcons name="truck-delivery" size={16} color={colors.text.secondary} />
-                            <Text style={styles.detailLabel}>Estimated Delivery:</Text>
-                            <Text style={styles.detailValue}>{trackingData.estimatedDelivery}</Text>
-                        </View>
+                        {booking.pickUpDate && (
+                            <View style={styles.detailRow}>
+                                <MaterialCommunityIcons name="calendar-clock" size={16} color={colors.text.secondary} />
+                                <Text style={styles.detailLabel}>Pickup Date:</Text>
+                                <Text style={styles.detailValue}>
+                                    {(() => {
+                                        const pickupDate = booking.pickUpDate?._seconds 
+                                            ? new Date(booking.pickUpDate._seconds * 1000)
+                                            : booking.pickUpDate 
+                                            ? new Date(booking.pickUpDate)
+                                            : null;
+                                        return pickupDate ? pickupDate.toLocaleString() : 'Not specified';
+                                    })()}
+                                </Text>
+                            </View>
+                        )}
+                        {booking.estimatedDuration && (
+                            <View style={styles.detailRow}>
+                                <MaterialCommunityIcons name="truck-delivery" size={16} color={colors.text.secondary} />
+                                <Text style={styles.detailLabel}>Estimated Duration:</Text>
+                                <Text style={styles.detailValue}>{booking.estimatedDuration}</Text>
+                            </View>
+                        )}
                     </View>
                     {isConsolidated && consolidatedRequests && (
                         <View style={styles.consolidatedInfo}>
@@ -434,7 +633,7 @@ const TrackingScreen = () => {
                             <View style={styles.routeText}>
                                 <Text style={styles.routeLabel}>Pickup</Text>
                                 <LocationDisplay 
-                                    location={trackingData.fromLocation || 'Unknown location'} 
+                                    location={booking.fromLocation || 'Unknown location'} 
                                     style={styles.routeValue}
                                     showIcon={false}
                                 />
@@ -446,7 +645,7 @@ const TrackingScreen = () => {
                             <View style={styles.routeText}>
                                 <Text style={styles.routeLabel}>Delivery</Text>
                                 <LocationDisplay 
-                                    location={trackingData.toLocation || 'Unknown location'} 
+                                    location={booking.toLocation || 'Unknown location'} 
                                     style={styles.routeValue}
                                     showIcon={false}
                                 />
@@ -509,20 +708,23 @@ const TrackingScreen = () => {
                     )}
                 </View>
 
-                {/* Real-time Tracking Button */}
-                <TouchableOpacity
-                    style={styles.trackingButton}
-                    onPress={() => (navigation as any).navigate('MapViewScreen', {
-                        booking: booking,
-                        trackingData: trackingData,
-                        isConsolidated: isConsolidated || false,
-                        consolidatedRequests: consolidatedRequests || [],
-                        isInstant: false
-                    })}
-                >
-                    <MaterialCommunityIcons name="map-marker-radius" size={24} color={colors.white} />
-                    <Text style={styles.trackingButtonText}>View Real-time Location</Text>
-                </TouchableOpacity>
+                {/* Real-time Tracking Button - Only show if driver has started trip */}
+                {booking.transporterId && ['started', 'in_progress', 'in_transit', 'enroute', 'picked_up'].includes(booking.status?.toLowerCase()) && (
+                    <TouchableOpacity
+                        style={styles.trackingButton}
+                        onPress={() => (navigation as any).navigate('MapViewScreen', {
+                            booking: booking,
+                            trackingData: trackingData,
+                            isConsolidated: isConsolidated || false,
+                            consolidatedRequests: consolidatedRequests || [],
+                            isInstant: booking?.bookingMode === 'instant',
+                            userType: userType
+                        })}
+                    >
+                        <MaterialCommunityIcons name="map-marker-radius" size={24} color={colors.white} />
+                        <Text style={styles.trackingButtonText}>View Real-time Location</Text>
+                    </TouchableOpacity>
+                )}
 
                 {/* Timeline */}
                 <View style={styles.card}>
@@ -538,31 +740,37 @@ const TrackingScreen = () => {
                     <View style={styles.progressSummary}>
                         <View style={styles.progressBar}>
                             <View style={[styles.progressFill, { 
-                                width: trackingData.status === 'delivered' ? '100%' : 
-                                      trackingData.status === 'in_transit' ? '75%' :
-                                      trackingData.status === 'pickup' ? '50%' :
-                                      trackingData.status === 'confirmed' ? '25%' : '10%'
+                                width: booking.status === 'delivered' ? '100%' : 
+                                      ['in_progress', 'in_transit', 'enroute'].includes(booking.status) ? '75%' :
+                                      ['started', 'picked_up', 'pickup'].includes(booking.status) ? '50%' :
+                                      ['accepted', 'confirmed'].includes(booking.status) ? '25%' : '10%'
                             }]} />
                         </View>
                         <Text style={styles.progressText}>
-                            {trackingData.status === 'delivered' ? 'Completed' : 
-                             trackingData.status === 'in_transit' ? 'In Progress' :
-                             trackingData.status === 'pickup' ? 'Ready for Pickup' :
-                             trackingData.status === 'confirmed' ? 'Confirmed' : 'Processing'}
+                            {booking.status === 'delivered' ? 'Completed' : 
+                             ['in_progress', 'in_transit', 'enroute'].includes(booking.status) ? 'In Progress' :
+                             ['started', 'picked_up', 'pickup'].includes(booking.status) ? 'Ready for Pickup' :
+                             ['accepted', 'confirmed'].includes(booking.status) ? 'Confirmed' : 'Processing'}
                         </Text>
                     </View>
                 </View>
 
-                {/* Current Location */}
-                {trackingData.currentLocation && (
+                {/* Current Location - Show if trip has started */}
+                {trackingData?.currentLocation && ['started', 'in_progress', 'in_transit', 'enroute', 'picked_up'].includes(booking.status?.toLowerCase()) && (
                     <View style={styles.card}>
                         <View style={styles.cardHeader}>
                             <MaterialCommunityIcons name="crosshairs-gps" size={24} color={colors.success} />
                             <Text style={styles.cardTitle}>Current Location</Text>
                         </View>
                         <View style={styles.locationInfo}>
-                            <Text style={styles.locationAddress}>{trackingData.currentLocation.address}</Text>
-                            <Text style={styles.locationTime}>Last updated: {trackingData.currentLocation.timestamp}</Text>
+                            <LocationDisplay 
+                                location={trackingData.currentLocation} 
+                                style={styles.locationAddress}
+                                showIcon={false}
+                            />
+                            <Text style={styles.locationTime}>
+                                Last updated: {trackingData.currentLocation.timestamp || new Date().toLocaleString()}
+                            </Text>
                         </View>
                     </View>
                 )}
@@ -939,6 +1147,18 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         fontWeight: '600',
         marginLeft: spacing.xs,
+    },
+    vehicleSection: {
+        marginTop: spacing.md,
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    vehicleSectionTitle: {
+        fontSize: fonts.size.sm,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginBottom: spacing.sm,
     },
     modalBg: {
         flex: 1,
