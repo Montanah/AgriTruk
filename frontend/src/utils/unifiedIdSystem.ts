@@ -203,17 +203,12 @@ export function getDisplayBookingId(input: any): string {
       return aliasReadableId;
     }
     
-    // PRIORITY 2: Check if bookingId is already in correct format
+    // PRIORITY 2: Check if bookingId is already in correct format - trust backend data
     if (input.bookingId) {
       // Check if it's already in the correct format (YYMMDD-HHMM-TYPE-MODE)
       if (/^\d{6}-\d{4}-(AGR|CAR)-(BOOK|INST|CONS)$/.test(input.bookingId)) {
-        // If we can recompute from object properties and it differs, prefer recomputed (customer-side truth)
-        try {
-          const recomputed = generateDisplayIdFromObject(input);
-          if (recomputed && recomputed !== input.bookingId) {
-            return recomputed;
-          }
-        } catch {}
+        // Backend bookingId in correct format - use it directly
+        // Don't recompute - backend is source of truth
         return input.bookingId;
       }
       // Check if it matches old unified format
