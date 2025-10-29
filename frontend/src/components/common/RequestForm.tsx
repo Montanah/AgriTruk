@@ -692,7 +692,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
 
                     {/* Request Type Toggle */}
                     <View style={styles.requestTypeContainer}>
- unusuallyTouchableOpacity
+                        <TouchableOpacity
                             style={[
                                 styles.requestTypeTab,
                                 requestType === 'booking' && { 
