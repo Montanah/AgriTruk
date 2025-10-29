@@ -427,10 +427,47 @@ exports.getAllBookings = async (req, res) => {
 exports.updateBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const updates = req.body;
+    let updates = req.body;
     if (!bookingId || !updates) {
       return res.status(400).json({ message: 'Booking ID and updates are required' });
     }
+
+    // If status is being set to 'pending', clear transporter and vehicle assignments to make booking available again
+    if (updates.status === 'pending') {
+      updates = {
+        ...updates,
+        transporterId: null,
+        acceptedAt: null,
+        vehicleId: null,
+        vehicleMake: null,
+        vehicleModel: null,
+        vehicleRegistration: null,
+        transporterName: null,
+        transporterPhone: null,
+        transporterPhoto: null,
+        startedAt: null, // Clear started timestamp
+      };
+    }
+
+    // If status is being set to 'started', ensure startedAt timestamp is set
+    if (updates.status === 'started' && !updates.startedAt) {
+      updates.startedAt = admin.firestore.Timestamp.now();
+    }
+
+    // Update statusHistory with the new status
+    if (updates.status) {
+      const booking = await Booking.get(bookingId);
+      if (booking) {
+        const statusHistory = booking.statusHistory || [];
+        statusHistory.push({
+          status: updates.status,
+          timestamp: admin.firestore.Timestamp.now(),
+          reason: updates.cancellationReason || null
+        });
+        updates.statusHistory = statusHistory;
+      }
+    }
+
     const updatedBooking = await Booking.update(bookingId, updates);
     if (!updatedBooking) {
       return res.status(404).json({ message: 'Booking not found' });
