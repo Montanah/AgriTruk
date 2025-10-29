@@ -440,6 +440,20 @@ exports.updateBooking = async (req, res) => {
     
     // Remove bookingId from updates if it was in body (params take precedence)
     delete updates.bookingId;
+    
+    // Convert ISO string timestamps to Firestore Timestamps if needed
+    if (updates.cancelledAt && typeof updates.cancelledAt === 'string') {
+      updates.cancelledAt = admin.firestore.Timestamp.fromDate(new Date(updates.cancelledAt));
+    }
+    if (updates.startedAt && typeof updates.startedAt === 'string') {
+      updates.startedAt = admin.firestore.Timestamp.fromDate(new Date(updates.startedAt));
+    }
+    if (updates.acceptedAt && typeof updates.acceptedAt === 'string') {
+      updates.acceptedAt = admin.firestore.Timestamp.fromDate(new Date(updates.acceptedAt));
+    }
+    if (updates.completedAt && typeof updates.completedAt === 'string') {
+      updates.completedAt = admin.firestore.Timestamp.fromDate(new Date(updates.completedAt));
+    }
 
     // If status is being set to 'pending', clear transporter and vehicle assignments to make booking available again
     // Preserve cancellationReason and cancelledAt if they're being set (for cancelling jobs)
