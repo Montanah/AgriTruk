@@ -973,44 +973,60 @@ const verifyDriver = async (req, res) => {
 const getDriverProfile = async (req, res) => {
   try {
     const { uid } = req.user;
-    console.log('🔍 getDriverProfile called for uid:', uid);
-    console.log('🔍 req.user:', JSON.stringify(req.user, null, 2));
+    console.log('🔍 getDriverProfile - Looking for driver with userId:', uid);
 
-    // Find driver by userId
-    const driverQuery = db.collection('drivers').where('userId', '==', uid);
+    // Use EXACT same query as checkIfDriver which works successfully
+    const driverQuery = db.collection('drivers').where('userId', '==', uid).limit(1);
     const driverSnapshot = await driverQuery.get();
 
     console.log('🔍 Driver query result - empty:', driverSnapshot.empty, 'size:', driverSnapshot.size);
 
     if (driverSnapshot.empty) {
-      console.log('⚠️ Driver not found in drivers collection for userId:', uid);
-      // Try alternative: check if user document has driverId or companyId that points to a driver
-      const userDoc = await db.collection('users').doc(uid).get();
-      if (userDoc.exists) {
-        const userData = userDoc.data();
-        console.log('🔍 User document found:', JSON.stringify(userData, null, 2));
-        
-        // If user has driverId, try to get driver by that ID
-        if (userData.driverId) {
-          console.log('🔍 Trying to fetch driver by driverId:', userData.driverId);
-          const driverDocById = await db.collection('drivers').doc(userData.driverId).get();
-          if (driverDocById.exists) {
-            const driverData = driverDocById.data();
-            const companyId = driverData.companyId || userData.companyId;
-            
-            return res.status(200).json({
-              success: true,
-              driver: {
-                id: driverDocById.id,
-                ...driverData,
-                assignedVehicle: driverData.assignedVehicleDetails || null,
-                company: companyId ? { id: companyId } : null
-              }
-            });
+      console.log('⚠️ Driver not found via userId query - trying alternative lookup');
+      
+      // Alternative: Try to find by driverId if user document has it
+      try {
+        const userDoc = await db.collection('users').doc(uid).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          console.log('🔍 User document found, checking for driverId:', userData.driverId);
+          
+          if (userData.driverId) {
+            const driverDocById = await db.collection('drivers').doc(userData.driverId).get();
+            if (driverDocById.exists) {
+              console.log('✅ Found driver by driverId from user document');
+              const driverData = driverDocById.data();
+              return await buildDriverProfileResponse(driverDocById.id, driverData, res);
+            }
           }
         }
+      } catch (altError) {
+        console.error('Error in alternative lookup:', altError);
       }
       
+      // Final fallback: Try to get any driver with this userId (case-insensitive, different field names)
+      console.log('⚠️ Trying final fallback - checking all possible fields');
+      try {
+        const allDriversQuery = await db.collection('drivers').get();
+        let foundDriver = null;
+        
+        for (const doc of allDriversQuery.docs) {
+          const data = doc.data();
+          if (data.userId === uid || data.user_id === uid || String(data.userId) === String(uid)) {
+            foundDriver = { id: doc.id, ...data };
+            console.log('✅ Found driver in fallback search:', doc.id);
+            break;
+          }
+        }
+        
+        if (foundDriver) {
+          return await buildDriverProfileResponse(foundDriver.id, foundDriver, res);
+        }
+      } catch (fallbackError) {
+        console.error('Error in fallback search:', fallbackError);
+      }
+      
+      console.error('❌ Driver not found after all attempts for userId:', uid);
       return res.status(404).json({
         success: false,
         message: 'Driver not found'
@@ -1021,9 +1037,25 @@ const getDriverProfile = async (req, res) => {
     const driverData = driverDoc.data();
     const driverId = driverDoc.id;
     
-    console.log('✅ Driver found:', driverId);
+    console.log('✅ Driver found via userId query:', driverId);
 
-    // Get assigned vehicle if exists - check both vehicles collection and company vehicles
+    
+    return await buildDriverProfileResponse(driverId, driverData, res);
+  } catch (error) {
+    console.error('❌ Error fetching driver profile:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+// Helper function to build driver profile response
+const buildDriverProfileResponse = async (driverId, driverData, res) => {
+  try {
+    // Get assigned vehicle if exists - check multiple locations
     let assignedVehicle = null;
     if (driverData.assignedVehicleId) {
       // First try main vehicles collection
@@ -1035,19 +1067,23 @@ const getDriverProfile = async (req, res) => {
         };
       } else if (driverData.companyId) {
         // Try company vehicles subcollection
-        const companyVehicleDoc = await db.collection('companies').doc(driverData.companyId)
-          .collection('vehicles').doc(driverData.assignedVehicleId).get();
-        if (companyVehicleDoc.exists) {
-          const vehicleData = companyVehicleDoc.data();
-          assignedVehicle = {
-            id: companyVehicleDoc.id,
-            make: vehicleData.vehicleMake,
-            model: vehicleData.vehicleModel,
-            registration: vehicleData.vehicleRegistration,
-            type: vehicleData.vehicleType,
-            capacity: vehicleData.vehicleCapacity || vehicleData.capacityKg,
-            ...vehicleData
-          };
+        try {
+          const companyVehicleDoc = await db.collection('companies').doc(driverData.companyId)
+            .collection('vehicles').doc(driverData.assignedVehicleId).get();
+          if (companyVehicleDoc.exists) {
+            const vehicleData = companyVehicleDoc.data();
+            assignedVehicle = {
+              id: companyVehicleDoc.id,
+              make: vehicleData.vehicleMake || vehicleData.make,
+              model: vehicleData.vehicleModel || vehicleData.model,
+              registration: vehicleData.vehicleRegistration || vehicleData.reg,
+              type: vehicleData.vehicleType || vehicleData.type,
+              capacity: vehicleData.vehicleCapacity || vehicleData.capacityKg || vehicleData.capacity,
+              ...vehicleData
+            };
+          }
+        } catch (subcollectionError) {
+          console.log('Could not fetch from company vehicles subcollection:', subcollectionError.message);
         }
       }
       
@@ -1065,15 +1101,15 @@ const getDriverProfile = async (req, res) => {
         const companyData = companyDoc.data();
         company = {
           id: companyDoc.id,
-          name: companyData.companyName || companyData.name,
-          contact: companyData.companyContact || companyData.contact
+          name: companyData.companyName || companyData.name || 'Unknown Company',
+          contact: companyData.companyContact || companyData.contact || null
         };
       }
     }
 
     console.log('✅ Returning driver profile for:', driverId);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       driver: {
         id: driverId,
@@ -1083,13 +1119,8 @@ const getDriverProfile = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error fetching driver profile:', error);
-    console.error('❌ Error stack:', error.stack);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: error.message
-    });
+    console.error('Error building driver profile response:', error);
+    throw error;
   }
 };
 
