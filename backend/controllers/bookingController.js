@@ -27,7 +27,7 @@ const generateReadableId = (bookingType, bookingMode, isConsolidated = false) =>
   const hour = now.getHours().toString().padStart(2, '0');
   const minute = now.getMinutes().toString().padStart(2, '0');
   
-  const type = bookingType === 'Agri' ? 'AGR' : 'CRG';
+  const type = bookingType === 'Agri' ? 'AGR' : 'CAR';
   const mode = isConsolidated ? 'CONS' : (bookingMode === 'instant' ? 'INST' : 'BOOK');
   
   return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
@@ -61,7 +61,8 @@ exports.createBooking = async (req, res) => {
       fuelSurchargePct = 0, 
       waitMinutes = 0, 
       nightSurcharge = false,
-      vehicleType = 'truck', 
+      vehicleType = 'truck',
+      readableId, // Accept readableId from frontend if provided
     } = req.body;
 
     // Extract location variables separately to allow reassignment
@@ -256,9 +257,14 @@ exports.createBooking = async (req, res) => {
     };
     const { cost, transporterPayment, costBreakdown, paymentBreakdown } = calculateTransportCost(bookingDataForCost);
     
+    // Generate or use provided readableId
+    // If frontend provides readableId, use it; otherwise generate one
+    const finalReadableId = readableId || generateReadableId(bookingType, bookingMode, consolidated);
+
     // Prepare booking data
     const bookingData = {
       requestId,
+      readableId: finalReadableId, // Store readableId in booking document
       bookingType,
       bookingMode,
       userId: user,
@@ -334,8 +340,8 @@ exports.createBooking = async (req, res) => {
     });
     // console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
 
-    // Generate readable ID for display
-    const readableId = generateReadableId(bookingType, bookingMode);
+    // ReadableId is now stored in booking document, use it from there
+    const bookingReadableId = booking.readableId || finalReadableId;
     
     if (bookingMode === 'instant') {
       const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
@@ -343,7 +349,7 @@ exports.createBooking = async (req, res) => {
         success: true,
         message: `${bookingType}TRUK booking created successfully`,
         booking: formatTimestamps(booking),
-        readableId: readableId,
+        readableId: bookingReadableId,
         matchedTransporter
       });
     } else {
@@ -352,7 +358,7 @@ exports.createBooking = async (req, res) => {
         success: true,
         message: `${bookingType}TRUK booking created successfully`,
         booking: formatTimestamps(booking),
-        readableId: readableId,
+        readableId: bookingReadableId,
       });
     }
   } catch (error) {
