@@ -204,13 +204,23 @@ class UnifiedTrackingService {
       });
 
       if (!response.ok) {
+        // Handle 404 gracefully - tracking might not be initialized yet
+        if (response.status === 404) {
+          console.log(`Tracking not available for booking ${bookingId} - may not be started yet`);
+          return null;
+        }
         throw new Error(`Failed to fetch tracking data: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
       return this.normalizeTrackingData(data);
     } catch (error) {
-      console.error('Error fetching tracking data:', error);
+      // Log but don't throw - tracking might not be available yet
+      if (error instanceof Error && error.message.includes('404')) {
+        console.log('Tracking endpoint not available - this is normal for new bookings');
+      } else {
+        console.error('Error fetching tracking data:', error);
+      }
       return null;
     }
   }

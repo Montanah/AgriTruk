@@ -84,8 +84,15 @@ const DriverTripNavigationScreen = () => {
       const user = auth.currentUser;
       if (!user) return;
 
+      // Use actual bookingId for API calls (not readable ID)
+      const actualBookingId = params.bookingId || params.jobId || job?.id;
+      if (!actualBookingId) {
+        console.error('No booking ID available for API call');
+        return;
+      }
+
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${params.jobId}`, {
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${actualBookingId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -141,35 +148,47 @@ const DriverTripNavigationScreen = () => {
   };
 
   const startLocationTracking = async () => {
-    if (!job.id) return;
+    // Use actual bookingId for tracking, but display readable ID in UI
+    const actualBookingId = job.id || params.jobId || params.bookingId;
+    if (!actualBookingId) return;
 
     try {
       setIsTracking(true);
-      await unifiedTrackingService.startTracking(job.id, params.bookingId, 10000);
+      // Pass callbacks object to startTracking - use actual ID for backend
+      await unifiedTrackingService.startTracking(actualBookingId, {
+        onLocationUpdate: (location) => {
+          setCurrentLocation({
+            latitude: location.latitude,
+            longitude: location.longitude,
+          });
 
-      // Set up location update listener
-      unifiedTrackingService.onLocationUpdate(job.id, (location) => {
-        setCurrentLocation({
-          latitude: location.latitude,
-          longitude: location.longitude,
-        });
-
-        // Check for route deviation
-        if (routeInfo && lastRoute) {
-          checkRouteDeviation(location);
-        }
-      });
-
-      // Set up traffic alert listener
-      unifiedTrackingService.onTrafficAlert(job.id, (alert) => {
-        Alert.alert(
-          'Traffic Alert',
-          alert.message,
-          [{ text: 'OK' }]
-        );
+          // Check for route deviation
+          if (routeInfo && lastRoute) {
+            checkRouteDeviation(location);
+          }
+        },
+        onTrafficAlert: (alert) => {
+          Alert.alert(
+            'Traffic Alert',
+            alert.message,
+            [{ text: 'OK' }]
+          );
+        },
+        onStatusUpdate: (trackingData) => {
+          // Handle status updates if needed
+          console.log('Tracking status update:', trackingData);
+        },
+        onRouteDeviation: (deviation) => {
+          Alert.alert(
+            'Route Deviation',
+            deviation.deviation.reason || 'Driver has deviated from the planned route.',
+            [{ text: 'OK' }]
+          );
+        },
       });
     } catch (err) {
       console.error('Error starting tracking:', err);
+      setIsTracking(false);
     }
   };
 
@@ -177,27 +196,23 @@ const DriverTripNavigationScreen = () => {
     if (!currentLocation || !job.fromLocation) return;
 
     try {
-      const fromLocation = {
-        latitude: typeof job.fromLocation === 'object' 
-          ? (job.fromLocation.latitude || currentLocation.latitude)
-          : currentLocation.latitude,
-        longitude: typeof job.fromLocation === 'object' 
-          ? (job.fromLocation.longitude || currentLocation.longitude)
-          : currentLocation.longitude,
-      };
+      // Get pickup location from job - use actual location data
+      const pickupLocation = typeof job.fromLocation === 'object' && job.fromLocation
+        ? {
+            latitude: job.fromLocation.latitude || 0,
+            longitude: job.fromLocation.longitude || 0,
+          }
+        : null;
 
-      const toLocation = {
-        latitude: typeof job.fromLocation === 'object' 
-          ? job.fromLocation.latitude
-          : currentLocation.latitude,
-        longitude: typeof job.fromLocation === 'object' 
-          ? job.fromLocation.longitude
-          : currentLocation.longitude,
-      };
+      if (!pickupLocation || !pickupLocation.latitude || !pickupLocation.longitude) {
+        console.warn('Invalid pickup location, skipping route calculation');
+        return;
+      }
 
+      // Calculate route from current location to pickup location
       const route = await googleMapsService.getDirections(
         currentLocation,
-        toLocation
+        pickupLocation
       );
 
       // Decode polyline to get coordinates
@@ -216,8 +231,25 @@ const DriverTripNavigationScreen = () => {
         polyline: route.polyline,
         coordinates,
       });
-    } catch (err) {
-      console.error('Error calculating route to pickup:', err);
+    } catch (err: any) {
+      // Handle ZERO_RESULTS gracefully - might happen if locations are too close or invalid
+      if (err?.message?.includes('ZERO_RESULTS')) {
+        console.warn('No route found - locations may be invalid or too close together');
+        // Set a fallback route with just the two points
+        const pickupLocation = typeof job.fromLocation === 'object' && job.fromLocation
+          ? { latitude: job.fromLocation.latitude || 0, longitude: job.fromLocation.longitude || 0 }
+          : null;
+        if (pickupLocation && pickupLocation.latitude && pickupLocation.longitude) {
+          setRouteInfo({
+            distance: 'Calculating...',
+            duration: 'Calculating...',
+            polyline: '',
+            coordinates: [currentLocation, pickupLocation],
+          });
+        }
+      } else {
+        console.error('Error calculating route to pickup:', err);
+      }
     }
   };
 
@@ -225,18 +257,22 @@ const DriverTripNavigationScreen = () => {
     if (!currentLocation || !job.toLocation) return;
 
     try {
-      const toLocation = {
-        latitude: typeof job.toLocation === 'object' 
-          ? job.toLocation.latitude
-          : currentLocation.latitude,
-        longitude: typeof job.toLocation === 'object' 
-          ? job.toLocation.longitude
-          : currentLocation.longitude,
-      };
+      // Get dropoff location from job - use actual location data
+      const dropoffLocation = typeof job.toLocation === 'object' && job.toLocation
+        ? {
+            latitude: job.toLocation.latitude || 0,
+            longitude: job.toLocation.longitude || 0,
+          }
+        : null;
+
+      if (!dropoffLocation || !dropoffLocation.latitude || !dropoffLocation.longitude) {
+        console.warn('Invalid dropoff location, skipping route calculation');
+        return;
+      }
 
       const route = await googleMapsService.getDirections(
         currentLocation,
-        toLocation
+        dropoffLocation
       );
 
       // Decode polyline to get coordinates
@@ -257,9 +293,25 @@ const DriverTripNavigationScreen = () => {
       });
 
       // Check traffic conditions
-      checkTrafficConditions(currentLocation, toLocation);
-    } catch (err) {
-      console.error('Error calculating route to dropoff:', err);
+      checkTrafficConditions(currentLocation, dropoffLocation);
+    } catch (err: any) {
+      // Handle ZERO_RESULTS gracefully
+      if (err?.message?.includes('ZERO_RESULTS')) {
+        console.warn('No route found - locations may be invalid or too close together');
+        const dropoffLocation = typeof job.toLocation === 'object' && job.toLocation
+          ? { latitude: job.toLocation.latitude || 0, longitude: job.toLocation.longitude || 0 }
+          : null;
+        if (dropoffLocation && dropoffLocation.latitude && dropoffLocation.longitude) {
+          setRouteInfo({
+            distance: 'Calculating...',
+            duration: 'Calculating...',
+            polyline: '',
+            coordinates: [currentLocation, dropoffLocation],
+          });
+        }
+      } else {
+        console.error('Error calculating route to dropoff:', err);
+      }
     }
   };
 
@@ -366,8 +418,15 @@ const DriverTripNavigationScreen = () => {
       const user = auth.currentUser;
       if (!user) return;
 
+      // Use actual bookingId for tracking API calls
+      const actualBookingId = job.id || params.bookingId || params.jobId;
+      if (!actualBookingId) {
+        console.error('No booking ID available for route deviation alert');
+        return;
+      }
+
       await unifiedTrackingService.sendRouteDeviationAlert(
-        job.id,
+        actualBookingId,
         {
           originalRoute: lastRoute?.coordinates || [],
           currentRoute: routeInfo?.coordinates || [],
@@ -434,8 +493,15 @@ const DriverTripNavigationScreen = () => {
       const user = auth.currentUser;
       if (!user) return;
 
+      // Use actual bookingId for API calls
+      const actualBookingId = job.id || params.bookingId || params.jobId;
+      if (!actualBookingId) {
+        throw new Error('Booking ID not found');
+      }
+
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/status`, {
+      // Use /update/:bookingId endpoint (same as start trip and cancel)
+      let response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${actualBookingId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -446,6 +512,21 @@ const DriverTripNavigationScreen = () => {
           pickedUpAt: new Date().toISOString(),
         }),
       });
+
+      // Fallback to /status endpoint if /update doesn't work
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${actualBookingId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status: 'picked_up',
+            pickedUpAt: new Date().toISOString(),
+          }),
+        });
+      }
 
       if (response.ok) {
         setJobStatus('picked_up');
@@ -469,8 +550,15 @@ const DriverTripNavigationScreen = () => {
       const user = auth.currentUser;
       if (!user) return;
 
+      // Use actual bookingId for API calls
+      const actualBookingId = job.id || params.bookingId || params.jobId;
+      if (!actualBookingId) {
+        throw new Error('Booking ID not found');
+      }
+
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${job.id}/status`, {
+      // Use /update/:bookingId endpoint (same as start trip and cancel)
+      let response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${actualBookingId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -481,6 +569,21 @@ const DriverTripNavigationScreen = () => {
           enrouteAt: new Date().toISOString(),
         }),
       });
+
+      // Fallback to /status endpoint if /update doesn't work
+      if (!response.ok && response.status === 404) {
+        response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${actualBookingId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status: 'enroute',
+            enrouteAt: new Date().toISOString(),
+          }),
+        });
+      }
 
       if (response.ok) {
         setJobStatus('enroute');
@@ -683,7 +786,7 @@ const DriverTripNavigationScreen = () => {
                   <ActivityIndicator color={colors.white} />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="package-variant-check" size={20} color={colors.white} />
+                    <MaterialCommunityIcons name="package-variant" size={20} color={colors.white} />
                     <Text style={styles.actionButtonText}>Mark as Picked Up</Text>
                   </>
                 )}
