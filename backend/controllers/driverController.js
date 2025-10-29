@@ -1179,7 +1179,25 @@ const toggleDriverAvailability = async (req, res) => {
       return res.status(400).json({ message: 'Availability must be true or false' });
     }
 
-    // Find the driver in the companies collection
+    // Try to find driver in main drivers collection first (preferred)
+    const mainDriverQuery = db.collection('drivers').where('userId', '==', driverId).limit(1);
+    const mainDriverSnapshot = await mainDriverQuery.get();
+
+    if (!mainDriverSnapshot.empty) {
+      // Driver found in main drivers collection
+      const driverRef = mainDriverSnapshot.docs[0].ref;
+      await driverRef.update({
+        availability: availability,
+        updatedAt: admin.firestore.Timestamp.now()
+      });
+
+      return res.status(200).json({
+        message: `Availability ${availability ? 'enabled' : 'disabled'} successfully`,
+        availability: availability
+      });
+    }
+
+    // Fallback: Find the driver in the companies subcollection
     const companiesSnapshot = await db.collection('companies').get();
     let driverFound = false;
     let companyId = null;
@@ -1203,7 +1221,7 @@ const toggleDriverAvailability = async (req, res) => {
       return res.status(404).json({ message: 'Driver not found' });
     }
 
-    // Update driver availability
+    // Update driver availability in company subcollection
     const driverDoc = await db.collection('companies')
       .doc(companyId)
       .collection('drivers')
