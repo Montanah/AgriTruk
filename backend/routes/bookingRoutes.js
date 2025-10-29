@@ -551,7 +551,7 @@ router.get('/transporter/:transporterId', authenticateToken, requireRole(['drive
  *       403:
  *         description: Forbidden
  */
-router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'broker', 'shipper', 'transporter', 'business']), authorize(['manage_bookings', 'super_admin']), bookingController.updateBooking);
+router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'broker', 'shipper', 'transporter', 'business', 'driver']), bookingController.updateBooking);
 
 /**
  * @swagger
