@@ -309,14 +309,25 @@ function generateDisplayIdFromObject(obj: any): string {
     const hour = bookingDate.getHours().toString().padStart(2, '0');
     const minute = bookingDate.getMinutes().toString().padStart(2, '0');
     
-    // Determine type based on product type or other indicators
-    const productType = obj.productType || obj.cargoType || obj.cargoDetails || obj.bookingType || '';
-    const productTypeLower = productType.toLowerCase();
-    const type = productTypeLower.includes('agricultural') || 
-                 productTypeLower.includes('crop') || 
-                 productTypeLower.includes('farm') || 
-                 productTypeLower.includes('agri') ||
-                 productTypeLower === 'agri' ? 'AGR' : 'CAR';
+    // Determine type - PRIORITIZE bookingType over product name to avoid "Carrots" -> CAR mistakes
+    // bookingType is set explicitly to 'Agri' or 'Cargo' at creation time
+    let type: 'AGR' | 'CAR';
+    const bookingTypeField = (obj.bookingType || obj.type || '').toString().toLowerCase();
+    if (bookingTypeField.includes('agri')) {
+      type = 'AGR';
+    } else if (bookingTypeField.includes('cargo') || bookingTypeField.includes('car')) {
+      // If bookingType explicitly says cargo, treat as cargo
+      type = 'CAR';
+    } else {
+      // Fallback to product-based inference only when bookingType is missing
+      const productType = (obj.productType || obj.cargoType || obj.cargoDetails || '').toString().toLowerCase();
+      type = (
+        productType.includes('agricultural') ||
+        productType.includes('crop') ||
+        productType.includes('farm') ||
+        productType.includes('agri')
+      ) ? 'AGR' : 'CAR';
+    }
     
     // Determine mode
     const bookingType = obj.type || obj.bookingType || obj.bookingMode || 'booking';
