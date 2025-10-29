@@ -1032,6 +1032,51 @@ const getDriverProfile = async (req, res) => {
   }
 };
 
+// Check if a user is a driver (public endpoint for routing purposes)
+const checkIfDriver = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    // Find driver by userId in drivers collection
+    const driverQuery = db.collection('drivers').where('userId', '==', userId).limit(1);
+    const driverSnapshot = await driverQuery.get();
+
+    if (driverSnapshot.empty) {
+      return res.status(200).json({
+        success: false,
+        isDriver: false,
+        message: 'User is not a driver'
+      });
+    }
+
+    const driverDoc = driverSnapshot.docs[0];
+    const driverData = driverDoc.data();
+
+    res.status(200).json({
+      success: true,
+      isDriver: true,
+      driverType: 'company',
+      driver: {
+        id: driverDoc.id,
+        ...driverData
+      }
+    });
+  } catch (error) {
+    console.error('Error checking if user is driver:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
 // Toggle driver availability (for drivers to update their own status)
 const toggleDriverAvailability = async (req, res) => {
   try {
@@ -1402,6 +1447,7 @@ module.exports = {
   deactivateDriver,
   verifyDriver,
   getDriverProfile,
+  checkIfDriver,
   toggleDriverAvailability,
   acceptBooking,
   updateLocation

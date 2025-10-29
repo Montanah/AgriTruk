@@ -16,6 +16,7 @@ const {
   deactivateDriver,
   verifyDriver,
   getDriverProfile,
+  checkIfDriver,
   toggleDriverAvailability
 } = require('../controllers/driverController');
 
@@ -36,6 +37,8 @@ router.patch('/:id/deactivate', authenticateToken, requireRole('transporter'), d
 // Driver authentication and profile routes
 router.post('/verify', authenticateToken, verifyDriver);
 router.get('/profile', authenticateToken, getDriverProfile);
+// Check if user is a driver (for routing - requires authentication but no specific role)
+router.get('/check/:userId', authenticateToken, checkIfDriver);
 
 // Driver availability management
 router.post('/toggle-availability', authenticateToken, requireRole('driver'), toggleDriverAvailability);
