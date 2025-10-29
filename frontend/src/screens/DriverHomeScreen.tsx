@@ -215,15 +215,36 @@ const DriverHomeScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 DriverHomeScreen - Backend response keys:', Object.keys(data));
+        console.log('🔍 DriverHomeScreen - Number of jobs:', (data.jobs || data.bookings || []).length);
+        
         // Preserve ALL fields exactly as ActivityScreen does - especially readableId, createdAt, pickUpDate
-        const jobs = (data.jobs || data.bookings || []).map((job: any) => ({
-          ...job, // Spread first to keep all original fields
-          readableId: job.readableId, // This is the source of truth for display ID
-          createdAt: job.createdAt, // For ID generation fallback
-          pickUpDate: job.pickUpDate || job.pickupDate, // Preserve pickup date
-          bookingType: job.bookingType,
-          bookingMode: job.bookingMode,
-        }));
+        const jobs = (data.jobs || data.bookings || []).map((job: any) => {
+          console.log('🔍 DriverHomeScreen - Raw job from backend:', {
+            id: job.id,
+            bookingId: job.bookingId,
+            readableId: job.readableId,
+            createdAt: job.createdAt,
+            pickUpDate: job.pickUpDate,
+            bookingType: job.bookingType,
+            bookingMode: job.bookingMode,
+          });
+          
+          const processed = {
+            ...job, // Spread first to keep all original fields
+            readableId: job.readableId, // This is the source of truth for display ID
+            createdAt: job.createdAt, // For ID generation fallback
+            pickUpDate: job.pickUpDate || job.pickupDate, // Preserve pickup date
+            bookingType: job.bookingType,
+            bookingMode: job.bookingMode,
+          };
+          
+          const { getDisplayBookingId } = require('../utils/unifiedIdSystem');
+          const displayId = getDisplayBookingId(processed);
+          console.log('🔍 DriverHomeScreen - Display ID:', displayId, '| readableId from backend:', processed.readableId, '| createdAt:', processed.createdAt);
+          
+          return processed;
+        });
         setAcceptedJobs(jobs);
       } else {
         // If endpoint doesn't exist or permission denied, try alternative
