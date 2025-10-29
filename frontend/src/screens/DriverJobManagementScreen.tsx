@@ -94,6 +94,8 @@ const DriverJobManagementScreen = () => {
   const [routeLoads, setRouteLoads] = useState<RouteLoad[]>([]);
   const [selectedLoads, setSelectedLoads] = useState<RouteLoad[]>([]);
   const [acceptingJobId, setAcceptingJobId] = useState<string | null>(null);
+  const [startingTripId, setStartingTripId] = useState<string | null>(null);
+  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
 
   const fetchDriverProfile = async () => {
     try {
@@ -342,6 +344,9 @@ const DriverJobManagementScreen = () => {
         return;
       }
 
+      // Set loading state
+      setStartingTripId(job.id);
+
       const token = await user.getIdToken();
       
       // CRITICAL: For API calls, always use the raw database ID
@@ -426,6 +431,9 @@ const DriverJobManagementScreen = () => {
     } catch (err: any) {
       console.error('Error starting trip:', err);
       Alert.alert('Error Starting Trip', err.message || 'Failed to start trip. Please try again.');
+    } finally {
+      // Clear loading state
+      setStartingTripId(null);
     }
   };
 
@@ -463,6 +471,9 @@ const DriverJobManagementScreen = () => {
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
+
+      // Set loading state
+      setCancellingJobId(job.id);
 
       const token = await user.getIdToken();
       const bookingId = job.id || job._id || job.bookingId;
@@ -523,6 +534,9 @@ const DriverJobManagementScreen = () => {
     } catch (err: any) {
       console.error('Error cancelling job:', err);
       Alert.alert('Error', err.message || 'Failed to cancel job');
+    } finally {
+      // Clear loading state
+      setCancellingJobId(null);
     }
   };
 
@@ -794,11 +808,24 @@ const DriverJobManagementScreen = () => {
         
         {item.status === 'accepted' && (
           <TouchableOpacity
-            style={styles.startButton}
+            style={[
+              styles.startButton,
+              startingTripId === item.id && styles.acceptButtonDisabled
+            ]}
             onPress={() => handleStartTrip(item)}
+            disabled={startingTripId === item.id}
           >
-            <MaterialCommunityIcons name="play" size={16} color={colors.white} />
-            <Text style={styles.actionText}>Start Trip</Text>
+            {startingTripId === item.id ? (
+              <>
+                <ActivityIndicator size="small" color={colors.white} />
+                <Text style={styles.actionText}>Starting...</Text>
+              </>
+            ) : (
+              <>
+                <MaterialCommunityIcons name="play" size={16} color={colors.white} />
+                <Text style={styles.actionText}>Start Trip</Text>
+              </>
+            )}
           </TouchableOpacity>
         )}
 
@@ -835,11 +862,24 @@ const DriverJobManagementScreen = () => {
         {(item.status === 'accepted' || item.status === 'in_progress') && (
           <View style={styles.cancelRow}>
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={[
+                styles.cancelButton,
+                cancellingJobId === item.id && styles.acceptButtonDisabled
+              ]}
               onPress={() => showCancelModal(item)}
+              disabled={cancellingJobId === item.id}
             >
-              <MaterialCommunityIcons name="close-circle" size={16} color={colors.error} />
-              <Text style={styles.cancelButtonText}>Cancel Job</Text>
+              {cancellingJobId === item.id ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.error} />
+                  <Text style={styles.cancelButtonText}>Cancelling...</Text>
+                </>
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="close-circle" size={16} color={colors.error} />
+                  <Text style={styles.cancelButtonText}>Cancel Job</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         )}
