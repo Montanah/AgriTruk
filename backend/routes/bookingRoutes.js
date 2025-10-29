@@ -451,6 +451,34 @@ router
  *       500:
  *         description: Internal server error
  */
+/**
+ * @swagger
+ * /api/bookings/update/{bookingId}:
+ *   patch:
+ *     summary: Update a specific booking by ID (for drivers, transporters, etc.)
+ *     description: Allows drivers and other roles to update booking status (start, cancel, complete)
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking
+ *     responses:
+ *       200:
+ *         description: Booking updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+// CRITICAL: This route MUST be defined BEFORE /:bookingId to ensure correct route matching
+// Express matches routes in order, so specific routes must come before generic ones
+router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'broker', 'shipper', 'transporter', 'business', 'driver']), bookingController.updateBooking);
+
 router
   .route('/:bookingId')
   .get(authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), bookingController.getBookingById)
@@ -522,36 +550,6 @@ router.get(
  */
 router.get('/transporter/:transporterId', authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), bookingController.getBookingsByTransporterId);
 
-/**
- * @swagger
- * /api/bookings/update/{bookingId}:
- *   patch:
- *     summary: Update a specific booking by ID
- *     tags: [Bookings]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: bookingId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the booking
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Booking'
- *     responses:
- *       200:
- *         description: Booking updated successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- */
-router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'broker', 'shipper', 'transporter', 'business']), authorize(['manage_bookings', 'super_admin']), bookingController.updateBooking);
 
 /**
  * @swagger
