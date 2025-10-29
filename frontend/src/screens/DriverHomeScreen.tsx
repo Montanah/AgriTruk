@@ -371,8 +371,22 @@ const DriverHomeScreen = () => {
               {driverProfile.assignedVehicle.registration && (
                 <Text style={styles.vehicleReg}>{driverProfile.assignedVehicle.registration}</Text>
               )}
+              {driverProfile.assignedVehicle.registration && (
+                <Text style={styles.vehicleReg}>Reg: {driverProfile.assignedVehicle.registration}</Text>
+              )}
               {driverProfile.assignedVehicle.capacity && (
-                <Text style={styles.vehicleCapacity}>{driverProfile.assignedVehicle.capacity} kg capacity</Text>
+                <Text style={styles.vehicleCapacity}>
+                  {(() => {
+                    // Convert kg to tons if capacity is in kg, otherwise assume it's already in tons
+                    const capacity = typeof driverProfile.assignedVehicle.capacity === 'number' 
+                      ? driverProfile.assignedVehicle.capacity 
+                      : parseFloat(driverProfile.assignedVehicle.capacity) || 0;
+                    // If capacity > 1000, it's likely in kg, convert to tons
+                    // Otherwise, assume it's already in tons
+                    const capacityInTons = capacity > 1000 ? (capacity / 1000).toFixed(2) : capacity.toFixed(2);
+                    return `${capacityInTons} tons capacity`;
+                  })()}
+                </Text>
               )}
             </View>
           </View>
@@ -686,6 +700,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 0.5,
     marginBottom: 2,
+  },
+  vehicleReg: {
+    fontSize: 12,
+    color: colors.white + 'CC',
+    marginTop: 2,
+    fontFamily: fonts.family.medium,
   },
   vehicleCapacity: {
     fontSize: 12,
