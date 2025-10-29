@@ -692,6 +692,29 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
 
                     {/* Request Type Toggle */}
                     <View style={styles.requestTypeContainer}>
+ unusuallyTouchableOpacity
+                            style={[
+                                styles.requestTypeTab,
+                                requestType === 'booking' && { 
+                                    backgroundColor: accent + '15', 
+                                    borderColor: accent,
+                                    borderWidth: 1
+                                }
+                            ]}
+                            onPress={() => setRequestType('booking')}
+                        >
+                            <MaterialCommunityIcons
+                                name="calendar-clock"
+                                size={18}
+                                color={requestType === 'booking' ? accent : colors.text.secondary}
+                            />
+                            <Text style={[
+                                styles.requestTypeText,
+                                requestType === 'booking' && { color: accent, fontWeight: '600' }
+                            ]}>
+                                Booking
+                            </Text>
+                        </TouchableOpacity>
                         <TouchableOpacity
                             style={[
                                 styles.requestTypeTab,
@@ -713,29 +736,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                 requestType === 'instant' && { color: accent, fontWeight: '600' }
                             ]}>
                                 Instant
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[
-                                styles.requestTypeTab,
-                                requestType === 'booking' && { 
-                                    backgroundColor: accent + '15', 
-                                    borderColor: accent,
-                                    borderWidth: 1
-                                }
-                            ]}
-                            onPress={() => setRequestType('booking')}
-                        >
-                            <MaterialCommunityIcons
-                                name="calendar-clock"
-                                size={18}
-                                color={requestType === 'booking' ? accent : colors.text.secondary}
-                            />
-                            <Text style={[
-                                styles.requestTypeText,
-                                requestType === 'booking' && { color: accent, fontWeight: '600' }
-                            ]}>
-                                Booking
                             </Text>
                         </TouchableOpacity>
                     </View>
