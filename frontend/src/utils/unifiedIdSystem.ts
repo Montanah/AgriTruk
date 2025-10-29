@@ -193,40 +193,19 @@ export function getDisplayBookingId(input: any): string {
   
   // If it's an object, try to extract or generate ID
   if (typeof input === 'object') {
-    // PRIORITY 1: Use readableId from backend ONLY if it's correct for this booking
-    // Problem: Backend sometimes stores duplicate readableIds for different bookings
-    // Solution: Validate readableId matches createdAt before using it
+    // PRIORITY 1: Always use readableId from backend if provided (backend is source of truth)
     const aliasReadableId = input.readableId 
       || input.displayId 
       || input.userFriendlyId 
       || input.customerReadableId 
       || input.shipperReadableId;
     
-    if (aliasReadableId && input.createdAt) {
-      // Validate: Generate ID from createdAt and compare with backend readableId
-      // If they match (allowing for format variations), use backend readableId
-      // Otherwise, generate from createdAt (this fixes duplicate readableIds)
-      const generatedFromCreatedAt = generateDisplayIdFromObject(input);
-      const normalizedBackend = aliasReadableId.replace(/^#/, '').trim();
-      const normalizedGenerated = generatedFromCreatedAt.replace(/^#/, '').trim();
-      
-      // Check if backend readableId matches what we'd generate from createdAt
-      if (normalizedBackend === normalizedGenerated) {
-        return normalizedBackend;
-      } else {
-        // Backend readableId is wrong/duplicate - use generated from createdAt
-        console.warn('⚠️ Backend readableId mismatch:', {
-          backendReadableId: aliasReadableId,
-          generatedFromCreatedAt: generatedFromCreatedAt,
-          createdAt: input.createdAt,
-          usingGenerated: true
-        });
-        return normalizedGenerated;
-      }
-    }
-    
-    // If no readableId or no createdAt, try to use readableId as-is (fallback)
     if (aliasReadableId) {
+      // Backend provides readableId - use it directly (trust backend as source of truth)
+      // If it's an old format, convert it to new format for display consistency
+      if (/^\d{6}-\d{4}-(AGR|CAR)-(BOOK|INST|CONS)$/.test(aliasReadableId)) {
+        return convertOldReadableToNew(aliasReadableId, input.id || input.bookingId || input._id);
+      }
       return aliasReadableId;
     }
     
@@ -344,6 +323,7 @@ function generateDisplayIdFromObject(obj: any): string {
     const day = bookingDate.getDate().toString().padStart(2, '0');
     const hour = bookingDate.getHours().toString().padStart(2, '0');
     const minute = bookingDate.getMinutes().toString().padStart(2, '0');
+    const second = bookingDate.getSeconds().toString().padStart(2, '0');
     
     // Determine type - PRIORITIZE bookingType over product name to avoid "Carrots" -> CAR mistakes
     // bookingType is set explicitly to 'Agri' or 'Cargo' at creation time
@@ -367,23 +347,56 @@ function generateDisplayIdFromObject(obj: any): string {
     
     // Determine mode - prioritize bookingMode field
     const bookingModeField = (obj.bookingMode || (obj.type === 'instant' ? 'instant' : 'booking') || 'booking').toString().toLowerCase();
-    let mode: string;
+    const isConsolidated = obj.isConsolidated || bookingModeField === 'consolidated' || bookingModeField === 'cons';
+    const isInstant = bookingModeField === 'instant' || bookingModeField === 'inst';
     
-    if (bookingModeField === 'instant' || bookingModeField === 'inst') {
-      mode = 'INST';
-    } else if (obj.isConsolidated || bookingModeField === 'consolidated' || bookingModeField === 'cons') {
-      mode = 'CONS';
-    } else {
-      mode = 'BOOK';
-    }
+    // Unique format: YYMMDD-HHMMSS-TYPE-[B/I/C]xxx
+    const letter = isConsolidated ? 'C' : (isInstant ? 'I' : 'B');
     
-    return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
+    // Generate unique suffix from raw ID
+    const rawId = obj.id || obj.bookingId || obj._id || '';
+    const suf = computeShortSuffix(rawId || `${bookingDate.getTime()}-${Math.random()}`);
+    
+    return `${year}${month}${day}-${hour}${minute}${second}-${type}-${letter}${suf}`;
   } catch (error) {
     console.error('Error generating display ID from object:', error);
     // Fallback to database ID if generation fails
     const rawId = obj.id || obj.bookingId || obj._id || '';
     return rawId && rawId.length > 8 ? `#${rawId.slice(-8).toUpperCase()}` : `#${rawId || 'UNKNOWN'}`;
   }
+}
+
+/**
+ * Compute short suffix for unique ID generation
+ */
+function computeShortSuffix(seed: string): string {
+  try {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    return (hash >>> 0).toString(36).toUpperCase().slice(-3).padStart(3, '0');
+  } catch {
+    return Math.random().toString(36).toUpperCase().slice(2, 5);
+  }
+}
+
+/**
+ * Convert old readable ID format to new unique format
+ */
+function convertOldReadableToNew(oldId: string, rawId: string): string {
+  // Old format: YYMMDD-HHMM-TYPE-MODE
+  // New format: YYMMDD-HHMMSS-TYPE-[B/I/C]xxx
+  const match = oldId.match(/^(\d{6})-(\d{4})-(AGR|CAR)-(BOOK|INST|CONS)$/);
+  if (!match) return oldId;
+  
+  const [, ymd, hm, type, modeWord] = match;
+  const letter = modeWord === 'CONS' ? 'C' : (modeWord === 'INST' ? 'I' : 'B');
+  const suf = computeShortSuffix(rawId || oldId);
+  
+  // Append '00' for seconds (unknown in old format)
+  return `${ymd}-${hm}00-${type}-${letter}${suf}`;
 }
 
 /**
