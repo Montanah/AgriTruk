@@ -87,11 +87,9 @@ const VehicleDisplayCard: React.FC<VehicleDisplayCardProps> = ({
                 <Text style={styles.detailLabel}>Capacity</Text>
                 <Text style={styles.detailValue}>
                   {(() => {
-                    // Capacity should be in tons from backend, but handle legacy kg values
+                    // Capacity is already in tons from backend
                     const cap = typeof capacity === 'number' ? capacity : parseFloat(String(capacity)) || 0;
-                    // If capacity > 1000, it's likely in kg (legacy), convert to tons
-                    const capacityInTons = cap > 1000 ? (cap / 1000).toFixed(2) : cap.toFixed(2);
-                    return `${capacityInTons} tons`;
+                    return `${cap.toFixed(2)} tons`;
                   })()}
                 </Text>
               </View>
@@ -132,11 +130,9 @@ const VehicleDisplayCard: React.FC<VehicleDisplayCardProps> = ({
                 <Text style={styles.compactSeparator}>•</Text>
                 <Text style={styles.compactCapacity}>
                   {(() => {
-                    // Capacity should be in tons from backend, but handle legacy kg values
+                    // Capacity is already in tons from backend
                     const cap = typeof capacity === 'number' ? capacity : parseFloat(String(capacity)) || 0;
-                    // If capacity > 1000, it's likely in kg (legacy), convert to tons
-                    const capacityInTons = cap > 1000 ? (cap / 1000).toFixed(2) : cap.toFixed(2);
-                    return `${capacityInTons} tons`;
+                    return `${cap.toFixed(2)} tons`;
                   })()}
                 </Text>
               </>
