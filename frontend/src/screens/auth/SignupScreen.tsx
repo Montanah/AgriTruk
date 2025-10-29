@@ -506,7 +506,7 @@ const SignupScreen = () => {
                 <View style={styles.inputContainer}>
                   <TextInput
                     style={[styles.input, styles.inputActive]}
-                    placeholder="Email Address"
+                    placeholder="user@example.com"
                     value={email}
                     onChangeText={setEmail}
                     autoCapitalize="none"
@@ -550,7 +550,7 @@ const SignupScreen = () => {
                         },
                         styles.inputActive,
                       ]}
-                      placeholder="Phone Number"
+                      placeholder={selectedCountry.code === '+254' ? '712345678' : '712345678'}
                       value={phone}
                       onChangeText={setPhone}
                       autoCapitalize="none"
