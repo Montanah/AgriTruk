@@ -1062,17 +1062,11 @@ const buildDriverProfileResponse = async (driverId, driverData, res) => {
       const vehicleDoc = await db.collection('vehicles').doc(driverData.assignedVehicleId).get();
       if (vehicleDoc.exists) {
         const vehicleData = vehicleDoc.data();
-        // Convert capacity from kg to tons if needed
-        let capacityInTons = vehicleData.capacity || vehicleData.capacityKg || vehicleData.vehicleCapacity || 0;
-        if (typeof capacityInTons === 'number' && capacityInTons > 1000) {
-          // If capacity > 1000, it's likely in kg, convert to tons
-          capacityInTons = capacityInTons / 1000;
-        }
-        
+        // Capacity is already stored in tons (frontend provides it in tons)
         assignedVehicle = {
           id: vehicleDoc.id,
           ...vehicleData,
-          capacity: capacityInTons, // Capacity in tons
+          capacity: vehicleData.capacity || vehicleData.capacityKg || vehicleData.vehicleCapacity || 0,
           registration: vehicleData.registration || vehicleData.vehicleRegistration || vehicleData.reg || null,
         };
       } else if (driverData.companyId) {
@@ -1082,20 +1076,14 @@ const buildDriverProfileResponse = async (driverId, driverData, res) => {
             .collection('vehicles').doc(driverData.assignedVehicleId).get();
           if (companyVehicleDoc.exists) {
             const vehicleData = companyVehicleDoc.data();
-            // Convert capacity from kg to tons if needed
-            let capacityInTons = vehicleData.vehicleCapacity || vehicleData.capacityKg || vehicleData.capacity || 0;
-            if (typeof capacityInTons === 'number' && capacityInTons > 1000) {
-              // If capacity > 1000, it's likely in kg, convert to tons
-              capacityInTons = capacityInTons / 1000;
-            }
-            
+            // Capacity is already stored in tons (frontend provides it in tons)
             assignedVehicle = {
               id: companyVehicleDoc.id,
               make: vehicleData.vehicleMake || vehicleData.make,
               model: vehicleData.vehicleModel || vehicleData.model,
               registration: vehicleData.vehicleRegistration || vehicleData.reg || vehicleData.registration || null,
               type: vehicleData.vehicleType || vehicleData.type,
-              capacity: capacityInTons, // Capacity in tons
+              capacity: vehicleData.vehicleCapacity || vehicleData.capacityKg || vehicleData.capacity || 0,
               ...vehicleData,
               // Ensure registration is always included
               registration: vehicleData.vehicleRegistration || vehicleData.reg || vehicleData.registration || null,
@@ -1398,12 +1386,8 @@ const acceptBooking = async (req, res) => {
       vehicleType: vehicle?.vehicleType || vehicle?.type || (driver.assignedVehicleDetails?.type || null),
       vehicleRegistration: vehicle?.vehicleRegistration || vehicle?.reg || (driver.assignedVehicleDetails?.registration || null),
       vehicleColor: vehicle?.vehicleColor || vehicle?.color || (driver.assignedVehicleDetails?.color || null),
-      // Convert capacity to tons - backend should store in tons
-      vehicleCapacity: (() => {
-        const cap = vehicle?.vehicleCapacity || vehicle?.capacity || (driver.assignedVehicleDetails?.capacityKg || driver.assignedVehicleDetails?.capacity || 0);
-        // If capacity > 1000, assume it's in kg and convert to tons
-        return (typeof cap === 'number' && cap > 1000) ? cap / 1000 : cap;
-      })(),
+      // Capacity is already stored in tons (frontend provides it in tons)
+      vehicleCapacity: vehicle?.vehicleCapacity || vehicle?.capacity || (driver.assignedVehicleDetails?.capacityKg || driver.assignedVehicleDetails?.capacity || 0),
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
