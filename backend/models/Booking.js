@@ -74,6 +74,9 @@ const Booking = {
     consolidated: bookingData.consolidated || false,
     matchedTransporterId: bookingData.matchedTransporterId || null,
     additionalNotes: bookingData.additionalNotes || null,
+    // Optional linkage fields for broker workflows (safe, backward-compatible)
+    brokerData: bookingData.brokerData || null,
+    clientId: bookingData.clientId || (bookingData.brokerData && bookingData.brokerData.clientId) || null,
     statusHistory: bookingData.statusHistory || [{ 
       status: bookingData.status || 'pending',
       timestamp: admin.firestore.Timestamp.now(),
@@ -98,6 +101,37 @@ const Booking = {
   async getAll() {
     const snapshot = await db.collection('bookings').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  // Broker-scoped fetch: bookings created by broker user OR for broker's clients
+  async getBrokerScoped(brokerUserId, clientIds = []) {
+    const results = [];
+    const seen = new Set();
+
+    // 1) Bookings created by broker as user
+    const byUser = await db.collection('bookings').where('userId', '==', brokerUserId).get();
+    byUser.docs.forEach(doc => { const d = { id: doc.id, ...doc.data() }; if (!seen.has(d.bookingId)) { seen.add(d.bookingId); results.push(d); } });
+
+    // 2) Bookings attributed via brokerData.brokerId
+    try {
+      const byBroker = await db.collection('bookings').where('brokerData.brokerId', '==', brokerUserId).get();
+      byBroker.docs.forEach(doc => { const d = { id: doc.id, ...doc.data() }; if (!seen.has(d.bookingId)) { seen.add(d.bookingId); results.push(d); } });
+    } catch (_) {}
+
+    // 3) Bookings for each clientId (Firestore limitation: no array-of-values query on nested without index; do sequentially)
+    for (const cid of clientIds) {
+      try {
+        const byClient = await db.collection('bookings').where('brokerData.clientId', '==', cid).get();
+        byClient.docs.forEach(doc => { const d = { id: doc.id, ...doc.data() }; if (!seen.has(d.bookingId)) { seen.add(d.bookingId); results.push(d); } });
+      } catch (_) {}
+      // Also support legacy top-level clientId
+      try {
+        const byClientLegacy = await db.collection('bookings').where('clientId', '==', cid).get();
+        byClientLegacy.docs.forEach(doc => { const d = { id: doc.id, ...doc.data() }; if (!seen.has(d.bookingId)) { seen.add(d.bookingId); results.push(d); } });
+      } catch (_) {}
+    }
+
+    return results;
   },
 
   async getBookingForUser(userId) {
