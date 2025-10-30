@@ -31,17 +31,17 @@ export const generateReadableId = (options: ReadableIdOptions): string => {
 };
 
 /**
- * Generate a readable ID for a single request
+ * Generate a readable ID for a single request (PLACEHOLDER - backend will generate final ID)
  */
-export const generateRequestReadableId = (bookingType: 'Agri' | 'Cargo', bookingMode: 'instant' | 'booking', timestamp?: Date): string => {
-  return generateReadableId({ bookingType, bookingMode, timestamp });
+export const generateRequestReadableId = (bookingType: 'Agri' | 'Cargo', bookingMode: 'instant' | 'booking', timestamp?: Date, seed?: string): string => {
+  return generateReadableId({ bookingType, bookingMode, timestamp }, seed);
 };
 
 /**
- * Generate a readable ID for consolidated requests
+ * Generate a readable ID for consolidated requests (PLACEHOLDER - backend will generate final ID)
  */
-export const generateConsolidationReadableId = (bookingType: 'Agri' | 'Cargo', timestamp?: Date): string => {
-  return generateReadableId({ bookingType, bookingMode: 'booking', isConsolidated: true, timestamp });
+export const generateConsolidationReadableId = (bookingType: 'Agri' | 'Cargo', timestamp?: Date, seed?: string): string => {
+  return generateReadableId({ bookingType, bookingMode: 'booking', isConsolidated: true, timestamp }, seed);
 };
 
 /**
@@ -79,11 +79,14 @@ export const parseReadableId = (readableId: string) => {
 };
 
 /**
- * Check if an ID is a readable ID format
+ * Check if an ID is a readable ID format (supports both old and new formats)
  */
 export const isReadableId = (id: string): boolean => {
-  const pattern = /^\d{6}-\d{4}-(AGR|CRG|CONS)-(INST|BOOK|AGR|CRG)$/;
-  return pattern.test(id);
+  // New format: YYMMDD-HHMMSS-TYPE-[B/I/C]xxx (e.g., 251029-215720-AGR-B34A)
+  const newPattern = /^\d{6}-\d{6}-(AGR|CAR)-(B|I|C)[A-Z0-9]{3}$/;
+  // Old format: YYMMDD-HHMM-TYPE-MODE (for backward compatibility)
+  const oldPattern = /^\d{6}-\d{4}-(AGR|CRG|CAR)-(INST|BOOK|CONS)$/;
+  return newPattern.test(id) || oldPattern.test(id);
 };
 
 /**
