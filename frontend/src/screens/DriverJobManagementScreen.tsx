@@ -1201,8 +1201,8 @@ const DriverJobManagementScreen = () => {
         </View>
       </Modal>
     </View>
-    );
-  };
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
