@@ -904,14 +904,16 @@ const styles = StyleSheet.create({
     fab: {
         position: 'absolute',
         right: spacing.lg,
-        bottom: spacing.xxl + 8,
+        // Raise above bottom tab bar so it's fully visible and tappable
+        bottom: spacing.xxl * 2,
         width: 56,
         height: 56,
         borderRadius: 28,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: colors.primary,
-        elevation: 8,
+        elevation: 12,
+        zIndex: 100,
         shadowColor: colors.black,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.25,
