@@ -926,7 +926,7 @@ const DriverJobManagementScreen = () => {
                 styles.cancelButton,
                 cancellingJobId === item.id && styles.acceptButtonDisabled
               ]}
-              onPress={() => showCancelModal(item)}
+              onPress={() => openCancelModal(item)}
               disabled={cancellingJobId === item.id}
             >
               {cancellingJobId === item.id ? (
