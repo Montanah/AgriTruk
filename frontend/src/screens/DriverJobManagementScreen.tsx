@@ -584,7 +584,7 @@ const DriverJobManagementScreen = () => {
     }
   };
 
-  const showCancelModal = (job: Job) => {
+  const openCancelModal = (job: Job) => {
     setJobToCancel(job);
     setCancellationReason('');
     setShowCancelModal(true);
