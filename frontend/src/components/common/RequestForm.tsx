@@ -419,7 +419,8 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             try {
                 navigation.navigate('BookingConfirmation', {
                     requests: consolidations.length > 0 ? consolidations : [requestData],
-                    mode
+                    mode,
+                    selectedClient,
                 });
             } catch (navError) {
                 throw navError;
