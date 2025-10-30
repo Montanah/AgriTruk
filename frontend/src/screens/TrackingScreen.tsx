@@ -129,9 +129,29 @@ const TrackingScreen = () => {
             if (response.ok) {
                 const data = await response.json();
                 const bookingData = data.booking || data;
-                // Ensure booking has all necessary fields for ID display
+                // Ensure booking has all necessary fields for ID display and vehicle/transporter details
+                const synthesizedVehicle = bookingData.transporter?.vehicle || {
+                    make: bookingData.vehicleMake,
+                    model: bookingData.vehicleModel,
+                    year: bookingData.vehicleYear,
+                    registration: bookingData.vehicleRegistration,
+                    type: bookingData.vehicleType,
+                    capacity: bookingData.vehicleCapacity,
+                    color: bookingData.vehicleColor,
+                    vehicleImagesUrl: bookingData.vehiclePhotos ? (Array.isArray(bookingData.vehiclePhotos) ? bookingData.vehiclePhotos : [bookingData.vehiclePhotos]) : undefined,
+                    photos: bookingData.vehiclePhotos ? (Array.isArray(bookingData.vehiclePhotos) ? bookingData.vehiclePhotos : [bookingData.vehiclePhotos]) : undefined,
+                };
+
+                const synthesizedTransporter = bookingData.transporter || {
+                    id: bookingData.transporterId,
+                    name: bookingData.transporterName,
+                    phone: bookingData.transporterPhone,
+                    vehicle: synthesizedVehicle,
+                };
+
                 const enrichedBooking = {
                     ...bookingData,
+                    transporter: synthesizedTransporter,
                     readableId: bookingData.readableId,
                     bookingType: bookingData.bookingType || bookingData.type,
                     bookingMode: bookingData.bookingMode || (bookingData.type === 'instant' ? 'instant' : 'booking'),
