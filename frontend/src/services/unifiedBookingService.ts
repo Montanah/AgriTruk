@@ -188,11 +188,8 @@ class UnifiedBookingService {
           endpoint = `${API_ENDPOINTS.BOOKINGS}/shipper`;
           break;
         case 'broker':
-          // Backend currently stores bookings with userId = authenticated UID.
-          // Use user-scoped bookings to ensure brokers see their own bookings
-          const auth = getAuth();
-          const me = auth.currentUser;
-          endpoint = `${API_ENDPOINTS.BOOKINGS}/user/${me?.uid}`;
+          // Prefer new backend endpoint that scopes by broker ownership and client attribution
+          endpoint = `${API_ENDPOINTS.BOOKINGS}/broker/scoped`;
           break;
         case 'business':
           endpoint = `${API_ENDPOINTS.BOOKINGS}/business`;
@@ -274,6 +271,7 @@ class UnifiedBookingService {
           } catch {}
 
           const fallbackUrls = [
+            `${API_ENDPOINTS.BOOKINGS}/user/${getAuth().currentUser?.uid || ''}`,
             `${API_ENDPOINTS.REQUESTS}${brokerIdParam ? `?${brokerIdParam}` : ''}`,
             `${API_ENDPOINTS.BOOKINGS}?scope=broker${brokerIdParam ? `&${brokerIdParam}` : ''}`,
             `${API_ENDPOINTS.BOOKINGS}${brokerIdParam ? `?${brokerIdParam}` : ''}`,
