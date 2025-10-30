@@ -395,7 +395,14 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         keyExtractor={item => item.id}
         renderItem={({ item, index }) => (
           <View style={[styles.bookingCard, index % 2 === 0 ? { backgroundColor: colors.surface } : { backgroundColor: colors.background }]}>
-            <Text style={styles.bookingId}>Request ID: {item.id}</Text>
+            <Text style={styles.bookingId}>Request ID: {getDisplayBookingId({
+              ...item,
+              readableId: item.readableId,
+              bookingType: item.bookingType || (item.type === 'agriTRUK' ? 'Agri' : 'Cargo'),
+              bookingMode: item.bookingMode || (item.requestType === 'instant' ? 'instant' : 'booking'),
+              createdAt: item.createdAt || item.date,
+              bookingId: item.id || item.bookingId
+            })}</Text>
             <Text style={styles.bookingDetail}>From: <Text style={{ fontWeight: 'bold' }}>{cleanLocationDisplay(item.fromLocationAddress || (typeof item.fromLocation === 'object' ? (item.fromLocation.address || `Location (${item.fromLocation.latitude}, ${item.fromLocation.longitude})`) : item.fromLocation))}</Text></Text>
             <Text style={styles.bookingDetail}>To: <Text style={{ fontWeight: 'bold' }}>{cleanLocationDisplay(item.toLocationAddress || (typeof item.toLocation === 'object' ? (item.toLocation.address || `Location (${item.toLocation.latitude}, ${item.toLocation.longitude})`) : item.toLocation))}</Text></Text>
             <Text style={styles.bookingDetail}>Product: {item.productType} | {item.weight}kg</Text>
