@@ -335,7 +335,7 @@ function generateDisplayIdFromObject(obj: any): string {
       // As absolute last resort, use current time (not ideal but better than raw ID)
       // This ensures we always have a readable format, even if timestamp parsing fails
       const fallbackDate = new Date();
-      const utcPlus3 = new Date(fallbackDate.getTimeأت() + (3 * 60 * 60 * 1000));
+      const utcPlus3 = new Date(fallbackDate.getTime() + (3 * 60 * 60 * 1000));
       
       // Extract and validate date components to prevent NaN
       const yearNum = utcPlus3.getUTCFullYear();
