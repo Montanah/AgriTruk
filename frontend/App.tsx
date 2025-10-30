@@ -1534,6 +1534,20 @@ export default function App() {
     );
   }
 
+  // Fallback: Ensure screens is never null (prevents navigation errors during initial render)
+  if (!screens) {
+    console.warn('App.tsx: screens is null, using fallback Welcome screen');
+    initialRouteName = 'Welcome';
+    screens = (
+      <>
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} />
+        <Stack.Screen name="SignIn" component={LoginScreen} />
+      </>
+    );
+  }
+
   // Wrap the entire app in a global error boundary
   const ErrorBoundary = require('./src/components/ErrorBoundary').default;
   return (
