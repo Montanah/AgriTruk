@@ -5,7 +5,7 @@ export interface SubscriptionPlan {
   description: string;
   price: number;
   currency: string;
-  billingPeriod: 'monthly' | 'yearly';
+  billingPeriod: 'monthly' | 'quarterly' | 'yearly';
   features: string[];
   limits: {
     drivers?: number;
@@ -91,74 +91,71 @@ export const INDIVIDUAL_PLANS: SubscriptionPlan[] = [
   }
 ];
 
-// Broker Plans (Existing)
+// Broker Plans — aligned with public website pricing
 export const BROKER_PLANS: SubscriptionPlan[] = [
   {
-    id: 'broker_basic',
-    name: 'Broker Basic',
-    description: 'For new brokers',
-    price: 499,
+    id: 'broker_monthly',
+    name: 'Monthly',
+    description: 'Flexible monthly access for brokers',
+    price: 199,
     currency: 'KES',
     billingPeriod: 'monthly',
     features: [
-      'Up to 5 clients',
-      'Basic matching',
-      'Email support',
-      'Mobile app access'
+      'Access to transporter network',
+      'Real-time tracking',
+      '24/7 support',
+      'Commission management',
     ],
     limits: {
-      drivers: 5,
-      bookings: 50,
-    },
-    color: '#B00B1C',
-    icon: 'account-tie'
-  },
-  {
-    id: 'broker_pro',
-    name: 'Broker Pro',
-    description: 'For established brokers',
-    price: 999,
-    currency: 'KES',
-    billingPeriod: 'monthly',
-    features: [
-      'Up to 20 clients',
-      'Everything in Basic, plus:',
-      'Advanced matching',
-      'Priority support',
-      'Analytics dashboard',
-      'Client management tools'
-    ],
-    limits: {
-      drivers: 20,
-      bookings: 200,
-    },
-    isPopular: true,
-    color: '#FF8C00',
-    icon: 'account-tie-outline'
-  },
-  {
-    id: 'broker_enterprise',
-    name: 'Broker Enterprise',
-    description: 'For large brokerages',
-    price: 1999,
-    currency: 'KES',
-    billingPeriod: 'monthly',
-    features: [
-      'Unlimited clients',
-      'Everything in Pro, plus:',
-      'Custom integrations',
-      'White-label solutions',
-      '24/7 phone support',
-      'Dedicated account manager'
-    ],
-    limits: {
-      drivers: -1, // unlimited
       bookings: -1,
     },
-    isEnterprise: true,
+    color: '#B00B1C',
+    icon: 'account-tie',
+  },
+  {
+    id: 'broker_quarterly',
+    name: 'Quarterly',
+    description: 'Most popular plan — billed every 3 months',
+    price: 499,
+    currency: 'KES',
+    billingPeriod: 'quarterly',
+    features: [
+      'Access to transporter network',
+      'Real-time tracking',
+      '24/7 priority support',
+      'Commission management',
+      'Analytics dashboard',
+    ],
+    limits: {
+      bookings: -1,
+    },
+    isPopular: true,
+    savings: 'Save KES 98',
+    color: '#FF8C00',
+    icon: 'account-tie-outline',
+  },
+  {
+    id: 'broker_yearly',
+    name: 'Yearly',
+    description: 'Best value annual plan',
+    price: 1599,
+    currency: 'KES',
+    billingPeriod: 'yearly',
+    features: [
+      'Access to transporter network',
+      'Real-time tracking',
+      '24/7 priority support',
+      'Commission management',
+      'Advanced analytics',
+      'Dedicated account manager',
+    ],
+    limits: {
+      bookings: -1,
+    },
+    savings: 'Save KES 789',
     color: '#0F2B04',
-    icon: 'account-tie-hat'
-  }
+    icon: 'account-tie-hat',
+  },
 ];
 
 // Company Fleet Plans (New)
