@@ -461,35 +461,32 @@ export default function BrokerProfileScreen() {
   };
 
   const renderProfileHeader = () => (
-    <View style={styles.profileHeader}>
-      <TouchableOpacity style={styles.profilePhotoContainer} onPress={showPhotoOptions}>
+    <View style={styles.profileHeaderModern}>
+      <TouchableOpacity style={styles.profilePhotoContainerModern} onPress={showPhotoOptions}>
         {profilePhoto ? (
-          <Image source={{ uri: profilePhoto.uri }} style={styles.profilePhoto} />
+          <Image source={{ uri: profilePhoto.uri }} style={styles.profilePhotoModern} />
         ) : (
-          <View style={styles.profilePhotoPlaceholder}>
-            <MaterialCommunityIcons name="account" size={40} color={colors.primary} />
+          <View style={styles.profilePhotoPlaceholderModern}>
+            <MaterialCommunityIcons name="account" size={36} color={colors.primary} />
           </View>
         )}
-        <View style={styles.editPhotoButton}>
-          <MaterialCommunityIcons name="camera" size={16} color={colors.white} />
+        <View style={styles.editPhotoButtonModern}>
+          <MaterialCommunityIcons name="camera" size={14} color={colors.white} />
         </View>
       </TouchableOpacity>
-
-      <View style={styles.profileInfo}>
-        <Text style={styles.profileName}>{name || 'Broker Name'}</Text>
-        <Text style={styles.profileCompany}>{company || 'Corporate Name'}</Text>
-        <Text style={styles.profileLocation}>{location || 'Location'}</Text>
-        <View style={styles.verifiedBrokerBadge}>
-          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-          <Text style={styles.verifiedBrokerText}>Verified Broker</Text>
+      <View style={styles.profileInfoModern}>
+        <Text style={styles.profileNameModern}>{name || email || 'Broker Name'}</Text>
+        <Text style={styles.profileEmailModern} numberOfLines={1} ellipsizeMode="tail">{email}</Text>
+        <View style={styles.verifiedBrokerBadgeModern}>
+          <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+          <Text style={styles.verifiedBrokerTextModern}>Verified Broker</Text>
         </View>
       </View>
-
       <TouchableOpacity
-        style={styles.editButton}
+        style={styles.editButtonModern}
         onPress={() => setShowProfileModal(true)}
       >
-        <MaterialCommunityIcons name="pencil" size={20} color={colors.primary} />
+        <MaterialCommunityIcons name="pencil" size={18} color={colors.primary} />
       </TouchableOpacity>
     </View>
   );
@@ -544,76 +541,56 @@ export default function BrokerProfileScreen() {
       <Text style={styles.sectionTitle}>Profile Details</Text>
 
       <View style={styles.detailCard}>
-        <View style={styles.detailRow}>
+        <View style={styles.detailRowNeat}>
           <MaterialCommunityIcons name="account" size={20} color={colors.primary} />
-          <Text style={styles.detailLabel}>Full Name</Text>
-          <Text style={styles.detailValue}>{name || 'Not set'}</Text>
+          <Text style={styles.detailValueNeat}>{name || 'Not set'}</Text>
         </View>
 
-        <View style={styles.detailRow}>
+        <View style={styles.detailRowNeat}>
           <MaterialCommunityIcons name="email" size={20} color={colors.secondary} />
-          <Text style={styles.detailLabel}>Email</Text>
-          <View style={styles.detailValueContainer}>
-            <Text style={styles.detailValue}>{email || 'Not set'}</Text>
-            <View style={[
-              styles.verificationBadge,
-              emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
-            ]}>
-              <Ionicons
-                name={emailVerified ? "checkmark-circle" : "close-circle"}
-                size={12}
-                color={emailVerified ? colors.success : colors.warning}
-              />
-              <Text style={[
-                styles.verificationBadgeText,
-                emailVerified ? styles.verifiedText : styles.unverifiedText
-              ]}>
-                {emailVerified ? 'Verified' : 'Unverified'}
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.detailValueNeat}>{email || 'Not set'}
+            {<View style={[styles.inlineBadge, emailVerified ? styles.verifiedBadge : styles.unverifiedBadge]}> 
+            <Ionicons
+              name={emailVerified ? "checkmark-circle" : "close-circle"}
+              size={12}
+              color={emailVerified ? colors.success : colors.warning}
+            />
+            <Text style={[styles.verificationBadgeText, emailVerified ? styles.verifiedText : styles.unverifiedText]}>
+              {emailVerified ? ' Verified' : ' Unverified'}
+            </Text>
+          </View>}
+          </Text>
         </View>
 
-        <View style={styles.detailRow}>
+        <View style={styles.detailRowNeat}>
           <MaterialCommunityIcons name="phone" size={20} color={colors.tertiary} />
-          <Text style={styles.detailLabel}>Phone</Text>
-          <View style={styles.detailValueContainer}>
-            <Text style={styles.detailValue}>{phone || 'Not set'}</Text>
-            <View style={[
-              styles.verificationBadge,
-              phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
-            ]}>
-              <Ionicons
-                name={phoneVerified ? "checkmark-circle" : "close-circle"}
-                size={12}
-                color={phoneVerified ? colors.success : colors.warning}
-              />
-              <Text style={[
-                styles.verificationBadgeText,
-                phoneVerified ? styles.verifiedText : styles.unverifiedText
-              ]}>
-                {phoneVerified ? 'Verified' : 'Unverified'}
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.detailValueNeat}>{phone || 'Not set'}
+            {<View style={[styles.inlineBadge, phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge]}> 
+            <Ionicons
+              name={phoneVerified ? "checkmark-circle" : "close-circle"}
+              size={12}
+              color={phoneVerified ? colors.success : colors.warning}
+            />
+            <Text style={[styles.verificationBadgeText, phoneVerified ? styles.verifiedText : styles.unverifiedText]}>
+              {phoneVerified ? ' Verified' : ' Unverified'}
+            </Text>
+          </View>}
+          </Text>
         </View>
 
-        <View style={styles.detailRow}>
+        <View style={styles.detailRowNeat}>
           <MaterialCommunityIcons name="office-building" size={20} color={colors.warning} />
-          <Text style={styles.detailLabel}>Corporate</Text>
-          <Text style={styles.detailValue}>{company || 'Not set'}</Text>
+          <Text style={styles.detailValueNeat}>{company || 'Not set'}</Text>
         </View>
 
-        <View style={styles.detailRow}>
+        <View style={styles.detailRowNeat}>
           <MaterialCommunityIcons name="map-marker" size={20} color={colors.error} />
-          <Text style={styles.detailLabel}>Location</Text>
-          <Text style={styles.detailValue}>{location || 'Not set'}</Text>
+          <Text style={styles.detailValueNeat}>{location || 'Not set'}</Text>
         </View>
 
-        <View style={styles.detailRow}>
+        <View style={styles.detailRowNeat}>
           <MaterialCommunityIcons name="calendar" size={20} color={colors.success} />
-          <Text style={styles.detailLabel}>Client Since</Text>
-          <Text style={styles.detailValue}>{clientSince}</Text>
+          <Text style={styles.detailValueNeat}>{clientSince}</Text>
         </View>
       </View>
 
@@ -1620,5 +1597,98 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.text.primary,
     marginLeft: spacing.sm,
+  },
+  detailRowNeat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  detailValueNeat: {
+    fontSize: 15,
+    marginLeft: 16,
+    color: colors.primaryDark,
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  inlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  profileHeaderModern: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  profilePhotoContainerModern: {
+    position: 'relative',
+    marginRight: spacing.md,
+  },
+  profilePhotoModern: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: colors.surface,
+  },
+  profilePhotoPlaceholderModern: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editPhotoButtonModern: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: colors.primary,
+    borderRadius: 11,
+    width: 22,
+    height: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.white,
+  },
+  profileInfoModern: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  profileNameModern: {
+    fontSize: 19,
+    fontWeight: 'bold',
+    color: colors.primaryDark,
+    marginBottom: 1,
+    flexShrink: 1,
+  },
+  profileEmailModern: {
+    fontSize: 15,
+    color: colors.text.secondary,
+    marginBottom: 2,
+    flexShrink: 1,
+  },
+  verifiedBrokerBadgeModern: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '1f',
+    borderRadius: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  verifiedBrokerTextModern: {
+    color: colors.success,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  editButtonModern: {
+    padding: spacing.xs,
+    marginLeft: spacing.md,
   },
 });
