@@ -251,20 +251,22 @@ export default function BrokerProfileScreen() {
     try {
       const user = auth.currentUser;
       if (user) {
-        await updateDoc(doc(db, 'users', user.uid), {
-          name,
-          email,
-          phone,
-          company,
-          location,
-          bio,
-          updatedAt: new Date()
+        await apiRequest(`/users/${user.uid}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name,
+            email,
+            phone,
+            company,
+            location,
+            bio,
+          }),
         });
         Alert.alert('Profile Updated', 'Your profile details have been updated successfully.');
       }
     } catch (error) {
       console.error('Profile update error:', error);
-      Alert.alert('Update Error', 'Failed to update profile. Please try again.');
+      Alert.alert('Update Error', (error as any)?.message || 'Failed to update profile. Please try again.');
     }
   };
 
@@ -722,8 +724,9 @@ export default function BrokerProfileScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile & Account</Text>
-        <TouchableOpacity onPress={handleLogout}>
-          <MaterialCommunityIcons name="logout" size={24} color={colors.error} />
+        <TouchableOpacity onPress={handleLogout} style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
+          <Text style={{ marginLeft: 6, color: colors.error, fontWeight: 'bold' }}>Logout</Text>
         </TouchableOpacity>
       </View>
 
@@ -761,6 +764,29 @@ export default function BrokerProfileScreen() {
                 value={name}
                 onChangeText={setName}
                 placeholder="Enter your full name"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={styles.textInput}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter your email"
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Phone Number</Text>
+              <TextInput
+                style={styles.textInput}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Enter your phone number"
+                keyboardType="phone-pad"
               />
             </View>
 

@@ -42,7 +42,7 @@ const TabNavigator = () => {
           if (route.name === 'BusinessHome') {
             return (
               <MaterialCommunityIcons
-                name={focused ? 'office-building' : 'office-building-outline'}
+                name={focused ? 'home' : 'home-outline'}
                 size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
@@ -51,7 +51,7 @@ const TabNavigator = () => {
           } else if (route.name === 'BusinessManage') {
             return (
               <MaterialCommunityIcons
-                name={focused ? 'briefcase-check' : 'briefcase-outline'}
+                name={focused ? 'clipboard-list' : 'clipboard-list-outline'}
                 size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
@@ -60,7 +60,7 @@ const TabNavigator = () => {
           } else if (route.name === 'BusinessProfile') {
             return (
               <MaterialCommunityIcons
-                name={focused ? 'account-tie' : 'account-tie-outline'}
+                name={focused ? 'account' : 'account-outline'}
                 size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}

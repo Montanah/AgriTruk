@@ -219,15 +219,15 @@ const BusinessHomeScreen = ({ navigation }: any) => {
           <View style={styles.quickActionsRow}>
             <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('BusinessRequest')}>
               <MaterialCommunityIcons name="cube-send" size={28} color={colors.secondary} />
-              <Text style={styles.quickActionLabel}>Request</Text>
+              <Text style={styles.quickActionLabel}>Request Transport</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('BusinessManage')}>
               <MaterialCommunityIcons name="layers-outline" size={28} color={colors.secondary} />
-              <Text style={styles.quickActionLabel}>Consolidate</Text>
+              <Text style={styles.quickActionLabel}>Consolidate Cargo Shipments</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('BusinessManage')}>
-              <MaterialCommunityIcons name="truck-delivery-outline" size={28} color={colors.secondary} />
-              <Text style={styles.quickActionLabel}>Track</Text>
+              <MaterialCommunityIcons name="map-search-outline" size={28} color={colors.secondary} />
+              <Text style={styles.quickActionLabel}>Track Your Shipments</Text>
             </TouchableOpacity>
           </View>
           <Spacer size={18} />

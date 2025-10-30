@@ -79,6 +79,7 @@ export default function ManageTransporterScreen({ route }: any) {
   const [editModal, setEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editProfilePhoto, setEditProfilePhoto] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -711,6 +712,23 @@ export default function ManageTransporterScreen({ route }: any) {
         Alert.alert('Password Change Error', err.message || 'Failed to change password.');
         return;
       }
+    }
+    try {
+      if (auth.currentUser) {
+        await apiRequest(`/users/${auth.currentUser.uid}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: editName,
+            email: editEmail,
+            phone: editPhone,
+          }),
+        });
+        // Update local user profile/state when available
+        setUserProfile((prev: any) => prev ? { ...prev, name: editName || prev.name, email: editEmail || prev.email, phoneNumber: editPhone || prev.phoneNumber } : prev);
+      }
+    } catch (e: any) {
+      Alert.alert('Profile Update Error', e.message || 'Failed to update profile.');
+      return;
     }
     setEditModal(false);
     setEditPassword('');
@@ -1678,10 +1696,7 @@ export default function ManageTransporterScreen({ route }: any) {
               <Text style={[styles.actionText, { color: colors.primary }]}>Upload Registration Document</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={[styles.actionBtn, { marginTop: 10 }]} onPress={handleLogout}>
-              <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
-              <Text style={[styles.actionText, { color: colors.error }]}>Logout</Text>
-            </TouchableOpacity>
+            {/* Removed duplicate Logout; standardized to header-right */}
           </View>
 
           {/* Contact Verification Section */}
@@ -2262,6 +2277,18 @@ export default function ManageTransporterScreen({ route }: any) {
               </View>
               <View style={styles.editDivider} />
               <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editEmail}
+                  onChangeText={setEditEmail}
+                  placeholder="Email"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+              <View style={styles.editDivider} />
+              <View style={styles.editFieldWrap}>
                 <Text style={styles.editLabel}>Phone</Text>
                 <TextInput
                   style={styles.input}
@@ -2514,9 +2541,7 @@ export default function ManageTransporterScreen({ route }: any) {
               <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, marginRight: 8 }} onPress={() => setEditModal(true)}>
                 <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Edit Profile</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ backgroundColor: colors.error, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22 }} onPress={handleLogout}>
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Logout</Text>
-              </TouchableOpacity>
+              {/* Removed duplicate Logout; standardized to header-right */}
             </View>
           </View>
 

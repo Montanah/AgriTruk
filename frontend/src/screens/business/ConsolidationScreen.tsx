@@ -68,14 +68,19 @@ const ConsolidationScreen = ({ navigation }: any) => {
       >
         <Card style={[styles.itemCard, selected && styles.selectedCard]}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.itemId}>Request ID: {getDisplayBookingId(item)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <MaterialCommunityIcons
+                name={selected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                size={22}
+                color={selected ? colors.secondary : colors.text.light}
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.itemId}>Request ID: {getDisplayBookingId(item)}</Text>
+            </View>
             <Text style={styles.itemRoute}>{item.fromLocation} → {item.toLocation}</Text>
             <Text style={styles.itemMeta}>{item.productType} | {item.weight}kg | {item.requestType === 'instant' ? 'Instant' : 'Booking'}</Text>
           </View>
           <View style={styles.statusWrap}>
-            {selected && (
-              <MaterialCommunityIcons name="check-circle" size={22} color={colors.secondary} style={{ marginBottom: 8 }} />
-            )}
             <TouchableOpacity onPress={() => removeConsolidation(item.id)}>
               <MaterialCommunityIcons name="delete" size={22} color={colors.error} />
             </TouchableOpacity>
@@ -105,6 +110,12 @@ const ConsolidationScreen = ({ navigation }: any) => {
         keyExtractor={item => item.id}
         ItemSeparatorComponent={() => <Spacer size={12} />}
         contentContainerStyle={{ paddingBottom: 40 }}
+        ListHeaderComponent={
+          <View style={styles.selectionHint}>
+            <MaterialCommunityIcons name="checkbox-multiple-marked-outline" size={18} color={colors.secondary} />
+            <Text style={styles.selectionHintText}>Tap items to select multiple shipments for consolidation</Text>
+          </View>
+        }
         ListEmptyComponent={
           <View style={{ alignItems: 'center', marginTop: 40 }}>
             <Text style={{ color: colors.text.secondary, textAlign: 'center', marginBottom: 16 }}>No consolidated requests yet.</Text>
@@ -160,6 +171,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary + '22',
     borderColor: colors.secondary,
     borderWidth: 2,
+  },
+  selectionHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  selectionHintText: {
+    color: colors.text.secondary,
+    fontSize: fonts.size.sm,
+    flex: 1,
   },
   itemId: {
     fontSize: fonts.size.sm,

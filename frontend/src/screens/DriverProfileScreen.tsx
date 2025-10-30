@@ -369,6 +369,13 @@ const DriverProfileScreen = () => {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
+      {/* Standard header-right Logout */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 10 }}>
+        <TouchableOpacity onPress={handleLogout} style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <MaterialCommunityIcons name="logout" size={18} color={colors.error} />
+          <Text style={{ marginLeft: 6, color: colors.error, fontWeight: 'bold' }}>Logout</Text>
+        </TouchableOpacity>
+      </View>
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatarContainer}>
@@ -584,13 +591,7 @@ const DriverProfileScreen = () => {
         </View>
       </View>
 
-      {/* Logout Section */}
-      <View style={styles.section}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <MaterialCommunityIcons name="logout" size={24} color={colors.error} />
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Logout Section (optional duplicate can be removed if desired) */}
 
       {/* Bottom padding to prevent cut-off */}
       <View style={styles.bottomPadding} />

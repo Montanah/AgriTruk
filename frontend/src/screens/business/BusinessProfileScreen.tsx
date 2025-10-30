@@ -200,10 +200,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
         return;
       }
 
-      // Update Firestore with the new profile data
-      const { doc, updateDoc } = require('firebase/firestore');
-      const { db } = require('../../firebaseConfig');
-      
+      // Send updates via backend API
       const updateData: any = {
         businessName: editData.businessName,
         registrationNumber: editData.registrationNumber,
@@ -213,16 +210,17 @@ const BusinessProfileScreen = ({ navigation }: any) => {
         address: editData.address,
         businessType: editData.businessType,
         taxNumber: editData.taxNumber,
-        updatedAt: new Date().toISOString(),
       };
 
-      // Only update logo if it has a URL (was uploaded)
       if (editData.logo && editData.logo.uri) {
         updateData.logo = editData.logo.uri;
-        updateData.profilePhotoUrl = editData.logo.uri; // Also update profilePhotoUrl for compatibility
+        updateData.profilePhotoUrl = editData.logo.uri;
       }
 
-      await updateDoc(doc(db, 'users', user.uid), updateData);
+      await apiRequest(`/users/${user.uid}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updateData),
+      });
       
       setProfileData(editData);
       setEditing(false);
@@ -520,7 +518,10 @@ const BusinessProfileScreen = ({ navigation }: any) => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Business Profile</Text>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={24} color={colors.white} />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="log-out-outline" size={20} color={colors.white} />
+              <Text style={{ color: colors.white, marginLeft: 6, fontWeight: 'bold' }}>Logout</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </LinearGradient>

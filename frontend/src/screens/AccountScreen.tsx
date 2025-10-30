@@ -251,12 +251,14 @@ const AccountScreen = () => {
 
     try {
       setLoading(true);
-      await updateDoc(doc(db, 'users', user.uid), {
-        name: editData.name,
-        email: editData.email,
-        phone: editData.phone,
-        address: editData.address,
-        updatedAt: new Date().toISOString(),
+      await apiRequest(`/users/${user.uid}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          name: editData.name,
+          email: editData.email,
+          phone: editData.phone,
+          address: editData.address,
+        }),
       });
 
       setProfile(prev => prev ? { ...prev, ...editData } : null);
@@ -510,16 +512,22 @@ const AccountScreen = () => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Account</Text>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => setEditing(!editing)}
-          >
-            <MaterialCommunityIcons
-              name={editing ? "close" : "pencil"}
-              size={24}
-              color={editing ? colors.error : colors.white}
-            />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => setEditing(!editing)}
+            >
+              <MaterialCommunityIcons
+                name={editing ? "close" : "pencil"}
+                size={24}
+                color={editing ? colors.error : colors.white}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="logout" size={20} color={colors.white} />
+              <Text style={{ color: colors.white, marginLeft: 6, fontWeight: 'bold' }}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -876,13 +884,7 @@ const AccountScreen = () => {
             <Text style={styles.utilityButtonText}>Change Password</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <MaterialCommunityIcons name="logout" size={24} color={colors.white} />
-            <Text style={styles.logoutButtonText}>Logout</Text>
-          </TouchableOpacity>
+          {/* Removed duplicate in-content logout; standardized to header-right */}
         </View>
 
         {/* Edit Mode Actions */}

@@ -48,13 +48,13 @@ const TabNavigator = ({ route }: any) => {
         tabBarItemStyle: {
           marginTop: 0,
         },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color }) => {
           if (route.name === 'Home') {
-            return <Ionicons name="home" size={24} color={color} style={{ marginBottom: -2 }} />;
+            return <MaterialCommunityIcons name={focused ? 'home' : 'home-outline'} size={28} color={color} style={{ marginBottom: -2 }} />;
           } else if (route.name === 'Management') {
-            return <MaterialCommunityIcons name="truck-delivery" size={24} color={color} style={{ marginBottom: -2 }} />;
+            return <MaterialCommunityIcons name={focused ? 'clipboard-list' : 'clipboard-list-outline'} size={28} color={color} style={{ marginBottom: -2 }} />;
           } else if (route.name === 'Profile') {
-            return <Ionicons name="person-circle-outline" size={26} color={color} style={{ marginBottom: -2 }} />;
+            return <MaterialCommunityIcons name={focused ? 'account' : 'account-outline'} size={28} color={color} style={{ marginBottom: -2 }} />;
           }
         },
         safeAreaInsets: { bottom: 0 },

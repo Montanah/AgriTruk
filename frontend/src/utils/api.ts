@@ -244,12 +244,8 @@ export async function uploadFile(uri: string, type: 'profile' | 'logo' | 'docume
       }
     }
   }
-  
-  // All retries failed - return a placeholder URL for now
-  console.error('All upload attempts failed, using placeholder URL');
-  const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
-  console.log('Using placeholder URL:', placeholderUrl);
-  return placeholderUrl;
+  // All retries failed - throw the last error to allow caller to display a proper failure
+  throw lastError;
 }
 
 // Upload to backend instead of Cloudinary
@@ -350,16 +346,9 @@ async function attemptUpload(uri: string, type: 'profile' | 'logo' | 'document' 
     
     // Always use backend upload since Cloudinary credentials are on the backend
     console.log('📤 Using backend upload (Cloudinary credentials are on backend)...');
-    try {
-      const backendResult = await uploadToBackend(uri, type, resourceId);
-      console.log('✅ Backend upload successful:', backendResult);
-      return backendResult;
-    } catch (backendError) {
-      console.error('❌ Backend upload failed:', backendError);
-      console.warn('⚠️ Using placeholder URL as final fallback');
-      const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
-      return placeholderUrl;
-    }
+    const backendResult = await uploadToBackend(uri, type, resourceId);
+    console.log('✅ Backend upload successful:', backendResult);
+    return backendResult;
     
     const formData = new FormData();
     formData.append('file', {
@@ -429,7 +418,6 @@ async function attemptUpload(uri: string, type: 'profile' | 'logo' | 'document' 
     return data.secure_url;
   } catch (error) {
     console.error('Cloudinary upload error:', error);
-    
     // If it's a network error, try the signed upload method as fallback
     if (error.message?.includes('Network request failed') || error.message?.includes('fetch')) {
       console.log('Network error detected, trying signed upload as fallback...');
@@ -438,13 +426,9 @@ async function attemptUpload(uri: string, type: 'profile' | 'logo' | 'document' 
         return await uploadToCloudinarySigned(uri, type, cloudName);
       } catch (signedError) {
         console.error('Signed upload also failed:', signedError);
-        // Return placeholder instead of throwing error
-        const placeholderUrl = `https://via.placeholder.com/400x300/cccccc/666666?text=${type.toUpperCase()}+${Date.now()}`;
-        console.log('Using placeholder URL due to upload failures:', placeholderUrl);
-        return placeholderUrl;
+        throw signedError;
       }
     }
-    
     throw new Error(`File upload failed: ${error.message}`);
   }
 }

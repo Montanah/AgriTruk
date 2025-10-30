@@ -1122,7 +1122,10 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
             }
           }}
         >
-          <MaterialCommunityIcons name="logout" size={20} color={colors.text.secondary} />
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <MaterialCommunityIcons name="logout" size={20} color={colors.text.secondary} />
+            <Text style={{ marginLeft: 6, color: colors.text.secondary, fontWeight: 'bold' }}>Logout</Text>
+          </View>
         </TouchableOpacity>
       </View>
 

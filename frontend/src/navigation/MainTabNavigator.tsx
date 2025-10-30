@@ -40,13 +40,13 @@ const TabNavigator = () => {
         tabBarItemStyle: {
           marginTop: 0,
         },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused }) => {
           const iconColor = focused ? colors.secondary : '#fff';
           if (route.name === 'Home') {
             return (
-              <Ionicons
+              <MaterialCommunityIcons
                 name={focused ? 'home' : 'home-outline'}
-                size={32}
+                size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
               />
@@ -54,17 +54,17 @@ const TabNavigator = () => {
           } else if (route.name === 'Activity') {
             return (
               <MaterialCommunityIcons
-                name={focused ? 'history' : 'history'}
-                size={32}
+                name={focused ? 'clipboard-list' : 'clipboard-list-outline'}
+                size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
               />
             );
           } else if (route.name === 'Account') {
             return (
-              <FontAwesome5
-                name={focused ? 'user-alt' : 'user'}
-                size={30}
+              <MaterialCommunityIcons
+                name={focused ? 'account' : 'account-outline'}
+                size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
               />

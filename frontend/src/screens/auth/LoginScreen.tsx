@@ -38,6 +38,25 @@ const LoginScreen = ({ navigation }: any) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
+  const normalizePhone = (country: string, input: string) => {
+    // Accept inputs like +254712345678, +2540712345678, 0712345678, 712345678, 1876543210 (for +2541...)
+    const cc = country.startsWith('+') ? country : `+${country}`;
+    const ccDigits = cc.replace(/\D/g, '');
+    let raw = (input || '').replace(/\s|-/g, '');
+    // If starts with +, keep as-is then fix possible +2540 prefix
+    if (raw.startsWith('+')) {
+      // Collapse +2540X... -> +254X...
+      const fixed = raw.replace(new RegExp(`^\\+${ccDigits}0`), `+${ccDigits}`);
+      return fixed;
+    }
+    // Strip all non-digits
+    raw = raw.replace(/\D/g, '');
+    // Remove leading zero (e.g., 07.. -> 7..)
+    if (raw.startsWith('0')) raw = raw.slice(1);
+    // Prepend country code
+    return `+${ccDigits}${raw}`;
+  };
+
   const countryOptions = [
     { code: '+255', flag: '🇹🇿' },
     { code: '+250', flag: '🇷🇼' },
@@ -226,7 +245,7 @@ const LoginScreen = ({ navigation }: any) => {
                     // User details
                   } else {
                     // Phone login: Use backend API to get email by phone
-                    const fullPhone = countryCode + phone;
+                  const fullPhone = normalizePhone(countryCode, phone);
                     console.log('Attempting phone login with:', fullPhone);
 
                     try {

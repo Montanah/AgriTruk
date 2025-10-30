@@ -6,6 +6,8 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { apiRequest } from '../utils/api';
+import { calculateRoadDistanceWithFallback } from '../utils/distanceUtils';
+import { calculateTransportCost, formatCurrency } from '../utils/costCalculator';
 import CustomAlert from '../components/common/CustomAlert';
 import SuccessBookingModal from '../components/common/SuccessBookingModal';
 import { cleanLocationDisplay } from '../utils/locationUtils';
@@ -63,6 +65,61 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const [showErrorAlert, setShowErrorAlert] = useState(false);
   const [postedBooking, setPostedBooking] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+  const [summary, setSummary] = useState<{ distance: string; duration: string; cost: string } | null>(null);
+
+  // Calculate distance, duration and cost estimate for primary request
+  React.useEffect(() => {
+    const computeSummary = async () => {
+      try {
+        if (!requests || requests.length === 0) return;
+        setSummaryLoading(true);
+        const req = requests[0];
+        const fromLoc = typeof req.fromLocation === 'object' ? (req.fromLocation.address || req.fromLocation) : (req.fromLocationAddress || req.fromLocation);
+        const toLoc = typeof req.toLocation === 'object' ? (req.toLocation.address || req.toLocation) : (req.toLocationAddress || req.toLocation);
+
+        const distanceResult = await calculateRoadDistanceWithFallback(
+          req.fromLocation?.latitude ? req.fromLocation : (fromLoc || ''),
+          req.toLocation?.latitude ? req.toLocation : (toLoc || '')
+        );
+
+        const costResult = calculateTransportCost({
+          actualDistance: distanceResult.distanceKm || 0,
+          weightKg: Number(req.weightKg || req.weight || 0) || 0,
+          lengthCm: Number(req.lengthCm || 0),
+          widthCm: Number(req.widthCm || 0),
+          heightCm: Number(req.heightCm || 0),
+          urgencyLevel: (req.urgencyLevel || (req.urgency ? (req.urgency.charAt(0).toUpperCase() + req.urgency.slice(1)) : 'Low')) as any,
+          perishable: !!(req.perishable || req.isPerishable),
+          needsRefrigeration: !!(req.needsRefrigeration || req.isPerishable),
+          humidityControl: !!(req.humidyControl || req.isPerishable),
+          specialCargo: req.specialCargo || [],
+          bulkness: !!req.bulkness,
+          insured: !!(req.insured || req.insureGoods),
+          value: Number(req.value || req.insuranceValue || 0) || 0,
+          tolls: Number(req.tolls || 0) || 0,
+          priority: !!(req.priority || req.isPriority),
+          fuelSurchargePct: Number(req.fuelSurchargePct || 0) || 0,
+          waitMinutes: Number(req.waitMinutes || 0) || 0,
+          nightSurcharge: !!req.nightSurcharge,
+          vehicleType: (req.vehicleType || 'truck') as any,
+        });
+
+        setSummary({
+          distance: distanceResult.distance,
+          duration: distanceResult.duration,
+          cost: formatCurrency(costResult.cost),
+        });
+      } catch (e) {
+        // Non-blocking; keep summary null
+        console.warn('Failed to compute summary:', e);
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+    computeSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fallback function to store booking locally when backend is unavailable
   // const storeBookingLocally = async (bookingData: any) => {
@@ -464,6 +521,46 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           onCancel={() => setShowDatePicker(false)}
         />
       </View>
+      {/* Summary Card */}
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryHeader}>
+          <MaterialCommunityIcons name="clipboard-text" size={20} color={colors.primary} />
+          <Text style={styles.summaryTitle}>Booking Summary</Text>
+        </View>
+        {summaryLoading ? (
+          <Text style={styles.summaryRowValue}>Calculating summary...</Text>
+        ) : (
+          <>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryRowLabel}>Estimated Distance</Text>
+              <Text style={styles.summaryRowValue}>{summary?.distance || '—'}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryRowLabel}>Estimated Duration</Text>
+              <Text style={styles.summaryRowValue}>{summary?.duration || '—'}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryRowLabel}>Estimated Cost</Text>
+              <Text style={[styles.summaryRowValue, { color: colors.primary, fontWeight: 'bold' }]}>
+                {summary?.cost || '—'}
+              </Text>
+            </View>
+          </>
+        )}
+        <View style={styles.summaryActions}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => {
+              if (navigation.canGoBack()) navigation.goBack();
+              else navigation.navigate(mode === 'business' ? 'BusinessRequest' : 'ServiceRequest');
+            }}
+          >
+            <MaterialCommunityIcons name="pencil" size={20} color={colors.primary} style={{ marginRight: 6 }} />
+            <Text style={styles.backBtnText}>Back to Edit</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <TouchableOpacity
         style={[styles.postBtn, posting && { opacity: 0.6 }]}
         onPress={handlePostBooking}
@@ -596,6 +693,61 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: fonts.size.lg,
     marginLeft: 4,
+  },
+  summaryCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 12,
+    shadowColor: colors.black,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 8,
+  },
+  summaryTitle: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  summaryRowLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+  },
+  summaryRowValue: {
+    fontSize: fonts.size.md,
+    color: colors.text.primary,
+    fontWeight: '600',
+  },
+  summaryActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  backBtnText: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: fonts.size.md,
   },
 });
 

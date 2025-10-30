@@ -219,7 +219,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
             if (onAddressChange && text.length >= 3) {
                 onAddressChange(text);
             }
-        }, 500); // Wait longer for user to stop typing before calling onAddressChange
+        }, 800); // Allow more time for typing before propagating changes
 
         // Clear previous search results when starting a new search
         if (text.length <= 3) {
@@ -238,7 +238,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         clearSearchResults();
         searchTimeoutRef.current = setTimeout(() => {
             searchPlaces(text);
-        }, 800); // Increased delay to allow more natural typing
+        }, 1000); // Increased delay to allow more natural typing and avoid premature completion
     };
 
     const searchPlaces = async (query: string) => {
