@@ -1764,12 +1764,29 @@ exports.getDriverActiveTrip = async (req, res) => {
 exports.getAvailable = async (req, res) => {
   try {
     const availableBookings = await Booking.getAllAvailable();
+    
+    // Ensure all bookings have readableId for consistent display
+    const bookingsWithReadableId = availableBookings.map(booking => {
+      if (!booking.readableId && booking.createdAt) {
+        // Generate readableId if missing (for backward compatibility)
+        booking.readableId = generateReadableId(
+          booking.bookingType || 'Agri',
+          booking.bookingMode || 'booking',
+          booking.consolidated || false,
+          booking.createdAt,
+          booking.id || booking.bookingId || ''
+        );
+      }
+      return booking;
+    });
+    
     await logActivity(req.user.uid, 'get_available_bookings', req);
     res.status(200).json({
       success: true,
       message: 'Available bookings retrieved successfully',
-      jobs: formatTimestamps(availableBookings),
-      bookings: formatTimestamps(availableBookings) // Support both keys
+      availableBookings: formatTimestamps(bookingsWithReadableId), // Match expected frontend format
+      jobs: formatTimestamps(bookingsWithReadableId),
+      bookings: formatTimestamps(bookingsWithReadableId) // Support both keys
     });
   } catch (err) {
     console.error('Get available bookings error:', err);
