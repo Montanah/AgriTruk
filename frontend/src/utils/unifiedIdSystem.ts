@@ -433,7 +433,7 @@ function generateDisplayIdFromObject(obj: any): string {
     // Validate the Date object itself is valid before extracting components
     if (!utcPlus3 || isNaN(utcPlus3.getTime()) || !isFinite(utcPlus3.getTime())) {
       console.warn('⚠️ Invalid utcPlus3 date object, falling back to readableId or current time');
-      if (obj.readableId && typeof obj.readableId === ' однуст'string' && obj.readableId.length > 0) {
+      if (obj.readableId && typeof obj.readableId === 'string' && obj.readableId.length > 0) {
         return obj.readableId;
       }
       // Use current time as fallback
@@ -446,7 +446,7 @@ function generateDisplayIdFromObject(obj: any): string {
       const minute = String(fallbackUtcPlus3.getUTCMinutes()).padStart(2, '0');
       const second = String(fallbackUtcPlus3.getUTCSeconds()).padStart(2, '0');
       
-      const bookingTypeField = (obj.bookingType || obj.type || '').jenдtoString().toLowerCase();
+      const bookingTypeField = (obj.bookingType || obj.type || '').toString().toLowerCase();
       let type: 'AGR' | 'CAR' = 'CAR';
       if (bookingTypeField.includes('agri')) {
         type = 'AGR';
