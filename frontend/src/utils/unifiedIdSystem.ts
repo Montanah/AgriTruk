@@ -368,15 +368,100 @@ function generateDisplayIdFromObject(obj: any): string {
     }
     
     // Use the parsed createdAt date for ID generation (NOT current time)
+    // CRITICAL: Validate the date is actually valid before using it
+    const dateTime = bookingDate.getTime();
+    if (isNaN(dateTime) || !isFinite(dateTime)) {
+      console.warn('⚠️ Invalid date time value:', dateTime, 'falling back to readableId or generating new ID');
+      // If readableId exists, use it
+      if (obj.readableId && typeof obj.readableId === 'string' && obj.readableId.length > 0) {
+        return obj.readableId;
+      }
+      // Fall back to current time
+      const fallbackDate = new Date();
+      const utcPlus3Fallback = new Date(fallbackDate.getTime() + (3 * 60 * 60 * 1000));
+      const year = String(utcPlus3Fallback.getUTCFullYear()).slice(-2);
+      const month = String(utcPlus3Fallback.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(utcPlus3Fallback.getUTCDate()).padStart(2, '0');
+      const hour = String(utcPlus3Fallback.getUTCHours()).padStart(2, '0');
+      const minute = String(utcPlus3Fallback.getUTCMinutes()).padStart(2, '0');
+      const second = String(utcPlus3Fallback.getUTCSeconds()).padStart(2, '0');
+      
+      // Determine type and mode
+      const bookingTypeField = (obj.bookingType || obj.type || '').toString().toLowerCase();
+      let type: 'AGR' | 'CAR' = 'CAR';
+      if (bookingTypeField.includes('agri')) {
+        type = 'AGR';
+      } else {
+        const productType = (obj.productType || obj.cargoType || '').toString().toLowerCase();
+        if (productType.includes('agricultural') || productType.includes('crop') || productType.includes('farm')) {
+          type = 'AGR';
+        }
+      }
+      
+      const bookingModeField = (obj.bookingMode || (obj.type === 'instant' ? 'instant' : 'booking') || 'booking').toString().toLowerCase();
+      const isConsolidated = obj.isConsolidated || bookingModeField === 'consolidated';
+      const isInstant = bookingModeField === 'instant';
+      const letter = isConsolidated ? 'C' : (isInstant ? 'I' : 'B');
+      
+      const rawId = obj.id || obj.bookingId || obj._id || '';
+      const suf = computeShortSuffix(rawId || `${fallbackDate.getTime()}-${Math.random()}`);
+      
+      return `FALLBACK-${year}${month}${day}-${hour}${minute}${second}-${type}-${letter}${suf}`;
+    }
+    
     // CRITICAL: Convert to UTC+3 timezone explicitly (Kenya time)
     // Firestore timestamps are in UTC, so we need to add 3 hours to get UTC+3
-    const utcPlus3 = new Date(bookingDate.getTime() + (3 * 60 * 60 * 1000)); // Add 3 hours
-    const year = utcPlus3.getUTCFullYear().toString().slice(-2);
-    const month = (utcPlus3.getUTCMonth() + 1).toString().padStart(2, '0');
-    const day = utcPlus3.getUTCDate().toString().padStart(2, '0');
-    const hour = utcPlus3.getUTCHours().toString().padStart(2, '0');
-    const minute = utcPlus3.getUTCMinutes().toString().padStart(2, '0');
-    const second = utcPlus3.getUTCSeconds().toString().padStart(2, '0');
+    const utcPlus3 = new Date(dateTime + (3 * 60 * 60 * 1000)); // Add 3 hours
+    
+    // Extract date components with validation to prevent NaN
+    const yearNum = utcPlus3.getUTCFullYear();
+    const monthNum = utcPlus3.getUTCMonth() + 1;
+    const dayNum = utcPlus3.getUTCDate();
+    const hourNum = utcPlus3.getUTCHours();
+    const minuteNum = utcPlus3.getUTCMinutes();
+    const secondNum = utcPlus3.getUTCSeconds();
+    
+    // Validate all components are valid numbers
+    if (isNaN(yearNum) || isNaN(monthNum) || isNaN(dayNum) || isNaN(hourNum) || isNaN(minuteNum) || isNaN(secondNum)) {
+      console.warn('⚠️ Invalid date components, falling back:', { yearNum, monthNum, dayNum, hourNum, minuteNum, secondNum });
+      // If readableId exists, use it
+      if (obj.readableId && typeof obj.readableId === 'string' && obj.readableId.length > 0) {
+        return obj.readableId;
+      }
+      // Generate fallback ID
+      const fallbackDate = new Date();
+      const utcPlus3Fallback = new Date(fallbackDate.getTime() + (3 * 60 * 60 * 1000));
+      const year = String(utcPlus3Fallback.getUTCFullYear()).slice(-2);
+      const month = String(utcPlus3Fallback.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(utcPlus3Fallback.getUTCDate()).padStart(2, '0');
+      const hour = String(utcPlus3Fallback.getUTCHours()).padStart(2, '0');
+      const minute = String(utcPlus3Fallback.getUTCMinutes()).padStart(2, '0');
+      const second = String(utcPlus3Fallback.getUTCSeconds()).padStart(2, '0');
+      
+      const bookingTypeField = (obj.bookingType || obj.type || '').toString().toLowerCase();
+      let type: 'AGR' | 'CAR' = 'CAR';
+      if (bookingTypeField.includes('agri')) {
+        type = 'AGR';
+      }
+      
+      const bookingModeField = (obj.bookingMode || (obj.type === 'instant' ? 'instant' : 'booking') || 'booking').toString().toLowerCase();
+      const isConsolidated = obj.isConsolidated || bookingModeField === 'consolidated';
+      const isInstant = bookingModeField === 'instant';
+      const letter = isConsolidated ? 'C' : (isInstant ? 'I' : 'B');
+      
+      const rawId = obj.id || obj.bookingId || obj._id || '';
+      const suf = computeShortSuffix(rawId || `${fallbackDate.getTime()}-${Math.random()}`);
+      
+      return `FALLBACK-${year}${month}${day}-${hour}${minute}${second}-${type}-${letter}${suf}`;
+    }
+    
+    // Convert to strings with proper formatting
+    const year = String(yearNum).slice(-2);
+    const month = String(monthNum).padStart(2, '0');
+    const day = String(dayNum).padStart(2, '0');
+    const hour = String(hourNum).padStart(2, '0');
+    const minute = String(minuteNum).padStart(2, '0');
+    const second = String(secondNum).padStart(2, '0');
     
     // Determine type - PRIORITIZE bookingType over product name to avoid "Carrots" -> CAR mistakes
     // bookingType is set explicitly to 'Agri' or 'Cargo' at creation time
