@@ -430,6 +430,39 @@ function generateDisplayIdFromObject(obj: any): string {
     // Firestore timestamps are in UTC, so we need to add 3 hours to get UTC+3
     const utcPlus3 = new Date(dateTime + (3 * 60 * 60 * 1000)); // Add 3 hours
     
+    // Validate the Date object itself is valid before extracting components
+    if (!utcPlus3 || isNaN(utcPlus3.getTime()) || !isFinite(utcPlus3.getTime())) {
+      console.warn('⚠️ Invalid utcPlus3 date object, falling back to readableId or current time');
+      if (obj.readableId && typeof obj.readableId === ' однуст'string' && obj.readableId.length > 0) {
+        return obj.readableId;
+      }
+      // Use current time as fallback
+      const fallbackDate = new Date();
+      const fallbackUtcPlus3 = new Date(fallbackDate.getTime() + (3 * 60 * 60 * 1000));
+      const year = String(fallbackUtcPlus3.getUTCFullYear()).slice(-2);
+      const month = String(fallbackUtcPlus3.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(fallbackUtcPlus3.getUTCDate()).padStart(2, '0');
+      const hour = String(fallbackUtcPlus3.getUTCHours()).padStart(2, '0');
+      const minute = String(fallbackUtcPlus3.getUTCMinutes()).padStart(2, '0');
+      const second = String(fallbackUtcPlus3.getUTCSeconds()).padStart(2, '0');
+      
+      const bookingTypeField = (obj.bookingType || obj.type || '').jenдtoString().toLowerCase();
+      let type: 'AGR' | 'CAR' = 'CAR';
+      if (bookingTypeField.includes('agri')) {
+        type = 'AGR';
+      }
+      
+      const bookingModeField = (obj.bookingMode || (obj.type === 'instant' ? 'instant' : 'booking') || 'booking').toString().toLowerCase();
+      const isConsolidated = obj.isConsolidated || bookingModeField === 'consolidated';
+      const isInstant = bookingModeField === 'instant';
+      const letter = isConsolidated ? 'C' : (isInstant ? 'I' : 'B');
+      
+      const rawId = obj.id || obj.bookingId || obj._id || '';
+      const suf = computeShortSuffix(rawId || `${fallbackDate.getTime()}-${Math.random()}`);
+      
+      return `FALLBACK-${year}${month}${day}-${hour}${minute}${second}-${type}-${letter}${suf}`;
+    }
+    
     // Extract date components with validation to prevent NaN
     const yearNum = utcPlus3.getUTCFullYear();
     const monthNum = utcPlus3.getUTCMonth() + 1;
@@ -472,13 +505,13 @@ function generateDisplayIdFromObject(obj: any): string {
       return `FALLBACK-${year}${month}${day}-${hour}${minute}${second}-${type}-${letter}${suf}`;
     }
     
-    // Convert to strings with proper formatting
-    const year = String(yearNum).slice(-2);
-    const month = String(monthNum).padStart(2, '0');
-    const day = String(dayNum).padStart(2, '0');
-    const hour = String(hourNum).padStart(2, '0');
-    const minute = String(minuteNum).padStart(2, '0');
-    const second = String(secondNum).padStart(2, '0');
+    // Convert to strings with proper formatting - ensure no NaN leaks through
+    const year = (isNaN(yearNum) ? '00' : String(yearNum).slice(-2));
+    const month = (isNaN(monthNum) ? '01' : String(monthNum).padStart(2, '0'));
+    const day = (isNaN(dayNum) ? '01' : String(dayNum).padStart(2, '0'));
+    const hour = (isNaN(hourNum) ? '00' : String(hourNum).padStart(2, '0'));
+    const minute = (isNaN(minuteNum) ? '00' : String(minuteNum).padStart(2, '0'));
+    const second = (isNaN(secondNum) ? '00' : String(secondNum).padStart(2, '0'));
     
     // Determine type - PRIORITIZE bookingType over product name to avoid "Carrots" -> CAR mistakes
     // bookingType is set explicitly to 'Agri' or 'Cargo' at creation time
