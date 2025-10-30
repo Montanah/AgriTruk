@@ -192,7 +192,12 @@ class UnifiedBookingService {
           endpoint = `${API_ENDPOINTS.BOOKINGS}/broker/scoped`;
           break;
         case 'business':
-          endpoint = `${API_ENDPOINTS.BOOKINGS}/business`;
+          // Businesses manage their own bookings as regular users; fetch by current userId
+          {
+            const auth = getAuth();
+            const me = auth.currentUser;
+            endpoint = `${API_ENDPOINTS.BOOKINGS}/shipper/${me?.uid}`;
+          }
           break;
         case 'transporter':
         case 'driver':
