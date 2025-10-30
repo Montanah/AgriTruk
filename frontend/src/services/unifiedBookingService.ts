@@ -337,8 +337,14 @@ class UnifiedBookingService {
           }));
 
           // If we have a client index for this broker, restrict bookings to broker's clients
+          // Also include any booking explicitly tagged with this brokerId in brokerData
           if (clientsIndex) {
-            bookings = bookings.filter(b => !!(b.client && clientsIndex![b.client.id]));
+            const brokerUid = getAuth().currentUser?.uid;
+            bookings = bookings.filter(b => {
+              const isClientOwned = !!(b.client && clientsIndex![b.client.id]);
+              const isBrokerTagged = !!(b.brokerData && (b.brokerData as any).brokerId && (b.brokerData as any).brokerId === brokerUid);
+              return isClientOwned || isBrokerTagged;
+            });
           }
         } catch {}
       }
