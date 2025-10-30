@@ -13,16 +13,9 @@ import spacing from '../constants/spacing';
 import { auth, db } from '../firebaseConfig';
 import { apiRequest, uploadFile } from '../utils/api';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
-import { brokerPlans } from '../constants/subscriptionPlans';
+import { BROKER_PLANS, type SubscriptionPlan } from '../constants/subscriptionPlans';
 
-interface SubscriptionPlan {
-  id: string;
-  name: string;
-  price: number;
-  billingPeriod: 'monthly' | 'quarterly' | 'annually';
-  features: string[];
-  isPopular?: boolean;
-}
+// Using SubscriptionPlan definition from constants
 
 interface PaymentMethod {
   id: string;
@@ -32,7 +25,7 @@ interface PaymentMethod {
   isDefault: boolean;
 }
 
-const subscriptionPlans: SubscriptionPlan[] = brokerPlans;
+const subscriptionPlans: SubscriptionPlan[] = BROKER_PLANS;
 
 // Removed mockPaymentMethods - now using dynamic data from user profile
 
