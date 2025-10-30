@@ -270,7 +270,73 @@ class UnifiedBookingService {
       }
 
       const data = await response.json();
-      const bookings = this.normalizeBookings(data.bookings || data.requests || data.data || []);
+      let bookings = this.normalizeBookings(data.bookings || data.requests || data.data || []);
+      
+      // Enrichment: attach client and vehicle details when missing
+      if (userRole === 'broker' || userRole === 'business' || userRole === 'shipper') {
+        try {
+          const token = await this.getAuthToken();
+          // Map of clientId -> client object
+          let clientsIndex: Record<string, any> | null = null;
+          if (userRole === 'broker') {
+            const clientsRes = await fetch(`${API_ENDPOINTS.BROKERS}/clients`, {
+              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (clientsRes.ok) {
+              const clientsData = await clientsRes.json();
+              const clientsArr: any[] = clientsData.data || clientsData.clients || [];
+              clientsIndex = {};
+              clientsArr.forEach((c: any) => { clientsIndex![c.id || c.userId] = c; });
+            }
+          }
+
+          bookings = await Promise.all(bookings.map(async (b) => {
+            const enriched = { ...b } as UnifiedBooking;
+            // Client enrichment
+            if ((enriched.client?.name === 'Client' || !enriched.client?.name) && clientsIndex && enriched.client?.id) {
+              const c = clientsIndex[enriched.client.id];
+              if (c) {
+                enriched.client = {
+                  id: c.id || enriched.client.id,
+                  name: c.name || enriched.client.name,
+                  company: c.company || c.corporate || enriched.client.company,
+                  phone: c.phone || enriched.client.phone,
+                  email: c.email || enriched.client.email,
+                  type: enriched.client.type,
+                };
+              }
+            }
+
+            // Vehicle enrichment via assigned driver if missing
+            if (!enriched.vehicle && enriched.transporter?.id) {
+              try {
+                const vehRes = await fetch(`${API_ENDPOINTS.VEHICLES}?assignedDriverId=${encodeURIComponent(enriched.transporter.id)}`, {
+                  headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                });
+                if (vehRes.ok) {
+                  const vehData = await vehRes.json();
+                  const vehicles: any[] = vehData.data || vehData.vehicles || [];
+                  if (vehicles.length > 0) {
+                    const v = vehicles[0];
+                    enriched.vehicle = {
+                      id: v.id || v.vehicleId,
+                      make: v.make,
+                      model: v.model,
+                      year: String(v.year || ''),
+                      type: v.bodyType || v.type,
+                      registration: v.vehicleRegistration || v.registration,
+                      color: v.color || v.vehicleColor,
+                      capacity: String(v.capacity || v.vehicleCapacity || ''),
+                    };
+                  }
+                }
+              } catch {}
+            }
+
+            return enriched;
+          }));
+        } catch {}
+      }
       
       // Cache the results
       this.cache.set(cacheKey, bookings);
@@ -560,7 +626,7 @@ class UnifiedBookingService {
       fromLocation: this.normalizeLocation(booking.fromLocation || booking.pickupLocation),
       toLocation: this.normalizeLocation(booking.toLocation || booking.deliveryLocation),
       productType: booking.productType || booking.cargoDetails || booking.cargoType || 'General Cargo',
-      weight: booking.weight || booking.cargoWeight || 'N/A',
+      weight: (booking.weightKg != null ? `${booking.weightKg}kg` : (booking.weight || booking.cargoWeight ? `${booking.weight || booking.cargoWeight}` : 'N/A')),
       urgency: this.normalizeUrgency(booking.urgency),
       createdAt: booking.createdAt || booking.created_at || new Date().toISOString(),
       updatedAt: booking.updatedAt || booking.updated_at || new Date().toISOString(),
