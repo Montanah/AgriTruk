@@ -14,6 +14,8 @@ const User = require('../models/User');
 const calculateTransportCost = require('../utils/calculateCost');
 const { driverId } = require('../schemas/DriverSchema');
 const Driver = require('../models/Driver');
+const Broker = require('../models/Broker');
+const Client = require('../models/Client');
 require('dotenv').config();
 
 const google_key = process.env.GOOGLE_MAPS_API_KEY;
@@ -421,6 +423,37 @@ exports.getAllBookings = async (req, res) => {
   } catch (err) {
     console.error('Get all bookings error:', err);
     res.status(500).json({ message: 'Failed to fetch bookings' });
+  }
+};
+
+// Broker-scoped bookings: includes broker's own and their clients' bookings
+exports.getBrokerScopedBookings = async (req, res) => {
+  try {
+    const brokerUid = req.user?.uid;
+    if (!brokerUid) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Find broker record via userId
+    const broker = await Broker.getByUserId(brokerUid);
+    if (!broker) {
+      return res.status(404).json({ success: false, message: 'Broker not found' });
+    }
+
+    // Fetch broker's clients to obtain clientIds for scoping
+    const clients = await Client.getClients(broker.id);
+    const clientIds = (clients || []).map(c => c.id);
+
+    const bookings = await Booking.getBrokerScoped(brokerUid, clientIds);
+    return res.status(200).json({
+      success: true,
+      message: 'Broker scoped bookings retrieved successfully',
+      bookings: formatTimestamps(bookings),
+      count: bookings.length,
+    });
+  } catch (error) {
+    console.error('getBrokerScopedBookings error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch broker scoped bookings' });
   }
 };
 

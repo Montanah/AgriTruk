@@ -281,6 +281,9 @@ router.get('/driver/accepted', authenticateToken, requireRole(['driver', 'transp
  */
 router.get('/driver/active-trip', authenticateToken, requireRole(['driver', 'transporter']), bookingController.getDriverActiveTrip);
 
+// Broker scoped bookings (minimal, additive; does not affect existing flows)
+router.get('/broker/scoped', authenticateToken, requireRole(['broker']), bookingController.getBrokerScopedBookings);
+
 /**
  * @swagger
  * /api/bookings/transporters/route-loads:
