@@ -193,7 +193,16 @@ const DriverTripNavigationScreen = () => {
   };
 
   const calculateRouteToPickup = async () => {
-    if (!currentLocation || !job.fromLocation) return;
+    // Validate current location before attempting route calculation
+    if (!currentLocation || !currentLocation.latitude || !currentLocation.longitude) {
+      console.warn('Current location not available yet, skipping route calculation');
+      return;
+    }
+
+    if (!job.fromLocation) {
+      console.warn('Pickup location not available, skipping route calculation');
+      return;
+    }
 
     try {
       // Get pickup location from job - use actual location data
@@ -206,6 +215,17 @@ const DriverTripNavigationScreen = () => {
 
       if (!pickupLocation || !pickupLocation.latitude || !pickupLocation.longitude) {
         console.warn('Invalid pickup location, skipping route calculation');
+        return;
+      }
+
+      // Validate coordinates are reasonable (latitude: -90 to 90, longitude: -180 to 180)
+      if (
+        Math.abs(currentLocation.latitude) > 90 || 
+        Math.abs(currentLocation.longitude) > 180 ||
+        Math.abs(pickupLocation.latitude) > 90 || 
+        Math.abs(pickupLocation.longitude) > 180
+      ) {
+        console.warn('Invalid coordinate values, skipping route calculation');
         return;
       }
 
@@ -254,7 +274,16 @@ const DriverTripNavigationScreen = () => {
   };
 
   const calculateRouteToDropoff = async () => {
-    if (!currentLocation || !job.toLocation) return;
+    // Validate current location before attempting route calculation
+    if (!currentLocation || !currentLocation.latitude || !currentLocation.longitude) {
+      console.warn('Current location not available yet, skipping route calculation');
+      return;
+    }
+
+    if (!job.toLocation) {
+      console.warn('Dropoff location not available, skipping route calculation');
+      return;
+    }
 
     try {
       // Get dropoff location from job - use actual location data
@@ -267,6 +296,17 @@ const DriverTripNavigationScreen = () => {
 
       if (!dropoffLocation || !dropoffLocation.latitude || !dropoffLocation.longitude) {
         console.warn('Invalid dropoff location, skipping route calculation');
+        return;
+      }
+
+      // Validate coordinates are reasonable
+      if (
+        Math.abs(currentLocation.latitude) > 90 || 
+        Math.abs(currentLocation.longitude) > 180 ||
+        Math.abs(dropoffLocation.latitude) > 90 || 
+        Math.abs(dropoffLocation.longitude) > 180
+      ) {
+        console.warn('Invalid coordinate values, skipping route calculation');
         return;
       }
 

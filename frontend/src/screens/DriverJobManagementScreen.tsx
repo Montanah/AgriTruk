@@ -571,13 +571,28 @@ const DriverJobManagementScreen = () => {
         // Refresh jobs and current trip
         await Promise.all([fetchJobs(), fetchCurrentTrip()]);
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Cancel failed:', { status: response.status, statusText: response.statusText, errorData });
-        throw new Error(errorData.message || `Failed to cancel job (${response.status}: ${response.statusText})`);
+        const errorText = await response.text().catch(() => '');
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText || 'Unknown error' };
+        }
+        console.error('❌ Cancel failed:', { status: response.status, statusText: response.statusText, errorData, errorText });
+        throw new Error(errorData.message || `Failed to cancel job: ${response.statusText || 'Network error'}`);
       }
     } catch (err: any) {
       console.error('❌ Error cancelling job:', err);
-      Alert.alert('Error Cancelling Job', err.message || 'Failed to cancel job. Please try again.');
+      // Provide more helpful error messages
+      let errorMessage = 'Failed to cancel job. Please try again.';
+      if (err.message) {
+        if (err.message.includes('Network request failed') || err.message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      Alert.alert('Error Cancelling Job', errorMessage);
     } finally {
       // Clear loading state
       setCancellingJobId(null);
@@ -645,15 +660,22 @@ const DriverJobManagementScreen = () => {
     fetchJobs();
   }, [fetchJobs]);
 
-  const renderJob = ({ item }: { item: Job }) => (
+  const renderJob = ({ item }: { item: Job }) => {
+    // Ensure we have the readable ID for display
+    const displayId = getDisplayBookingId({
+      ...item,
+      readableId: item.readableId, // Ensure readableId is passed
+      bookingType: item.bookingType || item.type,
+      bookingMode: item.bookingMode || (item.type === 'instant' ? 'instant' : 'booking'),
+      createdAt: item.createdAt,
+      bookingId: item.bookingId || item.id,
+    });
+
+    return (
     <View style={styles.jobCard}>
       <View style={styles.jobHeader}>
         <View style={styles.jobInfo}>
-          <Text style={styles.jobId}>{getDisplayBookingId({
-            ...item,
-            bookingType: item.bookingType || item.type,
-            bookingMode: item.bookingMode || (item.type === 'instant' ? 'instant' : 'booking')
-          })}</Text>
+          <Text style={styles.jobId}>{displayId}</Text>
           <Text style={styles.customerName}>{item.customerName}</Text>
           <Text style={styles.customerPhone}>{item.customerPhone}</Text>
         </View>
@@ -1179,8 +1201,8 @@ const DriverJobManagementScreen = () => {
         </View>
       </Modal>
     </View>
-  );
-};
+    );
+  };
 
 const styles = StyleSheet.create({
   container: {
