@@ -335,6 +335,11 @@ class UnifiedBookingService {
 
             return enriched;
           }));
+
+          // If we have a client index for this broker, restrict bookings to broker's clients
+          if (clientsIndex) {
+            bookings = bookings.filter(b => !!(b.client && clientsIndex![b.client.id]));
+          }
         } catch {}
       }
       
@@ -620,7 +625,16 @@ class UnifiedBookingService {
 
     return {
       id: booking.id || booking.bookingId || booking._id,
+      // Preserve raw fields used by display ID logic
+      // These properties allow getDisplayBookingId(normalized) to render consistent IDs
       bookingId: booking.bookingId || getDisplayBookingId(booking) || booking.id,
+      // pass-throughs for display helpers
+      // @ts-ignore - allow dynamic fields for display functions
+      readableId: booking.readableId,
+      // @ts-ignore
+      bookingType: booking.bookingType || booking.type,
+      // @ts-ignore
+      bookingMode: booking.bookingMode || booking.mode,
       type: this.normalizeType(booking.type),
       status: this.normalizeStatus(booking.status),
       fromLocation: this.normalizeLocation(booking.fromLocation || booking.pickupLocation),
@@ -628,7 +642,7 @@ class UnifiedBookingService {
       productType: booking.productType || booking.cargoDetails || booking.cargoType || 'General Cargo',
       weight: (booking.weightKg != null ? `${booking.weightKg}kg` : (booking.weight || booking.cargoWeight ? `${booking.weight || booking.cargoWeight}` : 'N/A')),
       urgency: this.normalizeUrgency(booking.urgency),
-      createdAt: booking.createdAt || booking.created_at || new Date().toISOString(),
+      createdAt: booking.createdAt || booking.created_at || booking.created_at_iso || new Date().toISOString(),
       updatedAt: booking.updatedAt || booking.updated_at || new Date().toISOString(),
       estimatedValue: booking.estimatedValue || booking.price || booking.cost,
       description: booking.description || booking.cargoDescription,
