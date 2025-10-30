@@ -460,6 +460,17 @@ export default function BrokerProfileScreen() {
     }
   };
 
+  // Utility functions for generated values:
+  const isGeneratedPhone = (value?: string) => {
+    // Example: +254000... or empty, can add more rules
+    return !value || /^\+2540{4,}/.test(value.trim());
+  };
+  const isGeneratedEmail = (value?: string) => {
+    // Example: @trukapp.generated or @generated. etc.
+    if (!value) return true;
+    return /@trukapp\.generated$|@generated($|\.)/i.test(value) || /^user\d+@/i.test(value);
+  };
+
   const renderProfileHeader = () => (
     <View style={styles.profileHeaderModern}>
       <TouchableOpacity style={styles.profilePhotoContainerModern} onPress={showPhotoOptions}>
@@ -548,34 +559,44 @@ export default function BrokerProfileScreen() {
 
         <View style={styles.detailRowNeat}>
           <MaterialCommunityIcons name="email" size={20} color={colors.secondary} />
-          <Text style={styles.detailValueNeat}>{email || 'Not set'}
-            {<View style={[styles.inlineBadge, emailVerified ? styles.verifiedBadge : styles.unverifiedBadge]}> 
-            <Ionicons
-              name={emailVerified ? "checkmark-circle" : "close-circle"}
-              size={12}
-              color={emailVerified ? colors.success : colors.warning}
-            />
-            <Text style={[styles.verificationBadgeText, emailVerified ? styles.verifiedText : styles.unverifiedText]}>
-              {emailVerified ? ' Verified' : ' Unverified'}
+          <View style={{flexDirection: 'column', flex: 1}}>
+            <Text style={styles.detailValueNeat}>{email || 'Not set'}
+              {<View style={[styles.inlineBadge, emailVerified ? styles.verifiedBadge : styles.unverifiedBadge]}> 
+              <Ionicons
+                name={emailVerified ? "checkmark-circle" : "close-circle"}
+                size={12}
+                color={emailVerified ? colors.success : colors.warning}
+              />
+              <Text style={[styles.verificationBadgeText, emailVerified ? styles.verifiedText : styles.unverifiedText]}>
+                {emailVerified ? ' Verified' : ' Unverified'}
+              </Text>
+            </View>}
             </Text>
-          </View>}
-          </Text>
+            {isGeneratedEmail(email) && (
+              <Text style={styles.generatedWarning}>This email is auto-generated. Please update it to your actual email before verification.</Text>
+            )}
+          </View>
         </View>
 
         <View style={styles.detailRowNeat}>
           <MaterialCommunityIcons name="phone" size={20} color={colors.tertiary} />
-          <Text style={styles.detailValueNeat}>{phone || 'Not set'}
-            {<View style={[styles.inlineBadge, phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge]}> 
-            <Ionicons
-              name={phoneVerified ? "checkmark-circle" : "close-circle"}
-              size={12}
-              color={phoneVerified ? colors.success : colors.warning}
-            />
-            <Text style={[styles.verificationBadgeText, phoneVerified ? styles.verifiedText : styles.unverifiedText]}>
-              {phoneVerified ? ' Verified' : ' Unverified'}
+          <View style={{flexDirection: 'column', flex: 1}}>
+            <Text style={styles.detailValueNeat}>{phone || 'Not set'}
+              {<View style={[styles.inlineBadge, phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge]}> 
+              <Ionicons
+                name={phoneVerified ? "checkmark-circle" : "close-circle"}
+                size={12}
+                color={phoneVerified ? colors.success : colors.warning}
+              />
+              <Text style={[styles.verificationBadgeText, phoneVerified ? styles.verifiedText : styles.unverifiedText]}>
+                {phoneVerified ? ' Verified' : ' Unverified'}
+              </Text>
+            </View>}
             </Text>
-          </View>}
-          </Text>
+            {isGeneratedPhone(phone) && (
+              <Text style={styles.generatedWarning}>This phone is auto-generated. Please update it to your real phone number before verification.</Text>
+            )}
+          </View>
         </View>
 
         <View style={styles.detailRowNeat}>
@@ -599,13 +620,19 @@ export default function BrokerProfileScreen() {
         {!emailVerified && (
           <TouchableOpacity
             style={styles.verifyButton}
-            onPress={handleVerifyEmail}
-            disabled={verifyingEmail}
+            onPress={() => {
+              if (isGeneratedEmail(email)) {
+                Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.');
+                return;
+              }
+              handleVerifyEmail();
+            }}
+            disabled={verifyingEmail || isGeneratedEmail(email)}
           >
             {verifyingEmail ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Text style={styles.verifyButtonText}>Verify Email</Text>
+              <Text style={[styles.verifyButtonText, isGeneratedEmail(email) && {color: colors.text.light}]}>Verify Email</Text>
             )}
           </TouchableOpacity>
         )}
@@ -613,13 +640,19 @@ export default function BrokerProfileScreen() {
         {!phoneVerified && (
           <TouchableOpacity
             style={styles.verifyButton}
-            onPress={handleVerifyPhone}
-            disabled={verifyingPhone}
+            onPress={() => {
+              if (isGeneratedPhone(phone)) {
+                Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.');
+                return;
+              }
+              handleVerifyPhone();
+            }}
+            disabled={verifyingPhone || isGeneratedPhone(phone)}
           >
             {verifyingPhone ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <Text style={styles.verifyButtonText}>Verify Phone</Text>
+              <Text style={[styles.verifyButtonText, isGeneratedPhone(phone) && {color: colors.text.light}]}>Verify Phone</Text>
             )}
           </TouchableOpacity>
         )}
@@ -1690,5 +1723,11 @@ const styles = StyleSheet.create({
   editButtonModern: {
     padding: spacing.xs,
     marginLeft: spacing.md,
+  },
+  generatedWarning: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: 1,
+    marginLeft: 4,
   },
 });
