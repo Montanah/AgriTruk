@@ -129,7 +129,17 @@ const TrackingScreen = () => {
             if (response.ok) {
                 const data = await response.json();
                 const bookingData = data.booking || data;
-                setBooking(bookingData);
+                // Ensure booking has all necessary fields for ID display
+                const enrichedBooking = {
+                    ...bookingData,
+                    readableId: bookingData.readableId,
+                    bookingType: bookingData.bookingType || bookingData.type,
+                    bookingMode: bookingData.bookingMode || (bookingData.type === 'instant' ? 'instant' : 'booking'),
+                    createdAt: bookingData.createdAt,
+                    bookingId: bookingData.bookingId || bookingData.id,
+                    id: bookingData.id || bookingData.bookingId,
+                };
+                setBooking(enrichedBooking);
                 
                 // Only try to load tracking data once - don't retry on 404
                 if (!trackingData || trackingData.bookingId !== bookingId) {
