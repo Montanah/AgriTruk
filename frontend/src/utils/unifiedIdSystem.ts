@@ -335,13 +335,30 @@ function generateDisplayIdFromObject(obj: any): string {
       // As absolute last resort, use current time (not ideal but better than raw ID)
       // This ensures we always have a readable format, even if timestamp parsing fails
       const fallbackDate = new Date();
-      const utcPlus3 = new Date(fallbackDate.getTime() + (3 * 60 * 60 * 1000));
-      const year = utcPlus3.getUTCFullYear().toString().slice(-2);
-      const month = (utcPlus3.getUTCMonth() + 1).toString().padStart(2, '0');
-      const day = utcPlus3.getUTCDate().toString().padStart(2, '0');
-      const hour = utcPlus3.getUTCHours().toString().padStart(2, '0');
-      const minute = utcPlus3.getUTCMinutes().toString().padStart(2, '0');
-      const second = utcPlus3.getUTCSeconds().toString().padStart(2, '0');
+      const utcPlus3 = new Date(fallbackDate.getTimeأت() + (3 * 60 * 60 * 1000));
+      
+      // Extract and validate date components to prevent NaN
+      const yearNum = utcPlus3.getUTCFullYear();
+      const monthNum = utcPlus3.getUTCMonth() + 1;
+      const dayNum = utcPlus3.getUTCDate();
+      const hourNum = utcPlus3.getUTCHours();
+      const minuteNum = utcPlus3.getUTCMinutes();
+      const secondNum = utcPlus3.getUTCSeconds();
+      
+      // Validate all components are valid numbers (defensive check)
+      if (isNaN(yearNum) || isNaN(monthNum) || isNaN(dayNum) || isNaN(hourNum) || isNaN(minuteNum) || isNaN(secondNum)) {
+        console.error('⚠️ Even fallback date is invalid! Using raw ID instead.');
+        const rawId = obj.id || obj.bookingId || obj._id || '';
+        return rawId && rawId.length > 8 ? `#${rawId.slice(-8).toUpperCase()}` : `#${rawId || 'UNKNOWN'}`;
+      }
+      
+      // Convert to strings with proper formatting
+      const year = String(yearNum).slice(-2);
+      const month = String(monthNum).padStart(2, '0');
+      const day = String(dayNum).padStart(2, '0');
+      const hour = String(hourNum).padStart(2, '0');
+      const minute = String(minuteNum).padStart(2, '0');
+      const second = String(secondNum).padStart(2, '0');
       
       // Try to infer type from productType if bookingType is missing
       const bookingTypeField = (obj.bookingType || obj.type || '').toString().toLowerCase();
