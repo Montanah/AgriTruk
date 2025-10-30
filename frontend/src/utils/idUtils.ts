@@ -10,24 +10,40 @@ export interface ReadableIdOptions {
 }
 
 /**
- * Generate a readable ID for display purposes
- * Format: YYMMDD-HHMM-TYPE-MODE
- * Example: 250930-1430-AGR-INST (Agri Instant)
- * Example: 250930-1430-CRG-BOOK (Cargo Booking)
- * Example: 250930-1430-CONS-AGR (Consolidated Agri)
+ * Generate a readable ID for display purposes (PLACEHOLDER - backend will generate final ID with unique suffix)
+ * Format: YYMMDD-HHMMSS-TYPE-[B/I/C]XXX
+ * Example: 251029-215720-AGR-BXXX (Agri Booking - backend adds unique suffix)
+ * Example: 251029-215720-CAR-IXXX (Cargo Instant - backend adds unique suffix)
+ * Example: 251029-215720-AGR-CXXX (Consolidated - backend adds unique suffix)
+ * 
+ * NOTE: This is a placeholder. The backend will generate the final readableId using createdAt timestamp
+ * and bookingId (Firestore document ID) to create a unique suffix. The backend readableId takes priority.
  */
-export const generateReadableId = (options: ReadableIdOptions): string => {
+export const generateReadableId = (options: ReadableIdOptions, seed?: string): string => {
   const now = options.timestamp || new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const day = now.getDate().toString().padStart(2, '0');
-  const hour = now.getHours().toString().padStart(2, '0');
-  const minute = now.getMinutes().toString().padStart(2, '0');
+  
+  // Convert to UTC+3 (same as backend does)
+  const utcPlus3 = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+  
+  const year = utcPlus3.getUTCFullYear().toString().slice(-2);
+  const month = (utcPlus3.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = utcPlus3.getUTCDate().toString().padStart(2, '0');
+  const hour = utcPlus3.getUTCHours().toString().padStart(2, '0');
+  const minute = utcPlus3.getUTCMinutes().toString().padStart(2, '0');
+  const second = utcPlus3.getUTCSeconds().toString().padStart(2, '0');
   
   const type = options.bookingType === 'Agri' ? 'AGR' : 'CAR';
-  const mode = options.isConsolidated ? 'CONS' : (options.bookingMode === 'instant' ? 'INST' : 'BOOK');
+  const letter = options.isConsolidated ? 'C' : (options.bookingMode === 'instant' ? 'I' : 'B');
   
-  return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
+  // Generate a placeholder suffix (backend will use actual bookingId for unique suffix)
+  let suffix = 'XXX';
+  if (seed) {
+    // Simple hash for placeholder (backend uses computeShortSuffix with actual bookingId)
+    const hash = seed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    suffix = (hash % 1000).toString(36).toUpperCase().padStart(3, '0').slice(-3);
+  }
+  
+  return `${year}${month}${day}-${hour}${minute}${second}-${type}-${letter}${suffix}`;
 };
 
 /**
