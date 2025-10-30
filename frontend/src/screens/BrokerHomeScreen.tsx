@@ -372,12 +372,6 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                     <TouchableOpacity style={styles.notificationButton}>
                         <Ionicons name="notifications" size={24} color={colors.primary} />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.addClientButton}
-                        onPress={() => setShowAddClientModal(true)}
-                    >
-                        <MaterialCommunityIcons name="account-plus" size={20} color={colors.white} />
-                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -541,6 +535,15 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                     </View>
                 )}
             </FormKeyboardWrapper>
+
+            {/* Floating Add Client Button */}
+            <TouchableOpacity
+                style={styles.fab}
+                activeOpacity={0.9}
+                onPress={() => setShowAddClientModal(true)}
+            >
+                <MaterialCommunityIcons name="account-plus" size={26} color={colors.white} />
+            </TouchableOpacity>
 
             {/* Add Client Modal */}
             <Modal
@@ -897,6 +900,22 @@ const styles = StyleSheet.create({
         padding: 8,
         borderRadius: 20,
         backgroundColor: colors.primary,
+    },
+    fab: {
+        position: 'absolute',
+        right: spacing.lg,
+        bottom: spacing.xxl + 8,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.primary,
+        elevation: 8,
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
     },
     content: {
         flex: 1,
