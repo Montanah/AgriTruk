@@ -258,12 +258,17 @@ function parseFirestoreTimestamp(timestamp: any): Date | null {
   try {
     // Firestore timestamp object: { _seconds: 1234567890, _nanoseconds: 0 }
     if (timestamp._seconds !== undefined) {
-      return new Date(timestamp._seconds * 1000);
+      return new Date(timestamp._seconds * 1000 + (timestamp._nanoseconds || 0) / 1000000);
     }
     
     // Firestore Timestamp object with toDate method
     if (timestamp.toDate && typeof timestamp.toDate === 'function') {
       return timestamp.toDate();
+    }
+    
+    // Firestore timestamp object with seconds property (alternative format)
+    if (timestamp.seconds !== undefined) {
+      return new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
     }
     
     // ISO string
@@ -279,9 +284,19 @@ function parseFirestoreTimestamp(timestamp: any): Date | null {
       return timestamp;
     }
     
+    // Number (Unix timestamp in milliseconds or seconds)
+    if (typeof timestamp === 'number') {
+      // If less than 1e12, assume it's seconds, otherwise milliseconds
+      const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
+      const parsed = new Date(ms);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    
     return null;
   } catch (error) {
-    console.error('Error parsing timestamp:', error);
+    console.error('Error parsing timestamp:', error, 'timestamp:', timestamp);
     return null;
   }
 }
@@ -303,16 +318,53 @@ function generateDisplayIdFromObject(obj: any): string {
       bookingDate = parseFirestoreTimestamp(createdAtSource);
     }
     
-    // If we couldn't parse createdAt, use the raw database ID instead of generating a new one
-    // This prevents IDs from changing with time
+    // If we couldn't parse createdAt, try to use current time as absolute last resort
+    // But first, log a warning so we can debug why createdAt is missing
     if (!bookingDate || isNaN(bookingDate.getTime())) {
-      // Return a short version of the database ID instead of generating a time-based ID
-      const rawId = obj.id || obj.bookingId || obj._id || '';
-      if (rawId && rawId.length > 8) {
-        // Use last 8 characters of database ID for display
-        return `#${rawId.slice(-8).toUpperCase()}`;
+      console.warn('⚠️ Cannot parse createdAt for booking ID generation:', {
+        rawId: obj.id || obj.bookingId || obj._id,
+        createdAtSource: obj.createdAt || obj.created_at || obj.timestamp || obj.dateCreated,
+        readableId: obj.readableId,
+      });
+      
+      // If readableId exists, use it even if createdAt is missing
+      if (obj.readableId && typeof obj.readableId === 'string' && obj.readableId.length > 0) {
+        return obj.readableId;
       }
-      return `#${rawId || 'UNKNOWN'}`;
+      
+      // As absolute last resort, use current time (not ideal but better than raw ID)
+      // This ensures we always have a readable format, even if timestamp parsing fails
+      const fallbackDate = new Date();
+      const utcPlus3 = new Date(fallbackDate.getTime() + (3 * 60 * 60 * 1000));
+      const year = utcPlus3.getUTCFullYear().toString().slice(-2);
+      const month = (utcPlus3.getUTCMonth() + 1).toString().padStart(2, '0');
+      const day = utcPlus3.getUTCDate().toString().padStart(2, '0');
+      const hour = utcPlus3.getUTCHours().toString().padStart(2, '0');
+      const minute = utcPlus3.getUTCMinutes().toString().padStart(2, '0');
+      const second = utcPlus3.getUTCSeconds().toString().padStart(2, '0');
+      
+      // Try to infer type from productType if bookingType is missing
+      const bookingTypeField = (obj.bookingType || obj.type || '').toString().toLowerCase();
+      let type: 'AGR' | 'CAR' = 'CAR';
+      if (bookingTypeField.includes('agri')) {
+        type = 'AGR';
+      } else {
+        const productType = (obj.productType || obj.cargoType || '').toString().toLowerCase();
+        if (productType.includes('agricultural') || productType.includes('crop') || productType.includes('farm')) {
+          type = 'AGR';
+        }
+      }
+      
+      const bookingModeField = (obj.bookingMode || (obj.type === 'instant' ? 'instant' : 'booking') || 'booking').toString().toLowerCase();
+      const isConsolidated = obj.isConsolidated || bookingModeField === 'consolidated';
+      const isInstant = bookingModeField === 'instant';
+      const letter = isConsolidated ? 'C' : (isInstant ? 'I' : 'B');
+      
+      const rawId = obj.id || obj.bookingId || obj._id || '';
+      const suf = computeShortSuffix(rawId || `${fallbackDate.getTime()}-${Math.random()}`);
+      
+      // Prefix with "FALLBACK-" to indicate this is a fallback ID
+      return `FALLBACK-${year}${month}${day}-${hour}${minute}${second}-${type}-${letter}${suf}`;
     }
     
     // Use the parsed createdAt date for ID generation (NOT current time)

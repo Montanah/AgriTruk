@@ -181,8 +181,8 @@ const DriverJobManagementScreen = () => {
         if (selectedTab === 'route_loads') {
           setRouteLoads(data.routeLoads || data.loads || data || []);
         } else {
-          // Handle both array and object responses
-          const jobsData = Array.isArray(data) ? data : (data.jobs || data.bookings || []);
+          // Handle both array and object responses - available endpoint returns availableBookings array
+          const jobsData = Array.isArray(data) ? data : (data.availableBookings || data.jobs || data.bookings || data.data || []);
           // Ensure all jobs have proper readableId/bookingId
           // IMPORTANT: customerName/customerPhone should be the CLIENT/SHIPPER who created the booking, NOT the driver/transporter
           const processedJobs = jobsData.map((job: any) => {
