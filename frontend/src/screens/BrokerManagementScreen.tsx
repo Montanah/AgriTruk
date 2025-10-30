@@ -321,22 +321,22 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             </View>
 
             <View style={styles.clientInfo}>
-                <Text style={styles.clientName}>{item.clientName}</Text>
-                <Text style={styles.clientCompany}>{item.clientCompany}</Text>
+                <Text style={styles.clientName}>{item.client?.name || 'Client'}</Text>
+                <Text style={styles.clientCompany}>{item.client?.company || ''}</Text>
             </View>
 
             <View style={styles.routeInfo}>
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
                     <Text style={styles.routeText}>
-                        {cleanLocationDisplay(item.fromLocation || 'Unknown location')}
+                        {cleanLocationDisplay(item.fromLocation?.address || (item.fromLocation as any) || 'Unknown location')}
                     </Text>
                 </View>
                 <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.light} />
                 <View style={styles.routeItem}>
                     <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
                     <Text style={styles.routeText}>
-                        {cleanLocationDisplay(item.toLocation || 'Unknown location')}
+                        {cleanLocationDisplay(item.toLocation?.address || (item.toLocation as any) || 'Unknown location')}
                     </Text>
                 </View>
             </View>
@@ -370,7 +370,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             )}
 
             {/* Transporter Information */}
-            {(item.transporterId || item.transporterName || item.transporter?.name || item.driverName) && (
+            {(item.transporter?.id || item.transporter?.name) && (
                 <View style={styles.transporterInfo}>
                     <View style={styles.transporterHeader}>
                         <MaterialCommunityIcons name="account-tie" size={16} color={colors.primary} />
@@ -378,10 +378,10 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                     </View>
                     <View style={styles.transporterDetails}>
                         <Text style={styles.transporterName}>
-                            {item.transporterName || item.transporter?.name || item.driverName || 'Unknown Transporter'}
+                            {item.transporter?.name || 'Unknown Transporter'}
                         </Text>
                         <Text style={styles.transporterPhone}>
-                            {item.transporterPhone || item.transporter?.phone || item.driverPhone || 'N/A'}
+                            {item.transporter?.phone || 'N/A'}
                         </Text>
                         {(item.transporterRating || item.transporter?.rating) && (
                             <View style={styles.ratingContainer}>

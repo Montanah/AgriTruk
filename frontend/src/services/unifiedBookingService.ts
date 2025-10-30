@@ -225,12 +225,45 @@ class UnifiedBookingService {
 
       const url = queryParams.toString() ? `${endpoint}?${queryParams}` : endpoint;
       
-      const response = await fetch(url, {
+      let response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
+
+      // Fallbacks for brokers if dedicated endpoint is missing or empty
+      if (userRole === 'broker') {
+        let shouldFallback = !response.ok;
+        if (!shouldFallback) {
+          try {
+            const probe = await response.clone().json();
+            const arr = probe.bookings || probe.requests || probe.data || [];
+            if (!Array.isArray(arr) || arr.length === 0) shouldFallback = true;
+          } catch (_) {
+            shouldFallback = true;
+          }
+        }
+        if (shouldFallback) {
+          const fallbackUrls = [
+            `${API_ENDPOINTS.REQUESTS}`,
+            `${API_ENDPOINTS.BOOKINGS}?scope=broker`,
+            `${API_ENDPOINTS.BOOKINGS}`,
+          ];
+          for (const fb of fallbackUrls) {
+            const fbRes = await fetch(fb, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (fbRes.ok) {
+              response = fbRes;
+              break;
+            }
+          }
+        }
+      }
 
       if (!response.ok) {
         throw new Error(`Failed to fetch bookings: ${response.status} ${response.statusText}`);

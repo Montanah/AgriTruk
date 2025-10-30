@@ -8,6 +8,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
+import { unifiedBookingService } from '../services/unifiedBookingService';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 
 interface BrokerStats {
@@ -101,11 +102,25 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                 const data = await res.json();
                 setStats(data.stats || stats);
             } else {
-                // If stats endpoint doesn't exist, we'll calculate stats from clients data
-                // This will be handled in fetchClients
+                // Fallback: compute from bookings
+                const computed = await unifiedBookingService.getBookingStats('broker');
+                setStats(prev => ({
+                    ...prev,
+                    activeRequests: computed.confirmed + computed.inTransit,
+                    pendingRequests: computed.pending,
+                }));
             }
         } catch (error) {
             console.error('Error fetching broker stats:', error);
+            // Final fallback: compute from bookings
+            try {
+                const computed = await unifiedBookingService.getBookingStats('broker');
+                setStats(prev => ({
+                    ...prev,
+                    activeRequests: computed.confirmed + computed.inTransit,
+                    pendingRequests: computed.pending,
+                }));
+            } catch {}
         }
     };
 
