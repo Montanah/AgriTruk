@@ -188,7 +188,11 @@ class UnifiedBookingService {
           endpoint = `${API_ENDPOINTS.BOOKINGS}/shipper`;
           break;
         case 'broker':
-          endpoint = `${API_ENDPOINTS.BROKERS}/requests`;
+          // Backend currently stores bookings with userId = authenticated UID.
+          // Use user-scoped bookings to ensure brokers see their own bookings
+          const auth = getAuth();
+          const me = auth.currentUser;
+          endpoint = `${API_ENDPOINTS.BOOKINGS}/user/${me?.uid}`;
           break;
         case 'business':
           endpoint = `${API_ENDPOINTS.BOOKINGS}/business`;
@@ -245,10 +249,34 @@ class UnifiedBookingService {
           }
         }
         if (shouldFallback) {
+          // Try to discover canonical brokerId for current broker
+          let brokerIdParam = '';
+          try {
+            const meRes = await fetch(`${API_ENDPOINTS.BROKERS}/me`, {
+              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (meRes.ok) {
+              const me = await meRes.json();
+              const bid = me?.data?.id || me?.broker?.id || me?.id || me?.data?.brokerId || me?.brokerId;
+              if (bid) brokerIdParam = `brokerId=${encodeURIComponent(bid)}`;
+            } else {
+              // fallback via clients to infer brokerId
+              const clientsRes = await fetch(`${API_ENDPOINTS.BROKERS}/clients`, {
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+              });
+              if (clientsRes.ok) {
+                const cjson = await clientsRes.json();
+                const first = (cjson.data || cjson.clients || [])[0];
+                const bid = first?.brokerId;
+                if (bid) brokerIdParam = `brokerId=${encodeURIComponent(bid)}`;
+              }
+            }
+          } catch {}
+
           const fallbackUrls = [
-            `${API_ENDPOINTS.REQUESTS}`,
-            `${API_ENDPOINTS.BOOKINGS}?scope=broker`,
-            `${API_ENDPOINTS.BOOKINGS}`,
+            `${API_ENDPOINTS.REQUESTS}${brokerIdParam ? `?${brokerIdParam}` : ''}`,
+            `${API_ENDPOINTS.BOOKINGS}?scope=broker${brokerIdParam ? `&${brokerIdParam}` : ''}`,
+            `${API_ENDPOINTS.BOOKINGS}${brokerIdParam ? `?${brokerIdParam}` : ''}`,
           ];
           for (const fb of fallbackUrls) {
             const fbRes = await fetch(fb, {
@@ -340,9 +368,13 @@ class UnifiedBookingService {
           // Also include any booking explicitly tagged with this brokerId in brokerData
           if (clientsIndex) {
             const brokerUid = getAuth().currentUser?.uid;
+            // try to get canonical brokerId via clients list
+            const anyClient = Object.values(clientsIndex)[0] as any;
+            const brokerIdFromClients = anyClient?.brokerId;
             bookings = bookings.filter(b => {
               const isClientOwned = !!(b.client && clientsIndex![b.client.id]);
-              const isBrokerTagged = !!(b.brokerData && (b.brokerData as any).brokerId && (b.brokerData as any).brokerId === brokerUid);
+              const bId = (b as any).brokerData?.brokerId;
+              const isBrokerTagged = !!(bId && (bId === brokerUid || (brokerIdFromClients && bId === brokerIdFromClients)));
               return isClientOwned || isBrokerTagged;
             });
           }
