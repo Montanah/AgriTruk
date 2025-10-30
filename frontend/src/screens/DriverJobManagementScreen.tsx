@@ -967,7 +967,8 @@ const DriverJobManagementScreen = () => {
         )}
       </View>
     </View>
-  );
+    );
+  };
 
   const renderRouteLoadItem = ({ item }: { item: RouteLoad }) => (
     <TouchableOpacity 

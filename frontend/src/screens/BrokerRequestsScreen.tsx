@@ -5,6 +5,7 @@ import RequestForm from '../components/common/RequestForm';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 
 // No mock data - will fetch from API
 
@@ -47,7 +48,14 @@ export default function BrokerRequestsScreen() {
   const renderRequest = ({ item }) => (
     <TouchableOpacity style={styles.requestCard} activeOpacity={0.8}>
       <View style={styles.requestHeader}>
-        <Text style={styles.requestId}>#{item.id}</Text>
+        <Text style={styles.requestId}>#{getDisplayBookingId({
+          ...item,
+          readableId: item.readableId,
+          bookingType: item.bookingType || (item.category === 'agri' ? 'Agri' : 'Cargo'),
+          bookingMode: item.bookingMode || (item.type === 'instant' ? 'instant' : 'booking'),
+          createdAt: item.createdAt,
+          bookingId: item.id || item.bookingId
+        })}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
         </View>

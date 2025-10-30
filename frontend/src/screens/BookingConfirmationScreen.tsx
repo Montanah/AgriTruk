@@ -9,6 +9,7 @@ import { apiRequest } from '../utils/api';
 import CustomAlert from '../components/common/CustomAlert';
 import SuccessBookingModal from '../components/common/SuccessBookingModal';
 import { cleanLocationDisplay } from '../utils/locationUtils';
+import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 
 // Accepts either a single booking or an array of bookings (for consolidated)
 const BookingConfirmationScreen = ({ route, navigation }: any) => {
