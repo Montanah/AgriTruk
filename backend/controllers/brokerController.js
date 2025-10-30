@@ -199,7 +199,7 @@ exports.getBroker = async (req, res) => {
     const clients = await Client.getClients(broker.id);
     broker.clients = formatTimestamps(clients);
     broker.clientCount = clients.length;
-    const bookings = await Booking.get(broker.id);
+    const bookings = await Booking.getBookingForUser(broker.id);
     broker.bookings = formatTimestamps(bookings);
     broker.bookingCount = bookings.length;
 
