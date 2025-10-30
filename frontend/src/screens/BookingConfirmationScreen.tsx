@@ -61,6 +61,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [bookingId, setBookingId] = useState('');
   const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [postedBooking, setPostedBooking] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   // Fallback function to store booking locally when backend is unavailable
@@ -184,7 +185,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
 
         // Complete payload with all required fields for backend
         // Based on the database record structure you provided
-        const bookingData = {
+        const bookingData: any = {
           // IMPORTANT: Add readableId so backend can store it
           readableId: readableId,
           // Core booking fields - match database structure
@@ -238,6 +239,25 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
             baseBookingId: null
           }
         };
+
+        // If broker mode, attach broker/client attribution
+        if (mode === 'broker') {
+          try {
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            const selectedClient = params.selectedClient;
+            bookingData.brokerData = {
+              brokerId: user?.uid,
+              brokerName: user?.email || 'Broker',
+              clientId: selectedClient?.id || selectedClient?.userId,
+              clientName: selectedClient?.name || selectedClient?.company || selectedClient?.email,
+            };
+            // Also include client fields to help backend indexing
+            bookingData.clientId = bookingData.brokerData.clientId;
+            bookingData.clientName = bookingData.brokerData.clientName;
+          } catch {}
+        }
         return bookingData;
       });
 
@@ -297,6 +317,15 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         'response.booking?.bookingId': response?.booking?.bookingId,
         'final': extractedBookingId
       });
+      // Prepare booking object for consistent display ID across screens
+      const displayBooking = {
+        ...payload[0],
+        id: response?.id || response?.booking?.id || response?.data?.id || extractedBookingId,
+        bookingId: response?.bookingId || extractedBookingId,
+        readableId: response?.readableId || payload[0]?.readableId,
+        createdAt: response?.createdAt || new Date().toISOString(),
+      };
+      setPostedBooking(displayBooking);
       setBookingId(extractedBookingId);
       setShowSuccessModal(true);
 
@@ -457,6 +486,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         visible={showSuccessModal}
         onClose={handleSuccessModalClose}
         bookingId={bookingId}
+        booking={postedBooking}
         isConsolidated={isConsolidated}
         onViewBooking={handleViewBooking}
         onContinue={handleContinue}
