@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -96,6 +98,9 @@ const DriverJobManagementScreen = () => {
   const [acceptingJobId, setAcceptingJobId] = useState<string | null>(null);
   const [startingTripId, setStartingTripId] = useState<string | null>(null);
   const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [jobToCancel, setJobToCancel] = useState<Job | null>(null);
+  const [cancellationReason, setCancellationReason] = useState('');
 
   const fetchDriverProfile = async () => {
     try {
@@ -573,24 +578,23 @@ const DriverJobManagementScreen = () => {
   };
 
   const showCancelModal = (job: Job) => {
-    Alert.prompt(
-      'Cancel Job',
-      'Please provide a reason for cancellation:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Confirm', 
-          onPress: (reason) => {
-            if (reason && reason.trim()) {
-              cancelJob(job, reason.trim());
-            } else {
-              Alert.alert('Error', 'Please provide a cancellation reason');
-            }
-          }
-        }
-      ],
-      'plain-text'
-    );
+    setJobToCancel(job);
+    setCancellationReason('');
+    setShowCancelModal(true);
+  };
+
+  const handleCancelConfirm = () => {
+    if (!jobToCancel) return;
+    
+    if (!cancellationReason.trim()) {
+      Alert.alert('Error', 'Please provide a cancellation reason');
+      return;
+    }
+
+    cancelJob(jobToCancel, cancellationReason.trim());
+    setShowCancelModal(false);
+    setJobToCancel(null);
+    setCancellationReason('');
   };
 
   const handleCall = (phoneNumber: string) => {
