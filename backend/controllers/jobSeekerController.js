@@ -495,10 +495,10 @@ const jobSeekerController = {
 
   async deleteJobSeeker(req, res) {
     try {
-      const { id } = req.params;
+      const id  = req.params.jobSeekerId;
       const result = await JobSeeker.delete(id);
-
-      await logAdminActivity(req.user.id, "Job Seeker", "Deleted");
+      
+      await logAdminActivity(req.user.uid, "Job Seeker", req, {id: id});
 
       res.status(200).json({
         success: true,
