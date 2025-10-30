@@ -604,8 +604,12 @@ const TrackingScreen = () => {
                         <View style={styles.bookingIdContainer}>
                             <Text style={styles.bookingId}>#{getDisplayBookingId({
                                 ...booking,
+                                readableId: booking.readableId,
                                 bookingType: booking.bookingType || booking.type,
-                                bookingMode: booking.bookingMode || (booking.type === 'instant' ? 'instant' : 'booking')
+                                bookingMode: booking.bookingMode || (booking.type === 'instant' ? 'instant' : 'booking'),
+                                createdAt: booking.createdAt,
+                                bookingId: booking.bookingId || booking.id,
+                                id: booking.id || booking.bookingId,
                             })}</Text>
                             <Text style={styles.bookingDate}>
                                 Created: {new Date(booking.createdAt || new Date()).toLocaleDateString()}
