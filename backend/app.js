@@ -164,7 +164,6 @@ console.log('✅ Document expiry cron job started');
 // testJob.start();
 // companyDocumentExpiryJob.start();
 CronScheduler.init();
-CronScheduler.testNotifications();
 console.log('✅ Company document expiry cron job started');
 // console.log('✅ Test cron job started');
 
