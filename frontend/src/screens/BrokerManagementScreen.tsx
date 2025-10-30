@@ -762,7 +762,10 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
 
                         <FlatList
                             data={selectedClient
-                                ? requests.filter(r => r.clientName === selectedClient.name)
+                                ? requests.filter(r => {
+                                    const cid = (r as any).brokerData?.clientId || r.client?.id;
+                                    return cid && cid === selectedClient.id;
+                                  })
                                 : requests
                             }
                             renderItem={renderRequestItem}
