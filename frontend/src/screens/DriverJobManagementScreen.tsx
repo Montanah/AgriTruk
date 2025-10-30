@@ -244,6 +244,13 @@ const DriverJobManagementScreen = () => {
         }
       } else {
         const statusCode = response.status;
+        // For route_loads tab, handle 404 gracefully (feature may not be implemented)
+        if (selectedTab === 'route_loads' && statusCode === 404) {
+          console.log('Route loads endpoint not available - setting empty array');
+          setRouteLoads([]);
+          setError(null); // Don't show error for route loads 404
+          return;
+        }
         if (statusCode === 403) {
           // If transporter/accepted fails, try driver/accepted
           if (selectedTab === 'my_jobs' && endpoint.includes('/transporter/accepted')) {
@@ -865,14 +872,31 @@ const DriverJobManagementScreen = () => {
           </TouchableOpacity>
         )}
 
-        {item.status === 'in_progress' && (
-          <TouchableOpacity
-            style={styles.completeButton}
-            onPress={() => handleCompleteTrip(item)}
-          >
-            <MaterialCommunityIcons name="check-circle" size={16} color={colors.white} />
-            <Text style={styles.actionText}>Complete</Text>
-          </TouchableOpacity>
+        {(item.status === 'started' || item.status === 'in_progress') && (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity
+              style={[styles.resumeButton, { flex: 1 }]}
+              onPress={() => {
+                (navigation as any).navigate('DriverTripNavigation', {
+                  jobId: item.id || item.bookingId,
+                  bookingId: item.bookingId || item.id,
+                  job: item
+                });
+              }}
+            >
+              <MaterialCommunityIcons name="navigation" size={16} color={colors.white} />
+              <Text style={styles.actionText}>Resume Trip</Text>
+            </TouchableOpacity>
+            {item.status === 'in_progress' && (
+              <TouchableOpacity
+                style={[styles.completeButton, { flex: 1 }]}
+                onPress={() => handleCompleteTrip(item)}
+              >
+                <MaterialCommunityIcons name="check-circle" size={16} color={colors.white} />
+                <Text style={styles.actionText}>Complete</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {/* Communication Buttons Row */}
@@ -895,7 +919,7 @@ const DriverJobManagementScreen = () => {
         </View>
 
         {/* Cancel Button Row */}
-        {(item.status === 'accepted' || item.status === 'in_progress') && (
+        {(item.status === 'accepted' || item.status === 'in_progress' || item.status === 'started') && (
           <View style={styles.cancelRow}>
             <TouchableOpacity
               style={[
@@ -1110,6 +1134,50 @@ const DriverJobManagementScreen = () => {
           />
         )}
       </View>
+
+      {/* Cancel Modal */}
+      <Modal visible={showCancelModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Cancel Job</Text>
+            <Text style={styles.modalSubtitle}>Please provide a reason for cancelling this job:</Text>
+            
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Enter cancellation reason..."
+              value={cancellationReason}
+              onChangeText={setCancellationReason}
+              multiline
+              numberOfLines={3}
+              placeholderTextColor={colors.text.secondary}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton} 
+                onPress={() => {
+                  setShowCancelModal(false);
+                  setJobToCancel(null);
+                  setCancellationReason('');
+                }}
+              >
+                <Text style={styles.modalCancelButtonText}>Keep Job</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalConfirmButton, cancellingJobId === jobToCancel?.id && styles.disabledButton]} 
+                onPress={handleCancelConfirm}
+                disabled={cancellingJobId === jobToCancel?.id}
+              >
+                {cancellingJobId === jobToCancel?.id ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.modalConfirmButtonText}>Cancel Job</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1674,6 +1742,86 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: spacing.sm,
+  },
+  resumeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  // Cancel Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginBottom: 16,
+  },
+  reasonInput: {
+    borderWidth: 1,
+    borderColor: colors.border || colors.text.light,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    fontFamily: fonts.family.regular,
+    color: colors.text.primary,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border || colors.text.light,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+  },
+  modalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+  },
+  modalConfirmButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });
 
