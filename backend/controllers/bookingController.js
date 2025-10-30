@@ -282,6 +282,9 @@ exports.createBooking = async (req, res) => {
       bookingType,
       bookingMode,
       userId: user,
+      // Persist broker attribution if provided (enables broker-scoped fetches)
+      brokerData: req.body.brokerData || null,
+      clientId: (req.body.brokerData && req.body.brokerData.clientId) || req.body.clientId || null,
       weightKg,
       createdAt: Timestamp.now(), // Explicitly set createdAt
       productType,
