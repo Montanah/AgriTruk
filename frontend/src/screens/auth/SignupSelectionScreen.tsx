@@ -61,7 +61,7 @@ const roles = [
         <MaterialCommunityIcons name="truck" size={32} color="#FF8C00" />
       </Animated.View>
     ),
-    description: 'For transporters (individuals or companies)',
+    description: 'For transport companies and fleets to manage vehicles, drivers, and jobs',
   },
   {
     key: 'driver',
