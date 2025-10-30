@@ -538,6 +538,20 @@ class UnifiedBookingService {
    * Normalize a single booking from API response
    */
   private normalizeBooking(booking: any): UnifiedBooking {
+    // derive transporter
+    const transporter = booking.transporter || {
+      id: booking.transporterId || booking.driverId,
+      name: booking.transporterName || booking.driverName,
+      phone: booking.transporterPhone || booking.driverPhone,
+      profilePhoto: booking.transporterPhoto || booking.driverPhoto,
+      rating: booking.transporterRating || booking.driverRating,
+      status: booking.transporterStatus || booking.driverStatus,
+      assignedVehicle: booking.assignedVehicle || booking.transporterAssignedVehicle,
+    };
+
+    // derive vehicle from explicit vehicle or assigned vehicle
+    const assignedVehicle = booking.vehicle || transporter?.assignedVehicle || booking.assignedVehicle;
+
     return {
       id: booking.id || booking.bookingId || booking._id,
       bookingId: booking.bookingId || getDisplayBookingId(booking) || booking.id,
@@ -555,35 +569,35 @@ class UnifiedBookingService {
       price: booking.price || booking.cost || booking.estimatedValue,
       
       client: {
-        id: booking.clientId || booking.userId || booking.shipperId,
-        name: booking.clientName || booking.shipperName || booking.userName || 'Unknown Client',
+        id: booking.clientId || booking.userId || booking.shipperId || booking.brokerData?.clientId,
+        name: booking.clientName || booking.shipperName || booking.userName || booking.brokerData?.clientName || 'Client',
         company: booking.clientCompany || booking.companyName,
         phone: booking.clientPhone || booking.phone || booking.contactPhone,
         email: booking.clientEmail || booking.email || booking.contactEmail,
         type: this.normalizeClientType(booking.clientType || booking.userType),
       },
       
-      transporter: booking.transporter ? {
-        id: booking.transporter.id || booking.transporterId,
-        name: booking.transporter.name || booking.transporterName,
-        phone: booking.transporter.phone || booking.transporterPhone,
-        profilePhoto: booking.transporter.profilePhoto || booking.transporter.photo,
-        rating: booking.transporter.rating,
-        experience: booking.transporter.experience,
-        availability: booking.transporter.availability,
-        tripsCompleted: booking.transporter.tripsCompleted,
-        status: booking.transporter.status,
+      transporter: (transporter && (transporter.id || transporter.name)) ? {
+        id: transporter.id,
+        name: transporter.name,
+        phone: transporter.phone,
+        profilePhoto: transporter.profilePhoto,
+        rating: transporter.rating,
+        experience: transporter.experience,
+        availability: transporter.availability,
+        tripsCompleted: transporter.tripsCompleted,
+        status: transporter.status,
       } : undefined,
       
-      vehicle: booking.vehicle ? {
-        id: booking.vehicle.id || booking.vehicleId,
-        make: booking.vehicle.make,
-        model: booking.vehicle.model,
-        year: booking.vehicle.year,
-        type: booking.vehicle.type,
-        registration: booking.vehicle.registration,
-        color: booking.vehicle.color,
-        capacity: booking.vehicle.capacity,
+      vehicle: assignedVehicle ? {
+        id: assignedVehicle.id || booking.vehicleId,
+        make: assignedVehicle.make || assignedVehicle.vehicleMake,
+        model: assignedVehicle.model || assignedVehicle.vehicleModel,
+        year: assignedVehicle.year || assignedVehicle.vehicleYear,
+        type: assignedVehicle.type || assignedVehicle.bodyType || assignedVehicle.vehicleType,
+        registration: assignedVehicle.registration || assignedVehicle.vehicleRegistration,
+        color: assignedVehicle.color || assignedVehicle.vehicleColor,
+        capacity: assignedVehicle.capacity || assignedVehicle.vehicleCapacity,
       } : undefined,
       
       isConsolidated: booking.isConsolidated || booking.type === 'consolidated',

@@ -321,8 +321,12 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             </View>
 
             <View style={styles.clientInfo}>
-                <Text style={styles.clientName}>{item.client?.name || 'Client'}</Text>
-                <Text style={styles.clientCompany}>{item.client?.company || ''}</Text>
+                <Text style={styles.clientName}>{item.client?.name || item.brokerData?.clientName || 'Client'}</Text>
+                {!!(item.client?.company || item.client?.email || item.client?.phone) && (
+                  <Text style={styles.clientCompany}>
+                    {item.client?.company || item.client?.email || item.client?.phone}
+                  </Text>
+                )}
             </View>
 
             <View style={styles.routeInfo}>
@@ -648,6 +652,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                                 keyExtractor={(item) => item.id}
                                 showsVerticalScrollIndicator={false}
                                 scrollEnabled={false}
+                                contentContainerStyle={{ paddingBottom: spacing.xxl }}
                             />
                         )}
                     </View>
@@ -727,6 +732,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                                 keyExtractor={(item) => item.id}
                                 showsVerticalScrollIndicator={false}
                                 scrollEnabled={false}
+                                contentContainerStyle={{ paddingBottom: spacing.xxl }}
                             />
                         )}
                     </View>
@@ -763,6 +769,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                             keyExtractor={(item) => item.id}
                             showsVerticalScrollIndicator={false}
                             scrollEnabled={false}
+                            contentContainerStyle={{ paddingBottom: spacing.xxl }}
                         />
                     </View>
                 );
@@ -881,7 +888,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             </View>
 
             {/* Tab Content */}
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: spacing.xxl * 2 }} showsVerticalScrollIndicator={false}>
                 {renderTabContent()}
             </ScrollView>
 
