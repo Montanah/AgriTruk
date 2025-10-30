@@ -20,6 +20,7 @@ import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 import { getAuth } from 'firebase/auth';
 import LocationDisplay from '../components/common/LocationDisplay';
+import VehicleDisplayCard from '../components/common/VehicleDisplayCard';
 import { getLocationNameSync } from '../utils/locationUtils';
 import { calculateRoadDistanceWithFallback } from '../utils/distanceUtils';
 import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/unifiedIdSystem';
@@ -518,36 +519,28 @@ const ActivityScreen = () => {
         </View>
       )}
 
-      {item.vehicle && (
+      {/* Vehicle Information - Show if available from item.vehicle or booking fields */}
+      {(item.vehicle || item.vehicleId || item.vehicleMake || item.vehicleRegistration) && (
         <View style={styles.vehicleInfo}>
           <View style={styles.vehicleHeader}>
             <MaterialCommunityIcons name="truck" size={20} color={colors.primary} />
             <Text style={styles.vehicleLabel}>Vehicle Details</Text>
           </View>
-          <View style={styles.vehicleDetails}>
-            <View style={styles.vehicleRow}>
-              <Text style={styles.vehicleDetailLabel}>Vehicle:</Text>
-              <Text style={styles.vehicleDetailValue}>
-                {item.vehicle.make} {item.vehicle.model} ({item.vehicle.year})
-              </Text>
-            </View>
-            <View style={styles.vehicleRow}>
-              <Text style={styles.vehicleDetailLabel}>Registration:</Text>
-              <Text style={styles.vehicleDetailValue}>{item.vehicle.registration}</Text>
-            </View>
-            <View style={styles.vehicleRow}>
-              <Text style={styles.vehicleDetailLabel}>Type:</Text>
-              <Text style={styles.vehicleDetailValue}>{item.vehicle.type}</Text>
-            </View>
-            <View style={styles.vehicleRow}>
-              <Text style={styles.vehicleDetailLabel}>Capacity:</Text>
-              <Text style={styles.vehicleDetailValue}>{item.vehicle.capacity}</Text>
-            </View>
-            <View style={styles.vehicleRow}>
-              <Text style={styles.vehicleDetailLabel}>Color:</Text>
-              <Text style={styles.vehicleDetailValue}>{item.vehicle.color}</Text>
-            </View>
-          </View>
+          <VehicleDisplayCard 
+            vehicle={item.vehicle || {
+              make: item.vehicleMake,
+              model: item.vehicleModel,
+              year: item.vehicleYear,
+              registration: item.vehicleRegistration,
+              type: item.vehicleType,
+              capacity: item.vehicleCapacity,
+              color: item.vehicleColor,
+              vehicleImagesUrl: item.vehiclePhotos ? (Array.isArray(item.vehiclePhotos) ? item.vehiclePhotos : [item.vehiclePhotos]) : undefined,
+              photos: item.vehiclePhotos ? (Array.isArray(item.vehiclePhotos) ? item.vehiclePhotos : [item.vehiclePhotos]) : undefined,
+            }}
+            showImages={true}
+            compact={false}
+          />
         </View>
       )}
 

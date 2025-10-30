@@ -741,14 +741,24 @@ const TrackingScreen = () => {
                                 </View>
                             )}
                             
-                            {/* Vehicle Information */}
-                            {booking.transporter?.vehicle && (
+                            {/* Vehicle Information - Show if available from transporter or booking */}
+                            {(booking.transporter?.vehicle || booking.vehicleId || booking.vehicleMake || booking.vehicleRegistration) && (
                                 <View style={styles.vehicleSection}>
                                     <Text style={styles.vehicleSectionTitle}>Vehicle Details</Text>
                                     <VehicleDisplayCard 
-                                        vehicle={booking.transporter.vehicle}
-                                        showImages={false}
-                                        compact={true}
+                                        vehicle={booking.transporter?.vehicle || {
+                                            make: booking.vehicleMake,
+                                            model: booking.vehicleModel,
+                                            year: booking.vehicleYear,
+                                            registration: booking.vehicleRegistration,
+                                            type: booking.vehicleType,
+                                            capacity: booking.vehicleCapacity,
+                                            color: booking.vehicleColor,
+                                            vehicleImagesUrl: booking.vehiclePhotos ? (Array.isArray(booking.vehiclePhotos) ? booking.vehiclePhotos : [booking.vehiclePhotos]) : undefined,
+                                            photos: booking.vehiclePhotos ? (Array.isArray(booking.vehiclePhotos) ? booking.vehiclePhotos : [booking.vehiclePhotos]) : undefined,
+                                        }}
+                                        showImages={true}
+                                        compact={false}
                                     />
                                 </View>
                             )}
