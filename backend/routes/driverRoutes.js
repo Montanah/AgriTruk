@@ -17,6 +17,7 @@ const {
   verifyDriver,
   getDriverProfile,
   checkIfDriver,
+  updateDriverProfile,
   toggleDriverAvailability
 } = require('../controllers/driverController');
 
@@ -28,6 +29,8 @@ router.get('/', authenticateToken, requireRole('transporter'), getDrivers);
 router.post('/verify', authenticateToken, verifyDriver);
 // Driver profile - allow both driver and transporter roles (drivers access their own profile)
 router.get('/profile', authenticateToken, requireRole(['driver', 'transporter']), getDriverProfile);
+// Update driver profile - allow drivers to update their own profile
+router.put('/profile', authenticateToken, requireRole(['driver']), updateDriverProfile);
 // Check if user is a driver (for routing - requires authentication but no specific role)
 router.get('/check/:userId', authenticateToken, checkIfDriver);
 
