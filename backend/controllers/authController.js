@@ -354,6 +354,7 @@ exports.updateUser = async (req, res) => {
     location,
     userType,
     languagePreference,
+    profilePhotoUrl: profilePhotoUrlFromBody,
   } = req.body;
 
   try {
@@ -362,13 +363,16 @@ exports.updateUser = async (req, res) => {
 
     let profilePhotoUrl = undefined;
 
-    // Upload image if provided
+    // Upload image if provided via file upload (direct upload)
     if (req.file) {
       const publicId = await uploadImage(req.file.path);
       profilePhotoUrl = `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}.jpg`;
 
       // Optional: remove local file
       fs.unlinkSync(req.file.path);
+    } else if (profilePhotoUrlFromBody) {
+      // Use pre-uploaded URL from /api/upload endpoint
+      profilePhotoUrl = profilePhotoUrlFromBody;
     }
     
     const updates = {
