@@ -349,6 +349,7 @@ exports.updateUser = async (req, res) => {
   const {
     name,
     phone,
+    email,
     role,
     location,
     userType,
@@ -373,6 +374,7 @@ exports.updateUser = async (req, res) => {
     const updates = {
       name,
       phone,
+      email,
       role,
       location,
       userType,
@@ -389,6 +391,17 @@ exports.updateUser = async (req, res) => {
 
     const updatedUser = await User.update(uid, updates);
 
+    if (email || phone ) {
+      const updateFirebaseUser = {
+        email,
+        phoneNumber: phone,
+      };
+      try {
+        await admin.auth().updateUser(uid, updateFirebaseUser);
+      } catch (error) {
+        console.error("Firebase user update error:", error);
+      }
+    }
     await logActivity(uid, 'user_profile_update', req);
 
     res.status(200).json({
@@ -899,6 +912,21 @@ exports.registerUserFromBackend = async (req, res) => {
       existingUser = await admin.auth().getUserByPhoneNumber(phone);
     } catch (_) {}
     if (existingUser) {
+      return res.status(409).json({ message: "Phone already registered" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    // 🔹 Step 1: Check if email/phone already exists in Firestore
+    const existingUserDoc = await User.getByEmail(email);
+    if (existingUserDoc) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    const existingUserDocByPhone = await User.getByPhone(phone);
+    if (existingUserDocByPhone) {
       return res.status(409).json({ message: "Phone already registered" });
     }
 
