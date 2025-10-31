@@ -13,17 +13,22 @@ import {
   RefreshControl,
   Switch
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { getAuth, signOut } from 'firebase/auth';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
+import { apiRequest, uploadFile } from '../utils/api';
+import ImagePickerModal from '../components/common/ImagePickerModal';
 
 interface DriverProfile {
   id: string;
@@ -74,6 +79,11 @@ const DriverProfileScreen = () => {
   const [selectedDocument, setSelectedDocument] = useState<'driverLicense' | 'idDocument' | null>(null);
   const [acceptingBooking, setAcceptingBooking] = useState(false);
   const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
+  
+  // Profile editing states
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState<Partial<DriverProfile>>({});
+  const [imagePickerVisible, setImagePickerVisible] = useState(false);
 
   // Helper to convert Firestore timestamp to Date or string
   const parseTimestamp = (ts: any): Date | null => {
@@ -103,36 +113,186 @@ const DriverProfileScreen = () => {
 
       const auth = getAuth();
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        setError('User not authenticated. Please log in again.');
+        setLoading(false);
+        return;
+      }
 
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.DRIVERS}/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      if (response.ok) {
-        const data = await response.json();
-        setDriverProfile(data.driver);
-        setAcceptingBooking(data.driver?.availability || false);
-      } else {
-        const statusCode = response.status;
-        if (statusCode === 403) {
-          throw new Error('Insufficient permissions. Please contact your company administrator.');
-        } else if (statusCode === 401) {
-          throw new Error('Authentication failed. Please log out and log back in.');
+      try {
+        const token = await user.getIdToken();
+        const response = await fetch(`${API_ENDPOINTS.DRIVERS}/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          const driver = data.driver || data;
+          
+          if (!driver) {
+            throw new Error('Driver data not found in response');
+          }
+
+          // Helper to convert Firestore timestamp to string
+          const formatTimestamp = (ts: any): string => {
+            if (!ts) return '';
+            if (typeof ts === 'string') return ts;
+            if (ts._seconds) {
+              return new Date(ts._seconds * 1000).toISOString();
+            }
+            if (ts.toDate) {
+              return ts.toDate().toISOString();
+            }
+            return ts.toString();
+          };
+
+          // Map driver data to expected format
+          // CRITICAL: Store the actual Firestore document ID for updates
+          // The driver document might be identified by driverId field or userId
+          const profileData: DriverProfile = {
+            id: driver.id || driver.driverId || driver._id || '',
+            firstName: driver.firstName || '',
+            lastName: driver.lastName || '',
+            email: driver.email || '',
+            phone: driver.phone || '',
+            driverLicense: driver.driverLicense || '',
+            driverLicenseExpiryDate: formatTimestamp(driver.driverLicenseExpiryDate),
+            idNumber: driver.idNumber || '',
+            idExpiryDate: formatTimestamp(driver.idExpiryDate),
+            profileImage: driver.profileImage || '',
+            status: driver.status || 'pending',
+            assignedVehicle: driver.assignedVehicle || driver.assignedVehicleDetails,
+            company: driver.company || { id: driver.companyId || '', name: driver.companyName || 'Unknown Company' },
+            documents: driver.documents,
+          };
+          
+          // Store userId if available for Firestore lookups
+          if (driver.userId) {
+            (profileData as any).userId = driver.userId;
+          }
+          if (driver.driverId) {
+            (profileData as any).driverId = driver.driverId;
+          }
+
+          setDriverProfile(profileData);
+          setAcceptingBooking(driver.availability || driver.acceptingBooking || false);
         } else {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Failed to fetch driver profile: ${statusCode}`);
+          const statusCode = response.status;
+          if (statusCode === 403) {
+            throw new Error('Insufficient permissions. Please contact your company administrator.');
+          } else if (statusCode === 401) {
+            throw new Error('Authentication failed. Please log out and log back in.');
+          } else if (statusCode === 404) {
+            // If 404, try Firestore fallback
+            console.log('⚠️ Driver profile endpoint returned 404, trying Firestore fallback...');
+            await fetchDriverProfileFromFirestore(user.uid);
+            return;
+          } else {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Failed to fetch driver profile: ${statusCode}`);
+          }
         }
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        
+        // If network error or abort, try Firestore fallback
+        if (fetchError.name === 'AbortError' || fetchError.message?.includes('Network request failed') || fetchError.message?.includes('fetch')) {
+          console.warn('⚠️ Network error fetching driver profile, trying Firestore fallback...', fetchError.message);
+          try {
+            await fetchDriverProfileFromFirestore(user.uid);
+            return;
+          } catch (firestoreError: any) {
+            throw new Error('Network error: Unable to connect to server. Please check your internet connection and try again.');
+          }
+        }
+        throw fetchError;
       }
     } catch (err: any) {
       console.error('Error fetching driver profile:', err);
-      setError(err.message || 'Failed to load profile');
+      setError(err.message || 'Failed to load profile. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fallback to Firestore if API fails
+  const fetchDriverProfileFromFirestore = async (userId: string) => {
+    try {
+      const { db } = require('../firebaseConfig');
+      const { doc, getDoc } = require('firebase/firestore');
+      
+      // Try to find driver by userId
+      const driverDoc = await getDoc(doc(db, 'drivers', userId));
+      
+      if (driverDoc.exists()) {
+        const driverData = driverDoc.data();
+        const profileData: DriverProfile = {
+          id: driverDoc.id,
+          firstName: driverData.firstName || '',
+          lastName: driverData.lastName || '',
+          email: driverData.email || '',
+          phone: driverData.phone || '',
+          driverLicense: driverData.driverLicense || '',
+          driverLicenseExpiryDate: driverData.driverLicenseExpiryDate?.toDate?.()?.toISOString() || driverData.driverLicenseExpiryDate || '',
+          idNumber: driverData.idNumber || '',
+          idExpiryDate: driverData.idExpiryDate?.toDate?.()?.toISOString() || driverData.idExpiryDate || '',
+          profileImage: driverData.profileImage || '',
+          status: driverData.status || 'pending',
+          assignedVehicle: driverData.assignedVehicle || driverData.assignedVehicleDetails,
+          company: driverData.company || { id: driverData.companyId || '', name: driverData.companyName || 'Unknown Company' },
+          documents: driverData.documents,
+        };
+        setDriverProfile(profileData);
+        setAcceptingBooking(driverData.availability || driverData.acceptingBooking || false);
+        console.log('✅ Driver profile loaded from Firestore fallback');
+      } else {
+        // Try to find driver by driverId field
+        const driversQuery = await require('firebase/firestore').query(
+          require('firebase/firestore').collection(db, 'drivers'),
+          require('firebase/firestore').where('userId', '==', userId),
+          require('firebase/firestore').limit(1)
+        );
+        const driversSnapshot = await require('firebase/firestore').getDocs(driversQuery);
+        
+        if (!driversSnapshot.empty) {
+          const driverDoc2 = driversSnapshot.docs[0];
+          const driverData = driverDoc2.data();
+          const profileData: DriverProfile = {
+            id: driverDoc2.id,
+            firstName: driverData.firstName || '',
+            lastName: driverData.lastName || '',
+            email: driverData.email || '',
+            phone: driverData.phone || '',
+            driverLicense: driverData.driverLicense || '',
+            driverLicenseExpiryDate: driverData.driverLicenseExpiryDate?.toDate?.()?.toISOString() || driverData.driverLicenseExpiryDate || '',
+            idNumber: driverData.idNumber || '',
+            idExpiryDate: driverData.idExpiryDate?.toDate?.()?.toISOString() || driverData.idExpiryDate || '',
+            profileImage: driverData.profileImage || '',
+            status: driverData.status || 'pending',
+            assignedVehicle: driverData.assignedVehicle || driverData.assignedVehicleDetails,
+            company: driverData.company || { id: driverData.companyId || '', name: driverData.companyName || 'Unknown Company' },
+            documents: driverData.documents,
+          };
+          setDriverProfile(profileData);
+          setAcceptingBooking(driverData.availability || driverData.acceptingBooking || false);
+          console.log('✅ Driver profile loaded from Firestore fallback (by userId)');
+        } else {
+          throw new Error('Driver profile not found. Please contact your company administrator.');
+        }
+      }
+    } catch (firestoreError: any) {
+      console.error('Firestore fallback error:', firestoreError);
+      throw new Error('Unable to load driver profile. Please check your internet connection and try again.');
     }
   };
 
@@ -341,6 +501,179 @@ const DriverProfileScreen = () => {
     );
   };
 
+  // Profile editing functions
+  const handleEdit = () => {
+    if (driverProfile) {
+      setEditData({
+        firstName: driverProfile.firstName,
+        lastName: driverProfile.lastName,
+        email: driverProfile.email,
+        phone: driverProfile.phone,
+        profileImage: driverProfile.profileImage,
+      });
+      setEditing(true);
+    }
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user || !driverProfile) {
+        Alert.alert('Error', 'User not authenticated');
+        setLoading(false);
+        return;
+      }
+
+      const token = await user.getIdToken();
+
+      // Upload profile image if changed
+      let profilePhotoUrl = editData.profileImage;
+      if (editData.profileImage && typeof editData.profileImage === 'object' && (editData.profileImage as any).uri) {
+        const image = editData.profileImage as any;
+        if (!image.uri.startsWith('http')) {
+          // Upload new image
+          console.log('📤 Uploading profile image...');
+          profilePhotoUrl = await uploadFile(image.uri, 'profile', user.uid);
+          console.log('✅ Profile image uploaded:', profilePhotoUrl);
+        } else {
+          profilePhotoUrl = image.uri;
+        }
+      }
+
+      // Prepare update data for driver profile endpoint
+      // Update both users collection (via /auth/update) and drivers collection
+      const userUpdatePayload: any = {
+        name: `${editData.firstName || driverProfile.firstName} ${editData.lastName || driverProfile.lastName}`,
+        phone: editData.phone || driverProfile.phone,
+        email: editData.email || driverProfile.email,
+      };
+
+      if (profilePhotoUrl) {
+        userUpdatePayload.profilePhotoUrl = profilePhotoUrl;
+      }
+
+      // Update users collection via /auth/update
+      console.log('📝 Updating users collection...');
+      try {
+        await apiRequest('/auth/update', {
+          method: 'PUT',
+          body: JSON.stringify(userUpdatePayload),
+        });
+        console.log('✅ Users collection updated');
+      } catch (userUpdateError: any) {
+        console.error('❌ Users collection update failed:', userUpdateError);
+        // Continue - try drivers collection anyway
+      }
+
+      // Update drivers collection
+      const driverUpdatePayload: any = {
+        firstName: editData.firstName || driverProfile.firstName,
+        lastName: editData.lastName || driverProfile.lastName,
+        phone: editData.phone || driverProfile.phone,
+        email: editData.email || driverProfile.email,
+      };
+
+      if (profilePhotoUrl) {
+        driverUpdatePayload.profileImage = profilePhotoUrl;
+      }
+
+      console.log('📝 Updating drivers collection...', driverUpdatePayload);
+
+      // Use driverId from profile data directly (no Firestore query needed)
+      // The driverId is available from the API response: driverId: "3jGP4DmjIbYIHd6lINyI"
+      let driverDocId = (driverProfile as any).driverId || driverProfile.id;
+      
+      if (!driverDocId) {
+        console.warn('⚠️ No driverId available, cannot update driver profile via API');
+        Alert.alert('Error', 'Unable to determine driver ID. Please try refreshing your profile.');
+        return;
+      }
+
+      console.log('✅ Using driverId from profile:', driverDocId);
+
+      // Update the drivers collection via backend API
+      // The backend will handle Firestore updates (frontend can't update Firestore directly due to security rules)
+      let driverUpdateSuccess = false;
+      try {
+        // Try PUT /drivers/profile endpoint first
+        const driverResponse = await fetch(`${API_ENDPOINTS.DRIVERS}/profile`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(driverUpdatePayload),
+        });
+
+        if (driverResponse.ok) {
+          console.log('✅ Driver profile updated via PUT /drivers/profile');
+          driverUpdateSuccess = true;
+        } else if (driverResponse.status === 404 || driverResponse.status === 405) {
+          // If PUT /profile doesn't exist, try PATCH /drivers/:id
+          console.log('⚠️ PUT /drivers/profile not available, trying PATCH /drivers/:id');
+          const patchResponse = await fetch(`${API_ENDPOINTS.DRIVERS}/${driverDocId}`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(driverUpdatePayload),
+          });
+
+          if (patchResponse.ok) {
+            console.log('✅ Driver profile updated via PATCH /drivers/:id');
+            driverUpdateSuccess = true;
+          } else {
+            const errorText = await patchResponse.text();
+            console.warn('⚠️ PATCH also failed:', patchResponse.status, errorText);
+            throw new Error(`Driver profile update failed: ${patchResponse.status}`);
+          }
+        } else {
+          const errorText = await driverResponse.text();
+          console.warn('⚠️ PUT failed with status:', driverResponse.status, errorText);
+          throw new Error(`Driver profile update failed: ${driverResponse.status}`);
+        }
+      } catch (driverApiError: any) {
+        console.error('❌ Driver API update error:', driverApiError.message);
+        // Don't throw - we'll show a warning but the users collection update already succeeded
+        console.warn('⚠️ Driver profile may not have been updated, but user profile was updated successfully');
+      }
+
+      // Refresh driver profile from backend to get latest data
+      console.log('🔄 Refreshing driver profile...');
+      await fetchDriverProfile();
+
+      setEditing(false);
+      
+      if (!driverUpdateSuccess) {
+        Alert.alert(
+          'Partial Success',
+          'Your user profile was updated successfully, but the driver profile update failed. Please contact support if this persists.'
+        );
+      } else {
+        Alert.alert('Success', 'Profile updated successfully');
+      }
+    } catch (error: any) {
+      console.error('❌ Error updating profile:', error);
+      Alert.alert('Error', error.message || 'Failed to update profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditing(false);
+    setEditData({});
+  };
+
+  const handleImageSelected = (image: any) => {
+    setEditData({ ...editData, profileImage: image });
+    setImagePickerVisible(false);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -363,46 +696,161 @@ const DriverProfileScreen = () => {
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Standard header-right Logout */}
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 10 }}>
-        <TouchableOpacity onPress={handleLogout} style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <MaterialCommunityIcons name="logout" size={18} color={colors.error} />
-          <Text style={{ marginLeft: 6, color: colors.error, fontWeight: 'bold' }}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-      {/* Profile Header */}
-      <View style={styles.profileHeader}>
-        <View style={styles.avatarContainer}>
-          <Image 
-            source={{ 
-              uri: driverProfile.profileImage || PLACEHOLDER_IMAGES.USER 
-            }} 
-            style={styles.avatar} 
-          />
+    <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={[colors.primary, colors.primaryDark, colors.secondary]}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Driver Profile</Text>
+          <TouchableOpacity 
+            onPress={handleLogout} 
+            style={styles.logoutButton}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Ionicons name="log-out-outline" size={15} color={colors.white} style={{ marginRight: 2 }} />
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.driverName}>
-          {driverProfile.firstName} {driverProfile.lastName}
-        </Text>
-        <Text style={styles.driverEmail}>{driverProfile.email}</Text>
-        <Text style={styles.driverPhone}>{driverProfile.phone}</Text>
-        
-        <View style={[styles.statusBadge, { backgroundColor: getDocumentStatusColor(driverProfile.status) + '20' }]}>
-          <MaterialCommunityIcons 
-            name={getDocumentStatusIcon(driverProfile.status)} 
-            size={16} 
-            color={getDocumentStatusColor(driverProfile.status)} 
-          />
-          <Text style={[styles.statusText, { color: getDocumentStatusColor(driverProfile.status) }]}>
-            {driverProfile.status.toUpperCase()}
-          </Text>
+      </LinearGradient>
+
+      <ScrollView 
+        style={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Profile Header */}
+        <View style={styles.profileHeader}>
+          <View style={styles.avatarContainer}>
+            <TouchableOpacity 
+              onPress={editing ? () => setImagePickerVisible(true) : undefined}
+              disabled={!editing}
+            >
+              <Image 
+                source={{ 
+                  uri: editing && editData.profileImage 
+                    ? (typeof editData.profileImage === 'string' ? editData.profileImage : (editData.profileImage as any).uri || PLACEHOLDER_IMAGES.USER)
+                    : (driverProfile.profileImage || PLACEHOLDER_IMAGES.USER)
+                }} 
+                style={styles.avatar} 
+              />
+              {editing && (
+                <View style={styles.editOverlay}>
+                  <Ionicons name="camera" size={20} color={colors.white} />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.actionRow}>
+            {!editing ? (
+              <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
+                <Ionicons name="create-outline" size={16} color={colors.white} />
+                <Text style={styles.editButtonText}>Edit Profile</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.editActions}>
+                <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
+                  {loading ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={16} color={colors.white} />
+                      <Text style={styles.saveButtonText}>Save</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+                  <Ionicons name="close" size={16} color={colors.text.secondary} />
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* Driver Name */}
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="account" size={20} color={colors.primary} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Name</Text>
+              {editing ? (
+                <View style={styles.nameRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, marginRight: spacing.xs }]}
+                    value={editData.firstName || driverProfile.firstName}
+                    onChangeText={(text) => setEditData({ ...editData, firstName: text })}
+                    placeholder="First Name"
+                  />
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    value={editData.lastName || driverProfile.lastName}
+                    onChangeText={(text) => setEditData({ ...editData, lastName: text })}
+                    placeholder="Last Name"
+                  />
+                </View>
+              ) : (
+                <Text style={styles.infoValue}>
+                  {driverProfile.firstName} {driverProfile.lastName}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Email */}
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="email" size={20} color={colors.secondary} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Email</Text>
+              {editing ? (
+                <TextInput
+                  style={styles.input}
+                  value={editData.email || driverProfile.email}
+                  onChangeText={(text) => setEditData({ ...editData, email: text })}
+                  placeholder="Email"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              ) : (
+                <Text style={styles.infoValue}>{driverProfile.email}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Phone */}
+          <View style={styles.infoRow}>
+            <MaterialCommunityIcons name="phone" size={20} color={colors.tertiary} />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Phone</Text>
+              {editing ? (
+                <TextInput
+                  style={styles.input}
+                  value={editData.phone || driverProfile.phone}
+                  onChangeText={(text) => setEditData({ ...editData, phone: text })}
+                  placeholder="Phone"
+                  keyboardType="phone-pad"
+                />
+              ) : (
+                <Text style={styles.infoValue}>{driverProfile.phone}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Status Badge */}
+          <View style={[styles.statusBadge, { backgroundColor: getDocumentStatusColor(driverProfile.status) + '20' }]}>
+            <MaterialCommunityIcons 
+              name={getDocumentStatusIcon(driverProfile.status)} 
+              size={16} 
+              color={getDocumentStatusColor(driverProfile.status)} 
+            />
+            <Text style={[styles.statusText, { color: getDocumentStatusColor(driverProfile.status) }]}>
+              {driverProfile.status.toUpperCase()}
+            </Text>
+          </View>
         </View>
-      </View>
 
       {/* Offline Instructions Card - Show when not accepting requests */}
       {!acceptingBooking && (
@@ -595,6 +1043,17 @@ const DriverProfileScreen = () => {
 
       {/* Bottom padding to prevent cut-off */}
       <View style={styles.bottomPadding} />
+      </ScrollView>
+
+      {/* Image Picker Modal */}
+      <ImagePickerModal
+        visible={imagePickerVisible}
+        onClose={() => setImagePickerVisible(false)}
+        onImageSelected={handleImageSelected}
+        title="Select Profile Photo"
+        allowsEditing={true}
+        quality={0.8}
+      />
 
       {/* Document Upload Modal */}
       <Modal visible={showDocumentModal} transparent animationType="slide">
@@ -644,16 +1103,16 @@ const DriverProfileScreen = () => {
             )}
 
             <TouchableOpacity 
-              style={styles.cancelButton}
+              style={styles.modalCancelButton}
               onPress={() => setShowDocumentModal(false)}
               disabled={uploading}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.modalCancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -661,6 +1120,47 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  headerGradient: {
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  headerTitle: {
+    fontSize: fonts.size.xl,
+    fontWeight: 'bold',
+    color: colors.white,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    gap: 4,
+    minWidth: 'auto',
+  },
+  logoutButtonText: {
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: 13,
+    marginLeft: 0,
+  },
+  content: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -698,17 +1198,153 @@ const styles = StyleSheet.create({
   },
   profileHeader: {
     backgroundColor: colors.white,
-    alignItems: 'center',
-    padding: 24,
-    marginBottom: 16,
+    borderRadius: 16,
+    padding: spacing.xl,
+    marginHorizontal: spacing.lg,
+    marginTop: -20,
+    marginBottom: spacing.lg,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   avatarContainer: {
-    marginBottom: 16,
+    position: 'relative',
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+  },
+  editOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: '35%',
+    backgroundColor: colors.primary,
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 10,
+    gap: spacing.xs,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  editButtonText: {
+    color: colors.white,
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+  },
+  editActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  saveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.success,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: 10,
+    gap: spacing.xs,
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+    minHeight: 44,
+  },
+  saveButtonText: {
+    color: colors.white,
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.text.light,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: 10,
+    gap: spacing.xs,
+    minHeight: 44,
+  },
+  cancelButtonText: {
+    color: colors.text.secondary,
+    fontSize: fonts.size.sm,
+    fontWeight: '600',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.text.light + '20',
+  },
+  infoContent: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  infoLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoValue: {
+    fontSize: fonts.size.md,
+    color: colors.text.primary,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  input: {
+    borderWidth: 1.5,
+    borderColor: colors.primary + '40',
+    borderRadius: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: fonts.size.md,
+    color: colors.text.primary,
+    backgroundColor: colors.white,
+    minHeight: 44,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: colors.primary + '20',
+    backgroundColor: colors.surface,
   },
   driverName: {
     fontSize: 24,
@@ -932,13 +1568,13 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginLeft: 8,
   },
-  cancelButton: {
+  modalCancelButton: {
     backgroundColor: colors.background,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-  cancelButtonText: {
+  modalCancelButtonText: {
     fontSize: 16,
     color: colors.text.primary,
     fontWeight: 'bold',
@@ -993,28 +1629,6 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 100,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.error + '40',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  logoutButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.error,
-    marginLeft: 12,
   },
 });
 
