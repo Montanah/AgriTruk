@@ -18,7 +18,7 @@ interface ImagePickerModalProps {
   onClose: () => void;
   onImageSelected: (image: any) => void;
   title?: string;
-  allowEditing?: boolean;
+  allowsEditing?: boolean;
   quality?: number;
   aspect?: [number, number];
 }
@@ -28,44 +28,22 @@ const ImagePickerModal: React.FC<ImagePickerModalProps> = ({
   onClose,
   onImageSelected,
   title = 'Select Image',
-  allowEditing = true,
+  allowsEditing = true,
   quality = 0.8,
   aspect,
 }) => {
   const [loading, setLoading] = useState(false);
 
   const requestCameraPermission = async () => {
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-        {
-          title: 'Camera Permission',
-          message: 'TRUKAPP needs access to your camera to take photos.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        }
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    }
-    return true;
+    // Use ImagePicker permission flow on all platforms
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    return status === 'granted';
   };
 
   const requestMediaLibraryPermission = async () => {
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-        {
-          title: 'Media Library Permission',
-          message: 'TRUKAPP needs access to your media library to select photos.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        }
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    }
-    return true;
+    // Use ImagePicker permission flow on all platforms (covers Android 13+ READ_MEDIA_IMAGES)
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    return status === 'granted';
   };
 
   const handleCameraPress = async () => {
@@ -74,23 +52,34 @@ const ImagePickerModal: React.FC<ImagePickerModalProps> = ({
       const hasPermission = await requestCameraPermission();
       if (!hasPermission) {
         Alert.alert('Permission Required', 'Camera permission is required to take photos.');
+        setLoading(false);
         return;
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing,
         quality,
         aspect,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        onImageSelected(result.assets[0]);
+        const asset = result.assets[0];
+        onImageSelected({
+          uri: asset.uri,
+          type: asset.type || 'image/jpeg',
+          name: asset.fileName || 'photo.jpg',
+          width: asset.width,
+          height: asset.height,
+        });
+        onClose();
+      } else if (result.canceled) {
         onClose();
       }
     } catch (error) {
       console.error('Camera error:', error);
       Alert.alert('Error', 'Failed to open camera. Please try again.');
+      onClose();
     } finally {
       setLoading(false);
     }
@@ -102,23 +91,34 @@ const ImagePickerModal: React.FC<ImagePickerModalProps> = ({
       const hasPermission = await requestMediaLibraryPermission();
       if (!hasPermission) {
         Alert.alert('Permission Required', 'Media library permission is required to select photos.');
+        setLoading(false);
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.Images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing,
         quality,
         aspect,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        onImageSelected(result.assets[0]);
+        const asset = result.assets[0];
+        onImageSelected({
+          uri: asset.uri,
+          type: asset.type || 'image/jpeg',
+          name: asset.fileName || 'photo.jpg',
+          width: asset.width,
+          height: asset.height,
+        });
+        onClose();
+      } else if (result.canceled) {
         onClose();
       }
     } catch (error) {
       console.error('Gallery error:', error);
       Alert.alert('Error', 'Failed to open gallery. Please try again.');
+      onClose();
     } finally {
       setLoading(false);
     }
@@ -156,7 +156,6 @@ const ImagePickerModal: React.FC<ImagePickerModalProps> = ({
           <TouchableOpacity
             style={styles.cancelButton}
             onPress={onClose}
-            disabled={loading}
           >
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>

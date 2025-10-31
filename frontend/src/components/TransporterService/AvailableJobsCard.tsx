@@ -67,6 +67,7 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [acceptingJobId, setAcceptingJobId] = useState<string | null>(null);
 
     const fetchAvailableJobs = async () => {
         try {
@@ -219,6 +220,9 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
             if (!jobId) {
                 throw new Error('No valid job ID found');
             }
+
+            // Set loading state
+            setAcceptingJobId(jobId);
             
             console.log('AvailableJobsCard - Accepting job with ID:', jobId);
             console.log('AvailableJobsCard - Full job object:', job);
@@ -353,6 +357,9 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
         } catch (err: any) {
             console.error('Error accepting job:', err);
             Alert.alert('Error', err.message || 'Failed to accept job');
+        } finally {
+            // Clear loading state
+            setAcceptingJobId(null);
         }
     };
 
@@ -505,10 +512,22 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                         <Text style={styles.rejectButtonText}>Reject</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={[styles.actionButton, styles.acceptButton]}
+                        style={[
+                            styles.actionButton, 
+                            styles.acceptButton,
+                            acceptingJobId === (item.bookingId || item.id) && styles.acceptButtonDisabled
+                        ]}
                         onPress={() => handleAcceptJob(item)}
+                        disabled={acceptingJobId === (item.bookingId || item.id)}
                     >
-                        <Text style={styles.acceptButtonText}>Accept</Text>
+                        {acceptingJobId === (item.bookingId || item.id) ? (
+                            <>
+                                <ActivityIndicator size="small" color={colors.white} style={{ marginRight: 4 }} />
+                                <Text style={styles.acceptButtonText}>Accepting...</Text>
+                            </>
+                        ) : (
+                            <Text style={styles.acceptButtonText}>Accept</Text>
+                        )}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -886,6 +905,13 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primary,
         shadowColor: colors.primary,
         shadowOpacity: 0.3,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    acceptButtonDisabled: {
+        backgroundColor: colors.text.light,
+        opacity: 0.7,
     },
     acceptButtonText: {
         color: colors.white,

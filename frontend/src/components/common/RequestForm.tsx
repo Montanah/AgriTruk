@@ -147,7 +147,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     const [additional, setAdditional] = useState('');
 
     // Business/Broker specific
-    const [isPriority, setIsPriority] = useState(false);
     const [isBulk, setIsBulk] = useState(false);
     const [bulkQuantity, setBulkQuantity] = useState('');
 
@@ -169,10 +168,11 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             }
         }
 
-        if (insureGoods && !insuranceValue) {
-            setFormError('Please enter goods value for insurance.');
-            return false;
-        }
+        // Insurance validation disabled for now
+        // if (insureGoods && !insuranceValue) {
+        //     setFormError('Please enter goods value for insurance.');
+        //     return false;
+        // }
 
         setFormError('');
         return true;
@@ -271,15 +271,23 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             // Map frontend fields to backend booking format
             bookingType: activeTab === 'agriTRUK' ? 'Agri' : 'Cargo',
             bookingMode: requestType, // 'instant' or 'booking'
-            fromLocation: fromLocationCoords || fromLocation,
-            toLocation: toLocationCoords || toLocation,
+            // Preserve exact addresses selected by user
+            fromLocation: fromLocationCoords ? {
+              latitude: fromLocationCoords.latitude,
+              longitude: fromLocationCoords.longitude,
+              address: fromLocationAddress || fromLocation
+            } : fromLocation,
+            toLocation: toLocationCoords ? {
+              latitude: toLocationCoords.latitude,
+              longitude: toLocationCoords.longitude,
+              address: toLocationAddress || toLocation
+            } : toLocation,
             fromLocationAddress: fromLocationAddress || fromLocation,
             toLocationAddress: toLocationAddress || toLocation,
             productType,
             weightKg: parseFloat(weight) || 0,
             pickUpDate: requestType === 'booking' ? pickupDate.toISOString() : null,
             urgencyLevel: urgency ? urgency.charAt(0).toUpperCase() + urgency.slice(1) : 'Low',
-            priority: isPriority,
             perishable: isPerishable,
             needsRefrigeration: isPerishable,
             humidyControl: isPerishable,
@@ -313,7 +321,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             weight,
             requestType,
             date: requestType === 'booking' ? pickupDate.toISOString() : '',
-            isPriority,
             isRecurring,
             recurringFreq,
             recurringTimeframe,
@@ -341,16 +348,23 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
         
         return {
             id: readableId,
-            // Use string locations for consolidation context
-            fromLocation,
-            toLocation,
+            // Preserve exact addresses for consolidation
+            fromLocation: fromLocationCoords ? {
+              latitude: fromLocationCoords.latitude,
+              longitude: fromLocationCoords.longitude,
+              address: fromLocationAddress || fromLocation
+            } : fromLocation,
+            toLocation: toLocationCoords ? {
+              latitude: toLocationCoords.latitude,
+              longitude: toLocationCoords.longitude,
+              address: toLocationAddress || toLocation
+            } : toLocation,
             fromLocationAddress: fromLocationAddress || fromLocation,
             toLocationAddress: toLocationAddress || toLocation,
             productType,
             weight,
             requestType,
             date: requestType === 'booking' ? pickupDate.toISOString() : '',
-            isPriority,
             isRecurring,
             recurringFreq,
             recurringTimeframe,
@@ -387,7 +401,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
         setProductType('');
         setWeight('');
         setPickupDate(new Date());
-        setIsPriority(false);
         setIsRecurring(false);
         setRecurringFreq('');
         setRecurringTimeframe('');
@@ -772,20 +785,28 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                 onPickupLocationChange={setFromLocation}
                                 onDeliveryLocationChange={setToLocation}
                                 onPickupLocationSelected={(location) => {
-                                    // Pickup location selected
+                                    // Pickup location selected - preserve EXACT address selected by user
+                                    const exactAddress = location.address || fromLocation;
                                     setFromLocationCoords({
                                         latitude: location.latitude,
                                         longitude: location.longitude
                                     });
-                                    setFromLocationAddress(location.address || fromLocation);
+                                    // CRITICAL: Update both fromLocationAddress (for backend) AND fromLocation (for display)
+                                    // Use exact address from location picker
+                                    setFromLocationAddress(exactAddress);
+                                    setFromLocation(exactAddress); // Update display with exact address
                                 }}
                                 onDeliveryLocationSelected={(location) => {
-                                    // Delivery location selected
+                                    // Delivery location selected - preserve EXACT address selected by user
+                                    const exactAddress = location.address || toLocation;
                                     setToLocationCoords({
                                         latitude: location.latitude,
                                         longitude: location.longitude
                                     });
-                                    setToLocationAddress(location.address || toLocation);
+                                    // CRITICAL: Update both toLocationAddress (for backend) AND toLocation (for display)
+                                    // Use exact address from location picker
+                                    setToLocationAddress(exactAddress);
+                                    setToLocation(exactAddress); // Update display with exact address
                                 }}
                                 useCurrentLocation={true}
                                 showMap={true}
@@ -1021,8 +1042,8 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                 </>
                             )}
 
-                            {/* Insurance */}
-                            <View style={styles.switchRow}>
+                            {/* Insurance - Disabled for now, will be enabled when ready with insurance company */}
+                            {/* <View style={styles.switchRow}>
                                 <View style={styles.switchLabelContainer}>
                                     <Text style={styles.switchLabel}>Insure Goods</Text>
                                     <Text style={styles.switchSubtitle}>Protect your shipment</Text>
@@ -1047,26 +1068,10 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                         keyboardType="numeric"
                                     />
                                 </View>
-                            )}
+                            )} */}
                         </View>
 
-                        {/* Business/Broker Specific Options */}
-                        {(mode === 'business' || mode === 'broker') && (
-                            <View style={styles.fieldGroup}>
-                                <View style={styles.switchRow}>
-                                    <View style={styles.switchLabelContainer}>
-                                        <Text style={styles.switchLabel}>Priority Delivery</Text>
-                                        <Text style={styles.switchSubtitle}>Express service</Text>
-                                    </View>
-                                    <Switch
-                                        value={isPriority}
-                                        onValueChange={setIsPriority}
-                                        trackColor={{ false: colors.text.light + '40', true: accent + '40' }}
-                                        thumbColor={isPriority ? accent : colors.text.light}
-                                    />
-                                </View>
-                            </View>
-                        )}
+                        {/* Business/Broker Specific Options - Priority Delivery removed as redundant with urgency level */}
 
                         {/* Additional Notes */}
                         <View style={styles.fieldGroup}>

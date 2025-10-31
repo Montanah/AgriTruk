@@ -251,14 +251,22 @@ const AccountScreen = () => {
 
     try {
       setLoading(true);
-      await apiRequest(`/users/${user.uid}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          name: editData.name,
-          email: editData.email,
-          phone: editData.phone,
-          address: editData.address,
-        }),
+      // Use existing backend route PUT /api/auth/update
+      // Backend now supports: name, phone, email, role, location, userType, languagePreference, profilePhotoUrl
+      const updatePayload: any = {
+        name: editData.name,
+        phone: editData.phone,
+        email: editData.email,
+      };
+      
+      // Include profilePhotoUrl if available (from previously uploaded photo)
+      if (editData.profilePhotoUrl) {
+        updatePayload.profilePhotoUrl = editData.profilePhotoUrl;
+      }
+      
+      await apiRequest('/auth/update', {
+        method: 'PUT',
+        body: JSON.stringify(updatePayload),
       });
 
       setProfile(prev => prev ? { ...prev, ...editData } : null);

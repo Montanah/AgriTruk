@@ -218,6 +218,11 @@ const DriverJobManagementScreen = () => {
               productType: job.productType || job.cargoDetails,
               weight: job.weightKg || job.weight,
               specialRequirements: job.specialCargo || job.specialRequirements || [],
+              // Preserve exact locations with addresses
+              fromLocation: job.fromLocation || job.pickupLocation, // Keep exact location with address
+              toLocation: job.toLocation || job.deliveryLocation, // Keep exact location with address
+              // Preserve backend-calculated cost
+              cost: job.cost || job.price || job.estimatedCost, // Backend-calculated cost
               // Customer/Client details - the person who created the booking
               customerName: clientName,
               customerPhone: clientPhone,
@@ -752,7 +757,7 @@ const DriverJobManagementScreen = () => {
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
           <Text style={styles.detailText}>
-            Payment: KES {(item.paymentAmount || item.cost || item.estimatedValue || 0).toLocaleString('en-KE')}
+            Payment: KES {Number(item.cost || item.price || item.estimatedCost || item.paymentAmount || item.estimatedValue || 0).toLocaleString('en-KE')}
           </Text>
         </View>
         

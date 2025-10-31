@@ -230,9 +230,12 @@ const DriverTripNavigationScreen = () => {
       }
 
       // Calculate route from current location to pickup location
+      // Using 'driving' mode for best route calculation
       const route = await googleMapsService.getDirections(
         currentLocation,
-        pickupLocation
+        pickupLocation,
+        undefined, // No waypoints
+        'driving' // Use driving mode for best route
       );
 
       // Decode polyline to get coordinates
@@ -310,9 +313,13 @@ const DriverTripNavigationScreen = () => {
         return;
       }
 
+      // Calculate route from current location to dropoff location
+      // Using 'driving' mode for best route calculation
       const route = await googleMapsService.getDirections(
         currentLocation,
-        dropoffLocation
+        dropoffLocation,
+        undefined, // No waypoints
+        'driving' // Use driving mode for best route
       );
 
       // Decode polyline to get coordinates

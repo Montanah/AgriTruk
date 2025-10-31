@@ -366,6 +366,17 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 </View>
             </View>
 
+            {/* Shipping Cost */}
+            {(item.cost || item.price || item.estimatedCost) && (
+                <View style={styles.costInfo}>
+                    <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
+                    <Text style={styles.costLabel}>Shipping Cost:</Text>
+                    <Text style={styles.costValue}>
+                        KES {Number(item.cost || item.price || item.estimatedCost || 0).toLocaleString()}
+                    </Text>
+                </View>
+            )}
+
             {item.estimatedValue && (
                 <View style={styles.valueInfo}>
                     <Text style={styles.valueLabel}>Estimated Value:</Text>
@@ -1213,6 +1224,9 @@ const styles = StyleSheet.create({
         padding: spacing.xs,
         backgroundColor: colors.background,
         borderRadius: 6,
+        flex: 1,
+        flexShrink: 1,
+        marginRight: spacing.sm,
     },
     bookingIdLabel: {
         fontSize: fonts.size.sm,
@@ -1223,6 +1237,8 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         fontWeight: fonts.weight.bold,
         color: colors.primary,
+        flexShrink: 1,
+        maxWidth: '75%',
     },
     requestType: {
         flexDirection: 'row',
@@ -1293,6 +1309,27 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.xs,
         color: colors.text.secondary,
         textTransform: 'capitalize',
+    },
+    costInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: spacing.sm,
+        marginBottom: spacing.sm,
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        backgroundColor: colors.success + '10',
+        borderRadius: 6,
+        gap: spacing.xs,
+    },
+    costLabel: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        fontWeight: '500',
+    },
+    costValue: {
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        color: colors.success,
     },
     valueInfo: {
         flexDirection: 'row',

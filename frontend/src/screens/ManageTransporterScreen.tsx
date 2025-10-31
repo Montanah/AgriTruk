@@ -715,13 +715,22 @@ export default function ManageTransporterScreen({ route }: any) {
     }
     try {
       if (auth.currentUser) {
-        await apiRequest(`/users/${auth.currentUser.uid}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            name: editName,
-            email: editEmail,
-            phone: editPhone,
-          }),
+        // Use existing backend route PUT /api/auth/update
+        // Backend now supports: name, phone, email, role, location, userType, languagePreference, profilePhotoUrl
+        const updatePayload: any = {
+          name: editName,
+          phone: editPhone,
+          email: editEmail,
+        };
+        
+        // Include profilePhotoUrl if available (from previously uploaded photo)
+        if (editProfilePhoto?.uri && editProfilePhoto.uri.startsWith('http')) {
+          updatePayload.profilePhotoUrl = editProfilePhoto.uri;
+        }
+        
+        await apiRequest('/auth/update', {
+          method: 'PUT',
+          body: JSON.stringify(updatePayload),
         });
         // Update local user profile/state when available
         setUserProfile((prev: any) => prev ? { ...prev, name: editName || prev.name, email: editEmail || prev.email, phoneNumber: editPhone || prev.phoneNumber } : prev);

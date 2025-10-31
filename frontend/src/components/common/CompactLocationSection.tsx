@@ -214,13 +214,21 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
                             placeholder="Enter pickup location"
                             value={pickupLocation}
                             onAddressChange={(address) => {
-                                // Pickup location address changed
-                                if (onPickupLocationChange) {
-                                    onPickupLocationChange(address);
+                                // Only update if address is meaningful (not empty, not coordinate-like)
+                                // When location is explicitly selected, onLocationSelected will handle it
+                                if (address && address.length >= 3 && !address.match(/^-?\d+\.?\d*,\s*-?\d+\.?\d*$/)) {
+                                    if (onPickupLocationChange) {
+                                        onPickupLocationChange(address);
+                                    }
                                 }
                             }}
                             onLocationSelected={(location) => {
-                                // Pickup location selected
+                                // Pickup location selected - prioritize exact address from selection
+                                // Update both callbacks with exact address
+                                const exactAddress = location.address || '';
+                                if (onPickupLocationChange && exactAddress) {
+                                    onPickupLocationChange(exactAddress);
+                                }
                                 if (onPickupLocationSelected) {
                                     onPickupLocationSelected(location);
                                 }
@@ -246,13 +254,21 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
                             placeholder="Enter delivery location"
                             value={deliveryLocation}
                             onAddressChange={(address) => {
-                                // Delivery location address changed
-                                if (onDeliveryLocationChange) {
-                                    onDeliveryLocationChange(address);
+                                // Only update if address is meaningful (not empty, not coordinate-like)
+                                // When location is explicitly selected, onLocationSelected will handle it
+                                if (address && address.length >= 3 && !address.match(/^-?\d+\.?\d*,\s*-?\d+\.?\d*$/)) {
+                                    if (onDeliveryLocationChange) {
+                                        onDeliveryLocationChange(address);
+                                    }
                                 }
                             }}
                             onLocationSelected={(location) => {
-                                // Delivery location selected
+                                // Delivery location selected - prioritize exact address from selection
+                                // Update both callbacks with exact address
+                                const exactAddress = location.address || '';
+                                if (onDeliveryLocationChange && exactAddress) {
+                                    onDeliveryLocationChange(exactAddress);
+                                }
                                 if (onDeliveryLocationSelected) {
                                     onDeliveryLocationSelected(location);
                                 }

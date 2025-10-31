@@ -115,7 +115,9 @@ const BusinessManageScreen = ({ navigation }: any) => {
     <Card style={styles.requestCard}>
       <View style={styles.requestHeader}>
         <View style={styles.requestId}>
-          <Text style={styles.requestIdText}>#{getDisplayBookingId(item)}</Text>
+          <Text style={styles.requestIdText} numberOfLines={1} ellipsizeMode="tail">
+            #{getDisplayBookingId(item)}
+          </Text>
           {item.isConsolidated && (
             <View style={styles.consolidatedBadge}>
               <MaterialCommunityIcons name="layers" size={12} color={colors.white} />
@@ -163,6 +165,19 @@ const BusinessManageScreen = ({ navigation }: any) => {
             <Text style={styles.weightValue}>{item.weight}</Text>
           </View>
         </View>
+
+        {/* Shipping Cost */}
+        {(item.cost || item.price || item.estimatedCost) && (
+          <View style={styles.costInfo}>
+            <MaterialCommunityIcons name="currency-usd" size={20} color={colors.success} />
+            <View style={styles.costText}>
+              <Text style={styles.costLabel}>Shipping Cost</Text>
+              <Text style={styles.costValue}>
+                KES {Number(item.cost || item.price || item.estimatedCost || 0).toLocaleString()}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {item.isConsolidated && item.consolidatedRequests && (
           <View style={styles.consolidatedDetails}>
@@ -504,11 +519,16 @@ const styles = StyleSheet.create({
   requestId: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    flexShrink: 1,
+    marginRight: spacing.sm,
   },
   requestIdText: {
     fontSize: fonts.size.lg,
     fontWeight: 'bold',
     color: colors.primary,
+    flexShrink: 1,
+    maxWidth: '75%',
   },
   consolidatedBadge: {
     flexDirection: 'row',
@@ -532,6 +552,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: 16,
+    flexShrink: 0,
+    marginLeft: 'auto',
   },
   statusText: {
     fontSize: fonts.size.sm,
@@ -591,6 +613,23 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.md,
     fontWeight: '600',
     color: colors.text.primary,
+  },
+  costInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  costText: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  costLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+  },
+  costValue: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.success,
   },
   consolidatedDetails: {
     backgroundColor: colors.surface,

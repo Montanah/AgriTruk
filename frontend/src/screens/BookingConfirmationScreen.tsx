@@ -68,56 +68,120 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
   const [summary, setSummary] = useState<{ distance: string; duration: string; cost: string } | null>(null);
 
-  // Calculate distance, duration and cost estimate for primary request
+  // Fetch backend cost estimate before posting
   React.useEffect(() => {
-    const computeSummary = async () => {
+    const fetchBackendEstimate = async () => {
       try {
         if (!requests || requests.length === 0) return;
         setSummaryLoading(true);
         const req = requests[0];
-        const fromLoc = typeof req.fromLocation === 'object' ? (req.fromLocation.address || req.fromLocation) : (req.fromLocationAddress || req.fromLocation);
-        const toLoc = typeof req.toLocation === 'object' ? (req.toLocation.address || req.toLocation) : (req.toLocationAddress || req.toLocation);
+        
+        // Prepare estimate request payload - use exact addresses
+        const fromLoc = typeof req.fromLocation === 'object' 
+          ? (req.fromLocation.address || req.fromLocationAddress || '') 
+          : (req.fromLocationAddress || req.fromLocation || '');
+        const toLoc = typeof req.toLocation === 'object' 
+          ? (req.toLocation.address || req.toLocationAddress || '') 
+          : (req.toLocationAddress || req.toLocation || '');
 
-        const distanceResult = await calculateRoadDistanceWithFallback(
-          req.fromLocation?.latitude ? req.fromLocation : (fromLoc || ''),
-          req.toLocation?.latitude ? req.toLocation : (toLoc || '')
-        );
+        if (!fromLoc || !toLoc) {
+          console.warn('Missing location addresses for estimate');
+          return;
+        }
 
-        const costResult = calculateTransportCost({
-          actualDistance: distanceResult.distanceKm || 0,
-          weightKg: Number(req.weightKg || req.weight || 0) || 0,
-          lengthCm: Number(req.lengthCm || 0),
-          widthCm: Number(req.widthCm || 0),
-          heightCm: Number(req.heightCm || 0),
-          urgencyLevel: (req.urgencyLevel || (req.urgency ? (req.urgency.charAt(0).toUpperCase() + req.urgency.slice(1)) : 'Low')) as any,
-          perishable: !!(req.perishable || req.isPerishable),
-          needsRefrigeration: !!(req.needsRefrigeration || req.isPerishable),
-          humidityControl: !!(req.humidyControl || req.isPerishable),
-          specialCargo: req.specialCargo || [],
-          bulkness: !!req.bulkness,
-          insured: !!(req.insured || req.insureGoods),
-          value: Number(req.value || req.insuranceValue || 0) || 0,
-          tolls: Number(req.tolls || 0) || 0,
-          priority: !!(req.priority || req.isPriority),
-          fuelSurchargePct: Number(req.fuelSurchargePct || 0) || 0,
-          waitMinutes: Number(req.waitMinutes || 0) || 0,
-          nightSurcharge: !!req.nightSurcharge,
-          vehicleType: (req.vehicleType || 'truck') as any,
+        // Build location objects with exact addresses
+        const fromLocationObj = req.fromLocationCoords ? {
+          address: fromLoc,
+          latitude: req.fromLocationCoords.latitude,
+          longitude: req.fromLocationCoords.longitude
+        } : { address: fromLoc };
+        
+        const toLocationObj = req.toLocationCoords ? {
+          address: toLoc,
+          latitude: req.toLocationCoords.latitude,
+          longitude: req.toLocationCoords.longitude
+        } : { address: toLoc };
+
+        // Fetch estimate from backend
+        const estimateResponse = await apiRequest('/bookings/estimate', {
+          method: 'POST',
+          body: JSON.stringify({
+            fromLocation: fromLocationObj,
+            toLocation: toLocationObj,
+            weightKg: Number(req.weightKg || req.weight || 0) || 0,
+            lengthCm: Number(req.lengthCm || 0),
+            widthCm: Number(req.widthCm || 0),
+            heightCm: Number(req.heightCm || 0),
+            urgencyLevel: req.urgencyLevel || (req.urgency ? req.urgency.charAt(0).toUpperCase() + req.urgency.slice(1) : 'Low'),
+            perishable: !!(req.perishable || req.isPerishable),
+            needsRefrigeration: !!(req.needsRefrigeration || req.isPerishable),
+            humidityControl: !!(req.humidyControl || req.isPerishable),
+            specialCargo: req.specialCargo || [],
+            bulkness: !!req.bulkness,
+            insured: !!(req.insured || req.insureGoods),
+            value: Number(req.value || req.insuranceValue || 0) || 0,
+            tolls: Number(req.tolls || 0) || 0,
+            fuelSurchargePct: Number(req.fuelSurchargePct || 0) || 0,
+            waitMinutes: Number(req.waitMinutes || 0) || 0,
+            nightSurcharge: !!req.nightSurcharge,
+            vehicleType: req.vehicleType || 'truck',
+          }),
         });
 
-        setSummary({
-          distance: distanceResult.distance,
-          duration: distanceResult.duration,
-          cost: formatCurrency(costResult.cost),
-        });
+        if (estimateResponse) {
+          setSummary({
+            distance: estimateResponse.estimatedDistance || 'N/A',
+            duration: estimateResponse.estimatedDuration || 'N/A',
+            cost: formatCurrency(estimateResponse.estimatedCost || 0),
+          });
+        }
       } catch (e) {
-        // Non-blocking; keep summary null
-        console.warn('Failed to compute summary:', e);
+        // Fallback to frontend calculation if backend estimate fails
+        console.warn('Backend estimate failed, using frontend calculation:', e);
+        try {
+          const req = requests[0];
+          const fromLoc = typeof req.fromLocation === 'object' ? (req.fromLocation.address || req.fromLocation) : (req.fromLocationAddress || req.fromLocation);
+          const toLoc = typeof req.toLocation === 'object' ? (req.toLocation.address || req.toLocation) : (req.toLocationAddress || req.toLocation);
+
+          const distanceResult = await calculateRoadDistanceWithFallback(
+            req.fromLocation?.latitude ? req.fromLocation : (fromLoc || ''),
+            req.toLocation?.latitude ? req.toLocation : (toLoc || '')
+          );
+
+          const costResult = calculateTransportCost({
+            actualDistance: distanceResult.distanceKm || 0,
+            weightKg: Number(req.weightKg || req.weight || 0) || 0,
+            lengthCm: Number(req.lengthCm || 0),
+            widthCm: Number(req.widthCm || 0),
+            heightCm: Number(req.heightCm || 0),
+            urgencyLevel: (req.urgencyLevel || (req.urgency ? (req.urgency.charAt(0).toUpperCase() + req.urgency.slice(1)) : 'Low')) as any,
+            perishable: !!(req.perishable || req.isPerishable),
+            needsRefrigeration: !!(req.needsRefrigeration || req.isPerishable),
+            humidityControl: !!(req.humidyControl || req.isPerishable),
+            specialCargo: req.specialCargo || [],
+            bulkness: !!req.bulkness,
+            insured: !!(req.insured || req.insureGoods),
+            value: Number(req.value || req.insuranceValue || 0) || 0,
+            tolls: Number(req.tolls || 0) || 0,
+            fuelSurchargePct: Number(req.fuelSurchargePct || 0) || 0,
+            waitMinutes: Number(req.waitMinutes || 0) || 0,
+            nightSurcharge: !!req.nightSurcharge,
+            vehicleType: (req.vehicleType || 'truck') as any,
+          });
+
+          setSummary({
+            distance: distanceResult.distance,
+            duration: distanceResult.duration,
+            cost: formatCurrency(costResult.cost),
+          });
+        } catch (fallbackError) {
+          console.warn('Fallback calculation also failed:', fallbackError);
+        }
       } finally {
         setSummaryLoading(false);
       }
     };
-    computeSummary();
+    fetchBackendEstimate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -181,38 +245,54 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           throw new Error(`Request ${index + 1} has invalid weight.`);
         }
         
-        // Ensure locations are in the correct format for backend
-        const formatLocation = (location: any) => {
+        // Ensure locations preserve exact address selected by user
+        const formatLocation = (location: any, addressField?: string) => {
+          // Priority: Use exact address from addressField (fromLocationAddress/toLocationAddress)
+          if (addressField) {
+            const lat = location?.latitude || location?.lat;
+            const lng = location?.longitude || location?.lng;
+            
+            if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
+              return {
+                address: addressField, // Exact address user selected
+                latitude: parseFloat(lat),
+                longitude: parseFloat(lng)
+              };
+            } else {
+              return {
+                address: addressField, // Exact address user selected
+                latitude: null,
+                longitude: null
+              };
+            }
+          }
+          
           if (typeof location === 'string') {
-            // If it's a string, preserve the address and use coordinates from geocoding
-            // Don't fallback to Nairobi - let the backend handle geocoding
+            // If it's a string, preserve the exact address
             return {
               address: location,
-              latitude: null, // Let backend geocode this
+              latitude: null,
               longitude: null
             };
           } else if (location && typeof location === 'object') {
             const lat = location.latitude || location.lat;
             const lng = location.longitude || location.lng;
             
-            // If we have coordinates but no address, create a descriptive address
+            // Prioritize exact address from location object
             let address = location.address || location.name;
-            if (!address && lat !== undefined && lng !== undefined) {
-              // Use coordinates to create a descriptive address that can be converted to place name
-              address = `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
-            } else if (!address) {
+            if (!address) {
               address = 'Unknown location';
             }
             
-            // If we have valid coordinates, use them; otherwise let backend geocode
+            // If we have valid coordinates, use them
             if (lat !== undefined && lng !== undefined && !isNaN(lat) && !isNaN(lng)) {
               return {
-                address,
+                address, // Use exact address
                 latitude: parseFloat(lat),
                 longitude: parseFloat(lng)
               };
             } else {
-              // No valid coordinates - let backend geocode the address
+              // No valid coordinates - use address only
               return {
                 address: address || 'Unknown location',
                 latitude: null,
@@ -220,7 +300,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
               };
             }
           } else {
-            // Fallback for invalid location data - let backend handle it
+            // Fallback for invalid location data
             return {
               address: 'Unknown location',
               latitude: null,
@@ -229,32 +309,24 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           }
         };
 
-        // Generate readable booking ID in format: YYMMDD-HHMM-TYPE-MODE
-        // This will be stored in the backend so drivers can easily fetch it
-        const { generateReadableId } = require('../utils/idUtils');
+        // Don't generate readableId here - backend will generate it
+        // We'll use the backend-generated readableId from the response
         const bookingType = req.bookingType || (req.type === 'agriTRUK' ? 'Agri' : 'Cargo');
-        const readableId = generateReadableId({
-          bookingType: bookingType,
-          bookingMode: 'booking',
-          isConsolidated: false,
-          timestamp: new Date() // Use current time for ID generation
-        });
 
         // Complete payload with all required fields for backend
         // Based on the database record structure you provided
         const bookingData: any = {
-          // IMPORTANT: Add readableId so backend can store it
-          readableId: readableId,
+          // Backend will generate readableId - don't include it here
           // Core booking fields - match database structure
           bookingType: bookingType,
           bookingMode: 'booking',
-          fromLocation: formatLocation(req.fromLocation),
-          toLocation: formatLocation(req.toLocation),
+          // Preserve exact addresses selected by user
+          fromLocation: formatLocation(req.fromLocation, req.fromLocationAddress),
+          toLocation: formatLocation(req.toLocation, req.toLocationAddress),
           productType: req.productType,
           weightKg: req.weightKg || parseFloat(req.weight) || 0,
           pickUpDate: pickupDate.toISOString(),
           urgencyLevel: req.urgencyLevel || (req.urgency ? req.urgency.charAt(0).toUpperCase() + req.urgency.slice(1) : 'Low'),
-          priority: req.priority || req.isPriority || false,
           
           // Cargo specifications - match database structure
           perishable: req.perishable || req.isPerishable || false,
@@ -454,13 +526,60 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
     navigation.navigate(targetScreen);
   };
 
-  const handleViewBooking = () => {
-    // Navigate to the appropriate booking management screen based on user role
-    const targetScreen = getBookingManagementScreen();
-    if (typeof targetScreen === 'string') {
-      navigation.navigate(targetScreen);
-    } else {
-      navigation.navigate(targetScreen.screen, targetScreen.params);
+  const handleViewBooking = async () => {
+    try {
+      // Navigate to the appropriate booking management screen based on user role
+      const targetScreen = getBookingManagementScreen();
+      
+      // Use CommonActions for nested navigation
+      const { CommonActions } = require('@react-navigation/native');
+      
+      if (typeof targetScreen === 'string') {
+        navigation.dispatch(
+          CommonActions.navigate({
+            name: targetScreen,
+            params: {
+              focusBookingId: postedBooking?.readableId || bookingId,
+              highlight: true,
+            },
+          })
+        );
+      } else {
+        // Handle nested tab navigator structure
+        navigation.dispatch(
+          CommonActions.navigate({
+            name: targetScreen.screen,
+            params: {
+              ...targetScreen.params,
+              focusBookingId: postedBooking?.readableId || bookingId,
+              highlight: true,
+            },
+          })
+        );
+      }
+      
+      // Close success modal after navigation
+      setShowSuccessModal(false);
+    } catch (error) {
+      console.error('Error navigating to booking management:', error);
+      // Fallback: try simple navigation
+      try {
+        const targetScreen = getBookingManagementScreen();
+        if (typeof targetScreen === 'string') {
+          navigation.navigate(targetScreen);
+        } else {
+          navigation.navigate(targetScreen.screen, targetScreen.params);
+        }
+        setShowSuccessModal(false);
+      } catch (fallbackError) {
+        console.error('Fallback navigation also failed:', fallbackError);
+        // Last resort: navigate to home and show error
+        Alert.alert(
+          'Navigation Error',
+          'Unable to open booking management. Please navigate manually.',
+          [{ text: 'OK', onPress: () => setShowSuccessModal(false) }]
+        );
+      }
     }
   };
 
@@ -489,8 +608,8 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
               createdAt: item.createdAt || item.date,
               bookingId: item.id || item.bookingId
             })}</Text>
-            <Text style={styles.bookingDetail}>From: <Text style={{ fontWeight: 'bold' }}>{cleanLocationDisplay(item.fromLocationAddress || (typeof item.fromLocation === 'object' ? (item.fromLocation.address || `Location (${item.fromLocation.latitude}, ${item.fromLocation.longitude})`) : item.fromLocation))}</Text></Text>
-            <Text style={styles.bookingDetail}>To: <Text style={{ fontWeight: 'bold' }}>{cleanLocationDisplay(item.toLocationAddress || (typeof item.toLocation === 'object' ? (item.toLocation.address || `Location (${item.toLocation.latitude}, ${item.toLocation.longitude})`) : item.toLocation))}</Text></Text>
+            <Text style={styles.bookingDetail}>From: <Text style={{ fontWeight: 'bold' }}>{item.fromLocationAddress || (typeof item.fromLocation === 'object' ? item.fromLocation.address : (item.fromLocation || 'Unknown'))}</Text></Text>
+            <Text style={styles.bookingDetail}>To: <Text style={{ fontWeight: 'bold' }}>{item.toLocationAddress || (typeof item.toLocation === 'object' ? item.toLocation.address : (item.toLocation || 'Unknown'))}</Text></Text>
             <Text style={styles.bookingDetail}>Product: {item.productType} | {item.weight}kg</Text>
             <Text style={styles.bookingDetail}>Type: {item.type === 'agriTRUK' ? 'Agri' : 'Cargo'}</Text>
           </View>

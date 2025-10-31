@@ -217,9 +217,21 @@ const BusinessProfileScreen = ({ navigation }: any) => {
         updateData.profilePhotoUrl = editData.logo.uri;
       }
 
-      await apiRequest(`/users/${user.uid}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updateData),
+      // Use existing backend route PUT /api/auth/update
+      // Backend now supports: name, phone, email, role, location, userType, languagePreference, profilePhotoUrl
+      // ProfilePhotoUrl can be sent as a URL string (pre-uploaded via /api/upload)
+      const backendUpdateData: any = {
+        name: updateData.businessName || updateData.contactPerson,
+        phone: updateData.phone,
+        email: updateData.email,
+        profilePhotoUrl: updateData.profilePhotoUrl || updateData.logo,
+        // Note: businessName, registrationNumber, contactPerson, address, businessType, taxNumber
+        // are not yet supported by the backend updateUser endpoint
+      };
+      
+      await apiRequest('/auth/update', {
+        method: 'PUT',
+        body: JSON.stringify(backendUpdateData),
       });
       
       setProfileData(editData);
@@ -916,7 +928,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
             <View style={styles.infoRow}>
               <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Member Since</Text>
+                <Text style={styles.infoLabel}>Partner Since</Text>
                 <Text style={styles.infoValue}>
                   {new Date(editData.memberSince).toLocaleDateString()}
                 </Text>
@@ -951,8 +963,8 @@ const BusinessProfileScreen = ({ navigation }: any) => {
               <Text style={styles.actionSubtitle}>Manage consolidated shipments</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('TrackingManagement')}>
-              <MaterialCommunityIcons name="truck-delivery" size={28} color={colors.tertiary} />
+            <TouchableOpacity style={styles.actionCard} onPress={() => navigation.navigate('BusinessManage')}>
+              <MaterialCommunityIcons name="map-search-outline" size={28} color={colors.tertiary} />
               <Text style={styles.actionTitle}>Track Shipments</Text>
               <Text style={styles.actionSubtitle}>Real-time tracking</Text>
             </TouchableOpacity>
@@ -983,7 +995,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
         onClose={() => setImagePickerVisible(false)}
         onImageSelected={handleImageSelected}
         title="Select Business Logo"
-        allowEditing={true}
+        allowsEditing={true}
         quality={0.8}
       />
 

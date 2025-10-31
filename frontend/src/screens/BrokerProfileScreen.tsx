@@ -251,16 +251,23 @@ export default function BrokerProfileScreen() {
     try {
       const user = auth.currentUser;
       if (user) {
-        await apiRequest(`/users/${user.uid}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            name,
-            email,
-            phone,
-            company,
-            location,
-            bio,
-          }),
+        // Use existing backend route PUT /api/auth/update
+        // Backend now supports: name, phone, email, role, location, userType, languagePreference, profilePhotoUrl
+        const updatePayload: any = {
+          name,
+          phone,
+          email,
+          location,
+        };
+        
+        // Include profilePhotoUrl if available (from previously uploaded photo)
+        if (profilePhoto?.uri) {
+          updatePayload.profilePhotoUrl = profilePhoto.uri;
+        }
+        
+        await apiRequest('/auth/update', {
+          method: 'PUT',
+          body: JSON.stringify(updatePayload),
         });
         Alert.alert('Profile Updated', 'Your profile details have been updated successfully.');
       }

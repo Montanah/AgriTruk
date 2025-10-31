@@ -68,7 +68,11 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     const [recentLocations, setRecentLocations] = useState<LocationType[]>([]);
 
     useEffect(() => {
-        setSearchQuery(value);
+        // Only update searchQuery from value prop if user hasn't manually selected a location
+        // This prevents auto-completion from interfering with user input
+        if (!selectedLocation) {
+            setSearchQuery(value);
+        }
     }, [value]);
 
     // Load recent locations
@@ -205,21 +209,24 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         setHasError(false);
 
         // If user is manually typing, clear current location selection
+        // This indicates user is changing the location, so don't auto-select
         if (currentLocation && text !== currentLocation.address) {
             setSelectedLocation(null);
             // Don't clear currentLocation, just the selection
         }
+        
+        // Also clear selected location when user types manually
+        // This prevents auto-selection from interfering
+        setSelectedLocation(null);
 
-        // Debounce onAddressChange to prevent excessive calls during typing
-        // Only call onAddressChange if text is at least 3 characters long
+        // CRITICAL: DO NOT call onAddressChange during typing
+        // onAddressChange should ONLY be called when user explicitly selects from suggestions
+        // Calling it during typing causes auto-completion issues
+        // Clear any pending address change timeout
         if (addressChangeTimeoutRef.current) {
             clearTimeout(addressChangeTimeoutRef.current);
+            addressChangeTimeoutRef.current = null;
         }
-        addressChangeTimeoutRef.current = setTimeout(() => {
-            if (onAddressChange && text.length >= 3) {
-                onAddressChange(text);
-            }
-        }, 800); // Allow more time for typing before propagating changes
 
         // Clear previous search results when starting a new search
         if (text.length <= 3) {
@@ -232,6 +239,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         }
 
         // Debounce: clear any pending search and schedule a new one
+        // This only shows suggestions, does NOT auto-select
         if (searchTimeoutRef.current) {
             clearTimeout(searchTimeoutRef.current);
         }
@@ -261,6 +269,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
                 console.log('⚠️ Network connectivity test failed, proceeding anyway...');
             }
 
+            // Use Autocomplete API for better contextual place names
             // Retry mechanism for network issues
             let places;
             let retryCount = 0;
@@ -268,7 +277,8 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
             
             while (retryCount <= maxRetries) {
                 try {
-                    places = await googleMapsService.searchPlaces(query);
+                    // Use autocomplete for full contextual place names
+                    places = await googleMapsService.getPlaceAutocomplete(query);
                     break; // Success, exit retry loop
                 } catch (retryError: any) {
                     retryCount++;
@@ -348,24 +358,59 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
                 return;
             }
 
-            // Handle both Google Maps service format and raw Google Places API format
             let latitude: number;
             let longitude: number;
             let address: string;
             let placeId: string | null;
 
-            if (place.location) {
-                // This is from our Google Maps service (already processed)
+            // Priority: Use the exact description/address from autocomplete prediction
+            // This ensures we capture the full contextual place name (e.g., "Langata Police Station, Nairobi, Kenya")
+            if (place.address) {
+                // From Google Maps service autocomplete - use the description (full address)
+                address = place.address; // This is the prediction.description with full context
+                placeId = place.placeId || null;
+            } else if (place.description) {
+                // Raw autocomplete prediction - use description for full context
+                address = place.description;
+                placeId = place.place_id || place.placeId || null;
+            } else if (place.formatted_address) {
+                // From place details API
+                address = place.formatted_address;
+                placeId = place.place_id || place.placeId || null;
+            } else {
+                address = place.name || 'Unknown address';
+                placeId = place.placeId || place.place_id || null;
+            }
+
+            // Get coordinates - if not available, fetch place details
+            if (place.location && place.location.latitude !== 0 && place.location.longitude !== 0) {
+                // Coordinates already available
                 latitude = place.location.latitude;
                 longitude = place.location.longitude;
-                address = place.address || place.name || 'Unknown address';
-                placeId = place.placeId || null;
             } else if (place.geometry && place.geometry.location) {
-                // This is raw Google Places API format
+                // From place details
                 latitude = place.geometry.location.lat || place.geometry.location.latitude || 0;
                 longitude = place.geometry.location.lng || place.geometry.location.longitude || 0;
-                address = place.formatted_address || place.name || 'Unknown address';
-                placeId = place.place_id || place.placeId || null;
+            } else if (placeId) {
+                // Need to fetch place details to get coordinates
+                // BUT preserve the exact address from autocomplete (don't override with formatted_address)
+                const exactAddressFromAutocomplete = address; // Save exact address before fetching details
+                try {
+                    const placeDetails = await googleMapsService.getPlaceDetails(placeId);
+                    latitude = placeDetails.location.latitude;
+                    longitude = placeDetails.location.longitude;
+                    // CRITICAL: Keep the exact address from autocomplete, don't use formatted_address
+                    // formatted_address might be generalized (e.g., "Nairobi, Kenya" instead of "Langata Police Station, Nairobi, Kenya")
+                    address = exactAddressFromAutocomplete; // Preserve exact user selection
+                } catch (detailsError) {
+                    console.error('Error fetching place details:', detailsError);
+                    Alert.alert(
+                        'Error',
+                        'Unable to get location details. Please try selecting a different location.',
+                        [{ text: 'OK' }]
+                    );
+                    return;
+                }
             } else {
                 console.error('Place data structure is invalid:', place);
                 Alert.alert(
@@ -392,18 +437,21 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
             const location: LocationType = {
                 latitude,
                 longitude,
-                address,
+                address, // Use exact address from prediction
                 placeId: placeId || undefined,
             };
 
             setSelectedLocation(location);
-            setSearchQuery(location.address || '');
+            setSearchQuery(location.address || ''); // Set the exact selected address
             clearSearchResults();
             setHasError(false);
 
+            // CRITICAL: Only call callbacks when user explicitly selects from suggestions
+            // This prevents auto-completion from interfering
             if (onLocationSelected) {
                 onLocationSelected(location);
             }
+            // onAddressChange should ONLY be called on explicit user selection, not during typing
             if (onAddressChange) {
                 onAddressChange(location.address || '');
             }
@@ -473,10 +521,10 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
                                 </View>
                                 <View style={styles.searchResultText}>
                                     <Text style={styles.searchResultName} numberOfLines={1}>
-                                        {item.name}
+                                        {item.name || item.structured_formatting?.main_text || 'Location'}
                                     </Text>
-                                    <Text style={styles.searchResultAddress} numberOfLines={1}>
-                                        {item.formatted_address}
+                                    <Text style={styles.searchResultAddress} numberOfLines={2}>
+                                        {item.address || item.description || item.formatted_address || ''}
                                     </Text>
                                 </View>
                             </TouchableOpacity>
@@ -593,17 +641,17 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
                     }}
                     onBlur={() => {
                         setIsFocused(false);
-                        // Only call onAddressChange if user has typed something meaningful
-                        // and there's no active search happening
-                        if (onAddressChange && searchQuery.length >= 3 && !isSearching) {
-                            onAddressChange(searchQuery);
-                        }
+                        // Don't auto-complete on blur - only update if user explicitly selected a location
+                        // This prevents autocomplete from interfering with user's manual input
+                        // The callbacks are only called in handlePlaceSelect when user taps a suggestion
                     }}
                     placeholder={placeholder}
                     placeholderTextColor={colors.text.light}
                     editable={!disabled}
                     autoCorrect={false}
                     autoCapitalize="none"
+                    autoComplete="off"
+                    textContentType="none"
                 />
 
                 {/* Search Indicator */}

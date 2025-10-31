@@ -106,6 +106,8 @@ class GoogleMapsService {
           .join('|');
       }
 
+      // Add optimize:true for best route (Google will optimize waypoints if provided)
+      // For best route selection, we'll choose the route with shortest duration
       const url = buildGoogleMapsUrl(GOOGLE_MAPS_ENDPOINTS.DIRECTIONS, params);
       const response = await fetch(url);
       const data = await response.json();
@@ -114,7 +116,22 @@ class GoogleMapsService {
         throw new Error(`Directions API error: ${data.status}`);
       }
 
-      const route = data.routes[0];
+      // Select the best route - prioritize shortest duration
+      let bestRoute = data.routes[0];
+      let shortestDuration = bestRoute.legs.reduce((total: number, leg: any) => total + leg.duration.value, 0);
+
+      // If multiple routes, find the one with shortest duration
+      if (data.routes.length > 1) {
+        for (const route of data.routes) {
+          const totalDuration = route.legs.reduce((total: number, leg: any) => total + leg.duration.value, 0);
+          if (totalDuration < shortestDuration) {
+            shortestDuration = totalDuration;
+            bestRoute = route;
+          }
+        }
+      }
+
+      const route = bestRoute;
       const leg = route.legs[0];
 
       return {
