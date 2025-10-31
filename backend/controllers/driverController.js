@@ -1176,6 +1176,101 @@ const checkIfDriver = async (req, res) => {
   }
 };
 
+// Update driver profile (for drivers to update their own profile)
+const updateDriverProfile = async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const { firstName, lastName, phone, email, profileImage } = req.body;
+
+    console.log('📝 Updating driver profile for userId:', uid);
+    console.log('📝 Update data:', { firstName, lastName, phone, email, profileImage: !!profileImage });
+
+    // Find driver by userId
+    const driverQuery = db.collection('drivers').where('userId', '==', uid).limit(1);
+    const driverSnapshot = await driverQuery.get();
+
+    if (driverSnapshot.empty) {
+      console.error('❌ Driver not found for userId:', uid);
+      return res.status(404).json({
+        success: false,
+        message: 'Driver profile not found'
+      });
+    }
+
+    const driverDoc = driverSnapshot.docs[0];
+    const driverId = driverDoc.id;
+    const driverData = driverDoc.data();
+
+    console.log('✅ Found driver:', driverId);
+
+    // Prepare update data (only include provided fields)
+    const updateData = {
+      updatedAt: admin.firestore.Timestamp.now()
+    };
+
+    if (firstName !== undefined) {
+      updateData.firstName = firstName;
+    }
+    if (lastName !== undefined) {
+      updateData.lastName = lastName;
+    }
+    if (phone !== undefined) {
+      updateData.phone = phone;
+    }
+    if (email !== undefined) {
+      updateData.email = email;
+    }
+    if (profileImage !== undefined && profileImage) {
+      updateData.profileImage = profileImage;
+    }
+
+    // Update driver document
+    await db.collection('drivers').doc(driverId).update(updateData);
+
+    // Also update users collection if name/phone/email changed
+    const userUpdateData = {};
+    if (firstName !== undefined || lastName !== undefined) {
+      userUpdateData.name = `${firstName || driverData.firstName} ${lastName || driverData.lastName}`.trim();
+    }
+    if (phone !== undefined) {
+      userUpdateData.phone = phone;
+      userUpdateData.phone_clean = phone.replace(/\D/g, '');
+    }
+    if (email !== undefined) {
+      userUpdateData.email = email;
+      userUpdateData.email_lower = email.toLowerCase();
+    }
+    if (profileImage !== undefined && profileImage) {
+      userUpdateData.profilePhotoUrl = profileImage;
+    }
+
+    if (Object.keys(userUpdateData).length > 0) {
+      userUpdateData.updatedAt = admin.firestore.Timestamp.now();
+      await db.collection('users').doc(uid).update(userUpdateData);
+      console.log('✅ Users collection also updated');
+    }
+
+    // Get updated driver data
+    const updatedDriverDoc = await db.collection('drivers').doc(driverId).get();
+    const updatedDriverData = { id: driverId, ...updatedDriverDoc.data() };
+
+    console.log('✅ Driver profile updated successfully');
+
+    res.status(200).json({
+      success: true,
+      message: 'Driver profile updated successfully',
+      driver: updatedDriverData
+    });
+  } catch (error) {
+    console.error('❌ Error updating driver profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update driver profile',
+      error: error.message
+    });
+  }
+};
+
 // Toggle driver availability (for drivers to update their own status)
 const toggleDriverAvailability = async (req, res) => {
   try {
@@ -1566,6 +1661,7 @@ module.exports = {
   verifyDriver,
   getDriverProfile,
   checkIfDriver,
+  updateDriverProfile,
   toggleDriverAvailability,
   acceptBooking,
   updateLocation
