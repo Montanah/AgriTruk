@@ -728,5 +728,94 @@ router.get('/:bookingId/status', authenticateToken, requireRole(['driver', 'tran
  */
 router.patch('/:companyId/accept/:bookingId', authenticateToken, requireRole([ 'transporter', 'driver']), driverController.acceptBooking);
 
+/**
+ * @swagger
+ * /api/bookings/estimate:
+ *   post:
+ *     summary: Get booking cost, distance, and duration estimate
+ *     description: Calculate estimated cost, distance, and duration for a booking without creating it
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fromLocation
+ *               - toLocation
+ *             properties:
+ *               fromLocation:
+ *                 type: object
+ *                 properties:
+ *                   address:
+ *                     type: string
+ *                   latitude:
+ *                     type: number
+ *                   longitude:
+ *                     type: number
+ *               toLocation:
+ *                 type: object
+ *                 properties:
+ *                   address:
+ *                     type: string
+ *                   latitude:
+ *                     type: number
+ *                   longitude:
+ *                     type: number
+ *               weightKg:
+ *                 type: number
+ *               urgencyLevel:
+ *                 type: string
+ *                 enum: [Low, Medium, High]
+ *               perishable:
+ *                 type: boolean
+ *               needsRefrigeration:
+ *                 type: boolean
+ *               humidityControl:
+ *                 type: boolean
+ *               specialCargo:
+ *                 type: array
+ *               bulkiness:
+ *                 type: boolean
+ *               insured:
+ *                 type: boolean
+ *               value:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Estimate calculated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 estimatedDistance:
+ *                   type: string
+ *                 estimatedDuration:
+ *                   type: string
+ *                 estimatedCost:
+ *                   type: number
+ *                 minCost:
+ *                   type: number
+ *                 maxCost:
+ *                   type: number
+ *                 costRange:
+ *                   type: object
+ *                   properties:
+ *                     min:
+ *                       type: number
+ *                     max:
+ *                       type: number
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/estimate', authenticateToken, bookingController.estimateBooking);
 
 module.exports = router;
