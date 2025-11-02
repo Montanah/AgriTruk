@@ -297,7 +297,11 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
             </TouchableOpacity>
           </View>
 
-          <View style={styles.modalBody}>
+          <ScrollView 
+            style={styles.modalBody}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={colors.primary} />
@@ -336,20 +340,15 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
                       )}
                     </View>
 
-                    <FlatList
-                      data={availableRequests}
-                      renderItem={renderRequestItem}
-                      keyExtractor={(item) => item.id}
-                      style={styles.requestsList}
-                      showsVerticalScrollIndicator={false}
-                    />
+                    <Text style={styles.sectionTitle}>Available Requests</Text>
+                    {availableRequests.map((item) => renderRequestItem({ item }))}
 
                     {renderConsolidationPreview()}
                   </>
                 )}
               </>
             )}
-          </View>
+          </ScrollView>
 
           <View style={styles.modalFooter}>
             <TouchableOpacity
@@ -396,6 +395,8 @@ const styles = StyleSheet.create({
     width: '95%',
     maxHeight: '90%',
     overflow: 'hidden',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -411,13 +412,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalBody: {
-    flex: 1,
     padding: 20,
+    flexGrow: 1,
   },
   loadingContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 40,
   },
   loadingText: {
     ...fonts.body,
@@ -438,9 +439,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   emptyState: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 40,
   },
   emptyTitle: {
     ...fonts.h4,
@@ -474,8 +475,14 @@ const styles = StyleSheet.create({
     ...fonts.caption,
     color: colors.text.secondary,
   },
+  sectionTitle: {
+    ...fonts.h4,
+    color: colors.text.primary,
+    marginTop: 8,
+    marginBottom: 12,
+    fontWeight: '600',
+  },
   requestsList: {
-    maxHeight: 300,
     marginBottom: 16,
   },
   requestItem: {
