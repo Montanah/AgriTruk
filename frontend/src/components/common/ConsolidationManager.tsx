@@ -323,6 +323,20 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
                   </Text>
                 </View>
 
+                <View style={styles.selectionInfo}>
+                  <Text style={styles.selectionText}>
+                    {selectedRequests.length} of {availableRequests.length} requests selected
+                  </Text>
+                  {selectedRequests.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.clearSelectionButton}
+                      onPress={() => setSelectedRequests([])}
+                    >
+                      <Text style={styles.clearSelectionText}>Clear Selection</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
                 {availableRequests.length === 0 ? (
                   <View style={styles.emptyState}>
                     <MaterialCommunityIcons name="package-variant" size={48} color={colors.text.light} />
@@ -333,25 +347,21 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
                   </View>
                 ) : (
                   <>
-                    <View style={styles.selectionInfo}>
-                      <Text style={styles.selectionText}>
-                        {selectedRequests.length} of {availableRequests.length} requests selected
-                      </Text>
-                      {selectedRequests.length > 0 && (
-                        <TouchableOpacity
-                          style={styles.clearSelectionButton}
-                          onPress={() => setSelectedRequests([])}
-                        >
-                          <Text style={styles.clearSelectionText}>Clear Selection</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    <Text style={styles.sectionTitle}>Available Requests</Text>
+                    <Text style={styles.sectionTitle}>Available Requests for Consolidation ({availableRequests.length})</Text>
                     {availableRequests.length > 0 ? (
-                      availableRequests.map((item) => renderRequestItem({ item }))
+                      <FlatList
+                        data={availableRequests}
+                        renderItem={renderRequestItem}
+                        keyExtractor={(item) => item.id}
+                        scrollEnabled={false}
+                        showsVerticalScrollIndicator={false}
+                        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                      />
                     ) : (
-                      <Text style={styles.emptyListText}>No pending requests available</Text>
+                      <View style={styles.emptyListContainer}>
+                        <MaterialCommunityIcons name="package-variant-outline" size={32} color={colors.text.light} />
+                        <Text style={styles.emptyListText}>No pending requests available for consolidation</Text>
+                      </View>
                     )}
 
                     {renderConsolidationPreview()}
@@ -361,40 +371,47 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
                         <Text style={[styles.sectionTitle, styles.consolidatedSectionTitle]}>
                           Already Consolidated ({consolidatedRequests.length})
                         </Text>
-                        {consolidatedRequests.map((item) => (
-                          <View key={item.id} style={[styles.requestItem, styles.consolidatedItem]}>
-                            <View style={styles.requestHeader}>
-                              <Text style={styles.requestId}>#{getDisplayBookingId(item)}</Text>
-                              <View style={styles.consolidatedBadge}>
-                                <MaterialCommunityIcons name="layers" size={12} color={colors.white} />
-                                <Text style={styles.consolidatedBadgeText}>Consolidated</Text>
-                              </View>
-                            </View>
-                            
-                            <View style={styles.requestDetails}>
-                              <View style={styles.routeInfo}>
-                                <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                                <Text style={styles.routeText}>
-                                  {getReadableLocationName(item.fromLocation)} → {getReadableLocationName(item.toLocation)}
-                                </Text>
+                        <FlatList
+                          data={consolidatedRequests}
+                          renderItem={({ item }) => (
+                            <View style={[styles.requestItem, styles.consolidatedItem]}>
+                              <View style={styles.requestHeader}>
+                                <Text style={styles.requestId}>#{getDisplayBookingId(item)}</Text>
+                                <View style={styles.consolidatedBadge}>
+                                  <MaterialCommunityIcons name="layers" size={12} color={colors.white} />
+                                  <Text style={styles.consolidatedBadgeText}>Consolidated</Text>
+                                </View>
                               </View>
                               
-                              <View style={styles.productInfo}>
-                                <MaterialCommunityIcons name="package-variant" size={16} color={colors.secondary} />
-                                <Text style={styles.productText}>{item.productType}</Text>
-                                <Text style={styles.weightText}>{item.weight}</Text>
-                              </View>
-                              
-                              {item.consolidatedRequests && Array.isArray(item.consolidatedRequests) && item.consolidatedRequests.length > 0 && (
-                                <View style={styles.consolidatedDetails}>
-                                  <Text style={styles.consolidatedDetailsText}>
-                                    Contains {item.consolidatedRequests.length} individual request{item.consolidatedRequests.length > 1 ? 's' : ''}
+                              <View style={styles.requestDetails}>
+                                <View style={styles.routeInfo}>
+                                  <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                                  <Text style={styles.routeText}>
+                                    {getReadableLocationName(item.fromLocation)} → {getReadableLocationName(item.toLocation)}
                                   </Text>
                                 </View>
-                              )}
+                                
+                                <View style={styles.productInfo}>
+                                  <MaterialCommunityIcons name="package-variant" size={16} color={colors.secondary} />
+                                  <Text style={styles.productText}>{item.productType}</Text>
+                                  <Text style={styles.weightText}>{item.weight}</Text>
+                                </View>
+                                
+                                {item.consolidatedRequests && Array.isArray(item.consolidatedRequests) && item.consolidatedRequests.length > 0 && (
+                                  <View style={styles.consolidatedDetails}>
+                                    <Text style={styles.consolidatedDetailsText}>
+                                      Contains {item.consolidatedRequests.length} individual request{item.consolidatedRequests.length > 1 ? 's' : ''}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
                             </View>
-                          </View>
-                        ))}
+                          )}
+                          keyExtractor={(item) => item.id}
+                          scrollEnabled={false}
+                          showsVerticalScrollIndicator={false}
+                          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                        />
                       </>
                     )}
                   </>
@@ -449,7 +466,12 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     overflow: 'hidden',
     flexDirection: 'column',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -467,6 +489,7 @@ const styles = StyleSheet.create({
   modalBody: {
     padding: 20,
     flexGrow: 1,
+    flexShrink: 1,
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -539,12 +562,18 @@ const styles = StyleSheet.create({
     marginTop: 24,
     color: colors.secondary,
   },
+  emptyListContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
   emptyListText: {
     ...fonts.body,
     color: colors.text.secondary,
     fontStyle: 'italic',
     textAlign: 'center',
-    paddingVertical: 16,
+    marginTop: 8,
   },
   consolidatedItem: {
     backgroundColor: colors.secondaryLight,
