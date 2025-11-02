@@ -49,6 +49,7 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
   clientId,
 }) => {
   const [availableRequests, setAvailableRequests] = useState<UnifiedBooking[]>([]);
+  const [consolidatedRequests, setConsolidatedRequests] = useState<UnifiedBooking[]>([]);
   const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [consolidating, setConsolidating] = useState(false);
@@ -72,16 +73,22 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
     try {
       setLoading(true);
       
+      // Load all bookings (pending for consolidation + already consolidated)
       const filters: BookingFilters = {
-        status: ['pending'], // Only pending requests can be consolidated
+        // Don't filter by status to get all bookings including consolidated ones
         clientId: clientId, // For broker client-specific consolidation
       };
       
-      const requests = await unifiedBookingService.getBookings(userRole, filters);
+      const allRequests = await unifiedBookingService.getBookings(userRole, filters);
       
-      // Filter out already consolidated requests
-      const availableRequests = requests.filter(req => !req.isConsolidated);
+      // Separate available (pending, not consolidated) and already consolidated requests
+      const availableRequests = allRequests.filter(req => 
+        !req.isConsolidated && (req.status === 'pending' || !req.status)
+      );
+      const consolidatedRequests = allRequests.filter(req => req.isConsolidated);
+      
       setAvailableRequests(availableRequests);
+      setConsolidatedRequests(consolidatedRequests);
     } catch (error) {
       console.error('Error loading available requests:', error);
       Alert.alert('Error', 'Failed to load available requests');
@@ -341,9 +348,55 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
                     </View>
 
                     <Text style={styles.sectionTitle}>Available Requests</Text>
-                    {availableRequests.map((item) => renderRequestItem({ item }))}
+                    {availableRequests.length > 0 ? (
+                      availableRequests.map((item) => renderRequestItem({ item }))
+                    ) : (
+                      <Text style={styles.emptyListText}>No pending requests available</Text>
+                    )}
 
                     {renderConsolidationPreview()}
+
+                    {consolidatedRequests.length > 0 && (
+                      <>
+                        <Text style={[styles.sectionTitle, styles.consolidatedSectionTitle]}>
+                          Already Consolidated ({consolidatedRequests.length})
+                        </Text>
+                        {consolidatedRequests.map((item) => (
+                          <View key={item.id} style={[styles.requestItem, styles.consolidatedItem]}>
+                            <View style={styles.requestHeader}>
+                              <Text style={styles.requestId}>#{getDisplayBookingId(item)}</Text>
+                              <View style={styles.consolidatedBadge}>
+                                <MaterialCommunityIcons name="layers" size={12} color={colors.white} />
+                                <Text style={styles.consolidatedBadgeText}>Consolidated</Text>
+                              </View>
+                            </View>
+                            
+                            <View style={styles.requestDetails}>
+                              <View style={styles.routeInfo}>
+                                <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                                <Text style={styles.routeText}>
+                                  {getReadableLocationName(item.fromLocation)} → {getReadableLocationName(item.toLocation)}
+                                </Text>
+                              </View>
+                              
+                              <View style={styles.productInfo}>
+                                <MaterialCommunityIcons name="package-variant" size={16} color={colors.secondary} />
+                                <Text style={styles.productText}>{item.productType}</Text>
+                                <Text style={styles.weightText}>{item.weight}</Text>
+                              </View>
+                              
+                              {item.consolidatedRequests && Array.isArray(item.consolidatedRequests) && item.consolidatedRequests.length > 0 && (
+                                <View style={styles.consolidatedDetails}>
+                                  <Text style={styles.consolidatedDetailsText}>
+                                    Contains {item.consolidatedRequests.length} individual request{item.consolidatedRequests.length > 1 ? 's' : ''}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          </View>
+                        ))}
+                      </>
+                    )}
                   </>
                 )}
               </>
@@ -478,9 +531,51 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...fonts.h4,
     color: colors.text.primary,
-    marginTop: 8,
+    marginTop: 16,
     marginBottom: 12,
     fontWeight: '600',
+  },
+  consolidatedSectionTitle: {
+    marginTop: 24,
+    color: colors.secondary,
+  },
+  emptyListText: {
+    ...fonts.body,
+    color: colors.text.secondary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  consolidatedItem: {
+    backgroundColor: colors.secondaryLight,
+    borderColor: colors.secondary,
+    borderWidth: 1,
+    opacity: 0.8,
+  },
+  consolidatedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.secondary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    gap: 4,
+  },
+  consolidatedBadgeText: {
+    ...fonts.caption,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  consolidatedDetails: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.background.light,
+  },
+  consolidatedDetailsText: {
+    ...fonts.caption,
+    color: colors.text.secondary,
+    fontStyle: 'italic',
   },
   requestsList: {
     marginBottom: 16,
