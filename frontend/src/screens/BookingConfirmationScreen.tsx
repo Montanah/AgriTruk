@@ -96,31 +96,113 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           return;
         }
         
-        // Prepare estimate request payload - use exact addresses
-        const fromLoc = typeof req.fromLocation === 'object' 
-          ? (req.fromLocation.address || req.fromLocationAddress || '') 
-          : (req.fromLocationAddress || req.fromLocation || '');
-        const toLoc = typeof req.toLocation === 'object' 
-          ? (req.toLocation.address || req.toLocationAddress || '') 
-          : (req.toLocationAddress || req.toLocation || '');
+        // For consolidated bookings, use first pickup and find furthest drop-off
+        let fromLoc: string;
+        let toLoc: string;
+        let fromLocationObj: any;
+        let toLocationObj: any;
+        
+        if (isConsolidated && requests.length > 1) {
+          // Use first request's pickup location (as user suggested)
+          const firstReq = requests[0];
+          fromLoc = typeof firstReq.fromLocation === 'object' 
+            ? (firstReq.fromLocation.address || firstReq.fromLocationAddress || '') 
+            : (firstReq.fromLocationAddress || firstReq.fromLocation || '');
+          
+          // Find furthest drop-off location from the pickup
+          let maxDistance = 0;
+          let furthestDropOff = firstReq.toLocation;
+          let furthestDropOffAddress = typeof firstReq.toLocation === 'object' 
+            ? (firstReq.toLocation.address || firstReq.toLocationAddress || '') 
+            : (firstReq.toLocationAddress || firstReq.toLocation || '');
+          
+          // Get pickup coordinates for distance calculation
+          const pickupLat = firstReq.fromLocationCoords?.latitude || 
+            (typeof firstReq.fromLocation === 'object' ? firstReq.fromLocation.latitude : null);
+          const pickupLng = firstReq.fromLocationCoords?.longitude || 
+            (typeof firstReq.fromLocation === 'object' ? firstReq.fromLocation.longitude : null);
+          
+          if (pickupLat !== null && pickupLng !== null) {
+            // Calculate distance to each drop-off to find furthest
+            requests.forEach((r: any) => {
+              const dropLat = r.toLocationCoords?.latitude || 
+                (typeof r.toLocation === 'object' ? r.toLocation.latitude : null);
+              const dropLng = r.toLocationCoords?.longitude || 
+                (typeof r.toLocation === 'object' ? r.toLocation.longitude : null);
+              
+              if (dropLat !== null && dropLng !== null) {
+                const distance = Math.sqrt(
+                  Math.pow(dropLat - pickupLat, 2) + Math.pow(dropLng - pickupLng, 2)
+                );
+                if (distance > maxDistance) {
+                  maxDistance = distance;
+                  furthestDropOff = r.toLocation;
+                  furthestDropOffAddress = typeof r.toLocation === 'object' 
+                    ? (r.toLocation.address || r.toLocationAddress || '') 
+                    : (r.toLocationAddress || r.toLocation || '');
+                }
+              }
+            });
+          }
+          
+          toLoc = furthestDropOffAddress;
+          
+          // Build location objects
+          fromLocationObj = firstReq.fromLocationCoords || 
+            (typeof firstReq.fromLocation === 'object' && firstReq.fromLocation.latitude ? {
+              address: fromLoc,
+              latitude: firstReq.fromLocation.latitude,
+              longitude: firstReq.fromLocation.longitude
+            } : { address: fromLoc });
+          
+          // Find drop-off coordinates
+          const furthestReq = requests.find((r: any) => {
+            const dropAddr = typeof r.toLocation === 'object' 
+              ? (r.toLocation.address || r.toLocationAddress || '') 
+              : (r.toLocationAddress || r.toLocation || '');
+            return dropAddr === toLoc;
+          }) || requests[0];
+          
+          toLocationObj = furthestReq.toLocationCoords || 
+            (typeof furthestReq.toLocation === 'object' && furthestReq.toLocation.latitude ? {
+              address: toLoc,
+              latitude: furthestReq.toLocation.latitude,
+              longitude: furthestReq.toLocation.longitude
+            } : { address: toLoc });
+        } else {
+          // Single booking - use original logic
+          fromLoc = typeof req.fromLocation === 'object' 
+            ? (req.fromLocation.address || req.fromLocationAddress || '') 
+            : (req.fromLocationAddress || req.fromLocation || '');
+          toLoc = typeof req.toLocation === 'object' 
+            ? (req.toLocation.address || req.toLocationAddress || '') 
+            : (req.toLocationAddress || req.toLocation || '');
+
+          // Build location objects with exact addresses
+          fromLocationObj = req.fromLocationCoords ? {
+            address: fromLoc,
+            latitude: req.fromLocationCoords.latitude,
+            longitude: req.fromLocationCoords.longitude
+          } : { address: fromLoc };
+          
+          toLocationObj = req.toLocationCoords ? {
+            address: toLoc,
+            latitude: req.toLocationCoords.latitude,
+            longitude: req.toLocationCoords.longitude
+          } : { address: toLoc };
+        }
 
         if (!fromLoc || !toLoc) {
           console.warn('Missing location addresses for estimate');
           return;
         }
 
-        // Build location objects with exact addresses
-        const fromLocationObj = req.fromLocationCoords ? {
-          address: fromLoc,
-          latitude: req.fromLocationCoords.latitude,
-          longitude: req.fromLocationCoords.longitude
-        } : { address: fromLoc };
-        
-        const toLocationObj = req.toLocationCoords ? {
-          address: toLoc,
-          latitude: req.toLocationCoords.latitude,
-          longitude: req.toLocationCoords.longitude
-        } : { address: toLoc };
+        // Calculate total weight for consolidated bookings
+        const totalWeight = isConsolidated && requests.length > 1
+          ? requests.reduce((sum, r: any) => {
+              return sum + (Number(r.weightKg || r.weight || 0) || 0);
+            }, 0)
+          : Number(req.weightKg || req.weight || 0) || 0;
 
         // Fetch estimate from backend
         const estimateResponse = await apiRequest('/bookings/estimate', {
@@ -128,7 +210,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           body: JSON.stringify({
             fromLocation: fromLocationObj,
             toLocation: toLocationObj,
-            weightKg: Number(req.weightKg || req.weight || 0) || 0,
+            weightKg: totalWeight,
             lengthCm: Number(req.lengthCm || 0),
             widthCm: Number(req.widthCm || 0),
             heightCm: Number(req.heightCm || 0),
