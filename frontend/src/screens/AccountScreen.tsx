@@ -67,7 +67,7 @@ const AccountScreen = () => {
   const [verifyingPhone, setVerifyingPhone] = useState(false);
   const [showPrimaryContactModal, setShowPrimaryContactModal] = useState(false);
 
-  const user = auth.currentUser;
+  const user = auth?.currentUser;
 
   // Determine primary contact method based on verification status
   const getPrimaryContactMethod = () => {
@@ -384,7 +384,7 @@ const AccountScreen = () => {
           { text: 'OK' },
           {
             text: 'Go to Verification',
-            onPress: () => navigation.navigate('EmailVerification')
+            onPress: () => navigation?.navigate?.('EmailVerification')
           }
         ]
       );
@@ -428,7 +428,7 @@ const AccountScreen = () => {
           { text: 'OK' },
           {
             text: 'Go to Verification',
-            onPress: () => navigation.navigate('PhoneOTPScreen')
+            onPress: () => navigation?.navigate?.('PhoneOTPScreen')
           }
         ]
       );
@@ -867,7 +867,7 @@ const AccountScreen = () => {
         <View style={styles.actionButtonsContainer}>
           <TouchableOpacity
             style={styles.primaryActionButton}
-            onPress={() => navigation.navigate('ServiceRequest')}
+            onPress={() => navigation?.navigate?.('ServiceRequest')}
           >
             <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
             <Text style={styles.primaryActionButtonText}>New Transport Request</Text>
@@ -877,7 +877,7 @@ const AccountScreen = () => {
             style={styles.secondaryActionButton}
             onPress={() => {
               // Navigate to Activity tab
-              navigation.navigate('Activity');
+              navigation?.navigate?.('Activity');
             }}
           >
             <MaterialCommunityIcons name="format-list-bulleted" size={24} color={colors.primary} />
@@ -886,7 +886,7 @@ const AccountScreen = () => {
 
           <TouchableOpacity
             style={styles.utilityButton}
-            onPress={() => navigation.navigate('ChangePasswordScreen')}
+            onPress={() => navigation?.navigate?.('ChangePasswordScreen')}
           >
             <MaterialCommunityIcons name="lock" size={24} color={colors.primary} />
             <Text style={styles.utilityButtonText}>Change Password</Text>

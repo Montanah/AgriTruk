@@ -87,10 +87,10 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 // Add any specific filters for broker requests
             };
             
-            const bookings = await unifiedBookingService.getBookings('broker', filters);
+            const bookings = await unifiedBookingService?.getBookings('broker', filters);
             console.log('Broker requests from unified service:', bookings);
             
-            setRequests(bookings);
+            setRequests(Array.isArray(bookings) ? bookings : []);
             // Reload clients to update active request counts
             await loadClients();
         } catch (error) {
@@ -122,7 +122,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             if (res.ok) {
                 const data = await res.json();
                 console.log('Clients with requests API response:', data);
-                setClients(data.data || []);
+                setClients(Array.isArray(data?.data) ? data.data : []);
             } else {
                 console.error('Failed to fetch clients with requests:', res.status, res.statusText);
                 const errorData = await res.json().catch(() => ({}));
@@ -142,14 +142,15 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
     };
 
     const handleTrackRequest = (request: RequestItem) => {
+        if (!request) return;
         if (request.type === 'instant') {
-            navigation.navigate('TripDetailsScreen', {
+            navigation?.navigate?.('TripDetailsScreen', {
                 booking: request,
                 isInstant: true,
                 userType: 'broker',
             });
         } else {
-            navigation.navigate('TrackingScreen', {
+            navigation?.navigate?.('TrackingScreen', {
                 booking: request,
                 isConsolidated: false,
                 userType: 'broker',
@@ -158,7 +159,8 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
     };
 
     const handleViewMap = (request: RequestItem) => {
-        navigation.navigate('MapViewScreen', {
+        if (!request) return;
+        navigation?.navigate?.('MapViewScreen', {
             booking: request,
             userType: 'broker',
         });
@@ -185,9 +187,9 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 { 
                     text: 'Chat', 
                     onPress: () => {
-                        navigation.navigate('ChatScreen', {
-                            transporter: request.transporter,
-                            requestId: request.id,
+                        navigation?.navigate?.('ChatScreen', {
+                            transporter: request?.transporter,
+                            requestId: request?.id,
                             userType: 'broker'
                         });
                     }
@@ -215,7 +217,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
     const confirmConsolidation = async () => {
         try {
             // Get selected requests data
-            const selectedRequestsData = requests.filter(req => selectedRequests.includes(req.id));
+            const selectedRequestsData = Array.isArray(requests) ? requests.filter(req => req && selectedRequests.includes(req.id)) : [];
             
             if (selectedRequestsData.length < 2) {
                 Alert.alert('Error', 'Please select at least 2 requests to consolidate');
@@ -250,7 +252,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             await loadRequests();
             
             // Navigate to consolidated request details
-            navigation.navigate('TrackingScreen', {
+            navigation?.navigate?.('TrackingScreen', {
                 booking: consolidatedBooking,
                 isConsolidated: true,
                 userType: 'broker',
@@ -366,13 +368,13 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 </View>
             </View>
 
-            {/* Shipping Cost */}
+            {/* Shipping Cost - Always use backend-calculated cost: cost > price > estimatedCost */}
             {(item.cost || item.price || item.estimatedCost) && (
                 <View style={styles.costInfo}>
                     <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
                     <Text style={styles.costLabel}>Shipping Cost:</Text>
                     <Text style={styles.costValue}>
-                        KES {Number(item.cost || item.price || item.estimatedCost || 0).toLocaleString()}
+                        KES {Number(item.cost || item.price || item.estimatedCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Text>
                 </View>
             )}
@@ -505,7 +507,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             <View style={styles.clientHeader}>
                 <View style={styles.clientAvatar}>
                     <Text style={styles.clientInitials}>
-                        {item.name.split(' ').map(n => n[0]).join('')}
+                        {(item?.name || 'U').split(' ').filter(n => n).map(n => n?.[0] || '').filter(c => c).join('') || 'U'}
                     </Text>
                     {item.isVerified && (
                         <View style={styles.verifiedBadge}>
@@ -609,8 +611,8 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             <View style={styles.clientActions}>
                 <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => navigation.navigate('BrokerRequestScreen', {
-                        clientId: item.id,
+                    onPress={() => navigation?.navigate?.('BrokerRequestScreen', {
+                        clientId: item?.id,
                         selectedClient: item
                     })}
                 >
@@ -641,14 +643,14 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                             <Text style={styles.sectionTitle}>All Requests</Text>
                             <TouchableOpacity
                                 style={styles.newRequestButton}
-                                onPress={() => navigation.navigate('BrokerRequestScreen')}
+                                onPress={() => navigation?.navigate?.('BrokerRequestScreen')}
                             >
                                 <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
                                 <Text style={styles.newRequestButtonText}>New Request</Text>
                             </TouchableOpacity>
                         </View>
 
-                        {requests.length === 0 ? (
+                        {(!Array.isArray(requests) || requests.length === 0) ? (
                             <View style={styles.emptyState}>
                                 <MaterialCommunityIcons name="clipboard-list-outline" size={48} color={colors.text.light} />
                                 <Text style={styles.emptyStateTitle}>No Requests Yet</Text>
@@ -670,7 +672,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 );
 
             case 'consolidation':
-                const pendingRequests = requests.filter(r => r.status === 'pending');
+                const pendingRequests = Array.isArray(requests) ? requests.filter(r => r && r.status === 'pending') : [];
                 return (
                     <View style={styles.tabContent}>
                         <View style={styles.sectionHeader}>
@@ -773,14 +775,15 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
 
                         <FlatList
                             data={selectedClient
-                                ? requests.filter(r => {
-                                    const cid = (r as any).brokerData?.clientId || r.client?.id;
-                                    return cid && cid === selectedClient.id;
-                                  })
-                                : requests
+                                ? (Array.isArray(requests) ? requests.filter(r => {
+                                    if (!r) return false;
+                                    const cid = (r as any)?.brokerData?.clientId || r?.client?.id;
+                                    return cid && cid === selectedClient?.id;
+                                  }) : [])
+                                : (Array.isArray(requests) ? requests : [])
                             }
                             renderItem={renderRequestItem}
-                            keyExtractor={(item) => item.id}
+                            keyExtractor={(item) => item?.id || Math.random().toString()}
                             showsVerticalScrollIndicator={false}
                             scrollEnabled={false}
                             contentContainerStyle={{ paddingBottom: spacing.xxl }}
@@ -795,14 +798,14 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                             <Text style={styles.sectionTitle}>Client Management</Text>
                             <TouchableOpacity
                                 style={styles.addClientButton}
-                                onPress={() => navigation.navigate('Home')}
+                                onPress={() => navigation?.navigate?.('Home')}
                             >
                                 <MaterialCommunityIcons name="account-plus" size={20} color={colors.white} />
                                 <Text style={styles.addClientButtonText}>Add Client</Text>
                             </TouchableOpacity>
                         </View>
 
-                        {clients.length === 0 ? (
+                        {(!Array.isArray(clients) || clients.length === 0) ? (
                             <View style={styles.emptyState}>
                                 <MaterialCommunityIcons name="account-group" size={48} color={colors.text.secondary} />
                                 <Text style={styles.emptyStateText}>No clients found</Text>
@@ -930,14 +933,23 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                         <View style={styles.consolidationPreview}>
                             <Text style={styles.previewTitle}>Selected Requests:</Text>
                             {requests
-                                .filter(r => selectedRequests.includes(r.id))
-                                .map(request => (
-                                    <View key={request.id} style={styles.previewItem}>
-                                        <Text style={styles.previewText}>
-                                            • {formatRoute(request.fromLocation, request.toLocation)} ({request.productType})
-                                        </Text>
-                                    </View>
-                                ))
+                                .filter(r => r && selectedRequests.includes(r.id))
+                                .map(request => {
+                                    if (!request) return null;
+                                    try {
+                                        return (
+                                            <View key={request.id || Math.random()} style={styles.previewItem}>
+                                                <Text style={styles.previewText}>
+                                                    • {formatRoute(request.fromLocation, request.toLocation)} ({request.productType || 'N/A'})
+                                                </Text>
+                                            </View>
+                                        );
+                                    } catch (e) {
+                                        console.warn('Error rendering preview item:', e);
+                                        return null;
+                                    }
+                                })
+                                .filter(item => item != null)
                             }
                         </View>
 

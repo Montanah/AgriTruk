@@ -104,7 +104,11 @@ const ActivityScreen = () => {
       if (response.bookings && Array.isArray(response.bookings)) {
         
         // Transform backend booking data to frontend format
-        const transformedBookings = await Promise.all(response.bookings.map(async (booking: any) => {
+        const transformedBookings = await Promise.all(
+          response.bookings
+            .filter(booking => booking != null) // Filter out null/undefined
+            .map(async (booking: any) => {
+              if (!booking) return null;
           console.log('Processing booking:', booking.id || booking.bookingId, 'Cost data:', {
             cost: booking.cost,
             estimatedCost: booking.estimatedCost,
@@ -163,16 +167,38 @@ const ActivityScreen = () => {
             }
           }
           
-          // Calculate total cost from costBreakdown if available
-          let totalCost = booking.cost || booking.estimatedCost;
-          if (booking.costBreakdown && typeof booking.costBreakdown === 'object') {
+          // CRITICAL: Always use backend-calculated cost - do NOT recalculate
+          // Backend cost is the source of truth: cost > price > estimatedCost > costBreakdown.total
+          // Only use costBreakdown.total as absolute last resort if no cost field exists
+          let totalCost = booking.cost || booking.price || booking.estimatedCost;
+          
+          // If costBreakdown has a total field and no cost fields exist, use it as fallback
+          if (!totalCost && booking.costBreakdown && typeof booking.costBreakdown === 'object') {
+            totalCost = booking.costBreakdown.total || booking.costBreakdown.cost;
+          }
+          
+          // Last resort: calculate from breakdown ONLY if absolutely no cost data exists
+          // This should rarely happen as backend should always provide cost
+          if (!totalCost && booking.costBreakdown && typeof booking.costBreakdown === 'object') {
             const breakdown = booking.costBreakdown;
-            totalCost = breakdown.baseFare + breakdown.distanceCost + breakdown.weightCost + 
+            const calculatedFromBreakdown = breakdown.baseFare + breakdown.distanceCost + breakdown.weightCost + 
                        breakdown.urgencySurcharge + breakdown.perishableSurcharge + 
                        breakdown.refrigerationSurcharge + breakdown.humiditySurcharge + 
                        breakdown.insuranceFee + breakdown.priorityFee + breakdown.waitTimeFee + 
                        breakdown.tollFee + breakdown.nightSurcharge + breakdown.fuelSurcharge;
+            if (calculatedFromBreakdown > 0) {
+              console.warn('⚠️ Using calculated cost from breakdown as last resort - backend should provide cost field:', booking.id || booking.bookingId);
+              totalCost = calculatedFromBreakdown;
+            }
           }
+          
+          console.log('Cost resolution for booking:', booking.id || booking.bookingId, {
+            cost: booking.cost,
+            price: booking.price,
+            estimatedCost: booking.estimatedCost,
+            costBreakdownTotal: booking.costBreakdown?.total,
+            finalCost: totalCost
+          });
           
           // Process location data consistently
           const fromLocation = booking.fromLocation || booking.from;
@@ -199,13 +225,13 @@ const ActivityScreen = () => {
             cargoDetails: booking.cargoDetails || booking.productType || 'Unknown',
             vehicleType: booking.vehicleType || 'Any',
             estimatedCost: totalCost || 'TBD',
-            distance: calculatedDistanceFormatted,
+            distance: calculatedDistanceFormatted || 'Calculating...',
             estimatedDuration: booking.estimatedDuration || 'TBD',
-            specialRequirements: booking.specialCargo || [],
-            needsRefrigeration: booking.needsRefrigeration || false,
-            isPerishable: booking.perishable || false,
-            isInsured: booking.insured || false,
-            priority: booking.priority || false,
+            specialRequirements: Array.isArray(booking.specialCargo) ? booking.specialCargo : [],
+            needsRefrigeration: !!booking.needsRefrigeration,
+            isPerishable: !!booking.perishable,
+            isInsured: !!booking.insured,
+            priority: !!booking.priority,
             urgencyLevel: booking.urgencyLevel || 'normal',
             createdAt: booking.createdAt || new Date().toISOString(),
             transporter: (booking.transporterId || booking.transporterName || booking.transporter?.name || booking.driverName) ? {
@@ -230,22 +256,25 @@ const ActivityScreen = () => {
             } : null
           };
           
-          // Debug the final transformed data
-          console.log('Final transformed booking:', {
-            id: transformedBooking.id,
-            transporter: transformedBooking.transporter,
-            vehicle: transformedBooking.vehicle
-          });
-          
-          return transformedBooking;
-        }));
+              // Debug the final transformed data
+              console.log('Final transformed booking:', {
+                id: transformedBooking.id,
+                transporter: transformedBooking.transporter,
+                vehicle: transformedBooking.vehicle
+              });
+              
+              return transformedBooking;
+            })
+            .filter(result => result != null) // Filter out null results
+        );
 
         setRequests(transformedBookings);
       } else {
         setRequests([]);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load requests');
+      console.error('Error loading requests:', err);
+      setError(err?.message || 'Failed to load requests');
       setRequests([]);
     } finally {
       setLoading(false);
@@ -259,8 +288,9 @@ const ActivityScreen = () => {
   };
 
   const getFilteredRequests = () => {
+    if (!Array.isArray(requests)) return [];
     if (activeTab === 'all') return requests;
-    return requests.filter(req => req.type === activeTab);
+    return requests.filter(req => req && req.type === activeTab);
   };
 
   const getStatusColor = (status: string) => {
@@ -412,8 +442,8 @@ const ActivityScreen = () => {
             <MaterialCommunityIcons name="currency-usd" size={20} color={colors.primary} />
             <Text style={styles.cargoLabel}>Cost</Text>
             <Text style={styles.cargoValue}>
-              {item.estimatedCost === 'TBD' || item.estimatedCost === 'Unknown' ? 'TBD' : 
-               `KSh ${typeof item.estimatedCost === 'number' ? item.estimatedCost.toLocaleString() : item.estimatedCost}`}
+              {!item.estimatedCost || item.estimatedCost === 'TBD' || item.estimatedCost === 'Unknown' || item.estimatedCost === 0 ? 'TBD' : 
+               `KSh ${typeof item.estimatedCost === 'number' ? item.estimatedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : item.estimatedCost}`}
             </Text>
           </View>
         </View>

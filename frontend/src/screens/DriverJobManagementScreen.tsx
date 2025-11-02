@@ -183,9 +183,62 @@ const DriverJobManagementScreen = () => {
         } else {
           // Handle both array and object responses - available endpoint returns availableBookings array
           const jobsData = Array.isArray(data) ? data : (data.availableBookings || data.jobs || data.bookings || data.data || []);
+          
+          // CRITICAL: Filter out accepted/active jobs for the "available" tab
+          // Available jobs should ONLY include jobs that are:
+          // - Status: 'pending' (not accepted, started, in_progress, etc.)
+          // - Not already accepted (acceptedAt is null/undefined)
+          // - Not assigned to any transporter (transporterId is null/undefined)
+          // - Not assigned to this driver (driverId is null/undefined or not matching current driver)
+          let filteredJobsData = jobsData;
+          if (selectedTab === 'available') {
+            filteredJobsData = jobsData.filter((job: any) => {
+              const status = (job.status || '').toLowerCase();
+              
+              // List of statuses that indicate the job is NOT available
+              const nonAvailableStatuses = [
+                'accepted', 'started', 'in_progress', 'in_transit', 
+                'picked_up', 'enroute', 'completed', 'cancelled',
+                'delivered', 'ongoing'
+              ];
+              
+              const isNotAvailableStatus = nonAvailableStatuses.includes(status);
+              const isPending = status === 'pending';
+              const notAccepted = !job.acceptedAt || job.acceptedAt === null;
+              const notAssigned = !job.transporterId || job.transporterId === null;
+              const notAssignedToDriver = !job.driverId || job.driverId === null;
+              
+              // Job is available ONLY if:
+              // 1. Status is 'pending' (not accepted/active)
+              // 2. Status is NOT in the non-available list
+              // 3. Has no acceptedAt timestamp
+              // 4. Has no transporterId assignment
+              // 5. Has no driverId assignment
+              const isAvailable = isPending && !isNotAvailableStatus && notAccepted && notAssigned && notAssignedToDriver;
+              
+              if (!isAvailable) {
+                console.log('🚫 Filtered out non-available job:', {
+                  id: job.id || job.bookingId,
+                  status: job.status,
+                  acceptedAt: job.acceptedAt,
+                  transporterId: job.transporterId,
+                  driverId: job.driverId,
+                  reason: isNotAvailableStatus ? `status is ${status}` : !isPending ? 'not pending' : !notAccepted ? 'already accepted' : !notAssigned ? 'assigned to transporter' : 'assigned to driver'
+                });
+              }
+              
+              return isAvailable;
+            });
+            
+            console.log(`✅ Filtered ${jobsData.length} jobs to ${filteredJobsData.length} available jobs (removed ${jobsData.length - filteredJobsData.length} accepted/active jobs)`);
+          }
+          
           // Ensure all jobs have proper readableId/bookingId
           // IMPORTANT: customerName/customerPhone should be the CLIENT/SHIPPER who created the booking, NOT the driver/transporter
-          const processedJobs = jobsData.map((job: any) => {
+          const processedJobs = (Array.isArray(filteredJobsData) ? filteredJobsData : [])
+            .filter(job => job != null) // Filter out null/undefined
+            .map((job: any) => {
+              if (!job) return null;
             // The userId field refers to the user who created the booking (shipper/broker/business)
             // The transporterName/transporterPhone are the DRIVER who accepted it
             const clientName = job.clientName || job.shipperName || job.userName || job.client?.name || 'Customer';
@@ -243,8 +296,9 @@ const DriverJobManagementScreen = () => {
               displayId: getDisplayBookingId(processed),
             });
             
-            return processed;
-          });
+              return processed;
+            })
+            .filter(job => job != null); // Remove any null entries
           setJobs(processedJobs);
         }
       } else {
@@ -307,9 +361,21 @@ const DriverJobManagementScreen = () => {
       if (response.ok) {
         const data = await response.json();
         setCurrentTrip(data.trip);
+      } else {
+        // If API fails, try to find active trip from jobs list
+        // Active trip statuses: accepted, started, in_progress, in_transit, picked_up, enroute
+        const activeJob = jobs.find(j => 
+          ['accepted', 'started', 'in_progress', 'in_transit', 'picked_up', 'enroute'].includes(j.status?.toLowerCase() || '')
+        );
+        setCurrentTrip(activeJob || null);
       }
     } catch (err) {
       console.error('Error fetching current trip:', err);
+      // Fallback: try to find active trip from jobs list
+      const activeJob = jobs.find(j => 
+        ['accepted', 'started', 'in_progress', 'in_transit', 'picked_up', 'enroute'].includes(j.status?.toLowerCase() || '')
+      );
+      setCurrentTrip(activeJob || null);
     }
   };
 
@@ -664,6 +730,31 @@ const DriverJobManagementScreen = () => {
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  // Update currentTrip when jobs list changes (for active trip detection)
+  // BUT: Only update currentTrip when NOT on the "available" tab (available tab should never have active trips)
+  useEffect(() => {
+    // Skip updating currentTrip if we're on the available tab - those jobs shouldn't be active
+    if (selectedTab === 'available') {
+      return;
+    }
+    
+    // Find active trip from jobs list if currentTrip is null or jobs have changed
+    const activeJob = jobs.find(j => 
+      ['accepted', 'started', 'in_progress', 'in_transit', 'picked_up', 'enroute'].includes(j.status?.toLowerCase() || '')
+    );
+    if (activeJob && (!currentTrip || currentTrip.id !== activeJob.id)) {
+      setCurrentTrip(activeJob);
+    } else if (!activeJob && currentTrip) {
+      // If no active job found but currentTrip exists, check if currentTrip is still active
+      const isStillActive = ['accepted', 'started', 'in_progress', 'in_transit', 'picked_up', 'enroute'].includes(
+        currentTrip.status?.toLowerCase() || ''
+      );
+      if (!isStillActive) {
+        setCurrentTrip(null);
+      }
+    }
+  }, [jobs, selectedTab]);
 
   const renderJob = ({ item }: { item: Job }) => {
     // Ensure we have the readable ID for display
@@ -1058,7 +1149,11 @@ const DriverJobManagementScreen = () => {
           <View style={styles.summaryItem}>
             <MaterialCommunityIcons name="truck-fast" size={20} color={colors.success} />
             <Text style={styles.summaryLabel}>Active Trip</Text>
-            <Text style={styles.summaryValue}>{currentTrip ? '1' : '0'}</Text>
+            <Text style={styles.summaryValue}>
+              {jobs.filter(j => 
+                ['accepted', 'started', 'in_progress', 'in_transit', 'picked_up', 'enroute'].includes(j.status?.toLowerCase() || '')
+              ).length}
+            </Text>
           </View>
           <View style={styles.summaryItem}>
             <MaterialCommunityIcons name="package-variant" size={20} color={colors.secondary} />

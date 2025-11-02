@@ -218,7 +218,9 @@ const ClientBookingTracker: React.FC<BookingTrackerProps> = ({
         </View>
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="currency-usd" size={16} color={colors.gray} />
-          <Text style={styles.detailText}>KES {booking.cost?.toLocaleString() || '0'}</Text>
+          <Text style={styles.detailText}>
+            KES {Number(booking.cost || booking.price || booking.estimatedCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
         </View>
         {booking.estimatedDelivery && (
           <View style={styles.detailRow}>

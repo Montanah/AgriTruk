@@ -38,10 +38,10 @@ const BusinessManageScreen = ({ navigation }: any) => {
         // Add any specific filters for business requests
       };
       
-      const bookings = await unifiedBookingService.getBookings('business', filters);
+      const bookings = await unifiedBookingService?.getBookings('business', filters);
       console.log('Business requests from unified service:', bookings);
       
-      setRequests(bookings);
+      setRequests(Array.isArray(bookings) ? bookings : []);
     } catch (error) {
       console.error('Error fetching requests:', error);
       setRequests([]);
@@ -51,8 +51,9 @@ const BusinessManageScreen = ({ navigation }: any) => {
   };
 
   const getFilteredRequests = () => {
+    if (!Array.isArray(requests)) return [];
     if (activeTab === 'all') return requests;
-    return requests.filter(req => req.type === activeTab);
+    return requests.filter(req => req && req.type === activeTab);
   };
 
   const getStatusColor = (status: string) => {
@@ -78,25 +79,26 @@ const BusinessManageScreen = ({ navigation }: any) => {
   };
 
   const handleTrackRequest = (request: RequestItem) => {
+    if (!request) return;
     if (request.isConsolidated) {
-      navigation.navigate('TrackingScreen', {
+      navigation?.navigate?.('TrackingScreen', {
         booking: request,
         isConsolidated: true,
-        consolidatedRequests: request.consolidatedRequests
+        consolidatedRequests: request?.consolidatedRequests
       });
     } else {
       if (request.type === 'instant') {
-        navigation.navigate('TripDetailsScreen', {
+        navigation?.navigate?.('TripDetailsScreen', {
           booking: {
             ...request,
-            pickupLocation: request.pickupLocation,
-            toLocation: request.toLocation
+            pickupLocation: request?.pickupLocation,
+            toLocation: request?.toLocation
           },
           isInstant: true,
           userType: 'business'
         });
       } else {
-        navigation.navigate('TrackingScreen', {
+        navigation?.navigate?.('TrackingScreen', {
           booking: request,
           isConsolidated: false
         });
@@ -105,9 +107,10 @@ const BusinessManageScreen = ({ navigation }: any) => {
   };
 
   const handleViewMap = (request: RequestItem) => {
-    navigation.navigate('MapViewScreen', {
+    if (!request) return;
+    navigation?.navigate?.('MapViewScreen', {
       booking: request,
-      isConsolidated: request.isConsolidated
+      isConsolidated: request?.isConsolidated
     });
   };
 
@@ -166,14 +169,14 @@ const BusinessManageScreen = ({ navigation }: any) => {
           </View>
         </View>
 
-        {/* Shipping Cost */}
+        {/* Shipping Cost - Always use backend-calculated cost: cost > price > estimatedCost */}
         {(item.cost || item.price || item.estimatedCost) && (
           <View style={styles.costInfo}>
             <MaterialCommunityIcons name="currency-usd" size={20} color={colors.success} />
             <View style={styles.costText}>
               <Text style={styles.costLabel}>Shipping Cost</Text>
               <Text style={styles.costValue}>
-                KES {Number(item.cost || item.price || item.estimatedCost || 0).toLocaleString()}
+                KES {Number(item.cost || item.price || item.estimatedCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Text>
             </View>
           </View>
@@ -182,13 +185,20 @@ const BusinessManageScreen = ({ navigation }: any) => {
         {item.isConsolidated && item.consolidatedRequests && (
           <View style={styles.consolidatedDetails}>
             <Text style={styles.consolidatedTitle}>Consolidated Requests:</Text>
-            {item.consolidatedRequests.map((req, index) => (
-              <View key={req.id} style={styles.consolidatedItem}>
-                <Text style={styles.consolidatedItemText}>
-                  • {formatRoute(req.fromLocation, req.toLocation)} ({req.productType}, {req.weight})
-                </Text>
-              </View>
-            ))}
+            {Array.isArray(item.consolidatedRequests) ? item.consolidatedRequests.filter(req => req != null).map((req, index) => {
+              try {
+                return (
+                  <View key={req?.id || index} style={styles.consolidatedItem}>
+                    <Text style={styles.consolidatedItemText}>
+                      • {formatRoute(req?.fromLocation, req?.toLocation)} ({req?.productType || 'N/A'}, {req?.weight || 'N/A'})
+                    </Text>
+                  </View>
+                );
+              } catch (e) {
+                console.warn('Error rendering consolidated request:', e);
+                return null;
+              }
+            }).filter(item => item != null) : null}
           </View>
         )}
 
@@ -289,16 +299,16 @@ const BusinessManageScreen = ({ navigation }: any) => {
 
         <TouchableOpacity
           style={[styles.actionButton, styles.mapButton]}
-          onPress={() => handleViewMap(item)}
+          onPress={() => item && handleViewMap(item)}
         >
           <MaterialCommunityIcons name="map" size={18} color={colors.primary} />
           <Text style={styles.mapButtonText}>Map</Text>
         </TouchableOpacity>
 
-        {item.transporter && (
+        {item?.transporter && (
           <TouchableOpacity
             style={[styles.actionButton, styles.contactButton]}
-            onPress={() => Alert.alert('Contact', `Call ${item.transporter.name} at ${item.transporter.phone}`)}
+            onPress={() => Alert.alert('Contact', `Call ${item.transporter?.name || 'Unknown'} at ${item.transporter?.phone || 'N/A'}`)}
           >
             <MaterialCommunityIcons name="phone" size={18} color={colors.secondary} />
             <Text style={styles.contactButtonText}>Contact</Text>
@@ -315,7 +325,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
         style={styles.headerGradient}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manage Requests</Text>
@@ -325,7 +335,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.addButton} 
-              onPress={() => navigation.navigate('BusinessRequest')}
+              onPress={() => navigation?.navigate?.('BusinessRequest')}
             >
               <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
             </TouchableOpacity>
@@ -382,7 +392,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
             <View style={styles.emptyActions}>
               <TouchableOpacity
                 style={styles.createButton}
-                onPress={() => navigation.navigate('BusinessRequest')}
+                onPress={() => navigation?.navigate?.('BusinessRequest')}
               >
                 <Text style={styles.createButtonText}>Create Request</Text>
               </TouchableOpacity>
@@ -414,7 +424,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
           // Refresh requests list
           fetchRequests();
           // Navigate to consolidated request details
-          navigation.navigate('TrackingScreen', {
+          navigation?.navigate?.('TrackingScreen', {
             booking: consolidatedBooking,
             isConsolidated: true,
             userType: 'business',

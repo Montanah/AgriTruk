@@ -100,27 +100,37 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
             if (res.ok) {
                 const data = await res.json();
-                setStats(data.stats || stats);
+                setStats(data?.stats || stats);
             } else {
                 // Fallback: compute from bookings
-                const computed = await unifiedBookingService.getBookingStats('broker');
-                setStats(prev => ({
-                    ...prev,
-                    activeRequests: computed.confirmed + computed.inTransit,
-                    pendingRequests: computed.pending,
-                }));
+                try {
+                    const computed = await unifiedBookingService?.getBookingStats('broker');
+                    if (computed) {
+                        setStats(prev => ({
+                            ...prev,
+                            activeRequests: (computed.confirmed || 0) + (computed.inTransit || 0),
+                            pendingRequests: computed.pending || 0,
+                        }));
+                    }
+                } catch (fallbackError) {
+                    console.warn('Fallback stats calculation failed:', fallbackError);
+                }
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching broker stats:', error);
             // Final fallback: compute from bookings
             try {
-                const computed = await unifiedBookingService.getBookingStats('broker');
-                setStats(prev => ({
-                    ...prev,
-                    activeRequests: computed.confirmed + computed.inTransit,
-                    pendingRequests: computed.pending,
-                }));
-            } catch {}
+                const computed = await unifiedBookingService?.getBookingStats('broker');
+                if (computed) {
+                    setStats(prev => ({
+                        ...prev,
+                        activeRequests: (computed.confirmed || 0) + (computed.inTransit || 0),
+                        pendingRequests: computed.pending || 0,
+                    }));
+                }
+            } catch (fallbackError: any) {
+                console.warn('Final fallback stats calculation failed:', fallbackError);
+            }
         }
     };
 
@@ -141,11 +151,11 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
             if (res.ok) {
                 const data = await res.json();
-                const clientsData = data.data || data.clients || [];
-                setClients(clientsData);
+                const clientsData = Array.isArray(data?.data) ? data.data : (Array.isArray(data?.clients) ? data.clients : []);
+                setClients(clientsData || []);
                 
                 // Calculate and update stats from clients data
-                const clientCount = clientsData.length;
+                const clientCount = Array.isArray(clientsData) ? clientsData.length : 0;
                 
                 setStats(prevStats => {
                     const newStats = {
@@ -181,8 +191,8 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             if (userDoc.exists()) {
                 const userData = userDoc.data();
-                setBrokerName(userData.name || user.displayName || 'Broker');
-                if (userData.profilePhoto) {
+                setBrokerName(userData?.name || user?.displayName || 'Broker');
+                if (userData?.profilePhoto) {
                     setProfilePhoto({ uri: userData.profilePhoto });
                 }
             }
@@ -279,13 +289,13 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                 'Please select a client to make a request on their behalf.',
                 [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Select Client', onPress: () => navigation.navigate('BrokerManagementScreen', { activeTab: 'clients' }) }
+                    { text: 'Select Client', onPress: () => navigation?.navigate?.('BrokerManagementScreen', { activeTab: 'clients' }) }
                 ]
             );
             return;
         }
         
-        navigation.navigate('BrokerRequestScreen', {
+        navigation?.navigate?.('BrokerRequestScreen', {
             clientId: client?.id,
             selectedClient: client || null
         });
@@ -309,9 +319,9 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
         >
             <View style={styles.clientAvatar}>
                 <Text style={styles.clientInitials}>
-                    {item.name.split(' ').map(n => n[0]).join('')}
+                    {(item?.name || 'U').split(' ').filter(n => n).map(n => n?.[0] || '').filter(c => c).join('') || 'U'}
                 </Text>
-                {item.isVerified && (
+                {item?.isVerified && (
                     <View style={styles.verifiedBadge}>
                         <Ionicons name="checkmark-circle" size={16} color={colors.success} />
                     </View>
@@ -319,11 +329,11 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
             </View>
 
             <View style={styles.clientInfo}>
-                <Text style={styles.clientName}>{item.name}</Text>
-                <Text style={styles.clientCompany}>{item.company}</Text>
+                <Text style={styles.clientName}>{item?.name || 'Unknown'}</Text>
+                <Text style={styles.clientCompany}>{item?.company || ''}</Text>
                 <View style={styles.clientMeta}>
-                    <Text style={styles.clientRequests}>{item.activeRequests} active requests</Text>
-                    <Text style={styles.clientLastRequest}>Last: {item.lastRequest}</Text>
+                    <Text style={styles.clientRequests}>{item?.activeRequests || 0} active requests</Text>
+                    <Text style={styles.clientLastRequest}>Last: {item?.lastRequest || 'Never'}</Text>
                 </View>
             </View>
 
@@ -336,7 +346,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.actionButton, styles.viewButton]}
-                    onPress={() => navigation.navigate('BrokerManagementScreen', {
+                    onPress={() => navigation?.navigate?.('BrokerManagementScreen', {
                         activeTab: 'tracking',
                         selectedClient: item
                     })}
@@ -391,14 +401,14 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                 <View style={styles.earningsSection}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Monthly Earnings</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('SubscriptionManagement', { userType: 'broker' })}>
+                        <TouchableOpacity onPress={() => navigation?.navigate?.('SubscriptionManagement', { userType: 'broker' })}>
                             <Text style={styles.viewAllText}>View Details</Text>
                         </TouchableOpacity>
                     </View>
                     <View style={styles.earningsCard}>
                         <View style={styles.earningsAmount}>
                             <Text style={styles.currency}>KES</Text>
-                            <Text style={styles.amount}>{stats.monthlyEarnings.toLocaleString()}</Text>
+                            <Text style={styles.amount}>{(stats?.monthlyEarnings || 0).toLocaleString()}</Text>
                         </View>
                         <View style={styles.earningsBreakdown}>
                             <Text style={styles.breakdownText}>From {stats.completedTrips} completed trips</Text>
@@ -464,13 +474,13 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                 <View style={styles.clientsSection}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Your Clients</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('BrokerManagementScreen', { activeTab: 'clients' })}>
+                        <TouchableOpacity onPress={() => navigation?.navigate?.('BrokerManagementScreen', { activeTab: 'clients' })}>
                             <Text style={styles.viewAllText}>View All</Text>
                         </TouchableOpacity>
                     </View>
 
                     <FlatList
-                        data={clients.slice(0, 5)}
+                        data={Array.isArray(clients) ? clients.slice(0, 5) : []}
                         renderItem={renderClientItem}
                         keyExtractor={(item) => item.id}
                         scrollEnabled={false}
@@ -526,7 +536,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                         
                         <TouchableOpacity
                             style={styles.manageButton}
-                            onPress={() => navigation.navigate('SubscriptionManagement', { userType: 'broker' })}
+                            onPress={() => navigation?.navigate?.('SubscriptionManagement', { userType: 'broker' })}
                         >
                             <Text style={styles.manageButtonText}>
                                 {subscriptionStatus?.needsTrialActivation ? 'Activate Trial' : 'Manage'}
@@ -741,12 +751,12 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                                 <View style={styles.clientDetailHeader}>
                                     <View style={styles.clientDetailAvatar}>
                                         <Text style={styles.clientDetailInitials}>
-                                            {selectedClient.name.split(' ').map(n => n[0]).join('')}
+                                            {(selectedClient?.name || 'U').split(' ').filter(n => n).map(n => n?.[0] || '').filter(c => c).join('') || 'U'}
                                         </Text>
                                     </View>
                                     <View style={styles.clientDetailInfo}>
-                                        <Text style={styles.clientDetailName}>{selectedClient.name}</Text>
-                                        <Text style={styles.clientDetailCompany}>{selectedClient.company}</Text>
+                                        <Text style={styles.clientDetailName}>{selectedClient?.name || 'Unknown'}</Text>
+                                        <Text style={styles.clientDetailCompany}>{selectedClient?.company || ''}</Text>
                                         <View style={styles.verificationStatus}>
                                             <Ionicons
                                                 name={selectedClient.isVerified ? "checkmark-circle" : "close-circle"}
@@ -818,7 +828,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                                         style={styles.secondaryActionButton}
                                         onPress={() => {
                                             setShowClientDetailsModal(false);
-                                            navigation.navigate('BrokerManagementScreen', {
+                                            navigation?.navigate?.('BrokerManagementScreen', {
                                                 activeTab: 'tracking',
                                                 selectedClient: selectedClient
                                             });

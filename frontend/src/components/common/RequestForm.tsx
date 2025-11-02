@@ -59,7 +59,7 @@ const CARGO_SPECIALS = [
 const AGRI_PERISHABLES = [
     { key: 'refrigerated', label: 'Refrigerated' },
     { key: 'humidity', label: 'Humidity Control' },
-    { key: 'fast', label: 'Fast Delivery' },
+    // Fast delivery removed - urgency is already handled at urgency level
 ];
 
 const URGENCY_LEVELS = [

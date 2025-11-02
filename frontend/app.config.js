@@ -19,9 +19,6 @@ module.exports = {
       },
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "This app needs access to location to show your position on the map and calculate routes.",
-        NSCameraUsageDescription: "TRUKapp needs camera access to capture ID and document photos for verification.",
-        NSPhotoLibraryUsageDescription: "TRUKapp needs access to your photo library to select ID and document images for verification.",
-        NSPhotoLibraryAddUsageDescription: "TRUKapp saves captured photos to your library when you take pictures for verification.",
         ITSAppUsesNonExemptEncryption: false
       }
     },
@@ -79,13 +76,6 @@ module.exports = {
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Allow TRUKapp to access your photos for selecting ID and document images.",
-          "cameraPermission": "Allow TRUKapp to use the camera for capturing ID and document photos."
         }
       ],
       "expo-document-picker",

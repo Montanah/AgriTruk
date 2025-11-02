@@ -112,8 +112,8 @@ const DriverProfileScreen = () => {
       setError(null);
 
       const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) {
+      const user = auth?.currentUser;
+      if (!user?.uid) {
         setError('User not authenticated. Please log in again.');
         setLoading(false);
         return;
@@ -306,8 +306,8 @@ const DriverProfileScreen = () => {
     try {
       setUpdatingBookingStatus(true);
       const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
+      const user = auth?.currentUser;
+      if (!user?.uid) return;
 
       const token = await user.getIdToken();
       
@@ -404,8 +404,8 @@ const DriverProfileScreen = () => {
   const uploadDocument = async (documentType: 'driverLicense' | 'idDocument', asset: any) => {
     try {
       const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
+      const user = auth?.currentUser;
+      if (!user?.uid) return;
 
       const token = await user.getIdToken();
       const formData = new FormData();

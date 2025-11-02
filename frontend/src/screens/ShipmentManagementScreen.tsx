@@ -358,7 +358,9 @@ const ShipmentManagementScreen = () => {
             <MaterialCommunityIcons name="currency-usd" size={20} color={colors.tertiary} />
             <View style={styles.detailText}>
               <Text style={styles.detailLabel}>Payment</Text>
-              <Text style={styles.detailValue}>KES {booking?.cost?.toLocaleString() || '0'}</Text>
+              <Text style={styles.detailValue}>
+                KES {Number(booking?.cost || booking?.price || booking?.estimatedCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
             </View>
           </View>
 

@@ -40,7 +40,7 @@ const features = [
     icon: <MaterialCommunityIcons name="truck" size={38} color={'#FF8C00'} />,
     graphic: <MaterialCommunityIcons name="truck" size={60} color={'#FF8C00'} />,
     title: 'Transporter',
-    description: 'For transporters (individuals or companies)',
+    description: 'For transport companies and businesses in the logistics industry to manage fleets, drivers, and operations',
     color: '#FF8C00',
     accent: '#FF8C00',
   },

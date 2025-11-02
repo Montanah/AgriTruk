@@ -558,7 +558,7 @@ const JobManagementScreen = () => {
                         </Text>
                     </View>
                 </View>
-                <Text style={styles.jobPrice}>{formatCurrency(item.cost || item.pricing?.total || item.estimatedValue || 0)}</Text>
+                <Text style={styles.jobPrice}>{formatCurrency(item.cost || item.price || item.estimatedCost || item.pricing?.total || item.estimatedValue || 0)}</Text>
             </View>
 
             {/* Job ID */}

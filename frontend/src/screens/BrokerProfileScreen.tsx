@@ -14,6 +14,7 @@ import { auth, db } from '../firebaseConfig';
 import { apiRequest, uploadFile } from '../utils/api';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 import { BROKER_PLANS, type SubscriptionPlan } from '../constants/subscriptionPlans';
+import EnhancedSmartCardInput from '../components/common/EnhancedSmartCardInput';
 
 // Using SubscriptionPlan definition from constants
 
@@ -41,10 +42,25 @@ export default function BrokerProfileScreen() {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showMpesaModal, setShowMpesaModal] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<SubscriptionPlan | null>(null);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [profilePhoto, setProfilePhoto] = useState<any>(null);
   const [clientSince, setClientSince] = useState('');
+  
+  // M-PESA form state
+  const [mpesaPhoneNumber, setMpesaPhoneNumber] = useState('');
+  
+  // Card form state
+  const [cardData, setCardData] = useState({
+    number: '',
+    expiry: '',
+    cvv: '',
+    cardholderName: '',
+    type: null as string | null,
+    isValid: false,
+  });
 
   // Verification states
   const [emailVerified, setEmailVerified] = useState(false);
@@ -89,8 +105,8 @@ export default function BrokerProfileScreen() {
         // Upload the photo
         try {
           setLoading(true);
-          const user = auth.currentUser;
-          if (user) {
+          const user = auth?.currentUser;
+          if (user?.uid) {
             const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
             
             // Update the profile photo in Firestore
@@ -136,8 +152,8 @@ export default function BrokerProfileScreen() {
         // Upload the photo
         try {
           setLoading(true);
-          const user = auth.currentUser;
-          if (user) {
+          const user = auth?.currentUser;
+          if (user?.uid) {
             const uploadedUrl = await uploadFile(asset.uri, 'profile', user.uid);
             
             // Update the profile photo in Firestore
@@ -165,8 +181,8 @@ export default function BrokerProfileScreen() {
     const fetchProfile = async () => {
       setLoading(true);
       try {
-        const user = auth.currentUser;
-        if (user) {
+        const user = auth?.currentUser;
+        if (user?.uid) {
           const snap = await getDoc(doc(db, 'users', user.uid));
           if (snap.exists()) {
             const data = snap.data();
@@ -249,8 +265,8 @@ export default function BrokerProfileScreen() {
 
   const handleSaveProfile = async () => {
     try {
-      const user = auth.currentUser;
-      if (user) {
+      const user = auth?.currentUser;
+      if (user?.uid) {
         // Use existing backend route PUT /api/auth/update
         // Backend now supports: name, phone, email, role, location, userType, languagePreference, profilePhotoUrl
         const updatePayload: any = {
@@ -310,18 +326,18 @@ export default function BrokerProfileScreen() {
           onPress: async () => {
             try {
               // Remove from local state
-              setPaymentMethods(prev => prev.filter(method => method.id !== methodId));
+              setPaymentMethods(prev => Array.isArray(prev) ? prev.filter(method => method && method.id !== methodId) : []);
               
               // If it was the default, set another as default
-              const remainingMethods = paymentMethods.filter(method => method.id !== methodId);
-              if (remainingMethods.length > 0) {
+              const remainingMethods = Array.isArray(paymentMethods) ? paymentMethods.filter(method => method && method.id !== methodId) : [];
+              if (remainingMethods.length > 0 && remainingMethods[0]) {
                 const newDefault = remainingMethods[0];
                 setPaymentMethods(prev => 
-                  prev.map(method => 
-                    method.id === newDefault.id 
+                  Array.isArray(prev) ? prev.map(method => 
+                    method && method.id === newDefault.id 
                       ? { ...method, isDefault: true }
                       : method
-                  )
+                  ).filter(method => method != null) : []
                 );
               }
               
@@ -337,42 +353,111 @@ export default function BrokerProfileScreen() {
   };
 
   const handleAddMpesaPayment = () => {
-    Alert.prompt(
-      'Add M-PESA Payment Method',
-      'Enter your M-PESA phone number:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Add', 
-          onPress: (phoneNumber) => {
-            if (phoneNumber && phoneNumber.trim()) {
-              const newMethod: PaymentMethod = {
-                id: `mpesa-${Date.now()}`,
-                type: 'mpesa',
-                name: 'M-PESA',
-                details: phoneNumber.trim(),
-                isDefault: paymentMethods.length === 0
-              };
-              
-              setPaymentMethods(prev => [...prev, newMethod]);
-              Alert.alert('Success', 'M-PESA payment method added successfully');
-            }
-          }
-        }
-      ],
-      'plain-text',
-      phone || '+254'
-    );
+    setMpesaPhoneNumber(phone || '+254');
+    setShowMpesaModal(true);
+  };
+
+  const handleSaveMpesaPayment = () => {
+    if (!mpesaPhoneNumber || !mpesaPhoneNumber.trim()) {
+      Alert.alert('Error', 'Please enter a valid M-PESA phone number');
+      return;
+    }
+
+    // Validate phone number (should start with +254 for Kenya)
+    const cleanPhone = mpesaPhoneNumber.trim();
+    if (!cleanPhone.startsWith('+254') && !cleanPhone.startsWith('254') && !cleanPhone.startsWith('0')) {
+      Alert.alert('Error', 'Please enter a valid Kenya phone number (e.g., +254712345678)');
+      return;
+    }
+
+    const newMethod: PaymentMethod = {
+      id: `mpesa-${Date.now()}`,
+      type: 'mpesa',
+      name: 'M-PESA',
+      details: cleanPhone,
+      isDefault: paymentMethods.length === 0
+    };
+
+    // If this is the first payment method, set as default
+    if (paymentMethods.length === 0) {
+      setPaymentMethods([newMethod]);
+    } else {
+      setPaymentMethods(prev => [...prev, newMethod]);
+    }
+
+    // Save to backend/database here if needed
+    // TODO: Save to backend API
+
+    setShowMpesaModal(false);
+    setMpesaPhoneNumber('');
+    Alert.alert('Success', 'M-PESA payment method added successfully');
   };
 
   const handleAddCardPayment = () => {
-    Alert.alert(
-      'Add Card Payment',
-      'Card payment functionality will be available soon! For now, you can use M-PESA for payments.',
-      [
-        { text: 'OK', onPress: () => handleAddMpesaPayment() }
-      ]
-    );
+    setCardData({
+      number: '',
+      expiry: '',
+      cvv: '',
+      cardholderName: '',
+      type: null,
+      isValid: false,
+    });
+    setShowCardModal(true);
+  };
+
+  const handleSaveCardPayment = () => {
+    if (!cardData.number || !cardData.isValid) {
+      Alert.alert('Error', 'Please enter a valid card number');
+      return;
+    }
+
+    if (!cardData.expiry) {
+      Alert.alert('Error', 'Please enter card expiry date');
+      return;
+    }
+
+    if (!cardData.cvv || cardData.cvv.length < 3) {
+      Alert.alert('Error', 'Please enter a valid CVV');
+      return;
+    }
+
+    if (!cardData.cardholderName || !cardData.cardholderName.trim()) {
+      Alert.alert('Error', 'Please enter cardholder name');
+      return;
+    }
+
+    // Mask card number for display (show only last 4 digits)
+    const lastFour = cardData.number.slice(-4);
+    const maskedNumber = `**** **** **** ${lastFour}`;
+
+    const newMethod: PaymentMethod = {
+      id: `card-${Date.now()}`,
+      type: 'card',
+      name: cardData.type || 'Card',
+      details: `${maskedNumber} • ${cardData.cardholderName} • ${cardData.expiry}`,
+      isDefault: paymentMethods.length === 0
+    };
+
+    // If this is the first payment method, set as default
+    if (paymentMethods.length === 0) {
+      setPaymentMethods([newMethod]);
+    } else {
+      setPaymentMethods(prev => [...prev, newMethod]);
+    }
+
+    // Save to backend/database here if needed
+    // TODO: Save to backend API with proper encryption
+
+    setShowCardModal(false);
+    setCardData({
+      number: '',
+      expiry: '',
+      cvv: '',
+      cardholderName: '',
+      type: null,
+      isValid: false,
+    });
+    Alert.alert('Success', 'Card payment method added successfully');
   };
 
   const handleSubscribe = (plan: SubscriptionPlan) => {
@@ -382,7 +467,7 @@ export default function BrokerProfileScreen() {
 
   // Verification functions
   const handleVerifyEmail = async () => {
-    if (!auth.currentUser?.email) {
+    if (!auth?.currentUser?.email) {
       Alert.alert('Error', 'No email address found.');
       return;
     }
@@ -398,7 +483,7 @@ export default function BrokerProfileScreen() {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-email-code',
-          email: auth.currentUser.email
+          email: auth?.currentUser?.email || email
         }),
       });
 
@@ -409,7 +494,7 @@ export default function BrokerProfileScreen() {
           { text: 'OK' },
           {
             text: 'Go to Verification',
-            onPress: () => navigation.navigate('EmailVerification')
+            onPress: () => navigation?.navigate?.('EmailVerification')
           }
         ]
       );
@@ -453,7 +538,7 @@ export default function BrokerProfileScreen() {
           { text: 'OK' },
           {
             text: 'Go to Verification',
-            onPress: () => navigation.navigate('PhoneOTPScreen')
+            onPress: () => navigation?.navigate?.('PhoneOTPScreen')
           }
         ]
       );
@@ -519,7 +604,7 @@ export default function BrokerProfileScreen() {
       <View style={styles.quickActionsGrid}>
         <TouchableOpacity
           style={styles.quickActionCard}
-          onPress={() => navigation.navigate('SubscriptionManagement', { userType: 'broker' })}
+          onPress={() => navigation?.navigate?.('SubscriptionManagement', { userType: 'broker' })}
         >
           <MaterialCommunityIcons name="star-circle" size={32} color={colors.primary} />
           <Text style={styles.quickActionTitle}>Subscription</Text>
@@ -546,7 +631,7 @@ export default function BrokerProfileScreen() {
 
         <TouchableOpacity
           style={styles.quickActionCard}
-          onPress={() => navigation.navigate('BrokerManagementScreen', { activeTab: 'requests' })}
+          onPress={() => navigation?.navigate?.('BrokerManagementScreen', { activeTab: 'requests' })}
         >
           <MaterialCommunityIcons name="clipboard-list" size={32} color={colors.warning} />
           <Text style={styles.quickActionTitle}>Requests</Text>
@@ -685,8 +770,8 @@ export default function BrokerProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      {paymentMethods.map((method) => (
-        <View key={method.id} style={styles.paymentMethodCard}>
+      {Array.isArray(paymentMethods) ? paymentMethods.filter(method => method != null).map((method) => (
+        <View key={method?.id || Math.random()} style={styles.paymentMethodCard}>
           <View style={styles.paymentMethodInfo}>
             <MaterialCommunityIcons
               name={method.type === 'mpesa' ? 'cellphone' : 'credit-card'}
@@ -710,7 +795,7 @@ export default function BrokerProfileScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      ))}
+      )) : null}
     </View>
   );
 
@@ -864,9 +949,9 @@ export default function BrokerProfileScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {subscriptionPlans.map((plan) => (
+              {Array.isArray(subscriptionPlans) ? subscriptionPlans.filter(plan => plan != null).map((plan) => (
                 <TouchableOpacity
-                  key={plan.id}
+                  key={plan?.id || Math.random()}
                   style={[
                     styles.planCard,
                     plan.isPopular && styles.popularPlanCard
@@ -886,12 +971,12 @@ export default function BrokerProfileScreen() {
                   </View>
 
                   <View style={styles.planFeatures}>
-                    {plan.features.map((feature, index) => (
+                    {Array.isArray(plan.features) ? plan.features.filter(f => f).map((feature, index) => (
                       <View key={index} style={styles.featureRow}>
                         <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                        <Text style={styles.featureText}>{feature}</Text>
+                        <Text style={styles.featureText}>{feature || ''}</Text>
                       </View>
-                    ))}
+                    )) : null}
                   </View>
 
                   <TouchableOpacity
@@ -906,7 +991,7 @@ export default function BrokerProfileScreen() {
                     </Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
-              ))}
+              )) : null}
             </ScrollView>
           </View>
         </View>
@@ -929,9 +1014,9 @@ export default function BrokerProfileScreen() {
             </View>
 
             <ScrollView style={styles.paymentMethodsList} showsVerticalScrollIndicator={false}>
-              {paymentMethods.length > 0 ? (
-                paymentMethods.map((method) => (
-                  <View key={method.id} style={styles.paymentMethodItem}>
+              {Array.isArray(paymentMethods) && paymentMethods.length > 0 ? (
+                paymentMethods.filter(method => method != null).map((method) => (
+                  <View key={method?.id || Math.random()} style={styles.paymentMethodItem}>
                     <View style={styles.paymentMethodInfo}>
                       <MaterialCommunityIcons
                         name={method.type === 'mpesa' ? 'cellphone' : 'credit-card'}
@@ -978,7 +1063,7 @@ export default function BrokerProfileScreen() {
                 style={styles.addPaymentOption}
                 onPress={() => handleAddMpesaPayment()}
               >
-                <MaterialCommunityIcons name="cellphone-plus" size={24} color={colors.primary} />
+                <MaterialCommunityIcons name="cellphone-message" size={24} color={colors.primary} />
                 <Text style={styles.addPaymentOptionText}>Add M-PESA</Text>
               </TouchableOpacity>
 
@@ -997,6 +1082,125 @@ export default function BrokerProfileScreen() {
                 onPress={() => setShowPaymentModal(false)}
               >
                 <Text style={styles.cancelButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* M-PESA Payment Modal */}
+      <Modal
+        visible={showMpesaModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowMpesaModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add M-PESA</Text>
+              <TouchableOpacity onPress={() => setShowMpesaModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>M-PESA Phone Number *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={mpesaPhoneNumber}
+                  onChangeText={setMpesaPhoneNumber}
+                  placeholder="+254712345678"
+                  keyboardType="phone-pad"
+                  autoFocus
+                />
+                <Text style={styles.fieldHint}>
+                  Enter your M-PESA registered phone number
+                </Text>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowMpesaModal(false);
+                  setMpesaPhoneNumber('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={handleSaveMpesaPayment}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Card Payment Modal */}
+      <Modal
+        visible={showCardModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCardModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.cardModalContent]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Card</Text>
+              <TouchableOpacity onPress={() => setShowCardModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+              <EnhancedSmartCardInput
+                onCardChange={(data) => {
+                  setCardData(prev => ({
+                    number: data.number !== undefined ? data.number : prev.number,
+                    expiry: data.expiry !== undefined ? data.expiry : prev.expiry,
+                    cvv: data.cvv !== undefined ? data.cvv : prev.cvv,
+                    cardholderName: data.cardholderName !== undefined ? data.cardholderName : prev.cardholderName,
+                    type: data.type !== undefined ? data.type : prev.type,
+                    isValid: data.isValid !== undefined ? data.isValid : prev.isValid,
+                  }));
+                }}
+                onValidationChange={(isValid) => {
+                  setCardData(prev => ({ ...prev, isValid }));
+                }}
+                showVirtualCard={true}
+                disabled={false}
+              />
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowCardModal(false);
+                  setCardData({
+                    number: '',
+                    expiry: '',
+                    cvv: '',
+                    cardholderName: '',
+                    type: null,
+                    isValid: false,
+                  });
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, !cardData.isValid && styles.saveButtonDisabled]}
+                onPress={handleSaveCardPayment}
+                disabled={!cardData.isValid}
+              >
+                <Text style={styles.saveButtonText}>Save Card</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1648,21 +1852,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   addPaymentOption: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.text.light,
     borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginHorizontal: spacing.xs,
   },
   addPaymentOptionText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.text.primary,
-    marginLeft: spacing.sm,
+    marginLeft: spacing.xs,
   },
   detailRowNeat: {
     flexDirection: 'row',
@@ -1762,5 +1968,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 1,
     marginLeft: 4,
+  },
+  cardModalContent: {
+    maxHeight: '85%',
+    maxWidth: 500,
+  },
+  modalScrollContent: {
+    maxHeight: 400,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  formField: {
+    marginBottom: spacing.lg,
+  },
+  fieldLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  fieldHint: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
+  },
+  saveButtonDisabled: {
+    backgroundColor: colors.text.light,
+    opacity: 0.6,
   },
 });

@@ -107,15 +107,45 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                 
                 if (Array.isArray(jobs)) {
                     // Filter out jobs that are not available for acceptance
+                    // CRITICAL: Available jobs should NEVER include:
+                    // - Accepted jobs (status: 'accepted', 'started', 'in_progress', etc.)
+                    // - Jobs with acceptedAt timestamp
+                    // - Jobs assigned to transporters or drivers
                     const availableJobs = jobs.filter(job => {
-                        // Only show jobs that are pending and not already accepted
-                        const isPending = job.status === 'pending';
+                        const status = (job.status || '').toLowerCase();
+                        
+                        // List of statuses that indicate the job is NOT available
+                        const nonAvailableStatuses = [
+                            'accepted', 'started', 'in_progress', 'in_transit', 
+                            'picked_up', 'enroute', 'completed', 'cancelled',
+                            'delivered', 'ongoing'
+                        ];
+                        
+                        const isNotAvailableStatus = nonAvailableStatuses.includes(status);
+                        const isPending = status === 'pending';
                         const notAccepted = !job.acceptedAt || job.acceptedAt === null;
                         const notAssigned = !job.transporterId || job.transporterId === null;
+                        const notAssignedToDriver = !job.driverId || job.driverId === null;
                         
-                        console.log(`Job ${job.bookingId || job.id} - Status: ${job.status}, AcceptedAt: ${job.acceptedAt}, TransporterId: ${job.transporterId}, Available: ${isPending && notAccepted && notAssigned}`);
+                        // Job is available ONLY if:
+                        // 1. Status is 'pending' (not accepted/active)
+                        // 2. Has no acceptedAt timestamp
+                        // 3. Has no transporterId assignment
+                        // 4. Has no driverId assignment
+                        const isAvailable = isPending && !isNotAvailableStatus && notAccepted && notAssigned && notAssignedToDriver;
                         
-                        return isPending && notAccepted && notAssigned;
+                        if (!isAvailable) {
+                            console.log(`🚫 Filtered out non-available job in AvailableJobsCard:`, {
+                                id: job.id || job.bookingId,
+                                status: job.status,
+                                acceptedAt: job.acceptedAt,
+                                transporterId: job.transporterId,
+                                driverId: job.driverId,
+                                reason: isNotAvailableStatus ? `status is ${status}` : !isPending ? 'not pending' : !notAccepted ? 'already accepted' : !notAssigned ? 'assigned to transporter' : 'assigned to driver'
+                            });
+                        }
+                        
+                        return isAvailable;
                     });
                     
                     console.log(`Filtered ${availableJobs.length} available jobs from ${jobs.length} total jobs`);

@@ -40,22 +40,48 @@ const ConsolidationScreen = ({ navigation }: any) => {
   };
 
   const handleProceed = () => {
-    if (selectedIds.length === 0) {
-      alert('Select at least one request to proceed.');
-      return;
+    try {
+      if (selectedIds.length === 0) {
+        alert('Select at least one request to proceed.');
+        return;
+      }
+      
+      if (!Array.isArray(displayList) || displayList.length === 0) {
+        alert('No requests available to proceed.');
+        return;
+      }
+      
+      const selectedRequests = displayList.filter((c: any) => c && selectedIds.includes(c.id));
+      
+      if (selectedRequests.length === 0) {
+        alert('Selected requests are no longer available.');
+        return;
+      }
+      
+      const type = selectedRequests[0]?.requestType;
+      if (!type) {
+        alert('Invalid request type. Please try again.');
+        return;
+      }
+      
+      if (type === 'instant') {
+        setSelectedInstantRequests(selectedRequests);
+        setShowTransporters(true);
+      } else {
+        if (navigation?.navigate) {
+          navigation.navigate('BookingConfirmation', { 
+            requests: selectedRequests, 
+            mode: 'business' 
+          });
+        } else {
+          alert('Navigation error. Please try again.');
+        }
+      }
+      setSelectedIds([]);
+    } catch (error) {
+      console.error('Error in handleProceed:', error);
+      alert('An error occurred. Please try again.');
     }
-    const selectedRequests = displayList.filter(c => selectedIds.includes(c.id));
-    const type = selectedRequests[0].requestType;
-    if (type === 'instant') {
-      setSelectedInstantRequests(selectedRequests);
-      setShowTransporters(true);
-    } else {
-      navigation.navigate('BookingConfirmation', { 
-        requests: selectedRequests, 
-        mode: 'business' 
-      });
-    }
-    setSelectedIds([]);
   };
 
   const renderConsolidation = ({ item }: any) => {

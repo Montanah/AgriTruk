@@ -7,7 +7,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { apiRequest } from '../utils/api';
 import { calculateRoadDistanceWithFallback } from '../utils/distanceUtils';
-import { calculateTransportCost, formatCurrency } from '../utils/costCalculator';
+import { formatCurrency } from '../utils/costCalculator';
 import CustomAlert from '../components/common/CustomAlert';
 import SuccessBookingModal from '../components/common/SuccessBookingModal';
 import { cleanLocationDisplay } from '../utils/locationUtils';
@@ -15,8 +15,8 @@ import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 
 // Accepts either a single booking or an array of bookings (for consolidated)
 const BookingConfirmationScreen = ({ route, navigation }: any) => {
-  const params = route.params || {};
-  const requests = params.requests || (params.booking ? [params.booking] : []);
+  const params = route?.params || {};
+  const requests = Array.isArray(params?.requests) ? params.requests : (params?.booking ? [params.booking] : []);
   const isConsolidated = Array.isArray(requests) && requests.length > 1;
   const mode = params.mode || 'shipper'; // shipper, broker, business
   // Initialize pickup date from request data
@@ -24,23 +24,39 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
     const now = new Date();
     let initialDate: Date;
     
-    if (isConsolidated && requests.length > 0) {
+    if (isConsolidated && Array.isArray(requests) && requests.length > 0) {
       // For consolidated bookings, use the pickup date from the last item
       const lastRequest = requests[requests.length - 1];
-      if (lastRequest.pickUpDate) {
-        initialDate = new Date(lastRequest.pickUpDate);
-      } else if (lastRequest.date) {
-        initialDate = new Date(lastRequest.date);
+      if (lastRequest?.pickUpDate) {
+        try {
+          initialDate = new Date(lastRequest.pickUpDate);
+        } catch (e) {
+          initialDate = new Date(now.getTime() + 60 * 60 * 1000);
+        }
+      } else if (lastRequest?.date) {
+        try {
+          initialDate = new Date(lastRequest.date);
+        } catch (e) {
+          initialDate = new Date(now.getTime() + 60 * 60 * 1000);
+        }
       } else {
         initialDate = new Date(now.getTime() + 60 * 60 * 1000); // Default: 1 hour from now
       }
-    } else if (requests.length > 0) {
+    } else if (Array.isArray(requests) && requests.length > 0) {
       // For single bookings, use the pickup date from the request
       const request = requests[0];
-      if (request.pickUpDate) {
-        initialDate = new Date(request.pickUpDate);
-      } else if (request.date) {
-        initialDate = new Date(request.date);
+      if (request?.pickUpDate) {
+        try {
+          initialDate = new Date(request.pickUpDate);
+        } catch (e) {
+          initialDate = new Date(now.getTime() + 60 * 60 * 1000);
+        }
+      } else if (request?.date) {
+        try {
+          initialDate = new Date(request.date);
+        } catch (e) {
+          initialDate = new Date(now.getTime() + 60 * 60 * 1000);
+        }
       } else {
         initialDate = new Date(now.getTime() + 60 * 60 * 1000); // Default: 1 hour from now
       }
@@ -72,9 +88,13 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   React.useEffect(() => {
     const fetchBackendEstimate = async () => {
       try {
-        if (!requests || requests.length === 0) return;
+        if (!Array.isArray(requests) || requests.length === 0) return;
         setSummaryLoading(true);
         const req = requests[0];
+        if (!req) {
+          setSummaryLoading(false);
+          return;
+        }
         
         // Prepare estimate request payload - use exact addresses
         const fromLoc = typeof req.fromLocation === 'object' 
@@ -129,54 +149,36 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         });
 
         if (estimateResponse) {
+          // Handle cost range if backend provides it (minCost/maxCost or costRange)
+          let costDisplay = 'N/A';
+          if (estimateResponse.costRange || (estimateResponse.minCost && estimateResponse.maxCost)) {
+            const minCost = estimateResponse.costRange?.min || estimateResponse.minCost || 0;
+            const maxCost = estimateResponse.costRange?.max || estimateResponse.maxCost || 0;
+            costDisplay = `${formatCurrency(minCost)} - ${formatCurrency(maxCost)}`;
+          } else if (estimateResponse.estimatedCost) {
+            costDisplay = formatCurrency(estimateResponse.estimatedCost);
+          }
+          
           setSummary({
             distance: estimateResponse.estimatedDistance || 'N/A',
             duration: estimateResponse.estimatedDuration || 'N/A',
-            cost: formatCurrency(estimateResponse.estimatedCost || 0),
+            cost: costDisplay,
           });
         }
       } catch (e) {
-        // Fallback to frontend calculation if backend estimate fails
-        console.warn('Backend estimate failed, using frontend calculation:', e);
-        try {
-          const req = requests[0];
-          const fromLoc = typeof req.fromLocation === 'object' ? (req.fromLocation.address || req.fromLocation) : (req.fromLocationAddress || req.fromLocation);
-          const toLoc = typeof req.toLocation === 'object' ? (req.toLocation.address || req.toLocation) : (req.toLocationAddress || req.toLocation);
-
-          const distanceResult = await calculateRoadDistanceWithFallback(
-            req.fromLocation?.latitude ? req.fromLocation : (fromLoc || ''),
-            req.toLocation?.latitude ? req.toLocation : (toLoc || '')
-          );
-
-          const costResult = calculateTransportCost({
-            actualDistance: distanceResult.distanceKm || 0,
-            weightKg: Number(req.weightKg || req.weight || 0) || 0,
-            lengthCm: Number(req.lengthCm || 0),
-            widthCm: Number(req.widthCm || 0),
-            heightCm: Number(req.heightCm || 0),
-            urgencyLevel: (req.urgencyLevel || (req.urgency ? (req.urgency.charAt(0).toUpperCase() + req.urgency.slice(1)) : 'Low')) as any,
-            perishable: !!(req.perishable || req.isPerishable),
-            needsRefrigeration: !!(req.needsRefrigeration || req.isPerishable),
-            humidityControl: !!(req.humidyControl || req.isPerishable),
-            specialCargo: req.specialCargo || [],
-            bulkness: !!req.bulkness,
-            insured: !!(req.insured || req.insureGoods),
-            value: Number(req.value || req.insuranceValue || 0) || 0,
-            tolls: Number(req.tolls || 0) || 0,
-            fuelSurchargePct: Number(req.fuelSurchargePct || 0) || 0,
-            waitMinutes: Number(req.waitMinutes || 0) || 0,
-            nightSurcharge: !!req.nightSurcharge,
-            vehicleType: (req.vehicleType || 'truck') as any,
-          });
-
-          setSummary({
-            distance: distanceResult.distance,
-            duration: distanceResult.duration,
-            cost: formatCurrency(costResult.cost),
-          });
-        } catch (fallbackError) {
-          console.warn('Fallback calculation also failed:', fallbackError);
-        }
+        // Backend estimate failed - show error but don't use frontend calculation
+        // All costs must come from backend to ensure consistency
+        console.error('Backend estimate failed:', e);
+        setSummary({
+          distance: 'N/A',
+          duration: 'N/A',
+          cost: 'N/A',
+        });
+        Alert.alert(
+          'Estimate Error',
+          'Failed to get cost estimate from server. Please try again or contact support.',
+          [{ text: 'OK' }]
+        );
       } finally {
         setSummaryLoading(false);
       }
@@ -226,14 +228,14 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
     
     try {
       // Validate requests data
-      if (!requests || requests.length === 0) {
+      if (!Array.isArray(requests) || requests.length === 0) {
         throw new Error('No booking requests found. Please try again.');
       }
       
       // Validating booking requests
       
       // Prepare payload for backend booking format
-      payload = requests.map((req: any, index: number) => {
+      payload = requests.filter(req => req != null).map((req: any, index: number) => {
         // Validate required fields
         if (!req.fromLocation || !req.toLocation) {
           throw new Error(`Request ${index + 1} is missing required location information.`);
@@ -566,10 +568,10 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       try {
         const targetScreen = getBookingManagementScreen();
         if (typeof targetScreen === 'string') {
-          navigation.navigate(targetScreen);
-        } else {
-          navigation.navigate(targetScreen.screen, targetScreen.params);
-        }
+            navigation?.navigate?.(targetScreen);
+          } else {
+            navigation?.navigate?.(targetScreen.screen, targetScreen.params);
+          }
         setShowSuccessModal(false);
       } catch (fallbackError) {
         console.error('Fallback navigation also failed:', fallbackError);
@@ -671,7 +673,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
             style={styles.backBtn}
             onPress={() => {
               if (navigation.canGoBack()) navigation.goBack();
-              else navigation.navigate(mode === 'business' ? 'BusinessRequest' : 'ServiceRequest');
+              else navigation?.navigate?.(mode === 'business' ? 'BusinessRequest' : 'ServiceRequest');
             }}
           >
             <MaterialCommunityIcons name="pencil" size={20} color={colors.primary} style={{ marginRight: 6 }} />

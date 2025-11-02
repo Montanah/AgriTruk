@@ -112,7 +112,8 @@ const LoginScreen = ({ navigation }: any) => {
       >
         <View style={styles.container}>
           <View style={styles.formCard}>
-            <TouchableOpacity
+            {/* Google button disabled - hidden for now */}
+            {/* <TouchableOpacity
               style={styles.googleBtn}
               onPress={() => promptAsync()}
               activeOpacity={0.85}
@@ -120,7 +121,7 @@ const LoginScreen = ({ navigation }: any) => {
             >
               <Image source={require('../../../assets/images/google_g.png')} style={styles.googleIcon} />
               <Text style={styles.googleBtnText}>Continue with Google</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             <Text style={styles.title}>Sign In</Text>
 
@@ -244,55 +245,71 @@ const LoginScreen = ({ navigation }: any) => {
                     // Login response details
                     // User details
                   } else {
-                    // Phone login: Use backend API to get email by phone
-                  const fullPhone = normalizePhone(countryCode, phone);
-                    console.log('Attempting phone login with:', fullPhone);
+                      // Phone login: Use backend API to get email by phone
+                      const fullPhone = normalizePhone(countryCode, phone);
+                      console.log('Attempting phone login with:', fullPhone);
 
-                    try {
-                      // Call backend API to get user by phone number
-                      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/auth/get-user-by-phone`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ phone: fullPhone })
-                      });
+                      try {
+                        // Call backend API to get user by phone number
+                        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/auth/get-user-by-phone`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({ phone: fullPhone })
+                        });
 
-                      if (!response.ok) {
-                        if (response.status === 404) {
-                          setError('No account found with this phone number. Please sign up.');
-                        } else {
-                          setError('Unable to verify phone number. Please try again.');
+                        if (!response.ok) {
+                          setLoading(false);
+                          if (response.status === 404) {
+                            setError('No account found with this phone number. Please sign up.');
+                          } else {
+                            setError('Unable to verify phone number. Please try again.');
+                          }
+                          return;
                         }
+
+                        const userData = await response.json();
+                        console.log('User data from backend:', userData);
+
+                        if (!userData.email) {
+                          setLoading(false);
+                          setError('This phone number is not associated with an email. Please contact support.');
+                          return;
+                        }
+
+                        // Check if phone is verified
+                        if (!userData.phoneVerified) {
+                          setLoading(false);
+                          setError('This phone number is not verified. Please verify your phone number first.');
+                          return;
+                        }
+
+                        // Use the found email to sign in with Firebase Auth
+                        console.log('Attempting Firebase Auth with email:', userData.email);
+                        const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
+                        console.log('Phone login successful');
+                        // Success - loading will be set to false after try-catch
+                      } catch (apiError: any) {
+                        console.error('API error:', apiError);
+                        setLoading(false);
+                        let apiErrorMessage = 'Unable to verify phone number. Please try again or use email login.';
+                        
+                        if (apiError.code === 'auth/user-not-found') {
+                          apiErrorMessage = 'No account found with this phone number. Please sign up.';
+                        } else if (apiError.code === 'auth/wrong-password') {
+                          apiErrorMessage = 'Incorrect password. Please try again.';
+                        } else if (apiError.code === 'auth/invalid-credential') {
+                          apiErrorMessage = 'Invalid credentials. Please check your password and try again.';
+                        }
+                        
+                        setError(apiErrorMessage);
                         return;
                       }
-
-                      const userData = await response.json();
-                      console.log('User data from backend:', userData);
-
-                      if (!userData.email) {
-                        setError('This phone number is not associated with an email. Please contact support.');
-                        return;
-                      }
-
-                      // Check if phone is verified
-                      if (!userData.phoneVerified) {
-                        setError('This phone number is not verified. Please verify your phone number first.');
-                        return;
-                      }
-
-                      // Use the found email to sign in with Firebase Auth
-                      console.log('Attempting Firebase Auth with email:', userData.email);
-                      const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
-                      console.log('Phone login successful');
-                    } catch (apiError) {
-                      console.error('API error:', apiError);
-                      setError('Unable to verify phone number. Please try again or use email login.');
-                      return;
                     }
-                  }
-                  // Navigation is handled by App.tsx auth state
-                } catch (e: any) {
+                    // Login successful - set loading to false
+                    setLoading(false);
+                  } catch (e: any) {
                   // Email login error for backend engineer
                   // Error details
 

@@ -423,30 +423,8 @@ const SignupScreen = () => {
                 )}
               </View>
 
-              {/* Google Sign Up Button */}
-              <TouchableOpacity
-                style={styles.googleBtn}
-                onPress={() => promptAsync()}
-                activeOpacity={0.85}
-                disabled={!request || loading}
-                accessibilityLabel="Continue with Google"
-              >
-                <Image
-                  source={require('../../../assets/images/google_g.png')}
-                  style={styles.googleIcon}
-                />
-                {loading ? (
-                  <Text style={styles.googleBtnText}>Loading...</Text>
-                ) : (
-                  <Text style={styles.googleBtnText}>Continue with Google</Text>
-                )}
-              </TouchableOpacity>
-
-              <View style={styles.orSeparatorWrap}>
-                <View style={styles.orLine} />
-                <Text style={styles.orText}>or</Text>
-                <View style={styles.orLine} />
-              </View>
+              {/* Google Sign Up Button - Disabled/Removed */}
+              {/* Google sign-in functionality has been disabled */}
 
               {/* Name Input */}
               <TextInput

@@ -86,8 +86,8 @@ const DriverHomeScreen = () => {
       setError(null);
 
       const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
+      const user = auth?.currentUser;
+      if (!user?.uid) return;
 
       const token = await user.getIdToken();
       const response = await fetch(`${API_ENDPOINTS.DRIVERS}/profile`, {
@@ -171,8 +171,8 @@ const DriverHomeScreen = () => {
   const fetchCurrentTrip = async (vehicleId: string) => {
     try {
       const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
+      const user = auth?.currentUser;
+      if (!user?.uid) return;
 
       const token = await user.getIdToken();
       const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/driver/active-trip`, {
@@ -201,8 +201,8 @@ const DriverHomeScreen = () => {
     try {
       setLoadingAcceptedJobs(true);
       const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) return;
+      const user = auth?.currentUser;
+      if (!user?.uid) return;
 
       const token = await user.getIdToken();
       // Fetch jobs accepted by this driver (same endpoint as transporters)
@@ -219,7 +219,8 @@ const DriverHomeScreen = () => {
         console.log('🔍 DriverHomeScreen - Number of jobs:', (data.jobs || data.bookings || []).length);
         
         // Preserve ALL fields exactly as ActivityScreen does - especially readableId, createdAt, pickUpDate
-        const jobs = (data.jobs || data.bookings || []).map((job: any) => {
+        const jobsData = data?.jobs || data?.bookings || [];
+        const jobs = Array.isArray(jobsData) ? jobsData.filter(job => job != null).map((job: any) => {
           console.log('🔍 DriverHomeScreen - Raw job from backend:', {
             id: job.id,
             bookingId: job.bookingId,
@@ -244,7 +245,7 @@ const DriverHomeScreen = () => {
           console.log('🔍 DriverHomeScreen - Display ID:', displayId, '| readableId from backend:', processed.readableId, '| createdAt:', processed.createdAt);
           
           return processed;
-        });
+        }) : [];
         setAcceptedJobs(jobs);
       } else {
         // If endpoint doesn't exist or permission denied, try alternative
@@ -257,14 +258,15 @@ const DriverHomeScreen = () => {
         if (altResponse.ok) {
           const altData = await altResponse.json();
           // Preserve ALL fields exactly as ActivityScreen does - especially readableId, createdAt, pickUpDate
-          const jobs = (altData.jobs || altData.bookings || []).map((job: any) => ({
+          const jobsData = altData?.jobs || altData?.bookings || [];
+          const jobs = Array.isArray(jobsData) ? jobsData.filter(job => job != null).map((job: any) => ({
             ...job, // Spread first to keep all original fields
             readableId: job.readableId, // This is the source of truth for display ID
             createdAt: job.createdAt, // For ID generation fallback
             pickUpDate: job.pickUpDate || job.pickupDate, // Preserve pickup date
             bookingType: job.bookingType,
             bookingMode: job.bookingMode,
-          }));
+          })) : [];
           setAcceptedJobs(jobs);
         } else {
           setAcceptedJobs([]);

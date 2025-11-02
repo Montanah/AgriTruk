@@ -548,8 +548,24 @@ export default function TransporterCompletionScreen() {
             throw new Error(errorMessage);
           }
           
-          const companyData = await res?.json();
-          console.log('Company created successfully with FormData:', companyData);
+          // Check if response has content before parsing JSON
+          let companyData;
+          const responseText = await res?.text();
+          if (responseText && responseText.trim()) {
+            try {
+              companyData = JSON.parse(responseText);
+              console.log('Company created successfully with FormData:', companyData);
+            } catch (parseError) {
+              console.error('Failed to parse JSON response:', parseError);
+              // If JSON parsing fails but status is OK, assume success
+              console.log('Response is not JSON but status is OK, proceeding...');
+              companyData = { success: true };
+            }
+          } else {
+            // Empty response but status is OK, assume success
+            console.log('Empty response but status is OK, proceeding...');
+            companyData = { success: true };
+          }
           
           // Transporter record is now created automatically in the backend
           // No need to update transporter separately

@@ -1640,6 +1640,23 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   };
 
+  // Set header with logout button for company transporter
+  React.useLayoutEffect(() => {
+    if (transporterType === 'company' && navigation) {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity 
+            onPress={handleLogout} 
+            style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.error} style={{ marginRight: 4 }} />
+            <Text style={{ color: colors.error, fontWeight: 'bold', fontSize: 16 }}>Logout</Text>
+          </TouchableOpacity>
+        ),
+      });
+    }
+  }, [navigation, transporterType, handleLogout]);
+
   if (transporterType === 'company') {
     return (
       <>
