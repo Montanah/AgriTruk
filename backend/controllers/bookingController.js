@@ -1833,6 +1833,261 @@ exports.getAvailable = async (req, res) => {
   }
 };
 
+/**
+ * Estimate booking cost, distance, and duration without creating a booking
+ * Used by frontend to show estimates before confirmation
+ */
+exports.estimateBooking = async (req, res) => {
+  try {
+    const {
+      fromLocation,
+      toLocation,
+      weightKg = 0,
+      lengthCm = 0,
+      widthCm = 0,
+      heightCm = 0,
+      urgencyLevel = 'Low',
+      perishable = false,
+      needsRefrigeration = false,
+      humidityControl = false,
+      specialCargo = [],
+      bulkiness = false,
+      insured = false,
+      value = 0,
+      tolls = 0,
+      priority = false,
+      fuelSurchargePct = 0,
+      waitMinutes = 0,
+      nightSurcharge = false,
+      vehicleType = 'truck',
+    } = req.body;
+
+    // Validate required fields
+    if (!fromLocation || !toLocation) {
+      return res.status(400).json({
+        success: false,
+        message: 'fromLocation and toLocation are required'
+      });
+    }
+
+    // Extract location data
+    let fromLoc, toLoc;
+    if (typeof fromLocation === 'string') {
+      fromLoc = { address: fromLocation };
+    } else if (fromLocation.address) {
+      fromLoc = {
+        address: fromLocation.address,
+        latitude: fromLocation.latitude,
+        longitude: fromLocation.longitude
+      };
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid fromLocation format'
+      });
+    }
+
+    if (typeof toLocation === 'string') {
+      toLoc = { address: toLocation };
+    } else if (toLocation.address) {
+      toLoc = {
+        address: toLocation.address,
+        latitude: toLocation.latitude,
+        longitude: toLocation.longitude
+      };
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid toLocation format'
+      });
+    }
+
+    // Validate coordinates if provided
+    if (fromLoc.latitude && fromLoc.longitude && toLoc.latitude && toLoc.longitude) {
+      // Calculate distance and duration using Google Maps API
+      const { actualDistance, estimatedDurationMinutes, formattedDuration, success } = 
+        await calculateRoadDistanceAndDuration(
+          fromLoc,
+          toLoc,
+          vehicleType || 'truck',
+          google_key,
+          weightKg || 0
+        );
+
+      if (!success) {
+        console.warn('Using fallback distance calculation due to API error');
+        // Fallback to haversine distance if Google Maps fails
+        const fallbackDistance = calculateDistance(fromLoc, toLoc);
+        const fallbackDurationMinutes = Math.round((fallbackDistance / 60) * 60); // Assume 60 km/h average
+        
+        // Calculate base transport cost with fallback distance
+        const bookingDataForCost = {
+          actualDistance: fallbackDistance,
+          weightKg: weightKg || 0,
+          lengthCm: lengthCm || 0,
+          widthCm: widthCm || 0,
+          heightCm: heightCm || 0,
+          urgencyLevel: urgencyLevel || 'Low',
+          perishable: !!perishable,
+          needsRefrigeration: !!needsRefrigeration,
+          humidityControl: !!humidityControl,
+          specialCargo: specialCargo || [],
+          bulkiness: !!bulkiness,
+          insured: !!insured,
+          value: value || 0,
+          tolls: tolls || 0,
+          priority: !!priority,
+          fuelSurchargePct: fuelSurchargePct || 0,
+          waitMinutes: waitMinutes || 0,
+          nightSurcharge: !!nightSurcharge,
+          vehicleType: vehicleType || 'truck',
+        };
+        
+        const { cost: baseCost } = calculateTransportCost(bookingDataForCost);
+        
+        // Calculate realistic cost range for fallback scenario
+        // Use same logic as above but with fallback distance
+        const distanceVariation = 0.03; // ±3% for route variations
+        const waitTimeBuffer = waitMinutes ? 0 : 10;
+        const tollBuffer = tolls || 150;
+        
+        const minDistance = fallbackDistance * (1 - distanceVariation);
+        const minBookingData = {
+          ...bookingDataForCost,
+          actualDistance: minDistance,
+          waitMinutes: waitMinutes || 0,
+        };
+        const { cost: minCost } = calculateTransportCost(minBookingData);
+        
+        const maxDistance = fallbackDistance * (1 + distanceVariation);
+        const maxBookingData = {
+          ...bookingDataForCost,
+          actualDistance: maxDistance,
+          waitMinutes: waitMinutes + waitTimeBuffer,
+          tolls: tolls + tollBuffer,
+        };
+        const { cost: maxCost } = calculateTransportCost(maxBookingData);
+        
+        const adjustedMinCost = Math.max(minCost, baseCost * 0.97);
+        const adjustedMaxCost = Math.min(maxCost, baseCost * 1.08);
+        
+        // Format duration
+        const hours = Math.floor(fallbackDurationMinutes / 60);
+        const minutes = fallbackDurationMinutes % 60;
+        const formattedDuration = hours > 0 
+          ? `${hours}h ${minutes}m` 
+          : `${minutes}m`;
+
+        return res.status(200).json({
+          success: true,
+          estimatedDistance: `${fallbackDistance.toFixed(2)} km`,
+          estimatedDuration: formattedDuration,
+          estimatedCost: baseCost,
+          minCost: Math.round(adjustedMinCost),
+          maxCost: Math.round(adjustedMaxCost),
+          costRange: {
+            min: Math.round(adjustedMinCost),
+            max: Math.round(adjustedMaxCost)
+          }
+        });
+      }
+
+      // Calculate base transport cost with actual distance
+      const bookingDataForCost = {
+        actualDistance,
+        weightKg: weightKg || 0,
+        lengthCm: lengthCm || 0,
+        widthCm: widthCm || 0,
+        heightCm: heightCm || 0,
+        urgencyLevel: urgencyLevel || 'Low',
+        perishable: !!perishable,
+        needsRefrigeration: !!needsRefrigeration,
+        humidityControl: !!humidityControl,
+        specialCargo: specialCargo || [],
+        bulkiness: !!bulkiness,
+        insured: !!insured,
+        value: value || 0,
+        tolls: tolls || 0,
+        priority: !!priority,
+        fuelSurchargePct: fuelSurchargePct || 0,
+        waitMinutes: waitMinutes || 0,
+        nightSurcharge: !!nightSurcharge,
+        vehicleType: vehicleType || 'truck',
+      };
+      
+      const { cost: baseCost, costBreakdown } = calculateTransportCost(bookingDataForCost);
+      
+      // Calculate realistic cost range based on variable factors
+      // Factors that could realistically vary:
+      // 1. Distance: Route variations (±2-3%)
+      // 2. Wait time: Unknown at estimate time (could be 0-15 minutes)
+      // 3. Tolls: Route-dependent variations
+      // 4. Fuel surcharge: Minor fluctuations
+      
+      const distanceVariation = 0.03; // ±3% for route variations
+      
+      // Calculate minimum cost (optimistic scenario)
+      // - Slightly lower distance (3% less for optimal route)
+      // - No wait time if not specified
+      // - Same other factors
+      const minDistance = actualDistance * (1 - distanceVariation);
+      const minBookingData = {
+        ...bookingDataForCost,
+        actualDistance: minDistance,
+        waitMinutes: waitMinutes || 0, // Use specified wait time, or 0
+      };
+      const { cost: minCost } = calculateTransportCost(minBookingData);
+      
+      // Calculate maximum cost (conservative scenario)
+      // - Slightly higher distance (3% more for alternate routes)
+      // - Add wait time buffer (5-10 minutes)
+      // - Account for potential toll variations (add 100-200 KES buffer)
+      const maxDistance = actualDistance * (1 + distanceVariation);
+      const waitTimeBuffer = waitMinutes ? 0 : 10; // Add 10 min buffer if not specified
+      const tollBuffer = tolls || 150; // Small buffer for potential toll variations
+      const maxBookingData = {
+        ...bookingDataForCost,
+        actualDistance: maxDistance,
+        waitMinutes: waitMinutes + waitTimeBuffer,
+        tolls: tolls + tollBuffer,
+      };
+      const { cost: maxCost } = calculateTransportCost(maxBookingData);
+      
+      // Ensure range is reasonable (min shouldn't be too low, max shouldn't be too high)
+      // Keep range within ±5% of base cost minimum
+      const adjustedMinCost = Math.max(minCost, baseCost * 0.97); // At least 3% below base
+      const adjustedMaxCost = Math.min(maxCost, baseCost * 1.08); // At most 8% above base
+      
+      // Return estimate with realistic cost range
+      return res.status(200).json({
+        success: true,
+        estimatedDistance: `${actualDistance.toFixed(2)} km`,
+        estimatedDuration: formattedDuration,
+        estimatedCost: baseCost,
+        minCost: Math.round(adjustedMinCost),
+        maxCost: Math.round(adjustedMaxCost),
+        costRange: {
+          min: Math.round(adjustedMinCost),
+          max: Math.round(adjustedMaxCost)
+        }
+      });
+    } else {
+      // No coordinates provided - return error or use fallback
+      return res.status(400).json({
+        success: false,
+        message: 'Location coordinates (latitude, longitude) are required for accurate estimates'
+      });
+    }
+  } catch (error) {
+    console.error('Error estimating booking:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to calculate booking estimate',
+      error: error.message
+    });
+  }
+};
+
 exports.acceptDriverRouteLoad = async (req, res) => {
   try {
     const userId = req.user.uid;
