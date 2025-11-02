@@ -25,7 +25,7 @@ import { useConsolidations } from '../../context/ConsolidationContext';
 import FindTransporters from '../FindTransporters';
 import CompactLocationSection from './CompactLocationSection';
 import ProductTypeInput from './ProductTypeInput';
-import { generateRequestReadableId, generateConsolidationReadableId } from '../../utils/idUtils';
+// Removed ID generation imports - all IDs come from backend readableId
 
 const SERVICES = [
     {
@@ -262,12 +262,12 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     }, []);
 
     const createRequestData = () => {
-        // Generate readable ID for display purposes
-        const bookingType = activeTab === 'agriTRUK' ? 'Agri' : 'Cargo';
-        const readableId = generateRequestReadableId(bookingType, requestType);
+        // Generate temporary unique ID for React key (not a readable ID - backend will provide readableId)
+        // Use timestamp + random for uniqueness
+        const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         
         return {
-            id: readableId,
+            id: tempId, // Temporary ID for React key only - backend will provide readableId
             // Map frontend fields to backend booking format
             bookingType: activeTab === 'agriTRUK' ? 'Agri' : 'Cargo',
             bookingMode: requestType, // 'instant' or 'booking'
@@ -342,12 +342,15 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     };
 
     const createConsolidationData = () => {
-        // Generate readable ID for consolidation
-        const bookingType = activeTab === 'agriTRUK' ? 'Agri' : 'Cargo';
-        const readableId = generateConsolidationReadableId(bookingType);
+        // Generate temporary unique ID for React key (not a readable ID - backend will provide readableId)
+        // Use timestamp + random for uniqueness
+        const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Use pickup date for createdAt if it's a booking, otherwise use current time
+        const createdAtDate = requestType === 'booking' ? pickupDate : new Date();
         
         return {
-            id: readableId,
+            id: tempId, // Temporary ID for React key only - backend will provide readableId
             // Always use string addresses for consolidation (never objects)
             // Store the address string for display, and coords separately if needed
             fromLocation: fromLocationAddress || fromLocation,
@@ -358,6 +361,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             weight,
             requestType,
             date: requestType === 'booking' ? pickupDate.toISOString() : '',
+            createdAt: createdAtDate.toISOString(), // Add createdAt for ID generation
             isRecurring,
             recurringFreq,
             recurringTimeframe,

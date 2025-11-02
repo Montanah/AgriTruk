@@ -176,8 +176,12 @@ export function parseUnifiedBookingId(bookingId: string): BookingIdComponents | 
 export function getDisplayBookingId(input: any): string {
   if (!input) return 'Unknown';
   
-  // If it's already a formatted ID, return it
+  // If it's already a formatted ID, return it (but skip temp IDs)
   if (typeof input === 'string') {
+    // Skip temporary IDs generated on frontend
+    if (input.startsWith('temp-')) {
+      return 'Pending...';
+    }
     // Check if it's already in the correct format (YYMMDD-HHMM-TYPE-MODE)
     if (/^\d{6}-\d{4}-(AGR|CAR)-(BOOK|INST|CONS)$/.test(input)) {
       return input;
@@ -209,7 +213,15 @@ export function getDisplayBookingId(input: any): string {
       return aliasReadableId;
     }
     
-    // PRIORITY 2: Check if bookingId is already in correct format - trust backend data
+    // PRIORITY 2: Check if id is already in readable format (only if from backend - not temp IDs)
+    if (input.id && typeof input.id === 'string' && !input.id.startsWith('temp-')) {
+      // Check if it's already in the correct format (YYMMDD-HHMM-TYPE-MODE)
+      if (/^\d{6}-\d{4}-(AGR|CAR)-(BOOK|INST|CONS)/.test(input.id)) {
+        return input.id;
+      }
+    }
+    
+    // PRIORITY 3: Check if bookingId is already in correct format - trust backend data
     if (input.bookingId) {
       // Check if it's already in the correct format (YYMMDD-HHMM-TYPE-MODE)
       if (/^\d{6}-\d{4}-(AGR|CAR)-(BOOK|INST|CONS)$/.test(input.bookingId)) {
@@ -229,7 +241,7 @@ export function getDisplayBookingId(input: any): string {
       }
     }
     
-    // PRIORITY 3: Only generate if we don't have a readable ID
+    // PRIORITY 4: Only generate if we don't have a readable ID
     // Generate new ID based on object properties (this should only happen for old data without readableId)
     return generateDisplayIdFromObject(input);
   }
@@ -311,26 +323,31 @@ function generateDisplayIdFromObject(obj: any): string {
     // CRITICAL: Parse createdAt properly from various formats (Firestore timestamp, ISO string, etc.)
     let bookingDate: Date | null = null;
     
-    // Try to get createdAt from various possible fields
-    const createdAtSource = obj.createdAt || obj.created_at || obj.timestamp || obj.dateCreated;
+    // Try to get createdAt from various possible fields (including date for consolidation items)
+    const createdAtSource = obj.createdAt || obj.created_at || obj.timestamp || obj.dateCreated || obj.date;
     
     if (createdAtSource) {
       bookingDate = parseFirestoreTimestamp(createdAtSource);
     }
     
-    // If we couldn't parse createdAt, try to use current time as absolute last resort
-    // But first, log a warning so we can debug why createdAt is missing
+    // If we couldn't parse createdAt, check if id is already in readable format first (only if from backend)
     if (!bookingDate || isNaN(bookingDate.getTime())) {
-      console.warn('⚠️ Cannot parse createdAt for booking ID generation:', {
-        rawId: obj.id || obj.bookingId || obj._id,
-        createdAtSource: obj.createdAt || obj.created_at || obj.timestamp || obj.dateCreated,
-        readableId: obj.readableId,
-      });
+      // If id exists and is already in readable format from backend (not temp), use it without warning
+      if (obj.id && typeof obj.id === 'string' && !obj.id.startsWith('temp-') && /^\d{6}-\d{4}-(AGR|CAR)-(BOOK|INST|CONS)/.test(obj.id)) {
+        return obj.id;
+      }
       
-      // If readableId exists, use it even if createdAt is missing
+      // If readableId exists, use it even if createdAt is missing (no warning needed)
       if (obj.readableId && typeof obj.readableId === 'string' && obj.readableId.length > 0) {
         return obj.readableId;
       }
+      
+      // Only warn if we're actually going to use a fallback (not if we have a valid ID)
+      console.warn('⚠️ Cannot parse createdAt for booking ID generation:', {
+        rawId: obj.id || obj.bookingId || obj._id,
+        createdAtSource: obj.createdAt || obj.created_at || obj.timestamp || obj.dateCreated || obj.date,
+        readableId: obj.readableId,
+      });
       
       // As absolute last resort, use current time (not ideal but better than raw ID)
       // This ensures we always have a readable format, even if timestamp parsing fails
