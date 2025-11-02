@@ -582,7 +582,7 @@ export const NOTIFICATION_TEMPLATES: Record<EnhancedNotificationType, Notificati
     titleTemplate: 'Pricing Updated',
     messageTemplate: 'Our pricing has been updated. Check the new rates',
     defaultChannels: ['push', 'in-app', 'email'],
-    icon: 'currency-usd',
+    icon: 'cash',
     color: '#2196F3',
     sound: false,
     vibration: false,

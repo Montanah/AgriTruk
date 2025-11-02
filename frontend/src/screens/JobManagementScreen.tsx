@@ -601,7 +601,7 @@ const JobManagementScreen = () => {
                         </Text>
                     </View>
                     <View style={styles.infoItem}>
-                        <MaterialCommunityIcons name="currency-usd" size={16} color={colors.text.secondary} />
+                        <MaterialCommunityIcons name="cash" size={16} color={colors.text.secondary} />
                         <Text style={styles.infoLabel}>Value:</Text>
                         <Text style={styles.infoValue}>
                             {formatCurrency(item.cost || item.pricing?.total || item.estimatedValue || 0)}

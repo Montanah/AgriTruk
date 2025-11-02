@@ -326,7 +326,7 @@ const TransporterJobDetailsScreen = () => {
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <MaterialCommunityIcons name="currency-usd" size={20} color={colors.text.secondary} />
+            <MaterialCommunityIcons name="cash" size={20} color={colors.text.secondary} />
             <Text style={styles.infoLabel}>Value:</Text>
             <Text style={styles.infoValue}>
               {job.cost || job.estimatedValue ? `KES ${(job.cost || job.estimatedValue).toLocaleString()}` : 'Not specified'}

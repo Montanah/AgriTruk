@@ -172,7 +172,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
         {/* Shipping Cost - Always use backend-calculated cost: cost > price > estimatedCost */}
         {(item.cost || item.price || item.estimatedCost) && (
           <View style={styles.costInfo}>
-            <MaterialCommunityIcons name="currency-usd" size={20} color={colors.success} />
+            <MaterialCommunityIcons name="cash" size={20} color={colors.success} />
             <View style={styles.costText}>
               <Text style={styles.costLabel}>Shipping Cost</Text>
               <Text style={styles.costValue}>

@@ -268,7 +268,7 @@ const PaymentConfirmationScreen: React.FC<PaymentConfirmationScreenProps> = ({ n
           {amount && typeof amount === 'number' && amount > 0 && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Amount:</Text>
-              <Text style={styles.detailValue}>${amount}</Text>
+              <Text style={styles.detailValue}>KES {amount?.toLocaleString() || '0'}</Text>
             </View>
           )}
         </View>

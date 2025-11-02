@@ -226,7 +226,7 @@ const FleetMaintenanceScreen = () => {
         </View>
         <Text style={styles.description}>{item.description}</Text>
         <Text style={styles.dueDate}>Due: {new Date(item.dueDate).toLocaleDateString()}</Text>
-        {item.cost && <Text style={styles.cost}>Cost: ${item.cost}</Text>}
+        {item.cost && <Text style={styles.cost}>Cost: KES {item.cost.toLocaleString()}</Text>}
         {item.notes && <Text style={styles.notes}>Notes: {item.notes}</Text>}
       </View>
 

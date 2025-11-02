@@ -29,7 +29,7 @@ const RATING_CATEGORIES: Record<RatingCategory, {
   safety: { label: 'Safety', icon: 'shield-check' },
   vehicle_condition: { label: 'Vehicle', icon: 'truck' },
   professionalism: { label: 'Professionalism', icon: 'account-tie' },
-  value_for_money: { label: 'Value', icon: 'currency-usd' },
+  value_for_money: { label: 'Value', icon: 'cash' },
 };
 
 const StarRating: React.FC<{

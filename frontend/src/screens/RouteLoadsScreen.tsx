@@ -495,7 +495,7 @@ const RouteLoadsScreen = () => {
                     {/* Revenue Range */}
                     <View style={styles.filterSection}>
                         <View style={styles.sectionHeader}>
-                            <MaterialCommunityIcons name="currency-usd" size={16} color={colors.text.primary} />
+                            <MaterialCommunityIcons name="cash" size={16} color={colors.text.primary} />
                             <Text style={styles.sectionTitle}>Revenue Range</Text>
                         </View>
                         <View style={styles.rangeContainer}>

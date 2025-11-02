@@ -716,7 +716,9 @@ export default function ManageTransporterScreen({ route }: any) {
     try {
       if (auth.currentUser) {
         // Use existing backend route PUT /api/auth/update
-        // Backend now supports: name, phone, email, role, location, userType, languagePreference, profilePhotoUrl
+        // This endpoint updates user profile only (name, phone, email) - NOT company profile fields
+        // Note: The signup error (User.getByEmail/getByPhone) was fixed in backend, and this update endpoint
+        // uses User.getUserByEmail/getUserByPhone which are the correct methods
         const updatePayload: any = {
           name: editName,
           phone: editPhone,
@@ -732,15 +734,60 @@ export default function ManageTransporterScreen({ route }: any) {
           method: 'PUT',
           body: JSON.stringify(updatePayload),
         });
+        
         // Update local user profile/state when available
         setUserProfile((prev: any) => prev ? { ...prev, name: editName || prev.name, email: editEmail || prev.email, phoneNumber: editPhone || prev.phoneNumber } : prev);
+        
+        // Refresh user profile data from backend
+        try {
+          const { getAuth } = require('firebase/auth');
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (user) {
+            const token = await user.getIdToken();
+            const response = await fetch(`${API_ENDPOINTS.AUTH}/profile`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (response.ok) {
+              const data = await response.json();
+              const userProfileData = data.userData || data;
+              setUserProfile({
+                ...userProfileData,
+                emailVerified: userProfileData.emailVerified === true,
+                phoneVerified: userProfileData.phoneVerified === true,
+                isVerified: userProfileData.isVerified === true,
+              });
+            }
+          }
+        } catch (refreshError) {
+          console.error('Error refreshing profile:', refreshError);
+        }
+        
+        Alert.alert('Success', 'Profile updated successfully');
       }
     } catch (e: any) {
-      Alert.alert('Profile Update Error', e.message || 'Failed to update profile.');
+      console.error('Profile update error:', e);
+      Alert.alert('Profile Update Error', e.message || 'Failed to update profile. Please try again.');
       return;
     }
     setEditModal(false);
     setEditPassword('');
+  };
+  
+  // Utility functions for generated values (same as BrokerProfileScreen)
+  const isGeneratedPhone = (value?: string) => {
+    if (!value) return false;
+    // Check for patterns like +254000... or placeholder phones
+    return /^\+2540{4,}/.test(value.trim()) || value.includes('0000000');
+  };
+  
+  const isGeneratedEmail = (value?: string) => {
+    if (!value) return false;
+    // Check for patterns like @trukapp.generated, @generated, or userXXX@
+    return /@trukapp\.generated$|@generated($|\.)|^user\d+@/i.test(value);
   };
 
   // Vehicles and Drivers state
@@ -1379,10 +1426,21 @@ export default function ManageTransporterScreen({ route }: any) {
 
   // Verification functions for company transporter
   const handleVerifyEmail = async () => {
-    if (!auth.currentUser?.email) {
-      Alert.alert('Error', 'No email address found.');
+    const emailToVerify = userProfile?.email || editEmail || auth.currentUser?.email;
+    if (!emailToVerify) {
+      Alert.alert('Error', 'No email address found. Please add an email address in your profile.');
       return;
     }
+    
+    // Check if email is generated
+    if (isGeneratedEmail(emailToVerify)) {
+      Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Update Now', onPress: () => setEditModal(true) }
+      ]);
+      return;
+    }
+    
     try {
       setVerifyingEmail(true);
 
@@ -1391,7 +1449,7 @@ export default function ManageTransporterScreen({ route }: any) {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-email-code',
-          email: auth.currentUser.email
+          email: emailToVerify
         }),
       });
 
@@ -1402,7 +1460,7 @@ export default function ManageTransporterScreen({ route }: any) {
           { text: 'OK' },
           {
             text: 'Go to Verification',
-            onPress: () => navigation.navigate('EmailVerification')
+            onPress: () => navigation?.navigate?.('EmailVerification')
           }
         ]
       );
@@ -1419,10 +1477,21 @@ export default function ManageTransporterScreen({ route }: any) {
   };
 
   const handleVerifyPhone = async () => {
-    if (!editPhone) {
-      Alert.alert('Error', 'No phone number found.');
+    const phoneToVerify = userProfile?.phone || editPhone || auth.currentUser?.phoneNumber;
+    if (!phoneToVerify) {
+      Alert.alert('Error', 'No phone number found. Please add a phone number in your profile.');
       return;
     }
+    
+    // Check if phone is generated
+    if (isGeneratedPhone(phoneToVerify)) {
+      Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Update Now', onPress: () => setEditModal(true) }
+      ]);
+      return;
+    }
+    
     try {
       setVerifyingPhone(true);
 
@@ -1431,7 +1500,7 @@ export default function ManageTransporterScreen({ route }: any) {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-phone-code',
-          phoneNumber: editPhone
+          phoneNumber: phoneToVerify
         }),
       });
 
@@ -1442,7 +1511,7 @@ export default function ManageTransporterScreen({ route }: any) {
           { text: 'OK' },
           {
             text: 'Go to Verification',
-            onPress: () => navigation.navigate('PhoneOTPScreen')
+            onPress: () => navigation?.navigate?.('PhoneOTPScreen')
           }
         ]
       );
@@ -1640,35 +1709,41 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   };
 
-  // Set header with logout button for company transporter
-  React.useLayoutEffect(() => {
-    if (transporterType === 'company' && navigation) {
-      navigation.setOptions({
-        headerRight: () => (
-          <TouchableOpacity 
-            onPress={handleLogout} 
-            style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}
-          >
-            <Ionicons name="log-out-outline" size={20} color={colors.error} style={{ marginRight: 4 }} />
-            <Text style={{ color: colors.error, fontWeight: 'bold', fontSize: 16 }}>Logout</Text>
-          </TouchableOpacity>
-        ),
-      });
-    }
-  }, [navigation, transporterType, handleLogout]);
+  // Logout button is now rendered directly in the UI for company transporter
 
   if (transporterType === 'company') {
     return (
       <>
         <FormKeyboardWrapper style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}>
-          <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
+          {/* Header with Logout Button */}
+          <View style={styles.headerContainer}>
+            <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
+            <TouchableOpacity 
+              onPress={handleLogout} 
+              style={styles.logoutButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="log-out-outline" size={20} color={colors.error} style={{ marginRight: 4 }} />
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
           {/* Company Profile Section */}
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Corporate Profile</Text>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => setEditModal(true)}>
-              <MaterialCommunityIcons name="office-building" size={20} color={colors.secondary} />
-              <Text style={styles.actionText}>Edit Corporate Details</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={styles.sectionTitle}>Company Profile</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  // Initialize edit fields with current values
+                  setEditName(userProfile?.name || editName || '');
+                  setEditEmail(userProfile?.email || editEmail || '');
+                  setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                  setEditModal(true);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="pencil" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
             
             {/* Company Logo */}
             <TouchableOpacity style={{ alignItems: 'center', marginBottom: 16 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
@@ -1684,7 +1759,7 @@ export default function ManageTransporterScreen({ route }: any) {
                 </View>
               )}
               <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontSize: 14, fontFamily: fonts.family.medium }}>
-                {companyProfile?.companyLogo ? 'Update Corporate Logo' : 'Upload Corporate Logo'}
+                {companyProfile?.companyLogo ? 'Update Company Logo' : 'Upload Company Logo'}
               </Text>
             </TouchableOpacity>
 
@@ -1692,7 +1767,7 @@ export default function ManageTransporterScreen({ route }: any) {
             <View style={styles.companyInfo}>
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="office-building" size={16} color={colors.text.secondary} />
-                <Text style={styles.companyName}>{companyProfile?.companyName || 'Corporate Name'}</Text>
+                <Text style={styles.companyName}>{companyProfile?.companyName || 'Company Name'}</Text>
               </View>
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="file-document" size={16} color={colors.text.secondary} />
@@ -1728,6 +1803,42 @@ export default function ManageTransporterScreen({ route }: any) {
           {/* Contact Verification Section */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Contact Verification</Text>
+            
+            {/* Note about generated contacts */}
+            {((userProfile?.email && isGeneratedEmail(userProfile.email)) || (userProfile?.phone && isGeneratedPhone(userProfile.phone))) && (
+              <View style={{ backgroundColor: colors.warningLight, padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <Ionicons name="information-circle" size={18} color={colors.warning} style={{ marginRight: 8, marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.warning, fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
+                      Update Your Contact Information
+                    </Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 12, lineHeight: 18 }}>
+                      {isGeneratedEmail(userProfile?.email) && isGeneratedPhone(userProfile?.phone)
+                        ? "Both your email and phone were auto-generated during signup. Please update them with your correct information before verifying."
+                        : isGeneratedEmail(userProfile?.email)
+                        ? "Your email was auto-generated during signup. Please update it to your actual email address before verifying."
+                        : "Your phone number was auto-generated during signup. Please update it to your actual phone number before verifying."}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      style={{ marginTop: 8 }}
+                    >
+                      <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>
+                        Update Contact Info →
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+            
             <View style={{ marginBottom: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Email</Text>
@@ -1749,18 +1860,40 @@ export default function ManageTransporterScreen({ route }: any) {
                 </View>
               </View>
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
-                {userProfile?.email || 'No email set'}
+                {userProfile?.email || editEmail || 'No email set'}
               </Text>
+              {isGeneratedEmail(userProfile?.email || editEmail) && (
+                <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                  This email is auto-generated. Please update it before verifying.
+                </Text>
+              )}
               {!userProfile?.emailVerified && (
                 <TouchableOpacity
-                  style={styles.verifyButton}
-                  onPress={handleVerifyEmail}
-                  disabled={verifyingEmail}
+                  style={[styles.verifyButton, isGeneratedEmail(userProfile?.email || editEmail) && styles.verifyButtonDisabled]}
+                  onPress={() => {
+                    if (isGeneratedEmail(userProfile?.email || editEmail)) {
+                      Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Update Now', onPress: () => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      ]);
+                      return;
+                    }
+                    handleVerifyEmail();
+                  }}
+                  disabled={verifyingEmail || isGeneratedEmail(userProfile?.email || editEmail)}
                 >
                   {verifyingEmail ? (
                     <ActivityIndicator size="small" color={colors.white} />
                   ) : (
-                    <Text style={styles.verifyButtonText}>Verify Email</Text>
+                    <Text style={[styles.verifyButtonText, isGeneratedEmail(userProfile?.email || editEmail) && { color: colors.text.light }]}>
+                      Verify Email
+                    </Text>
                   )}
                 </TouchableOpacity>
               )}
@@ -1789,16 +1922,38 @@ export default function ManageTransporterScreen({ route }: any) {
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
                 {userProfile?.phone || editPhone || 'No phone set'}
               </Text>
+              {isGeneratedPhone(userProfile?.phone || editPhone) && (
+                <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                  This phone number is auto-generated. Please update it before verifying.
+                </Text>
+              )}
               {!userProfile?.phoneVerified && (
                 <TouchableOpacity
-                  style={styles.verifyButton}
-                  onPress={handleVerifyPhone}
-                  disabled={verifyingPhone}
+                  style={[styles.verifyButton, isGeneratedPhone(userProfile?.phone || editPhone) && styles.verifyButtonDisabled]}
+                  onPress={() => {
+                    if (isGeneratedPhone(userProfile?.phone || editPhone)) {
+                      Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Update Now', onPress: () => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      ]);
+                      return;
+                    }
+                    handleVerifyPhone();
+                  }}
+                  disabled={verifyingPhone || isGeneratedPhone(userProfile?.phone || editPhone)}
                 >
                   {verifyingPhone ? (
                     <ActivityIndicator size="small" color={colors.white} />
                   ) : (
-                    <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                    <Text style={[styles.verifyButtonText, isGeneratedPhone(userProfile?.phone || editPhone) && { color: colors.text.light }]}>
+                      Verify Phone
+                    </Text>
                   )}
                 </TouchableOpacity>
               )}
@@ -2407,12 +2562,23 @@ export default function ManageTransporterScreen({ route }: any) {
   };
 
     
-    // Verification functions
+    // Verification functions for individual transporter
     const handleVerifyEmail = async () => {
-      if (!auth.currentUser?.email) {
-        Alert.alert('Error', 'No email address found.');
+      const emailToVerify = userProfile?.email || auth.currentUser?.email;
+      if (!emailToVerify) {
+        Alert.alert('Error', 'No email address found. Please add an email address in your profile.');
         return;
       }
+      
+      // Check if email is generated
+      if (isGeneratedEmail(emailToVerify)) {
+        Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Update Now', onPress: () => setEditModal(true) }
+        ]);
+        return;
+      }
+      
       try {
         setVerifyingEmail(true);
 
@@ -2421,7 +2587,7 @@ export default function ManageTransporterScreen({ route }: any) {
           method: 'POST',
           body: JSON.stringify({
             action: 'resend-email-code',
-            email: auth.currentUser.email
+            email: emailToVerify
           }),
         });
 
@@ -2432,7 +2598,7 @@ export default function ManageTransporterScreen({ route }: any) {
             { text: 'OK' },
             {
               text: 'Go to Verification',
-              onPress: () => navigation.navigate('EmailVerification')
+              onPress: () => navigation?.navigate?.('EmailVerification')
             }
           ]
         );
@@ -2449,10 +2615,21 @@ export default function ManageTransporterScreen({ route }: any) {
     };
 
     const handleVerifyPhone = async () => {
-      if (!individualProfile?.phoneNumber) {
-        Alert.alert('Error', 'No phone number found.');
+      const phoneToVerify = userProfile?.phone || individualProfile?.phoneNumber || auth.currentUser?.phoneNumber;
+      if (!phoneToVerify) {
+        Alert.alert('Error', 'No phone number found. Please add a phone number in your profile.');
         return;
       }
+      
+      // Check if phone is generated
+      if (isGeneratedPhone(phoneToVerify)) {
+        Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Update Now', onPress: () => setEditModal(true) }
+        ]);
+        return;
+      }
+      
       try {
         setVerifyingPhone(true);
 
@@ -2461,7 +2638,7 @@ export default function ManageTransporterScreen({ route }: any) {
           method: 'POST',
           body: JSON.stringify({
             action: 'resend-phone-code',
-            phoneNumber: individualProfile.phoneNumber
+            phoneNumber: phoneToVerify
           }),
         });
 
@@ -2472,7 +2649,7 @@ export default function ManageTransporterScreen({ route }: any) {
             { text: 'OK' },
             {
               text: 'Go to Verification',
-              onPress: () => navigation.navigate('PhoneOTPScreen')
+              onPress: () => navigation?.navigate?.('PhoneOTPScreen')
             }
           ]
         );
@@ -2564,7 +2741,13 @@ export default function ManageTransporterScreen({ route }: any) {
             </View>
             
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 6 }}>
-              <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, marginRight: 8 }} onPress={() => setEditModal(true)}>
+              <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, marginRight: 8 }} onPress={() => {
+                // Initialize edit fields with current values for individual transporter
+                setEditName(individualProfile?.displayName || editName || '');
+                setEditEmail(userProfile?.email || individualProfile?.email || editEmail || '');
+                setEditPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber || editPhone || '');
+                setEditModal(true);
+              }}>
                 <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Edit Profile</Text>
               </TouchableOpacity>
               {/* Removed duplicate Logout; standardized to header-right */}
@@ -2574,6 +2757,42 @@ export default function ManageTransporterScreen({ route }: any) {
           {/* Contact Verification Section */}
           <View style={[styles.card, { marginBottom: 12 }]}>
             <Text style={styles.sectionTitle}>Contact Verification</Text>
+            
+            {/* Note about generated contacts */}
+            {((userProfile?.email && isGeneratedEmail(userProfile.email)) || (userProfile?.phone && isGeneratedPhone(userProfile.phone))) && (
+              <View style={{ backgroundColor: colors.warningLight, padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <Ionicons name="information-circle" size={18} color={colors.warning} style={{ marginRight: 8, marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.warning, fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
+                      Update Your Contact Information
+                    </Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 12, lineHeight: 18 }}>
+                      {isGeneratedEmail(userProfile?.email) && isGeneratedPhone(userProfile?.phone)
+                        ? "Both your email and phone were auto-generated during signup. Please update them with your correct information before verifying."
+                        : isGeneratedEmail(userProfile?.email)
+                        ? "Your email was auto-generated during signup. Please update it to your actual email address before verifying."
+                        : "Your phone number was auto-generated during signup. Please update it to your actual phone number before verifying."}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      style={{ marginTop: 8 }}
+                    >
+                      <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>
+                        Update Contact Info →
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+            
             <View style={{ marginBottom: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                 <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Email</Text>
@@ -2595,18 +2814,40 @@ export default function ManageTransporterScreen({ route }: any) {
                 </View>
               </View>
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
-                {individualProfile?.email || 'No email set'}
+                {userProfile?.email || individualProfile?.email || 'No email set'}
               </Text>
+              {isGeneratedEmail(userProfile?.email || individualProfile?.email) && (
+                <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                  This email is auto-generated. Please update it before verifying.
+                </Text>
+              )}
               {!userProfile?.emailVerified && (
                 <TouchableOpacity
-                  style={styles.verifyButton}
-                  onPress={handleVerifyEmail}
-                  disabled={verifyingEmail}
+                  style={[styles.verifyButton, isGeneratedEmail(userProfile?.email || individualProfile?.email) && styles.verifyButtonDisabled]}
+                  onPress={() => {
+                    if (isGeneratedEmail(userProfile?.email || individualProfile?.email)) {
+                      Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Update Now', onPress: () => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      ]);
+                      return;
+                    }
+                    handleVerifyEmail();
+                  }}
+                  disabled={verifyingEmail || isGeneratedEmail(userProfile?.email || individualProfile?.email)}
                 >
                   {verifyingEmail ? (
                     <ActivityIndicator size="small" color={colors.white} />
                   ) : (
-                    <Text style={styles.verifyButtonText}>Verify Email</Text>
+                    <Text style={[styles.verifyButtonText, isGeneratedEmail(userProfile?.email || individualProfile?.email) && { color: colors.text.light }]}>
+                      Verify Email
+                    </Text>
                   )}
                 </TouchableOpacity>
               )}
@@ -2633,18 +2874,40 @@ export default function ManageTransporterScreen({ route }: any) {
                 </View>
               </View>
               <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
-                {userProfile?.phoneNumber || individualProfile?.phoneNumber || 'No phone set'}
+                {userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber || 'No phone set'}
               </Text>
+              {isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber) && (
+                <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                  This phone number is auto-generated. Please update it before verifying.
+                </Text>
+              )}
               {!userProfile?.phoneVerified && (
                 <TouchableOpacity
-                  style={styles.verifyButton}
-                  onPress={handleVerifyPhone}
-                  disabled={verifyingPhone}
+                  style={[styles.verifyButton, isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber) && styles.verifyButtonDisabled]}
+                  onPress={() => {
+                    if (isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber)) {
+                      Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Update Now', onPress: () => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      ]);
+                      return;
+                    }
+                    handleVerifyPhone();
+                  }}
+                  disabled={verifyingPhone || isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber)}
                 >
                   {verifyingPhone ? (
                     <ActivityIndicator size="small" color={colors.white} />
                   ) : (
-                    <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                    <Text style={[styles.verifyButtonText, isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber) && { color: colors.text.light }]}>
+                      Verify Phone
+                    </Text>
                   )}
                 </TouchableOpacity>
               )}
@@ -3023,7 +3286,26 @@ export default function ManageTransporterScreen({ route }: any) {
 const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: colors.background },
   container: { padding: 18, paddingBottom: 40 },
-  title: { fontSize: 22, fontWeight: 'bold', color: colors.primaryDark, marginBottom: 18, textAlign: 'center' },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+    paddingHorizontal: 4,
+  },
+  title: { fontSize: 22, fontWeight: 'bold', color: colors.primaryDark, flex: 1 },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  logoutButtonText: {
+    color: colors.error,
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 4,
+  },
   card: { backgroundColor: colors.white, borderRadius: 14, padding: 16, marginBottom: 16, elevation: 1 },
   sectionTitle: { fontSize: 17, fontWeight: 'bold', color: colors.secondary, marginBottom: 8 },
   value: { fontSize: 15, color: colors.text.primary, marginBottom: 2 },
@@ -3126,6 +3408,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     alignItems: 'center',
     marginTop: 8,
+  },
+  verifyButtonDisabled: {
+    backgroundColor: colors.background,
+    opacity: 0.6,
   },
   verifyButtonText: {
     color: colors.white,

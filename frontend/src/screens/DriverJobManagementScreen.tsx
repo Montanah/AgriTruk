@@ -846,7 +846,7 @@ const DriverJobManagementScreen = () => {
           </Text>
         </View>
         <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
+          <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
           <Text style={styles.detailText}>
             Payment: KES {Number(item.cost || item.price || item.estimatedCost || item.paymentAmount || item.estimatedValue || 0).toLocaleString('en-KE')}
           </Text>

@@ -217,7 +217,7 @@ const BookingListScreen = () => {
         </View>
 
         <View style={styles.detailRow}>
-          <MaterialCommunityIcons name="currency-usd" size={16} color={colors.text.secondary} />
+          <MaterialCommunityIcons name="cash" size={16} color={colors.text.secondary} />
           <Text style={styles.detailText}>{item.estimatedCost}</Text>
         </View>
       </View>

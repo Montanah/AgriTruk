@@ -355,7 +355,7 @@ const ShipmentManagementScreen = () => {
           </View>
 
           <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="currency-usd" size={20} color={colors.tertiary} />
+            <MaterialCommunityIcons name="cash" size={20} color={colors.tertiary} />
             <View style={styles.detailText}>
               <Text style={styles.detailLabel}>Payment</Text>
               <Text style={styles.detailValue}>

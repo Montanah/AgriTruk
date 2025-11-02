@@ -371,7 +371,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             {/* Shipping Cost - Always use backend-calculated cost: cost > price > estimatedCost */}
             {(item.cost || item.price || item.estimatedCost) && (
                 <View style={styles.costInfo}>
-                    <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
+                    <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
                     <Text style={styles.costLabel}>Shipping Cost:</Text>
                     <Text style={styles.costValue}>
                         KES {Number(item.cost || item.price || item.estimatedCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

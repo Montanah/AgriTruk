@@ -989,7 +989,7 @@ const TransporterBookingManagementScreen = () => {
                     <Text style={styles.cargoText}>{item.weight}</Text>
                 </View>
                 <View style={styles.cargoItem}>
-                    <MaterialCommunityIcons name="currency-usd" size={14} color={colors.text.secondary} />
+                    <MaterialCommunityIcons name="cash" size={14} color={colors.text.secondary} />
                     <Text style={styles.cargoText}>Ksh {item.estimatedValue?.toLocaleString() || '0'}</Text>
                 </View>
             </View>
@@ -1235,7 +1235,7 @@ const TransporterBookingManagementScreen = () => {
                     <Text style={styles.cargoText}>{item.route.distance}</Text>
                 </View>
                 <View style={styles.cargoItem}>
-                    <MaterialCommunityIcons name="currency-usd" size={14} color={colors.text.secondary} />
+                    <MaterialCommunityIcons name="cash" size={14} color={colors.text.secondary} />
                     <Text style={styles.cargoText}>Ksh {item.price.toLocaleString()}</Text>
                 </View>
             </View>

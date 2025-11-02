@@ -333,8 +333,8 @@ const CompanyDashboardScreen = () => {
             )}
             {renderStatCard(
               'This Month',
-              `$${stats.thisMonthEarnings.toLocaleString()}`,
-              'currency-usd',
+              `KES ${stats.thisMonthEarnings.toLocaleString()}`,
+              'cash-multiple',
               colors.success
             )}
           </View>

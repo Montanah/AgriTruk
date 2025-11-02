@@ -172,7 +172,7 @@ const BrokerPerformanceAnalyticsScreen = ({ navigation }: BrokerPerformanceAnaly
             <Text style={styles.sectionTitle}>Earnings</Text>
             <View style={styles.earningsCard}>
               <View style={styles.earningsHeader}>
-                <MaterialCommunityIcons name="currency-usd" size={32} color={colors.success} />
+                <MaterialCommunityIcons name="cash-multiple" size={32} color={colors.success} />
                 <View>
                   <Text style={styles.earningsLabel}>Total Earnings</Text>
                   <Text style={styles.earningsAmount}>KES {stats.totalEarnings.toLocaleString()}</Text>

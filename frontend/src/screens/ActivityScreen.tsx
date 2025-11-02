@@ -439,7 +439,7 @@ const ActivityScreen = () => {
             <Text style={styles.cargoValue}>{item.vehicleType}</Text>
           </View>
           <View style={styles.cargoItem}>
-            <MaterialCommunityIcons name="currency-usd" size={20} color={colors.primary} />
+            <MaterialCommunityIcons name="cash" size={20} color={colors.primary} />
             <Text style={styles.cargoLabel}>Cost</Text>
             <Text style={styles.cargoValue}>
               {!item.estimatedCost || item.estimatedCost === 'TBD' || item.estimatedCost === 'Unknown' || item.estimatedCost === 0 ? 'TBD' : 

@@ -270,7 +270,7 @@ class PaymentService {
   async processTestCharge(
     paymentMethodId: string,
     amount: number,
-    currency: string = 'USD'
+    currency: string = 'KES'
   ): Promise<PaymentResult> {
     try {
       const token = await this.getAuthToken();
@@ -573,8 +573,8 @@ class PaymentService {
   /**
    * Format amount for display
    */
-  formatAmount(amount: number, currency: string = 'USD'): string {
-    const formatter = new Intl.NumberFormat('en-US', {
+  formatAmount(amount: number, currency: string = 'KES'): string {
+    const formatter = new Intl.NumberFormat('en-KE', {
       style: 'currency',
       currency: currency,
       minimumFractionDigits: 2,

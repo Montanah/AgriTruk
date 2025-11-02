@@ -177,7 +177,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
             const paymentData = {
                 planId: plan.id,
                 amount: getTotalAmount(),
-                currency: 'USD',
+                currency: 'KES',
                 isTrial: false,
                 autoRenew: true,
             };

@@ -121,7 +121,7 @@ const SubscriptionTrialScreenEnhanced: React.FC<SubscriptionTrialScreenProps> = 
                 cardType: cardData.type,
                 paymentMethod: 'stripe',
                 amount: 1, // $1 test charge
-                currency: 'USD',
+                currency: 'KES',
                 userType,
                 transporterType,
             };

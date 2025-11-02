@@ -49,7 +49,7 @@ const FleetReportsScreen = () => {
       id: 'financial',
       title: 'Financial Report',
       description: 'Revenue, costs, and profitability analysis',
-      icon: 'currency-usd',
+      icon: 'cash-multiple',
       color: colors.success,
     },
     {

@@ -78,6 +78,19 @@ const BusinessProfileScreen = ({ navigation }: any) => {
   // Image picker modal state
   const [imagePickerVisible, setImagePickerVisible] = useState(false);
 
+  // Utility functions for generated values (same as BrokerProfileScreen)
+  const isGeneratedPhone = (value?: string) => {
+    if (!value) return false;
+    // Check for patterns like +254000... or placeholder phones
+    return /^\+2540{4,}/.test(value.trim()) || value.includes('0000000');
+  };
+  
+  const isGeneratedEmail = (value?: string) => {
+    if (!value) return false;
+    // Check for patterns like @trukapp.generated, @generated, or userXXX@
+    return /@trukapp\.generated$|@generated($|\.)|^user\d+@/i.test(value);
+  };
+
   // Determine primary contact method based on verification status
   const getPrimaryContactMethod = () => {
     if (!editData) return 'phone';
@@ -374,10 +387,21 @@ const BusinessProfileScreen = ({ navigation }: any) => {
 
   // Verification functions
   const handleVerifyEmail = async () => {
-    if (!auth.currentUser?.email) {
-      Alert.alert('Error', 'No email address found.');
+    const emailToVerify = editData?.email || auth.currentUser?.email;
+    if (!emailToVerify) {
+      Alert.alert('Error', 'No email address found. Please add an email address in your profile.');
       return;
     }
+    
+    // Check if email is generated
+    if (isGeneratedEmail(emailToVerify)) {
+      Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Update Now', onPress: () => setEditing(true) }
+      ]);
+      return;
+    }
+    
     if (editData.emailVerified) {
       Alert.alert('Already Verified', 'Your email is already verified. You can use it to log in.');
       return;
@@ -390,7 +414,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-email-code',
-          email: auth.currentUser.email
+          email: emailToVerify
         }),
       });
 
@@ -418,10 +442,21 @@ const BusinessProfileScreen = ({ navigation }: any) => {
   };
 
   const handleVerifyPhone = async () => {
-    if (!editData?.phone) {
-      Alert.alert('Error', 'No phone number found.');
+    const phoneToVerify = editData?.phone;
+    if (!phoneToVerify) {
+      Alert.alert('Error', 'No phone number found. Please add a phone number in your profile.');
       return;
     }
+    
+    // Check if phone is generated
+    if (isGeneratedPhone(phoneToVerify)) {
+      Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Update Now', onPress: () => setEditing(true) }
+      ]);
+      return;
+    }
+    
     if (editData.phoneVerified) {
       Alert.alert('Already Verified', 'Your phone is already verified. You can use it to log in.');
       return;
@@ -434,7 +469,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-phone-code',
-          phoneNumber: editData?.phone
+          phoneNumber: phoneToVerify
         }),
       });
 
@@ -772,6 +807,35 @@ const BusinessProfileScreen = ({ navigation }: any) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Verification Status</Text>
           <View style={styles.card}>
+            {/* Note about generated contacts */}
+            {((editData?.email && isGeneratedEmail(editData.email)) || (editData?.phone && isGeneratedPhone(editData.phone))) && (
+              <View style={{ backgroundColor: colors.warningLight || '#FFF3CD', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <Ionicons name="information-circle" size={18} color={colors.warning || '#FFC107'} style={{ marginRight: 8, marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.warning || '#FFC107', fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
+                      Update Your Contact Information
+                    </Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 12, lineHeight: 18 }}>
+                      {isGeneratedEmail(editData?.email) && isGeneratedPhone(editData?.phone)
+                        ? "Both your email and phone were auto-generated during signup. Please update them with your correct information before verifying."
+                        : isGeneratedEmail(editData?.email)
+                        ? "Your email was auto-generated during signup. Please update it to your actual email address before verifying."
+                        : "Your phone number was auto-generated during signup. Please update it to your actual phone number before verifying."}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setEditing(true)}
+                      style={{ marginTop: 8 }}
+                    >
+                      <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>
+                        Update Contact Info →
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {/* Show preferred verification method */}
             <View style={styles.preferredMethod}>
               <Text style={styles.preferredMethodText}>
@@ -828,28 +892,50 @@ const BusinessProfileScreen = ({ navigation }: any) => {
             {/* Show verification buttons only for unverified methods */}
             {!editData.emailVerified && (
               <TouchableOpacity
-                style={styles.verifyButton}
-                onPress={handleVerifyEmail}
-                disabled={verifyingEmail}
+                style={[styles.verifyButton, isGeneratedEmail(editData.email) && { backgroundColor: colors.background, opacity: 0.6 }]}
+                onPress={() => {
+                  if (isGeneratedEmail(editData.email)) {
+                    Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Update Now', onPress: () => setEditing(true) }
+                    ]);
+                    return;
+                  }
+                  handleVerifyEmail();
+                }}
+                disabled={verifyingEmail || isGeneratedEmail(editData.email)}
               >
                 {verifyingEmail ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
-                  <Text style={styles.verifyButtonText}>Verify Email</Text>
+                  <Text style={[styles.verifyButtonText, isGeneratedEmail(editData.email) && { color: colors.text.light }]}>
+                    Verify Email
+                  </Text>
                 )}
               </TouchableOpacity>
             )}
 
             {!editData.phoneVerified && (
               <TouchableOpacity
-                style={styles.verifyButton}
-                onPress={handleVerifyPhone}
-                disabled={verifyingPhone}
+                style={[styles.verifyButton, isGeneratedPhone(editData.phone) && { backgroundColor: colors.background, opacity: 0.6 }]}
+                onPress={() => {
+                  if (isGeneratedPhone(editData.phone)) {
+                    Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Update Now', onPress: () => setEditing(true) }
+                    ]);
+                    return;
+                  }
+                  handleVerifyPhone();
+                }}
+                disabled={verifyingPhone || isGeneratedPhone(editData.phone)}
               >
                 {verifyingPhone ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
-                  <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                  <Text style={[styles.verifyButtonText, isGeneratedPhone(editData.phone) && { color: colors.text.light }]}>
+                    Verify Phone
+                  </Text>
                 )}
               </TouchableOpacity>
             )}

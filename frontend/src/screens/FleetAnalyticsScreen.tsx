@@ -250,13 +250,13 @@ const FleetAnalyticsScreen = () => {
           <View style={styles.statsGrid}>
             <StatCard
               title="Monthly Revenue"
-              value={`$${stats.monthlyRevenue.toLocaleString()}`}
-              icon="currency-usd"
+              value={`KES ${stats.monthlyRevenue.toLocaleString()}`}
+              icon="cash-multiple"
               color={colors.success}
             />
             <StatCard
               title="Average Job Value"
-              value={`$${stats.averageJobValue.toLocaleString()}`}
+              value={`KES ${stats.averageJobValue.toLocaleString()}`}
               icon="chart-bar"
               color={colors.primary}
             />

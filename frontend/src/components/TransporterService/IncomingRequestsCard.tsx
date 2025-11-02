@@ -299,7 +299,7 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                     </View>
                 )}
                 <View style={styles.cargoItem}>
-                    <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
+                    <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
                     <Text style={styles.costText}>
                       KES {(item.estimatedValue || item.paymentAmount || item.cost || item.pricing?.total || 0).toLocaleString('en-KE')}
                     </Text>

@@ -350,7 +350,7 @@ const DriverConsolidationScreen = () => {
                             <Text style={styles.routeInfoText}>{Math.round(consolidatedRoute.totalDuration / 60)}min</Text>
                         </View>
                         <View style={styles.routeInfoItem}>
-                            <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
+                            <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
                             <Text style={styles.routeInfoText}>KSh {consolidatedRoute.totalEarnings.toLocaleString()}</Text>
                         </View>
                     </View>

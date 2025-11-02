@@ -70,7 +70,7 @@ const RATING_CATEGORIES: Record<RatingCategory, {
   value_for_money: {
     label: 'Value for Money',
     description: 'Was it worth the price?',
-    icon: 'currency-usd',
+    icon: 'cash',
   },
 };
 

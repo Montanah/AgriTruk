@@ -94,6 +94,19 @@ const AccountScreen = () => {
 
   const primaryContactMethod = getPrimaryContactMethod();
 
+  // Utility functions for generated values (same as BrokerProfileScreen)
+  const isGeneratedPhone = (value?: string) => {
+    if (!value) return false;
+    // Check for patterns like +254000... or placeholder phones
+    return /^\+2540{4,}/.test(value.trim()) || value.includes('0000000');
+  };
+  
+  const isGeneratedEmail = (value?: string) => {
+    if (!value) return false;
+    // Check for patterns like @trukapp.generated, @generated, or userXXX@
+    return /@trukapp\.generated$|@generated($|\.)|^user\d+@/i.test(value);
+  };
+
   const handleChangePrimaryContact = async (newMethod: 'email' | 'phone') => {
     if (!user?.uid || !profile) return;
 
@@ -357,10 +370,21 @@ const AccountScreen = () => {
   };
 
   const handleVerifyEmail = async () => {
-    if (!user?.email) {
-      Alert.alert('Error', 'No email address found.');
+    const emailToVerify = profile?.email || editData.email || user?.email;
+    if (!emailToVerify) {
+      Alert.alert('Error', 'No email address found. Please add an email address in your profile.');
       return;
     }
+    
+    // Check if email is generated
+    if (isGeneratedEmail(emailToVerify)) {
+      Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Update Now', onPress: () => setEditing(true) }
+      ]);
+      return;
+    }
+    
     if (profile?.emailVerified) {
       Alert.alert('Already Verified', 'Your email is already verified. You can use it to log in.');
       return;
@@ -373,7 +397,7 @@ const AccountScreen = () => {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-email-code',
-          email: user.email
+          email: emailToVerify
         }),
       });
 
@@ -401,10 +425,21 @@ const AccountScreen = () => {
   };
 
   const handleVerifyPhone = async () => {
-    if (!profile?.phone) {
-      Alert.alert('Error', 'No phone number found.');
+    const phoneToVerify = profile?.phone || editData.phone;
+    if (!phoneToVerify) {
+      Alert.alert('Error', 'No phone number found. Please add a phone number in your profile.');
       return;
     }
+    
+    // Check if phone is generated
+    if (isGeneratedPhone(phoneToVerify)) {
+      Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Update Now', onPress: () => setEditing(true) }
+      ]);
+      return;
+    }
+    
     if (profile?.phoneVerified) {
       Alert.alert('Already Verified', 'Your phone is already verified. You can use it to log in.');
       return;
@@ -417,7 +452,7 @@ const AccountScreen = () => {
         method: 'POST',
         body: JSON.stringify({
           action: 'resend-phone-code',
-          phoneNumber: profile?.phone
+          phoneNumber: phoneToVerify
         }),
       });
 
@@ -583,6 +618,35 @@ const AccountScreen = () => {
         <View style={styles.verificationSection}>
           <Text style={styles.sectionTitle}>Verification Status</Text>
 
+          {/* Note about generated contacts */}
+          {((profile?.email && isGeneratedEmail(profile.email)) || (profile?.phone && isGeneratedPhone(profile.phone))) && (
+            <View style={{ backgroundColor: colors.warningLight || '#FFF3CD', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                <Ionicons name="information-circle" size={18} color={colors.warning || '#FFC107'} style={{ marginRight: 8, marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.warning || '#FFC107', fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
+                    Update Your Contact Information
+                  </Text>
+                  <Text style={{ color: colors.text.secondary, fontSize: 12, lineHeight: 18 }}>
+                    {isGeneratedEmail(profile?.email) && isGeneratedPhone(profile?.phone)
+                      ? "Both your email and phone were auto-generated during signup. Please update them with your correct information before verifying."
+                      : isGeneratedEmail(profile?.email)
+                      ? "Your email was auto-generated during signup. Please update it to your actual email address before verifying."
+                      : "Your phone number was auto-generated during signup. Please update it to your actual phone number before verifying."}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setEditing(true)}
+                    style={{ marginTop: 8 }}
+                  >
+                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>
+                      Update Contact Info →
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+
           {/* Show preferred verification method */}
           <View style={styles.preferredMethod}>
             <Text style={styles.preferredMethodText}>
@@ -629,28 +693,50 @@ const AccountScreen = () => {
           {/* Show verification buttons only for unverified methods */}
           {!profile.emailVerified && (
             <TouchableOpacity
-              style={styles.verifyButton}
-              onPress={handleVerifyEmail}
-              disabled={verifyingEmail}
+              style={[styles.verifyButton, isGeneratedEmail(profile.email) && { backgroundColor: colors.background, opacity: 0.6 }]}
+              onPress={() => {
+                if (isGeneratedEmail(profile.email)) {
+                  Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Update Now', onPress: () => setEditing(true) }
+                  ]);
+                  return;
+                }
+                handleVerifyEmail();
+              }}
+              disabled={verifyingEmail || isGeneratedEmail(profile.email)}
             >
               {verifyingEmail ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <Text style={styles.verifyButtonText}>Verify Email</Text>
+                <Text style={[styles.verifyButtonText, isGeneratedEmail(profile.email) && { color: colors.text.light }]}>
+                  Verify Email
+                </Text>
               )}
             </TouchableOpacity>
           )}
 
           {!profile.phoneVerified && (
             <TouchableOpacity
-              style={styles.verifyButton}
-              onPress={handleVerifyPhone}
-              disabled={verifyingPhone}
+              style={[styles.verifyButton, isGeneratedPhone(profile.phone) && { backgroundColor: colors.background, opacity: 0.6 }]}
+              onPress={() => {
+                if (isGeneratedPhone(profile.phone)) {
+                  Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Update Now', onPress: () => setEditing(true) }
+                  ]);
+                  return;
+                }
+                handleVerifyPhone();
+              }}
+              disabled={verifyingPhone || isGeneratedPhone(profile.phone)}
             >
               {verifyingPhone ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                <Text style={[styles.verifyButtonText, isGeneratedPhone(profile.phone) && { color: colors.text.light }]}>
+                  Verify Phone
+                </Text>
               )}
             </TouchableOpacity>
           )}

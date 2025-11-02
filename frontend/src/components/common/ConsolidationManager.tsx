@@ -225,7 +225,7 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
           </View>
           
           <View style={styles.valueInfo}>
-            <MaterialCommunityIcons name="currency-usd" size={16} color={colors.success} />
+            <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
             <Text style={styles.valueText}>KES {item.estimatedValue?.toLocaleString() || 'N/A'}</Text>
           </View>
         </View>
