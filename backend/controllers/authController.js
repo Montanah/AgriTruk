@@ -924,12 +924,12 @@ exports.registerUserFromBackend = async (req, res) => {
     }
 
     // 🔹 Step 1: Check if email/phone already exists in Firestore
-    const existingUserDoc = await User.getByEmail(email);
+    const existingUserDoc = await User.getUserByEmail(email);
     if (existingUserDoc) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
-    const existingUserDocByPhone = await User.getByPhone(phone);
+    const existingUserDocByPhone = await User.getUserByPhone(phone);
     if (existingUserDocByPhone) {
       return res.status(409).json({ message: "Phone already registered" });
     }
