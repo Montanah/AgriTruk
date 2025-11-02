@@ -22,6 +22,7 @@ import spacing from '../../constants/spacing';
 import { unifiedBookingService, UnifiedBooking, BookingFilters } from '../../services/unifiedBookingService';
 import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
 import { getReadableLocationName } from '../../utils/locationUtils';
+import { useConsolidations } from '../../context/ConsolidationContext';
 
 interface ConsolidationManagerProps {
   userRole: 'broker' | 'business';
@@ -48,6 +49,7 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
   onConsolidationComplete,
   clientId,
 }) => {
+  const { consolidations: contextConsolidations } = useConsolidations();
   const [availableRequests, setAvailableRequests] = useState<UnifiedBooking[]>([]);
   const [consolidatedRequests, setConsolidatedRequests] = useState<UnifiedBooking[]>([]);
   const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
@@ -73,7 +75,32 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
     try {
       setLoading(true);
       
-      // Load all bookings (pending for consolidation + already consolidated)
+      // Convert consolidation context items to UnifiedBooking format
+      const contextItems: UnifiedBooking[] = contextConsolidations.map((consolidation, index) => ({
+        id: consolidation.id || `temp-consolidation-${index}`,
+        readableId: consolidation.id,
+        fromLocation: typeof consolidation.fromLocation === 'string' 
+          ? consolidation.fromLocation 
+          : consolidation.fromLocationAddress || 'Unknown',
+        toLocation: typeof consolidation.toLocation === 'string' 
+          ? consolidation.toLocation 
+          : consolidation.toLocationAddress || 'Unknown',
+        fromLocationAddress: typeof consolidation.fromLocation === 'string' 
+          ? consolidation.fromLocation 
+          : consolidation.fromLocationAddress,
+        toLocationAddress: typeof consolidation.toLocation === 'string' 
+          ? consolidation.toLocation 
+          : consolidation.toLocationAddress,
+        productType: consolidation.productType || 'N/A',
+        weight: consolidation.weight || '0kg',
+        estimatedValue: 0, // Will be calculated
+        type: consolidation.type === 'agriTRUK' ? 'agri' : 'cargo',
+        status: 'pending',
+        isContextConsolidation: true, // Flag to identify context items
+        createdAt: consolidation.date || new Date().toISOString(),
+      }));
+      
+      // Load all bookings from backend (pending for consolidation + already consolidated)
       const filters: BookingFilters = {
         // Don't filter by status to get all bookings including consolidated ones
         clientId: clientId, // For broker client-specific consolidation
@@ -81,17 +108,48 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
       
       const allRequests = await unifiedBookingService.getBookings(userRole, filters);
       
-      // Separate available (pending, not consolidated) and already consolidated requests
-      const availableRequests = allRequests.filter(req => 
-        !req.isConsolidated && (req.status === 'pending' || !req.status)
+      // Combine context consolidations with backend requests (avoid duplicates)
+      const contextIds = new Set(contextItems.map(item => item.id));
+      const backendAvailable = allRequests.filter(req => 
+        !req.isConsolidated && 
+        (req.status === 'pending' || !req.status) &&
+        !contextIds.has(req.id) // Don't duplicate items already in context
       );
+      
+      // Separate available (pending, not consolidated) and already consolidated requests
+      const availableRequests = [...contextItems, ...backendAvailable];
       const consolidatedRequests = allRequests.filter(req => req.isConsolidated);
       
       setAvailableRequests(availableRequests);
       setConsolidatedRequests(consolidatedRequests);
     } catch (error) {
       console.error('Error loading available requests:', error);
-      Alert.alert('Error', 'Failed to load available requests');
+      // Even if backend fails, show context consolidations
+      const contextItems: UnifiedBooking[] = contextConsolidations.map((consolidation, index) => ({
+        id: consolidation.id || `temp-consolidation-${index}`,
+        readableId: consolidation.id,
+        fromLocation: typeof consolidation.fromLocation === 'string' 
+          ? consolidation.fromLocation 
+          : consolidation.fromLocationAddress || 'Unknown',
+        toLocation: typeof consolidation.toLocation === 'string' 
+          ? consolidation.toLocation 
+          : consolidation.toLocationAddress || 'Unknown',
+        fromLocationAddress: typeof consolidation.fromLocation === 'string' 
+          ? consolidation.fromLocation 
+          : consolidation.fromLocationAddress,
+        toLocationAddress: typeof consolidation.toLocation === 'string' 
+          ? consolidation.toLocation 
+          : consolidation.toLocationAddress,
+        productType: consolidation.productType || 'N/A',
+        weight: consolidation.weight || '0kg',
+        estimatedValue: 0,
+        type: consolidation.type === 'agriTRUK' ? 'agri' : 'cargo',
+        status: 'pending',
+        isContextConsolidation: true,
+        createdAt: consolidation.date || new Date().toISOString(),
+      }));
+      setAvailableRequests(contextItems);
+      setConsolidatedRequests([]);
     } finally {
       setLoading(false);
     }

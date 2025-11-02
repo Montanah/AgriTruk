@@ -14,7 +14,6 @@ import { apiRequest } from '../../utils/api';
 import { getReadableLocationName, formatRoute } from '../../utils/locationUtils';
 import { unifiedBookingService, UnifiedBooking, BookingFilters } from '../../services/unifiedBookingService';
 import ConsolidationManager from '../../components/common/ConsolidationManager';
-import { useConsolidations } from '../../context/ConsolidationContext';
 
 // Real API integration - no mock data
 
@@ -22,11 +21,10 @@ import { useConsolidations } from '../../context/ConsolidationContext';
 type RequestItem = UnifiedBooking;
 
 const BusinessManageScreen = ({ navigation }: any) => {
-  const [activeTab, setActiveTab] = useState('all'); // all, instant, booking, consolidation
+  const [activeTab, setActiveTab] = useState('all'); // all, instant, booking
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showConsolidationModal, setShowConsolidationModal] = useState(false);
-  const { consolidations } = useConsolidations();
 
   useEffect(() => {
     fetchRequests();
@@ -54,34 +52,6 @@ const BusinessManageScreen = ({ navigation }: any) => {
 
   const getFilteredRequests = () => {
     if (!Array.isArray(requests)) return [];
-    if (activeTab === 'consolidation') {
-      // Return consolidation items from context, converted to display format
-      return consolidations.map((consolidation, index) => ({
-        id: consolidation.id || `temp-consolidation-${index}`,
-        readableId: consolidation.id,
-        fromLocation: typeof consolidation.fromLocation === 'string' 
-          ? consolidation.fromLocation 
-          : consolidation.fromLocationAddress || 'Unknown',
-        toLocation: typeof consolidation.toLocation === 'string' 
-          ? consolidation.toLocation 
-          : consolidation.toLocationAddress || 'Unknown',
-        fromLocationAddress: typeof consolidation.fromLocation === 'string' 
-          ? consolidation.fromLocation 
-          : consolidation.fromLocationAddress,
-        toLocationAddress: typeof consolidation.toLocation === 'string' 
-          ? consolidation.toLocation 
-          : consolidation.toLocationAddress,
-        productType: consolidation.productType || 'N/A',
-        weight: consolidation.weight || '0kg',
-        weightKg: parseFloat(consolidation.weight) || 0,
-        type: consolidation.type === 'agriTRUK' ? 'agri' : 'cargo',
-        requestType: consolidation.requestType || 'booking',
-        date: consolidation.date || '',
-        status: 'pending',
-        isConsolidationItem: true, // Flag to identify consolidation items
-        createdAt: consolidation.date || new Date().toISOString(),
-      })) as RequestItem[];
-    }
     if (activeTab === 'all') return requests;
     return requests.filter(req => req && req.type === activeTab);
   };
@@ -399,21 +369,6 @@ const BusinessManageScreen = ({ navigation }: any) => {
         >
           <Text style={[styles.tabText, activeTab === 'booking' && styles.activeTabText]}>Bookings</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'consolidation' && styles.activeTab]}
-          onPress={() => setActiveTab('consolidation')}
-        >
-          <MaterialCommunityIcons 
-            name="layers" 
-            size={16} 
-            color={activeTab === 'consolidation' ? colors.white : colors.text.secondary} 
-            style={{ marginRight: 4 }}
-          />
-          <Text style={[styles.tabText, activeTab === 'consolidation' && styles.activeTabText]}>
-            Consolidation
-            {consolidations.length > 0 && ` (${consolidations.length})`}
-          </Text>
-        </TouchableOpacity>
       </View>
 
 
@@ -431,8 +386,6 @@ const BusinessManageScreen = ({ navigation }: any) => {
             <Text style={styles.emptySubtitle}>
               {activeTab === 'all'
                 ? 'Create your first business request or consolidate multiple requests to get started'
-                : activeTab === 'consolidation'
-                ? 'Add requests to consolidation from the request form to see them here'
                 : `No ${activeTab} business requests available`
               }
             </Text>
@@ -539,17 +492,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    flexWrap: 'wrap',
   },
   tab: {
     flex: 1,
-    minWidth: '22%',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.md,
     borderRadius: 8,
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
   },
   activeTab: {
     backgroundColor: colors.primary,
