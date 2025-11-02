@@ -348,17 +348,10 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
         
         return {
             id: readableId,
-            // Preserve exact addresses for consolidation
-            fromLocation: fromLocationCoords ? {
-              latitude: fromLocationCoords.latitude,
-              longitude: fromLocationCoords.longitude,
-              address: fromLocationAddress || fromLocation
-            } : fromLocation,
-            toLocation: toLocationCoords ? {
-              latitude: toLocationCoords.latitude,
-              longitude: toLocationCoords.longitude,
-              address: toLocationAddress || toLocation
-            } : toLocation,
+            // Always use string addresses for consolidation (never objects)
+            // Store the address string for display, and coords separately if needed
+            fromLocation: fromLocationAddress || fromLocation,
+            toLocation: toLocationAddress || toLocation,
             fromLocationAddress: fromLocationAddress || fromLocation,
             toLocationAddress: toLocationAddress || toLocation,
             productType,
@@ -1137,19 +1130,29 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                 </View>
 
                                 <View style={styles.consolidationList}>
-                                    {consolidations.slice(0, 3).map((item, index) => (
-                                        <View key={item.id} style={styles.consolidationItem}>
-                                            <Text style={styles.consolidationItemText}>
-                                                {item.fromLocation} → {item.toLocation} ({item.productType}, {item.weight})
-                                                {item.isRecurring && (
-                                                    <Text style={styles.recurringBadge}> 🔄 Recurring</Text>
-                                                )}
-                                            </Text>
-                                            <TouchableOpacity onPress={() => removeConsolidation(item.id!)}>
-                                                <Ionicons name="close-circle" size={20} color={colors.error} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ))}
+                                    {consolidations.slice(0, 3).map((item, index) => {
+                                        // Safely extract location strings (handle both strings and objects)
+                                        const fromLoc = typeof item.fromLocation === 'string' 
+                                            ? item.fromLocation 
+                                            : (item.fromLocation?.address || item.fromLocationAddress || 'Unknown');
+                                        const toLoc = typeof item.toLocation === 'string' 
+                                            ? item.toLocation 
+                                            : (item.toLocation?.address || item.toLocationAddress || 'Unknown');
+                                        
+                                        return (
+                                            <View key={item.id} style={styles.consolidationItem}>
+                                                <Text style={styles.consolidationItemText}>
+                                                    {fromLoc} → {toLoc} ({item.productType}, {item.weight})
+                                                    {item.isRecurring && (
+                                                        <Text style={styles.recurringBadge}> 🔄 Recurring</Text>
+                                                    )}
+                                                </Text>
+                                                <TouchableOpacity onPress={() => removeConsolidation(item.id!)}>
+                                                    <Ionicons name="close-circle" size={20} color={colors.error} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        );
+                                    })}
                                     {consolidations.length > 3 && (
                                         <Text style={styles.moreText}>+{consolidations.length - 3} more</Text>
                                     )}

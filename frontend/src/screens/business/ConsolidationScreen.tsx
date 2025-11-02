@@ -86,6 +86,15 @@ const ConsolidationScreen = ({ navigation }: any) => {
 
   const renderConsolidation = ({ item }: any) => {
     const selected = selectedIds.includes(item.id);
+    
+    // Safely extract location strings (handle both strings and objects)
+    const fromLoc = typeof item.fromLocation === 'string' 
+      ? item.fromLocation 
+      : (item.fromLocation?.address || item.fromLocationAddress || 'Unknown');
+    const toLoc = typeof item.toLocation === 'string' 
+      ? item.toLocation 
+      : (item.toLocation?.address || item.toLocationAddress || 'Unknown');
+    
     return (
       <TouchableOpacity
         style={[styles.itemRow, selected && styles.selectedRow]}
@@ -103,7 +112,7 @@ const ConsolidationScreen = ({ navigation }: any) => {
               />
               <Text style={styles.itemId}>Request ID: {getDisplayBookingId(item)}</Text>
             </View>
-            <Text style={styles.itemRoute}>{item.fromLocation} → {item.toLocation}</Text>
+            <Text style={styles.itemRoute}>{fromLoc} → {toLoc}</Text>
             <Text style={styles.itemMeta}>{item.productType} | {item.weight}kg | {item.requestType === 'instant' ? 'Instant' : 'Booking'}</Text>
           </View>
           <View style={styles.statusWrap}>
