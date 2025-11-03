@@ -379,6 +379,7 @@ exports.updateUser = async (req, res) => {
       name,
       phone,
       email,
+      email,
       role,
       location,
       userType,
@@ -395,6 +396,17 @@ exports.updateUser = async (req, res) => {
 
     const updatedUser = await User.update(uid, updates);
 
+    if (email || phone ) {
+      const updateFirebaseUser = {
+        email,
+        phoneNumber: phone,
+      };
+      try {
+        await admin.auth().updateUser(uid, updateFirebaseUser);
+      } catch (error) {
+        console.error("Firebase user update error:", error);
+      }
+    }
     if (email || phone ) {
       const updateFirebaseUser = {
         email,
