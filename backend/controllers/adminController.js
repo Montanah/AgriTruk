@@ -1057,3 +1057,28 @@ exports.markAsResolved = async (req, res) => {
   }
 };
 
+exports.banUser = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    await User.banUser(userId);
+    await admin.auth().updateUser(userId, { disabled: true });
+    await logAdminActivity(req.user.uid, 'ban_user', req, { type: 'user', id: userId });
+    res.status(200).json({ message: 'User banned' });
+  } catch (error) {
+    console.error('Error banning user:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.unbanUser = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    await User.unbanUser(userId);
+    await admin.auth().updateUser(userId, { disabled: false });
+    await logAdminActivity(req.user.uid, 'unban_user', req, { type: 'user', id: userId });
+    res.status(200).json({ message: 'User unbanned' });
+  } catch (error) {
+    console.error('Error unbanning user:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminManagementController');
-const {getAllBookings, getPermissions, getAllUsers, searchUsers, exportToCSV, generatePDFReport, generateReports, getAllShippers, getAllActions, markAsResolved, getPendingActions } = require('../controllers/adminController');
+const {getAllBookings, getPermissions, getAllUsers, searchUsers, exportToCSV, generatePDFReport, generateReports, getAllShippers, getAllActions, markAsResolved, getPendingActions, banUser, unbanUser } = require('../controllers/adminController');
 const authController = require("../controllers/authController");
 const {
   authorize,
@@ -17,7 +17,7 @@ const brokerController = require('../controllers/brokerController');
 const AnalyticsController = require('../controllers/analyticsController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const multer = require("multer");
-const { get } = require('../models/Transporter');
+const bookingController = require('../controllers/bookingController');
 
 const upload = multer({ dest: "uploads/" }); 
 
@@ -1197,4 +1197,78 @@ router.patch('/actions/:actionId/resolve', authenticateToken, requireRole('admin
 // router.patch('/:adminId', requireSuperAdmin, AdminController.deleteAdmin);
 router.delete('/delete/:adminId', requireSuperAdmin, AdminController.hardDelete);
 
+/**
+ * @swagger
+ * /api/admin/{userId}/ban:
+ *   patch:
+ *     summary: Ban a user
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User banned
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:userId/ban', authenticateToken, requireRole('admin'), authorize(['ban_users', 'super_admin']), banUser);
+
+/**
+ * @swagger
+ * /api/admin/{userId}/unban:
+ *   patch:
+ *     summary: Unban a user
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User unbanned
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:userId/unban', authenticateToken, requireRole('admin'), authorize(['ban_users', 'super_admin']), unbanUser);
+
+/**
+ * @swagger
+ * /api/admin/{bookingId}/cancel:
+ *   patch:
+ *     summary: Cancel a booking
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: The type of cancellation
+ *     responses:
+ *       200:
+ *         description: Booking canceled
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:bookingId/cancel', authenticateToken, requireRole('admin'), authorize(['cancel_bookings', 'super_admin']), bookingController.cancelBooking);
 module.exports = router;

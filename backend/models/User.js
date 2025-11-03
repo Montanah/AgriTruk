@@ -1,5 +1,6 @@
 // Description: User model for managing user data in Firestore
 const admin = require("../config/firebase");
+const { status } = require("../schemas/JobSeekerSchema");
 const db = admin.firestore(); 
 
 const USERS_COLLECTION = 'users';
@@ -138,6 +139,21 @@ const User = {
     const snapshot = await db.collection(USERS_COLLECTION).where('role', '==', 'shipper').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
+
+  async getRecruiters() {
+    const snapshot = await db.collection(USERS_COLLECTION).where('role', '==', 'recruiter').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async banUser(userId) {
+    await db.collection(USERS_COLLECTION).doc(userId).update({ isBanned: true, status: 'banned' });
+    return true;
+  },
+
+  async unbanUser(userId) {
+    await db.collection(USERS_COLLECTION).doc(userId).update({ isBanned: false, status: 'active' });
+    return true;
+  }
 };
 
 module.exports = User;

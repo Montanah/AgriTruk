@@ -161,6 +161,27 @@ router.post('/verify', RecruiterAuthController.verifyAccount);
  */
 router.post('/resend-verification', RecruiterAuthController.resendVerificationCode);
 
+/**
+ * @swagger
+ * /api/recruiter/admin/recruiters:
+ *   get:
+ *     summary: Get all recruiters
+ *     tags: [Recruiter]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successful response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       500:
+ *         description: Internal server error
+ *       403:
+ *         description: Access denied
+ */
+router.get('/admin/recruiters', authenticateToken, requireRole('admin'), authorize(['manage_users', 'super_admin']), RecruiterAuthController.getAllRecruiters);
 // ============================================
 // SUBSCRIPTION PLANS ROUTES (Public)
 // ============================================

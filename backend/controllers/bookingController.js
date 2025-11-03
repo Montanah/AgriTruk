@@ -4,7 +4,7 @@ const { scheduleRecurringBookings } = require('../services/bookingService');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const Action = require('../models/Action');
-const { logActivity } = require('../utils/activityLogger');
+const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const { formatTimestamps } = require('../utils/formatData');
 const geolib = require('geolib');
 const Transporter = require('../models/Transporter');
@@ -988,125 +988,6 @@ exports.calculateStatusCounts = (fleet) => {
   
   return counts;
 };
-
-// DUPLICATE FUNCTION REMOVED - This was overwriting the updateBooking function above
-// All routes now use the unified updateBooking at line 427 which handles both params and body
-// If waitMinutes functionality is needed, merge it into the function above
-/*
-exports.updateBooking_DUPLICATE_REMOVED = async (req, res) => {
-  try {
-    const { bookingId, waitMinutes, status, cancellationReason } = req.body;
-
-    if (!bookingId) {
-      return res.status(400).json({ message: 'bookingId is required' });
-    }
-
-    const bookingDoc = await Booking.get(bookingId);
-
-    if (!bookingDoc.exists) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-
-    const bookingData = bookingDoc.data();
-    const updates = {};
-
-    // Update wait time and recalculate waitTimeFee
-    if (waitMinutes !== undefined) {
-      if (isNaN(waitMinutes) || waitMinutes < 0) {
-        return res.status(400).json({ message: 'Invalid waitMinutes: must be a non-negative number' });
-      }
-      updates.waitMinutes = waitMinutes;
-      updates.waitTimeFee = waitMinutes * 30; // KES 30/min
-      updates.costBreakdown = {
-        ...bookingData.costBreakdown,
-        waitTimeFee: waitMinutes * 30,
-      };
-
-      // Recalculate total cost if needed
-      const costCalculationData = {
-        actualDistance: bookingData.actualDistance,
-        weightKg: bookingData.weightKg,
-        lengthCm: bookingData.lengthCm,
-        widthCm: bookingData.widthCm,
-        heightCm: bookingData.heightCm,
-        urgencyLevel: bookingData.urgencyLevel,
-        perishable: bookingData.perishable,
-        needsRefrigeration: bookingData.needsRefrigeration,
-        humidityControl: bookingData.humidyControl, 
-        insured: bookingData.insured,
-        value: bookingData.value,
-        tolls: bookingData.tolls,
-        priority: bookingData.priority,
-        fuelSurchargePct: bookingData.fuelSurchargePct,
-        waitMinutes,
-        nightSurcharge: bookingData.nightSurcharge,
-      };
-      const { cost, costBreakdown } = calculateTransportCost(costCalculationData);
-      
-      updates.cost = cost;
-      updates.costBreakdown = costBreakdown;
-    }
-
-    // Update status and statusHistory
-    if (status) {
-      const validStatuses = ['pending', 'accepted', 'started', 'completed', 'cancelled'];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: 'Invalid status' });
-      }
-      updates.status = status;
-      updates.statusHistory = [
-        ...bookingData.statusHistory,
-        {
-          status,
-          timestamp: admin.firestore.Timestamp.now(),
-          reason: status === 'cancelled' ? cancellationReason || null : null,
-        },
-      ];
-      if (status === 'accepted') updates.acceptedAt = admin.firestore.Timestamp.now();
-      if (status === 'started') updates.startedAt = admin.firestore.Timestamp.now();
-      if (status === 'completed') updates.completedAt = admin.firestore.Timestamp.now();
-      if (status === 'cancelled') {
-        updates.cancelledAt = admin.firestore.Timestamp.now();
-        updates.cancellationReason = cancellationReason || null;
-      }
-    }
-
-    // Update updatedAt timestamp
-    updates.updatedAt = admin.firestore.Timestamp.now();
-
-    // Apply updates
-  // await bookingRef.update(updates);
-    await Booking.update(bookingId, updates);
-
-    // Log activity
-    await logActivity(req.user.uid, 'update_booking', req);
-
-    await Action.create({
-      type: "booking_update",
-      entityId: bookingId,
-      priority: "low",
-      metadata: {
-        bookingId: bookingId,
-        userId: req.user.uid
-      },
-      status: "Booking Updated",
-      message: 'Booking updated successfully',
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: 'Booking updated successfully',
-      booking: { ...bookingData, ...updates },
-    });
-  } catch (error) {
-    console.error('Update booking error:', error);
-    return res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Failed to update booking',
-    });
-  }
-};
-*/
 
 // Accept a booking request
 exports.acceptBooking = async (req, res) => {
@@ -2134,5 +2015,38 @@ exports.acceptDriverRouteLoad = async (req, res) => {
       success: false,
       message: 'Failed to accept load: ' + error.message
     });
+  }
+};
+
+exports.cancelBooking = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const bookingId = req.params.bookingId;
+    const { reason } = req.body;
+
+    const booking = await Booking.get(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ message: 'Booking is not available for cancellation' });
+    }
+
+    await Booking.cancel(bookingId, reason, userId);
+    await logAdminActivity(userId, 'cancel_booking', req);
+
+    res.status(200).json({
+      success: true,
+      message: 'Booking cancelled successfully'
+    });
+
+  } catch (error) {
+    console.error('Error cancelling booking:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel booking: ' + error.message
+    });
+
   }
 };

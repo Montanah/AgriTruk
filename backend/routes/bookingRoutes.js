@@ -484,7 +484,7 @@ router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'bro
 
 router
   .route('/:bookingId')
-  .get(authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), bookingController.getBookingById)
+  .get(authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker', 'admin']), bookingController.getBookingById)
   .patch(authenticateToken, requireRole(['shipper', 'business', 'broker']), bookingController.updateBooking)
   .delete(authenticateToken, requireRole('admin'), authorize(['manage_bookings', 'super_admin']), bookingController.deleteBooking);
 

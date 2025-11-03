@@ -6,6 +6,7 @@ const SMSService = require('../utils/sendSms');
 const formatPhoneNumber = require("../utils/formatPhone");
 const {getMFATemplate } = require("../utils/sendMailTemplate");
 const { logActivity, logAdminActivity } = require("../utils/activityLogger");
+const { formatTimestamps } = require('../utils/formatData');
 
 const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
 
@@ -324,6 +325,43 @@ const RecruiterAuthController = {
       });
     }
   },
+
+  /**
+   * Logout
+   */
+  async logout(req, res) {
+    try {
+      res.status(200).json({
+        message: "Logout successful"
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(400).json({
+        code: 'LOGOUT_FAILED',
+        message: error.message || 'Logout failed'
+      });
+    }
+  },
+
+  async getAllRecruiters(req, res) {
+    try {
+      const recruiters = await User.getRecruiters();
+      console.log(recruiters);
+      await logAdminActivity(req.user.uid, 'get_all_shippers', req);
+      res.status(200).json({
+        success: true,
+        message: 'Recruiters fetched successfully',
+        recruiters: formatTimestamps(recruiters)
+      });
+    } catch (error) {
+      console.error('Error fetching recruiters:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch recruiters',
+        error: error.message
+      });
+    }
+  }
 };
 
 module.exports = RecruiterAuthController;

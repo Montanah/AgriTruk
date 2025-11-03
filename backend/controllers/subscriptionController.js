@@ -265,22 +265,66 @@ exports.getAllSubscribers = async (req, res) => {
     const subscribers = await Subscribers.getAll();
     console.log(subscribers);
 
+    let activeCount = 0;
+    let trialCount = 0;
+    let totalRevenue = 0;
+    let activeBrokers = 0;
+    let activeTransporters = 0;
+
     for (const subscriber of subscribers) {
+      // Get associated user
       const user = await Users.get(subscriber.userId);
       subscriber.user = formatTimestamps(user);
+
+      // Get associated plan
       const plan = await SubscriptionPlans.getSubscriptionPlan(subscriber.planId);
       subscriber.plan = formatTimestamps(plan);
+
+      // --- Analytics Computation ---
+      if (subscriber.status === 'active') {
+        activeCount++;
+
+        // Calculate revenue if plan has a price
+        if (plan?.price) {
+          totalRevenue += plan.price;
+        }
+
+        // Count based on role
+        if (user?.role === 'broker') activeBrokers++;
+        if (user?.role === 'transporter') activeTransporters++;
+      }
+
+      if (plan.price === 0) {
+        trialCount++;
+      }
     }
+
+    // --- Derive summary metrics ---
+    const avgRevenue = activeCount > 0 ? totalRevenue / activeCount : 0;
+
+    // --- Log admin action ---
     await logAdminActivity(req.user.uid, 'get_all_subscribers', req);
-    res.status(200).json({ 
-      success: true, 
-      message: 'Subscribers retrieved', 
-      data: formatTimestamps(subscribers) });
+
+    // --- Response ---
+    res.status(200).json({
+      success: true,
+      message: 'Subscribers retrieved',
+      data: formatTimestamps(subscribers),
+      summary: {
+        activeSubscriptions: activeCount,
+        trialUsers: trialCount,
+        monthlyRevenue: `Ksh ${totalRevenue.toFixed(2)}`,
+        avgRevenuePerUser: `Ksh ${avgRevenue.toFixed(2)}`,
+        activeBrokers,
+        activeTransporters
+      }
+    });
   } catch (error) {
     console.error('Subscribers error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
+
 
 exports.getSubscriber = async (req, res) => {
   try {
