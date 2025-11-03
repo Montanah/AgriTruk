@@ -1276,7 +1276,7 @@ router.patch('/:bookingId/cancel', authenticateToken, requireRole('admin'), auth
  * @swagger
  * /api/admin/{userId}/details:
  *   get:
- *     summary: Get user details
+ *     summary: Get user details (including bookings and disputes)
  *     tags: [Admin Views]
  *     security:
  *       - bearerAuth: []
@@ -1286,13 +1286,30 @@ router.patch('/:bookingId/cancel', authenticateToken, requireRole('admin'), auth
  *         required: true
  *         schema:
  *           type: string
+ *         description: ID of the user to fetch
  *     responses:
  *       200:
  *         description: User details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *                 bookings:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Booking'
+ *                 disputes:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Dispute'
  *       404:
  *         description: User not found
  *       500:
  *         description: Server error
  */
 router.get('/:userId/details', authenticateToken, requireRole('admin'), authorize(['view_users', 'super_admin']), authController.getUserDetails);
+
 module.exports = router;

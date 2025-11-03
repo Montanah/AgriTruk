@@ -19,7 +19,54 @@ const { authorize } = require("../middlewares/adminAuth");
  *   - name: Disputes
  *     description: Dispute management endpoints
  */
-
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Dispute:
+ *       type: object
+ *       properties:
+ *         disputeId:
+ *           type: string
+ *         bookingId:
+ *           type: string
+ *         transporterId:
+ *           type: string
+ *         reason:
+ *           type: string
+ *         status:
+ *           type: string
+ *         priority:
+ *           type: string
+ *         comments:
+ *           type: array
+ *           items:
+ *             type: string
+ *         evidence:
+ *           type: array
+ *           items:
+ *             type: string
+ *         resolution:
+ *           type: string
+ *         amountRefunded:
+ *           type: number
+ *         openedAt:
+ *           type: string
+ *           format: date-time
+ *         openedBy:
+ *           type: string
+ *         resolvedAt:
+ *           type: string
+ *           format: date-time
+ *         resolvedBy:
+ *           type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
 /**
  * @swagger
  * /api/disputes:
