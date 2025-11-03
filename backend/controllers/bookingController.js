@@ -273,7 +273,7 @@ exports.createBooking = async (req, res) => {
       nightSurcharge: !!nightSurcharge,
       vehicleType: vehicleType || 'truck',
     };
-    const { cost, transporterPayment, costBreakdown, paymentBreakdown } = calculateTransportCost(bookingDataForCost);
+    const { cost, transporterPayment, costBreakdown, paymentBreakdown, estimatedCostRange } = calculateTransportCost(bookingDataForCost);
     
     // Prepare booking data (readableId will be generated after booking is created)
     const bookingData = {
@@ -311,6 +311,7 @@ exports.createBooking = async (req, res) => {
       transporterPayment,
       costBreakdown,
       paymentBreakdown,
+      estimatedCostRange,
       volumetricWeight,
       lengthCm: lengthCm || 0,
       widthCm: widthCm || 0,

@@ -82,6 +82,11 @@ const Booking = {
         timestamp: admin.firestore.Timestamp.now(),
         reason: null,
       }],
+      estimatedCostRange: bookingData.estimatedCostRange || {
+        min: 0,
+        max: 0,
+        display: 'Ksh 0 -0'
+      }
     };
     await db.collection('bookings').doc(booking.bookingId).set(booking);
     return booking;

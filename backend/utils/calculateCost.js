@@ -219,8 +219,19 @@ function calculateTransportCost(bookingData) {
   let transporterPayment = cost; // Insurance is not paid to transporter
   const totalCost = cost + (costBreakdown.insuranceFee || 0);
 
+  const variationPct = 0.10; // ±10% range
+  const minVariationPct = 0.30; // ±30% range
+  const minCost = Math.round(totalCost * (1 - minVariationPct));
+  const maxCost = Math.round(totalCost * (1 + variationPct));
+
   return {
     cost: Math.round(totalCost),
+    estimatedCostRange: {
+      min: minCost,
+      max: maxCost,
+      display: `Ksh ${minCost.toLocaleString()} - ${maxCost.toLocaleString()}`
+    },
+    baseEstimate: Math.round(totalCost),
     transporterPayment: Math.round(transporterPayment),
     costBreakdown: {
       ...costBreakdown,
