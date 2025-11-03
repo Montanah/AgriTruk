@@ -350,7 +350,6 @@ exports.updateUser = async (req, res) => {
     name,
     phone,
     email,
-    email,
     role,
     location,
     userType,
