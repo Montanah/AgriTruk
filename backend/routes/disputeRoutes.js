@@ -45,9 +45,6 @@ const { authorize } = require("../middlewares/adminAuth");
  *               transporterId:
  *                 type: string
  *                 description: The ID of the transporter involved
- *               userId:
- *                 type: string
- *                 description: The ID of the user involved
  *               reason:
  *                 type: string
  *                 description: The reason for the dispute
@@ -79,7 +76,7 @@ const { authorize } = require("../middlewares/adminAuth");
  *       500:
  *         description: Internal server error
  */
-router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin']), createDispute);
+router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business']), createDispute);
 
 //router.get('/test', getActiveSubscribedTransporters)
 
@@ -107,7 +104,7 @@ router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin']
  *       500:
  *         description: Internal server error
  */
-router.get('/:disputeId', authenticateToken, requireRole(['user', 'transporter', 'admin']), getDispute);
+router.get('/:disputeId', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business']), getDispute);
 
 /**
  * @swagger
@@ -164,7 +161,7 @@ router.get('/:disputeId', authenticateToken, requireRole(['user', 'transporter',
  *       500:
  *         description: Internal server error
  */
-router.put('/:disputeId', authenticateToken, requireRole(['user', 'transporter', 'admin']), updateDispute);
+router.put('/:disputeId', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business']), updateDispute);
 
 /**
  * @swagger
@@ -188,7 +185,7 @@ router.put('/:disputeId', authenticateToken, requireRole(['user', 'transporter',
  *       500:
  *         description: Internal server error
  */
-router.get('/booking/:bookingId', authenticateToken, requireRole(['user', 'transporter', 'admin']), getDisputesByBookingId);
+router.get('/booking/:bookingId', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business']), getDisputesByBookingId);
 
 /**
  * @swagger

@@ -1271,4 +1271,28 @@ router.patch('/:userId/unban', authenticateToken, requireRole('admin'), authoriz
  *         description: Server error
  */
 router.patch('/:bookingId/cancel', authenticateToken, requireRole('admin'), authorize(['cancel_bookings', 'super_admin']), bookingController.cancelBooking);
+
+/**
+ * @swagger
+ * /api/admin/{userId}/details:
+ *   get:
+ *     summary: Get user details
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User details retrieved successfully
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:userId/details', authenticateToken, requireRole('admin'), authorize(['view_users', 'super_admin']), authController.getUserDetails);
 module.exports = router;

@@ -3,13 +3,16 @@ const User = require("../models/User");
 const ActivityLog = require("../models/ActivityLog");
 const generateOtp = require("../utils/generateOtp");
 const sendEmail = require("../utils/sendEmail");
-const {getMFATemplate, getResetPasswordTemplate, getSuccessTemplate, getRejectTemplate } = require("../utils/sendMailTemplate");
+const { getMFATemplate, getResetPasswordTemplate, getSuccessTemplate, getRejectTemplate } = require("../utils/sendMailTemplate");
 const getGeoLocation = require("../utils/locationHelper");
 const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const { uploadImage } = require('../utils/upload');
 const fs = require('fs');
 const Notification = require('../models/Notification');
 const SMSService = require('../utils/sendSms');
+const Booking = require("../models/Booking");
+const Dispute = require("../models/Dispute");
+const { formatTimestamps } = require("../utils/formatData");
 
 const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
 
@@ -39,7 +42,7 @@ function formatPhoneNumber(phone) {
 function formatPhoneNumberAuth(phone) {
   if (!phone) return null;
 
-  let cleaned = phone.toString().replace(/\D/g, ""); 
+  let cleaned = phone.toString().replace(/\D/g, "");
 
   // If it starts with "0", replace with +254
   if (cleaned.startsWith("0")) {
@@ -51,7 +54,7 @@ function formatPhoneNumberAuth(phone) {
   return cleaned;
 }
 exports.registerUser = async (req, res) => {
-  const { name, phone,email, role, location, userType, languagePreference, profilePhotoUrl, preferredVerificationMethod } = req.body;
+  const { name, phone, email, role, location, userType, languagePreference, profilePhotoUrl, preferredVerificationMethod } = req.body;
   console.log('Registering user:', req.user);
   const uid = req.user.uid;
   // const email = req.user.email;
@@ -79,7 +82,7 @@ exports.registerUser = async (req, res) => {
     if (!phoneQuery.empty) {
       return res.status(409).json({ message: "Phone number is already registered" });
     }
-    
+
     // Save to Firestore
     const emailVerificationCode = generateOtp();
     const phoneVerificationCode = generateOtp();
@@ -96,7 +99,7 @@ exports.registerUser = async (req, res) => {
       location,
       languagePreference,
       profilePhotoUrl,
-      emailVerificationCode: emailVerificationCode, 
+      emailVerificationCode: emailVerificationCode,
       phoneVerificationCode: phoneVerificationCode,
       emailVerified: false,
       phoneVerified: false,
@@ -106,9 +109,9 @@ exports.registerUser = async (req, res) => {
       preferredVerificationMethod
     });
 
-     // Send code to user 
+    // Send code to user 
     let sendMethod = null;
-    
+
     if (preferredVerificationMethod === "email") {
       await sendEmail({
         to: email,
@@ -124,7 +127,7 @@ exports.registerUser = async (req, res) => {
       try {
         const smsMessage = `Your Truk verification code is: ${phoneVerificationCode}`;
         await smsService.sendSMS(
-          'TRUK LTD', 
+          'TRUK LTD',
           smsMessage,
           formattedPhone
         );
@@ -166,7 +169,7 @@ exports.verifyEmailCode = async (req, res) => {
   console.log('Verification code:', code);
 
   try {
-    const userData =await User.get(uid);
+    const userData = await User.get(uid);
     const userRef = admin.firestore().collection("users").doc(uid);
 
     if (userData.emailVerified) {
@@ -191,15 +194,15 @@ exports.verifyEmailCode = async (req, res) => {
       emailVerificationCode: admin.firestore.FieldValue.delete(),
       verificationExpires: admin.firestore.FieldValue.delete()
     });
-    
+
     // Check if phone also verified → set isVerified
     const updatedUser = await User.get(uid);
     if (updatedUser.emailVerified || updatedUser.phoneVerified) {
       await userRef.update({ isVerified: true });
     }
-    
-    const userAgent = req.headers['user-agent'] 
-      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "") 
+
+    const userAgent = req.headers['user-agent']
+      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "")
       : 'unknown';
 
     const location = await getGeoLocation(ipAddress);
@@ -212,7 +215,7 @@ exports.verifyEmailCode = async (req, res) => {
       html: getSuccessTemplate(location, ipAddress, userAgent)
     });
 
-   await logActivity(uid, 'email_verification', req);
+    await logActivity(uid, 'email_verification', req);
 
     res.status(200).json({ message: "User verified successfully" });
   } catch (error) {
@@ -226,7 +229,7 @@ exports.verifyPhoneCode = async (req, res) => {
   const uid = req.user.uid || userId;
   //const uid = userId
   try {
-    const userData =await User.get(uid);
+    const userData = await User.get(uid);
     const userRef = admin.firestore().collection("users").doc(uid);
 
     if (userData.phoneVerified) {
@@ -258,7 +261,7 @@ exports.verifyPhoneCode = async (req, res) => {
       await userRef.update({ isVerified: true });
     }
 
-   await logActivity(uid, 'phone_verification', req);
+    await logActivity(uid, 'phone_verification', req);
 
     res.status(200).json({ message: "User verified successfully" });
   } catch (error) {
@@ -332,17 +335,17 @@ exports.resendVerificationCode = async (req, res) => {
 
 
 exports.getUser = async (req, res) => {
-    try {
-      const userData = await User.get(req.user.uid);
-      
-      res.status(200).json({userData})
-    } catch (error) {
-      console.error('Profile error:', error);
-      res.status(500).json({
-        code: 'ERR_SERVER_ERROR',
-        message: 'Internal server error'
-      });
-    }
+  try {
+    const userData = await User.get(req.user.uid);
+
+    res.status(200).json({ userData })
+  } catch (error) {
+    console.error('Profile error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Internal server error'
+    });
+  }
 };
 
 exports.updateUser = async (req, res) => {
@@ -374,7 +377,7 @@ exports.updateUser = async (req, res) => {
       // Use pre-uploaded URL from /api/upload endpoint
       profilePhotoUrl = profilePhotoUrlFromBody;
     }
-    
+
     const updates = {
       name,
       phone,
@@ -384,7 +387,7 @@ exports.updateUser = async (req, res) => {
       location,
       userType,
       languagePreference,
-      profilePhotoUrl, 
+      profilePhotoUrl,
       lastActive: now,
       updatedAt: now
     };
@@ -396,7 +399,7 @@ exports.updateUser = async (req, res) => {
 
     const updatedUser = await User.update(uid, updates);
 
-    if (email || phone ) {
+    if (email || phone) {
       const updateFirebaseUser = {
         email,
         phoneNumber: phone,
@@ -407,7 +410,7 @@ exports.updateUser = async (req, res) => {
         console.error("Firebase user update error:", error);
       }
     }
-    if (email || phone ) {
+    if (email || phone) {
       const updateFirebaseUser = {
         email,
         phoneNumber: phone,
@@ -443,8 +446,8 @@ exports.forgotPassword = async (req, res) => {
         message: 'Email or phone number is required'
       });
     }
-  
-   
+
+
     let user;
     if (email) {
       try {
@@ -463,10 +466,10 @@ exports.forgotPassword = async (req, res) => {
         phone.replace(/^0/, '+254'), // Convert 0 to +254
         phone.replace(/^0/, '254'), // Convert 0 to 254
       ];
-      
+
       // Remove duplicates
       const uniqueFormats = [...new Set(phoneFormats)];
-      
+
       for (const phoneFormat of uniqueFormats) {
         try {
           user = await admin.auth().getUserByPhoneNumber(phoneFormat);
@@ -479,10 +482,10 @@ exports.forgotPassword = async (req, res) => {
     }
 
     if (!user) {
-      const errorMessage = email 
+      const errorMessage = email
         ? 'No account found with this email address'
         : 'No account found with this phone number';
-      
+
       return res.status(404).json({
         code: 'ERR_USER_NOT_FOUND',
         message: errorMessage
@@ -508,20 +511,20 @@ exports.forgotPassword = async (req, res) => {
       });
     } else if (phone) {
       const smsMessage = `Your password reset code is: ${verificationCode}`;
-      
+
       const formattedPhoneNumber = formatPhoneNumber(phone);
       await smsService.sendSMS(
         'TRUK LTD',
         smsMessage,
         formattedPhoneNumber
-     );
+      );
     }
 
     await logActivity(user.uid, 'forgot_password', req);
 
     res.status(200).json({
       message: 'Password reset code sent successfully',
-      userId: user.uid 
+      userId: user.uid
     });
 
   } catch (error) {
@@ -532,6 +535,7 @@ exports.forgotPassword = async (req, res) => {
     });
   }
 };
+
 exports.verifyPasswordResetCode = async (req, res) => {
   try {
     const { code, userId } = req.body;
@@ -552,7 +556,7 @@ exports.verifyPasswordResetCode = async (req, res) => {
     }
 
     if (user.resetToken === code && user.resetTokenExpiry > Date.now()) {
-      
+
       res.status(200).json({
         message: 'Password reset code is valid',
         userId: userId
@@ -611,7 +615,7 @@ exports.resetPassword = async (req, res) => {
       userId: userId,
       userType: "user",
     })
-    
+
     const userData = await User.get(userId);
     console.log(userData);
     await sendEmail({
@@ -632,56 +636,55 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-
 exports.updatePassword = async (req, res) => {
-    const { newPassword } = req.body;
+  const { newPassword } = req.body;
 
-    if (!newPassword) {
-        return res.status(400).json({
-            code: 'ERR_INVALID_INPUT',
-            message: 'New password is required'
-        });
-    }
+  if (!newPassword) {
+    return res.status(400).json({
+      code: 'ERR_INVALID_INPUT',
+      message: 'New password is required'
+    });
+  }
 
-    try {
-        await admin.auth().updateUser(req.user.uid, {
-            password: newPassword
-        });
+  try {
+    await admin.auth().updateUser(req.user.uid, {
+      password: newPassword
+    });
 
-        await logActivity(req.user.uid, 'password_update', req);
+    await logActivity(req.user.uid, 'password_update', req);
 
-        await Notification.create({
-            type: "Update Password",
-            message: "You updated your password",
-            userId: req.user.uid,
-            userType: "user",
-        })
+    await Notification.create({
+      type: "Update Password",
+      message: "You updated your password",
+      userId: req.user.uid,
+      userType: "user",
+    })
 
-        res.status(200).json({
-            message: 'Password updated successfully'
-        });
-    } catch (error) {
-        console.error('Update password error:', error);
-        res.status(500).json({
-            code: 'ERR_SERVER_ERROR',
-            message: 'Failed to update password'
-        });
-    }
+    res.status(200).json({
+      message: 'Password updated successfully'
+    });
+  } catch (error) {
+    console.error('Update password error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Failed to update password'
+    });
+  }
 };
 
 exports.getUserRole = async (req, res) => {
-    try {
-        const userData = await User.get(req.user.uid);
-        res.status(200).json({
-            role: userData.role || 'user'
-        });
-    } catch (error) {
-        console.error('Get user role error:', error);
-        res.status(500).json({
-            code: 'ERR_SERVER_ERROR',
-            message: 'Internal server error'
-        });
-    }
+  try {
+    const userData = await User.get(req.user.uid);
+    res.status(200).json({
+      role: userData.role || 'user'
+    });
+  } catch (error) {
+    console.error('Get user role error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Internal server error'
+    });
+  }
 };
 
 exports.verifyToken = async (req, res) => {
@@ -716,36 +719,36 @@ exports.verifyToken = async (req, res) => {
 };
 
 exports.deleteAccount = async (req, res) => {
-    try {
-        const {uid} = req.params;
-        console.log(req.params);
+  try {
+    const { uid } = req.params;
+    console.log(req.params);
 
-        // Delete user from Firebase Auth
-        await admin.auth().deleteUser(uid);
+    // Delete user from Firebase Auth
+    await admin.auth().deleteUser(uid);
 
-        // Delete user document from Firestore
-        await User.delete(uid);
+    // Delete user document from Firestore
+    await User.delete(uid);
 
-        // Log the account deletion activity
-        await logAdminActivity(uid, 'account_deletion', req);
+    // Log the account deletion activity
+    await logAdminActivity(uid, 'account_deletion', req);
 
-        await Notification.create({
-            type: "Account Deletion",
-            message: "You deleted your account",
-            userId: uid,
-            userType: "user",
-        })
+    await Notification.create({
+      type: "Account Deletion",
+      message: "You deleted your account",
+      userId: uid,
+      userType: "user",
+    })
 
-        res.status(200).json({
-            message: 'User account deleted successfully'
-        });
-    } catch (error) {
-        console.error('Delete account error:', error);
-        res.status(500).json({
-            code: 'ERR_SERVER_ERROR',
-            message: 'Failed to delete user account'
-        });
-    }
+    res.status(200).json({
+      message: 'User account deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Failed to delete user account'
+    });
+  }
 };
 
 exports.deleteUser = async (req, res) => {
@@ -794,7 +797,7 @@ exports.resendCode = async (req, res) => {
 
     const newCode = generateOtp();
 
-    await User.update(uid,{
+    await User.update(uid, {
       emailVerificationCode: newCode,
       verificationExpires: admin.firestore.Timestamp.fromDate(
         new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
@@ -802,8 +805,8 @@ exports.resendCode = async (req, res) => {
       updatedAt: admin.firestore.Timestamp.now()
     });
 
-    const userAgent = req.headers['user-agent'] 
-      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "") 
+    const userAgent = req.headers['user-agent']
+      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "")
       : 'unknown';
 
     const location = await getGeoLocation(ipAddress);
@@ -841,7 +844,7 @@ exports.resendPhoneCode = async (req, res) => {
 
     const newCode = generateOtp();
 
-    await User.update(uid,{
+    await User.update(uid, {
       phoneVerificationCode: newCode,
       phoneVerificationExpires: admin.firestore.Timestamp.fromDate(
         new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
@@ -854,7 +857,7 @@ exports.resendPhoneCode = async (req, res) => {
     try {
       const smsMessage = `Your Truk verification code is: ${newCode}`;
       await smsService.sendSMS(
-        'TRUK LTD', 
+        'TRUK LTD',
         smsMessage,
         formattedPhone
       );
@@ -878,7 +881,7 @@ exports.resendPhoneCode = async (req, res) => {
 
 exports.deactivateAccount = async (req, res) => {
   try {
-    const {uid} = req.params;
+    const { uid } = req.params;
     await User.update(uid, { status: 'inactive' });
 
     await logActivity(req.user.uid, 'account_deactivation', req);
@@ -897,17 +900,17 @@ exports.deactivateAccount = async (req, res) => {
 };
 
 exports.registerUserFromBackend = async (req, res) => {
-  const { 
-    name, 
-    phone, 
-    email, 
+  const {
+    name,
+    phone,
+    email,
     password,     // 👈 add password (or generate random if OTP-only)
-    role, 
-    location, 
-    userType, 
-    languagePreference, 
-    profilePhotoUrl, 
-    preferredVerificationMethod 
+    role,
+    location,
+    userType,
+    languagePreference,
+    profilePhotoUrl,
+    preferredVerificationMethod
   } = req.body;
 
   if (!["shipper", "transporter", "admin", "user", "broker", "business", "job_seeker"].includes(role)) {
@@ -919,14 +922,14 @@ exports.registerUserFromBackend = async (req, res) => {
     let existingUser;
     try {
       existingUser = await admin.auth().getUserByEmail(email);
-    } catch (_) {}
+    } catch (_) { }
     if (existingUser) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
     try {
       existingUser = await admin.auth().getUserByPhoneNumber(phone);
-    } catch (_) {}
+    } catch (_) { }
     if (existingUser) {
       return res.status(409).json({ message: "Phone already registered" });
     }
@@ -975,7 +978,7 @@ exports.registerUserFromBackend = async (req, res) => {
       location,
       languagePreference,
       profilePhotoUrl,
-      emailVerificationCode, 
+      emailVerificationCode,
       phoneVerificationCode,
       emailVerified: false,
       phoneVerified: false,
@@ -1024,33 +1027,59 @@ exports.registerUserFromBackend = async (req, res) => {
 exports.getUserByPhone = async (req, res) => {
   try {
     const { phone } = req.body;
-    
+
     if (!phone) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         code: "ERR_MISSING_PHONE",
-        message: "Phone number is required" 
+        message: "Phone number is required"
       });
     }
-    
+
     // Use the User model to get user by phone
     const user = await User.getUserByPhone(phone);
-    
+
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         code: "ERR_USER_NOT_FOUND",
-        message: "No account found with this phone number" 
+        message: "No account found with this phone number"
       });
     }
-    
+
     // Return only necessary data for login
     res.json({
       email: user.email,
       phoneVerified: user.phoneVerified || false,
       emailVerified: user.emailVerified || false
     });
-    
+
   } catch (error) {
     console.error('Get user by phone error:', error);
+    res.status(500).json({
+      code: 'ERR_SERVER_ERROR',
+      message: 'Internal server error'
+    });
+  }
+};
+
+exports.getUserDetails = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.get(userId);
+    const bookings = await Booking.getBookingForUser(userId);
+    const disputes = await Dispute.getByOpenedBy(userId);
+
+    await logAdminActivity(req.user.uid, 'get_user_details', req);
+
+    res.status(200).json({
+      message: 'User details fetched successfully',
+      user: formatTimestamps(user),
+      bookings: formatTimestamps(bookings),
+      bookingsCount: bookings.length,
+      disputes: formatTimestamps(disputes),
+      disputesCount: disputes.length
+    });
+  } catch (error) {
+    console.error('Get user details error:', error);
     res.status(500).json({
       code: 'ERR_SERVER_ERROR',
       message: 'Internal server error'

@@ -7,13 +7,14 @@ const Booking = require('../models/Booking');
 const { formatTimestamps } = require('../utils/formatData');
 const Action = require('../models/Action');
 const sendEmail = require('../utils/sendEmail');
+const Driver = require('../models/Driver');
+const { adminNotification } = require('../utils/sendMailTemplate');
 
 exports.createDispute = async (req, res) => {
   try {
     const {
       bookingId,
       transporterId,
-      userId,
       reason,
       status,
       priority,
@@ -27,33 +28,33 @@ exports.createDispute = async (req, res) => {
       });
     }
 
-    // Try Agri or Cargo booking
-    let booking = null;
-    try {
-      booking = await Booking.get(bookingId);
-    } catch (err) {
-      console.error('Error fetching booking:', err);
+    const booking = await Booking.get(bookingId).catch(() => null);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    // Try transporter or driver
+    let transporterSnap = null;
+    let driverSnap = null;
+
+    try { transporterSnap = await Transporter.get(transporterId); } catch {}
+    try { driverSnap = await Driver.get(transporterId); } catch {}
+
+    if (!transporterSnap && !driverSnap) {
+      return res.status(404).json({ message: 'Transporter or driver not found' });
     }
 
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
+    const userId = req.user.uid;
 
-    const transporterSnap = await Transporter.get(transporterId);
-    if (!transporterSnap) {
-      return res.status(404).json({ message: 'Transporter not found' });
-    }
+    const userSnap = await User.get(userId).catch(() => null);
+    if (!userSnap) return res.status(404).json({ message: 'User not found' });
 
-    const userSnap = await User.get(userId);
-    if (!userSnap) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const transporterType = transporterSnap ? 'transporter' : 'driver';
 
     const disputeData = {
       bookingId,
       openedBy: req.user.uid,
       transporterId,
-      userId: userId,
+      transporterType,
+      userId,
       reason,
       status: status || 'open',
       priority: priority || 'medium',
@@ -62,6 +63,7 @@ exports.createDispute = async (req, res) => {
     };
 
     const dispute = await Dispute.create(disputeData);
+
     await logActivity(req.user.uid, 'create_dispute', req);
 
     await Notification.create({
@@ -77,22 +79,25 @@ exports.createDispute = async (req, res) => {
       priority: "high",
       metadata: {
         userId: req.user.uid,
-        transporterId: transporterId,
-        bookingId: bookingId,
+        transporterId,
+        bookingId,
       },
       status: 'open',
-      message: `Dispute created successfully.. Dispute ID: ${dispute.disputeId}`,
+      message: `Dispute created successfully. Dispute ID: ${dispute.disputeId}`,
     });
 
     await sendEmail({
-        to: "support@trukafrica.com",
-        subject: 'Dispute Created',
-        html: adminNotification(
-          "Dispute Created",
-          `A new dispute has been created. Dispute ID: ${dispute.disputeId}`),
-      });
+      to: "support@trukafrica.com",
+      subject: 'Dispute Created',
+      html: adminNotification(
+        "Dispute Created",
+        `A new dispute has been created. Dispute ID: ${dispute.disputeId}`,
+        "Check Disputes"
+      ),
+    });
 
     res.status(201).json({ message: 'Dispute created successfully', dispute });
+
   } catch (err) {
     console.error('Create dispute error:', err);
     res.status(500).json({ message: 'Failed to create dispute' });
