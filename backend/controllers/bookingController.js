@@ -1860,16 +1860,29 @@ exports.estimateBooking = async (req, res) => {
           ? `${hours}h ${minutes}m` 
           : `${minutes}m`;
 
+        // Return estimate with realistic cost range (fallback scenario)
+        // Include both costRange and estimatedCostRange (Mumbua Mutuku's format) for consistency
+        const minCostRounded = Math.round(adjustedMinCost);
+        const maxCostRounded = Math.round(adjustedMaxCost);
+        const baseCostRounded = Math.round(baseCost);
+        
         return res.status(200).json({
           success: true,
           estimatedDistance: `${fallbackDistance.toFixed(2)} km`,
           estimatedDuration: formattedDuration,
-          estimatedCost: baseCost,
-          minCost: Math.round(adjustedMinCost),
-          maxCost: Math.round(adjustedMaxCost),
+          estimatedCost: baseCostRounded,
+          baseEstimate: baseCostRounded,
+          minCost: minCostRounded,
+          maxCost: maxCostRounded,
           costRange: {
-            min: Math.round(adjustedMinCost),
-            max: Math.round(adjustedMaxCost)
+            min: minCostRounded,
+            max: maxCostRounded
+          },
+          // Mumbua Mutuku's format for consistency with frontend
+          estimatedCostRange: {
+            min: minCostRounded,
+            max: maxCostRounded,
+            display: `KES ${minCostRounded.toLocaleString('en-US')} - ${maxCostRounded.toLocaleString('en-US')}`
           }
         });
       }
@@ -1941,17 +1954,30 @@ exports.estimateBooking = async (req, res) => {
       const adjustedMaxCost = Math.min(maxCost, baseCost * 1.08); // At most 8% above base
       
       // Return estimate with realistic cost range
+      // Include both costRange and estimatedCostRange (Mumbua Mutuku's format) for consistency
+      const minCostRounded = Math.round(adjustedMinCost);
+      const maxCostRounded = Math.round(adjustedMaxCost);
+      const baseCostRounded = Math.round(baseCost);
+      
       return res.status(200).json({
         success: true,
         estimatedDistance: `${actualDistance.toFixed(2)} km`,
         estimatedDuration: formattedDuration,
-        estimatedCost: baseCost,
-        minCost: Math.round(adjustedMinCost),
-        maxCost: Math.round(adjustedMaxCost),
+        estimatedCost: baseCostRounded,
+        baseEstimate: baseCostRounded,
+        minCost: minCostRounded,
+        maxCost: maxCostRounded,
         costRange: {
-          min: Math.round(adjustedMinCost),
-          max: Math.round(adjustedMaxCost)
-        }
+          min: minCostRounded,
+          max: maxCostRounded
+        },
+        // Mumbua Mutuku's format for consistency with frontend
+        estimatedCostRange: {
+          min: minCostRounded,
+          max: maxCostRounded,
+          display: `KES ${minCostRounded.toLocaleString('en-US')} - ${maxCostRounded.toLocaleString('en-US')}`
+        },
+        costBreakdown: costBreakdown
       });
     } else {
       // No coordinates provided - return error or use fallback
