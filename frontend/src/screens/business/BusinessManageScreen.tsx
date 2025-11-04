@@ -14,6 +14,7 @@ import { apiRequest } from '../../utils/api';
 import { getReadableLocationName, formatRoute } from '../../utils/locationUtils';
 import { unifiedBookingService, UnifiedBooking, BookingFilters } from '../../services/unifiedBookingService';
 import ConsolidationManager from '../../components/common/ConsolidationManager';
+import { formatCostRange } from '../../utils/costCalculator';
 
 // Real API integration - no mock data
 
@@ -25,6 +26,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [showConsolidationModal, setShowConsolidationModal] = useState(false);
+  const [expandedConsolidations, setExpandedConsolidations] = useState<Set<string>>(new Set()); // Track expanded consolidation groups
 
   useEffect(() => {
     fetchRequests();
@@ -41,7 +43,82 @@ const BusinessManageScreen = ({ navigation }: any) => {
       const bookings = await unifiedBookingService?.getBookings('business', filters);
       console.log('Business requests from unified service:', bookings);
       
-      setRequests(Array.isArray(bookings) ? bookings : []);
+      let allBookings = Array.isArray(bookings) ? bookings : [];
+      
+      // Group consolidated bookings by consolidationGroupId
+      // Consolidation: multiple individual bookings with same consolidationGroupId
+      const consolidationMap = new Map<string, any[]>();
+      const nonConsolidated: any[] = [];
+      
+      allBookings.forEach((booking: any) => {
+        if (booking.consolidationGroupId || (booking.consolidated === true && booking.consolidationGroupId)) {
+          const groupId = booking.consolidationGroupId;
+          if (!consolidationMap.has(groupId)) {
+            consolidationMap.set(groupId, []);
+          }
+          consolidationMap.get(groupId)!.push(booking);
+        } else {
+          nonConsolidated.push(booking);
+        }
+      });
+      
+      // Create consolidation objects - one per group
+      const consolidationObjects = Array.from(consolidationMap.entries()).map(([groupId, bookings]) => {
+        // Calculate total cost range
+        // Priority: estimatedCostRange > costRange > minCost/maxCost > estimatedCost/cost
+        let totalMinCost = 0;
+        let totalMaxCost = 0;
+        
+        bookings.forEach((booking: any) => {
+          // Use backend estimatedCostRange if available (Mumbua's format)
+          const minCost = booking.estimatedCostRange?.min || 
+                         booking.costRange?.min || 
+                         booking.minCost || 
+                         booking.estimatedCost || 
+                         booking.cost || 
+                         0;
+          const maxCost = booking.estimatedCostRange?.max || 
+                        booking.costRange?.max || 
+                        booking.maxCost || 
+                        booking.estimatedCost || 
+                        booking.cost || 
+                        0;
+          totalMinCost += minCost;
+          totalMaxCost += maxCost;
+        });
+        
+        return {
+          id: groupId,
+          bookingId: groupId,
+          type: 'consolidated',
+          isConsolidation: true,
+          consolidationGroupId: groupId,
+          consolidatedBookings: bookings,
+          consolidatedRequests: bookings,
+          totalBookings: bookings.length,
+          totalCostRange: { min: totalMinCost, max: totalMaxCost },
+          // Use first booking's details for summary display
+          fromLocation: bookings[0]?.fromLocation,
+          toLocation: bookings[bookings.length - 1]?.toLocation, // Use last dropoff
+          status: bookings[0]?.status || 'pending',
+          urgency: bookings[0]?.urgency || 'low',
+          createdAt: bookings[0]?.createdAt,
+          client: bookings[0]?.client,
+          productType: 'Mixed Products',
+          weight: bookings.reduce((sum: number, b: any) => {
+            const weight = parseFloat(b.weight?.toString().replace('kg', '').trim() || '0') || 0;
+            return sum + weight;
+          }, 0).toString() + 'kg',
+          cost: totalMinCost, // Use min cost for sorting
+          price: totalMinCost,
+          estimatedCost: totalMinCost,
+        };
+      });
+      
+      // Combine consolidation objects with non-consolidated bookings
+      allBookings = [...consolidationObjects, ...nonConsolidated];
+      
+      setRequests(allBookings);
     } catch (error) {
       console.error('Error fetching requests:', error);
       setRequests([]);
@@ -114,17 +191,24 @@ const BusinessManageScreen = ({ navigation }: any) => {
     });
   };
 
-  const renderRequestItem = ({ item }: { item: RequestItem }) => (
+  const renderRequestItem = ({ item }: { item: RequestItem }) => {
+    // Check if this is a consolidation object
+    const isConsolidation = item.isConsolidation === true || item.type === 'consolidated';
+    const isExpanded = isConsolidation && expandedConsolidations.has(item.consolidationGroupId || item.id);
+
+    return (
     <Card style={styles.requestCard}>
       <View style={styles.requestHeader}>
         <View style={styles.requestId}>
           <Text style={styles.requestIdText} numberOfLines={1} ellipsizeMode="tail">
-            #{getDisplayBookingId(item)}
+            {isConsolidation ? `#${item.consolidationGroupId || item.id}` : `#${getDisplayBookingId(item)}`}
           </Text>
-          {item.isConsolidated && (
+          {isConsolidation && (
             <View style={styles.consolidatedBadge}>
-              <MaterialCommunityIcons name="layers" size={12} color={colors.white} />
-              <Text style={styles.consolidatedText}>Consolidated</Text>
+              <MaterialCommunityIcons name="package-variant-closed" size={12} color={colors.white} />
+              <Text style={styles.consolidatedText}>
+                Consolidation ({item.totalBookings || item.consolidatedBookings?.length || 0})
+              </Text>
             </View>
           )}
         </View>
@@ -140,65 +224,152 @@ const BusinessManageScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      <View style={styles.requestDetails}>
-        <View style={styles.routeInfo}>
-          <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
-          <View style={styles.routeText}>
-            <Text style={styles.routeLabel}>Route</Text>
-            <Text style={styles.routeValue}>
-              {item.isConsolidated ? 'Multiple Locations' : formatRoute(item.fromLocation, item.toLocation)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.productInfo}>
-          <MaterialCommunityIcons name="package-variant" size={20} color={colors.secondary} />
-          <View style={styles.productText}>
-            <Text style={styles.productLabel}>Product</Text>
-            <Text style={styles.productValue}>
-              {item.isConsolidated ? 'Mixed Products' : item.productType}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.weightInfo}>
-          <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.tertiary} />
-          <View style={styles.weightText}>
-            <Text style={styles.weightLabel}>Weight</Text>
-            <Text style={styles.weightValue}>{item.weight}</Text>
-          </View>
-        </View>
-
-        {/* Shipping Cost - Always use backend-calculated cost: cost > price > estimatedCost */}
-        {(item.cost || item.price || item.estimatedCost) && (
-          <View style={styles.costInfo}>
-            <MaterialCommunityIcons name="cash" size={20} color={colors.success} />
-            <View style={styles.costText}>
-              <Text style={styles.costLabel}>Shipping Cost</Text>
-              <Text style={styles.costValue}>
-                KES {Number(item.cost || item.price || item.estimatedCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      {/* Consolidation Overview - Show summary when collapsed */}
+      {isConsolidation && (
+        <View style={styles.consolidationOverview}>
+          <View style={styles.consolidationSummary}>
+            <MaterialCommunityIcons name="package-variant" size={20} color={colors.primary} />
+            <View style={styles.consolidationSummaryText}>
+              <Text style={styles.consolidationSummaryTitle}>
+                Consolidation: {item.totalBookings || item.consolidatedBookings?.length || 0} individual bookings
+              </Text>
+              <Text style={styles.consolidationSummarySubtitle}>
+                Multiple pickup and dropoff locations
               </Text>
             </View>
           </View>
-        )}
+          
+          {/* Total Cost Range */}
+          {item.totalCostRange && (
+            <View style={styles.consolidationTotalCost}>
+              <MaterialCommunityIcons name="calculator" size={16} color={colors.success} />
+              <Text style={styles.consolidationTotalCostText}>
+                Total: {formatCostRange({ costRange: item.totalCostRange })}
+              </Text>
+            </View>
+          )}
+          
+          {/* Expand/Collapse Button */}
+          <TouchableOpacity
+            style={styles.expandButton}
+            onPress={() => toggleConsolidationExpansion(item.consolidationGroupId || item.id)}
+          >
+            <MaterialCommunityIcons
+              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.primary}
+            />
+            <Text style={styles.expandButtonText}>
+              {isExpanded ? 'Hide Details' : 'View Individual Bookings'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-        {item.isConsolidated && item.consolidatedRequests && (
-          <View style={styles.consolidatedDetails}>
-            <Text style={styles.consolidatedTitle}>Consolidated Requests:</Text>
-            {Array.isArray(item.consolidatedRequests) ? item.consolidatedRequests.filter(req => req != null).map((req, index) => {
-              try {
-                return (
-                  <View key={req?.id || index} style={styles.consolidatedItem}>
-                    <Text style={styles.consolidatedItemText}>
-                      • {formatRoute(req?.fromLocation, req?.toLocation)} ({req?.productType || 'N/A'}, {req?.weight || 'N/A'})
-                    </Text>
-                  </View>
-                );
-              } catch (e) {
-                console.warn('Error rendering consolidated request:', e);
-                return null;
-              }
-            }).filter(item => item != null) : null}
+      {/* Individual Bookings - Shown when expanded */}
+      {isConsolidation && isExpanded && item.consolidatedBookings && (
+        <View style={styles.individualBookingsContainer}>
+          <Text style={styles.individualBookingsTitle}>Individual Bookings:</Text>
+          {item.consolidatedBookings.map((booking: any, index: number) => (
+            <View key={booking.id || booking.bookingId || index} style={styles.individualBookingItem}>
+              <View style={styles.individualBookingHeader}>
+                <Text style={styles.individualBookingNumber}>Booking {index + 1}</Text>
+                <Text style={styles.individualBookingId}>
+                  #{getDisplayBookingId({
+                    ...booking,
+                    bookingType: booking.bookingType || booking.type,
+                    bookingMode: booking.bookingMode || (booking.type === 'instant' ? 'instant' : 'booking')
+                  })}
+                </Text>
+              </View>
+              <View style={styles.individualBookingDetails}>
+                <View style={styles.individualBookingRow}>
+                  <MaterialCommunityIcons name="map-marker" size={14} color={colors.primary} />
+                  <Text style={styles.individualBookingText}>
+                    From: {typeof booking.fromLocation === 'object' ? (booking.fromLocation.address || 'Unknown') : (booking.fromLocation || 'Unknown')}
+                  </Text>
+                </View>
+                <View style={styles.individualBookingRow}>
+                  <MaterialCommunityIcons name="map-marker-check" size={14} color={colors.success} />
+                  <Text style={styles.individualBookingText}>
+                    To: {typeof booking.toLocation === 'object' ? (booking.toLocation.address || 'Unknown') : (booking.toLocation || 'Unknown')}
+                  </Text>
+                </View>
+                <View style={styles.individualBookingRow}>
+                  <MaterialCommunityIcons name="package-variant" size={14} color={colors.secondary} />
+                  <Text style={styles.individualBookingText}>
+                    {booking.productType || 'N/A'} | {booking.weight || '0kg'}
+                  </Text>
+                </View>
+                <View style={styles.individualBookingRow}>
+                  <MaterialCommunityIcons name="cash" size={14} color={colors.success} />
+                  <Text style={[styles.individualBookingText, { fontWeight: 'bold' }]}>
+                    Cost: {formatCostRange(booking)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.requestDetails}>
+        {/* Route information - Only show for non-consolidation or when consolidation is collapsed */}
+        {!isConsolidation && (
+          <>
+            <View style={styles.routeInfo}>
+              <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
+              <View style={styles.routeText}>
+                <Text style={styles.routeLabel}>Route</Text>
+                <Text style={styles.routeValue}>
+                  {formatRoute(item.fromLocation, item.toLocation)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.productInfo}>
+              <MaterialCommunityIcons name="package-variant" size={20} color={colors.secondary} />
+              <View style={styles.productText}>
+                <Text style={styles.productLabel}>Product</Text>
+                <Text style={styles.productValue}>
+                  {item.productType}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.weightInfo}>
+              <MaterialCommunityIcons name="weight-kilogram" size={20} color={colors.tertiary} />
+              <View style={styles.weightText}>
+                <Text style={styles.weightLabel}>Weight</Text>
+                <Text style={styles.weightValue}>{item.weight}</Text>
+              </View>
+            </View>
+
+            {/* Shipping Cost - Always use backend-calculated cost: cost > price > estimatedCost */}
+            {(item.cost || item.price || item.estimatedCost) && (
+              <View style={styles.costInfo}>
+                <MaterialCommunityIcons name="cash" size={20} color={colors.success} />
+                <View style={styles.costText}>
+                  <Text style={styles.costLabel}>Shipping Cost</Text>
+                  <Text style={styles.costValue}>
+                    {formatCostRange(item)}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </>
+        )}
+        
+        {/* Route summary for consolidation (when collapsed) */}
+        {isConsolidation && !isExpanded && (
+          <View style={styles.routeInfo}>
+            <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.primary} />
+            <View style={styles.routeText}>
+              <Text style={styles.routeLabel}>Route</Text>
+              <Text style={styles.routeValue}>
+                Multiple pickup and dropoff locations
+              </Text>
+            </View>
           </View>
         )}
 
@@ -417,6 +588,13 @@ const BusinessManageScreen = ({ navigation }: any) => {
 
       {/* Consolidation Manager Modal */}
       <ConsolidationManager
+        onNavigateToConfirmation={(requests) => {
+          navigation.navigate('BookingConfirmation', {
+            requests,
+            mode: 'business',
+            isConsolidation: true,
+          });
+        }}
         userRole="business"
         visible={showConsolidationModal}
         onClose={() => setShowConsolidationModal(false)}

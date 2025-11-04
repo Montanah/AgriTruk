@@ -23,12 +23,14 @@ import { unifiedBookingService, UnifiedBooking, BookingFilters } from '../../ser
 import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
 import { getReadableLocationName } from '../../utils/locationUtils';
 import { useConsolidations } from '../../context/ConsolidationContext';
+import { formatCostRange } from '../../utils/costCalculator';
 
 interface ConsolidationManagerProps {
   userRole: 'broker' | 'business';
   visible: boolean;
   onClose: () => void;
   onConsolidationComplete?: (consolidatedBooking: UnifiedBooking) => void;
+  onNavigateToConfirmation?: (requests: UnifiedBooking[]) => void; // Callback to navigate to confirmation
   clientId?: string; // For broker-specific client consolidation
 }
 
@@ -47,6 +49,7 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
   visible,
   onClose,
   onConsolidationComplete,
+  onNavigateToConfirmation,
   clientId,
 }) => {
   const { consolidations: contextConsolidations } = useConsolidations();
@@ -205,56 +208,40 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
     );
   };
 
-  const handleConsolidate = async () => {
+  const handleConsolidate = () => {
     if (selectedRequests.length < 2) {
       Alert.alert('Error', 'Please select at least 2 requests to consolidate');
       return;
     }
 
+    // Get selected requests data
+    const selectedRequestsData = availableRequests.filter(req => 
+      selectedRequests.includes(req.id)
+    );
+
+    // Navigate to BookingConfirmationScreen with all individual requests
+    // Each request will be created as a separate booking with a consolidationGroupId
     try {
-      setConsolidating(true);
+      // Close the modal first
+      onClose();
       
-      const selectedRequestsData = availableRequests.filter(req => 
-        selectedRequests.includes(req.id)
-      );
-
-      // Determine consolidation parameters
-      const consolidationData = {
-        fromLocation: selectedRequestsData[0].fromLocation,
-        toLocation: selectedRequestsData[0].toLocation,
-        productType: selectedRequestsData.length > 1 ? 'Mixed Products' : selectedRequestsData[0].productType,
-        totalWeight: selectedRequestsData.reduce((sum, req) => {
-          const weight = parseFloat(req.weight) || 0;
-          return sum + weight;
-        }, 0).toString(),
-        urgency: consolidationPreview?.urgency || 'medium',
-        description: `Consolidated request containing ${selectedRequestsData.length} individual requests`,
-      };
-
-      // Perform consolidation
-      const consolidatedBooking = await unifiedBookingService.consolidateBookings(
-        selectedRequests,
-        consolidationData
-      );
-
-      Alert.alert(
-        'Success',
-        `Successfully consolidated ${selectedRequests.length} requests!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              onConsolidationComplete?.(consolidatedBooking);
-              onClose();
-            },
-          },
-        ]
-      );
+      // Use callback to navigate to BookingConfirmation with all selected requests
+      // The screen will handle creating multiple individual bookings
+      if (onNavigateToConfirmation) {
+        onNavigateToConfirmation(selectedRequestsData);
+      } else {
+        // Fallback: try to use navigation hook
+        const { useNavigation } = require('@react-navigation/native');
+        const navigation = useNavigation();
+        navigation.navigate('BookingConfirmation', {
+          requests: selectedRequestsData,
+          mode: userRole === 'broker' ? 'broker' : 'business',
+          isConsolidation: true, // Flag to indicate this is a consolidation
+        });
+      }
     } catch (error) {
-      console.error('Error consolidating requests:', error);
-      Alert.alert('Error', 'Failed to consolidate requests. Please try again.');
-    } finally {
-      setConsolidating(false);
+      console.error('Error navigating to booking confirmation:', error);
+      Alert.alert('Error', 'Failed to proceed with consolidation. Please try again.');
     }
   };
 
@@ -289,10 +276,12 @@ const ConsolidationManager: React.FC<ConsolidationManagerProps> = ({
             <Text style={styles.weightText}>{item.weight}</Text>
           </View>
           
-          <View style={styles.valueInfo}>
-            <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
-            <Text style={styles.valueText}>KES {item.estimatedValue?.toLocaleString() || 'N/A'}</Text>
-          </View>
+          {(item.cost || item.price || item.estimatedCost || item.costRange || item.estimatedCostRange || (item.minCost != null && item.maxCost != null)) && (
+            <View style={styles.valueInfo}>
+              <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
+              <Text style={styles.valueText}>{formatCostRange(item)}</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );

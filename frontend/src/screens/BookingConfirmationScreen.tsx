@@ -1,13 +1,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { apiRequest } from '../utils/api';
 import { calculateRoadDistanceWithFallback } from '../utils/distanceUtils';
-import { formatCurrency } from '../utils/costCalculator';
+import { formatCurrency, formatCostRange } from '../utils/costCalculator';
 import CustomAlert from '../components/common/CustomAlert';
 import SuccessBookingModal from '../components/common/SuccessBookingModal';
 import { cleanLocationDisplay } from '../utils/locationUtils';
@@ -17,8 +17,12 @@ import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const params = route?.params || {};
   const requests = Array.isArray(params?.requests) ? params.requests : (params?.booking ? [params.booking] : []);
+  const isConsolidation = params.isConsolidation === true; // Flag to indicate consolidation mode
   const isConsolidated = Array.isArray(requests) && requests.length > 1;
   const mode = params.mode || 'shipper'; // shipper, broker, business
+  
+  // Generate a consolidation group ID for linking individual bookings
+  const consolidationGroupId = isConsolidation ? `CONSOL-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}` : null;
   // Initialize pickup date from request data
   const getInitialPickupDate = () => {
     const now = new Date();
@@ -83,26 +87,153 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
   const [summary, setSummary] = useState<{ distance: string; duration: string; cost: string } | null>(null);
+  const [individualEstimates, setIndividualEstimates] = useState<any[]>([]); // Estimates for each individual booking in consolidation
+  const [totalCostRange, setTotalCostRange] = useState<{ min: number; max: number } | null>(null); // Total cost range for consolidation
 
-  // Fetch backend cost estimate before posting
+  // Fetch backend cost estimates before posting
   React.useEffect(() => {
-    const fetchBackendEstimate = async () => {
+    const fetchBackendEstimates = async () => {
       try {
         if (!Array.isArray(requests) || requests.length === 0) return;
         setSummaryLoading(true);
-        const req = requests[0];
-        if (!req) {
-          setSummaryLoading(false);
-          return;
-        }
         
-        // For consolidated bookings, use first pickup and find furthest drop-off
-        let fromLoc: string;
-        let toLoc: string;
-        let fromLocationObj: any;
-        let toLocationObj: any;
-        
-        if (isConsolidated && requests.length > 1) {
+        // For consolidation mode: fetch estimates for EACH individual booking
+        if (isConsolidation && requests.length > 1) {
+          const estimates: any[] = [];
+          let totalMinCost = 0;
+          let totalMaxCost = 0;
+          
+          // Fetch estimate for each individual booking
+          for (const req of requests) {
+            try {
+              const fromLoc = typeof req.fromLocation === 'object' 
+                ? (req.fromLocation.address || req.fromLocationAddress || '') 
+                : (req.fromLocationAddress || req.fromLocation || '');
+              const toLoc = typeof req.toLocation === 'object' 
+                ? (req.toLocation.address || req.toLocationAddress || '') 
+                : (req.toLocationAddress || req.toLocation || '');
+              
+              if (!fromLoc || !toLoc) {
+                console.warn(`Missing location for request ${req.id}`);
+                continue;
+              }
+              
+              const fromLocationObj = req.fromLocationCoords ? {
+                address: fromLoc,
+                latitude: req.fromLocationCoords.latitude,
+                longitude: req.fromLocationCoords.longitude
+              } : (typeof req.fromLocation === 'object' && req.fromLocation.latitude ? {
+                address: fromLoc,
+                latitude: req.fromLocation.latitude,
+                longitude: req.fromLocation.longitude
+              } : { address: fromLoc });
+              
+              const toLocationObj = req.toLocationCoords ? {
+                address: toLoc,
+                latitude: req.toLocationCoords.latitude,
+                longitude: req.toLocationCoords.longitude
+              } : (typeof req.toLocation === 'object' && req.toLocation.latitude ? {
+                address: toLoc,
+                latitude: req.toLocation.latitude,
+                longitude: req.toLocation.longitude
+              } : { address: toLoc });
+              
+              // Geocode if coordinates missing
+              if (!fromLocationObj.latitude || !fromLocationObj.longitude) {
+                try {
+                  const { googleMapsService } = require('../services/googleMapsService');
+                  const geocodedFrom = await googleMapsService.geocodeAddress(fromLoc);
+                  fromLocationObj.latitude = geocodedFrom.latitude;
+                  fromLocationObj.longitude = geocodedFrom.longitude;
+                } catch (error) {
+                  console.error('Error geocoding fromLocation:', error);
+                  continue;
+                }
+              }
+              
+              if (!toLocationObj.latitude || !toLocationObj.longitude) {
+                try {
+                  const { googleMapsService } = require('../services/googleMapsService');
+                  const geocodedTo = await googleMapsService.geocodeAddress(toLoc);
+                  toLocationObj.latitude = geocodedTo.latitude;
+                  toLocationObj.longitude = geocodedTo.longitude;
+                } catch (error) {
+                  console.error('Error geocoding toLocation:', error);
+                  continue;
+                }
+              }
+              
+              // Fetch estimate for this individual booking
+              const estimateResponse = await apiRequest('/bookings/estimate', {
+                method: 'POST',
+                body: JSON.stringify({
+                  fromLocation: fromLocationObj,
+                  toLocation: toLocationObj,
+                  weightKg: Number(req.weightKg || req.weight || 0) || 0,
+                  lengthCm: Number(req.lengthCm || 0),
+                  widthCm: Number(req.widthCm || 0),
+                  heightCm: Number(req.heightCm || 0),
+                  urgencyLevel: req.urgencyLevel || (req.urgency ? req.urgency.charAt(0).toUpperCase() + req.urgency.slice(1) : 'Low'),
+                  perishable: !!(req.perishable || req.isPerishable),
+                  needsRefrigeration: !!(req.needsRefrigeration || req.isPerishable),
+                  humidityControl: !!(req.humidyControl || req.isPerishable),
+                  specialCargo: req.specialCargo || [],
+                  bulkness: !!req.bulkness,
+                  insured: !!(req.insured || req.insureGoods),
+                  value: Number(req.value || req.insuranceValue || 0) || 0,
+                  tolls: Number(req.tolls || 0) || 0,
+                  fuelSurchargePct: Number(req.fuelSurchargePct || 0) || 0,
+                  waitMinutes: Number(req.waitMinutes || 0) || 0,
+                  nightSurcharge: !!req.nightSurcharge,
+                  vehicleType: req.vehicleType || 'truck',
+                }),
+              });
+              
+              if (estimateResponse) {
+                const minCost = estimateResponse.costRange?.min || estimateResponse.minCost || estimateResponse.estimatedCost || 0;
+                const maxCost = estimateResponse.costRange?.max || estimateResponse.maxCost || estimateResponse.estimatedCost || 0;
+                
+                totalMinCost += minCost;
+                totalMaxCost += maxCost;
+                
+                estimates.push({
+                  request: req,
+                  estimate: estimateResponse,
+                  minCost,
+                  maxCost,
+                });
+              }
+            } catch (error) {
+              console.error(`Error fetching estimate for request ${req.id}:`, error);
+            }
+          }
+          
+          setIndividualEstimates(estimates);
+          setTotalCostRange({ min: totalMinCost, max: totalMaxCost });
+          
+          // Set summary with total cost range
+          const totalCostDisplay = formatCostRange({ costRange: { min: totalMinCost, max: totalMaxCost } });
+          setSummary({
+            distance: `${estimates.length} routes`,
+            duration: 'Varies',
+            cost: totalCostDisplay,
+          });
+        } else {
+          // Single booking - use original logic
+          try {
+            const req = requests[0];
+            if (!req) {
+              setSummaryLoading(false);
+              return;
+            }
+            
+            // For consolidated bookings, use first pickup and find furthest drop-off
+            let fromLoc: string;
+            let toLoc: string;
+            let fromLocationObj: any;
+            let toLocationObj: any;
+            
+            if (isConsolidated && requests.length > 1) {
           // Use first request's pickup location (as user suggested)
           const firstReq = requests[0];
           fromLoc = typeof firstReq.fromLocation === 'object' 
@@ -230,22 +361,25 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           }),
         });
 
-        if (estimateResponse) {
-          // Handle cost range if backend provides it (minCost/maxCost or costRange)
-          let costDisplay = 'N/A';
-          if (estimateResponse.costRange || (estimateResponse.minCost && estimateResponse.maxCost)) {
-            const minCost = estimateResponse.costRange?.min || estimateResponse.minCost || 0;
-            const maxCost = estimateResponse.costRange?.max || estimateResponse.maxCost || 0;
-            costDisplay = `${formatCurrency(minCost)} - ${formatCurrency(maxCost)}`;
-          } else if (estimateResponse.estimatedCost) {
-            costDisplay = formatCurrency(estimateResponse.estimatedCost);
+            if (estimateResponse) {
+              // Use formatCostRange utility to ensure consistent display with backend format
+              // Backend returns: { estimatedCost, minCost, maxCost, costRange, estimatedCostRange }
+              const costDisplay = formatCostRange(estimateResponse);
+              
+              setSummary({
+                distance: estimateResponse.estimatedDistance || 'N/A',
+                duration: estimateResponse.estimatedDuration || 'N/A',
+                cost: costDisplay,
+              });
+            }
+          } catch (singleError) {
+            console.error('Error fetching single booking estimate:', singleError);
+            setSummary({
+              distance: 'N/A',
+              duration: 'N/A',
+              cost: 'N/A',
+            });
           }
-          
-          setSummary({
-            distance: estimateResponse.estimatedDistance || 'N/A',
-            duration: estimateResponse.estimatedDuration || 'N/A',
-            cost: costDisplay,
-          });
         }
       } catch (e) {
         // Backend estimate failed - show error but don't use frontend calculation
@@ -265,7 +399,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         setSummaryLoading(false);
       }
     };
-    fetchBackendEstimate();
+    fetchBackendEstimates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -436,7 +570,8 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           nightSurcharge: req.nightSurcharge || false,
           
           // Booking metadata - match database structure
-          consolidated: false,
+          consolidated: isConsolidation ? true : false, // Mark as part of consolidation
+          consolidationGroupId: isConsolidation ? consolidationGroupId : null, // Link bookings in consolidation group
           status: 'pending',
           
           // Recurrence - match database structure
@@ -478,16 +613,100 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       // Validating booking data before sending
       // Sending request to backend
 
+      // For consolidation mode: create multiple individual bookings
+      if (isConsolidation && payload.length > 1) {
+        const createdBookings: any[] = [];
+        const errors: any[] = [];
+        
+        // Create each booking individually
+        for (let i = 0; i < payload.length; i++) {
+          const bookingPayload = payload[i];
+          let retryCount = 0;
+          const maxRetries = 3;
+          
+          while (retryCount < maxRetries) {
+            try {
+              const response = await apiRequest('/bookings', {
+                method: 'POST',
+                body: JSON.stringify(bookingPayload)
+              });
+              
+              createdBookings.push({
+                ...bookingPayload,
+                bookingId: response?.bookingId || response?.id,
+                readableId: response?.readableId,
+                response: response,
+              });
+              
+              break; // Success, exit retry loop for this booking
+            } catch (error: any) {
+              retryCount++;
+              
+              if (retryCount >= maxRetries) {
+                errors.push({
+                  booking: bookingPayload,
+                  error: error.message || 'Failed to create booking',
+                });
+                break; // Move to next booking
+              }
+              
+              // Wait before retry (exponential backoff)
+              const waitTime = Math.pow(2, retryCount) * 1000; // 2s, 4s, 8s
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+          }
+        }
+        
+        // Check if all bookings were created successfully
+        if (errors.length > 0) {
+          throw new Error(`Failed to create ${errors.length} of ${payload.length} bookings. Please try again.`);
+        }
+        
+        // Store all created bookings
+        setPostedBooking({
+          ...createdBookings[0],
+          allBookings: createdBookings, // Store all individual bookings
+          consolidationGroupId: consolidationGroupId,
+        });
+        
+        // Use the first booking's ID for display
+        const extractedBookingId = createdBookings[0]?.readableId || createdBookings[0]?.bookingId || 'N/A';
+        setBookingId(extractedBookingId);
+        setShowSuccessModal(true);
+        
+        // Send notifications for all bookings
+        try {
+          const { NotificationHelper } = require('../services/notificationHelper');
+          const { getAuth } = require('firebase/auth');
+          const auth = getAuth();
+          const user = auth.currentUser;
+          
+          if (user) {
+            for (const booking of createdBookings) {
+              await NotificationHelper.sendBookingNotification('created', {
+                userId: user.uid,
+                role: 'customer',
+                bookingId: booking.readableId || booking.bookingId,
+                fromLocation: booking.fromLocation?.address || 'Pickup location',
+                toLocation: booking.toLocation?.address || 'Delivery location'
+              });
+            }
+          }
+        } catch (notificationError) {
+          console.warn('Failed to send booking creation notifications:', notificationError);
+        }
+        
+        return; // Exit early for consolidation mode
+      }
+      
+      // Single booking mode: use original logic
       // Post to backend bookings endpoint with retry logic
       let response;
       let retryCount = 0;
       const maxRetries = 3;
       
-      
-      
       while (retryCount < maxRetries) {
         try {
-          
           // Attempting booking submission
           response = await apiRequest('/bookings', {
             method: 'POST',
@@ -676,30 +895,123 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        {isConsolidated ? 'Confirm Consolidated Booking' : 'Confirm Booking'}
+        {isConsolidation ? 'Confirm Consolidated Booking' : isConsolidated ? 'Confirm Consolidated Booking' : 'Confirm Booking'}
         {mode !== 'shipper' && ` (${mode})`}
       </Text>
-      <FlatList
-        data={requests}
-        keyExtractor={item => item.id}
-        renderItem={({ item, index }) => (
-          <View style={[styles.bookingCard, index % 2 === 0 ? { backgroundColor: colors.surface } : { backgroundColor: colors.background }]}>
-            <Text style={styles.bookingId}>Request ID: {getDisplayBookingId({
-              ...item,
-              readableId: item.readableId,
-              bookingType: item.bookingType || (item.type === 'agriTRUK' ? 'Agri' : 'Cargo'),
-              bookingMode: item.bookingMode || (item.requestType === 'instant' ? 'instant' : 'booking'),
-              createdAt: item.createdAt || item.date,
-              bookingId: item.id || item.bookingId
-            })}</Text>
-            <Text style={styles.bookingDetail}>From: <Text style={{ fontWeight: 'bold' }}>{item.fromLocationAddress || (typeof item.fromLocation === 'object' ? item.fromLocation.address : (item.fromLocation || 'Unknown'))}</Text></Text>
-            <Text style={styles.bookingDetail}>To: <Text style={{ fontWeight: 'bold' }}>{item.toLocationAddress || (typeof item.toLocation === 'object' ? item.toLocation.address : (item.toLocation || 'Unknown'))}</Text></Text>
-            <Text style={styles.bookingDetail}>Product: {item.productType} | {item.weight}kg</Text>
-            <Text style={styles.bookingDetail}>Type: {item.type === 'agriTRUK' ? 'Agri' : 'Cargo'}</Text>
+      
+      {/* Consolidation Preview - Show individual bookings with their details */}
+      {isConsolidation && individualEstimates.length > 0 && (
+        <View style={styles.consolidationPreviewCard}>
+          <View style={styles.consolidationHeader}>
+            <MaterialCommunityIcons name="package-variant-closed" size={24} color={colors.primary} />
+            <Text style={styles.consolidationTitle}>Consolidation Preview</Text>
           </View>
-        )}
-        style={{ maxHeight: 180, marginBottom: 18 }}
-      />
+          <Text style={styles.consolidationSubtitle}>
+            {individualEstimates.length} individual booking{individualEstimates.length > 1 ? 's' : ''} will be created
+          </Text>
+          
+          <ScrollView style={styles.individualBookingsList} nestedScrollEnabled>
+            {individualEstimates.map((item, index) => (
+              <View key={item.request.id || index} style={styles.individualBookingCard}>
+                <View style={styles.individualBookingHeader}>
+                  <Text style={styles.individualBookingId}>
+                    Booking {index + 1}: {getDisplayBookingId({
+                      ...item.request,
+                      readableId: item.request.readableId,
+                      bookingType: item.request.bookingType || (item.request.type === 'agriTRUK' ? 'Agri' : 'Cargo'),
+                      bookingMode: item.request.bookingMode || (item.request.requestType === 'instant' ? 'instant' : 'booking'),
+                      createdAt: item.request.createdAt || item.request.date,
+                      bookingId: item.request.id || item.request.bookingId
+                    })}
+                  </Text>
+                </View>
+                <View style={styles.individualBookingDetails}>
+                  <View style={styles.individualBookingRow}>
+                    <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                    <Text style={styles.individualBookingText}>
+                      <Text style={styles.individualBookingLabel}>From: </Text>
+                      {item.request.fromLocationAddress || (typeof item.request.fromLocation === 'object' ? item.request.fromLocation.address : (item.request.fromLocation || 'Unknown'))}
+                    </Text>
+                  </View>
+                  <View style={styles.individualBookingRow}>
+                    <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.success} />
+                    <Text style={styles.individualBookingText}>
+                      <Text style={styles.individualBookingLabel}>To: </Text>
+                      {item.request.toLocationAddress || (typeof item.request.toLocation === 'object' ? item.request.toLocation.address : (item.request.toLocation || 'Unknown'))}
+                    </Text>
+                  </View>
+                  <View style={styles.individualBookingRow}>
+                    <MaterialCommunityIcons name="package-variant" size={16} color={colors.secondary} />
+                    <Text style={styles.individualBookingText}>
+                      <Text style={styles.individualBookingLabel}>Product: </Text>
+                      {item.request.productType} | {item.request.weight || item.request.weightKg || '0'}kg
+                    </Text>
+                  </View>
+                  <View style={styles.individualBookingRow}>
+                    <MaterialCommunityIcons name="ruler" size={16} color={colors.tertiary} />
+                    <Text style={styles.individualBookingText}>
+                      <Text style={styles.individualBookingLabel}>Distance: </Text>
+                      {item.estimate.estimatedDistance || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.individualBookingRow}>
+                    <MaterialCommunityIcons name="clock-outline" size={16} color={colors.tertiary} />
+                    <Text style={styles.individualBookingText}>
+                      <Text style={styles.individualBookingLabel}>Duration: </Text>
+                      {item.estimate.estimatedDuration || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={[styles.individualBookingRow, { marginTop: 4 }]}>
+                    <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
+                    <Text style={[styles.individualBookingText, { fontWeight: 'bold', color: colors.primary }]}>
+                      <Text style={styles.individualBookingLabel}>Cost: </Text>
+                      {formatCostRange(item.estimate)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          
+          {/* Total Cost Range */}
+          {totalCostRange && (
+            <View style={styles.totalCostCard}>
+              <MaterialCommunityIcons name="calculator" size={20} color={colors.primary} />
+              <View style={styles.totalCostInfo}>
+                <Text style={styles.totalCostLabel}>Total Cost Range</Text>
+                <Text style={styles.totalCostValue}>
+                  {formatCostRange({ costRange: totalCostRange })}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+      )}
+      
+      {/* Regular Booking List - for non-consolidation mode */}
+      {!isConsolidation && (
+        <FlatList
+          data={requests}
+          keyExtractor={item => item.id}
+          renderItem={({ item, index }) => (
+            <View style={[styles.bookingCard, index % 2 === 0 ? { backgroundColor: colors.surface } : { backgroundColor: colors.background }]}>
+              <Text style={styles.bookingId}>Request ID: {getDisplayBookingId({
+                ...item,
+                readableId: item.readableId,
+                bookingType: item.bookingType || (item.type === 'agriTRUK' ? 'Agri' : 'Cargo'),
+                bookingMode: item.bookingMode || (item.requestType === 'instant' ? 'instant' : 'booking'),
+                createdAt: item.createdAt || item.date,
+                bookingId: item.id || item.bookingId
+              })}</Text>
+              <Text style={styles.bookingDetail}>From: <Text style={{ fontWeight: 'bold' }}>{item.fromLocationAddress || (typeof item.fromLocation === 'object' ? item.fromLocation.address : (item.fromLocation || 'Unknown'))}</Text></Text>
+              <Text style={styles.bookingDetail}>To: <Text style={{ fontWeight: 'bold' }}>{item.toLocationAddress || (typeof item.toLocation === 'object' ? item.toLocation.address : (item.toLocation || 'Unknown'))}</Text></Text>
+              <Text style={styles.bookingDetail}>Product: {item.productType} | {item.weight}kg</Text>
+              <Text style={styles.bookingDetail}>Type: {item.type === 'agriTRUK' ? 'Agri' : 'Cargo'}</Text>
+            </View>
+          )}
+          style={{ maxHeight: 180, marginBottom: 18 }}
+        />
+      )}
       <View style={styles.dateRow}>
         <Text style={styles.label}>Pickup Date & Time</Text>
         <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
@@ -951,6 +1263,98 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
     fontSize: fonts.size.md,
+  },
+  // Consolidation Preview Styles
+  consolidationPreviewCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  consolidationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  consolidationTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginLeft: 8,
+    fontFamily: fonts.medium,
+  },
+  consolidationSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: 16,
+    fontFamily: fonts.regular,
+  },
+  individualBookingsList: {
+    maxHeight: 300,
+  },
+  individualBookingCard: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  individualBookingHeader: {
+    marginBottom: 8,
+  },
+  individualBookingId: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.primary,
+    fontFamily: fonts.medium,
+  },
+  individualBookingDetails: {
+    marginTop: 4,
+  },
+  individualBookingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  individualBookingText: {
+    fontSize: 13,
+    color: colors.text.primary,
+    marginLeft: 8,
+    flex: 1,
+    fontFamily: fonts.regular,
+  },
+  individualBookingLabel: {
+    fontWeight: '600',
+    color: colors.text.secondary,
+  },
+  totalCostCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  totalCostInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  totalCostLabel: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    fontFamily: fonts.regular,
+  },
+  totalCostValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginTop: 4,
+    fontFamily: fonts.bold,
   },
 });
 

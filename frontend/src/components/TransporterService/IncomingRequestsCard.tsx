@@ -6,13 +6,16 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    ScrollView
 } from 'react-native';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
 import { API_ENDPOINTS } from '../../constants/api';
 import LocationDisplay from '../common/LocationDisplay';
+import { formatCostRange } from '../../utils/costCalculator';
+import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
 
 interface IncomingRequest {
     id: string;
@@ -67,6 +70,7 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
     const [loading, setLoading] = useState(providedLoading !== undefined ? providedLoading : true);
     const [acceptingId, setAcceptingId] = useState<string | null>(null);
     const [rejectingId, setRejectingId] = useState<string | null>(null);
+    const [expandedConsolidations, setExpandedConsolidations] = useState<Set<string>>(new Set()); // Track expanded consolidation groups
 
     useEffect(() => {
         // If loading state is provided, use it
@@ -109,12 +113,64 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                     const allRequests = data.requests || data.availableBookings || data.bookings || [];
                     // Filter for pending requests that are instant mode (for "Incoming Requests" section)
                     // If title is "Incoming Requests", show only instant requests
-                    const filteredRequests = customTitle === 'Incoming Requests' 
+                    let filteredRequests = customTitle === 'Incoming Requests' 
                         ? allRequests.filter((req: any) => 
                             (req.type === 'instant' || req.bookingMode === 'instant' || req.bookingType === 'instant')
                             && req.status === 'pending'
                           )
                         : allRequests;
+                    
+                    // Group consolidated bookings by consolidationGroupId
+                    // Consolidation: multiple individual bookings with same consolidationGroupId
+                    const consolidationMap = new Map<string, any[]>();
+                    const nonConsolidated: any[] = [];
+                    
+                    filteredRequests.forEach((req: any) => {
+                        if (req.consolidationGroupId || (req.consolidated === true && req.consolidationGroupId)) {
+                            const groupId = req.consolidationGroupId;
+                            if (!consolidationMap.has(groupId)) {
+                                consolidationMap.set(groupId, []);
+                            }
+                            consolidationMap.get(groupId)!.push(req);
+                        } else {
+                            nonConsolidated.push(req);
+                        }
+                    });
+                    
+                    // Create consolidation objects - one per group
+                    const consolidationObjects = Array.from(consolidationMap.entries()).map(([groupId, bookings]) => {
+                        // Calculate total cost range
+                        let totalMinCost = 0;
+                        let totalMaxCost = 0;
+                        
+                        bookings.forEach((booking: any) => {
+                            const minCost = booking.costRange?.min || booking.minCost || booking.estimatedCost || booking.cost || 0;
+                            const maxCost = booking.costRange?.max || booking.maxCost || booking.estimatedCost || booking.cost || 0;
+                            totalMinCost += minCost;
+                            totalMaxCost += maxCost;
+                        });
+                        
+                        return {
+                            id: groupId,
+                            bookingId: groupId,
+                            type: 'consolidated',
+                            isConsolidation: true,
+                            consolidationGroupId: groupId,
+                            consolidatedBookings: bookings,
+                            totalBookings: bookings.length,
+                            totalCostRange: { min: totalMinCost, max: totalMaxCost },
+                            // Use first booking's details for summary display
+                            fromLocation: bookings[0]?.fromLocation,
+                            toLocation: bookings[bookings.length - 1]?.toLocation, // Use last dropoff
+                            status: bookings[0]?.status || 'pending',
+                            urgency: bookings[0]?.urgency || bookings[0]?.urgencyLevel || 'low',
+                            createdAt: bookings[0]?.createdAt,
+                            client: bookings[0]?.client,
+                        };
+                    });
+                    
+                    // Combine consolidation objects with non-consolidated bookings
+                    filteredRequests = [...consolidationObjects, ...nonConsolidated];
                     setRequests(filteredRequests.slice(0, 3)); // Show only first 3 requests
                 } else {
                     setRequests([]);
@@ -207,17 +263,41 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
         }
     };
 
+    const toggleConsolidationExpansion = (groupId: string) => {
+        setExpandedConsolidations(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(groupId)) {
+                newSet.delete(groupId);
+            } else {
+                newSet.add(groupId);
+            }
+            return newSet;
+        });
+    };
+
     const renderRequestItem = ({ item }: { item: any }) => {
         // Skip rendering if item is invalid
         if (!item || (!item.id && !item.bookingId)) {
             return null;
         }
 
+        // Check if this is a consolidation object
+        const isConsolidation = item.isConsolidation === true || item.type === 'consolidated';
+        const isExpanded = isConsolidation && expandedConsolidations.has(item.consolidationGroupId || item.id);
+
         return (
         <View style={styles.requestCard}>
             {/* Header with urgency indicator */}
             <View style={styles.requestHeader}>
                 <View style={styles.urgencyContainer}>
+                    {isConsolidation && (
+                        <MaterialCommunityIcons
+                            name="package-variant-closed"
+                            size={16}
+                            color={colors.primary}
+                            style={{ marginRight: 4 }}
+                        />
+                    )}
                     <MaterialCommunityIcons
                         name={getUrgencyIcon(item.urgency || item.urgencyLevel || 'low')}
                         size={16}
@@ -225,20 +305,123 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                     />
                     <Text style={[styles.urgencyText, { color: getUrgencyColor(item.urgency || item.urgencyLevel || 'low') }]}>
                         {(item.urgency || item.urgencyLevel || 'low').toUpperCase()} PRIORITY
+                        {isConsolidation && ` | ${item.totalBookings || item.consolidatedBookings?.length || 0} BOOKINGS`}
                     </Text>
                 </View>
-                <Text style={styles.requestId}>#{(() => {
-                  const { getDisplayBookingId } = require('../../utils/unifiedIdSystem');
-                  return getDisplayBookingId({
-                    ...item,
-                    bookingType: item.bookingType || item.type,
-                    bookingMode: item.bookingMode || (item.type === 'instant' ? 'instant' : 'booking')
-                  });
-                })()}</Text>
+                <Text style={styles.requestId}>
+                    {isConsolidation ? `#${item.consolidationGroupId || item.id}` : `#${getDisplayBookingId({
+                      ...item,
+                      bookingType: item.bookingType || item.type,
+                      bookingMode: item.bookingMode || (item.type === 'instant' ? 'instant' : 'booking')
+                    })}`}
+                </Text>
             </View>
 
-            {/* Route information */}
-            {(item.fromLocation || item.toLocation) && (
+            {/* Consolidation Overview - Show summary when collapsed */}
+            {isConsolidation && (
+                <View style={styles.consolidationOverview}>
+                    <View style={styles.consolidationSummary}>
+                        <MaterialCommunityIcons name="package-variant" size={20} color={colors.primary} />
+                        <View style={styles.consolidationSummaryText}>
+                            <Text style={styles.consolidationSummaryTitle}>
+                                Consolidation: {item.totalBookings || item.consolidatedBookings?.length || 0} individual bookings
+                            </Text>
+                            <Text style={styles.consolidationSummarySubtitle}>
+                                Multiple pickup and dropoff locations
+                            </Text>
+                        </View>
+                    </View>
+                    
+                    {/* Total Cost Range */}
+                    {item.totalCostRange && (
+                        <View style={styles.consolidationTotalCost}>
+                            <MaterialCommunityIcons name="calculator" size={16} color={colors.success} />
+                            <Text style={styles.consolidationTotalCostText}>
+                                Total: {formatCostRange({ costRange: item.totalCostRange })}
+                            </Text>
+                        </View>
+                    )}
+                    
+                    {/* Expand/Collapse Button */}
+                    <TouchableOpacity
+                        style={styles.expandButton}
+                        onPress={() => toggleConsolidationExpansion(item.consolidationGroupId || item.id)}
+                    >
+                        <MaterialCommunityIcons
+                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={20}
+                            color={colors.primary}
+                        />
+                        <Text style={styles.expandButtonText}>
+                            {isExpanded ? 'Hide Details' : 'View Individual Bookings'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {/* Individual Bookings - Shown when expanded */}
+            {isConsolidation && isExpanded && item.consolidatedBookings && (
+                <View style={styles.individualBookingsContainer}>
+                    <Text style={styles.individualBookingsTitle}>Individual Bookings:</Text>
+                    {item.consolidatedBookings.map((booking: any, index: number) => (
+                        <View key={booking.id || booking.bookingId || index} style={styles.individualBookingItem}>
+                            <View style={styles.individualBookingHeader}>
+                                <Text style={styles.individualBookingNumber}>Booking {index + 1}</Text>
+                                <Text style={styles.individualBookingId}>
+                                    #{getDisplayBookingId({
+                                        ...booking,
+                                        bookingType: booking.bookingType || booking.type,
+                                        bookingMode: booking.bookingMode || (booking.type === 'instant' ? 'instant' : 'booking')
+                                    })}
+                                </Text>
+                            </View>
+                            <View style={styles.individualBookingDetails}>
+                                <View style={styles.individualBookingRow}>
+                                    <MaterialCommunityIcons name="map-marker" size={14} color={colors.primary} />
+                                    <Text style={styles.individualBookingText}>
+                                        From: {typeof booking.fromLocation === 'object' 
+                                            ? (booking.fromLocation.address || 'Unknown') 
+                                            : (booking.fromLocation || booking.fromLocationAddress || 'Unknown')}
+                                    </Text>
+                                </View>
+                                <View style={styles.individualBookingRow}>
+                                    <MaterialCommunityIcons name="map-marker-check" size={14} color={colors.success} />
+                                    <Text style={styles.individualBookingText}>
+                                        To: {typeof booking.toLocation === 'object' 
+                                            ? (booking.toLocation.address || 'Unknown') 
+                                            : (booking.toLocation || booking.toLocationAddress || 'Unknown')}
+                                    </Text>
+                                </View>
+                                <View style={styles.individualBookingRow}>
+                                    <MaterialCommunityIcons name="package-variant" size={14} color={colors.secondary} />
+                                    <Text style={styles.individualBookingText}>
+                                        {booking.productType || 'N/A'} | {booking.weight || booking.weightKg || '0'}kg
+                                    </Text>
+                                </View>
+                                {booking.actualDistance && (
+                                    <View style={styles.individualBookingRow}>
+                                        <MaterialCommunityIcons name="ruler" size={14} color={colors.tertiary} />
+                                        <Text style={styles.individualBookingText}>
+                                            Distance: {typeof booking.actualDistance === 'number' 
+                                                ? `${booking.actualDistance.toFixed(1)} km` 
+                                                : booking.actualDistance}
+                                        </Text>
+                                    </View>
+                                )}
+                                <View style={styles.individualBookingRow}>
+                                    <MaterialCommunityIcons name="cash" size={14} color={colors.success} />
+                                    <Text style={[styles.individualBookingText, { fontWeight: 'bold' }]}>
+                                        Cost: {formatCostRange(booking)}
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    ))}
+                </View>
+            )}
+
+            {/* Route information - Only show for non-consolidation or when consolidation is collapsed */}
+            {!isConsolidation && (item.fromLocation || item.toLocation) && (
                 <View style={styles.routeContainer}>
                     {item.fromLocation && (
                         <View style={styles.routeItem}>
@@ -257,6 +440,27 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                             <LocationDisplay location={item.toLocation} style={styles.routeText} showIcon={false} />
                         </View>
                     )}
+                </View>
+            )}
+            
+            {/* Route summary for consolidation (when collapsed) */}
+            {isConsolidation && !isExpanded && item.fromLocation && (
+                <View style={styles.routeContainer}>
+                    <View style={styles.routeItem}>
+                        <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                        <Text style={styles.routeText}>
+                            Multiple pickup locations
+                        </Text>
+                    </View>
+                    <View style={styles.routeArrow}>
+                        <MaterialCommunityIcons name="arrow-right" size={16} color={colors.text.secondary} />
+                    </View>
+                    <View style={styles.routeItem}>
+                        <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
+                        <Text style={styles.routeText}>
+                            Multiple dropoff locations
+                        </Text>
+                    </View>
                 </View>
             )}
             
@@ -301,7 +505,7 @@ const IncomingRequestsCard: React.FC<IncomingRequestsCardProps> = ({
                 <View style={styles.cargoItem}>
                     <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
                     <Text style={styles.costText}>
-                      KES {(item.estimatedValue || item.paymentAmount || item.cost || item.pricing?.total || 0).toLocaleString('en-KE')}
+                      {formatCostRange(item)}
                     </Text>
                 </View>
             </View>

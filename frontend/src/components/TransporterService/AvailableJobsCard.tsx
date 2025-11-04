@@ -9,7 +9,8 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
+    ScrollView
 } from 'react-native';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
@@ -19,6 +20,8 @@ import { getLocationName, formatLocationForDisplay } from '../../utils/locationU
 import { chatService } from '../../services/chatService';
 import { enhancedNotificationService } from '../../services/enhancedNotificationService';
 import LocationDisplay from '../common/LocationDisplay';
+import { formatCostRange } from '../../utils/costCalculator';
+import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
 
 interface AvailableJob {
     id: string;
@@ -149,6 +152,60 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                     });
                     
                     console.log(`Filtered ${availableJobs.length} available jobs from ${jobs.length} total jobs`);
+                    
+                    // Group consolidated bookings by consolidationGroupId
+                    // Consolidation: multiple individual bookings with same consolidationGroupId
+                    const consolidationMap = new Map<string, any[]>();
+                    const nonConsolidated: any[] = [];
+                    
+                    availableJobs.forEach((job: any) => {
+                        if (job.consolidationGroupId || (job.consolidated === true && job.consolidationGroupId)) {
+                            const groupId = job.consolidationGroupId;
+                            if (!consolidationMap.has(groupId)) {
+                                consolidationMap.set(groupId, []);
+                            }
+                            consolidationMap.get(groupId)!.push(job);
+                        } else {
+                            nonConsolidated.push(job);
+                        }
+                    });
+                    
+                    // Create consolidation objects - one per group
+                    const consolidationObjects = Array.from(consolidationMap.entries()).map(([groupId, bookings]) => {
+                        // Calculate total cost range
+                        let totalMinCost = 0;
+                        let totalMaxCost = 0;
+                        
+                        bookings.forEach((booking: any) => {
+                            const minCost = booking.costRange?.min || booking.minCost || booking.estimatedCost || booking.cost || 0;
+                            const maxCost = booking.costRange?.max || booking.maxCost || booking.estimatedCost || booking.cost || 0;
+                            totalMinCost += minCost;
+                            totalMaxCost += maxCost;
+                        });
+                        
+                        return {
+                            id: groupId,
+                            bookingId: groupId,
+                            type: 'consolidated',
+                            isConsolidation: true,
+                            consolidationGroupId: groupId,
+                            consolidatedBookings: bookings,
+                            totalBookings: bookings.length,
+                            totalCostRange: { min: totalMinCost, max: totalMaxCost },
+                            // Use first booking's details for summary display
+                            fromLocation: bookings[0]?.fromLocation,
+                            toLocation: bookings[bookings.length - 1]?.toLocation, // Use last dropoff
+                            status: bookings[0]?.status || 'pending',
+                            urgencyLevel: bookings[0]?.urgencyLevel || bookings[0]?.urgency || 'Low',
+                            createdAt: bookings[0]?.createdAt,
+                            client: bookings[0]?.client,
+                            productType: 'Mixed Products',
+                            weightKg: bookings.reduce((sum: number, b: any) => sum + (b.weightKg || 0), 0),
+                        };
+                    });
+                    
+                    // Combine consolidation objects with non-consolidated bookings
+                    availableJobs = [...consolidationObjects, ...nonConsolidated];
                     
                     // Debug urgency levels for available jobs
                     availableJobs.forEach((job, index) => {
@@ -468,11 +525,38 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
     };
 
 
-    const renderJobItem = ({ item }: { item: AvailableJob }) => (
+    const toggleConsolidationExpansion = (groupId: string) => {
+        setExpandedConsolidations(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(groupId)) {
+                newSet.delete(groupId);
+            } else {
+                newSet.add(groupId);
+            }
+            return newSet;
+        });
+    };
+
+    const renderJobItem = ({ item }: { item: any }) => {
+        // Check if this is a consolidation object
+        const isConsolidation = item.isConsolidation === true || item.type === 'consolidated';
+        const isExpanded = isConsolidation && expandedConsolidations.has(item.consolidationGroupId || item.id);
+
+        return (
         <View style={styles.jobCard}>
             <View style={styles.jobHeader}>
                 <View style={styles.jobInfo}>
-                    <Text style={styles.jobType}>{item.productType}</Text>
+                    {isConsolidation && (
+                        <MaterialCommunityIcons
+                            name="package-variant-closed"
+                            size={16}
+                            color={colors.primary}
+                            style={{ marginRight: 4 }}
+                        />
+                    )}
+                    <Text style={styles.jobType}>
+                        {isConsolidation ? `Consolidation (${item.totalBookings || item.consolidatedBookings?.length || 0} bookings)` : item.productType}
+                    </Text>
                     <View style={[styles.urgencyBadge, { 
                         backgroundColor: getUrgencyBackgroundColor(item.urgencyLevel || item.urgency),
                         borderColor: getUrgencyColor(item.urgencyLevel || item.urgency) + '30'
@@ -487,35 +571,141 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                         </Text>
                     </View>
                 </View>
-                <Text style={styles.jobPrice}>{formatCurrency(item.cost || 0)}</Text>
+                <Text style={styles.jobPrice}>
+                    {isConsolidation && item.totalCostRange 
+                        ? formatCostRange({ costRange: item.totalCostRange })
+                        : formatCostRange(item)}
+                </Text>
             </View>
 
-            <View style={styles.jobDetails}>
-                <LocationDisplay 
-                    location={item.fromLocation} 
-                    iconColor={colors.primary} 
-                />
-                <LocationDisplay 
-                    location={item.toLocation} 
-                    iconColor={colors.text.secondary}
-                    iconName="map-marker-outline"
-                />
-            </View>
+            {/* Consolidation Overview */}
+            {isConsolidation && (
+                <View style={styles.consolidationOverview}>
+                    <View style={styles.consolidationSummary}>
+                        <MaterialCommunityIcons name="package-variant" size={20} color={colors.primary} />
+                        <View style={styles.consolidationSummaryText}>
+                            <Text style={styles.consolidationSummaryTitle}>
+                                {item.totalBookings || item.consolidatedBookings?.length || 0} individual bookings
+                            </Text>
+                            <Text style={styles.consolidationSummarySubtitle}>
+                                Multiple pickup and dropoff locations
+                            </Text>
+                        </View>
+                    </View>
+                    
+                    {/* Expand/Collapse Button */}
+                    <TouchableOpacity
+                        style={styles.expandButton}
+                        onPress={() => toggleConsolidationExpansion(item.consolidationGroupId || item.id)}
+                    >
+                        <MaterialCommunityIcons
+                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={20}
+                            color={colors.primary}
+                        />
+                        <Text style={styles.expandButtonText}>
+                            {isExpanded ? 'Hide Details' : 'View Individual Bookings'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
-            <View style={styles.jobSpecs}>
-                <View style={styles.specItem}>
-                    <MaterialCommunityIcons name="package-variant" size={14} color={colors.text.secondary} />
-                    <Text style={styles.specText}>{item.productType}</Text>
+            {/* Individual Bookings - Shown when expanded */}
+            {isConsolidation && isExpanded && item.consolidatedBookings && (
+                <View style={styles.individualBookingsContainer}>
+                    <Text style={styles.individualBookingsTitle}>Individual Bookings:</Text>
+                    {item.consolidatedBookings.map((booking: any, index: number) => (
+                        <View key={booking.id || booking.bookingId || index} style={styles.individualBookingItem}>
+                            <View style={styles.individualBookingHeader}>
+                                <Text style={styles.individualBookingNumber}>Booking {index + 1}</Text>
+                                <Text style={styles.individualBookingId}>
+                                    #{getDisplayBookingId({
+                                        ...booking,
+                                        bookingType: booking.bookingType || booking.type,
+                                        bookingMode: booking.bookingMode || (booking.type === 'instant' ? 'instant' : 'booking')
+                                    })}
+                                </Text>
+                            </View>
+                            <View style={styles.individualBookingDetails}>
+                                <View style={styles.individualBookingRow}>
+                                    <MaterialCommunityIcons name="map-marker" size={14} color={colors.primary} />
+                                    <Text style={styles.individualBookingText}>
+                                        From: {typeof booking.fromLocation === 'object' 
+                                            ? (booking.fromLocation.address || 'Unknown') 
+                                            : (booking.fromLocation || booking.fromLocationAddress || 'Unknown')}
+                                    </Text>
+                                </View>
+                                <View style={styles.individualBookingRow}>
+                                    <MaterialCommunityIcons name="map-marker-check" size={14} color={colors.success} />
+                                    <Text style={styles.individualBookingText}>
+                                        To: {typeof booking.toLocation === 'object' 
+                                            ? (booking.toLocation.address || 'Unknown') 
+                                            : (booking.toLocation || booking.toLocationAddress || 'Unknown')}
+                                    </Text>
+                                </View>
+                                <View style={styles.individualBookingRow}>
+                                    <MaterialCommunityIcons name="package-variant" size={14} color={colors.secondary} />
+                                    <Text style={styles.individualBookingText}>
+                                        {booking.productType || 'N/A'} | {booking.weight || booking.weightKg || '0'}kg
+                                    </Text>
+                                </View>
+                                <View style={styles.individualBookingRow}>
+                                    <MaterialCommunityIcons name="cash" size={14} color={colors.success} />
+                                    <Text style={[styles.individualBookingText, { fontWeight: 'bold' }]}>
+                                        Cost: {formatCostRange(booking)}
+                                    </Text>
+                                </View>
+                            </View>
+                        </View>
+                    ))}
                 </View>
-                <View style={styles.specItem}>
-                    <MaterialCommunityIcons name="weight" size={14} color={colors.text.secondary} />
-                    <Text style={styles.specText}>{item.weightKg}kg</Text>
+            )}
+
+            {/* Route information - Only show for non-consolidation or when consolidation is collapsed */}
+            {!isConsolidation && (
+                <>
+                    <View style={styles.jobDetails}>
+                        <LocationDisplay 
+                            location={item.fromLocation} 
+                            iconColor={colors.primary} 
+                        />
+                        <LocationDisplay 
+                            location={item.toLocation} 
+                            iconColor={colors.text.secondary}
+                            iconName="map-marker-outline"
+                        />
+                    </View>
+
+                    <View style={styles.jobSpecs}>
+                        <View style={styles.specItem}>
+                            <MaterialCommunityIcons name="package-variant" size={14} color={colors.text.secondary} />
+                            <Text style={styles.specText}>{item.productType}</Text>
+                        </View>
+                        <View style={styles.specItem}>
+                            <MaterialCommunityIcons name="weight" size={14} color={colors.text.secondary} />
+                            <Text style={styles.specText}>{item.weightKg}kg</Text>
+                        </View>
+                        <View style={styles.specItem}>
+                            <MaterialCommunityIcons name="truck" size={14} color={colors.text.secondary} />
+                            <Text style={styles.specText}>{item.vehicleType}</Text>
+                        </View>
+                    </View>
+                </>
+            )}
+            
+            {/* Route summary for consolidation (when collapsed) */}
+            {isConsolidation && !isExpanded && (
+                <View style={styles.jobDetails}>
+                    <View style={styles.routeItem}>
+                        <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
+                        <Text style={styles.routeText}>Multiple pickup locations</Text>
+                    </View>
+                    <View style={styles.routeItem}>
+                        <MaterialCommunityIcons name="map-marker-check" size={16} color={colors.secondary} />
+                        <Text style={styles.routeText}>Multiple dropoff locations</Text>
+                    </View>
                 </View>
-                <View style={styles.specItem}>
-                    <MaterialCommunityIcons name="truck" size={14} color={colors.text.secondary} />
-                    <Text style={styles.specText}>{item.vehicleType}</Text>
-                </View>
-            </View>
+            )}
 
             <View style={styles.jobFooter}>
                 <View style={styles.clientInfo}>
@@ -947,6 +1137,119 @@ const styles = StyleSheet.create({
         color: colors.white,
         fontSize: fonts.size.sm,
         fontWeight: '700',
+    },
+    // Consolidation Styles
+    consolidationOverview: {
+        backgroundColor: colors.primary + '10',
+        borderRadius: 8,
+        padding: 12,
+        marginVertical: 12,
+        borderWidth: 1,
+        borderColor: colors.primary + '30',
+    },
+    consolidationSummary: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    consolidationSummaryText: {
+        marginLeft: 8,
+        flex: 1,
+    },
+    consolidationSummaryTitle: {
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        fontFamily: fonts.family.bold,
+    },
+    consolidationSummarySubtitle: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginTop: 2,
+        fontFamily: fonts.family.regular,
+    },
+    expandButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: colors.primary + '20',
+        borderRadius: 6,
+    },
+    expandButtonText: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.primary,
+        marginLeft: 4,
+        fontFamily: fonts.family.medium,
+    },
+    individualBookingsContainer: {
+        marginTop: 12,
+        padding: 12,
+        backgroundColor: colors.background,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    individualBookingsTitle: {
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginBottom: 12,
+        fontFamily: fonts.family.bold,
+    },
+    individualBookingItem: {
+        backgroundColor: colors.surface,
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    individualBookingHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    individualBookingNumber: {
+        fontSize: fonts.size.sm,
+        fontWeight: 'bold',
+        color: colors.primary,
+        fontFamily: fonts.family.bold,
+    },
+    individualBookingId: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        fontFamily: fonts.family.regular,
+    },
+    individualBookingDetails: {
+        marginTop: 4,
+    },
+    individualBookingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    individualBookingText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
+        marginLeft: 8,
+        flex: 1,
+        fontFamily: fonts.family.regular,
+    },
+    routeItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    routeText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
+        marginLeft: 8,
+        flex: 1,
     },
 });
 
