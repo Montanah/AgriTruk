@@ -81,13 +81,42 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
             if (!user) return;
 
             const token = await user.getIdToken();
-            console.log('Fetching available jobs from:', `${API_ENDPOINTS.BOOKINGS}/requests`);
+            
+            // Determine endpoint based on user type
+            // Drivers use /available endpoint which checks company subscription
+            // Transporters use /requests endpoint which checks their own subscription
+            let endpoint = `${API_ENDPOINTS.BOOKINGS}/requests`; // Default for transporters
+            let isDriver = false;
+            
+            try {
+                // Check if user is a company driver
+                const driverCheckResponse = await fetch(`${API_ENDPOINTS.DRIVERS}/check/${user.uid}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (driverCheckResponse.ok) {
+                    const driverData = await driverCheckResponse.json();
+                    if (driverData.success && driverData.isDriver) {
+                        isDriver = true;
+                        endpoint = `${API_ENDPOINTS.BOOKINGS}/available`;
+                        console.log('Driver detected - using /available endpoint (checks company subscription)');
+                    }
+                }
+            } catch (checkError) {
+                // If check fails, continue with transporter endpoint
+                console.log('Driver check failed, using transporter endpoint');
+            }
+            
+            console.log('Fetching available jobs from:', endpoint);
             
             // Create AbortController for timeout
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
             
-            const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/requests`, {
+            const response = await fetch(endpoint, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
@@ -108,13 +137,13 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                 const jobs = Array.isArray(data) ? data : (data.availableBookings || data.bookings || data.data || []);
                 console.log('Parsed jobs:', jobs);
                 
-                if (Array.isArray(jobs)) {
-                    // Filter out jobs that are not available for acceptance
-                    // CRITICAL: Available jobs should NEVER include:
-                    // - Accepted jobs (status: 'accepted', 'started', 'in_progress', etc.)
-                    // - Jobs with acceptedAt timestamp
-                    // - Jobs assigned to transporters or drivers
-                    const availableJobs = jobs.filter(job => {
+                        if (Array.isArray(jobs)) {
+                            // Filter out jobs that are not available for acceptance
+                            // CRITICAL: Available jobs should NEVER include:
+                            // - Accepted jobs (status: 'accepted', 'started', 'in_progress', etc.)
+                            // - Jobs with acceptedAt timestamp
+                            // - Jobs assigned to transporters or drivers
+                            let availableJobs = jobs.filter(job => {
                         const status = (job.status || '').toLowerCase();
                         
                         // List of statuses that indicate the job is NOT available
@@ -239,13 +268,17 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
                         setJobs([]);
                         setError('Your assigned vehicle needs verification. Please contact your company administrator.');
                         return;
-                    } else if (errorMessage.includes('subscription')) {
+                    } else if (errorMessage.includes('subscription') || errorMessage.includes('Company does not have an active subscription')) {
                         setJobs([]);
-                        setError('Your company subscription is inactive. Please contact your company administrator.');
+                        if (isDriver) {
+                            setError('Your company\'s subscription is inactive. Please contact your company administrator to activate the subscription.');
+                        } else {
+                            setError('Your subscription is inactive. Please activate your subscription to access available jobs.');
+                        }
                         return;
                     } else {
                         setJobs([]);
-                        setError('Access denied. Please contact your company administrator for assistance.');
+                        setError('Unable to access available jobs. Please contact your company administrator for assistance.');
                         return;
                     }
                 }
@@ -753,6 +786,7 @@ const AvailableJobsCard: React.FC<AvailableJobsCardProps> = ({
             </View>
         </View>
     );
+    };
 
     if (loading) {
         return (

@@ -106,6 +106,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [consentToShare, setConsentToShare] = useState(false);
   
   // Multi-step form state
   const [currentStep, setCurrentStep] = useState(1);
@@ -232,10 +233,12 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
       address: !!(address.street && address.city && address.county),
       vehicleClasses: selectedVehicleClasses.length > 0,
       specializations: selectedSpecializations.length > 0,
+      consentToShare: !!consentToShare,
       allValid: !!profilePhoto && !!dlFile && !!goodConductCert && !!idFile && 
                 !!dateOfBirth && !!careerStartDate && !!gender && !!religion &&
                 !!(address.street && address.city && address.county) &&
-                selectedVehicleClasses.length > 0 && selectedSpecializations.length > 0
+                selectedVehicleClasses.length > 0 && selectedSpecializations.length > 0 &&
+                !!consentToShare
     };
   };
 
@@ -756,6 +759,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     if (!address.street || !address.city || !address.county) { setError('Please fill in your address information.'); return false; }
     if (selectedVehicleClasses.length === 0) { setError('Please select at least one vehicle class.'); return false; }
     if (selectedSpecializations.length === 0) { setError('Please select at least one specialization.'); return false; }
+    if (!consentToShare) { setError('You must consent to sharing your profile information with companies before submitting.'); return false; }
     
     
     // Validate age and experience requirements
@@ -1670,6 +1674,27 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
           <Text style={styles.characterCount}>
             {assignmentDescription.length}/100 characters
           </Text>
+
+          {/* Profile Sharing Consent */}
+          <View style={styles.consentContainer}>
+            <TouchableOpacity
+              style={styles.consentCheckboxRow}
+              onPress={() => setConsentToShare(!consentToShare)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.consentCheckbox, consentToShare && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+                {consentToShare && <MaterialCommunityIcons name="checkmark" size={16} color={colors.white} />}
+              </View>
+              <View style={styles.consentTextContainer}>
+                <Text style={styles.consentText}>
+                  I consent to sharing my personal details and documents on this platform for companies to view and hire me.
+                </Text>
+                <Text style={styles.consentSubtext}>
+                  Your profile information, including personal details, documents, and qualifications, will be visible to companies using the platform to recruit drivers.
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
 
           {/* Optional Tertiary Documents Section */}
           <View style={styles.optionalDocumentsSection}>
@@ -2954,6 +2979,47 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: spacing.xs,
     fontStyle: 'italic',
+  },
+  // Consent styles
+  consentContainer: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.text.light + '30',
+  },
+  consentCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  consentCheckbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.text.light,
+    marginRight: spacing.sm,
+    marginTop: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+  },
+  consentTextContainer: {
+    flex: 1,
+  },
+  consentText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
+    fontWeight: '500',
+    marginBottom: spacing.xs,
+    lineHeight: 20,
+  },
+  consentSubtext: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    lineHeight: 16,
   },
 });
 

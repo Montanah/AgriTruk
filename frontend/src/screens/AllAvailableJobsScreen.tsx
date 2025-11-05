@@ -89,13 +89,42 @@ const AllAvailableJobsScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      console.log('Fetching all available jobs from:', `${API_ENDPOINTS.BOOKINGS}/requests`);
+      
+      // Determine endpoint based on user type
+      // Drivers use /available endpoint which checks company subscription
+      // Transporters use /requests endpoint which checks their own subscription
+      let endpoint = `${API_ENDPOINTS.BOOKINGS}/requests`; // Default for transporters
+      let isDriver = false;
+      
+      try {
+        // Check if user is a company driver
+        const driverCheckResponse = await fetch(`${API_ENDPOINTS.DRIVERS}/check/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (driverCheckResponse.ok) {
+          const driverData = await driverCheckResponse.json();
+          if (driverData.success && driverData.isDriver) {
+            isDriver = true;
+            endpoint = `${API_ENDPOINTS.BOOKINGS}/available`;
+            console.log('Driver detected - using /available endpoint (checks company subscription)');
+          }
+        }
+      } catch (checkError) {
+        // If check fails, continue with transporter endpoint
+        console.log('Driver check failed, using transporter endpoint');
+      }
+      
+      console.log('Fetching all available jobs from:', endpoint);
       
       // Create AbortController for timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/requests`, {
+      const response = await fetch(endpoint, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -138,9 +167,30 @@ const AllAvailableJobsScreen = () => {
         setJobs(availableJobs);
         applyFilter(availableJobs, filter);
       } else {
-        const errorText = await response.text();
-        console.error('Failed to fetch available jobs:', response.status, errorText);
-        setError(`Failed to load jobs: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || '';
+        console.error('Failed to fetch available jobs:', response.status, errorMessage);
+        
+        // Handle specific error cases
+        if (response.status === 403) {
+          if (errorMessage.includes('Driver not approved') || errorMessage.includes('license not verified')) {
+            setError('Your profile needs verification. Please contact your company administrator to approve your driver license and activate your account.');
+          } else if (errorMessage.includes('vehicle') || errorMessage.includes('Vehicle')) {
+            setError('Your assigned vehicle needs verification. Please contact your company administrator.');
+          } else if (errorMessage.includes('subscription') || errorMessage.includes('Company does not have an active subscription')) {
+            if (isDriver) {
+              setError('Your company\'s subscription is inactive. Please contact your company administrator to activate the subscription.');
+            } else {
+              setError('Your subscription is inactive. Please activate your subscription to access available jobs.');
+            }
+          } else {
+            setError('Unable to access available jobs. Please contact your company administrator for assistance.');
+          }
+        } else if (response.status === 404) {
+          setError('No available jobs found at the moment.');
+        } else {
+          setError(`Failed to load jobs: ${response.status}. ${errorMessage || 'Please try again later.'}`);
+        }
       }
     } catch (error: any) {
       console.error('Error fetching available jobs:', error);

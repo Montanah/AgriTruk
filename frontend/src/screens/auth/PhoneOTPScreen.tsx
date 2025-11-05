@@ -182,12 +182,51 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             routes: [{ name: 'BusinessStack' }]
           });
         } else if (role === 'broker') {
-          // Navigating broker to dashboard (secondary verification)
-          console.log('Phone verification complete - navigating broker to dashboard');
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'BrokerTabs' }]
-          });
+          // For brokers, sign out and sign in again to get correct navigation stack
+          // App.tsx will automatically route to VerifyIdentificationDocument or SubscriptionTrial based on status
+          console.log('Phone verification complete - signing out broker to get correct navigation stack');
+          
+          // Check if we have the necessary credentials for re-authentication
+          if (!email || !password) {
+            console.log('Email available:', !!email, 'Password available:', !!password);
+            
+            // If we don't have credentials, navigate to VerifyIdentificationDocument directly
+            // The user is already verified, so VerifyIdentificationDocument will check status and route accordingly
+            console.log('No credentials for broker re-authentication - navigating to VerifyIdentificationDocument');
+            navigation.navigate('VerifyIdentificationDocument', {
+              userId: userId,
+              role: role
+            });
+            return;
+          }
+          
+          try {
+            const { getAuth, signOut } = require('firebase/auth');
+            const auth = getAuth();
+            
+            // Sign out current user
+            await signOut(auth);
+            console.log('Broker signed out successfully');
+            
+            // Sign in again to trigger correct role-based navigation
+            const { signInWithEmailAndPassword } = require('firebase/auth');
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log('Broker signed in again with correct role:', userCredential.user.uid);
+            
+            // App.tsx will automatically route to VerifyIdentificationDocument or SubscriptionTrial based on broker status
+            // No manual navigation needed - the auth state change will trigger the correct routing
+            
+          } catch (signInError) {
+            console.error('Error signing in broker after verification:', signInError);
+            
+            // If sign-in fails, navigate to VerifyIdentificationDocument as fallback
+            // Since the user is verified, VerifyIdentificationDocument will check status and route accordingly
+            console.log('Sign-in failed, navigating to VerifyIdentificationDocument as fallback');
+            navigation.navigate('VerifyIdentificationDocument', {
+              userId: userId,
+              role: role
+            });
+          }
         } else if (role === 'transporter') {
           // Navigating transporter to completion screen for company profile setup
           console.log('Phone verification complete - navigating transporter to completion screen');

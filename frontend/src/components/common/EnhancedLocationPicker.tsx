@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -502,9 +503,11 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
                     </View>
                 ) : (
                     <ScrollView
-                        style={styles.searchResultsContainer}
-                        showsVerticalScrollIndicator={false}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
+                        style={[styles.searchResultsScrollView, isCompact && { maxHeight: 200 }]}
+                        contentContainerStyle={styles.searchResultsContent}
                     >
                         {searchResults.map((item, index) => (
                             <TouchableOpacity
@@ -654,6 +657,17 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
                     textContentType="none"
                 />
 
+                {/* Gradient Fade Overlay - Positioned absolutely in inputContainer, only show when text is long */}
+                {searchQuery.length > 15 && (
+                    <LinearGradient
+                        colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.8)', 'rgba(255, 255, 255, 1)']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.fadeOverlay}
+                        pointerEvents="none"
+                    />
+                )}
+
                 {/* Search Indicator */}
                 {isSearching && (
                     <View style={[styles.searchIndicator, isCompact && styles.searchIndicatorCompact]}>
@@ -785,19 +799,24 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primary + '10',
         justifyContent: 'center',
         alignItems: 'center',
-        marginLeft: spacing.sm,
-        marginRight: spacing.xs,
+        marginLeft: spacing.sm, // 8px
+        marginRight: spacing.sm, // 8px - spacing after icon
     },
     locationIconCompact: {
         width: 32,
         height: 32,
         borderRadius: 16,
-        marginLeft: spacing.xs,
+        marginLeft: spacing.xs, // 4px
+        marginRight: spacing.xs, // 4px - spacing after icon in compact mode
     },
     input: {
         flex: 1,
         height: 56,
-        paddingHorizontal: spacing.md,
+        paddingHorizontal: 0, // Remove default padding
+        // Location icon: marginLeft (8px) + width (40px) + marginRight (8px) = 56px total
+        // Text should start right after icon marginRight, so paddingLeft = 0 (already accounted in flexbox)
+        paddingLeft: 0, // No extra padding - icon spacing handles it
+        paddingRight: 100, // Space for map button (50) + clear button (40) + spacing
         paddingVertical: spacing.sm,
         fontSize: fonts.size.md,
         fontFamily: fonts.family.regular,
@@ -806,14 +825,18 @@ const styles = StyleSheet.create({
     },
     inputCompact: {
         height: 48,
+        paddingHorizontal: 0,
+        paddingLeft: 0, // No extra padding - icon spacing handles it in compact mode
+        paddingRight: 80, // Reduced padding for compact mode
         fontSize: fonts.size.sm,
-        paddingHorizontal: spacing.sm,
     },
     inputWithCurrentLocation: {
-        paddingLeft: 50,
+        // GPS button is absolutely positioned at left: spacing.sm (overlaps icon area)
+        // Text starts after location icon marginRight, no extra space needed
+        paddingLeft: 0, // Same as regular input
     },
     inputWithCurrentLocationCompact: {
-        paddingLeft: 40,
+        paddingLeft: 0, // Same as regular input
     },
     currentLocationButton: {
         position: 'absolute',
@@ -930,6 +953,12 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         maxHeight: 200,
     },
+    searchResultsScrollView: {
+        maxHeight: 300,
+    },
+    searchResultsContent: {
+        paddingVertical: spacing.xs,
+    },
     searchResultItem: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1016,6 +1045,16 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         fontFamily: fonts.family.medium,
         color: colors.primary,
+        flex: 1,
+    },
+    fadeOverlay: {
+        position: 'absolute',
+        right: 50, // Start fade before buttons (map button is at right: 50, clear at right: spacing.sm ~8)
+        top: 0,
+        bottom: 0,
+        width: 80, // Width of fade effect
+        zIndex: 10, // Above text input, below buttons (buttons are zIndex: 1001)
+        pointerEvents: 'none',
     },
     currentLocationIndicator: {
         flexDirection: 'row',

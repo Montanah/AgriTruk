@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
@@ -138,8 +139,8 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
                     {/* Pickup Location Card */}
                     <View style={[styles.locationCard, styles.pickupCard]}>
                         <View style={styles.locationHeader}>
-                            <View style={styles.locationIconContainer}>
-                                <Text style={styles.locationIcon}>📦</Text>
+                            <View style={[styles.locationIconContainer, styles.pickupIconContainer]}>
+                                <MaterialCommunityIcons name="package-variant" size={20} color={colors.primary} />
                             </View>
                             <View style={styles.locationInfo}>
                                 <Text style={styles.locationLabel}>PICKUP LOCATION</Text>
@@ -151,33 +152,32 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
                                 style={styles.changeButton}
                                 onPress={() => setIsExpanded(true)}
                             >
-                                <Text style={styles.changeButtonText}>Change</Text>
+                                <MaterialCommunityIcons name="pencil" size={14} color={colors.primary} />
                             </TouchableOpacity>
                         </View>
                     </View>
 
-                    {/* Arrow */}
+                    {/* Arrow with Distance Badge */}
                     <View style={styles.arrowContainer}>
                         <View style={styles.arrowLine} />
                         <View style={styles.arrowHead}>
-                            <Text style={styles.arrowText}>↓</Text>
+                            <MaterialCommunityIcons name="arrow-down" size={20} color={colors.primary} />
                         </View>
+                        {distance && (
+                            <View style={styles.distanceBadge}>
+                                <MaterialCommunityIcons name="map-marker-distance" size={12} color={colors.white} />
+                                <Text style={styles.distanceBadgeText}>
+                                    {isCalculatingDistance ? '...' : distance}
+                                </Text>
+                            </View>
+                        )}
                     </View>
-
-                    {/* Distance Display */}
-                    {distance && (
-                        <View style={styles.distanceContainer}>
-                            <Text style={styles.distanceText}>
-                                {isCalculatingDistance ? 'Calculating...' : `Distance: ${distance}`}
-                            </Text>
-                        </View>
-                    )}
 
                     {/* Delivery Location Card */}
                     <View style={[styles.locationCard, styles.deliveryCard]}>
                         <View style={styles.locationHeader}>
-                            <View style={styles.locationIconContainer}>
-                                <Text style={styles.locationIcon}>📍</Text>
+                            <View style={[styles.locationIconContainer, styles.deliveryIconContainer]}>
+                                <MaterialCommunityIcons name="map-marker" size={20} color={colors.secondary} />
                             </View>
                             <View style={styles.locationInfo}>
                                 <Text style={styles.locationLabel}>DELIVERY LOCATION</Text>
@@ -189,7 +189,7 @@ const CompactLocationSection: React.FC<CompactLocationSectionProps> = ({
                                 style={styles.changeButton}
                                 onPress={() => setIsExpanded(true)}
                             >
-                                <Text style={styles.changeButtonText}>Change</Text>
+                                <MaterialCommunityIcons name="pencil" size={14} color={colors.secondary} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -328,39 +328,43 @@ const styles = StyleSheet.create({
     },
     locationCard: {
         backgroundColor: colors.white,
-        borderRadius: 16,
+        borderRadius: 14,
         padding: spacing.md,
         shadowColor: colors.black,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 8,
         elevation: 3,
-        borderWidth: 1,
-        borderColor: colors.text.light + '20',
+        borderWidth: 1.5,
+        borderColor: colors.text.light + '25',
     },
     pickupCard: {
         borderLeftWidth: 4,
         borderLeftColor: colors.primary,
+        backgroundColor: colors.primary + '03',
     },
     deliveryCard: {
         borderLeftWidth: 4,
         borderLeftColor: colors.secondary,
+        backgroundColor: colors.secondary + '03',
     },
     locationHeader: {
         flexDirection: 'row',
         alignItems: 'center',
     },
     locationIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: colors.primary + '10',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: spacing.sm,
+        marginRight: spacing.md,
     },
-    locationIcon: {
-        fontSize: 20,
+    pickupIconContainer: {
+        backgroundColor: colors.primary + '15',
+    },
+    deliveryIconContainer: {
+        backgroundColor: colors.secondary + '15',
     },
     locationInfo: {
         flex: 1,
@@ -371,48 +375,67 @@ const styles = StyleSheet.create({
         fontFamily: fonts.family.bold,
         color: colors.text.secondary,
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: 0.8,
         marginBottom: spacing.xs,
     },
     locationAddress: {
-        fontSize: fonts.size.md,
+        fontSize: fonts.size.sm,
         fontFamily: fonts.family.medium,
         color: colors.text.primary,
         lineHeight: 20,
     },
     changeButton: {
-        backgroundColor: colors.primary,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        borderRadius: 8,
-    },
-    changeButtonText: {
-        fontSize: fonts.size.sm,
-        fontFamily: fonts.family.medium,
-        color: colors.white,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: colors.background,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     arrowContainer: {
         alignItems: 'center',
         marginVertical: spacing.xs,
+        position: 'relative',
+        paddingVertical: spacing.xs,
     },
     arrowLine: {
         width: 2,
-        height: 20,
-        backgroundColor: colors.primary + '30',
+        height: 16,
+        backgroundColor: colors.primary + '40',
+        marginBottom: -2,
     },
     arrowHead: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: colors.primary,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: colors.primary + '15',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: -2,
+        borderWidth: 2,
+        borderColor: colors.primary + '30',
     },
-    arrowText: {
-        fontSize: 12,
+    distanceBadge: {
+        position: 'absolute',
+        top: 40,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.primary,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: 12,
+        gap: spacing.xs,
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    distanceBadgeText: {
+        fontSize: fonts.size.xs,
+        fontFamily: fonts.family.bold,
         color: colors.white,
-        fontWeight: 'bold',
     },
     editButtonContainer: {
         alignItems: 'center',

@@ -83,6 +83,8 @@ const SignupScreen = () => {
   const [selectedCountry, setSelectedCountry] = useState(countryOptions[3]); // Default Kenya
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
 
   // Animation refs
   const formOpacity = useRef(new Animated.Value(1)).current;
@@ -197,6 +199,16 @@ const SignupScreen = () => {
 
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setError('You must accept the Terms & Conditions to create an account.');
+      return;
+    }
+
+    if (!acceptedPrivacy) {
+      setError('You must accept the Privacy Policy to create an account.');
       return;
     }
 
@@ -604,20 +616,84 @@ const SignupScreen = () => {
                 containerStyle={styles.passwordStrengthContainer}
               />
 
+              {/* Terms & Conditions and Privacy Policy Checkboxes */}
+              <View style={styles.termsContainer}>
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setAcceptedTerms(!acceptedTerms)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, acceptedTerms && { backgroundColor: accent, borderColor: accent }]}>
+                    {acceptedTerms && <Ionicons name="checkmark" size={16} color={colors.white} />}
+                  </View>
+                  <Text style={styles.checkboxText}>
+                    I agree to the{' '}
+                    <Text
+                      style={[styles.checkboxLink, { color: accent }]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        navigation.navigate('TermsAndConditions' as never);
+                      }}
+                    >
+                      Terms & Conditions
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setAcceptedPrivacy(!acceptedPrivacy)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.checkbox, acceptedPrivacy && { backgroundColor: accent, borderColor: accent }]}>
+                    {acceptedPrivacy && <Ionicons name="checkmark" size={16} color={colors.white} />}
+                  </View>
+                  <Text style={styles.checkboxText}>
+                    I agree to the{' '}
+                    <Text
+                      style={[styles.checkboxLink, { color: accent }]}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        navigation.navigate('PrivacyPolicy' as never);
+                      }}
+                    >
+                      Privacy Policy
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
-              <TouchableOpacity
-                style={[styles.signupBtn, { backgroundColor: accent }]}
-                onPress={handleSignup}
-                disabled={loading}
-                activeOpacity={0.9}
-              >
-                {loading ? (
-                  <Text style={styles.signupBtnText}>Creating Account...</Text>
-                ) : (
-                  <Text style={styles.signupBtnText}>Create Account</Text>
-                )}
-              </TouchableOpacity>
+              {/* Calculate form validity and disable button if not valid */}
+              {(() => {
+                const isFormValid = 
+                  name.trim() &&
+                  (signupMethod === 'email' ? email.trim() : phone.trim()) &&
+                  password.length >= 6 &&
+                  password === confirmPassword &&
+                  acceptedTerms &&
+                  acceptedPrivacy;
+                
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.signupBtn,
+                      { backgroundColor: isFormValid ? accent : colors.text.light },
+                      !isFormValid && styles.signupBtnDisabled
+                    ]}
+                    onPress={handleSignup}
+                    disabled={loading || !isFormValid}
+                    activeOpacity={0.9}
+                  >
+                    {loading ? (
+                      <Text style={styles.signupBtnText}>Creating Account...</Text>
+                    ) : (
+                      <Text style={styles.signupBtnText}>Create Account</Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })()}
 
               <Text style={styles.roleNote}>
                 You are signing up as{' '}
@@ -1001,6 +1077,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.error + '30',
   },
+  termsContainer: {
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.text.light,
+    marginRight: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+  },
+  checkboxText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  checkboxLink: {
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
   signupBtn: {
     borderRadius: 16,
     paddingVertical: spacing.lg,
@@ -1013,6 +1120,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
+  },
+  signupBtnDisabled: {
+    opacity: 0.5,
+    shadowOpacity: 0.1,
   },
   signupBtnText: {
     color: colors.white,

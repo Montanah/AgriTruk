@@ -244,53 +244,111 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
         console.log('Broker status:', brokerData.status);
         console.log('ID verified:', brokerData.idVerified);
         console.log('Broker ID URL:', brokerData.brokerIdUrl);
+        console.log('ID Document:', brokerData.idDocument);
         console.log('Approved by:', brokerData.approvedBy);
         console.log('Account status:', brokerData.accountStatus);
         
         // Check if broker has uploaded documents and their status
-        const idDocumentUrl = brokerData.idDocument || brokerData.brokerIdUrl;
+        // Try multiple possible field names for the ID document URL
+        const idDocumentUrl = brokerData.idDocument || brokerData.brokerIdUrl || brokerData.idDocumentUrl || brokerData.idImage || brokerData.documentUrl;
+        
+        // Set ID document if available
         if (idDocumentUrl) {
           setIdDoc({ uri: idDocumentUrl, name: 'ID Document' });
           setIdType(brokerData.idType || 'national');
-          
           console.log('Found ID document:', idDocumentUrl);
-          console.log('Broker status:', brokerData.status);
+        } else {
+          console.log('No ID document URL found in broker data');
+          // Still set ID type if available
+          if (brokerData.idType) {
+            setIdType(brokerData.idType);
+          }
+        }
+        
+        // Check verification status based on broker status
+        console.log('Checking broker verification status...');
+        console.log('Status:', brokerData.status);
+        console.log('ID Verified:', brokerData.idVerified);
+        console.log('Approved By:', brokerData.approvedBy);
+        
+        if (brokerData.status === 'approved' && brokerData.idVerified === true) {
+          console.log('Broker is approved and verified - checking subscription status');
+          setStatus('verified');
           
-          // Check verification status based on broker status
-          console.log('Checking broker verification status...');
-          console.log('Status:', brokerData.status);
-          console.log('ID Verified:', brokerData.idVerified);
-          console.log('Approved By:', brokerData.approvedBy);
-          
-          if (brokerData.status === 'approved' && brokerData.idVerified === true) {
-            console.log('Broker is approved and verified - checking subscription status');
+          // Since user is authenticated, we're in the authenticated broker stack
+          // SubscriptionTrial is available in this stack, so navigation should work
+          (async () => {
+            try {
+              const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
+              console.log('Broker subscription status:', subscriptionStatus);
+              
+              // Priority 1: User has active subscription or trial - go directly to dashboard
+              if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
+                console.log('✅ Verified broker has active subscription/trial, navigating to dashboard');
+                navigation.navigate('BrokerTabs');
+              } 
+              
+              // Priority 2: Subscription expired - go to expired screen
+              else if (subscriptionStatus.isExpired || subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
+                console.log('⚠️ Verified broker subscription expired, navigating to expired screen');
+                navigation.navigate('SubscriptionExpired', {
+                  userType: 'broker',
+                  subscriptionStatus: subscriptionStatus
+                });
+              } 
+              
+              // Priority 3: No subscription or needs trial activation - go to trial screen
+              else {
+                console.log('🔄 Verified broker needs trial activation, navigating to trial screen');
+                // Try to navigate to SubscriptionTrial - it should be in the authenticated broker stack
+                // If navigation fails, it means the screen is not in the current stack
+                try {
+                  navigation.navigate('SubscriptionTrial', {
+                    userType: 'broker',
+                    subscriptionStatus: subscriptionStatus
+                  });
+                  console.log('✅ Navigation to SubscriptionTrial successful');
+                } catch (navError: any) {
+                  console.error('Navigation to SubscriptionTrial failed:', navError);
+                  console.error('This means SubscriptionTrial is not in the current navigation stack');
+                  // Show error to user and provide option to refresh
+                  Alert.alert(
+                    'Navigation Error',
+                    'Unable to navigate to subscription screen. Please use the "Continue to Subscription" button below, or refresh the app.',
+                    [{ text: 'OK' }]
+                  );
+                }
+              }
+            } catch (error) {
+              console.error('Error checking subscription status:', error);
+            }
+          })();
+        } else if (brokerData.status === 'deactivated') {
+          console.log('Broker account has been deactivated by admin');
+          setStatus('deactivated');
+        } else if (brokerData.status === 'rejected') {
+          console.log('Broker is rejected');
+          setStatus('rejected');
+        } else if (brokerData.status === 'pending') {
+          console.log('Broker is pending approval');
+          setStatus('pending');
+          console.log('Status set to pending');
+        } else {
+          console.log('Broker status unknown:', brokerData.status);
+          // If status is approved but idVerified is not explicitly true, still check
+          if (brokerData.status === 'approved') {
+            console.log('Status is approved but idVerified might be missing - checking subscription anyway');
             setStatus('verified');
-            // Check subscription status before navigating - use immediate execution
+            // Try to navigate anyway
             (async () => {
               try {
-                // subscriptionService is already imported at the top
                 const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
-                console.log('Broker subscription status:', subscriptionStatus);
-                
-                console.log('Broker verification complete, subscription status:', {
-                  hasActiveSubscription: subscriptionStatus.hasActiveSubscription,
-                  isTrialActive: subscriptionStatus.isTrialActive,
-                  subscriptionStatus: subscriptionStatus.subscriptionStatus,
-                  isExpired: subscriptionStatus.isExpired
-                });
-
-                // Priority 1: User has active subscription or trial - go directly to dashboard
                 if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
-                  console.log('✅ Verified broker has active subscription/trial, navigating to dashboard');
                   navigation.reset({
                     index: 0,
                     routes: [{ name: 'BrokerTabs' }]
                   });
-                } 
-                
-                // Priority 2: Subscription expired - go to expired screen
-                else if (subscriptionStatus.isExpired || subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
-                  console.log('⚠️ Verified broker subscription expired, navigating to expired screen');
+                } else if (subscriptionStatus.isExpired || subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
                   navigation.reset({
                     index: 0,
                     routes: [{ 
@@ -301,16 +359,7 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                       }
                     }]
                   });
-                } 
-                
-                // Priority 3: No subscription or needs trial activation - go to trial screen
-                else {
-                  console.log('🔄 Verified broker needs trial activation, navigating to trial screen');
-                  console.log('Navigation object available:', !!navigation);
-                  console.log('Subscription status:', subscriptionStatus);
-                  
-                  // Navigate directly to SubscriptionTrial
-                  console.log('Using navigation.reset() to navigate to SubscriptionTrial...');
+                } else {
                   navigation.reset({
                     index: 0,
                     routes: [{ 
@@ -324,8 +373,6 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                 }
               } catch (error) {
                 console.error('Error checking subscription status:', error);
-                // Fallback to trial screen if subscription check fails
-                console.log('Using navigation.reset() for fallback navigation to SubscriptionTrial...');
                 navigation.reset({
                   index: 0,
                   routes: [{ 
@@ -342,79 +389,16 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                   }]
                 });
               }
-            }, 1000);
-          } else if (brokerData.status === 'deactivated') {
-            console.log('Broker account has been deactivated by admin');
-            setStatus('deactivated');
-          } else if (brokerData.status === 'rejected') {
-            console.log('Broker is rejected');
-            setStatus('rejected');
-          } else if (brokerData.status === 'pending') {
-            console.log('Broker is pending approval');
-            setStatus('pending');
-            console.log('Status set to pending');
+            })();
           } else {
-            console.log('Broker status unknown:', brokerData.status);
             setStatus('pending');
           }
-        } else {
-          console.log('No ID document found in broker data');
-          setStatus('not_uploaded');
         }
       } else {
-        console.log('No broker record found - checking if broker exists by attempting creation...');
-        
-        // Final fallback: try to create a broker to see if one already exists
-        try {
-          const testResponse = await fetch(`${API_ENDPOINTS.BROKERS}/`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              idType: 'national',
-              // Don't include idImage for this test
-            }),
-          });
-          
-          if (testResponse.status === 409) {
-            // Broker already exists - this means the broker lookup failed but broker exists
-            console.log('Broker exists but lookup failed - no mock data, using real API');
-            
-            // No mock data - use real API response
-            Alert.alert(
-              'Account Issue',
-              'Your broker account exists but there\'s a technical issue accessing it. Please contact support or try logging out and back in.',
-              [
-                { text: 'Contact Support', onPress: () => {
-                  // You could add a contact support function here
-                    console.log('User wants to contact support');
-                  }},
-                  { text: 'Logout', onPress: () => {
-                    const auth = getAuth();
-                    signOut(auth).then(() => {
-                      navigation.reset({
-                        index: 0,
-                        routes: [{ name: 'Welcome' }]
-                      });
-                    });
-                  }}
-                ]
-              );
-              return;
-          } else if (testResponse.ok) {
-            // Broker was created successfully - this shouldn't happen if we're here
-            console.log('Broker created successfully in fallback - this is unexpected');
-            setStatus('not_uploaded');
-          } else {
-            console.log('Broker creation test failed with status:', testResponse.status);
-            setStatus('not_uploaded');
-          }
-        } catch (testError: any) {
-          console.log('Broker creation test failed:', testError.message);
-          setStatus('not_uploaded');
-        }
+        console.log('No broker record found - broker needs to upload ID document');
+        // Don't create broker record here - let user upload ID document first
+        // The broker record will be created when they upload their ID document
+        setStatus('not_uploaded');
       }
     } catch (error) {
       console.error('Error checking broker status:', error);
@@ -573,38 +557,125 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
       
       // Create broker record with file upload
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for file uploads
       
-      const brokerCreateResponse = await fetch(brokerUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type for FormData - React Native sets it automatically with boundary
-        },
-        body: formData,
-        signal: controller.signal,
-      });
+      let brokerCreateResponse;
+      try {
+        brokerCreateResponse = await fetch(brokerUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            // Don't set Content-Type for FormData - React Native sets it automatically with boundary
+          },
+          body: formData,
+          signal: controller.signal,
+        });
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        console.error('Fetch error during upload:', fetchError);
+        
+        // If fetch fails, check if upload might have succeeded anyway
+        // Sometimes network errors occur after upload but before response
+        console.log('Fetch failed, checking if upload succeeded by re-checking broker status...');
+        setTimeout(async () => {
+          await checkBrokerStatus();
+        }, 2000);
+        
+        throw fetchError;
+      }
       
       clearTimeout(timeoutId);
 
       if (brokerCreateResponse.ok) {
-        const brokerData = await brokerCreateResponse.json();
-        console.log('Broker created/updated successfully:', brokerData);
+        let responseData;
+        try {
+          const responseText = await brokerCreateResponse.text();
+          console.log('Raw response text:', responseText);
+          
+          if (responseText) {
+            try {
+              responseData = JSON.parse(responseText);
+              console.log('Broker created/updated successfully - full response:', responseData);
+            } catch (parseError) {
+              console.warn('Failed to parse JSON response, but upload may have succeeded:', parseError);
+              // Upload might have succeeded even if we can't parse the response
+              // Re-check broker status to verify
+              setUploading(false);
+              setTimeout(async () => {
+                await checkBrokerStatus();
+              }, 2000);
+              return;
+            }
+          } else {
+            console.warn('Empty response, but upload may have succeeded - re-checking broker status...');
+            setUploading(false);
+            setTimeout(async () => {
+              await checkBrokerStatus();
+            }, 2000);
+            return;
+          }
+        } catch (responseError: any) {
+          console.error('Error reading response:', responseError);
+          // Even if we can't read the response, the upload might have succeeded
+          // Re-check broker status to verify
+          setUploading(false);
+          setTimeout(async () => {
+            await checkBrokerStatus();
+          }, 2000);
+          return;
+        }
+        
+        // Extract broker data from various possible response structures
+        const brokerData = responseData.broker || responseData.data || responseData;
+        const brokerIdUrl = brokerData.brokerIdUrl || responseData.brokerIdUrl || brokerData.idDocumentUrl || brokerData.documentUrl;
+        
+        console.log('Extracted broker data:', brokerData);
+        console.log('Extracted brokerIdUrl:', brokerIdUrl);
         
         // Update local state with the uploaded URL for preview
-        setIdDoc({ ...asset, uri: brokerData.brokerIdUrl || brokerData.data?.brokerIdUrl || asset.uri });
-        setStatus('pending');
+        if (brokerIdUrl) {
+          setIdDoc({ 
+            ...asset, 
+            uri: brokerIdUrl,
+            name: 'ID Document'
+          });
+          console.log('ID document state updated with URL:', brokerIdUrl);
+        } else {
+          // Fallback to local asset URI if URL not in response
+          setIdDoc({ 
+            ...asset, 
+            uri: asset.uri,
+            name: 'ID Document'
+          });
+          console.log('Using local asset URI as fallback:', asset.uri);
+        }
         
-        const isUpdate = brokerData.message?.includes('updated');
+        setStatus('pending');
+        setUploading(false);
+        
+        const isUpdate = responseData.message?.includes('updated') || brokerData.message?.includes('updated');
         Alert.alert(
           isUpdate ? 'Document Updated' : 'Document Uploaded',
           isUpdate 
             ? 'Your ID document has been updated successfully. You will be notified once it\'s reviewed.'
             : 'Your ID document has been uploaded successfully. You will be notified once it\'s reviewed.',
-          [{ text: 'OK' }]
+          [{ 
+            text: 'OK',
+            onPress: async () => {
+              // Re-check broker status after upload to ensure UI is updated
+              console.log('Re-checking broker status after upload...');
+              await checkBrokerStatus();
+            }
+          }]
         );
         
         console.log('Broker document uploaded/updated successfully - admin notification sent');
+        
+        // Re-check broker status after a short delay to ensure backend has processed
+        setTimeout(async () => {
+          console.log('Re-checking broker status after upload delay...');
+          await checkBrokerStatus();
+        }, 1000);
       } else {
         const errorText = await brokerCreateResponse.text();
         console.error('Broker creation failed:', {
@@ -626,22 +697,55 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
       }
     } catch (error: any) {
       console.error('Upload error:', error);
+      console.error('Upload error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       
-      let errorMessage = 'Failed to upload document. Please check your connection and try again.';
-      
-      if (error.name === 'AbortError') {
-        errorMessage = 'Upload timed out. Please check your connection and try again.';
-      } else if (error.message.includes('Network request failed')) {
-        errorMessage = 'Network error. Please check your internet connection and try again.';
-      } else if (error.message.includes('Network connectivity issue')) {
-        errorMessage = error.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      Alert.alert('Upload Error', errorMessage);
-    } finally {
+      // Always re-check broker status when there's an error
+      // The upload might have succeeded even if we got an error
+      console.log('Error occurred, but upload may have succeeded - re-checking broker status...');
       setUploading(false);
+      
+      // For network errors, NEVER show error immediately
+      // The upload might have succeeded even if we got a network error
+      const isNetworkError = error.name === 'AbortError' || 
+                            (error.message && error.message.includes('Network request failed')) ||
+                            (error.message && error.message.includes('Network connectivity issue'));
+      
+      if (isNetworkError) {
+        // For network errors, just re-check status - don't show error
+        console.log('Network error detected - checking if upload succeeded...');
+        setTimeout(async () => {
+          await checkBrokerStatus();
+          // Check again after a delay to be sure
+          setTimeout(async () => {
+            await checkBrokerStatus();
+          }, 2000);
+        }, 2000);
+      } else {
+        // For non-network errors, show error after verifying upload failed
+        setTimeout(async () => {
+          await checkBrokerStatus();
+          
+          setTimeout(async () => {
+            await checkBrokerStatus();
+            
+            // Only show error if upload definitely failed (not a network issue)
+            let errorMessage = 'Failed to upload document. Please try again.';
+            
+            if (error.message && !error.message.includes('Failed to create broker record')) {
+              errorMessage = error.message;
+            }
+            
+            // Show error only if we're sure it's not a network issue
+            if (!error.message || !error.message.includes('Network')) {
+              Alert.alert('Upload Error', errorMessage);
+            }
+          }, 2000);
+        }, 1000);
+      }
     }
   };
 
@@ -754,7 +858,7 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
             <Text style={styles.statusSubText}>Your ID document is under review. You will be notified once verified.</Text>
             
             {/* Document Preview */}
-            {idDoc && (
+            {idDoc && idDoc.uri && (
               <View style={styles.documentPreviewContainer}>
                 <Text style={styles.documentPreviewTitle}>Uploaded Document:</Text>
                 <View style={styles.imagePreview}>
@@ -788,29 +892,124 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
           <View style={styles.statusSectionVerified}>
             <MaterialCommunityIcons name="check-circle-outline" size={28} color={colors.success} />
             <Text style={styles.statusTextVerified}>ID Verified</Text>
-            <Text style={styles.statusSubText}>Your ID is verified. You can now access the broker dashboard.</Text>
-            <TouchableOpacity style={styles.goDashboardBtn} onPress={() => {
-              console.log('Manual button pressed - trying navigation.navigate() first');
-              console.log('Navigation object available:', !!navigation);
-              
-              try {
-                navigation.navigate('SubscriptionTrial', {
-                  userType: 'broker',
-                  subscriptionStatus: {
-                    needsTrialActivation: true,
-                    hasActiveSubscription: false,
-                    isTrialActive: false,
-                    subscriptionStatus: 'none'
+            <Text style={styles.statusSubText}>Your ID is verified. You can now proceed to subscription activation.</Text>
+            
+            {/* Document Preview - Show if available */}
+            {idDoc && idDoc.uri && (
+              <View style={styles.documentPreviewContainer}>
+                <Text style={styles.documentPreviewTitle}>Verified Document:</Text>
+                <View style={styles.imagePreview}>
+                  <Image 
+                    source={{ uri: idDoc.uri }} 
+                    style={styles.previewImage}
+                    resizeMode="contain"
+                  />
+                </View>
+                <Text style={styles.fileName}>{idDoc.name || idDoc.uri?.split('/').pop()}</Text>
+              </View>
+            )}
+            
+            {/* Refresh button to check status and navigate */}
+            <TouchableOpacity 
+              style={styles.refreshBtn} 
+              onPress={async () => {
+                console.log('Refresh button pressed - checking broker status and navigating');
+                setCheckingStatus(true);
+                
+                try {
+                  // Re-check broker status first
+                  await checkBrokerStatus();
+                  
+                  // Then check subscription and navigate
+                  const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
+                  console.log('Subscription status from refresh button:', subscriptionStatus);
+                  
+                  if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
+                    console.log('Navigating to BrokerTabs');
+                    try {
+                      navigation.navigate('BrokerTabs');
+                    } catch (navError) {
+                      console.warn('navigation.navigate() failed, trying reset...', navError);
+                      try {
+                        navigation.reset({
+                          index: 0,
+                          routes: [{ name: 'BrokerTabs' }]
+                        });
+                      } catch (resetError) {
+                        console.error('Navigation to BrokerTabs failed:', resetError);
+                        Alert.alert('Navigation Error', 'Unable to navigate to dashboard. Please try signing out and back in.');
+                      }
+                    }
+                  } else if (subscriptionStatus.isExpired || subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
+                    console.log('Navigating to SubscriptionExpired');
+                    try {
+                      navigation.navigate('SubscriptionExpired', {
+                        userType: 'broker',
+                        subscriptionStatus: subscriptionStatus
+                      });
+                    } catch (navError) {
+                      console.warn('navigation.navigate() failed, trying reset...', navError);
+                      try {
+                        navigation.reset({
+                          index: 0,
+                          routes: [{ 
+                            name: 'SubscriptionExpired',
+                            params: {
+                              userType: 'broker',
+                              subscriptionStatus: subscriptionStatus
+                            }
+                          }]
+                        });
+                      } catch (resetError) {
+                        console.error('Navigation to SubscriptionExpired failed:', resetError);
+                        Alert.alert('Navigation Error', 'Unable to navigate to subscription screen. Please try signing out and back in.');
+                      }
+                    }
+                  } else {
+                    console.log('Navigating to SubscriptionTrial');
+                    try {
+                      navigation.navigate('SubscriptionTrial', {
+                        userType: 'broker',
+                        subscriptionStatus: subscriptionStatus
+                      });
+                      console.log('✅ navigation.navigate() to SubscriptionTrial succeeded');
+                    } catch (navError: any) {
+                      console.warn('navigation.navigate() failed, trying reset...', navError);
+                      try {
+                        navigation.reset({
+                          index: 0,
+                          routes: [{ 
+                            name: 'SubscriptionTrial',
+                            params: {
+                              userType: 'broker',
+                              subscriptionStatus: subscriptionStatus
+                            }
+                          }]
+                        });
+                        console.log('✅ navigation.reset() to SubscriptionTrial succeeded');
+                      } catch (resetError: any) {
+                        console.error('Both navigation methods failed:', resetError);
+                        Alert.alert(
+                          'Navigation Error',
+                          'Unable to navigate to subscription screen. The screen might not be available in the current navigation stack. Please try signing out and back in, or contact support.',
+                          [
+                            { text: 'OK' },
+                            {
+                              text: 'Refresh',
+                              onPress: () => {
+                                checkBrokerStatus();
+                              }
+                            }
+                          ]
+                        );
+                      }
+                    }
                   }
-                });
-                console.log('navigation.navigate() successful');
-              } catch (navError) {
-                console.log('navigation.navigate() failed, trying reset:', navError);
-                navigation.reset({
-                  index: 0,
-                  routes: [{ 
-                    name: 'SubscriptionTrial',
-                    params: {
+                } catch (error) {
+                  console.error('Error checking subscription status from refresh button:', error);
+                  // Fallback to trial screen
+                  try {
+                    navigation.navigate('SubscriptionTrial', {
                       userType: 'broker',
                       subscriptionStatus: {
                         needsTrialActivation: true,
@@ -818,12 +1017,43 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                         isTrialActive: false,
                         subscriptionStatus: 'none'
                       }
+                    });
+                  } catch (navError) {
+                    try {
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ 
+                          name: 'SubscriptionTrial',
+                          params: {
+                            userType: 'broker',
+                            subscriptionStatus: {
+                              needsTrialActivation: true,
+                              hasActiveSubscription: false,
+                              isTrialActive: false,
+                              subscriptionStatus: 'none'
+                            }
+                          }
+                        }]
+                      });
+                    } catch (resetError) {
+                      console.error('Navigation to SubscriptionTrial failed:', resetError);
+                      Alert.alert('Navigation Error', 'Unable to navigate to subscription screen. Please try signing out and back in.');
                     }
-                  }]
-                });
-              }
-            }}>
-              <Text style={styles.goDashboardBtnText}>Continue to Subscription</Text>
+                  }
+                } finally {
+                  setCheckingStatus(false);
+                }
+              }}
+              disabled={checkingStatus}
+            >
+              {checkingStatus ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons name="refresh" size={20} color={colors.primary} />
+              )}
+              <Text style={styles.refreshBtnText}>
+                {checkingStatus ? 'Checking...' : 'Continue to Subscription'}
+              </Text>
             </TouchableOpacity>
           </View>
         )}

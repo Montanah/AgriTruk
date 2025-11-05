@@ -54,7 +54,6 @@ const SubscriptionExpiredScreen: React.FC<SubscriptionExpiredScreenProps> = ({ r
                 'Real-time tracking',
                 'Customer support',
                 'Analytics & insights',
-                'Insurance coverage',
                 'Fleet management tools',
             ];
         } else {

@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import colors from '../constants/colors';
@@ -11,7 +11,7 @@ import { getReadableLocationName, formatRoute, cleanLocationDisplay, getReadable
 import LocationDisplay from '../components/common/LocationDisplay';
 import { getDisplayBookingId, getBookingTypeAndMode } from '../utils/unifiedIdSystem';
 import { unifiedBookingService, UnifiedBooking, BookingFilters } from '../services/unifiedBookingService';
-import { formatCostRange } from '../utils/costCalculator';
+import { formatCostRange, formatAverageCost, getAverageCost } from '../utils/costCalculator';
 
 // Use UnifiedBooking interface from the service
 type RequestItem = UnifiedBooking;
@@ -52,10 +52,19 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
     const [requests, setRequests] = useState<RequestItem[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedRequests, setSelectedRequests] = useState<string[]>([]);
-    const [showConsolidationModal, setShowConsolidationModal] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [expandedConsolidations, setExpandedConsolidations] = useState<Set<string>>(new Set()); // Track expanded consolidation groups
+    const [showAddClientModal, setShowAddClientModal] = useState(false);
+    const [newClient, setNewClient] = useState({
+        name: '',
+        company: '',
+        phone: '',
+        email: '',
+        clientType: 'individual' as 'individual' | 'business',
+        location: '',
+        businessType: '',
+        occupation: '',
+    });
 
     useEffect(() => {
         if (route.params?.activeTab) {
@@ -159,9 +168,10 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                         const weight = parseFloat(b.weight?.toString().replace('kg', '').trim() || '0') || 0;
                         return sum + weight;
                     }, 0).toString() + 'kg',
-                    cost: totalMinCost, // Use min cost for sorting
-                    price: totalMinCost,
-                    estimatedCost: totalMinCost,
+                    // Use average cost for sorting and calculations
+                    cost: Math.round((totalMinCost + totalMaxCost) / 2),
+                    price: Math.round((totalMinCost + totalMaxCost) / 2),
+                    estimatedCost: Math.round((totalMinCost + totalMaxCost) / 2),
                 };
             });
             
@@ -216,6 +226,63 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             console.error('Error loading clients:', error);
             // Set empty data on error to prevent crashes
             setClients([]);
+        }
+    };
+
+    const handleAddClient = async () => {
+        if (!newClient.name || !newClient.phone || !newClient.location) {
+            Alert.alert('Error', 'Please fill in all required fields');
+            return;
+        }
+
+        if (newClient.clientType === 'business' && !newClient.company) {
+            Alert.alert('Error', 'Corporate name is required for business clients');
+            return;
+        }
+
+        try {
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const token = await user.getIdToken();
+            
+            const response = await fetch(`${API_ENDPOINTS.BROKERS}/clients`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: newClient.name,
+                    email: newClient.email,
+                    phone: newClient.phone,
+                    type: newClient.clientType,
+                    region: newClient.location,
+                    location: newClient.location, // Send both region and location for compatibility
+                    company: newClient.company || null,
+                    businessType: newClient.businessType || null,
+                    occupation: newClient.occupation || null,
+                }),
+            });
+            
+            if (response.ok) {
+                // Refresh clients list
+                await loadClients();
+                
+                // Reset form
+                setNewClient({ name: '', company: '', phone: '', email: '', clientType: 'individual', location: '', businessType: '', occupation: '' });
+                setShowAddClientModal(false);
+                Alert.alert('Success', 'Client added successfully!');
+            } else {
+                const errorData = await response.json();
+                console.error('Client creation failed:', errorData);
+                Alert.alert('Error', errorData.message || 'Failed to add client');
+            }
+        } catch (error) {
+            console.error('Error adding client:', error);
+            Alert.alert('Error', 'Failed to add client. Please try again.');
         }
     };
 
@@ -276,70 +343,11 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
         );
     };
 
-    const handleRequestSelection = (requestId: string) => {
-        setSelectedRequests(prev =>
-            prev.includes(requestId)
-                ? prev.filter(id => id !== requestId)
-                : [...prev, requestId]
-        );
-    };
+    // Request selection removed - consolidation is now done from RequestForm
+    // Users create new requests and add them to consolidation from the RequestForm
 
-    const handleConsolidate = () => {
-        if (selectedRequests.length < 2) {
-            Alert.alert('Error', 'Please select at least 2 requests to consolidate');
-            return;
-        }
-        setShowConsolidationModal(true);
-    };
-
-    const confirmConsolidation = async () => {
-        try {
-            // Get selected requests data
-            const selectedRequestsData = Array.isArray(requests) ? requests.filter(req => req && selectedRequests.includes(req.id)) : [];
-            
-            if (selectedRequestsData.length < 2) {
-                Alert.alert('Error', 'Please select at least 2 requests to consolidate');
-                return;
-            }
-
-            // Calculate consolidation data
-            const consolidationData = {
-                fromLocation: selectedRequestsData[0].fromLocation, // Use first request as base
-                toLocation: selectedRequestsData[0].toLocation,
-                productType: 'Mixed Products', // Since we're consolidating different products
-                totalWeight: selectedRequestsData.reduce((sum, req) => {
-                    const weight = parseFloat(req.weight) || 0;
-                    return sum + weight;
-                }, 0).toString(),
-                urgency: selectedRequestsData.some(req => req.urgency === 'high') ? 'high' : 
-                        selectedRequestsData.some(req => req.urgency === 'medium') ? 'medium' : 'low',
-                description: `Consolidated request containing ${selectedRequestsData.length} individual requests`,
-            };
-
-            // Use unified booking service for consolidation
-            const consolidatedBooking = await unifiedBookingService.consolidateBookings(
-                selectedRequests,
-                consolidationData
-            );
-
-            Alert.alert('Success', 'Requests consolidated successfully!');
-            setSelectedRequests([]);
-            setShowConsolidationModal(false);
-            
-            // Refresh requests list
-            await loadRequests();
-            
-            // Navigate to consolidated request details
-            navigation?.navigate?.('TrackingScreen', {
-                booking: consolidatedBooking,
-                isConsolidated: true,
-                userType: 'broker',
-            });
-        } catch (error) {
-            console.error('Error consolidating requests:', error);
-            Alert.alert('Error', 'Failed to consolidate requests. Please try again.');
-        }
-    };
+    // Consolidation functionality removed - consolidation is now done from RequestForm
+    // Users should create new requests and add them to consolidation from the RequestForm
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -388,30 +396,40 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
         const isExpanded = isConsolidation && expandedConsolidations.has(item.consolidationGroupId || item.id);
 
         return (
-        <View style={styles.requestCard}>
+        <View style={[styles.requestCard, isConsolidation && styles.consolidationCard]}>
             <View style={styles.requestHeader}>
                 <View style={styles.requestType}>
                     {isConsolidation && (
-                        <MaterialCommunityIcons
-                            name="package-variant-closed"
-                            size={20}
-                            color={colors.primary}
-                            style={{ marginRight: 4 }}
-                        />
+                        <View style={styles.consolidationHeaderBadge}>
+                            <MaterialCommunityIcons
+                                name="package-variant-closed"
+                                size={16}
+                                color={colors.primary}
+                            />
+                            <Text style={styles.consolidationHeaderText}>CONSOLIDATION</Text>
+                        </View>
                     )}
                     <MaterialCommunityIcons
-                        name={isConsolidation ? 'package-variant' : (item.type === 'instant' ? 'flash' : 'calendar-clock')}
+                        name={isConsolidation ? 'package-variant-closed' : (item.type === 'instant' ? 'flash' : 'calendar-clock')}
                         size={20}
                         color={isConsolidation ? colors.primary : (item.type === 'instant' ? colors.warning : colors.secondary)}
                     />
                     <Text style={[styles.requestTypeText, {
                         color: isConsolidation ? colors.primary : (item.type === 'instant' ? colors.warning : colors.secondary)
                     }]}>
-                        {isConsolidation ? `Consolidation (${item.totalBookings || item.consolidatedBookings?.length || 0})` : (item.type === 'instant' ? 'Instant' : 'Booking')}
+                        {isConsolidation ? `${item.totalBookings || item.consolidatedBookings?.length || 0} Bookings` : (item.type === 'instant' ? 'Instant' : 'Booking')}
                     </Text>
+                    {isConsolidation && (
+                        <View style={styles.consolidatedBadge}>
+                            <MaterialCommunityIcons name="package-variant-closed" size={14} color={colors.white} />
+                            <Text style={styles.consolidatedText}>
+                                {item.totalBookings || item.consolidatedBookings?.length || 0}
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
-                <View style={styles.requestStatus}>
+                <View style={[styles.requestStatus, isConsolidation && styles.consolidationStatusBadge]}>
                     <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
                     <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
                         {item.status.replace('_', ' ').toUpperCase()}
@@ -422,8 +440,8 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
             {/* Booking ID */}
             <View style={styles.bookingIdContainer}>
                 <Text style={styles.bookingIdLabel}>ID:</Text>
-                <Text style={styles.bookingIdValue}>
-                    {isConsolidation ? `#${item.consolidationGroupId || item.id}` : getDisplayBookingId(item)}
+                <Text style={[styles.bookingIdValue, isConsolidation && styles.consolidationIdText]}>
+                    {isConsolidation ? `Group ID: ${(item.consolidationGroupId || item.id).substring(0, 12)}...` : getDisplayBookingId(item)}
                 </Text>
             </View>
 
@@ -436,14 +454,16 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 )}
             </View>
 
-            {/* Consolidation Overview - Show summary when collapsed */}
+            {/* Consolidation Overview - Always show for consolidations */}
             {isConsolidation && (
                 <View style={styles.consolidationOverview}>
                     <View style={styles.consolidationSummary}>
-                        <MaterialCommunityIcons name="package-variant" size={20} color={colors.primary} />
+                        <View style={styles.consolidationIconContainer}>
+                            <MaterialCommunityIcons name="package-variant-closed" size={24} color={colors.primary} />
+                        </View>
                         <View style={styles.consolidationSummaryText}>
                             <Text style={styles.consolidationSummaryTitle}>
-                                Consolidation: {item.totalBookings || item.consolidatedBookings?.length || 0} individual bookings
+                                {item.totalBookings || item.consolidatedBookings?.length || 0} Individual Bookings
                             </Text>
                             <Text style={styles.consolidationSummarySubtitle}>
                                 Multiple pickup and dropoff locations
@@ -454,25 +474,29 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                     {/* Total Cost Range */}
                     {item.totalCostRange && (
                         <View style={styles.consolidationTotalCost}>
-                            <MaterialCommunityIcons name="calculator" size={16} color={colors.success} />
-                            <Text style={styles.consolidationTotalCostText}>
-                                Total: {formatCostRange({ costRange: item.totalCostRange })}
-                            </Text>
+                            <MaterialCommunityIcons name="calculator" size={18} color={colors.success} />
+                            <View style={styles.consolidationTotalCostInfo}>
+                                <Text style={styles.consolidationTotalCostLabel}>Total Cost</Text>
+                                <Text style={styles.consolidationTotalCostText}>
+                                    {formatCostRange({ costRange: item.totalCostRange })}
+                                </Text>
+                            </View>
                         </View>
                     )}
                     
-                    {/* Expand/Collapse Button */}
+                    {/* Expand/Collapse Button - More Prominent */}
                     <TouchableOpacity
-                        style={styles.expandButton}
+                        style={[styles.expandButton, isExpanded && styles.expandButtonActive]}
                         onPress={() => toggleConsolidationExpansion(item.consolidationGroupId || item.id)}
+                        activeOpacity={0.7}
                     >
                         <MaterialCommunityIcons
                             name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                            size={20}
-                            color={colors.primary}
+                            size={22}
+                            color={colors.white}
                         />
                         <Text style={styles.expandButtonText}>
-                            {isExpanded ? 'Hide Details' : 'View Individual Bookings'}
+                            {isExpanded ? 'Hide Individual Bookings' : 'View Individual Bookings'}
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -516,7 +540,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                                 <View style={styles.individualBookingRow}>
                                     <MaterialCommunityIcons name="cash" size={14} color={colors.success} />
                                     <Text style={[styles.individualBookingText, { fontWeight: 'bold' }]}>
-                                        Cost: {formatCostRange(booking)}
+                                        Cost: {formatAverageCost(booking)}
                                     </Text>
                                 </View>
                             </View>
@@ -565,13 +589,13 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                         </View>
                     </View>
 
-                    {/* Shipping Cost - Always use backend-calculated cost: cost > price > estimatedCost */}
+                    {/* Shipping Cost - Show average cost in management screens */}
                     {(item.cost || item.price || item.estimatedCost) && (
                         <View style={styles.costInfo}>
                             <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
                             <Text style={styles.costLabel}>Shipping Cost:</Text>
                             <Text style={styles.costValue}>
-                                {formatCostRange(item)}
+                                {formatAverageCost(item)}
                             </Text>
                         </View>
                     )}
@@ -679,22 +703,18 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
 
                 {activeTab === 'consolidation' && (
                     <TouchableOpacity
-                        style={[
-                            styles.actionButton,
-                            selectedRequests.includes(item.id) ? styles.selectedButton : styles.selectButton
-                        ]}
-                        onPress={() => handleRequestSelection(item.id)}
+                        style={styles.actionButton}
+                        onPress={() => {
+                            // Navigate to request details or tracking
+                            navigation?.navigate?.('TrackingScreen', {
+                                booking: item,
+                                userType: 'broker',
+                            });
+                        }}
                     >
-                        <MaterialCommunityIcons
-                            name={selectedRequests.includes(item.id) ? "check-circle" : "circle-outline"}
-                            size={16}
-                            color={selectedRequests.includes(item.id) ? colors.white : colors.primary}
-                        />
-                        <Text style={[
-                            styles.actionButtonText,
-                            { color: selectedRequests.includes(item.id) ? colors.white : colors.primary }
-                        ]}>
-                            {selectedRequests.includes(item.id) ? 'Selected' : 'Select'}
+                        <MaterialCommunityIcons name="eye" size={16} color={colors.primary} />
+                        <Text style={[styles.actionButtonText, { color: colors.primary }]}>
+                            View
                         </Text>
                     </TouchableOpacity>
                 )}
@@ -702,7 +722,8 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
 
             <Text style={styles.requestTime}>{item.createdAt}</Text>
         </View>
-    );
+        );
+    };
 
     const handleClientPress = (client: Client) => {
         setSelectedClient(client);
@@ -894,35 +915,10 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                             <View style={styles.headerActions}>
                                 {pendingRequests.length > 0 && (
                                     <View style={styles.selectionActions}>
-                                        <TouchableOpacity
-                                            style={styles.selectionButton}
-                                            onPress={() => setSelectedRequests(pendingRequests.map(r => r.id))}
-                                        >
-                                            <MaterialCommunityIcons name="select-all" size={16} color={colors.primary} />
-                                            <Text style={styles.selectionButtonText}>Select All</Text>
-                                        </TouchableOpacity>
-                                        {selectedRequests.length > 0 && (
-                                            <TouchableOpacity
-                                                style={styles.selectionButton}
-                                                onPress={() => setSelectedRequests([])}
-                                            >
-                                                <MaterialCommunityIcons name="close-circle" size={16} color={colors.error} />
-                                                <Text style={[styles.selectionButtonText, { color: colors.error }]}>Clear</Text>
-                                            </TouchableOpacity>
-                                        )}
+                                        {/* Selection UI removed - consolidation is now done from RequestForm */}
                                     </View>
                                 )}
-                                {selectedRequests.length > 0 && (
-                                    <TouchableOpacity
-                                        style={styles.consolidateButton}
-                                        onPress={handleConsolidate}
-                                    >
-                                        <MaterialCommunityIcons name="layers" size={20} color={colors.white} />
-                                        <Text style={styles.consolidateButtonText}>
-                                            Consolidate ({selectedRequests.length})
-                                        </Text>
-                                    </TouchableOpacity>
-                                )}
+                                {/* Consolidate button removed - consolidation is now done from RequestForm */}
                             </View>
                         </View>
 
@@ -933,16 +929,7 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                             </Text>
                         </View>
 
-                        {selectedRequests.length > 0 && (
-                            <View style={styles.selectedRequestsCard}>
-                                <Text style={styles.selectedRequestsTitle}>
-                                    Selected Requests ({selectedRequests.length})
-                                </Text>
-                                <Text style={styles.selectedRequestsSubtitle}>
-                                    Tap "Consolidate" to merge these requests
-                                </Text>
-                            </View>
-                        )}
+                        {/* Selected requests card removed - consolidation is now done from RequestForm */}
 
                         {pendingRequests.length === 0 ? (
                             <View style={styles.emptyState}>
@@ -1123,62 +1110,177 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 {renderTabContent()}
             </ScrollView>
 
-            {/* Consolidation Modal */}
+            {/* Consolidation Modal removed - consolidation is now done from RequestForm */}
+
+            {/* Add Client Modal */}
             <Modal
-                visible={showConsolidationModal}
+                visible={showAddClientModal}
                 animationType="slide"
                 transparent={true}
-                onRequestClose={() => setShowConsolidationModal(false)}
+                onRequestClose={() => setShowAddClientModal(false)}
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Consolidate Requests</Text>
-                            <TouchableOpacity onPress={() => setShowConsolidationModal(false)}>
+                            <Text style={styles.modalTitle}>Add New Client</Text>
+                            <TouchableOpacity onPress={() => setShowAddClientModal(false)}>
                                 <Ionicons name="close" size={24} color={colors.text.secondary} />
                             </TouchableOpacity>
                         </View>
 
-                        <Text style={styles.modalDescription}>
-                            You are about to consolidate {selectedRequests.length} requests into a single transport request.
-                            This will help reduce costs and improve efficiency.
-                        </Text>
+                        <ScrollView 
+                            style={styles.modalScrollContent} 
+                            showsVerticalScrollIndicator={false}
+                        >
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Client Type *</Text>
+                                <View style={styles.clientTypeContainer}>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.clientTypeButton,
+                                            newClient.clientType === 'individual' && styles.clientTypeButtonActive
+                                        ]}
+                                        onPress={() => setNewClient({ ...newClient, clientType: 'individual' })}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name="account"
+                                            size={20}
+                                            color={newClient.clientType === 'individual' ? colors.white : colors.primary}
+                                        />
+                                        <Text style={[
+                                            styles.clientTypeText,
+                                            newClient.clientType === 'individual' && styles.clientTypeTextActive
+                                        ]}>
+                                            Individual
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.clientTypeButton,
+                                            newClient.clientType === 'business' && styles.clientTypeButtonActive
+                                        ]}
+                                        onPress={() => setNewClient({ ...newClient, clientType: 'business' })}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name="office-building"
+                                            size={20}
+                                            color={newClient.clientType === 'business' ? colors.white : colors.primary}
+                                        />
+                                        <Text style={[
+                                            styles.clientTypeText,
+                                            newClient.clientType === 'business' && styles.clientTypeTextActive
+                                        ]}>
+                                            Corporate
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
 
-                        <View style={styles.consolidationPreview}>
-                            <Text style={styles.previewTitle}>Selected Requests:</Text>
-                            {requests
-                                .filter(r => r && selectedRequests.includes(r.id))
-                                .map(request => {
-                                    if (!request) return null;
-                                    try {
-                                        return (
-                                            <View key={request.id || Math.random()} style={styles.previewItem}>
-                                                <Text style={styles.previewText}>
-                                                    • {formatRoute(request.fromLocation, request.toLocation)} ({request.productType || 'N/A'})
-                                                </Text>
-                                            </View>
-                                        );
-                                    } catch (e) {
-                                        console.warn('Error rendering preview item:', e);
-                                        return null;
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>
+                                    {newClient.clientType === 'individual' ? 'Full Name *' : 'Contact Person Name *'}
+                                </Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={newClient.name}
+                                    onChangeText={(text) => setNewClient({ ...newClient, name: text })}
+                                    placeholder={
+                                        newClient.clientType === 'individual'
+                                            ? "Enter client's full name"
+                                            : "Enter contact person's name"
                                     }
-                                })
-                                .filter(item => item != null)
-                            }
-                        </View>
+                                    placeholderTextColor={colors.text.light}
+                                />
+                            </View>
+
+                            {newClient.clientType === 'business' && (
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel}>Corporate Name *</Text>
+                                    <TextInput
+                                        style={styles.textInput}
+                                        value={newClient.company}
+                                        onChangeText={(text) => setNewClient({ ...newClient, company: text })}
+                                        placeholder="Enter company name"
+                                        placeholderTextColor={colors.text.light}
+                                    />
+                                </View>
+                            )}
+
+                            {newClient.clientType === 'business' && (
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel}>Corporate Type</Text>
+                                    <TextInput
+                                        style={styles.textInput}
+                                        value={newClient.businessType}
+                                        onChangeText={(text) => setNewClient({ ...newClient, businessType: text })}
+                                        placeholder="e.g., Wholesaler, Retailer, Manufacturer"
+                                        placeholderTextColor={colors.text.light}
+                                    />
+                                </View>
+                            )}
+
+                            {newClient.clientType === 'individual' && (
+                                <View style={styles.inputGroup}>
+                                    <Text style={styles.inputLabel}>Occupation</Text>
+                                    <TextInput
+                                        style={styles.textInput}
+                                        value={newClient.occupation}
+                                        onChangeText={(text) => setNewClient({ ...newClient, occupation: text })}
+                                        placeholder="e.g., Farmer, Trader, Student"
+                                        placeholderTextColor={colors.text.light}
+                                    />
+                                </View>
+                            )}
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Phone Number *</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={newClient.phone}
+                                    onChangeText={(text) => setNewClient({ ...newClient, phone: text })}
+                                    placeholder="+254712345678"
+                                    placeholderTextColor={colors.text.light}
+                                    keyboardType="phone-pad"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Email Address</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={newClient.email}
+                                    onChangeText={(text) => setNewClient({ ...newClient, email: text })}
+                                    placeholder="client@company.com"
+                                    placeholderTextColor={colors.text.light}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.inputLabel}>Location *</Text>
+                                <TextInput
+                                    style={styles.textInput}
+                                    value={newClient.location}
+                                    onChangeText={(text) => setNewClient({ ...newClient, location: text })}
+                                    placeholder="e.g., Nairobi, Kenya"
+                                    placeholderTextColor={colors.text.light}
+                                />
+                            </View>
+                        </ScrollView>
 
                         <View style={styles.modalActions}>
                             <TouchableOpacity
                                 style={styles.cancelButton}
-                                onPress={() => setShowConsolidationModal(false)}
+                                onPress={() => setShowAddClientModal(false)}
                             >
                                 <Text style={styles.cancelButtonText}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={styles.confirmButton}
-                                onPress={confirmConsolidation}
+                                style={styles.saveButton}
+                                onPress={handleAddClient}
                             >
-                                <Text style={styles.confirmButtonText}>Consolidate</Text>
+                                <Text style={styles.saveButtonText}>Add Client</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -1974,6 +2076,69 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: colors.white,
     },
+    modalScrollContent: {
+        maxHeight: 400,
+        paddingBottom: spacing.xl,
+    },
+    inputGroup: {
+        marginBottom: spacing.md,
+    },
+    inputLabel: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.text.primary,
+        marginBottom: spacing.xs,
+    },
+    textInput: {
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 12,
+        padding: spacing.md,
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
+        backgroundColor: colors.surface,
+    },
+    clientTypeContainer: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    clientTypeButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.md,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+        backgroundColor: colors.surface,
+    },
+    clientTypeButtonActive: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    clientTypeText: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.primary,
+    },
+    clientTypeTextActive: {
+        color: colors.white,
+    },
+    saveButton: {
+        flex: 1,
+        paddingVertical: spacing.md,
+        borderRadius: 12,
+        backgroundColor: colors.primary,
+        alignItems: 'center',
+    },
+    saveButtonText: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.white,
+    },
 
     // Empty State Styles
     emptyState: {
@@ -1993,6 +2158,216 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         color: colors.text.secondary,
         textAlign: 'center',
+    },
+    // Consolidation Card Styles - Make it visually distinct
+    consolidationCard: {
+        borderWidth: 2,
+        borderColor: colors.primary + '40',
+        backgroundColor: colors.primary + '05',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    consolidationHeaderBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.primary + '15',
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: 8,
+        marginRight: spacing.sm,
+        borderWidth: 1,
+        borderColor: colors.primary + '30',
+    },
+    consolidationHeaderText: {
+        color: colors.primary,
+        fontSize: fonts.size.xs,
+        fontWeight: 'bold',
+        marginLeft: spacing.xs,
+        letterSpacing: 0.5,
+    },
+    consolidationIdText: {
+        color: colors.primary,
+        fontWeight: 'bold',
+    },
+    consolidationStatusBadge: {
+        backgroundColor: colors.primary + '15',
+        borderWidth: 1,
+        borderColor: colors.primary + '30',
+    },
+    consolidatedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.secondary,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 2,
+        borderRadius: 8,
+        marginLeft: spacing.sm,
+    },
+    consolidatedText: {
+        color: colors.white,
+        fontSize: fonts.size.xs,
+        fontWeight: 'bold',
+        marginLeft: 2,
+    },
+    // Consolidation Styles
+    consolidationOverview: {
+        backgroundColor: colors.primary + '08',
+        borderRadius: 12,
+        padding: spacing.md,
+        marginTop: spacing.sm,
+        marginBottom: spacing.sm,
+        borderWidth: 1,
+        borderColor: colors.primary + '25',
+    },
+    consolidationSummary: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    consolidationIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: colors.primary + '20',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: spacing.md,
+        borderWidth: 2,
+        borderColor: colors.primary + '40',
+    },
+    consolidationSummaryText: {
+        flex: 1,
+    },
+    consolidationSummaryTitle: {
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginBottom: spacing.xs,
+        fontFamily: fonts.family.bold,
+    },
+    consolidationSummarySubtitle: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        fontFamily: fonts.family.regular,
+    },
+    consolidationTotalCost: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.white,
+        borderRadius: 10,
+        padding: spacing.md,
+        marginBottom: spacing.md,
+        borderWidth: 1.5,
+        borderColor: colors.success + '40',
+        shadowColor: colors.success,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    consolidationTotalCostInfo: {
+        marginLeft: spacing.md,
+        flex: 1,
+    },
+    consolidationTotalCostLabel: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        marginBottom: spacing.xs,
+        fontFamily: fonts.family.regular,
+    },
+    consolidationTotalCostText: {
+        fontSize: fonts.size.lg,
+        fontWeight: 'bold',
+        color: colors.success,
+        fontFamily: fonts.family.bold,
+    },
+    expandButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.primary,
+        borderRadius: 12,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        marginTop: spacing.sm,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    expandButtonActive: {
+        backgroundColor: colors.primaryDark,
+        shadowOpacity: 0.4,
+        elevation: 6,
+    },
+    expandButtonText: {
+        color: colors.white,
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        marginLeft: spacing.sm,
+        fontFamily: fonts.family.bold,
+    },
+    individualBookingsContainer: {
+        marginTop: spacing.md,
+        paddingTop: spacing.md,
+        borderTopWidth: 2,
+        borderTopColor: colors.primary + '30',
+        backgroundColor: colors.white,
+        borderRadius: 12,
+        padding: spacing.md,
+    },
+    individualBookingsTitle: {
+        fontSize: fonts.size.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginBottom: spacing.md,
+        fontFamily: fonts.family.bold,
+    },
+    individualBookingItem: {
+        backgroundColor: colors.background,
+        borderRadius: 10,
+        padding: spacing.md,
+        marginBottom: spacing.md,
+        borderWidth: 1,
+        borderColor: colors.text.light + '30',
+        borderLeftWidth: 3,
+        borderLeftColor: colors.primary,
+    },
+    individualBookingHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    individualBookingNumber: {
+        fontSize: fonts.size.sm,
+        fontWeight: 'bold',
+        color: colors.primary,
+        fontFamily: fonts.family.bold,
+    },
+    individualBookingId: {
+        fontSize: fonts.size.sm,
+        color: colors.text.secondary,
+        fontFamily: fonts.family.regular,
+    },
+    individualBookingDetails: {
+        marginTop: 4,
+    },
+    individualBookingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 6,
+    },
+    individualBookingText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
+        marginLeft: 8,
+        flex: 1,
+        fontFamily: fonts.family.regular,
     },
 });
 

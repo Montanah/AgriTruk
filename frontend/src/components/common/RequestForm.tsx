@@ -112,6 +112,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     const [productType, setProductType] = useState('');
     const [weight, setWeight] = useState('');
     const [urgency, setUrgency] = useState<'low' | 'medium' | 'high'>('medium');
+    const [showUrgencyDropdown, setShowUrgencyDropdown] = useState(false);
     // Initialize pickup date to current date/time, ensuring it's not in the past
     const getInitialPickupDate = () => {
       const now = new Date();
@@ -382,7 +383,8 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
         };
     };
 
-    const handleAddToConsolidate = () => {
+    // handleAddToConsolidate replaced by handleAddToConsolidation - use handleAddToConsolidation instead
+    const handleAddToConsolidateOld = () => {
         if (!validateForm()) return;
 
         const consolidationData = createConsolidationData();
@@ -427,10 +429,12 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             const requestData = createRequestData();
 
             try {
+                // Single booking mode - always create single booking
                 navigation.navigate('BookingConfirmation', {
-                    requests: consolidations.length > 0 ? consolidations : [requestData],
+                    requests: [requestData],
                     mode,
                     selectedClient,
+                    isConsolidation: false,
                 });
             } catch (navError) {
                 throw navError;
@@ -438,12 +442,27 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
         }
     };
 
-    const handleProceedToConsolidation = () => {
-        if (consolidations.length === 0) {
-            Alert.alert('No Requests', 'Please add requests to consolidation first.');
+    const handleAddToConsolidation = () => {
+        if (!validateForm()) {
+            Alert.alert('Validation Error', 'Please fill in all required fields before adding to consolidation.');
             return;
         }
-        navigation.navigate('Consolidation', { mode });
+        
+        const requestData = createRequestData();
+        addConsolidation(requestData);
+        
+        // Clear form for next request
+        setFromLocation('');
+        setToLocation('');
+        setFromLocationCoords(null);
+        setToLocationCoords(null);
+        setFromLocationAddress('');
+        setToLocationAddress('');
+        setProductType('');
+        setWeight('');
+        setFormError('');
+        
+        Alert.alert('Added to Consolidation', `Request added. You have ${consolidations.length + 1} request(s) in consolidation. Add more or submit to confirm.`);
     };
 
     const getCurrentRequest = () => createRequestData();
@@ -467,7 +486,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
 
     const [showFrequencyDropdown, setShowFrequencyDropdown] = useState(false);
     const [showDurationDropdown, setShowDurationDropdown] = useState(false);
-    const [showUrgencyDropdown, setShowUrgencyDropdown] = useState(false);
 
     const renderRecurrenceSection = () => (
         <View style={styles.fieldGroup}>
@@ -753,83 +771,86 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
 
                     {/* Form Fields */}
                     <View style={styles.formCard}>
-                        {/* Pickup Location */}
+                        {/* Location Details Section - Enhanced */}
                         <View style={styles.fieldGroup}>
-                            <View style={styles.locationHeader}>
-                                <Text style={styles.fieldLabel}>Location Details *</Text>
+                            <View style={styles.locationSectionHeader}>
+                                <View style={styles.labelContainer}>
+                                    <MaterialCommunityIcons name="map-marker-path" size={18} color={accent} />
+                                    <Text style={styles.fieldLabel}>Location Details *</Text>
+                                </View>
                                 <TouchableOpacity
-                                    style={styles.locationButton}
+                                    style={[
+                                        styles.locationButton,
+                                        {
+                                            backgroundColor: accent + '15',
+                                            borderColor: accent + '30',
+                                        }
+                                    ]}
                                     onPress={getCurrentLocation}
                                     disabled={isGettingLocation}
                                 >
-                                    <Ionicons 
-                                        name={isGettingLocation ? "refresh" : "location"} 
-                                        size={14} 
-                                        color={colors.primary} 
+                                    <MaterialCommunityIcons 
+                                        name={isGettingLocation ? "refresh" : "crosshairs-gps"} 
+                                        size={16} 
+                                        color={isGettingLocation ? colors.text.secondary : accent} 
                                     />
                                     <Text 
-                                        style={styles.locationButtonText}
+                                        style={[
+                                            styles.locationButtonText,
+                                            { color: accent }
+                                        ]}
                                         numberOfLines={1}
-                                        ellipsizeMode="tail"
                                     >
-                                        {isGettingLocation ? '...' : '📍'}
+                                        {isGettingLocation ? 'Getting...' : 'Use Current'}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
-                            <CompactLocationSection
-                                pickupLocation={fromLocation}
-                                deliveryLocation={toLocation}
-                                onPickupLocationChange={setFromLocation}
-                                onDeliveryLocationChange={setToLocation}
-                                onPickupLocationSelected={(location) => {
-                                    // Pickup location selected - preserve EXACT address selected by user
-                                    const exactAddress = location.address || fromLocation;
-                                    setFromLocationCoords({
-                                        latitude: location.latitude,
-                                        longitude: location.longitude
-                                    });
-                                    // CRITICAL: Update both fromLocationAddress (for backend) AND fromLocation (for display)
-                                    // Use exact address from location picker
-                                    setFromLocationAddress(exactAddress);
-                                    setFromLocation(exactAddress); // Update display with exact address
-                                }}
-                                onDeliveryLocationSelected={(location) => {
-                                    // Delivery location selected - preserve EXACT address selected by user
-                                    const exactAddress = location.address || toLocation;
-                                    setToLocationCoords({
-                                        latitude: location.latitude,
-                                        longitude: location.longitude
-                                    });
-                                    // CRITICAL: Update both toLocationAddress (for backend) AND toLocation (for display)
-                                    // Use exact address from location picker
-                                    setToLocationAddress(exactAddress);
-                                    setToLocation(exactAddress); // Update display with exact address
-                                }}
-                                useCurrentLocation={true}
-                                showMap={true}
-                                onMapPress={() => {
-                                    // Handle map press if needed
-                                    // Map pressed
-                                }}
-                                showTitle={false}
-                            />
-                            {fromLocation && fromLocationCoords && (
-                                <View style={styles.locationIndicator}>
-                                    <Ionicons name="checkmark-circle" size={12} color={colors.success} />
-                                    <Text 
-                                        style={styles.locationIndicatorText}
-                                        numberOfLines={1}
-                                        ellipsizeMode="tail"
-                                    >
-                                        Current location set
-                                    </Text>
-                                </View>
-                            )}
+                            <View style={styles.locationCard}>
+                                <CompactLocationSection
+                                    pickupLocation={fromLocation}
+                                    deliveryLocation={toLocation}
+                                    onPickupLocationChange={setFromLocation}
+                                    onDeliveryLocationChange={setToLocation}
+                                    onPickupLocationSelected={(location) => {
+                                        const exactAddress = location.address || fromLocation;
+                                        setFromLocationCoords({
+                                            latitude: location.latitude,
+                                            longitude: location.longitude
+                                        });
+                                        setFromLocationAddress(exactAddress);
+                                        setFromLocation(exactAddress);
+                                    }}
+                                    onDeliveryLocationSelected={(location) => {
+                                        const exactAddress = location.address || toLocation;
+                                        setToLocationCoords({
+                                            latitude: location.latitude,
+                                            longitude: location.longitude
+                                        });
+                                        setToLocationAddress(exactAddress);
+                                        setToLocation(exactAddress);
+                                    }}
+                                    useCurrentLocation={true}
+                                    showMap={true}
+                                    onMapPress={() => {}}
+                                    showTitle={false}
+                                />
+                                {fromLocation && fromLocationCoords && (
+                                    <View style={styles.locationIndicator}>
+                                        <MaterialCommunityIcons name="check-circle" size={14} color={colors.success} />
+                                        <Text style={styles.locationIndicatorText}>
+                                            GPS location set
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
                         </View>
 
                         {/* Product Details */}
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Product Type *</Text>
+                            <View style={styles.labelContainer}>
+                                <MaterialCommunityIcons name="package-variant" size={16} color={colors.text.secondary} />
+                                <Text style={styles.fieldLabel}>Product Type *</Text>
+                            </View>
                             <ProductTypeInput
                                 value={productType}
                                 onChangeText={setProductType}
@@ -838,7 +859,6 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                     // Store the product for future suggestions
                                 }}
                                 placeholder="Enter product type (e.g., Maize, Electronics, Furniture)"
-                                style={styles.input}
                             />
                         </View>
 
@@ -883,16 +903,29 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                             )}
                         </View>
 
-                        {/* Urgency Level */}
+                        {/* Urgency Level - Dropdown */}
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Urgency Level</Text>
+                            <View style={styles.labelContainer}>
+                                <MaterialCommunityIcons name="clock-alert-outline" size={16} color={colors.text.secondary} />
+                                <Text style={styles.fieldLabel}>Urgency Level</Text>
+                            </View>
                             <TouchableOpacity
                                 style={styles.dropdownInput}
                                 onPress={() => setShowUrgencyDropdown(!showUrgencyDropdown)}
                             >
-                                <Text style={[styles.dropdownText, !urgency && { color: colors.text.light }]}>
-                                    {urgency ? URGENCY_LEVELS.find(u => u.key === urgency)?.label : 'Select urgency level'}
-                                </Text>
+                                <View style={styles.dropdownContent}>
+                                    {urgency && (
+                                        <MaterialCommunityIcons
+                                            name={URGENCY_LEVELS.find(u => u.key === urgency)?.icon as any}
+                                            size={18}
+                                            color={URGENCY_LEVELS.find(u => u.key === urgency)?.color}
+                                            style={styles.dropdownIcon}
+                                        />
+                                    )}
+                                    <Text style={[styles.dropdownText, !urgency && { color: colors.text.light }]}>
+                                        {urgency ? URGENCY_LEVELS.find(u => u.key === urgency)?.label : 'Select urgency level'}
+                                    </Text>
+                                </View>
                                 <MaterialCommunityIcons
                                     name={showUrgencyDropdown ? "chevron-up" : "chevron-down"}
                                     size={20}
@@ -904,7 +937,10 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                     {URGENCY_LEVELS.map((level) => (
                                         <TouchableOpacity
                                             key={level.key}
-                                            style={styles.dropdownOption}
+                                            style={[
+                                                styles.dropdownOption,
+                                                urgency === level.key && styles.dropdownOptionSelected
+                                            ]}
                                             onPress={() => {
                                                 setUrgency(level.key as 'low' | 'medium' | 'high');
                                                 setShowUrgencyDropdown(false);
@@ -912,12 +948,22 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                         >
                                             <MaterialCommunityIcons
                                                 name={level.icon as any}
-                                                size={16}
+                                                size={18}
                                                 color={level.color}
                                             />
-                                            <Text style={[styles.dropdownOptionText, { color: level.color }]}>
+                                            <Text style={[
+                                                styles.dropdownOptionText,
+                                                urgency === level.key && { color: level.color, fontWeight: '600' }
+                                            ]}>
                                                 {level.label}
                                             </Text>
+                                            {urgency === level.key && (
+                                                <MaterialCommunityIcons
+                                                    name="check"
+                                                    size={18}
+                                                    color={level.color}
+                                                />
+                                            )}
                                         </TouchableOpacity>
                                     ))}
                                 </View>
@@ -927,15 +973,21 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                         {/* Pickup Date for Bookings */}
                         {requestType === 'booking' && (
                             <View style={styles.fieldGroup}>
-                                <Text style={styles.fieldLabel}>Pickup Date & Time *</Text>
+                                <View style={styles.labelContainer}>
+                                    <MaterialCommunityIcons name="calendar-clock" size={16} color={colors.text.secondary} />
+                                    <Text style={styles.fieldLabel}>Pickup Date & Time *</Text>
+                                </View>
                                 <TouchableOpacity
-                                    style={styles.input}
+                                    style={[styles.input, styles.dateInput]}
                                     onPress={() => setShowDatePicker(true)}
                                 >
-                                    <Text style={styles.inputText}>
-                                        {pickupDate.toLocaleString()}
-                                    </Text>
-                                    <MaterialCommunityIcons name="calendar" size={20} color={colors.text.secondary} />
+                                    <View style={styles.dateInputContent}>
+                                        <MaterialCommunityIcons name="calendar" size={18} color={accent} />
+                                        <Text style={styles.inputText}>
+                                            {pickupDate.toLocaleString()}
+                                        </Text>
+                                    </View>
+                                    <MaterialCommunityIcons name="chevron-right" size={20} color={colors.text.light} />
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -943,9 +995,16 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                         {/* Recurring Request Section - Available for all user types */}
                         {renderRecurrenceSection()}
 
-                        {/* Special Requirements */}
+                        {/* Special Requirements Section */}
                         <View style={styles.fieldGroup}>
-                            <Text style={styles.fieldLabel}>Special Requirements</Text>
+                            <View style={styles.sectionHeader}>
+                                <MaterialCommunityIcons 
+                                    name={activeTab === 'agriTRUK' ? "sprout" : "truck-delivery"} 
+                                    size={20} 
+                                    color={accent} 
+                                />
+                                <Text style={styles.sectionTitle}>Special Requirements</Text>
+                            </View>
 
                             {/* Perishable Options for Agri */}
                             {activeTab === 'agriTRUK' && (
@@ -1101,7 +1160,7 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                             {(mode === 'business' || mode === 'broker') && requestType === 'booking' && (
                                 <TouchableOpacity
                                     style={[styles.actionButton, styles.consolidateButton]}
-                                    onPress={handleAddToConsolidate}
+                                    onPress={handleAddToConsolidation}
                                 >
                                     <MaterialCommunityIcons name="layers-plus" size={20} color={colors.white} />
                                     <Text style={styles.actionButtonText}>
@@ -1162,16 +1221,35 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                                     )}
                                 </View>
 
+                                {/* Proceed with Consolidation Button - Only show when there are items in consolidation */}
                                 <TouchableOpacity
                                     style={[styles.actionButton, styles.proceedButton]}
-                                    onPress={handleProceedToConsolidation}
+                                    onPress={() => {
+                                        // Navigate to BookingConfirmation with all consolidation items
+                                        // The current form data is not added - user must fill form and click "Add to Consolidation" first
+                                        if (consolidations.length === 0) {
+                                            Alert.alert('No Items', 'Please add items to consolidation first.');
+                                            return;
+                                        }
+                                        navigation.navigate('BookingConfirmation', {
+                                            requests: consolidations,
+                                            mode,
+                                            selectedClient,
+                                            isConsolidation: true,
+                                        });
+                                        // Clear consolidations after navigation
+                                        clearConsolidations();
+                                    }}
                                 >
-                                    <MaterialCommunityIcons name="arrow-right" size={20} color={colors.white} />
-                                    <Text style={styles.actionButtonText}>Proceed with Consolidation</Text>
+                                    <MaterialCommunityIcons name="layers" size={20} color={colors.white} />
+                                    <Text style={styles.actionButtonText}>
+                                        Proceed with Consolidation ({consolidations.length} items)
+                                    </Text>
                                 </TouchableOpacity>
                             </View>
                         )}
                     </View>
+                    {/* Closing formCard */}
                 </ScrollView>
             </KeyboardAvoidingView>
 
@@ -1343,77 +1421,117 @@ const styles = StyleSheet.create({
     },
     formCard: {
         backgroundColor: colors.white,
-        borderRadius: 12,
+        borderRadius: 16,
         padding: spacing.lg,
         marginBottom: spacing.md,
         shadowColor: colors.black,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
+        borderWidth: 1,
+        borderColor: colors.text.light + '15',
     },
     fieldGroup: {
         marginBottom: spacing.md,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: spacing.lg,
+        marginBottom: spacing.md,
+        paddingBottom: spacing.sm,
+        borderBottomWidth: 2,
+        borderBottomColor: colors.primary + '20',
+    },
+    sectionTitle: {
+        fontSize: fonts.size.md,
+        fontWeight: '700',
+        color: colors.text.primary,
+        marginLeft: spacing.sm,
+    },
+    labelContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+        gap: spacing.xs,
     },
     fieldLabel: {
         fontSize: fonts.size.md,
         fontWeight: '600',
         color: colors.text.primary,
-        marginBottom: spacing.sm,
     },
-    locationHeader: {
+    locationSectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: spacing.md,
+        marginBottom: spacing.sm,
+    },
+    locationCard: {
+        backgroundColor: colors.background,
+        borderRadius: 12,
+        padding: spacing.md,
+        borderWidth: 1,
+        borderColor: colors.text.light + '20',
     },
     locationButton: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: spacing.sm,
-        paddingVertical: 4,
-        backgroundColor: colors.background,
-        borderRadius: 4,
+        paddingVertical: spacing.xs,
+        borderRadius: 8,
         borderWidth: 1,
-        borderColor: colors.border,
-        maxWidth: 80,
-        flexShrink: 1,
+        gap: spacing.xs,
     },
     locationButtonText: {
         fontSize: fonts.size.xs,
-        color: colors.text.secondary,
-        marginLeft: 4,
-        fontWeight: '400',
-        flexShrink: 1,
+        fontWeight: '600',
     },
     locationIndicator: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: spacing.xs,
+        marginTop: spacing.sm,
         paddingHorizontal: spacing.sm,
-        opacity: 0.7,
-        flex: 1,
+        paddingVertical: spacing.xs,
+        backgroundColor: colors.success + '10',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.success + '20',
+        alignSelf: 'flex-start',
     },
     locationIndicatorText: {
         fontSize: fonts.size.xs,
-        color: colors.text.secondary,
-        marginLeft: 4,
-        fontWeight: '400',
-        flexShrink: 1,
-        flex: 1,
+        color: colors.success,
+        marginLeft: spacing.xs,
+        fontWeight: '600',
     },
     input: {
-        borderWidth: 1,
-        borderColor: colors.text.light,
-        borderRadius: 8,
+        borderWidth: 1.5,
+        borderColor: colors.text.light + '40',
+        borderRadius: 12,
         paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.md,
         fontSize: fonts.size.md,
         color: colors.text.primary,
         backgroundColor: colors.background,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    dateInput: {
+        backgroundColor: colors.white,
+        borderColor: colors.primary + '30',
+    },
+    dateInputContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        flex: 1,
     },
     inputText: {
         fontSize: fonts.size.md,
@@ -1503,16 +1621,22 @@ const styles = StyleSheet.create({
         marginLeft: 32,
     },
     specChip: {
-        paddingVertical: spacing.xs,
-        paddingHorizontal: spacing.sm,
-        borderRadius: 16,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: 20,
         backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.text.light,
+        borderWidth: 1.5,
+        borderColor: colors.text.light + '40',
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
     },
     specChipText: {
         fontSize: fonts.size.sm,
         color: colors.text.secondary,
+        fontWeight: '500',
     },
     consolidationSection: {
         marginTop: spacing.lg,
@@ -1566,6 +1690,24 @@ const styles = StyleSheet.create({
     proceedButton: {
         backgroundColor: colors.success,
     },
+    consolidationInfo: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginTop: spacing.md,
+        padding: spacing.md,
+        backgroundColor: colors.primary + '10',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: colors.primary + '20',
+    },
+    consolidationInfoText: {
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
+        flex: 1,
+        marginLeft: spacing.sm,
+        lineHeight: 18,
+        fontFamily: fonts.family.regular,
+    },
     charCount: {
         fontSize: fonts.size.xs,
         color: colors.text.light,
@@ -1578,7 +1720,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: spacing.md,
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.sm,
+        backgroundColor: colors.background,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.text.light + '20',
     },
     switchLabelContainer: {
         flex: 1,
@@ -1593,27 +1740,6 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         color: colors.text.secondary,
         marginTop: 2,
-    },
-    urgencyContainer: {
-        flexDirection: 'row',
-        gap: spacing.sm,
-    },
-    urgencyButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.md,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: colors.text.light,
-        backgroundColor: colors.surface,
-    },
-    urgencyText: {
-        fontSize: fonts.size.sm,
-        color: colors.text.secondary,
-        marginLeft: spacing.xs,
     },
     recurrenceContainer: {
         marginTop: spacing.md,
@@ -1647,17 +1773,30 @@ const styles = StyleSheet.create({
         marginLeft: spacing.sm,
     },
     dropdownInput: {
-        borderWidth: 1,
-        borderColor: colors.text.light,
-        borderRadius: 8,
+        borderWidth: 1.5,
+        borderColor: colors.text.light + '40',
+        borderRadius: 12,
         paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.md,
         fontSize: fonts.size.md,
         color: colors.text.primary,
         backgroundColor: colors.background,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        shadowColor: colors.black,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    dropdownContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    dropdownIcon: {
+        marginRight: spacing.sm,
     },
     dropdownText: {
         fontSize: fonts.size.md,
@@ -1666,29 +1805,35 @@ const styles = StyleSheet.create({
     },
     dropdownOptions: {
         backgroundColor: colors.white,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: colors.text.light,
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: colors.text.light + '40',
         marginTop: spacing.xs,
         maxHeight: 200,
         shadowColor: colors.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        elevation: 6,
+        overflow: 'hidden',
     },
     dropdownOption: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: spacing.sm,
+        paddingVertical: spacing.md,
         paddingHorizontal: spacing.md,
         borderBottomWidth: 1,
-        borderBottomColor: colors.text.light + '20',
+        borderBottomColor: colors.text.light + '15',
+        backgroundColor: colors.white,
+    },
+    dropdownOptionSelected: {
+        backgroundColor: colors.primary + '08',
     },
     dropdownOptionText: {
         fontSize: fonts.size.md,
         color: colors.text.primary,
         marginLeft: spacing.sm,
+        flex: 1,
     },
 });
 

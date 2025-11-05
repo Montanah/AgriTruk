@@ -310,7 +310,6 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                 'Real-time tracking',
                 'Priority customer support',
                 'Advanced analytics & insights',
-                'Insurance coverage',
                 'Fleet management tools',
             ];
         } else if (userType === 'broker') {

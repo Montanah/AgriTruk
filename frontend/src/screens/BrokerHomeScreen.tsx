@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
@@ -17,6 +17,7 @@ interface BrokerStats {
     completedTrips: number;
     monthlyEarnings: number;
     pendingRequests: number;
+    consolidations: number;
     consolidationOpportunities: number;
 }
 
@@ -45,6 +46,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
         completedTrips: 0,
         monthlyEarnings: 0,
         pendingRequests: 0,
+        consolidations: 0,
         consolidationOpportunities: 0,
     });
     const [clients, setClients] = useState<Client[]>([]);
@@ -80,6 +82,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
         React.useCallback(() => {
             fetchBrokerStats();
             fetchClients();
+            loadBrokerProfile(); // Refresh profile photo when screen comes into focus
         }, [])
     );
 
@@ -100,16 +103,48 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
 
             if (res.ok) {
                 const data = await res.json();
-                setStats(data?.stats || stats);
+                // Calculate consolidations from bookings
+                const bookings = await unifiedBookingService?.getBookings('broker') || [];
+                let consolidations = 0;
+                if (Array.isArray(bookings)) {
+                    // Group bookings by consolidationGroupId to count unique consolidation groups
+                    const consolidationGroups = new Set<string>();
+                    bookings.forEach(b => {
+                        if (b && b.consolidationGroupId) {
+                            consolidationGroups.add(b.consolidationGroupId);
+                        }
+                    });
+                    consolidations = consolidationGroups.size;
+                }
+                
+                setStats({
+                    ...(data?.stats || stats),
+                    consolidations,
+                });
             } else {
                 // Fallback: compute from bookings
                 try {
                     const computed = await unifiedBookingService?.getBookingStats('broker');
+                    const bookings = await unifiedBookingService?.getBookings('broker') || [];
+                    
+                    // Calculate consolidations
+                    let consolidations = 0;
+                    if (Array.isArray(bookings)) {
+                        const consolidationGroups = new Set<string>();
+                        bookings.forEach(b => {
+                            if (b && b.consolidationGroupId) {
+                                consolidationGroups.add(b.consolidationGroupId);
+                            }
+                        });
+                        consolidations = consolidationGroups.size;
+                    }
+                    
                     if (computed) {
                         setStats(prev => ({
                             ...prev,
                             activeRequests: (computed.confirmed || 0) + (computed.inTransit || 0),
                             pendingRequests: computed.pending || 0,
+                            consolidations,
                         }));
                     }
                 } catch (fallbackError) {
@@ -121,11 +156,26 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
             // Final fallback: compute from bookings
             try {
                 const computed = await unifiedBookingService?.getBookingStats('broker');
+                const bookings = await unifiedBookingService?.getBookings('broker') || [];
+                
+                // Calculate consolidations
+                let consolidations = 0;
+                if (Array.isArray(bookings)) {
+                    const consolidationGroups = new Set<string>();
+                    bookings.forEach(b => {
+                        if (b && b.consolidationGroupId) {
+                            consolidationGroups.add(b.consolidationGroupId);
+                        }
+                    });
+                    consolidations = consolidationGroups.size;
+                }
+                
                 if (computed) {
                     setStats(prev => ({
                         ...prev,
                         activeRequests: (computed.confirmed || 0) + (computed.inTransit || 0),
                         pendingRequests: computed.pending || 0,
+                        consolidations,
                     }));
                 }
             } catch (fallbackError: any) {
@@ -166,6 +216,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                         completedTrips: 0,
                         monthlyEarnings: 0,
                         pendingRequests: 0,
+                        consolidations: 0,
                         consolidationOpportunities: 0,
                     };
                     return newStats;
@@ -192,8 +243,12 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
             if (userDoc.exists()) {
                 const userData = userDoc.data();
                 setBrokerName(userData?.name || user?.displayName || 'Broker');
-                if (userData?.profilePhoto) {
-                    setProfilePhoto({ uri: userData.profilePhoto });
+                // Check multiple possible field names for profile photo
+                const photoUrl = userData?.profilePhotoUrl || userData?.profilePhoto || user?.photoURL;
+                if (photoUrl) {
+                    setProfilePhoto({ uri: photoUrl });
+                } else {
+                    setProfilePhoto(null);
                 }
             }
         } catch (error) {
@@ -423,7 +478,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                     <View style={styles.statsGrid}>
                         {renderStatCard('Active Requests', stats.activeRequests, 'clipboard-list', colors.primary, 'In progress')}
                         {renderStatCard('Pending', stats.pendingRequests, 'clock-outline', colors.warning, 'Awaiting action')}
-                        {renderStatCard('Consolidation', stats.consolidationOpportunities, 'layers', colors.success, 'Cost savings')}
+                        {renderStatCard('Consolidations', stats.consolidations, 'layers', colors.success, 'Grouped bookings')}
                         {renderStatCard('Total Clients', stats.totalClients, 'account-group', colors.secondary, 'Network size')}
                     </View>
                 </View>

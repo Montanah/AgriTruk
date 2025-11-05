@@ -1,10 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Alert, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
+import spacing from '../constants/spacing';
 import { apiRequest } from '../utils/api';
 import { calculateRoadDistanceWithFallback } from '../utils/distanceUtils';
 import { formatCurrency, formatCostRange } from '../utils/costCalculator';
@@ -190,8 +192,17 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
               });
               
               if (estimateResponse) {
-                const minCost = estimateResponse.costRange?.min || estimateResponse.minCost || estimateResponse.estimatedCost || 0;
-                const maxCost = estimateResponse.costRange?.max || estimateResponse.maxCost || estimateResponse.estimatedCost || 0;
+                // Use estimatedCostRange if available (Mumbua's format), otherwise fall back to costRange
+                const minCost = estimateResponse.estimatedCostRange?.min || 
+                               estimateResponse.costRange?.min || 
+                               estimateResponse.minCost || 
+                               estimateResponse.estimatedCost || 
+                               0;
+                const maxCost = estimateResponse.estimatedCostRange?.max || 
+                               estimateResponse.costRange?.max || 
+                               estimateResponse.maxCost || 
+                               estimateResponse.estimatedCost || 
+                               0;
                 
                 totalMinCost += minCost;
                 totalMaxCost += maxCost;
@@ -202,24 +213,61 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
                   minCost,
                   maxCost,
                 });
+              } else {
+                console.warn(`No estimate response for request ${req.id}`);
               }
             } catch (error) {
               console.error(`Error fetching estimate for request ${req.id}:`, error);
+              // Continue with other requests even if one fails
             }
           }
           
           setIndividualEstimates(estimates);
           setTotalCostRange({ min: totalMinCost, max: totalMaxCost });
           
-          // Set summary with total cost range
-          const totalCostDisplay = formatCostRange({ costRange: { min: totalMinCost, max: totalMaxCost } });
-          setSummary({
-            distance: `${estimates.length} routes`,
-            duration: 'Varies',
-            cost: totalCostDisplay,
+          // Debug logging for consolidation
+          console.log('Consolidation Summary:', {
+            totalRequests: requests.length,
+            successfulEstimates: estimates.length,
+            totalMinCost,
+            totalMaxCost,
+            individualCosts: estimates.map(e => ({ min: e.minCost, max: e.maxCost }))
           });
+          
+          // Set summary - For consolidation, only show total cost range
+          // Distance and duration vary per booking, so we can't sum them
+          if (estimates.length > 0 && totalMinCost > 0 && totalMaxCost > 0) {
+            const totalCostDisplay = formatCostRange({ costRange: { min: totalMinCost, max: totalMaxCost } });
+            setSummary({
+              distance: 'Varies', // Multiple routes with different distances
+              duration: 'Varies', // Multiple routes with different durations
+              cost: totalCostDisplay, // Only cost can be summed
+            });
+            setSummaryLoading(false);
+          } else {
+            // If no estimates, show error in summary
+            setSummary({
+              distance: 'N/A',
+              duration: 'N/A',
+              cost: 'Unable to calculate',
+            });
+            setSummaryLoading(false);
+          }
         } else {
           // Single booking - use original logic
+          // NOTE: If isConsolidation is true, we should never reach here (handled above)
+          // For consolidation, we should NOT calculate distance/duration as they vary per booking
+          if (isConsolidation) {
+            // This should not happen, but if it does, set summary without distance/duration
+            setSummaryLoading(false);
+            setSummary({
+              distance: 'Varies',
+              duration: 'Varies',
+              cost: 'Unable to calculate - please check individual bookings',
+            });
+            return;
+          }
+          
           try {
             const req = requests[0];
             if (!req) {
@@ -227,13 +275,18 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
               return;
             }
             
-            // For consolidated bookings, use first pickup and find furthest drop-off
+            // If this is actually a consolidation (multiple requests) but isConsolidation flag wasn't set,
+            // we should still treat it as a consolidation and show only cost
+            const shouldTreatAsConsolidation = requests.length > 1 && !isConsolidation;
+            
+            // For consolidated bookings (multiple requests), use first pickup and find furthest drop-off
+            // But only calculate distance/duration if NOT treating as consolidation
             let fromLoc: string;
             let toLoc: string;
             let fromLocationObj: any;
             let toLocationObj: any;
             
-            if (isConsolidated && requests.length > 1) {
+            if (isConsolidated && requests.length > 1 && !shouldTreatAsConsolidation) {
           // Use first request's pickup location (as user suggested)
           const firstReq = requests[0];
           fromLoc = typeof firstReq.fromLocation === 'object' 
@@ -300,6 +353,43 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
               latitude: furthestReq.toLocation.latitude,
               longitude: furthestReq.toLocation.longitude
             } : { address: toLoc });
+          
+          // Geocode if coordinates missing for consolidated single estimate
+          if (!fromLocationObj.latitude || !fromLocationObj.longitude) {
+            try {
+              const { googleMapsService } = require('../services/googleMapsService');
+              const geocodedFrom = await googleMapsService.geocodeAddress(fromLoc);
+              fromLocationObj.latitude = geocodedFrom.latitude;
+              fromLocationObj.longitude = geocodedFrom.longitude;
+            } catch (error) {
+              console.error('Error geocoding fromLocation (consolidated):', error);
+              setSummaryLoading(false);
+              setSummary({
+                distance: 'N/A',
+                duration: 'N/A',
+                cost: 'Unable to geocode pickup location',
+              });
+              return;
+            }
+          }
+          
+          if (!toLocationObj.latitude || !toLocationObj.longitude) {
+            try {
+              const { googleMapsService } = require('../services/googleMapsService');
+              const geocodedTo = await googleMapsService.geocodeAddress(toLoc);
+              toLocationObj.latitude = geocodedTo.latitude;
+              toLocationObj.longitude = geocodedTo.longitude;
+            } catch (error) {
+              console.error('Error geocoding toLocation (consolidated):', error);
+              setSummaryLoading(false);
+              setSummary({
+                distance: 'N/A',
+                duration: 'N/A',
+                cost: 'Unable to geocode dropoff location',
+              });
+              return;
+            }
+          }
         } else {
           // Single booking - use original logic
           fromLoc = typeof req.fromLocation === 'object' 
@@ -314,18 +404,64 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
             address: fromLoc,
             latitude: req.fromLocationCoords.latitude,
             longitude: req.fromLocationCoords.longitude
-          } : { address: fromLoc };
+          } : (typeof req.fromLocation === 'object' && req.fromLocation.latitude ? {
+            address: fromLoc,
+            latitude: req.fromLocation.latitude,
+            longitude: req.fromLocation.longitude
+          } : { address: fromLoc });
           
           toLocationObj = req.toLocationCoords ? {
             address: toLoc,
             latitude: req.toLocationCoords.latitude,
             longitude: req.toLocationCoords.longitude
-          } : { address: toLoc };
+          } : (typeof req.toLocation === 'object' && req.toLocation.latitude ? {
+            address: toLoc,
+            latitude: req.toLocation.latitude,
+            longitude: req.toLocation.longitude
+          } : { address: toLoc });
         }
 
         if (!fromLoc || !toLoc) {
           console.warn('Missing location addresses for estimate');
+          setSummaryLoading(false);
           return;
+        }
+
+        // Geocode if coordinates are missing (for both single booking and consolidated single estimate)
+        if (!fromLocationObj.latitude || !fromLocationObj.longitude) {
+          try {
+            const { googleMapsService } = require('../services/googleMapsService');
+            const geocodedFrom = await googleMapsService.geocodeAddress(fromLoc);
+            fromLocationObj.latitude = geocodedFrom.latitude;
+            fromLocationObj.longitude = geocodedFrom.longitude;
+          } catch (error) {
+            console.error('Error geocoding fromLocation:', error);
+            setSummaryLoading(false);
+            setSummary({
+              distance: 'N/A',
+              duration: 'N/A',
+              cost: 'Unable to geocode pickup location',
+            });
+            return;
+          }
+        }
+        
+        if (!toLocationObj.latitude || !toLocationObj.longitude) {
+          try {
+            const { googleMapsService } = require('../services/googleMapsService');
+            const geocodedTo = await googleMapsService.geocodeAddress(toLoc);
+            toLocationObj.latitude = geocodedTo.latitude;
+            toLocationObj.longitude = geocodedTo.longitude;
+          } catch (error) {
+            console.error('Error geocoding toLocation:', error);
+            setSummaryLoading(false);
+            setSummary({
+              distance: 'N/A',
+              duration: 'N/A',
+              cost: 'Unable to geocode dropoff location',
+            });
+            return;
+          }
         }
 
         // Calculate total weight for consolidated bookings
@@ -366,11 +502,22 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
               // Backend returns: { estimatedCost, minCost, maxCost, costRange, estimatedCostRange }
               const costDisplay = formatCostRange(estimateResponse);
               
-              setSummary({
-                distance: estimateResponse.estimatedDistance || 'N/A',
-                duration: estimateResponse.estimatedDuration || 'N/A',
-                cost: costDisplay,
-              });
+              // If this should be treated as consolidation (multiple requests without flag),
+              // only set cost, not distance/duration
+              if (shouldTreatAsConsolidation) {
+                setSummary({
+                  distance: 'Varies', // Not shown in UI but set for consistency
+                  duration: 'Varies', // Not shown in UI but set for consistency
+                  cost: costDisplay,
+                });
+              } else {
+                // Single booking - show all details
+                setSummary({
+                  distance: estimateResponse.estimatedDistance || 'N/A',
+                  duration: estimateResponse.estimatedDuration || 'N/A',
+                  cost: costDisplay,
+                });
+              }
             }
           } catch (singleError) {
             console.error('Error fetching single booking estimate:', singleError);
@@ -403,30 +550,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fallback function to store booking locally when backend is unavailable
-  // const storeBookingLocally = async (bookingData: any) => {
-  //   try {
-  //     const existingBookings = await AsyncStorage.getItem('pending_bookings');
-  //     const bookings = existingBookings ? JSON.parse(existingBookings) : [];
-      
-  //     const localBooking = {
-  //       ...bookingData,
-  //       id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-  //       storedAt: new Date().toISOString(),
-  //       status: 'pending_local',
-  //       needsSync: true
-  //     };
-      
-  //     bookings.push(localBooking);
-  //     await AsyncStorage.setItem('pending_bookings', JSON.stringify(bookings));
-      
-  //     // Booking stored locally
-  //     return localBooking;
-  //   } catch (error) {
-  //     console.error('❌ Failed to store booking locally:', error);
-  //     throw error;
-  //   }
-  // };
+
 
   // Handler for posting booking(s)
   const handlePostBooking = async () => {
@@ -571,7 +695,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           
           // Booking metadata - match database structure
           consolidated: isConsolidation ? true : false, // Mark as part of consolidation
-          consolidationGroupId: isConsolidation ? consolidationGroupId : null, // Link bookings in consolidation group
+          consolidationGroupId: isConsolidation ? consolidationGroupId : null, // Link bookings in consolidation group - all bookings in this group share the same ID
           status: 'pending',
           
           // Recurrence - match database structure
@@ -893,11 +1017,30 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        {isConsolidation ? 'Confirm Consolidated Booking' : isConsolidated ? 'Confirm Consolidated Booking' : 'Confirm Booking'}
-        {mode !== 'shipper' && ` (${mode})`}
-      </Text>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={true}
+          nestedScrollEnabled={true}
+        >
+          <View style={styles.container}>
+            <View style={styles.header}>
+              <MaterialCommunityIcons 
+                name={isConsolidation || isConsolidated ? "package-variant-closed" : "check-circle"} 
+                size={24} 
+                color={colors.primary} 
+              />
+              <Text style={styles.title}>
+                {isConsolidation ? 'Confirm Consolidated Booking' : isConsolidated ? 'Confirm Consolidated Booking' : 'Confirm Booking'}
+                {mode !== 'shipper' && ` (${mode})`}
+              </Text>
+            </View>
       
       {/* Consolidation Preview - Show individual bookings with their details */}
       {isConsolidation && individualEstimates.length > 0 && (
@@ -990,11 +1133,9 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       
       {/* Regular Booking List - for non-consolidation mode */}
       {!isConsolidation && (
-        <FlatList
-          data={requests}
-          keyExtractor={item => item.id}
-          renderItem={({ item, index }) => (
-            <View style={[styles.bookingCard, index % 2 === 0 ? { backgroundColor: colors.surface } : { backgroundColor: colors.background }]}>
+        <View style={{ maxHeight: 180, marginBottom: 18 }}>
+          {requests.map((item: any, index: number) => (
+            <View key={item.id || index} style={[styles.bookingCard, index % 2 === 0 ? { backgroundColor: colors.surface } : { backgroundColor: colors.background }]}>
               <Text style={styles.bookingId}>Request ID: {getDisplayBookingId({
                 ...item,
                 readableId: item.readableId,
@@ -1008,9 +1149,8 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
               <Text style={styles.bookingDetail}>Product: {item.productType} | {item.weight}kg</Text>
               <Text style={styles.bookingDetail}>Type: {item.type === 'agriTRUK' ? 'Agri' : 'Cargo'}</Text>
             </View>
-          )}
-          style={{ maxHeight: 180, marginBottom: 18 }}
-        />
+          ))}
+        </View>
       )}
       <View style={styles.dateRow}>
         <Text style={styles.label}>Pickup Date & Time</Text>
@@ -1046,20 +1186,47 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           <Text style={styles.summaryRowValue}>Calculating summary...</Text>
         ) : (
           <>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryRowLabel}>Estimated Distance</Text>
-              <Text style={styles.summaryRowValue}>{summary?.distance || '—'}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryRowLabel}>Estimated Duration</Text>
-              <Text style={styles.summaryRowValue}>{summary?.duration || '—'}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryRowLabel}>Estimated Cost</Text>
-              <Text style={[styles.summaryRowValue, { color: colors.primary, fontWeight: 'bold' }]}>
-                {summary?.cost || '—'}
-              </Text>
-            </View>
+            {/* For consolidation, only show cost (distance/duration vary per booking) */}
+            {/* Show consolidation view if: isConsolidation flag is true OR we have individual estimates */}
+            {(isConsolidation || individualEstimates.length > 0) ? (
+              <>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Total Estimated Cost</Text>
+                  <Text style={[styles.summaryRowValue, { color: colors.primary, fontWeight: 'bold' }]}>
+                    {totalCostRange ? formatCostRange({ costRange: totalCostRange }) : (summary?.cost || '—')}
+                  </Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Number of Bookings</Text>
+                  <Text style={styles.summaryRowValue}>{individualEstimates.length || requests.length || '—'}</Text>
+                </View>
+                {/* Note explaining why distance/duration are not shown */}
+                <View style={styles.summaryNote}>
+                  <MaterialCommunityIcons name="information-outline" size={16} color={colors.primary} style={{ marginRight: 8 }} />
+                  <Text style={styles.summaryNoteText}>
+                    <Text style={{ fontWeight: '600' }}>Note: </Text>
+                    Distance and duration vary per booking and cannot be combined. The total cost range above is the sum of all individual booking costs. See individual booking details above for specific route information (distance, duration, and cost per booking).
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Estimated Distance</Text>
+                  <Text style={styles.summaryRowValue}>{summary?.distance || '—'}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Estimated Duration</Text>
+                  <Text style={styles.summaryRowValue}>{summary?.duration || '—'}</Text>
+                </View>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryRowLabel}>Estimated Cost</Text>
+                  <Text style={[styles.summaryRowValue, { color: colors.primary, fontWeight: 'bold' }]}>
+                    {summary?.cost || '—'}
+                  </Text>
+                </View>
+              </>
+            )}
           </>
         )}
         <View style={styles.summaryActions}>
@@ -1076,23 +1243,30 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={[styles.postBtn, posting && { opacity: 0.6 }]}
-        onPress={handlePostBooking}
-        disabled={posting}
-      >
-        {posting ? (
-          <>
-            <MaterialCommunityIcons name="loading" size={22} color={colors.white} style={{ marginRight: 8 }} />
-            <Text style={styles.postBtnText}>Posting...</Text>
-          </>
-        ) : (
-          <>
-            <MaterialCommunityIcons name="check-circle" size={22} color={colors.white} style={{ marginRight: 8 }} />
-            <Text style={styles.postBtnText}>Confirm & Post Booking</Text>
-          </>
-        )}
-      </TouchableOpacity>
+          </View>
+        </ScrollView>
+        
+        {/* Fixed Submit Button at Bottom */}
+        <View style={styles.fixedButtonContainer}>
+          <TouchableOpacity
+            style={[styles.postBtn, posting && { opacity: 0.6 }]}
+            onPress={handlePostBooking}
+            disabled={posting}
+          >
+            {posting ? (
+              <>
+                <MaterialCommunityIcons name="loading" size={22} color={colors.white} style={{ marginRight: 8 }} />
+                <Text style={styles.postBtnText}>Posting...</Text>
+              </>
+            ) : (
+              <>
+                <MaterialCommunityIcons name="check-circle" size={22} color={colors.white} style={{ marginRight: 8 }} />
+                <Text style={styles.postBtnText}>Confirm & Post Booking</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
 
       <SuccessBookingModal
         visible={showSuccessModal}
@@ -1133,22 +1307,53 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         ]}
         onClose={() => setShowErrorAlert(false)}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: 24,
+    padding: spacing.lg,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
   title: {
     fontSize: fonts.size.xl,
     fontWeight: 'bold',
     color: colors.primary,
-    marginBottom: 18,
     fontFamily: fonts.family.bold,
+    flex: 1,
+  },
+  fixedButtonContainer: {
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.text.light + '20',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   bookingCard: {
     borderRadius: 12,
@@ -1185,10 +1390,12 @@ const styles = StyleSheet.create({
   dateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    backgroundColor: colors.primary + '15',
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
   },
   dateText: {
     fontSize: fonts.size.md,
@@ -1200,8 +1407,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primary,
     borderRadius: 14,
-    paddingVertical: 16,
-    marginTop: 18,
+    paddingVertical: spacing.md,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   postBtnText: {
     color: colors.white,
@@ -1211,14 +1422,17 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
     shadowColor: colors.black,
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.text.light + '15',
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -1266,12 +1480,17 @@ const styles = StyleSheet.create({
   },
   // Consolidation Preview Styles
   consolidationPreviewCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 18,
-    borderWidth: 1,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1.5,
     borderColor: colors.primary + '30',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   consolidationHeader: {
     flexDirection: 'row',
@@ -1283,24 +1502,30 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text.primary,
     marginLeft: 8,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
   },
   consolidationSubtitle: {
     fontSize: 14,
     color: colors.text.secondary,
     marginBottom: 16,
-    fontFamily: fonts.regular,
+    fontFamily: fonts.family.regular,
   },
   individualBookingsList: {
-    maxHeight: 300,
+    maxHeight: 400,
+    marginTop: spacing.md,
   },
   individualBookingCard: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.text.light + '25',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   individualBookingHeader: {
     marginBottom: 8,
@@ -1309,7 +1534,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: colors.primary,
-    fontFamily: fonts.medium,
+    fontFamily: fonts.family.medium,
   },
   individualBookingDetails: {
     marginTop: 4,
@@ -1324,7 +1549,7 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginLeft: 8,
     flex: 1,
-    fontFamily: fonts.regular,
+    fontFamily: fonts.family.regular,
   },
   individualBookingLabel: {
     fontWeight: '600',
@@ -1334,11 +1559,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary + '15',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: colors.primary + '30',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary + '40',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   totalCostInfo: {
     marginLeft: 12,
@@ -1347,14 +1577,31 @@ const styles = StyleSheet.create({
   totalCostLabel: {
     fontSize: 14,
     color: colors.text.secondary,
-    fontFamily: fonts.regular,
+    fontFamily: fonts.family.regular,
   },
   totalCostValue: {
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.primary,
     marginTop: 4,
-    fontFamily: fonts.bold,
+    fontFamily: fonts.family.bold,
+  },
+  summaryNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.primary + '15',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  summaryNoteText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
+    flex: 1,
+    lineHeight: 20,
+    fontFamily: fonts.family.regular,
   },
 });
 

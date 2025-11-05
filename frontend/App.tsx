@@ -18,6 +18,8 @@ import SignupSelectionScreen from './src/screens/auth/SignupSelectionScreen';
 import TransporterCompletionScreen from './src/screens/auth/TransporterCompletionScreen';
 import JobSeekerCompletionScreen from './src/screens/auth/JobSeekerCompletionScreen';
 import VerifyIdentificationDocumentScreen from './src/screens/VerifyIdentificationDocumentScreen';
+import TermsAndConditionsScreen from './src/screens/legal/TermsAndConditionsScreen';
+import PrivacyPolicyScreen from './src/screens/legal/PrivacyPolicyScreen';
 import BookingConfirmationScreen from './src/screens/BookingConfirmationScreen';
 import ConsolidationScreen from './src/screens/business/ConsolidationScreen';
 import ServiceRequestScreen from './src/screens/ServiceRequestScreen';
@@ -724,6 +726,8 @@ export default function App() {
         <Stack.Screen name="SignupSelection" component={SignupSelectionScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="SignIn" component={LoginScreen} />
+        <Stack.Screen name="TermsAndConditions" component={TermsAndConditionsScreen} />
+        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
         <Stack.Screen name="PasswordResetScreen" component={require('./src/screens/auth/PasswordResetScreen').default} />
         <Stack.Screen name="ChangePasswordScreen" component={require('./src/screens/auth/ChangePasswordScreen').default} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
@@ -1269,6 +1273,8 @@ export default function App() {
           <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
           <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
+          <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+          <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
           <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
           <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
           <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
@@ -1299,6 +1305,8 @@ export default function App() {
                 expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
               }}
             />
+            <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
+            <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
             <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
             <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
             <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
@@ -1326,6 +1334,8 @@ export default function App() {
                 subscriptionStatus: subscriptionStatus
               }}
             />
+            <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
+            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
             <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
             <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
             <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
@@ -1342,6 +1352,9 @@ export default function App() {
         screens = (
           <>
             <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
+            <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
+            <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
             <Stack.Screen name="BrokerHomeScreen" component={require('./src/screens/BrokerHomeScreen').default} />
             <Stack.Screen name="BrokerManagementScreen" component={require('./src/screens/BrokerManagementScreen').default} />
             <Stack.Screen name="BrokerRequestScreen" component={require('./src/screens/BrokerRequestScreen').default} />
@@ -1351,7 +1364,6 @@ export default function App() {
             <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
             <Stack.Screen name="TrackingScreen" component={require('./src/screens/TrackingScreen').default} />
             <Stack.Screen name="MapViewScreen" component={require('./src/screens/MapViewScreen').default} />
-            <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />

@@ -21,6 +21,7 @@ import spacing from '../constants/spacing';
 import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 import { API_ENDPOINTS } from '../constants/api';
 import LocationDisplay from '../components/common/LocationDisplay';
+import { formatCostRange } from '../utils/costCalculator';
 
 interface Job {
   id: string;
@@ -101,6 +102,9 @@ const DriverJobManagementScreen = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [jobToCancel, setJobToCancel] = useState<Job | null>(null);
   const [cancellationReason, setCancellationReason] = useState('');
+  // KPI counts
+  const [availableJobsCount, setAvailableJobsCount] = useState<number>(0);
+  const [acceptedJobsCount, setAcceptedJobsCount] = useState<number>(0);
 
   const fetchDriverProfile = async () => {
     try {
@@ -274,8 +278,12 @@ const DriverJobManagementScreen = () => {
               // Preserve exact locations with addresses
               fromLocation: job.fromLocation || job.pickupLocation, // Keep exact location with address
               toLocation: job.toLocation || job.deliveryLocation, // Keep exact location with address
-              // Preserve backend-calculated cost
+              // Preserve backend-calculated cost and cost range
               cost: job.cost || job.price || job.estimatedCost, // Backend-calculated cost
+              estimatedCostRange: job.estimatedCostRange, // Preserve cost range from backend
+              costRange: job.costRange, // Preserve cost range from backend
+              minCost: job.minCost, // Preserve min cost
+              maxCost: job.maxCost, // Preserve max cost
               // Customer/Client details - the person who created the booking
               customerName: clientName,
               customerPhone: clientPhone,
@@ -344,6 +352,76 @@ const DriverJobManagementScreen = () => {
     }
   }, [selectedTab, currentTrip]);
 
+  // Fetch KPI counts (available jobs and accepted jobs)
+  const fetchKPICounts = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+
+      // Fetch available jobs count
+      try {
+        const availableResponse = await fetch(`${API_ENDPOINTS.BOOKINGS}/available`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (availableResponse.ok) {
+          const availableData = await availableResponse.json();
+          const availableJobsData = Array.isArray(availableData) ? availableData : (availableData.availableBookings || availableData.jobs || availableData.bookings || availableData.data || []);
+          
+          // Filter to only pending jobs (available jobs)
+          const availableCount = availableJobsData.filter((job: any) => {
+            const status = (job.status || '').toLowerCase();
+            const isPending = status === 'pending';
+            const notAccepted = !job.acceptedAt || job.acceptedAt === null;
+            const notAssigned = !job.transporterId || job.transporterId === null;
+            const notAssignedToDriver = !job.driverId || job.driverId === null;
+            return isPending && notAccepted && notAssigned && notAssignedToDriver;
+          }).length;
+          
+          setAvailableJobsCount(availableCount);
+        }
+      } catch (err) {
+        console.error('Error fetching available jobs count:', err);
+      }
+
+      // Fetch accepted jobs count
+      try {
+        let acceptedResponse = await fetch(`${API_ENDPOINTS.BOOKINGS}/driver/accepted`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        // Fallback to transporter endpoint if driver endpoint fails
+        if (!acceptedResponse.ok) {
+          acceptedResponse = await fetch(`${API_ENDPOINTS.BOOKINGS}/transporter/accepted`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+
+        if (acceptedResponse.ok) {
+          const acceptedData = await acceptedResponse.json();
+          const acceptedJobsData = acceptedData.jobs || acceptedData.bookings || acceptedData.data || [];
+          setAcceptedJobsCount(acceptedJobsData.length);
+        }
+      } catch (err) {
+        console.error('Error fetching accepted jobs count:', err);
+      }
+    } catch (err) {
+      console.error('Error fetching KPI counts:', err);
+    }
+  };
+
   const fetchCurrentTrip = async () => {
     try {
       const auth = getAuth();
@@ -384,7 +462,8 @@ const DriverJobManagementScreen = () => {
     await Promise.all([
       fetchDriverProfile(),
       fetchJobs(),
-      fetchCurrentTrip()
+      fetchCurrentTrip(),
+      fetchKPICounts()
     ]);
     setRefreshing(false);
   };
@@ -416,6 +495,7 @@ const DriverJobManagementScreen = () => {
         // Refresh jobs list - if on my_jobs tab, refresh accepted jobs
         fetchJobs();
         fetchCurrentTrip();
+        fetchKPICounts(); // Refresh KPI counts after accepting a job
       } else {
         const statusCode = response.status;
         if (statusCode === 403) {
@@ -725,6 +805,7 @@ const DriverJobManagementScreen = () => {
   useEffect(() => {
     fetchDriverProfile();
     fetchCurrentTrip();
+    fetchKPICounts();
   }, []);
 
   useEffect(() => {
@@ -848,7 +929,7 @@ const DriverJobManagementScreen = () => {
         <View style={styles.detailRow}>
           <MaterialCommunityIcons name="cash" size={16} color={colors.success} />
           <Text style={styles.detailText}>
-            Payment: KES {Number(item.cost || item.price || item.estimatedCost || item.paymentAmount || item.estimatedValue || 0).toLocaleString('en-KE')}
+            Payment: {formatCostRange(item)}
           </Text>
         </View>
         
@@ -1144,16 +1225,12 @@ const DriverJobManagementScreen = () => {
           <View style={styles.summaryItem}>
             <MaterialCommunityIcons name="briefcase-check" size={20} color={colors.primary} />
             <Text style={styles.summaryLabel}>Total Jobs</Text>
-            <Text style={styles.summaryValue}>{jobs.filter(j => ['accepted', 'in_progress'].includes(j.status)).length}</Text>
+            <Text style={styles.summaryValue}>{availableJobsCount}</Text>
           </View>
           <View style={styles.summaryItem}>
             <MaterialCommunityIcons name="truck-fast" size={20} color={colors.success} />
             <Text style={styles.summaryLabel}>Active Trip</Text>
-            <Text style={styles.summaryValue}>
-              {jobs.filter(j => 
-                ['accepted', 'started', 'in_progress', 'in_transit', 'picked_up', 'enroute'].includes(j.status?.toLowerCase() || '')
-              ).length}
-            </Text>
+            <Text style={styles.summaryValue}>{acceptedJobsCount}</Text>
           </View>
           <View style={styles.summaryItem}>
             <MaterialCommunityIcons name="package-variant" size={20} color={colors.secondary} />

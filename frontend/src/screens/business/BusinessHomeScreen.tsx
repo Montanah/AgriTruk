@@ -15,6 +15,7 @@ import { db } from '../../firebaseConfig';
 import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
 import { getLocationNameSync, getReadableLocationNameSync } from '../../utils/locationUtils';
 import { unifiedBookingService } from '../../services/unifiedBookingService';
+import { formatCostRange, formatAverageCost, getAverageCost } from '../../utils/costCalculator';
 
 interface BusinessData {
   name: string;
@@ -74,6 +75,7 @@ const BusinessHomeScreen = ({ navigation }: any) => {
   });
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedConsolidations, setExpandedConsolidations] = useState<Set<string>>(new Set()); // Track expanded consolidation groups
 
   useEffect(() => {
     fetchBusinessData();
@@ -194,7 +196,24 @@ const BusinessHomeScreen = ({ navigation }: any) => {
         return;
       }
       
+      // Get all bookings first to calculate consolidations
+      const bookings = await unifiedBookingService?.getBookings('business') || [];
+      
+      // Calculate consolidations (count unique consolidation groups)
+      let consolidations = 0;
+      if (Array.isArray(bookings)) {
+        // Group bookings by consolidationGroupId to count unique consolidation groups
+        const consolidationGroups = new Set<string>();
+        bookings.forEach(b => {
+          if (b && b.consolidationGroupId) {
+            consolidationGroups.add(b.consolidationGroupId);
+          }
+        });
+        consolidations = consolidationGroups.size;
+      }
+      
       // Calculate active bookings (pending + confirmed)
+      // Individual bookings from consolidations should still count in active bookings
       const activeBookings = (statsData.pending || 0) + (statsData.confirmed || 0);
       
       // Calculate in-transit (including started, picked_up, etc.)
@@ -202,12 +221,6 @@ const BusinessHomeScreen = ({ navigation }: any) => {
       
       // Completed/delivered bookings
       const completed = statsData.delivered || 0;
-      
-      // Calculate consolidations (bookings that are consolidated)
-      const bookings = await unifiedBookingService?.getBookings('business') || [];
-      const consolidations = Array.isArray(bookings) ? bookings.filter(b => 
-        b && (b.isConsolidated || b.type === 'consolidated' || b.consolidationId)
-      ).length : 0;
       
       // Calculate total spent (sum of all booking costs from last 30 days)
       const thirtyDaysAgo = new Date();
@@ -220,10 +233,11 @@ const BusinessHomeScreen = ({ navigation }: any) => {
           try {
             const createdAt = booking.createdAt ? new Date(booking.createdAt) : null;
             if (createdAt && !isNaN(createdAt.getTime()) && createdAt >= thirtyDaysAgo) {
-              const cost = booking.price || booking.estimatedValue || 0;
-              if (typeof cost === 'number' && !isNaN(cost)) {
-                totalSpent += cost;
-              }
+          // Use average cost from range for revenue/spent calculations
+          const averageCost = getAverageCost(booking);
+          if (averageCost > 0) {
+            totalSpent += averageCost;
+          }
             }
           } catch (e) {
             console.warn('Error processing booking cost:', e);
@@ -292,25 +306,87 @@ const BusinessHomeScreen = ({ navigation }: any) => {
         return;
       }
       
-      // Sort by createdAt (most recent first) and take top 10
-      // IMPORTANT: Preserve the full booking object so getDisplayBookingId can access readableId, bookingType, bookingMode, etc.
-      const recent = bookings
-        .filter(booking => booking != null) // Filter out null/undefined
-        .sort((a, b) => {
-          try {
-            const dateA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const dateB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
-            if (isNaN(dateA)) return 1;
-            if (isNaN(dateB)) return -1;
-            return dateB - dateA;
-          } catch (e) {
-            console.warn('Error sorting bookings:', e);
-            return 0;
+      // Group consolidated bookings by consolidationGroupId
+      const consolidationMap = new Map<string, any[]>();
+      const nonConsolidated: any[] = [];
+      
+      bookings.forEach((booking: any) => {
+        // Only include bookings that have consolidationGroupId
+        if (booking && booking.consolidationGroupId) {
+          const groupId = booking.consolidationGroupId;
+          if (!consolidationMap.has(groupId)) {
+            consolidationMap.set(groupId, []);
           }
-        })
-        .slice(0, 10)
+          consolidationMap.get(groupId)!.push(booking);
+        } else if (booking && !booking.consolidationGroupId) {
+          // Only add to nonConsolidated if it doesn't have a consolidationGroupId
+          nonConsolidated.push(booking);
+        }
+      });
+      
+      // Create consolidation objects - one per group
+      const consolidationObjects = Array.from(consolidationMap.entries()).map(([groupId, bookings]) => {
+        // Calculate total cost range
+        let totalMinCost = 0;
+        let totalMaxCost = 0;
+        
+        bookings.forEach((booking: any) => {
+          const minCost = booking.estimatedCostRange?.min || 
+                         booking.costRange?.min || 
+                         booking.minCost || 
+                         booking.estimatedCost || 
+                         booking.cost || 
+                         0;
+          const maxCost = booking.estimatedCostRange?.max || 
+                        booking.costRange?.max || 
+                        booking.maxCost || 
+                        booking.estimatedCost || 
+                        booking.cost || 
+                        0;
+          totalMinCost += minCost;
+          totalMaxCost += maxCost;
+        });
+        
+        // Get the most recent booking's date for sorting
+        const mostRecent = bookings.sort((a: any, b: any) => {
+          const dateA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        })[0];
+        
+        let dateStr = 'N/A';
+        if (mostRecent?.createdAt) {
+          try {
+            const date = new Date(mostRecent.createdAt);
+            if (!isNaN(date.getTime())) {
+              dateStr = date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric' 
+              });
+            }
+          } catch (e) {
+            console.warn('Error formatting date:', e);
+          }
+        }
+        
+        return {
+          id: groupId,
+          consolidationGroupId: groupId,
+          isConsolidation: true,
+          totalBookings: bookings.length,
+          consolidatedBookings: bookings,
+          totalCostRange: { min: totalMinCost, max: totalMaxCost },
+          status: mostRecent?.status || 'pending',
+          createdAt: mostRecent?.createdAt,
+          date: dateStr,
+        };
+      });
+      
+      // Process non-consolidated bookings
+      const processedNonConsolidated = nonConsolidated
+        .filter(booking => booking != null)
         .map(booking => {
-          if (!booking) return null;
           try {
             let dateStr = 'N/A';
             if (booking.createdAt) {
@@ -329,7 +405,6 @@ const BusinessHomeScreen = ({ navigation }: any) => {
             }
             
             return {
-              // Preserve full booking object for getDisplayBookingId to use readableId, bookingType, bookingMode, createdAt
               ...booking,
               id: booking.id || booking.bookingId || '',
               bookingId: booking.bookingId || booking.id || '',
@@ -344,13 +419,41 @@ const BusinessHomeScreen = ({ navigation }: any) => {
             return null;
           }
         })
-        .filter(booking => booking != null); // Remove any null entries
+        .filter(booking => booking != null);
       
-      setRecentBookings(recent);
+      // Combine and sort by date (most recent first), take top 5
+      const allBookings = [...consolidationObjects, ...processedNonConsolidated]
+        .sort((a, b) => {
+          try {
+            const dateA = a?.createdAt ? new Date(a.createdAt).getTime() : (a?.date ? 0 : 0);
+            const dateB = b?.createdAt ? new Date(b.createdAt).getTime() : (b?.date ? 0 : 0);
+            if (isNaN(dateA)) return 1;
+            if (isNaN(dateB)) return -1;
+            return dateB - dateA;
+          } catch (e) {
+            console.warn('Error sorting bookings:', e);
+            return 0;
+          }
+        })
+        .slice(0, 5);
+      
+      setRecentBookings(allBookings);
     } catch (error: any) {
       console.error('Error fetching recent bookings:', error);
       setRecentBookings([]);
     }
+  };
+  
+  const toggleConsolidationExpansion = (groupId: string) => {
+    setExpandedConsolidations(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
+      }
+      return newSet;
+    });
   };
 
   if (loading) {
@@ -441,6 +544,12 @@ const BusinessHomeScreen = ({ navigation }: any) => {
                   if (!b) return null;
                   
                   try {
+                    // Check if this is a consolidation object
+                    // Consolidation objects should have isConsolidation flag or consolidationGroupId with consolidatedBookings
+                    const isConsolidation = (b.isConsolidation === true) || 
+                                           (b.consolidationGroupId && b.consolidatedBookings && Array.isArray(b.consolidatedBookings) && b.consolidatedBookings.length > 0);
+                    const isExpanded = isConsolidation && expandedConsolidations.has(b.consolidationGroupId || b.id);
+                    
                     const statusDisplay = b.status === 'delivered' || b.status === 'completed' 
                       ? 'Completed' 
                       : b.status === 'in_transit' || b.status === 'picked_up' || b.status === 'in_progress'
@@ -452,6 +561,69 @@ const BusinessHomeScreen = ({ navigation }: any) => {
                       : b.status || 'Pending';
                     
                     const bookingKey = b.id || b.bookingId || `booking-${index}`;
+                    
+                    if (isConsolidation) {
+                      // Render consolidation object
+                      return (
+                        <View key={bookingKey} style={styles.consolidationRow}>
+                          <TouchableOpacity 
+                            style={styles.consolidationHeader} 
+                            activeOpacity={0.8}
+                            onPress={() => toggleConsolidationExpansion(b.consolidationGroupId || b.id)}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                <MaterialCommunityIcons name="package-variant-closed" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                                <Text style={styles.bookingId}>Consolidation ({b.totalBookings || b.consolidatedBookings?.length || 0} bookings)</Text>
+                              </View>
+                              <Text style={styles.bookingRoute}>Multiple locations</Text>
+                              <Text style={styles.bookingType}>Total: {b.totalCostRange ? formatAverageCost({ costRange: b.totalCostRange }) : 'N/A'}</Text>
+                            </View>
+                            <View style={styles.bookingStatusWrap}>
+                              <Text style={[
+                                styles.bookingStatus, 
+                                statusDisplay === 'Completed' ? styles.statusCompleted : 
+                                statusDisplay === 'In Transit' ? styles.statusInTransit :
+                                statusDisplay === 'Confirmed' ? styles.statusCompleted :
+                                styles.statusInTransit
+                              ]}>{statusDisplay}</Text>
+                              <Text style={styles.bookingDate}>{b.date || 'N/A'}</Text>
+                              <MaterialCommunityIcons 
+                                name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+                                size={20} 
+                                color={colors.primary} 
+                                style={{ marginTop: 4 }}
+                              />
+                            </View>
+                          </TouchableOpacity>
+                          
+                          {/* Individual bookings when expanded */}
+                          {isExpanded && b.consolidatedBookings && (
+                            <View style={styles.individualBookingsContainer}>
+                              {b.consolidatedBookings.map((booking: any, idx: number) => {
+                                const fromLocation = booking.fromLocation || booking.from;
+                                const toLocation = booking.toLocation || booking.to;
+                                return (
+                                  <View key={booking.id || booking.bookingId || idx} style={styles.individualBookingItem}>
+                                    <Text style={styles.individualBookingId}>
+                                      {getDisplayBookingId(booking) || booking.id || booking.bookingId}
+                                    </Text>
+                                    <Text style={styles.individualBookingRoute}>
+                                      {fromLocation ? (getReadableLocationNameSync(fromLocation) || 'Unknown') : 'Unknown'} → {toLocation ? (getReadableLocationNameSync(toLocation) || 'Unknown') : 'Unknown'}
+                                    </Text>
+                                    <Text style={styles.individualBookingCost}>
+                                      {formatAverageCost(booking)}
+                                    </Text>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    }
+                    
+                    // Render normal booking
                     const fromLocation = b.from || b.fromLocation;
                     const toLocation = b.to || b.toLocation;
                     
@@ -696,6 +868,48 @@ const styles = StyleSheet.create({
   bookingDate: {
     fontSize: fonts.size.xs,
     color: colors.text.light,
+  },
+  consolidationRow: {
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surface,
+    paddingBottom: 8,
+  },
+  consolidationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 10,
+  },
+  individualBookingsContainer: {
+    marginTop: 8,
+    paddingLeft: 20,
+    paddingTop: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.primary + '40',
+  },
+  individualBookingItem: {
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surface,
+  },
+  individualBookingId: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  individualBookingRoute: {
+    fontSize: fonts.size.sm,
+    color: colors.primary,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  individualBookingCost: {
+    fontSize: fonts.size.sm,
+    color: colors.success,
+    fontWeight: '600',
   },
   viewAllBtn: {
     marginTop: 10,

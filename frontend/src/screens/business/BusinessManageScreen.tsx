@@ -13,8 +13,8 @@ import { PLACEHOLDER_IMAGES } from '../../constants/images';
 import { apiRequest } from '../../utils/api';
 import { getReadableLocationName, formatRoute } from '../../utils/locationUtils';
 import { unifiedBookingService, UnifiedBooking, BookingFilters } from '../../services/unifiedBookingService';
-import ConsolidationManager from '../../components/common/ConsolidationManager';
-import { formatCostRange } from '../../utils/costCalculator';
+// ConsolidationManager removed - consolidation is now done from RequestForm
+import { formatCostRange, formatAverageCost } from '../../utils/costCalculator';
 
 // Real API integration - no mock data
 
@@ -25,7 +25,6 @@ const BusinessManageScreen = ({ navigation }: any) => {
   const [activeTab, setActiveTab] = useState('all'); // all, instant, booking
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showConsolidationModal, setShowConsolidationModal] = useState(false);
   const [expandedConsolidations, setExpandedConsolidations] = useState<Set<string>>(new Set()); // Track expanded consolidation groups
 
   useEffect(() => {
@@ -109,9 +108,10 @@ const BusinessManageScreen = ({ navigation }: any) => {
             const weight = parseFloat(b.weight?.toString().replace('kg', '').trim() || '0') || 0;
             return sum + weight;
           }, 0).toString() + 'kg',
-          cost: totalMinCost, // Use min cost for sorting
-          price: totalMinCost,
-          estimatedCost: totalMinCost,
+          // Use average cost for sorting and calculations
+          cost: Math.round((totalMinCost + totalMaxCost) / 2),
+          price: Math.round((totalMinCost + totalMaxCost) / 2),
+          estimatedCost: Math.round((totalMinCost + totalMaxCost) / 2),
         };
       });
       
@@ -197,22 +197,28 @@ const BusinessManageScreen = ({ navigation }: any) => {
     const isExpanded = isConsolidation && expandedConsolidations.has(item.consolidationGroupId || item.id);
 
     return (
-    <Card style={styles.requestCard}>
+    <Card style={[styles.requestCard, isConsolidation && styles.consolidationCard]}>
       <View style={styles.requestHeader}>
         <View style={styles.requestId}>
-          <Text style={styles.requestIdText} numberOfLines={1} ellipsizeMode="tail">
-            {isConsolidation ? `#${item.consolidationGroupId || item.id}` : `#${getDisplayBookingId(item)}`}
+          {isConsolidation && (
+            <View style={styles.consolidationHeaderBadge}>
+              <MaterialCommunityIcons name="package-variant-closed" size={16} color={colors.primary} />
+              <Text style={styles.consolidationHeaderText}>CONSOLIDATION</Text>
+            </View>
+          )}
+          <Text style={[styles.requestIdText, isConsolidation && styles.consolidationIdText]} numberOfLines={1} ellipsizeMode="tail">
+            {isConsolidation ? `Group ID: ${(item.consolidationGroupId || item.id).substring(0, 12)}...` : `#${getDisplayBookingId(item)}`}
           </Text>
           {isConsolidation && (
             <View style={styles.consolidatedBadge}>
-              <MaterialCommunityIcons name="package-variant-closed" size={12} color={colors.white} />
+              <MaterialCommunityIcons name="package-variant-closed" size={14} color={colors.white} />
               <Text style={styles.consolidatedText}>
-                Consolidation ({item.totalBookings || item.consolidatedBookings?.length || 0})
+                {item.totalBookings || item.consolidatedBookings?.length || 0} Bookings
               </Text>
             </View>
           )}
         </View>
-        <View style={styles.statusBadge}>
+        <View style={[styles.statusBadge, isConsolidation && styles.consolidationStatusBadge]}>
           <MaterialCommunityIcons
             name={getStatusIcon(item.status)}
             size={16}
@@ -224,14 +230,16 @@ const BusinessManageScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      {/* Consolidation Overview - Show summary when collapsed */}
+      {/* Consolidation Overview - Always show for consolidations */}
       {isConsolidation && (
         <View style={styles.consolidationOverview}>
           <View style={styles.consolidationSummary}>
-            <MaterialCommunityIcons name="package-variant" size={20} color={colors.primary} />
+            <View style={styles.consolidationIconContainer}>
+              <MaterialCommunityIcons name="package-variant-closed" size={24} color={colors.primary} />
+            </View>
             <View style={styles.consolidationSummaryText}>
               <Text style={styles.consolidationSummaryTitle}>
-                Consolidation: {item.totalBookings || item.consolidatedBookings?.length || 0} individual bookings
+                {item.totalBookings || item.consolidatedBookings?.length || 0} Individual Bookings
               </Text>
               <Text style={styles.consolidationSummarySubtitle}>
                 Multiple pickup and dropoff locations
@@ -242,25 +250,29 @@ const BusinessManageScreen = ({ navigation }: any) => {
           {/* Total Cost Range */}
           {item.totalCostRange && (
             <View style={styles.consolidationTotalCost}>
-              <MaterialCommunityIcons name="calculator" size={16} color={colors.success} />
-              <Text style={styles.consolidationTotalCostText}>
-                Total: {formatCostRange({ costRange: item.totalCostRange })}
-              </Text>
+              <MaterialCommunityIcons name="calculator" size={18} color={colors.success} />
+              <View style={styles.consolidationTotalCostInfo}>
+                <Text style={styles.consolidationTotalCostLabel}>Total Cost</Text>
+                <Text style={styles.consolidationTotalCostText}>
+                  {formatCostRange({ costRange: item.totalCostRange })}
+                </Text>
+              </View>
             </View>
           )}
           
-          {/* Expand/Collapse Button */}
+          {/* Expand/Collapse Button - More Prominent */}
           <TouchableOpacity
-            style={styles.expandButton}
+            style={[styles.expandButton, isExpanded && styles.expandButtonActive]}
             onPress={() => toggleConsolidationExpansion(item.consolidationGroupId || item.id)}
+            activeOpacity={0.7}
           >
             <MaterialCommunityIcons
               name={isExpanded ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={colors.primary}
+              size={22}
+              color={colors.white}
             />
             <Text style={styles.expandButtonText}>
-              {isExpanded ? 'Hide Details' : 'View Individual Bookings'}
+              {isExpanded ? 'Hide Individual Bookings' : 'View Individual Bookings'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -304,7 +316,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
                 <View style={styles.individualBookingRow}>
                   <MaterialCommunityIcons name="cash" size={14} color={colors.success} />
                   <Text style={[styles.individualBookingText, { fontWeight: 'bold' }]}>
-                    Cost: {formatCostRange(booking)}
+                    Cost: {formatAverageCost(booking)}
                   </Text>
                 </View>
               </View>
@@ -345,14 +357,14 @@ const BusinessManageScreen = ({ navigation }: any) => {
               </View>
             </View>
 
-            {/* Shipping Cost - Always use backend-calculated cost: cost > price > estimatedCost */}
+            {/* Shipping Cost - Show average cost in management screens */}
             {(item.cost || item.price || item.estimatedCost) && (
               <View style={styles.costInfo}>
                 <MaterialCommunityIcons name="cash" size={20} color={colors.success} />
                 <View style={styles.costText}>
                   <Text style={styles.costLabel}>Shipping Cost</Text>
                   <Text style={styles.costValue}>
-                    {formatCostRange(item)}
+                    {formatAverageCost(item)}
                   </Text>
                 </View>
               </View>
@@ -487,7 +499,8 @@ const BusinessManageScreen = ({ navigation }: any) => {
         )}
       </View>
     </Card>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -510,12 +523,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
             >
               <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.consolidateHeaderButton} 
-              onPress={() => setShowConsolidationModal(true)}
-            >
-              <FontAwesome5 name="layer-group" size={20} color={colors.white} />
-            </TouchableOpacity>
+            {/* Consolidation button removed - consolidation is now done from RequestForm */}
           </View>
         </View>
       </LinearGradient>
@@ -567,12 +575,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
               >
                 <Text style={styles.createButtonText}>Create Request</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.consolidateButton}
-                onPress={() => setShowConsolidationModal(true)}
-              >
-                <Text style={styles.consolidateButtonText}>Consolidate Requests</Text>
-              </TouchableOpacity>
+              {/* Consolidate button removed - consolidation is now done from RequestForm */}
             </View>
           </View>
         }
@@ -586,29 +589,7 @@ const BusinessManageScreen = ({ navigation }: any) => {
         logo={true}
       />
 
-      {/* Consolidation Manager Modal */}
-      <ConsolidationManager
-        onNavigateToConfirmation={(requests) => {
-          navigation.navigate('BookingConfirmation', {
-            requests,
-            mode: 'business',
-            isConsolidation: true,
-          });
-        }}
-        userRole="business"
-        visible={showConsolidationModal}
-        onClose={() => setShowConsolidationModal(false)}
-        onConsolidationComplete={(consolidatedBooking) => {
-          // Refresh requests list
-          fetchRequests();
-          // Navigate to consolidated request details
-          navigation?.navigate?.('TrackingScreen', {
-            booking: consolidatedBooking,
-            isConsolidated: true,
-            userType: 'business',
-          });
-        }}
-      />
+      {/* Consolidation Manager removed - consolidation is now done from RequestForm */}
     </SafeAreaView>
   );
 };
@@ -1045,6 +1026,204 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
     textAlign: 'right',
+  },
+  // Consolidation Card Styles - Make it visually distinct
+  consolidationCard: {
+    borderWidth: 2,
+    borderColor: colors.primary + '40',
+    backgroundColor: colors.primary + '05',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  consolidationHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    marginRight: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  consolidationHeaderText: {
+    color: colors.primary,
+    fontSize: fonts.size.xs,
+    fontWeight: 'bold',
+    marginLeft: spacing.xs,
+    letterSpacing: 0.5,
+  },
+  consolidationIdText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+  consolidationStatusBadge: {
+    backgroundColor: colors.primary + '15',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  consolidationOverview: {
+    backgroundColor: colors.primary + '08',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primary + '25',
+  },
+  consolidationSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  consolidationIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.primary + '40',
+  },
+  consolidationSummaryText: {
+    flex: 1,
+  },
+  consolidationSummaryTitle: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+    fontFamily: fonts.family.bold,
+  },
+  consolidationSummarySubtitle: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    fontFamily: fonts.family.regular,
+  },
+  consolidationTotalCost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 10,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.success + '40',
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  consolidationTotalCostInfo: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  consolidationTotalCostLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    fontFamily: fonts.family.regular,
+  },
+  consolidationTotalCostText: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.success,
+    fontFamily: fonts.family.bold,
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  expandButtonActive: {
+    backgroundColor: colors.primaryDark,
+    shadowOpacity: 0.4,
+    elevation: 6,
+  },
+  expandButtonText: {
+    color: colors.white,
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    marginLeft: spacing.sm,
+    fontFamily: fonts.family.bold,
+  },
+  individualBookingsContainer: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 2,
+    borderTopColor: colors.primary + '30',
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+  individualBookingsTitle: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
+    fontFamily: fonts.family.bold,
+  },
+  individualBookingItem: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.text.light + '30',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  individualBookingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  individualBookingNumber: {
+    fontSize: fonts.size.sm,
+    fontWeight: 'bold',
+    color: colors.primary,
+    fontFamily: fonts.family.bold,
+  },
+  individualBookingId: {
+    fontSize: fonts.size.xs,
+    color: colors.text.secondary,
+    fontFamily: fonts.family.regular,
+  },
+  individualBookingDetails: {
+    marginTop: spacing.xs,
+  },
+  individualBookingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  individualBookingText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.primary,
+    marginLeft: spacing.sm,
+    flex: 1,
+    fontFamily: fonts.family.regular,
+  },
+  individualBookingLabel: {
+    fontWeight: '600',
+    color: colors.text.secondary,
   },
 });
 

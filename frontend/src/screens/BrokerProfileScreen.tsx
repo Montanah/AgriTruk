@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -197,6 +197,13 @@ export default function BrokerProfileScreen() {
             setEmailVerified(data.emailVerified || false);
             setPhoneVerified(data.phoneVerified || false);
 
+            // Load profile photo from user document
+            if (data.profilePhotoUrl) {
+              setProfilePhoto({ uri: data.profilePhotoUrl });
+            } else {
+              setProfilePhoto(null);
+            }
+
             // Load payment methods from user data only
             if (data.paymentMethods && Array.isArray(data.paymentMethods)) {
               setPaymentMethods(data.paymentMethods);
@@ -239,6 +246,32 @@ export default function BrokerProfileScreen() {
     };
     fetchProfile();
   }, []);
+
+  // Refresh profile photo when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const refreshProfilePhoto = async () => {
+        try {
+          const user = auth?.currentUser;
+          if (user?.uid) {
+            const snap = await getDoc(doc(db, 'users', user.uid));
+            if (snap.exists()) {
+              const data = snap.data();
+              // Refresh profile photo if it exists
+              if (data.profilePhotoUrl) {
+                setProfilePhoto({ uri: data.profilePhotoUrl });
+              } else {
+                setProfilePhoto(null);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Error refreshing profile photo:', e);
+        }
+      };
+      refreshProfilePhoto();
+    }, [])
+  );
 
   const handleLogout = () => {
     Alert.alert(

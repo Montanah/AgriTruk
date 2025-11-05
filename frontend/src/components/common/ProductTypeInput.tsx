@@ -131,28 +131,51 @@ const ProductTypeInput: React.FC<ProductTypeInputProps> = ({
   return (
     <View style={[styles.container, style]}>
       <View style={styles.inputContainer}>
-        <TextInput
-          ref={inputRef}
-          style={[styles.input, showSuggestionsList && styles.inputFocused]}
-          value={value}
-          onChangeText={handleTextChange}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onSubmitEditing={handleSubmit}
-          placeholder={placeholder}
-          placeholderTextColor={colors.text.light}
-          returnKeyType="done"
-          autoCorrect={false}
-          autoCapitalize="words"
-        />
-        {isLoading && (
+        <View style={styles.inputWrapper}>
           <MaterialCommunityIcons 
-            name="loading" 
-            size={16} 
-            color={colors.text.light} 
-            style={styles.loadingIcon}
+            name="package-variant" 
+            size={18} 
+            color={value ? colors.primary : colors.text.light} 
+            style={styles.inputIcon}
           />
-        )}
+          <TextInput
+            ref={inputRef}
+            style={[styles.input, showSuggestionsList && styles.inputFocused]}
+            value={value}
+            onChangeText={handleTextChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onSubmitEditing={handleSubmit}
+            placeholder={placeholder}
+            placeholderTextColor={colors.text.light}
+            returnKeyType="done"
+            autoCorrect={false}
+            autoCapitalize="words"
+          />
+          {isLoading && (
+            <MaterialCommunityIcons 
+              name="loading" 
+              size={18} 
+              color={colors.text.light} 
+              style={styles.loadingIcon}
+            />
+          )}
+          {value && !isLoading && (
+            <TouchableOpacity
+              onPress={() => {
+                onChangeText('');
+                inputRef.current?.focus();
+              }}
+              style={styles.clearButton}
+            >
+              <MaterialCommunityIcons 
+                name="close-circle" 
+                size={18} 
+                color={colors.text.light} 
+              />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {showSuggestionsList && suggestions.length > 0 && (
@@ -179,44 +202,65 @@ const styles = StyleSheet.create({
   inputContainer: {
     position: 'relative',
   },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.text.light + '40',
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    minHeight: 48,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  inputIcon: {
+    marginRight: spacing.sm,
+  },
   input: {
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    flex: 1,
     fontSize: fonts.size.md,
     color: colors.text.primary,
-    backgroundColor: colors.background,
-    minHeight: 48,
+    fontFamily: fonts.family.regular,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
   inputFocused: {
-    borderColor: colors.primary,
-    borderWidth: 2,
+    borderColor: colors.primary + '60',
+    borderWidth: 1.5,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   loadingIcon: {
-    position: 'absolute',
-    right: 12,
-    top: 16,
+    marginLeft: spacing.xs,
+  },
+  clearButton: {
+    marginLeft: spacing.xs,
+    padding: spacing.xs,
   },
   suggestionsContainer: {
     position: 'absolute',
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
+    marginTop: spacing.xs,
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.text.light + '40',
+    borderRadius: 12,
     maxHeight: 200,
     zIndex: 1001,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    elevation: 8,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    overflow: 'hidden',
   },
   suggestionsList: {
     maxHeight: 200,
@@ -224,17 +268,19 @@ const styles = StyleSheet.create({
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    borderBottomColor: colors.text.light + '15',
+    backgroundColor: colors.white,
   },
   suggestionIcon: {
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   suggestionText: {
     fontSize: fonts.size.md,
     color: colors.text.primary,
+    fontFamily: fonts.family.regular,
     flex: 1,
   },
 });
