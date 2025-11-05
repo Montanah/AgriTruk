@@ -828,6 +828,9 @@ export default function App() {
         <Stack.Screen name="BusinessStack" component={BusinessStackNavigator} />
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="BookingConfirmation" component={BookingConfirmationScreen} />
+        {/* Add job seeker completion screen for job seekers after verification */}
+        <Stack.Screen name="JobSeekerCompletionScreen" component={JobSeekerCompletionScreen} />
+        <Stack.Screen name="DriverRecruitmentStatusScreen" component={require('./src/screens/DriverRecruitmentStatusScreen').default} />
       </>
     );
   } else if (user && isVerified) {

@@ -236,43 +236,19 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             role: role
           });
         } else if (role === 'driver' || role === 'job_seeker') {
-          // For job seekers, sign out and sign in again to get correct navigation stack
-          console.log('Phone verification complete - signing out job seeker to get correct navigation stack');
-          
-          // Check if we have the necessary credentials for re-authentication
-          if (!email || !password) {
-            console.error('Missing email or password for job seeker re-authentication');
-            console.log('Email available:', !!email, 'Password available:', !!password);
-            
-            // If we don't have credentials, just let App.tsx handle the routing
-            // The user is already verified, so App.tsx should route correctly
-            console.log('Proceeding without re-authentication - App.tsx will handle routing');
-            return;
-          }
-          
-          try {
-            const { getAuth, signOut } = require('firebase/auth');
-            const auth = getAuth();
-            
-            // Sign out current user
-            await signOut(auth);
-            console.log('Job seeker signed out successfully');
-            
-            // Sign in again to trigger correct role-based navigation
-            const { signInWithEmailAndPassword } = require('firebase/auth');
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            console.log('Job seeker signed in again with correct role:', userCredential.user.uid);
-            
-            // The App.tsx will automatically route to the correct job seeker screens
-            // No manual navigation needed - the auth state change will trigger the correct routing
-            
-          } catch (signInError) {
-            console.error('Error signing in job seeker after verification:', signInError);
-            
-            // If sign-in fails, try to navigate directly to job seeker screens
-            // Since the user is verified, App.tsx should handle the routing
-            console.log('Sign-in failed, but user is verified - App.tsx should handle routing');
-          }
+          // For job seekers, navigate directly to completion screen after verification
+          console.log('Phone verification complete - navigating job seeker to completion screen');
+          navigation.reset({
+            index: 0,
+            routes: [{ 
+              name: 'JobSeekerCompletionScreen',
+              params: {
+                userId: userId,
+                phone: phone,
+                role: role
+              }
+            }]
+          });
         } else {
           // Unknown role - show error and redirect to signup
           console.error('Unknown role after verification:', role);

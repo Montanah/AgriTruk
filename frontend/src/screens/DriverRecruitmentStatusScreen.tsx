@@ -9,12 +9,18 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { getAuth } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import { API_ENDPOINTS } from '../constants/api';
+import { apiRequest } from '../utils/api';
 
 // Removed RecruitmentRequest interface - no longer needed
 
@@ -52,6 +58,14 @@ const DriverRecruitmentStatusScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingContact, setEditingContact] = useState(false);
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [updatingContact, setUpdatingContact] = useState(false);
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [emailNeedsVerification, setEmailNeedsVerification] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   const fetchDriverData = useCallback(async () => {
     try {
@@ -70,7 +84,7 @@ const DriverRecruitmentStatusScreen = () => {
 
       if (profileResponse.ok) {
         const profileData = await profileResponse.json();
-        const application = profileData.application;
+        let application = profileData.application;
         
         // Check if profile is complete
         if (!isProfileComplete(application)) {
@@ -82,7 +96,74 @@ const DriverRecruitmentStatusScreen = () => {
           return;
         }
         
-        setDriverProfile(application);
+        // Fetch user document to get the most up-to-date email/phone and verification status
+        let userEmail = application.email;
+        let userEmailVerified = false;
+        let userPhoneVerified = false;
+        let updatedApplication = application;
+        
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            userEmail = userData.email || userEmail;
+            userEmailVerified = userData.emailVerified || false;
+            userPhoneVerified = userData.phoneVerified || false;
+            
+            // If user document has a different email than job seeker document, always use user document's email
+            // This handles the case where email was updated but job seeker document hasn't synced yet
+            // User document is the source of truth after email update
+            if (userData.email && userData.email !== application.email) {
+              console.log('User document has different email than job seeker document:', {
+                userEmail: userData.email,
+                jobSeekerEmail: application.email,
+                emailVerified: userData.emailVerified
+              });
+              
+              // Always use user document's email when it differs (it's the updated one)
+              // Create a new object to avoid read-only issues
+              console.log('Using user document email instead of job seeker document email');
+              updatedApplication = { ...application, email: userData.email };
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user document:', error);
+          // Continue with application as-is if there's an error
+        }
+        
+        setDriverProfile(updatedApplication);
+        
+        // Set verification status for both email and phone
+        setEmailVerified(userEmailVerified);
+        setPhoneVerified(userPhoneVerified);
+        
+        // Reset email needs verification flag when profile is loaded
+        // Check if email is verified in user document
+        if (user && updatedApplication.email) {
+          try {
+            // Check if email is verified in user document
+            // If email is verified, we don't need verification
+            // If email is not verified and differs from user.email (Firebase Auth), we need verification
+            const needsVerification = !userEmailVerified || 
+              (user.email && updatedApplication.email !== user.email && !userEmailVerified);
+            setEmailNeedsVerification(needsVerification);
+            
+            console.log('Email verification status check:', {
+              email: updatedApplication.email,
+              userEmail: user.email,
+              userEmailVerified,
+              phoneVerified: userPhoneVerified,
+              needsVerification
+            });
+          } catch (error) {
+            console.error('Error checking user email verification status:', error);
+            // On error, check if email differs from user.email
+            const needsVerification = user.email && updatedApplication.email !== user.email;
+            setEmailNeedsVerification(needsVerification);
+          }
+        } else {
+          setEmailNeedsVerification(false);
+        }
       } else if (profileResponse.status === 404) {
         // No job seeker application found - redirect to profile completion
         console.log('No job seeker application found - redirecting to profile completion');
@@ -148,6 +229,13 @@ const DriverRecruitmentStatusScreen = () => {
   useEffect(() => {
     fetchDriverData();
   }, [fetchDriverData]);
+
+  // Refresh profile when screen comes into focus (e.g., after returning from email verification)
+  useFocusEffect(
+    useCallback(() => {
+      fetchDriverData();
+    }, [fetchDriverData])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -258,6 +346,189 @@ const DriverRecruitmentStatusScreen = () => {
       }
     });
     return approvedDocs;
+  };
+
+  const isGeneratedEmail = (email: string) => {
+    return email?.includes('temp_') || email?.includes('@trukapp.com');
+  };
+
+  const handleUpdateContact = async () => {
+    if (!editEmail || !editPhone) {
+      Alert.alert('Error', 'Please fill in both email and phone number.');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editEmail)) {
+      Alert.alert('Error', 'Please enter a valid email address.');
+      return;
+    }
+
+    setUpdatingContact(true);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      const token = await user.getIdToken();
+      const emailChanged = editEmail !== driverProfile?.email;
+      const phoneChanged = editPhone !== driverProfile?.phone;
+
+      // Update user profile via /auth/update endpoint (updates user document)
+      const updatePayload: any = {};
+      if (emailChanged) {
+        updatePayload.email = editEmail;
+      }
+      if (phoneChanged) {
+        updatePayload.phone = editPhone;
+      }
+
+      // Only update if something changed
+      if (Object.keys(updatePayload).length > 0) {
+        await apiRequest('/auth/update', {
+          method: 'PUT',
+          body: JSON.stringify(updatePayload),
+        });
+
+        // Also update job seeker document if email changed
+        if (emailChanged && driverProfile?.id) {
+          try {
+            await fetch(`${API_ENDPOINTS.JOB_SEEKERS}/${driverProfile.id}`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email: editEmail
+              }),
+            });
+            console.log('Job seeker document email updated successfully');
+          } catch (jobSeekerError) {
+            console.warn('Failed to update job seeker document email:', jobSeekerError);
+            // Continue - user document update succeeded
+          }
+        }
+      }
+
+      // Update local state
+      setDriverProfile((prev) => 
+        prev ? { ...prev, email: editEmail, phone: editPhone } : null
+      );
+
+      setEditingContact(false);
+
+      // If email changed, mark that it needs verification
+      if (emailChanged) {
+        // Check if email is generated
+        if (isGeneratedEmail(editEmail)) {
+          Alert.alert(
+            'Update Email',
+            'This email is system-generated. Please update it to your actual email before verification.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Update Now', onPress: () => setEditingContact(true) }
+            ]
+          );
+          return;
+        }
+        
+        // Mark that email needs verification
+        setEmailNeedsVerification(true);
+        Alert.alert(
+          'Email Updated',
+          'Your email has been updated successfully. Please verify your email to ensure companies can contact you.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // No email change, just show success
+        Alert.alert('Success', 'Contact information updated successfully.');
+      }
+    } catch (error: any) {
+      console.error('Error updating contact:', error);
+      Alert.alert('Error', error.message || 'Failed to update contact information. Please try again.');
+    } finally {
+      setUpdatingContact(false);
+    }
+  };
+
+  const handleVerifyEmail = async () => {
+    const emailToVerify = driverProfile?.email;
+    if (!emailToVerify) {
+      Alert.alert('Error', 'No email address found. Please add an email address first.');
+      return;
+    }
+
+    // Check if email is generated
+    if (isGeneratedEmail(emailToVerify)) {
+      Alert.alert(
+        'Update Email',
+        'This email is system-generated. Please update it to your actual email before verification.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Update Now', onPress: () => {
+            setEditEmail(emailToVerify);
+            setEditPhone(driverProfile?.phone || '');
+            setEditingContact(true);
+          }}
+        ]
+      );
+      return;
+    }
+
+    setVerifyingEmail(true);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      const token = await user.getIdToken();
+
+      // Use backend API for email verification - same pattern as AccountScreen
+      await apiRequest('/auth', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'resend-email-code',
+          email: emailToVerify
+        }),
+      });
+
+      Alert.alert(
+        'Verification Email Sent',
+        'Please check your email for the verification code. You can then use your email to log in.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Go to Verification',
+            onPress: () => {
+              (navigation as any).navigate('EmailVerification', {
+                email: emailToVerify,
+                phone: driverProfile?.phone,
+                role: 'job_seeker',
+                userId: user.uid,
+                fromContactUpdate: true
+              });
+            }
+          }
+        ]
+      );
+    } catch (error: any) {
+      console.error('Error sending verification email:', error);
+      Alert.alert(
+        'Verification Failed',
+        error.message || 'Unable to send verification email. Please check your internet connection and try again later.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setVerifyingEmail(false);
+    }
   };
 
   const handleUpdateStatus = async () => {
@@ -395,13 +666,17 @@ const DriverRecruitmentStatusScreen = () => {
             style={styles.logoutButton}
             onPress={handleLogout}
           >
-            <MaterialCommunityIcons name="logout" size={24} color={colors.white} />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="logout" size={20} color={colors.white} />
+              <Text style={{ color: colors.white, marginLeft: 6, fontWeight: 'bold', fontSize: 14 }}>Logout</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -600,28 +875,173 @@ const DriverRecruitmentStatusScreen = () => {
         {/* Contact Information for Companies */}
         {driverProfile?.status === 'approved' && (
           <View style={styles.contactSection}>
-            <Text style={styles.sectionTitle}>Contact Information</Text>
+            <View style={styles.contactSectionHeader}>
+              <Text style={styles.sectionTitle}>Contact Information</Text>
+              <TouchableOpacity
+                style={styles.editContactButton}
+                onPress={() => {
+                  setEditEmail(driverProfile.email || '');
+                  setEditPhone(driverProfile.phone || '');
+                  setEditingContact(true);
+                }}
+              >
+                <MaterialCommunityIcons name="pencil" size={18} color={colors.primary} />
+                <Text style={styles.editContactText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.contactCard}>
               <View style={styles.contactItem}>
                 <MaterialCommunityIcons name="email" size={20} color={colors.primary} />
                 <Text style={styles.contactLabel}>Email:</Text>
-                <Text style={styles.contactValue}>{driverProfile.email}</Text>
+                <View style={styles.contactValueContainer}>
+                  <Text style={styles.contactValue}>{driverProfile.email}</Text>
+                  {isGeneratedEmail(driverProfile.email) ? (
+                    <View style={styles.unverifiedBadge}>
+                      <MaterialCommunityIcons name="alert-circle" size={12} color={colors.warning} />
+                      <Text style={styles.unverifiedBadgeText}>Update Required</Text>
+                    </View>
+                  ) : emailVerified ? (
+                    <View style={styles.verifiedBadge}>
+                      <MaterialCommunityIcons name="check-circle" size={12} color={colors.success} />
+                      <Text style={styles.verifiedBadgeText}>Verified</Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
               <View style={styles.contactItem}>
                 <MaterialCommunityIcons name="phone" size={20} color={colors.primary} />
                 <Text style={styles.contactLabel}>Phone:</Text>
-                <Text style={styles.contactValue}>{driverProfile.phone}</Text>
+                <View style={styles.contactValueContainer}>
+                  <Text style={styles.contactValue}>{driverProfile.phone}</Text>
+                  {phoneVerified ? (
+                    <View style={styles.verifiedBadge}>
+                      <MaterialCommunityIcons name="check-circle" size={12} color={colors.success} />
+                      <Text style={styles.verifiedBadgeText}>Verified</Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
             </View>
             <View style={styles.contactNote}>
               <MaterialCommunityIcons name="information" size={16} color={colors.primary} />
               <Text style={styles.contactNoteText}>
-                Companies can contact you directly using the information above. 
-                All discussions and negotiations happen outside the app.
+                {driverProfile.email?.includes('temp_') || driverProfile.email?.includes('@trukapp.com') ? (
+                  <>
+                    Your email was auto-generated because you used phone verification. Companies may prefer email communication. 
+                    Please update your email to a valid address that can receive messages from potential hiring companies.
+                    {'\n\n'}
+                    Both email and phone can be used for secondary verification. Companies can contact you directly using the verified contact information above. All discussions and negotiations happen outside the app.
+                  </>
+                ) : (
+                  <>
+                    Both email and phone can be used for secondary verification. Companies can contact you directly using the verified contact information above. 
+                    All discussions and negotiations happen outside the app.
+                  </>
+                )}
               </Text>
             </View>
+            
+            {/* Verify Email Button - Show if email was updated and needs verification */}
+            {emailNeedsVerification && !isGeneratedEmail(driverProfile.email) && (
+              <TouchableOpacity
+                style={styles.verifyEmailButton}
+                onPress={handleVerifyEmail}
+                disabled={verifyingEmail}
+              >
+                {verifyingEmail ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="email-check" size={18} color={colors.white} />
+                    <Text style={styles.verifyEmailText}>Verify Email</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         )}
+
+        {/* Edit Contact Modal */}
+        <Modal
+          visible={editingContact}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setEditingContact(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Contact Information</Text>
+                <TouchableOpacity
+                  onPress={() => setEditingContact(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <MaterialCommunityIcons name="close" size={24} color={colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalBody}>
+                <View style={styles.modalInputGroup}>
+                  <Text style={styles.modalLabel}>
+                    Email <Text style={styles.required}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={editEmail}
+                    onChangeText={setEditEmail}
+                    placeholder="Enter your email address"
+                    placeholderTextColor={colors.text.light}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  {(driverProfile?.email?.includes('temp_') || driverProfile?.email?.includes('@trukapp.com')) && (
+                    <View style={styles.modalHelperText}>
+                      <MaterialCommunityIcons name="alert-circle" size={14} color={colors.warning} />
+                      <Text style={styles.modalHelperTextContent}>
+                        Update your email to a valid address for company communications
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.modalInputGroup}>
+                  <Text style={styles.modalLabel}>
+                    Phone <Text style={styles.required}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={editPhone}
+                    onChangeText={setEditPhone}
+                    placeholder="Enter your phone number"
+                    placeholderTextColor={colors.text.light}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => setEditingContact(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalSaveButton, updatingContact && styles.modalButtonDisabled]}
+                  onPress={handleUpdateContact}
+                  disabled={updatingContact}
+                >
+                  {updatingContact ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.modalSaveText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </View>
   );
@@ -669,7 +1089,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 20,
+    paddingBottom: 40,
   },
   loadingContainer: {
     flex: 1,
@@ -796,11 +1219,32 @@ const styles = StyleSheet.create({
   contactSection: {
     marginBottom: 20,
   },
+  contactSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
-    marginBottom: 16,
+  },
+  editContactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.primary + '15',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  editContactText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.primary,
+    marginLeft: 6,
   },
   contactCard: {
     backgroundColor: colors.white,
@@ -826,11 +1270,47 @@ const styles = StyleSheet.create({
     marginRight: 8,
     minWidth: 50,
   },
+  contactValueContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   contactValue: {
     fontSize: 14,
     fontFamily: fonts.family.regular,
     color: colors.text.secondary,
     flex: 1,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  verifiedBadgeText: {
+    fontSize: 11,
+    fontFamily: fonts.family.medium,
+    color: colors.success,
+    marginLeft: 4,
+  },
+  unverifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  unverifiedBadgeText: {
+    fontSize: 11,
+    fontFamily: fonts.family.medium,
+    color: colors.warning,
+    marginLeft: 4,
   },
   contactNote: {
     flexDirection: 'row',
@@ -848,6 +1328,22 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     flex: 1,
     lineHeight: 20,
+  },
+  verifyEmailButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    gap: 8,
+  },
+  verifyEmailText: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
   },
   // Removed old recruitment request styles - no longer needed
   // Enhanced Status Indicator Styles
@@ -1109,6 +1605,116 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     color: colors.primary,
     marginLeft: 6,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalInputGroup: {
+    marginBottom: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.primary,
+    marginBottom: 8,
+  },
+  required: {
+    color: colors.error,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontFamily: fonts.family.regular,
+    color: colors.text.primary,
+    backgroundColor: colors.white,
+  },
+  modalHelperText: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: colors.warning + '15',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+  },
+  modalHelperTextContent: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: fonts.family.regular,
+    color: colors.warning,
+    marginLeft: 8,
+    lineHeight: 16,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontFamily: fonts.family.medium,
+    color: colors.text.primary,
+  },
+  modalSaveButton: {
+    backgroundColor: colors.primary,
+  },
+  modalButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalSaveText: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
   },
 });
 

@@ -164,7 +164,7 @@ const LoginScreen = ({ navigation }: any) => {
                 </TouchableOpacity>
                 <TextInput
                   style={styles.phoneInputSignup}
-                  placeholder="Enter your phone number"
+                  placeholder="712 345 678"
                   keyboardType="phone-pad"
                   autoCapitalize="none"
                   placeholderTextColor={colors.text.secondary}
