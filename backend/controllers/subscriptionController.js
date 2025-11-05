@@ -429,14 +429,31 @@ exports.getSubcriberStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    // Get active subscriber first (cron job handles marking expired ones as inactive)
     const subscriber = await Subscribers.getByUserId(userId);
-
-    // If no subscriber exists, check if user is eligible for trial
+    
+    // If no active subscriber exists, check if user has ever had a subscription (including expired)
     if (!subscriber) {
-      // Check if user meets criteria for trial (e.g., new user, hasn't used trial before)
-      const isEligibleForTrial = await checkTrialEligibility(userId);
+      // Check if user has ever used a trial before (even if expired)
+      // Trial only works once - once expired, user must get paid subscription
+      const hasUsedTrialBefore = await Subscribers.hasUsedTrial(userId);
       
-      subscriptionStatus.needsTrialActivation = isEligibleForTrial;
+      if (hasUsedTrialBefore) {
+        // User has used trial before - they need paid subscription, not another trial
+        subscriptionStatus.needsTrialActivation = false;
+        subscriptionStatus.subscriptionStatus = 'expired'; // Guide to paid subscription
+      } else {
+        // User has never used trial - eligible for first-time trial
+        subscriptionStatus.needsTrialActivation = true;
+      }
+      
+      // Ensure all values are explicitly set to avoid any defaults
+      subscriptionStatus.hasActiveSubscription = false;
+      subscriptionStatus.isTrialActive = false;
+      subscriptionStatus.daysRemaining = 0;
+      subscriptionStatus.trialDaysRemaining = 0;
+      subscriptionStatus.subscriptionStatus = subscriptionStatus.subscriptionStatus || 'none';
+      subscriptionStatus.isTrial = false;
       
       return res.status(200).json({ 
         success: true, 
@@ -451,30 +468,62 @@ exports.getSubcriberStatus = async (req, res) => {
     // Check if this is a trial subscription (price is 0)
     const isTrial = plan && plan.price === 0;
     
-    // Calculate days remaining
-    const endDateMillis = subscriber.endDate.toMillis ? subscriber.endDate.toMillis() : 
-                         (subscriber.endDate._seconds * 1000) + (subscriber.endDate._nanoseconds / 1000000);
+    // Calculate days remaining - handle Firestore timestamp properly
+    let endDateMillis;
+    if (subscriber.endDate && typeof subscriber.endDate.toMillis === 'function') {
+      endDateMillis = subscriber.endDate.toMillis();
+    } else if (subscriber.endDate && subscriber.endDate._seconds) {
+      endDateMillis = (subscriber.endDate._seconds * 1000) + ((subscriber.endDate._nanoseconds || 0) / 1000000);
+    } else if (subscriber.endDate && subscriber.endDate.seconds) {
+      endDateMillis = (subscriber.endDate.seconds * 1000) + ((subscriber.endDate.nanoseconds || 0) / 1000000);
+    } else {
+      // If no valid endDate, treat as expired
+      endDateMillis = 0;
+    }
     
     const currentTime = Date.now();
     
-    console.log('End date (ms):', endDateMillis, 'Current time (ms):', currentTime);
+    console.log('Subscriber status check:', {
+      userId,
+      subscriberId: subscriber.id,
+      endDateMillis,
+      currentTime,
+      isActive: subscriber.isActive,
+      isTrial
+    });
     
     // Check if subscription is active (both flag and date validation)
     const isActive = subscriber.isActive && endDateMillis > currentTime;
-    const daysRemaining = isActive ? Math.ceil((endDateMillis - currentTime) / (1000 * 60 * 60 * 24)) : 0;
+    const daysRemaining = isActive ? Math.max(0, Math.ceil((endDateMillis - currentTime) / (1000 * 60 * 60 * 24))) : 0;
+    
     // Check if trial is still active
     const isTrialActive = isTrial && isActive;
+    
+    // Trial only works once - once expired, user must get paid subscription
+    // If subscription is expired, check if user needs trial activation
+    let needsTrialActivation = false;
+    if (!isActive) {
+      // If expired and it was a trial, user needs paid subscription (not another trial)
+      if (isTrial) {
+        // Trial expired - user must get paid subscription, not another trial
+        needsTrialActivation = false;
+      } else {
+        // Expired paid subscription - check if they're eligible for trial (if never used before)
+        const isEligibleForTrial = await checkTrialEligibility(userId);
+        needsTrialActivation = isEligibleForTrial;
+      }
+    }
 
     subscriptionStatus = {
-      hasActiveSubscription: isActive,
+      hasActiveSubscription: isActive && !isTrial, // Active subscription (not trial)
       isTrialActive: isTrialActive,
-      needsTrialActivation: false, // Already has a subscription
+      needsTrialActivation: needsTrialActivation,
       currentPlan: plan ? plan.name : null,
       daysRemaining: daysRemaining,
-      subscriptionStatus: isActive ? 'active' : 'inactive',
+      subscriptionStatus: isActive ? (isTrial ? 'trial' : 'active') : (isTrial ? 'expired' : 'inactive'),
       isTrial: isTrial,
       trialDaysRemaining: isTrialActive ? daysRemaining : 0,
-      trialUsed: isTrial && !isActive // Trial was used but expired
+      trialUsed: isTrial && !isActive // Trial was used but expired - user needs paid subscription
     }
 
     await logActivity(req.user.uid, 'get_subscriber_status', req);
