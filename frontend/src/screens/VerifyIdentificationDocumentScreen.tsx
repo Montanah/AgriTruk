@@ -272,57 +272,71 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
         console.log('Approved By:', brokerData.approvedBy);
         
         if (brokerData.status === 'approved' && brokerData.idVerified === true) {
-          console.log('Broker is approved and verified - checking subscription status');
+          console.log('Broker is approved and verified - checking subscription status and navigating');
           setStatus('verified');
+          
+          // Clear any pending refresh intervals since we're verified now
+          if (refreshInterval) {
+            clearInterval(refreshInterval);
+            setRefreshInterval(null);
+          }
           
           // Since user is authenticated, we're in the authenticated broker stack
           // SubscriptionTrial is available in this stack, so navigation should work
-          (async () => {
+          // Use setTimeout to ensure navigation happens after state updates and screen is ready
+          setTimeout(async () => {
             try {
               const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
               console.log('Broker subscription status:', subscriptionStatus);
               
-              // Priority 1: User has active subscription or trial - go directly to dashboard
-              if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
-                console.log('✅ Verified broker has active subscription/trial, navigating to dashboard');
-                navigation.navigate('BrokerTabs');
-              } 
+              // Priority 1: Check expired status first (highest priority)
+              const isExpired = subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive';
               
-              // Priority 2: Subscription expired - go to expired screen
-              else if (subscriptionStatus.isExpired || subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
-                console.log('⚠️ Verified broker subscription expired, navigating to expired screen');
-                navigation.navigate('SubscriptionExpired', {
-                  userType: 'broker',
-                  subscriptionStatus: subscriptionStatus
+              if (isExpired) {
+                // Subscription expired - reset navigation to expired screen for renewal/upgrade
+                console.log('⚠️ Verified broker subscription expired, resetting to expired screen');
+                const auth = getAuth();
+                const user = auth.currentUser;
+                navigation.reset({
+                  index: 0,
+                  routes: [{
+                    name: 'SubscriptionExpired',
+                    params: {
+                      userType: 'broker',
+                      userId: user?.uid || '',
+                      expiredDate: subscriptionStatus.subscriptionExpiryDate || new Date().toISOString()
+                    }
+                  }]
+                });
+              } 
+              // Priority 2: User has active subscription or trial - go directly to dashboard
+              else if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
+                console.log('✅ Verified broker has active subscription/trial, resetting to dashboard');
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'BrokerTabs' }]
                 });
               } 
               
               // Priority 3: No subscription or needs trial activation - go to trial screen
               else {
-                console.log('🔄 Verified broker needs trial activation, navigating to trial screen');
-                // Try to navigate to SubscriptionTrial - it should be in the authenticated broker stack
-                // If navigation fails, it means the screen is not in the current stack
-                try {
-                  navigation.navigate('SubscriptionTrial', {
-                    userType: 'broker',
-                    subscriptionStatus: subscriptionStatus
-                  });
-                  console.log('✅ Navigation to SubscriptionTrial successful');
-                } catch (navError: any) {
-                  console.error('Navigation to SubscriptionTrial failed:', navError);
-                  console.error('This means SubscriptionTrial is not in the current navigation stack');
-                  // Show error to user and provide option to refresh
-                  Alert.alert(
-                    'Navigation Error',
-                    'Unable to navigate to subscription screen. Please use the "Continue to Subscription" button below, or refresh the app.',
-                    [{ text: 'OK' }]
-                  );
-                }
+                console.log('🔄 Verified broker needs trial activation, resetting to trial screen');
+                // Reset navigation to SubscriptionTrial - this ensures proper stack initialization
+                navigation.reset({
+                  index: 0,
+                  routes: [{
+                    name: 'SubscriptionTrial',
+                    params: {
+                      userType: 'broker',
+                      subscriptionStatus: subscriptionStatus
+                    }
+                  }]
+                });
               }
             } catch (error) {
               console.error('Error checking subscription status:', error);
             }
-          })();
+          }, 200); // Small delay to ensure state updates complete and navigation stack is ready
         } else if (brokerData.status === 'deactivated') {
           console.log('Broker account has been deactivated by admin');
           setStatus('deactivated');
@@ -343,23 +357,35 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
             (async () => {
               try {
                 const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
-                if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'BrokerTabs' }]
-                  });
-                } else if (subscriptionStatus.isExpired || subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
+                // Priority 1: Check expired status first (highest priority)
+                const isExpired = subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive';
+                
+                if (isExpired) {
+                  // Subscription expired - reset to expired screen for renewal/upgrade
+                  console.log('⚠️ Broker subscription expired, resetting to expired screen');
+                  const auth = getAuth();
+                  const user = auth.currentUser;
                   navigation.reset({
                     index: 0,
                     routes: [{ 
                       name: 'SubscriptionExpired',
                       params: {
                         userType: 'broker',
-                        subscriptionStatus: subscriptionStatus
+                        userId: user?.uid || '',
+                        expiredDate: subscriptionStatus.subscriptionExpiryDate || new Date().toISOString()
                       }
                     }]
                   });
+                } else if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
+                  // Active subscription or trial - reset to dashboard
+                  console.log('✅ Broker has active subscription/trial, resetting to dashboard');
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'BrokerTabs' }]
+                  });
                 } else {
+                  // Needs trial activation - reset to trial screen
+                  console.log('🔄 Broker needs trial activation, resetting to trial screen');
                   navigation.reset({
                     index: 0,
                     routes: [{ 
@@ -373,6 +399,8 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
                 }
               } catch (error) {
                 console.error('Error checking subscription status:', error);
+                // Fallback to trial screen - use reset for proper stack initialization
+                console.log('⚠️ Error getting subscription status, resetting to trial screen as fallback');
                 navigation.reset({
                   index: 0,
                   routes: [{ 
@@ -407,14 +435,15 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
     }
   }, [navigation]);
 
-  // Auto-refresh for pending status
+  // Auto-refresh for pending status - check more frequently when pending
   useEffect(() => {
     if (status === 'pending') {
-      // Start auto-refresh every 30 seconds
+      // Start auto-refresh every 10 seconds when pending (more frequent for faster detection)
+      console.log('Starting auto-refresh interval for pending broker status...');
       const interval = setInterval(() => {
         console.log('Auto-refreshing broker status...');
         checkBrokerStatus();
-      }, 30000); // 30 seconds
+      }, 10000); // 10 seconds - check more frequently
       
       setRefreshInterval(interval);
       
@@ -426,11 +455,12 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
     } else {
       // Clear interval if status is not pending
       if (refreshInterval) {
+        console.log('Clearing auto-refresh interval - status is no longer pending');
         clearInterval(refreshInterval);
         setRefreshInterval(null);
       }
     }
-  }, [status]); // Only depend on status, not refreshInterval or checkBrokerStatus
+  }, [status, checkBrokerStatus]); // Include checkBrokerStatus in dependencies
 
   // Check broker verification status on component mount
   useEffect(() => {
@@ -909,137 +939,23 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
               </View>
             )}
             
-            {/* Refresh button to check status and navigate */}
+            {/* Refresh button to check broker status and navigate automatically when verified */}
             <TouchableOpacity 
               style={styles.refreshBtn} 
               onPress={async () => {
-                console.log('Refresh button pressed - checking broker status and navigating');
+                console.log('Refresh button pressed - checking broker status and navigating automatically');
                 setCheckingStatus(true);
                 
                 try {
-                  // Re-check broker status first
+                  // Re-check broker status - this will automatically navigate when status changes
                   await checkBrokerStatus();
                   
-                  // Then check subscription and navigate
-                  const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
-                  console.log('Subscription status from refresh button:', subscriptionStatus);
+                  // If status is still pending, the auto-refresh interval will continue checking
+                  // If status changed to verified, checkBrokerStatus() will have already navigated
                   
-                  if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
-                    console.log('Navigating to BrokerTabs');
-                    try {
-                      navigation.navigate('BrokerTabs');
-                    } catch (navError) {
-                      console.warn('navigation.navigate() failed, trying reset...', navError);
-                      try {
-                        navigation.reset({
-                          index: 0,
-                          routes: [{ name: 'BrokerTabs' }]
-                        });
-                      } catch (resetError) {
-                        console.error('Navigation to BrokerTabs failed:', resetError);
-                        Alert.alert('Navigation Error', 'Unable to navigate to dashboard. Please try signing out and back in.');
-                      }
-                    }
-                  } else if (subscriptionStatus.isExpired || subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
-                    console.log('Navigating to SubscriptionExpired');
-                    try {
-                      navigation.navigate('SubscriptionExpired', {
-                        userType: 'broker',
-                        subscriptionStatus: subscriptionStatus
-                      });
-                    } catch (navError) {
-                      console.warn('navigation.navigate() failed, trying reset...', navError);
-                      try {
-                        navigation.reset({
-                          index: 0,
-                          routes: [{ 
-                            name: 'SubscriptionExpired',
-                            params: {
-                              userType: 'broker',
-                              subscriptionStatus: subscriptionStatus
-                            }
-                          }]
-                        });
-                      } catch (resetError) {
-                        console.error('Navigation to SubscriptionExpired failed:', resetError);
-                        Alert.alert('Navigation Error', 'Unable to navigate to subscription screen. Please try signing out and back in.');
-                      }
-                    }
-                  } else {
-                    console.log('Navigating to SubscriptionTrial');
-                    try {
-                      navigation.navigate('SubscriptionTrial', {
-                        userType: 'broker',
-                        subscriptionStatus: subscriptionStatus
-                      });
-                      console.log('✅ navigation.navigate() to SubscriptionTrial succeeded');
-                    } catch (navError: any) {
-                      console.warn('navigation.navigate() failed, trying reset...', navError);
-                      try {
-                        navigation.reset({
-                          index: 0,
-                          routes: [{ 
-                            name: 'SubscriptionTrial',
-                            params: {
-                              userType: 'broker',
-                              subscriptionStatus: subscriptionStatus
-                            }
-                          }]
-                        });
-                        console.log('✅ navigation.reset() to SubscriptionTrial succeeded');
-                      } catch (resetError: any) {
-                        console.error('Both navigation methods failed:', resetError);
-                        Alert.alert(
-                          'Navigation Error',
-                          'Unable to navigate to subscription screen. The screen might not be available in the current navigation stack. Please try signing out and back in, or contact support.',
-                          [
-                            { text: 'OK' },
-                            {
-                              text: 'Refresh',
-                              onPress: () => {
-                                checkBrokerStatus();
-                              }
-                            }
-                          ]
-                        );
-                      }
-                    }
-                  }
                 } catch (error) {
-                  console.error('Error checking subscription status from refresh button:', error);
-                  // Fallback to trial screen
-                  try {
-                    navigation.navigate('SubscriptionTrial', {
-                      userType: 'broker',
-                      subscriptionStatus: {
-                        needsTrialActivation: true,
-                        hasActiveSubscription: false,
-                        isTrialActive: false,
-                        subscriptionStatus: 'none'
-                      }
-                    });
-                  } catch (navError) {
-                    try {
-                      navigation.reset({
-                        index: 0,
-                        routes: [{ 
-                          name: 'SubscriptionTrial',
-                          params: {
-                            userType: 'broker',
-                            subscriptionStatus: {
-                              needsTrialActivation: true,
-                              hasActiveSubscription: false,
-                              isTrialActive: false,
-                              subscriptionStatus: 'none'
-                            }
-                          }
-                        }]
-                      });
-                    } catch (resetError) {
-                      console.error('Navigation to SubscriptionTrial failed:', resetError);
-                      Alert.alert('Navigation Error', 'Unable to navigate to subscription screen. Please try signing out and back in.');
-                    }
-                  }
+                  console.error('Error checking broker status from refresh button:', error);
+                  Alert.alert('Error', 'Unable to check status. Please try again.');
                 } finally {
                   setCheckingStatus(false);
                 }

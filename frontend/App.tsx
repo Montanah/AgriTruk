@@ -875,17 +875,29 @@ export default function App() {
       // Check broker verification and subscription status
       console.log('App.tsx: Verified broker detected - checking verification and subscription status');
       
-      // Check if broker has active subscription
-      if (subscriptionStatus?.hasActiveSubscription && !subscriptionStatus?.isExpired) {
-        // Broker has active subscription - go directly to dashboard
-        console.log('App.tsx: Broker has active subscription - routing to dashboard');
-        initialRouteName = 'BrokerTabs';
+      // Trust backend subscription status completely
+      // Check expired status first (highest priority)
+      const isExpired = subscriptionStatus?.subscriptionStatus === 'expired' || subscriptionStatus?.subscriptionStatus === 'inactive';
+      const hasActiveSub = subscriptionStatus?.hasActiveSubscription === true || subscriptionStatus?.isTrialActive === true;
+      
+      if (isExpired) {
+        // Broker has expired subscription - go to expired screen for renewal/upgrade
+        console.log('App.tsx: Broker subscription expired - routing to expired screen');
+        initialRouteName = 'SubscriptionExpired';
         screens = (
           <>
+            <Stack.Screen
+              name="SubscriptionExpired"
+              component={SubscriptionExpiredScreen as any}
+              initialParams={{
+                userType: 'broker',
+                userId: user.uid,
+                expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
+              }}
+            />
             <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
             <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
             <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
-            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
@@ -895,16 +907,16 @@ export default function App() {
             <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
           </>
         );
-      } else if (subscriptionStatus?.isExpired) {
-        // Broker has expired subscription - go to expiry screen
-        console.log('App.tsx: Broker has expired subscription - routing to expiry screen');
-        initialRouteName = 'SubscriptionExpired';
+      } else if (hasActiveSub) {
+        // Broker has active subscription - go directly to dashboard
+        console.log('App.tsx: Broker has active subscription/trial - routing to dashboard');
+        initialRouteName = 'BrokerTabs';
         screens = (
           <>
-            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
             <Stack.Screen name="BrokerTabs" component={require('./src/navigation/BrokerTabNavigator').default} />
             <Stack.Screen name="VerifyIdentificationDocument" component={VerifyIdentificationDocumentScreen} />
             <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
+            <Stack.Screen name="SubscriptionExpired" component={SubscriptionExpiredScreen as any} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
             <Stack.Screen name="PaymentSuccess" component={require('./src/screens/PaymentSuccessScreen').default} />
@@ -1292,7 +1304,12 @@ export default function App() {
       );
     } else {
       // Check subscription status for verified brokers
-      if (subscriptionStatus?.subscriptionStatus === 'expired') {
+      // Priority 1: Check expired status first (highest priority)
+      const isExpired = subscriptionStatus?.subscriptionStatus === 'expired' || subscriptionStatus?.subscriptionStatus === 'inactive';
+      
+      if (isExpired) {
+        // Subscription expired - route to expired screen for renewal/upgrade
+        console.log('App.tsx: Broker subscription expired - routing to expired screen');
         initialRouteName = 'SubscriptionExpired';
         screens = (
           <>
