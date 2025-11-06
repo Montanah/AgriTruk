@@ -18,6 +18,7 @@ import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
+import { apiRequest } from '../utils/api';
 
 interface Driver {
   id: string;
@@ -26,7 +27,8 @@ interface Driver {
   name?: string;
   email: string;
   phone: string;
-  status: 'pending' | 'active' | 'inactive';
+  idNumber?: string;
+  status: 'pending' | 'active' | 'inactive' | 'approved';
   assignedVehicleId?: string;
   assignedVehicle?: {
     id: string;
@@ -38,9 +40,18 @@ interface Driver {
 
 interface Vehicle {
   id: string;
-  make: string;
-  model: string;
-  registration: string;
+  make?: string;
+  vehicleMake?: string;
+  model?: string;
+  vehicleModel?: string;
+  registration?: string;
+  vehicleRegistration?: string;
+  year?: number;
+  vehicleYear?: number;
+  color?: string;
+  capacity?: number;
+  vehicleCapacity?: number;
+  bodyType?: string;
   status: 'pending' | 'approved' | 'rejected';
   assignedDriverId?: string;
   assignedDriver?: {
@@ -62,6 +73,11 @@ const DriverAssignmentsScreen = ({ route }: any) => {
   const [useCustomEmail, setUseCustomEmail] = useState(false);
   const [customEmail, setCustomEmail] = useState('');
   const [isJobSeeker, setIsJobSeeker] = useState(false);
+  
+  // Loading states for actions
+  const [assigningDriver, setAssigningDriver] = useState(false);
+  const [assignmentStep, setAssignmentStep] = useState('');
+  const [unassigningDriver, setUnassigningDriver] = useState<string | null>(null);
   
   // Get route params for specific vehicle assignment
   const { vehicleId, vehicleMake, vehicleModel, vehicleRegistration, hasAssignedDriver } = route?.params || {};
@@ -94,38 +110,55 @@ const DriverAssignmentsScreen = ({ route }: any) => {
       
       console.log('🔍 Company ID for driver fetch:', companyId);
 
-      const [driversRes, vehiclesRes] = await Promise.all([
-        fetch(`${API_ENDPOINTS.DRIVERS}?companyId=${companyId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+      // Use company-specific endpoints like other screens
+      const [driversData, vehiclesData] = await Promise.all([
+        apiRequest(`/companies/${companyId}/drivers`).catch((err: any) => {
+          console.error('Error fetching drivers:', err);
+          return { drivers: [] };
         }),
-        fetch(`${API_ENDPOINTS.VEHICLES}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        apiRequest(`/companies/${companyId}/vehicles`).catch((err: any) => {
+          console.error('Error fetching vehicles:', err);
+          return { vehicles: [] };
         }),
       ]);
 
-      console.log('🔍 Drivers response status:', driversRes.status);
-      console.log('🔍 Vehicles response status:', vehiclesRes.status);
-
-      const driversData = driversRes.ok ? await driversRes.json() : { drivers: [] };
-      const vehiclesData = vehiclesRes.ok ? await vehiclesRes.json() : { vehicles: [] };
-
-      console.log('🔍 Drivers data:', driversData);
-      console.log('🔍 Vehicles data:', vehiclesData);
-
       // Handle different response structures
-      const driversList = driversData.drivers || driversData || [];
-      const vehiclesList = vehiclesData.vehicles || vehiclesData || [];
-      
-      // Only show approved vehicles and active drivers for assignment
-      const approvedVehicles = vehiclesList.filter((v: any) => v.status === 'approved');
-      const activeDrivers = driversList.filter((d: any) => d.status === 'active');
+      const driversList = driversData?.drivers || driversData || [];
+      const vehiclesList = vehiclesData?.vehicles || vehiclesData || [];
 
-      console.log('🔍 Parsed drivers list:', activeDrivers);
-      console.log('🔍 Parsed vehicles list:', approvedVehicles);
-      console.log('🔍 Active drivers count:', activeDrivers.length);
+      // Ensure all driver fields are properly mapped
+      const mappedDrivers = driversList.map((d: any) => ({
+        ...d,
+        firstName: d.firstName || '',
+        lastName: d.lastName || '',
+        name: d.name || (d.firstName && d.lastName ? `${d.firstName} ${d.lastName}` : ''),
+        idNumber: d.idNumber || d.idDocumentNumber || '',
+        email: d.email || '',
+        phone: d.phone || '',
+      }));
+
+      console.log('🔍 All drivers fetched:', mappedDrivers);
+      console.log('🔍 All vehicles fetched:', vehiclesList);
+      console.log('🔍 Driver statuses:', mappedDrivers.map((d: any) => ({ 
+        id: d.id, 
+        name: `${d.firstName} ${d.lastName}` || d.name, 
+        status: d.status,
+        idNumber: d.idNumber 
+      })));
+
+      // Show approved vehicles and all approved/active drivers for assignment
+      // Include both 'approved' and 'active' status drivers since activated drivers might have either status
+      const approvedVehicles = vehiclesList.filter((v: any) => v.status === 'approved');
+      const availableDrivers = mappedDrivers.filter((d: any) => 
+        d.status === 'active' || d.status === 'approved'
+      );
+
+      console.log('🔍 Available drivers for assignment:', availableDrivers);
+      console.log('🔍 Approved vehicles for assignment:', approvedVehicles);
+      console.log('🔍 Available drivers count:', availableDrivers.length);
       console.log('🔍 Approved vehicles count:', approvedVehicles.length);
 
-      setDrivers(activeDrivers);
+      setDrivers(availableDrivers);
       setVehicles(approvedVehicles);
     } catch (err: any) {
       console.error('Error fetching data:', err);
@@ -176,15 +209,24 @@ const DriverAssignmentsScreen = ({ route }: any) => {
 
   const handleAssignDriver = async (driverId: string, vehicleId: string) => {
     try {
+      setAssigningDriver(true);
+      setAssignmentStep('Preparing assignment...');
+      
       const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        setAssigningDriver(false);
+        setAssignmentStep('');
+        return;
+      }
 
+      setAssignmentStep('Authenticating...');
       const token = await user.getIdToken();
 
       console.log('🔍 Assigning driver:', { driverId, vehicleId, useCustomEmail, customEmail, isJobSeeker });
 
+      setAssignmentStep('Preparing assignment data...');
       // Prepare assignment data with email management
       const assignmentData: any = { 
         driverId,
@@ -201,6 +243,7 @@ const DriverAssignmentsScreen = ({ route }: any) => {
         assignmentData.updateJobSeekerStatus = true;
       }
 
+      setAssignmentStep('Assigning driver to vehicle...');
       // Use the correct backend endpoint: POST /api/vehicles/:id/assign-driver
       const response = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicleId}/assign-driver`, {
         method: 'POST',
@@ -217,15 +260,28 @@ const DriverAssignmentsScreen = ({ route }: any) => {
         const result = await response.json();
         console.log('🔍 Assignment success:', result);
         
+        setAssignmentStep('Assignment successful!');
         // Reset form state
         setUseCustomEmail(false);
         setCustomEmail('');
         setIsJobSeeker(false);
         setSelectedDriver(null);
         
-        Alert.alert('Success', 'Driver assigned to vehicle successfully. Login credentials have been sent to the driver.');
-        fetchData();
-        setAssignModalVisible(false);
+        // Show success message and refresh data
+        Alert.alert(
+          'Success', 
+          'Driver assigned to vehicle successfully. Login credentials have been sent to the driver.',
+          [
+            {
+              text: 'OK',
+              onPress: async () => {
+                // Refresh data to show updated assignments
+                await fetchData();
+                setAssignModalVisible(false);
+              }
+            }
+          ]
+        );
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('🔍 Assignment error response:', errorData);
@@ -233,6 +289,7 @@ const DriverAssignmentsScreen = ({ route }: any) => {
         // Handle different error scenarios
         if (errorData.message && errorData.message.includes('must be active')) {
           console.log('🔍 Driver not active, attempting to activate first...');
+          setAssignmentStep('Activating driver...');
           
           try {
             // First activate the driver
@@ -246,6 +303,7 @@ const DriverAssignmentsScreen = ({ route }: any) => {
             
             if (activateResponse.ok) {
               console.log('🔍 Driver activated successfully, retrying assignment...');
+              setAssignmentStep('Retrying assignment...');
               
               // Retry the assignment
               const retryResponse = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicleId}/assign-driver`, {
@@ -261,6 +319,7 @@ const DriverAssignmentsScreen = ({ route }: any) => {
                 const retryResult = await retryResponse.json();
                 console.log('🔍 Assignment success after activation:', retryResult);
                 
+                setAssignmentStep('Assignment successful!');
                 // Reset form state
                 setUseCustomEmail(false);
                 setCustomEmail('');
@@ -268,7 +327,7 @@ const DriverAssignmentsScreen = ({ route }: any) => {
                 setSelectedDriver(null);
                 
                 Alert.alert('Success', 'Driver activated and assigned to vehicle successfully. Login credentials have been sent to the driver.');
-                fetchData();
+                await fetchData();
                 setAssignModalVisible(false);
                 return;
               } else {
@@ -354,10 +413,15 @@ const DriverAssignmentsScreen = ({ route }: any) => {
 
   const handleUnassignDriver = async (vehicleId: string) => {
     try {
+      setUnassigningDriver(vehicleId);
+      
       const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        setUnassigningDriver(null);
+        return;
+      }
 
       const token = await user.getIdToken();
 
@@ -377,7 +441,9 @@ const DriverAssignmentsScreen = ({ route }: any) => {
       }
     } catch (err: any) {
       console.error('Error unassigning driver:', err);
-      Alert.alert('Error', 'Failed to unassign driver from vehicle');
+      Alert.alert('Error', `Failed to unassign driver: ${err.message}`);
+    } finally {
+      setUnassigningDriver(null);
     }
   };
 
@@ -397,20 +463,34 @@ const DriverAssignmentsScreen = ({ route }: any) => {
             <MaterialCommunityIcons name="truck" size={24} color={colors.primary} />
           </View>
           <View style={styles.vehicleInfo}>
-            <Text style={styles.vehicleTitle}>{item.make} {item.model}</Text>
-            <Text style={styles.vehicleSubtitle}>{item.registration} • {item.year}</Text>
+            <Text style={styles.vehicleTitle}>
+              {item.vehicleMake || item.make || 'Unknown'} {item.vehicleModel || item.model || ''}
+            </Text>
+            <Text style={styles.vehicleSubtitle}>
+              <Text style={styles.registrationHighlight}>
+                {item.vehicleRegistration || item.registration || 'N/A'}
+              </Text>
+              {' • '}
+              {item.vehicleYear || item.year || 'N/A'}
+            </Text>
             <View style={styles.vehicleDetails}>
               <View style={styles.detailItem}>
+                <MaterialCommunityIcons name="card-text-outline" size={14} color={colors.text.secondary} />
+                <Text style={styles.detailText}>
+                  Reg: {item.vehicleRegistration || item.registration || 'N/A'}
+                </Text>
+              </View>
+              <View style={styles.detailItem}>
                 <MaterialCommunityIcons name="palette" size={14} color={colors.text.secondary} />
-                <Text style={styles.detailText}>{item.color}</Text>
+                <Text style={styles.detailText}>{item.color || 'N/A'}</Text>
               </View>
               <View style={styles.detailItem}>
                 <MaterialCommunityIcons name="weight" size={14} color={colors.text.secondary} />
-                <Text style={styles.detailText}>{item.capacity}t</Text>
+                <Text style={styles.detailText}>{item.capacity || item.vehicleCapacity || 'N/A'}t</Text>
               </View>
               <View style={styles.detailItem}>
                 <MaterialCommunityIcons name="car" size={14} color={colors.text.secondary} />
-                <Text style={styles.detailText}>{item.bodyType}</Text>
+                <Text style={styles.detailText}>{item.bodyType || 'N/A'}</Text>
               </View>
             </View>
             {features.length > 0 && (
@@ -439,10 +519,15 @@ const DriverAssignmentsScreen = ({ route }: any) => {
           <Text style={styles.assignedDriverName}>{item.assignedDriver.name}</Text>
           <Text style={styles.assignedDriverPhone}>{item.assignedDriver.phone}</Text>
           <TouchableOpacity
-            style={styles.unassignButton}
+            style={[styles.unassignButton, unassigningDriver === item.id && styles.unassignButtonDisabled]}
             onPress={() => handleUnassignDriver(item.id)}
+            disabled={unassigningDriver === item.id}
           >
-            <MaterialCommunityIcons name="account-remove" size={16} color={colors.error} />
+            {unassigningDriver === item.id ? (
+              <ActivityIndicator size="small" color={colors.error} />
+            ) : (
+              <MaterialCommunityIcons name="account-remove" size={16} color={colors.error} />
+            )}
             <Text style={styles.unassignButtonText}>Unassign</Text>
           </TouchableOpacity>
         </View>
@@ -712,6 +797,37 @@ const DriverAssignmentsScreen = ({ route }: any) => {
               )}
             />
 
+            {/* Selected Driver Details Section */}
+            {selectedDriver && (
+              <View style={styles.selectedDriverDetails}>
+                <Text style={styles.driverDetailsTitle}>Driver Details</Text>
+                <View style={styles.driverDetailsCard}>
+                  <View style={styles.driverDetailRow}>
+                    <Text style={styles.driverDetailLabel}>Name:</Text>
+                    <Text style={styles.driverDetailValue}>
+                      {selectedDriver.firstName && selectedDriver.lastName
+                        ? `${selectedDriver.firstName} ${selectedDriver.lastName}`
+                        : selectedDriver.name || 'Not Available'}
+                    </Text>
+                  </View>
+                  <View style={styles.driverDetailRow}>
+                    <Text style={styles.driverDetailLabel}>Contact:</Text>
+                    <Text style={styles.driverDetailValue}>{selectedDriver.phone || 'Not Available'}</Text>
+                  </View>
+                  <View style={styles.driverDetailRow}>
+                    <Text style={styles.driverDetailLabel}>Email:</Text>
+                    <Text style={styles.driverDetailValue}>{selectedDriver.email || 'Not Available'}</Text>
+                  </View>
+                  <View style={styles.driverDetailRow}>
+                    <Text style={styles.driverDetailLabel}>ID:</Text>
+                    <Text style={styles.driverDetailValue}>
+                      {selectedDriver.idNumber || 'Not Available'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {/* Email Management Section - Only show if driver is selected */}
             {selectedDriver && (
               <View style={styles.emailManagementSection}>
@@ -805,16 +921,25 @@ const DriverAssignmentsScreen = ({ route }: any) => {
               <TouchableOpacity
                 style={[
                   styles.confirmButton,
-                  !selectedDriver && styles.disabledButton
+                  (!selectedDriver || assigningDriver) && styles.disabledButton
                 ]}
                 onPress={() => {
                   if (selectedDriver && selectedVehicle) {
                     handleAssignDriver(selectedDriver.id, selectedVehicle.id);
                   }
                 }}
-                disabled={!selectedDriver}
+                disabled={!selectedDriver || assigningDriver}
               >
-                <Text style={styles.confirmButtonText}>Assign Driver</Text>
+                {assigningDriver ? (
+                  <View style={styles.buttonLoadingContainer}>
+                    <ActivityIndicator size="small" color={colors.white} />
+                    <Text style={[styles.confirmButtonText, { marginLeft: 8 }]}>
+                      {assignmentStep || 'Assigning...'}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.confirmButtonText}>Assign Driver</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -1009,6 +1134,11 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginBottom: 8,
   },
+  registrationHighlight: {
+    fontSize: 15,
+    fontFamily: fonts.family.bold,
+    color: colors.primary,
+  },
   vehicleDetails: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1112,6 +1242,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.bold,
     color: colors.white,
     marginLeft: 8,
+  },
+  unassignButtonDisabled: {
+    opacity: 0.6,
   },
   unassignButton: {
     flexDirection: 'row',
@@ -1311,6 +1444,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     alignItems: 'center',
   },
+  buttonLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   disabledButton: {
     backgroundColor: colors.text.secondary,
   },
@@ -1354,6 +1492,41 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  // Selected Driver Details Styles
+  selectedDriverDetails: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  driverDetailsTitle: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 12,
+  },
+  driverDetailsCard: {
+    backgroundColor: colors.background.secondary,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  driverDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  driverDetailLabel: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.text.secondary,
+    width: 80,
+  },
+  driverDetailValue: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.primary,
+    flex: 1,
   },
   // Email Management Styles
   emailManagementSection: {

@@ -35,13 +35,13 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       const lastRequest = requests[requests.length - 1];
       if (lastRequest?.pickUpDate) {
         try {
-          initialDate = new Date(lastRequest.pickUpDate);
+        initialDate = new Date(lastRequest.pickUpDate);
         } catch (e) {
           initialDate = new Date(now.getTime() + 60 * 60 * 1000);
         }
       } else if (lastRequest?.date) {
         try {
-          initialDate = new Date(lastRequest.date);
+        initialDate = new Date(lastRequest.date);
         } catch (e) {
           initialDate = new Date(now.getTime() + 60 * 60 * 1000);
         }
@@ -53,13 +53,13 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
       const request = requests[0];
       if (request?.pickUpDate) {
         try {
-          initialDate = new Date(request.pickUpDate);
+        initialDate = new Date(request.pickUpDate);
         } catch (e) {
           initialDate = new Date(now.getTime() + 60 * 60 * 1000);
         }
       } else if (request?.date) {
         try {
-          initialDate = new Date(request.date);
+        initialDate = new Date(request.date);
         } catch (e) {
           initialDate = new Date(now.getTime() + 60 * 60 * 1000);
         }
@@ -745,9 +745,9 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         // Create each booking individually
         for (let i = 0; i < payload.length; i++) {
           const bookingPayload = payload[i];
-          let retryCount = 0;
-          const maxRetries = 3;
-          
+      let retryCount = 0;
+      const maxRetries = 3;
+      
           while (retryCount < maxRetries) {
             try {
               const response = await apiRequest('/bookings', {
@@ -955,13 +955,13 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
 
   const handleViewBooking = async () => {
     try {
-      // Navigate to the appropriate booking management screen based on user role
-      const targetScreen = getBookingManagementScreen();
+    // Navigate to the appropriate booking management screen based on user role
+    const targetScreen = getBookingManagementScreen();
       
       // Use CommonActions for nested navigation
       const { CommonActions } = require('@react-navigation/native');
       
-      if (typeof targetScreen === 'string') {
+    if (typeof targetScreen === 'string') {
         navigation.dispatch(
           CommonActions.navigate({
             name: targetScreen,
@@ -971,7 +971,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
             },
           })
         );
-      } else {
+    } else {
         // Handle nested tab navigator structure
         navigation.dispatch(
           CommonActions.navigate({
@@ -1029,17 +1029,17 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
           showsVerticalScrollIndicator={true}
           nestedScrollEnabled={true}
         >
-          <View style={styles.container}>
+    <View style={styles.container}>
             <View style={styles.header}>
               <MaterialCommunityIcons 
                 name={isConsolidation || isConsolidated ? "package-variant-closed" : "check-circle"} 
                 size={24} 
                 color={colors.primary} 
               />
-              <Text style={styles.title}>
+      <Text style={styles.title}>
                 {isConsolidation ? 'Confirm Consolidated Booking' : isConsolidated ? 'Confirm Consolidated Booking' : 'Confirm Booking'}
-                {mode !== 'shipper' && ` (${mode})`}
-              </Text>
+        {mode !== 'shipper' && ` (${mode})`}
+      </Text>
             </View>
       
       {/* Consolidation Preview - Show individual bookings with their details */}
@@ -1146,12 +1146,12 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
               })}</Text>
               <Text style={styles.bookingDetail}>From: <Text style={{ fontWeight: 'bold' }}>{item.fromLocationAddress || (typeof item.fromLocation === 'object' ? item.fromLocation.address : (item.fromLocation || 'Unknown'))}</Text></Text>
               <Text style={styles.bookingDetail}>To: <Text style={{ fontWeight: 'bold' }}>{item.toLocationAddress || (typeof item.toLocation === 'object' ? item.toLocation.address : (item.toLocation || 'Unknown'))}</Text></Text>
-              <Text style={styles.bookingDetail}>Product: {item.productType} | {item.weight}kg</Text>
-              <Text style={styles.bookingDetail}>Type: {item.type === 'agriTRUK' ? 'Agri' : 'Cargo'}</Text>
+            <Text style={styles.bookingDetail}>Product: {item.productType} | {item.weight}kg</Text>
+            <Text style={styles.bookingDetail}>Type: {item.type === 'agriTRUK' ? 'Agri' : 'Cargo'}</Text>
             </View>
           ))}
-        </View>
-      )}
+          </View>
+        )}
       <View style={styles.dateRow}>
         <Text style={styles.label}>Pickup Date & Time</Text>
         <TouchableOpacity style={styles.dateBtn} onPress={() => setShowDatePicker(true)}>
@@ -1248,23 +1248,23 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         
         {/* Fixed Submit Button at Bottom */}
         <View style={styles.fixedButtonContainer}>
-          <TouchableOpacity
-            style={[styles.postBtn, posting && { opacity: 0.6 }]}
-            onPress={handlePostBooking}
-            disabled={posting}
-          >
-            {posting ? (
-              <>
-                <MaterialCommunityIcons name="loading" size={22} color={colors.white} style={{ marginRight: 8 }} />
-                <Text style={styles.postBtnText}>Posting...</Text>
-              </>
-            ) : (
-              <>
-                <MaterialCommunityIcons name="check-circle" size={22} color={colors.white} style={{ marginRight: 8 }} />
-                <Text style={styles.postBtnText}>Confirm & Post Booking</Text>
-              </>
-            )}
-          </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.postBtn, posting && { opacity: 0.6 }]}
+        onPress={handlePostBooking}
+        disabled={posting}
+      >
+        {posting ? (
+          <>
+            <MaterialCommunityIcons name="loading" size={22} color={colors.white} style={{ marginRight: 8 }} />
+            <Text style={styles.postBtnText}>Posting...</Text>
+          </>
+        ) : (
+          <>
+            <MaterialCommunityIcons name="check-circle" size={22} color={colors.white} style={{ marginRight: 8 }} />
+            <Text style={styles.postBtnText}>Confirm & Post Booking</Text>
+          </>
+        )}
+      </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 

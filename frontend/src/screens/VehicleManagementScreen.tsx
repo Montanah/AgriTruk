@@ -385,37 +385,46 @@ const VehicleManagementScreen = () => {
   const fetchVehicles = async () => {
     try {
       setError(null);
-      // Get company ID from route params or fetch it
+      setLoading(true);
       const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
 
-      const token = await user.getIdToken();
-      const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (companyResponse.ok) {
-        const companyData = await companyResponse.json();
-        const company = companyData[0] || companyData;
-        if (company?.id) {
-          const data = await apiRequest(`/companies/${company.id}/vehicles`);
-          const vehiclesList = data.vehicles || [];
-          // Store all vehicles for statistics, but only show approved vehicles in the list
-          const allVehicles = vehiclesList;
-          const approvedVehicles = vehiclesList.filter(v => v.status === 'approved');
-          setAllVehicles(allVehicles);
-          setVehicles(approvedVehicles);
-          
-          // Update subscription status with real vehicle count (only approved vehicles for limits)
-          updateSubscriptionWithRealCounts(approvedVehicles.length, driverCount);
-        } else {
-          setVehicles([]);
+      // Ensure company profile is loaded - get it directly from the function
+      let currentProfile = companyProfile;
+      if (!currentProfile?.id && !currentProfile?.companyId) {
+        console.log('🏢 Company profile not loaded in fetchVehicles, fetching...');
+        currentProfile = await fetchCompanyProfile();
+        if (!currentProfile) {
+          console.error('🏢 Failed to load company profile');
+          setError('Unable to load company profile. Please try again.');
+          setLoading(false);
+          return;
         }
-      } else {
-        setVehicles([]);
       }
+
+      // Use the profile we just fetched or the existing one
+      const companyId = currentProfile?.id || currentProfile?.companyId;
+      if (!companyId) {
+        console.error('🏢 Company ID not available');
+        setError('Company ID not available. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('🏢 Fetching vehicles for company:', companyId);
+      // Use company-specific endpoint
+      const data = await apiRequest(`/companies/${companyId}/vehicles`);
+      const vehiclesList = data.vehicles || [];
+      // Store all vehicles for statistics, but only show approved vehicles in the list
+      const allVehicles = vehiclesList;
+      const approvedVehicles = vehiclesList.filter(v => v.status === 'approved');
+      setAllVehicles(allVehicles);
+      setVehicles(approvedVehicles);
+      
+      // Update subscription status with real vehicle count (only approved vehicles for limits)
+      updateSubscriptionWithRealCounts(approvedVehicles.length, driverCount);
     } catch (err: any) {
       console.error('Error fetching vehicles:', err);
       setError(err.message || 'Failed to fetch vehicles');
@@ -426,20 +435,31 @@ const VehicleManagementScreen = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await fetchCompanyProfile();
     await fetchVehicles();
+    await fetchDriverCount();
     setRefreshing(false);
   };
 
   useEffect(() => {
     const initializeData = async () => {
       await fetchSubscriptionStatus();
-      await fetchVehicles();
-      await fetchDriverCount();
-      await fetchCompanyProfile();
+      const profileLoaded = await fetchCompanyProfile();
+      // Wait for company profile before fetching vehicles and drivers
+      // The useEffect below will handle fetching vehicles/drivers when profile is loaded
     };
     
     initializeData();
   }, []);
+
+  // Refetch vehicles and drivers when company profile is loaded
+  useEffect(() => {
+    if ((companyProfile?.id || companyProfile?.companyId) && !loading) {
+      fetchVehicles();
+      fetchDriverCount();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyProfile?.id, companyProfile?.companyId]);
 
   // Check if we should show the vehicle modal from route params
   useEffect(() => {
@@ -452,10 +472,10 @@ const VehicleManagementScreen = () => {
     }
   }, [navigation]);
 
-  const fetchCompanyProfile = async () => {
+  const fetchCompanyProfile = async (): Promise<any | null> => {
     if (loadingCompanyProfile) {
       console.log('🏢 Company profile already loading, skipping...');
-      return false;
+      return companyProfile; // Return existing profile if already loading
     }
 
     try {
@@ -465,7 +485,7 @@ const VehicleManagementScreen = () => {
       const user = auth.currentUser;
       if (!user) {
         console.error('🏢 No authenticated user');
-        return false;
+        return null;
       }
 
       console.log('🏢 Fetching company profile for user:', user.uid);
@@ -482,18 +502,18 @@ const VehicleManagementScreen = () => {
         console.log('🏢 Company profile loaded:', data);
         const profile = data[0] || data;
         console.log('🏢 Setting company profile:', profile);
-        console.log('🏢 Company ID:', profile?.id);
+        console.log('🏢 Company ID:', profile?.id || profile?.companyId);
         setCompanyProfile(profile);
-        return true;
+        return profile; // Return the profile data directly
       } else {
         console.error('🏢 Failed to load company profile:', response.status, response.statusText);
         const errorText = await response.text();
         console.error('🏢 Error response:', errorText);
-        return false;
+        return null;
       }
     } catch (error) {
       console.error('Error fetching company profile:', error);
-      return false;
+      return null;
     } finally {
       setLoadingCompanyProfile(false);
     }

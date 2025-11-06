@@ -75,6 +75,10 @@ const JobSeekersMarketplaceScreen = () => {
   const [selectedJobSeeker, setSelectedJobSeeker] = useState<JobSeeker | null>(null);
   const [showJobSeekerDetails, setShowJobSeekerDetails] = useState(false);
   
+  // Loading states for actions
+  const [recruitingJobSeeker, setRecruitingJobSeeker] = useState<string | null>(null); // Track which job seeker is being recruited
+  const [recruitmentStep, setRecruitmentStep] = useState('');
+  
   // Animation for disclaimer
   const disclaimerOpacity = useRef(new Animated.Value(1)).current;
   const disclaimerHeight = useRef(new Animated.Value(1)).current;
@@ -412,12 +416,21 @@ const JobSeekersMarketplaceScreen = () => {
             }
             
             try {
+              setRecruitingJobSeeker(jobSeeker.id);
+              setRecruitmentStep('Preparing recruitment request...');
+              
               const auth = getAuth();
               const user = auth.currentUser;
-              if (!user) return;
+              if (!user) {
+                setRecruitingJobSeeker(null);
+                setRecruitmentStep('');
+                return;
+              }
 
+              setRecruitmentStep('Authenticating...');
               const token = await user.getIdToken();
               
+              setRecruitmentStep('Sending recruitment request...');
               const response = await fetch(`${API_ENDPOINTS.COMPANIES}/recruitment-requests`, {
                 method: 'POST',
                 headers: {
@@ -433,13 +446,20 @@ const JobSeekersMarketplaceScreen = () => {
               });
 
               if (response.ok) {
+                setRecruitmentStep('Request sent successfully!');
                 Alert.alert('Success', 'Recruitment request sent successfully! The job seeker will be notified and can accept or decline your offer.');
+                // Refresh the list to update the job seeker status
+                await fetchJobSeekers();
               } else {
-                throw new Error('Failed to send recruitment request');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to send recruitment request');
               }
             } catch (err: any) {
               console.error('Error sending recruitment request:', err);
-              Alert.alert('Error', 'Failed to send recruitment request. Please try again.');
+              Alert.alert('Error', err.message || 'Failed to send recruitment request. Please try again.');
+            } finally {
+              setRecruitingJobSeeker(null);
+              setRecruitmentStep('');
             }
           }
         }
@@ -597,11 +617,23 @@ const JobSeekersMarketplaceScreen = () => {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={styles.recruitButton}
+          style={[styles.recruitButton, recruitingJobSeeker === item.id && styles.recruitButtonDisabled]}
           onPress={() => handleRecruitJobSeeker(item)}
+          disabled={recruitingJobSeeker === item.id}
         >
-          <MaterialCommunityIcons name="send" size={18} color={colors.white} />
-          <Text style={styles.recruitButtonText}>Send Request</Text>
+          {recruitingJobSeeker === item.id ? (
+            <View style={styles.recruitingContainer}>
+              <ActivityIndicator size="small" color={colors.white} />
+              <Text style={styles.recruitButtonText}>
+                {recruitmentStep || 'Sending...'}
+              </Text>
+            </View>
+          ) : (
+            <>
+              <MaterialCommunityIcons name="send" size={18} color={colors.white} />
+              <Text style={styles.recruitButtonText}>Send Request</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -974,14 +1006,26 @@ const JobSeekersMarketplaceScreen = () => {
         
         <View style={styles.detailsActions}>
           <TouchableOpacity 
-            style={styles.recruitButtonLarge}
+            style={[styles.recruitButtonLarge, recruitingJobSeeker === selectedJobSeeker?.id && styles.recruitButtonLargeDisabled]}
             onPress={() => {
               setShowJobSeekerDetails(false);
               handleRecruitJobSeeker(selectedJobSeeker!);
             }}
+            disabled={recruitingJobSeeker === selectedJobSeeker?.id}
           >
-            <MaterialCommunityIcons name="account-plus" size={24} color={colors.white} />
-            <Text style={styles.recruitButtonLargeText}>Send Recruitment Request</Text>
+            {recruitingJobSeeker === selectedJobSeeker?.id ? (
+              <View style={styles.recruitingContainer}>
+                <ActivityIndicator size="small" color={colors.white} />
+                <Text style={styles.recruitButtonLargeText}>
+                  {recruitmentStep || 'Sending Request...'}
+                </Text>
+              </View>
+            ) : (
+              <>
+                <MaterialCommunityIcons name="account-plus" size={24} color={colors.white} />
+                <Text style={styles.recruitButtonLargeText}>Send Recruitment Request</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -1931,6 +1975,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.bold,
     color: colors.white,
     marginLeft: 8,
+  },
+  recruitButtonDisabled: {
+    opacity: 0.6,
+  },
+  recruitButtonLargeDisabled: {
+    opacity: 0.6,
+  },
+  recruitingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

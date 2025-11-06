@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  FlatList,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +19,7 @@ import { API_ENDPOINTS } from '../constants/api';
 import { getAuth } from 'firebase/auth';
 import subscriptionService, { SubscriptionStatus } from '../services/subscriptionService';
 import companyFleetValidationService from '../services/companyFleetValidationService';
+import { apiRequest } from '../utils/api';
 
 const FleetManagementScreen = () => {
   const navigation = useNavigation();
@@ -31,6 +33,14 @@ const FleetManagementScreen = () => {
     activeDrivers: 0,
     assignedDrivers: 0,
   });
+  
+  // Company profile state
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [loadingCompanyProfile, setLoadingCompanyProfile] = useState(false);
+  
+  // Vehicle and driver lists
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   
   // Subscription state
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
@@ -112,6 +122,52 @@ const FleetManagementScreen = () => {
     }
   };
 
+  const fetchCompanyProfile = async (): Promise<any | null> => {
+    if (loadingCompanyProfile) {
+      console.log('🏢 Company profile already loading, skipping...');
+      return companyProfile; // Return existing profile if already loading
+    }
+
+    try {
+      setLoadingCompanyProfile(true);
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('🏢 No authenticated user');
+        return null;
+      }
+
+      console.log('🏢 Fetching company profile for user:', user.uid);
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🏢 Company profile loaded:', data);
+        const profile = data[0] || data;
+        console.log('🏢 Setting company profile:', profile);
+        console.log('🏢 Company ID:', profile?.id || profile?.companyId);
+        setCompanyProfile(profile);
+        return profile; // Return the profile data directly
+      } else {
+        console.error('🏢 Failed to load company profile:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('🏢 Error response:', errorText);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching company profile:', error);
+      return null;
+    } finally {
+      setLoadingCompanyProfile(false);
+    }
+  };
+
   const fetchFleetStats = async () => {
     try {
       setLoading(true);
@@ -119,32 +175,70 @@ const FleetManagementScreen = () => {
       const user = auth.currentUser;
       if (!user) return;
 
+      // Ensure company profile is loaded - get it directly from the function
+      let currentProfile = companyProfile;
+      if (!currentProfile?.id && !currentProfile?.companyId) {
+        console.log('🏢 Company profile not loaded, fetching...');
+        currentProfile = await fetchCompanyProfile();
+        if (!currentProfile) {
+          console.error('🏢 Failed to load company profile');
+          Alert.alert(
+            'Company Profile Error',
+            'Unable to load your company profile. This might be a temporary issue.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { 
+                text: 'Retry', 
+                onPress: async () => {
+                  const retryProfile = await fetchCompanyProfile();
+                  if (retryProfile) {
+                    await fetchFleetStats();
+                  }
+                }
+              }
+            ]
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Use the profile we just fetched or the existing one
+      const companyId = currentProfile?.id || currentProfile?.companyId;
+      if (!companyId) {
+        console.error('🏢 Company ID not available');
+        setLoading(false);
+        return;
+      }
+
+      console.log('🏢 Fetching fleet data for company:', companyId);
       const token = await user.getIdToken();
 
-      const [vehiclesRes, driversRes] = await Promise.all([
-        fetch(`${API_ENDPOINTS.VEHICLES}`, { 
-          headers: { 'Authorization': `Bearer ${token}` } 
-        }),
-        fetch(`${API_ENDPOINTS.DRIVERS}`, { 
-          headers: { 'Authorization': `Bearer ${token}` } 
-        }),
+      // Use company-specific endpoints
+      const [vehiclesData, driversData] = await Promise.all([
+        apiRequest(`/companies/${companyId}/vehicles`).catch(() => ({ vehicles: [] })),
+        apiRequest(`/companies/${companyId}/drivers`).catch(() => ({ drivers: [] })),
       ]);
 
-      const vehiclesData = vehiclesRes.ok ? await vehiclesRes.json() : { vehicles: [] };
-      const driversData = driversRes.ok ? await driversRes.json() : { drivers: [] };
+      const vehiclesList = vehiclesData.vehicles || [];
+      const driversList = driversData.drivers || [];
 
       // Count all vehicles for total, but only approved for active
-      const allVehicles = vehiclesData.vehicles;
-      const approvedVehicles = allVehicles.filter(v => v.status === 'approved');
+      const allVehicles = vehiclesList;
+      const approvedVehicles = allVehicles.filter((v: any) => v.status === 'approved');
       const totalVehicleCount = allVehicles.length;
-      const driverCount = driversData.drivers.length;
+      const driverCount = driversList.length;
+
+      // Set vehicles and drivers for display - show ALL vehicles and drivers (not just approved/active)
+      setVehicles(allVehicles); // Show all vehicles including pending
+      setDrivers(driversList); // Show all drivers including pending and inactive
 
       setFleetStats({
         totalVehicles: totalVehicleCount,
-        activeVehicles: approvedVehicles.filter(v => !v.assignedDriverId).length,
+        activeVehicles: approvedVehicles.filter((v: any) => !v.assignedDriverId).length,
         totalDrivers: driverCount,
-        activeDrivers: driversData.drivers.filter(d => d.status === 'active').length,
-        assignedDrivers: driversData.drivers.filter(d => d.assignedVehicleId).length,
+        activeDrivers: driversList.filter((d: any) => d.status === 'active').length,
+        assignedDrivers: driversList.filter((d: any) => d.assignedVehicleId).length,
       });
 
       // Update subscription status with real counts (only approved vehicles for limits)
@@ -168,6 +262,7 @@ const FleetManagementScreen = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await fetchCompanyProfile();
     await fetchFleetStats();
     setRefreshing(false);
   };
@@ -175,11 +270,20 @@ const FleetManagementScreen = () => {
   useEffect(() => {
     const initializeData = async () => {
       await fetchSubscriptionStatus();
+      await fetchCompanyProfile();
       await fetchFleetStats();
     };
     
     initializeData();
   }, []);
+
+  // Refetch fleet stats when company profile is loaded
+  useEffect(() => {
+    if ((companyProfile?.id || companyProfile?.companyId) && !loading) {
+      fetchFleetStats();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyProfile?.id, companyProfile?.companyId]);
 
   const fleetOptions = [
     {
@@ -330,12 +434,15 @@ const FleetManagementScreen = () => {
               <MaterialCommunityIcons name="truck" size={24} color={colors.primary} />
               <Text style={styles.statNumber}>{fleetStats.totalVehicles}</Text>
               <Text style={styles.statLabel}>Total Vehicles</Text>
-              {subscriptionStatus && vehicleValidation && (
+              {subscriptionStatus && vehicleValidation ? (
                 <Text style={styles.statSubtext}>
                   {vehicleValidation.currentCount} / {vehicleValidation.limit === -1 ? 'Unlimited' : vehicleValidation.limit}
                 </Text>
-              )}
-              {console.log('🚛 Vehicle Validation:', vehicleValidation)}
+              ) : subscriptionStatus ? (
+                <Text style={styles.statSubtext}>
+                  {fleetStats.totalVehicles} / 3 (Trial)
+                </Text>
+              ) : null}
             </View>
             <View style={styles.statCard}>
               <MaterialCommunityIcons name="truck-check" size={24} color={colors.success} />
@@ -346,12 +453,15 @@ const FleetManagementScreen = () => {
               <MaterialCommunityIcons name="account-group" size={24} color={colors.warning} />
               <Text style={styles.statNumber}>{fleetStats.totalDrivers}</Text>
               <Text style={styles.statLabel}>Total Drivers</Text>
-              {subscriptionStatus && driverValidation && (
+              {subscriptionStatus && driverValidation ? (
                 <Text style={styles.statSubtext}>
                   {driverValidation.currentCount} / {driverValidation.limit === -1 ? 'Unlimited' : driverValidation.limit}
                 </Text>
-              )}
-              {console.log('👥 Driver Validation:', driverValidation)}
+              ) : subscriptionStatus ? (
+                <Text style={styles.statSubtext}>
+                  {fleetStats.totalDrivers} / 3 (Trial)
+                </Text>
+              ) : null}
             </View>
             <View style={styles.statCard}>
               <MaterialCommunityIcons name="account-check" size={24} color={colors.success} />
@@ -359,6 +469,164 @@ const FleetManagementScreen = () => {
               <Text style={styles.statLabel}>Assigned</Text>
             </View>
           </View>
+        </View>
+
+        {/* Vehicles List */}
+        <View style={styles.listSection}>
+          <View style={styles.listHeader}>
+            <Text style={styles.listTitle}>Vehicles ({vehicles.length})</Text>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => navigation.navigate('VehicleManagement' as never)}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+              <Text style={styles.addButtonText}>Add Vehicle</Text>
+            </TouchableOpacity>
+          </View>
+          {loading && vehicles.length === 0 && !refreshing ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading vehicles...</Text>
+            </View>
+          ) : vehicles.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="truck-remove" size={48} color={colors.text.light} />
+              <Text style={styles.emptyText}>No vehicles added yet</Text>
+              <Text style={styles.emptySubtext}>Start building your fleet by adding your first vehicle</Text>
+              <TouchableOpacity
+                style={styles.emptyButton}
+                onPress={() => navigation.navigate('VehicleManagement' as never)}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                <Text style={styles.emptyButtonText}>Add First Vehicle</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={vehicles.slice(0, 5)} // Show first 5 vehicles
+              keyExtractor={(item) => item.id || item._id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.itemCard}
+                  onPress={() => navigation.navigate('VehicleManagement' as never)}
+                >
+                  <View style={styles.itemIcon}>
+                    <MaterialCommunityIcons name="truck" size={24} color={colors.primary} />
+                  </View>
+                  <View style={styles.itemContent}>
+                    <Text style={styles.itemTitle}>{item.vehicleReg || item.registration || 'N/A'}</Text>
+                    <Text style={styles.itemSubtitle}>
+                      {item.vehicleMake || item.make} {item.vehicleType || item.type}
+                    </Text>
+                    <View style={styles.itemBadge}>
+                      <MaterialCommunityIcons 
+                        name={item.status === 'approved' ? 'check-circle' : item.status === 'rejected' ? 'close-circle' : 'clock-outline'} 
+                        size={12} 
+                        color={item.status === 'approved' ? colors.success : item.status === 'rejected' ? colors.error : colors.warning} 
+                      />
+                      <Text style={[
+                        styles.itemBadgeText,
+                        { color: item.status === 'approved' ? colors.success : item.status === 'rejected' ? colors.error : colors.warning }
+                      ]}>
+                        {item.status === 'approved' ? 'Active' : item.status === 'rejected' ? 'Rejected' : 'Pending'}
+                      </Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.text.secondary} />
+                </TouchableOpacity>
+              )}
+              scrollEnabled={false}
+              ListFooterComponent={
+                vehicles.length > 5 ? (
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => navigation.navigate('VehicleManagement' as never)}
+                  >
+                    <Text style={styles.viewAllText}>View All {vehicles.length} Vehicles</Text>
+                  </TouchableOpacity>
+                ) : null
+              }
+            />
+          )}
+        </View>
+
+        {/* Drivers List */}
+        <View style={styles.listSection}>
+          <View style={styles.listHeader}>
+            <Text style={styles.listTitle}>Drivers ({drivers.length})</Text>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => navigation.navigate('DriverManagement' as never)}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+              <Text style={styles.addButtonText}>Add Driver</Text>
+            </TouchableOpacity>
+          </View>
+          {loading && drivers.length === 0 && !refreshing ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading drivers...</Text>
+            </View>
+          ) : drivers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="account-remove" size={48} color={colors.text.light} />
+              <Text style={styles.emptyText}>No drivers added yet</Text>
+              <Text style={styles.emptySubtext}>Recruit and manage your driver team</Text>
+              <TouchableOpacity
+                style={styles.emptyButton}
+                onPress={() => navigation.navigate('DriverManagement' as never)}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                <Text style={styles.emptyButtonText}>Add First Driver</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <FlatList
+              data={drivers.slice(0, 5)} // Show first 5 drivers
+              keyExtractor={(item) => item.id || item._id || item.driverId}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.itemCard}
+                  onPress={() => navigation.navigate('DriverManagement' as never)}
+                >
+                  <View style={styles.itemIcon}>
+                    <MaterialCommunityIcons name="account" size={24} color={colors.warning} />
+                  </View>
+                  <View style={styles.itemContent}>
+                    <Text style={styles.itemTitle}>{item.name || item.driverName || 'N/A'}</Text>
+                    <Text style={styles.itemSubtitle}>
+                      {item.phone || item.phoneNumber || 'No phone'}
+                    </Text>
+                    <View style={styles.itemBadge}>
+                      <MaterialCommunityIcons 
+                        name={item.status === 'active' ? 'check-circle' : item.status === 'inactive' ? 'pause-circle' : item.status === 'rejected' ? 'close-circle' : 'clock-outline'} 
+                        size={12} 
+                        color={item.status === 'active' ? colors.success : item.status === 'inactive' ? colors.text.secondary : item.status === 'rejected' ? colors.error : colors.warning} 
+                      />
+                      <Text style={[
+                        styles.itemBadgeText,
+                        { color: item.status === 'active' ? colors.success : item.status === 'inactive' ? colors.text.secondary : item.status === 'rejected' ? colors.error : colors.warning }
+                      ]}>
+                        {item.status === 'active' ? 'Active' : item.status === 'inactive' ? 'Inactive' : item.status === 'rejected' ? 'Rejected' : 'Pending'}
+                      </Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.text.secondary} />
+                </TouchableOpacity>
+              )}
+              scrollEnabled={false}
+              ListFooterComponent={
+                drivers.length > 5 ? (
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => navigation.navigate('DriverManagement' as never)}
+                  >
+                    <Text style={styles.viewAllText}>View All {drivers.length} Drivers</Text>
+                  </TouchableOpacity>
+                ) : null
+              }
+            />
+          )}
         </View>
 
         {/* Collapsible Subscription Section */}
@@ -684,6 +952,143 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.bold,
     color: colors.white,
     marginLeft: 6,
+  },
+  // List Section Styles
+  listSection: {
+    marginBottom: 24,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  listTitle: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    marginLeft: 6,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginLeft: 12,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyButtonText: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    marginLeft: 6,
+  },
+  itemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  itemIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.background.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  itemContent: {
+    flex: 1,
+  },
+  itemTitle: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  itemSubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginBottom: 6,
+  },
+  itemBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+  },
+  itemBadgeText: {
+    fontSize: 12,
+    fontFamily: fonts.family.medium,
+    marginLeft: 4,
+  },
+  viewAllButton: {
+    padding: 12,
+    alignItems: 'center',
+    backgroundColor: colors.background.light,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.primary,
   },
 });
 

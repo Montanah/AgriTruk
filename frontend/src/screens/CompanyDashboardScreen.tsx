@@ -20,6 +20,7 @@ import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 import { COMPANY_FLEET_PLANS } from '../constants/subscriptionPlans';
 import subscriptionService, { SubscriptionStatus } from '../services/subscriptionService';
 import companyFleetValidationService from '../services/companyFleetValidationService';
+import { apiRequest } from '../utils/api';
 
 interface FleetStats {
   totalVehicles: number;
@@ -63,6 +64,10 @@ const CompanyDashboardScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Company profile state
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  const [loadingCompanyProfile, setLoadingCompanyProfile] = useState(false);
+  
   // Subscription state
   const [featureAccess, setFeatureAccess] = useState<any>(null);
   
@@ -82,6 +87,53 @@ const CompanyDashboardScreen = () => {
     }
   };
 
+  const fetchCompanyProfile = async (): Promise<any | null> => {
+    if (loadingCompanyProfile) {
+      console.log('🏢 Company profile already loading, skipping...');
+      return companyProfile; // Return existing profile if already loading
+    }
+
+    try {
+      setLoadingCompanyProfile(true);
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        console.error('🏢 No authenticated user');
+        return null;
+      }
+
+      console.log('🏢 Fetching company profile for user:', user.uid);
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🏢 Company profile loaded:', data);
+        const profile = data[0] || data;
+        console.log('🏢 Setting company profile:', profile);
+        console.log('🏢 Company ID:', profile?.id || profile?.companyId);
+        setCompanyProfile(profile);
+        return profile; // Return the profile data directly
+      } else {
+        console.error('🏢 Failed to load company profile:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('🏢 Error response:', errorText);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching company profile:', error);
+      return null;
+    } finally {
+      setLoadingCompanyProfile(false);
+    }
+  };
+
   const fetchDashboardData = async () => {
     try {
       setError(null);
@@ -90,81 +142,109 @@ const CompanyDashboardScreen = () => {
       const user = auth.currentUser;
       if (!user) return;
 
-      const token = await user.getIdToken();
+      // Ensure company profile is loaded first - get it directly from the function
+      let currentProfile = companyProfile;
+      if (!currentProfile?.id && !currentProfile?.companyId) {
+        console.log('🏢 Company profile not loaded, fetching...');
+        currentProfile = await fetchCompanyProfile();
+        if (!currentProfile) {
+          console.error('🏢 Failed to load company profile');
+          setError('Unable to load company profile. Please try again.');
+          setLoading(false);
+          return;
+        }
+      }
 
-      // Fetch fleet stats, recent activity, and subscription status
-      const [vehiclesRes, driversRes, jobsRes, activityRes] = await Promise.all([
-        fetch(`${API_ENDPOINTS.VEHICLES}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+      // Use the profile we just fetched or the existing one
+      const companyId = currentProfile?.id || currentProfile?.companyId;
+      if (!companyId) {
+        console.error('🏢 Company ID not available');
+        setError('Company ID not available. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('🏢 Fetching dashboard data for company:', companyId);
+
+      // Use company-specific endpoints - handle 404s gracefully (expected for empty data)
+      const [vehiclesData, driversData, jobsData, activityData] = await Promise.all([
+        apiRequest(`/companies/${companyId}/vehicles`).catch((err: any) => {
+          // 404 is expected for empty resources - return empty array
+          if (err?.status === 404 || err?.isNotFound) {
+            return { vehicles: [] };
+          }
+          console.error('Error fetching vehicles:', err);
+          return { vehicles: [] };
         }),
-        fetch(`${API_ENDPOINTS.DRIVERS}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+        apiRequest(`/companies/${companyId}/drivers`).catch((err: any) => {
+          // 404 is expected for empty resources - return empty array
+          if (err?.status === 404 || err?.isNotFound) {
+            return { drivers: [] };
+          }
+          console.error('Error fetching drivers:', err);
+          return { drivers: [] };
         }),
-        fetch(`${API_ENDPOINTS.BOOKINGS}/company-stats`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+        apiRequest(`/bookings/company-stats`).catch((err: any) => {
+          // 404 is expected for empty resources - return default stats
+          if (err?.status === 404 || err?.isNotFound) {
+            return {
+              totalJobs: 0,
+              completedJobs: 0,
+              pendingJobs: 0,
+              totalEarnings: 0,
+              thisMonthEarnings: 0,
+            };
+          }
+          console.error('Error fetching company stats:', err);
+          return {
+            totalJobs: 0,
+            completedJobs: 0,
+            pendingJobs: 0,
+            totalEarnings: 0,
+            thisMonthEarnings: 0,
+          };
         }),
-        fetch(`${API_ENDPOINTS.COMPANIES}/recent-activity`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+        apiRequest(`/companies/${companyId}/recent-activity`).catch((err: any) => {
+          // 404 is expected for empty resources - return empty array
+          if (err?.status === 404 || err?.isNotFound) {
+            return { activities: [] };
+          }
+          console.error('Error fetching recent activity:', err);
+          return { activities: [] };
         }),
       ]);
 
       // Process vehicles data
-      if (vehiclesRes.ok) {
-        const vehiclesData = await vehiclesRes.json();
-        const vehicles = vehiclesData.vehicles || [];
-        // Count all vehicles for total, but only approved for active
-        const allVehicles = vehicles;
-        const approvedVehicles = vehicles.filter((v: any) => v.status === 'approved');
-        setStats(prev => ({
-          ...prev,
-          totalVehicles: allVehicles.length,
-          activeVehicles: approvedVehicles.length,
-        }));
-      }
+      const vehicles = vehiclesData.vehicles || [];
+      const allVehicles = vehicles;
+      const approvedVehicles = vehicles.filter((v: any) => v.status === 'approved');
+      setStats(prev => ({
+        ...prev,
+        totalVehicles: allVehicles.length,
+        activeVehicles: approvedVehicles.length,
+      }));
 
       // Process drivers data
-      if (driversRes.ok) {
-        const driversData = await driversRes.json();
-        const drivers = driversData.drivers || [];
-        setStats(prev => ({
-          ...prev,
-          totalDrivers: drivers.length,
-          activeDrivers: drivers.filter((d: any) => d.status === 'active').length,
-          assignedDrivers: drivers.filter((d: any) => d.assignedVehicleId).length,
-        }));
-      }
+      const drivers = driversData.drivers || [];
+      setStats(prev => ({
+        ...prev,
+        totalDrivers: drivers.length,
+        activeDrivers: drivers.filter((d: any) => d.status === 'active').length,
+        assignedDrivers: drivers.filter((d: any) => d.assignedVehicleId).length,
+      }));
 
       // Process jobs data
-      if (jobsRes.ok) {
-        const jobsData = await jobsRes.json();
-        setStats(prev => ({
-          ...prev,
-          totalJobs: jobsData.totalJobs || 0,
-          completedJobs: jobsData.completedJobs || 0,
-          pendingJobs: jobsData.pendingJobs || 0,
-          totalEarnings: jobsData.totalEarnings || 0,
-          thisMonthEarnings: jobsData.thisMonthEarnings || 0,
-        }));
-      }
+      setStats(prev => ({
+        ...prev,
+        totalJobs: jobsData.totalJobs || 0,
+        completedJobs: jobsData.completedJobs || 0,
+        pendingJobs: jobsData.pendingJobs || 0,
+        totalEarnings: jobsData.totalEarnings || 0,
+        thisMonthEarnings: jobsData.thisMonthEarnings || 0,
+      }));
 
       // Process recent activity
-      if (activityRes.ok) {
-        const activityData = await activityRes.json();
-        setRecentActivity(activityData.activities || []);
-      }
-
+      setRecentActivity(activityData.activities || []);
 
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
@@ -176,13 +256,32 @@ const CompanyDashboardScreen = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await fetchCompanyProfile();
     await fetchDashboardData();
     setRefreshing(false);
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    const initializeData = async () => {
+      await fetchCompanyProfile();
+      await fetchDashboardData();
+    };
+    
+    initializeData();
   }, []);
+
+  // Refetch dashboard data when company profile is loaded
+  useEffect(() => {
+    // Only refetch if profile is loaded and we're not already loading
+    if ((companyProfile?.id || companyProfile?.companyId) && !loading && !refreshing) {
+      // Use a small delay to avoid race conditions
+      const timeoutId = setTimeout(() => {
+        fetchDashboardData();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyProfile?.id, companyProfile?.companyId]);
 
   useEffect(() => {
     validateFeatureAccess();

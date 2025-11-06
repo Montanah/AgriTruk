@@ -174,11 +174,14 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     console.log('📄 Response data:', data);
 
     if (!res.ok) {
-      console.error('API Error Response:', {
-        status: res.status,
-        statusText: res.statusText,
-        data: data
-      });
+      // Log error details for debugging (but don't show to user for expected 404s)
+      if (res.status !== 404) {
+        console.error('API Error Response:', {
+          status: res.status,
+          statusText: res.statusText,
+          data: data
+        });
+      }
       
       // Handle specific authentication errors
       if (res.status === 401) {
@@ -186,7 +189,11 @@ export async function apiRequest(endpoint: string, options: any = {}) {
       } else if (res.status === 403) {
         throw new Error("Access denied. You don't have permission for this action.");
       } else if (res.status === 404) {
-        throw new Error('Resource not found. Please check your request.');
+        // 404 is expected for empty resources - throw a specific error that can be caught
+        const notFoundError: any = new Error(data.message || 'Resource not found');
+        notFoundError.status = 404;
+        notFoundError.isNotFound = true; // Flag to indicate this is an expected 404
+        throw notFoundError;
       } else if (res.status === 409) {
         throw new Error(data.message || 'User already exists. Please sign in instead.');
       } else if (res.status === 400) {
@@ -197,11 +204,25 @@ export async function apiRequest(endpoint: string, options: any = {}) {
     }
     return data;
   } catch (error: any) {
-    // API error details
-    console.error('🚨 API Request Error:', error);
-    console.error('🚨 Error message:', error.message);
-    console.error('🚨 Error status:', error.status);
-    console.error('🚨 Full error object:', JSON.stringify(error, null, 2));
+    // Skip logging for expected 404 errors (empty resources)
+    if (error?.isNotFound && error?.status === 404) {
+      // Re-throw 404 errors silently - they're expected for empty resources
+      throw error;
+    }
+    
+    // API error details - handle Error objects properly
+    const errorMessage = error?.message || error?.toString() || 'Unknown error';
+    const errorStatus = error?.status || error?.response?.status || 'N/A';
+    const errorData = error?.response?.data || error?.data || null;
+    
+    // Only log non-404 errors
+    if (errorStatus !== 404) {
+      console.error('🚨 API Request Error:', errorMessage);
+      console.error('🚨 Error status:', errorStatus);
+      if (errorData) {
+        console.error('🚨 Error data:', errorData);
+      }
+    }
 
     // Provide better error messages
     if (error.message?.includes('Network request failed') || error.message?.includes('fetch')) {

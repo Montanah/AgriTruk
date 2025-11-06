@@ -167,7 +167,15 @@ export default function ManageTransporterScreen({ route }: any) {
           const driversData = await apiRequest(`/companies/${companyProfile.companyId}/drivers`);
           // Only show active drivers for companies
           const activeDrivers = driversData?.drivers?.filter(d => d.status === 'active') || [];
-          setDrivers(activeDrivers);
+          // Map drivers to ensure name is properly constructed
+          const mappedDrivers = activeDrivers.map((d: any) => ({
+            ...d,
+            name: d.firstName && d.lastName 
+              ? `${d.firstName} ${d.lastName}` 
+              : d.name || '',
+            idNumber: d.idNumber || d.idDocumentNumber || '',
+          }));
+          setDrivers(mappedDrivers);
 
           // Fetch vehicles using company-specific endpoint
           const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
@@ -1591,57 +1599,95 @@ export default function ManageTransporterScreen({ route }: any) {
       const vehicle = vehicles[vehicleIdx];
       if (!vehicle) return;
 
-      // Call backend API to assign driver
+      // Use the same approach as DriverAssignmentsScreen: fetch directly with API_ENDPOINTS
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        setAssigningDriver(false);
+        return;
+      }
+
+      const token = await user.getIdToken();
+
+      // Use the same endpoint as DriverAssignmentsScreen: POST /api/vehicles/:id/assign-driver
+      const assignmentData = {
+        driverId,
+        activateDriver: true // Always activate driver before assignment
+      };
+
       const response = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicle.id}/assign-driver`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${await getAuth().currentUser?.getIdToken()}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ driverId }),
+        body: JSON.stringify(assignmentData),
       });
 
-      if (response.ok) {
-        // Update local state only if backend call succeeds
-        setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: driverId } : v));
-        
-        // Refresh data to ensure consistency
-        setTimeout(() => {
-          fetchCompanyData();
-        }, 1000);
-        
-        // Show success message
-        Alert.alert(
-          'Success',
-          `Driver assigned to vehicle ${vehicle.reg} successfully!`,
-          [{ text: 'OK' }]
-        );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to assign driver to vehicle: ${response.status}`);
+      }
 
-        // Send notification to driver
-        const driver = drivers.find(d => d.id === driverId);
-        if (driver) {
-          notificationService.sendEmail(
-            driver.email,
-            'Vehicle Assignment',
-            `Hi ${driver.name}, you have been assigned vehicle ${vehicle.reg} (${vehicle.type}). Please check your dashboard for details.`,
-            'driver',
-            'vehicle_assigned',
-            { vehicle, driver }
-          );
+      // Update local state only if backend call succeeds
+      setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: driverId } : v));
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        // Refetch drivers and vehicles
+        if (transporterType === 'company' && companyProfile?.companyId) {
+          const fetchData = async () => {
+            try {
+              const driversData = await apiRequest(`/companies/${companyProfile.companyId}/drivers`);
+              const activeDrivers = driversData?.drivers?.filter(d => d.status === 'active') || [];
+              const mappedDrivers = activeDrivers.map((d: any) => ({
+                ...d,
+                name: d.firstName && d.lastName 
+                  ? `${d.firstName} ${d.lastName}` 
+                  : d.name || '',
+                idNumber: d.idNumber || d.idDocumentNumber || '',
+              }));
+              setDrivers(mappedDrivers);
+
+              const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
+              const approvedVehicles = vehiclesData?.vehicles?.filter(v => v.status === 'approved') || [];
+              setVehicles(approvedVehicles);
+            } catch (error) {
+              console.error('Error refreshing data:', error);
+            }
+          };
+          fetchData();
         }
-      } else {
-        const errorData = await response.json();
-        Alert.alert(
-          'Assignment Failed',
-          errorData.message || 'Failed to assign driver to vehicle. Please try again.',
-          [{ text: 'OK' }]
+      }, 1000);
+      
+      // Show success message
+      Alert.alert(
+        'Success',
+        `Driver assigned to vehicle ${vehicle.reg || vehicle.vehicleRegistration || vehicle.id} successfully!`,
+        [{ text: 'OK' }]
+      );
+
+      // Send notification to driver
+      const driver = drivers.find(d => d.id === driverId);
+      if (driver) {
+        const driverName = driver.firstName && driver.lastName 
+          ? `${driver.firstName} ${driver.lastName}` 
+          : driver.name || 'Driver';
+        notificationService.sendEmail(
+          driver.email,
+          'Vehicle Assignment',
+          `Hi ${driverName}, you have been assigned vehicle ${vehicle.reg || vehicle.vehicleRegistration || vehicle.id} (${vehicle.type || 'vehicle'}). Please check your dashboard for details.`,
+          'driver',
+          'vehicle_assigned',
+          { vehicle, driver }
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error assigning driver to vehicle:', error);
       Alert.alert(
-        'Error',
-        'Network error. Please check your connection and try again.',
+        'Assignment Failed',
+        error?.message || 'Failed to assign driver to vehicle. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -1654,56 +1700,88 @@ export default function ManageTransporterScreen({ route }: any) {
       const vehicle = vehicles[vehicleIdx];
       if (!vehicle || !vehicle.assignedDriverId) return;
 
-      // Call backend API to unassign driver
+      const driverId = vehicle.assignedDriverId;
+
+      // Use the same approach as DriverAssignmentsScreen: fetch directly with API_ENDPOINTS
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+
+      // Use the same endpoint as DriverAssignmentsScreen: DELETE /api/vehicles/:id/unassign-driver
       const response = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicle.id}/unassign-driver`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${await getAuth().currentUser?.getIdToken()}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
-      if (response.ok) {
-        // Update local state only if backend call succeeds
-        setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: null } : v));
-        
-        // Refresh data to ensure consistency
-        setTimeout(() => {
-          fetchCompanyData();
-        }, 1000);
-        
-        // Show success message
-        Alert.alert(
-          'Success',
-          `Driver unassigned from vehicle ${vehicle.reg} successfully!`,
-          [{ text: 'OK' }]
-        );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to unassign driver from vehicle: ${response.status}`);
+      }
 
-        // Send notification to driver
-        const driver = drivers.find(d => d.id === vehicle.assignedDriverId);
-        if (driver) {
-          notificationService.sendEmail(
-            driver.email,
-            'Vehicle Assignment Removed',
-            `Hi ${driver.name}, you have been unassigned from vehicle ${vehicle.reg} (${vehicle.type}).`,
-            'driver',
-            'vehicle_unassigned',
-            { vehicle, driver }
-          );
+      // Update local state only if backend call succeeds
+      setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: null } : v));
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        // Refetch drivers and vehicles
+        if (transporterType === 'company' && companyProfile?.companyId) {
+          const fetchData = async () => {
+            try {
+              const driversData = await apiRequest(`/companies/${companyProfile.companyId}/drivers`);
+              const activeDrivers = driversData?.drivers?.filter(d => d.status === 'active') || [];
+              const mappedDrivers = activeDrivers.map((d: any) => ({
+                ...d,
+                name: d.firstName && d.lastName 
+                  ? `${d.firstName} ${d.lastName}` 
+                  : d.name || '',
+                idNumber: d.idNumber || d.idDocumentNumber || '',
+              }));
+              setDrivers(mappedDrivers);
+
+              const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
+              const approvedVehicles = vehiclesData?.vehicles?.filter(v => v.status === 'approved') || [];
+              setVehicles(approvedVehicles);
+            } catch (error) {
+              console.error('Error refreshing data:', error);
+            }
+          };
+          fetchData();
         }
-      } else {
-        const errorData = await response.json();
-        Alert.alert(
-          'Unassignment Failed',
-          errorData.message || 'Failed to unassign driver from vehicle. Please try again.',
-          [{ text: 'OK' }]
+      }, 1000);
+      
+      // Show success message
+      Alert.alert(
+        'Success',
+        `Driver unassigned from vehicle ${vehicle.reg || vehicle.vehicleRegistration || vehicle.id} successfully!`,
+        [{ text: 'OK' }]
+      );
+
+      // Send notification to driver
+      const driver = drivers.find(d => d.id === driverId);
+      if (driver) {
+        const driverName = driver.firstName && driver.lastName 
+          ? `${driver.firstName} ${driver.lastName}` 
+          : driver.name || 'Driver';
+        notificationService.sendEmail(
+          driver.email,
+          'Vehicle Assignment Removed',
+          `Hi ${driverName}, you have been unassigned from vehicle ${vehicle.reg || vehicle.vehicleRegistration || vehicle.id} (${vehicle.type || 'vehicle'}).`,
+          'driver',
+          'vehicle_unassigned',
+          { vehicle, driver }
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error unassigning driver from vehicle:', error);
       Alert.alert(
-        'Error',
-        'Network error. Please check your connection and try again.',
+        'Unassignment Failed',
+        error?.message || 'Failed to unassign driver from vehicle. Please try again.',
         [{ text: 'OK' }]
       );
     }
@@ -2100,6 +2178,22 @@ export default function ManageTransporterScreen({ route }: any) {
             <View style={styles.modalOverlay}>
               <View style={styles.vehicleModalCard}>
                 <Text style={styles.editTitle}>Assign Driver</Text>
+                {assignModalVehicleIdx !== null && vehicles[assignModalVehicleIdx] && (
+                  <View style={{ backgroundColor: colors.background.secondary, padding: 12, borderRadius: 8, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: colors.primary }}>
+                    <Text style={{ fontSize: 14, fontFamily: fonts.family.bold, color: colors.text.primary, marginBottom: 4 }}>
+                      Vehicle Details:
+                    </Text>
+                    <Text style={{ fontSize: 14, fontFamily: fonts.family.medium, color: colors.text.primary }}>
+                      {vehicles[assignModalVehicleIdx].make || 'Unknown'} {vehicles[assignModalVehicleIdx].model || ''} ({vehicles[assignModalVehicleIdx].year || 'N/A'})
+                    </Text>
+                    <Text style={{ fontSize: 14, fontFamily: fonts.family.bold, color: colors.primary, marginTop: 4 }}>
+                      Registration: {vehicles[assignModalVehicleIdx].reg || vehicles[assignModalVehicleIdx].vehicleRegistration || vehicles[assignModalVehicleIdx].registration || 'N/A'}
+                    </Text>
+                    <Text style={{ fontSize: 12, fontFamily: fonts.family.medium, color: colors.text.secondary, marginTop: 2 }}>
+                      {vehicles[assignModalVehicleIdx].type || 'N/A'} • {vehicles[assignModalVehicleIdx].capacity ? `${vehicles[assignModalVehicleIdx].capacity} tons` : 'Capacity N/A'}
+                    </Text>
+                  </View>
+                )}
                 <TextInput
                   style={styles.input}
                   placeholder="Search drivers by name, email, or phone"
@@ -2113,27 +2207,37 @@ export default function ManageTransporterScreen({ route }: any) {
                   </View>
                 )}
                 <ScrollView style={{ maxHeight: 320, width: '100%' }}>
-                  {drivers.filter(d =>
-                    (d.name && d.name.toLowerCase().includes(driverSearch.toLowerCase())) ||
-                    (d.email && d.email.toLowerCase().includes(driverSearch.toLowerCase())) ||
-                    (d.phone && d.phone.toLowerCase().includes(driverSearch.toLowerCase()))
-                  ).map((d) => (
-                    <TouchableOpacity
-                      key={d.id}
-                      style={[styles.driverAssignBtn, assignModalVehicleIdx !== null && vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && styles.driverAssignBtnActive, { flexDirection: 'row', alignItems: 'center', marginBottom: 8 }]}
-                      onPress={async () => {
-                        if (assignModalVehicleIdx !== null) {
-                          await assignDriverToVehicle(assignModalVehicleIdx, d.id);
-                        }
-                        setShowAssignModal(false);
-                      }}
-                    >
-                      <Image source={{ uri: d.photo?.uri }} style={styles.driverAssignPhoto} />
-                      <View style={{ marginLeft: 8, flex: 1 }}>
-                        <Text style={styles.driverAssignName}>Name: {d.name}</Text>
-                        <Text style={styles.driverAssignName}>Contact: {d.phone}</Text>
-                        <Text style={styles.driverAssignName}>Email: {d.email}</Text>
-                        <Text style={styles.driverAssignName}>ID: {d.id}</Text>
+                  {drivers.filter(d => {
+                    const driverName = d.firstName && d.lastName 
+                      ? `${d.firstName} ${d.lastName}` 
+                      : d.name || '';
+                    return (
+                      (driverName && driverName.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                      (d.email && d.email.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                      (d.phone && d.phone.toLowerCase().includes(driverSearch.toLowerCase()))
+                    );
+                  }).map((d) => {
+                    const driverName = d.firstName && d.lastName 
+                      ? `${d.firstName} ${d.lastName}` 
+                      : d.name || 'Not Available';
+                    const driverIdNumber = d.idNumber || d.idDocumentNumber || 'Not Available';
+                    return (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={[styles.driverAssignBtn, assignModalVehicleIdx !== null && vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && styles.driverAssignBtnActive, { flexDirection: 'row', alignItems: 'center', marginBottom: 8 }]}
+                        onPress={async () => {
+                          if (assignModalVehicleIdx !== null) {
+                            await assignDriverToVehicle(assignModalVehicleIdx, d.id);
+                          }
+                          setShowAssignModal(false);
+                        }}
+                      >
+                        <Image source={{ uri: d.photo?.uri }} style={styles.driverAssignPhoto} />
+                        <View style={{ marginLeft: 8, flex: 1 }}>
+                          <Text style={styles.driverAssignName}>Name: {driverName}</Text>
+                          <Text style={styles.driverAssignName}>Contact: {d.phone || 'Not Available'}</Text>
+                          <Text style={styles.driverAssignName}>Email: {d.email || 'Not Available'}</Text>
+                          <Text style={styles.driverAssignName}>ID: {driverIdNumber}</Text>
                         {d.assignedVehicleId && (
                           <Text style={[styles.driverAssignName, { color: colors.warning, fontWeight: 'bold' }]}>
                             Currently assigned to: {d.assignedVehicleId}
@@ -2144,7 +2248,8 @@ export default function ManageTransporterScreen({ route }: any) {
                         <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={{ marginLeft: 8 }} />
                       )}
                     </TouchableOpacity>
-                  ))}
+                    );
+                  })}
                 </ScrollView>
                 <View style={styles.editActionsRow}>
                   <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAssignModal(false)}>
