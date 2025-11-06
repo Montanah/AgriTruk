@@ -26,10 +26,14 @@ async function validateBookingAccess(req, res, next) {
     // 2️⃣ Check driver approval and license
     // For company drivers, status can be 'active' (pre-verified) or 'approved'
     const isDriverApproved = driver.status === 'approved' || driver.status === 'active';
-    if (!isDriverApproved || driver.driverLicenseApproved !== true) {
+    const isLicenseApproved = driver.driverLicenseApproved === true;
+    const isLicenseExpired = Driver.isDriverLicenseExpired(driver);
+    if (!isDriverApproved || !isLicenseApproved || isLicenseExpired) {
       return res.status(403).json({
         success: false,
-        message: 'Driver not approved or license not verified.',
+        message: isLicenseExpired
+          ? 'Your driver license has expired. Please update it.'
+          : 'Driver not approved or license not verified.',
       });
     }
 
@@ -67,6 +71,7 @@ async function validateBookingAccess(req, res, next) {
         message: 'Assigned vehicle not found.',
       });
     }
+    console.log('🚗 Vehicle found:', vehicle);
 
     // For company vehicles, status might be 'active' instead of 'approved'
     const isVehicleApproved = vehicle.status === 'approved' || vehicle.status === 'active';

@@ -272,6 +272,25 @@ const Driver = {
     return snapshot.docs.map(doc => ({ driverId: doc.id, ...doc.data() }));
   },
 
+  isDriverLicenseExpired(driverData) {
+    if (!driverData.driverLicenseExpiryDate) return true; 
+
+    const expiryTimestamp = driverData.driverLicenseExpiryDate;
+    const now = admin.firestore.Timestamp.now();
+
+    return expiryTimestamp.toMillis() < now.toMillis();
+  },
+
+  isDocumentExpired(driverData, field) {
+    const expiry = driverData[field];
+    if (!expiry) return true;
+    return expiry.toMillis() < admin.firestore.Timestamp.now().toMillis();
+  },
+
+   async assignDriver(driverId, vehicleId, vehicleDetails) {
+    await db.collection('drivers').doc(driverId).update({ assignedVehicleId: vehicleId, assignedVehicleDetails: vehicleDetails});
+  },
+
 };
 
 module.exports = Driver; 

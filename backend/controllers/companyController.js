@@ -1109,7 +1109,7 @@ exports.updateVehicleAssignment = async (req, res) => {
     }
 
     // Check if vehicle exists
-    const vehicle = await Vehicle.get(companyId, vehicleId); // Include companyId
+    const vehicle = await Vehicle.get(vehicleId); 
     if (!vehicle) {
       return res.status(404).json({
         success: false,
@@ -1129,7 +1129,7 @@ exports.updateVehicleAssignment = async (req, res) => {
     switch (action) {
       case 'assign':
         // Check if driver exists
-        const driver = await Driver.get(companyId, driverId); // Include companyId
+        const driver = await Driver.get(driverId); // Include companyId
         if (!driver) {
           return res.status(404).json({
             success: false,
@@ -1145,16 +1145,17 @@ exports.updateVehicleAssignment = async (req, res) => {
           });
         }
 
-        await Vehicle.assignDriver(companyId, vehicleId, driverId);
+        await Vehicle.assignDriver(vehicleId, driverId);
+        await Driver.assignDriver(driverId, vehicleId, vehicle);
         break;
       case 'unassign':
-        await Vehicle.unassignDriver(companyId, vehicleId); // Include companyId
+        await Vehicle.unassignDriver(vehicleId); // Include companyId
         break;
       case 'update-availability':
         if (availability === undefined) {
           return res.status(400).json({ success: false, message: 'Availability is required for update-availability action' });
         }
-        await Vehicle.updateAvailability(companyId, vehicleId, availability);
+        await Vehicle.updateAvailability( vehicleId, availability);
         break;
       default:
         return res.status(400).json({ success: false, message: 'Invalid action' });
