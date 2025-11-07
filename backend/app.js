@@ -47,6 +47,9 @@ const server = require('http').createServer(app);
 const io = initializeSocket(server);
 app.set('io', io);
 
+// Export server for use in server.js
+module.exports.server = server;
+
 app.use(helmet());
 app.set('trust proxy', 1);
 app.use(cors());
