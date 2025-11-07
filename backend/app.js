@@ -40,10 +40,14 @@ const { swaggerUi, specs } = require('./config/swagger');
 const requestMetadata = require('./middlewares/requestMetadata');
 const healthMonitor = require('./utils/healthMonitor');
 const CronScheduler = require('./jobs/cronScheduler');
+const { initializeSocket } = require('./services/chatSocket');
 
 // const { testJob } = require('./jobs/companyDocumentExpiryJob');
+const server = require('http').createServer(app);
+const io = initializeSocket(server);
+app.set('io', io);
 
-//app.use(helmet());
+app.use(helmet());
 app.set('trust proxy', 1);
 app.use(cors());
 // Global request logger - BEFORE body parsers

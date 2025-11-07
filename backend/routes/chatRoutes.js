@@ -1,14 +1,16 @@
+// routes/chatRoutes.js
 const express = require('express');
 const router = express.Router();
 const ChatController = require('../controllers/chatController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
-const { requireRole }= require("../middlewares/requireRole");
+const { requireRole } = require("../middlewares/requireRole");
+const { upload } = require('../middlewares/uploadMiddleware');
 
 /**
  * @swagger
  * tags:
  *   - name: Chat
- *     description: In-app chat management endpoints
+ *     description: In-app chat management with real-time messaging
  */
 
 /**
@@ -19,124 +21,188 @@ const { requireRole }= require("../middlewares/requireRole");
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               participant1Id:
- *                 type: string
- *               participant1Type:
- *                 type: string
- *                 enum: [user, broker, transporter]
- *               participant2Id:
- *                 type: string
- *               participant2Type:
- *                 type: string
- *                 enum: [user, broker, transporter]
- *     responses:
- *       201:
- *         description: Chat created successfully
- *       400:
- *         description: Invalid input
- *       500:
- *         description: Server error
  */
-router.post('/', authenticateToken, requireRole(['broker', 'user', 'transporter']),  ChatController.createChat);
+router.post('/', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.createChat);
 
 /**
  * @swagger
  * /api/chats:
- *   post:
- *     summary: Send a message in a chat
+ *   get:
+ *     summary: Get all chats for the authenticated user with unread counts
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               chatId:
- *                 type: string
- *               message:
- *                 type: string
- *     responses:
- *       201:
- *         description: Message sent successfully
- *       400:
- *         description: Invalid input
- *       500:
- *         description: Server error
  */
-router.post('/messages', authenticateToken, requireRole(['broker', 'user', 'transporter']), ChatController.sendMessage);
+router.get('/', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.getChats);
 
 /**
  * @swagger
- * /api/chats/{chatId}:
+ * /api/chats/messages:
+ *   post:
+ *     summary: Send a message (text or file) in a chat
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/messages', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), upload.single('file'), ChatController.sendMessage);
+
+/**
+ * @swagger
+ * /api/chats/messages/edit:
+ *   put:
+ *     summary: Edit a message
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/messages/edit', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.editMessage);
+
+/**
+ * @swagger
+ * /api/chats/messages/{chatId}/{messageId}:
+ *   delete:
+ *     summary: Delete a message
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.delete('/messages/:chatId/:messageId', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.deleteMessage);
+
+/**
+ * @swagger
+ * /api/chats/messages/read:
+ *   put:
+ *     summary: Mark a specific message as read
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/messages/read', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.markAsRead);
+
+/**
+ * @swagger
+ * /api/chats/{chatId}/read-all:
+ *   put:
+ *     summary: Mark all messages in a chat as read
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/:chatId/read-all', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.markAllAsRead);
+
+/**
+ * @swagger
+ * /api/chats/{chatId}/load-more:
  *   get:
- *     summary: Get a specific chat with messages
+ *     summary: Load more messages (pagination)
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: chatId
+ *       - in: query
+ *         name: lastMessageTimestamp
  *         required: true
  *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Chat retrieved successfully
- *       400:
- *         description: Chat ID is required
- *       500:
- *         description: Server error
+ *           type: number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: number
+ *           default: 50
  */
-router.get('/:chatId', authenticateToken, requireRole(['broker', 'user', 'transporter']), ChatController.getChat);
+router.get('/:chatId/load-more', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.loadMoreMessages);
 
 /**
  * @swagger
- * /api/chats:
+ * /api/chats/{chatId}/search:
  *   get:
- *     summary: Get all chats for the authenticated user
+ *     summary: Search messages in a chat
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Chats retrieved successfully
- *       500:
- *         description: Server error
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         required: true
+ *         schema:
+ *           type: string
  */
-router.get('/', authenticateToken, requireRole(['broker', 'user', 'transporter']), ChatController.getChats);
+router.get('/:chatId/search', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.searchMessages);
+
+/**
+ * @swagger
+ * /api/chats/{chatId}/mute:
+ *   put:
+ *     summary: Mute notifications for a chat
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/:chatId/mute', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.muteChat);
+
+/**
+ * @swagger
+ * /api/chats/{chatId}/unmute:
+ *   put:
+ *     summary: Unmute notifications for a chat
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/:chatId/unmute', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.unmuteChat);
+
+/**
+ * @swagger
+ * /api/chats/{chatId}/block:
+ *   put:
+ *     summary: Block a chat
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/:chatId/block', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.blockChat);
+
+/**
+ * @swagger
+ * /api/chats/{chatId}/unblock:
+ *   put:
+ *     summary: Unblock a chat
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.put('/:chatId/unblock', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.unblockChat);
 
 /**
  * @swagger
  * /api/chats/job/{jobId}:
  *   get:
- *     summary: Get chat by job ID
+ *     summary: Get chat associated with a specific job
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/job/:jobId', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.getChatByJob);
+
+/**
+ * @swagger
+ * /api/chats/{chatId}:
+ *   get:
+ *     summary: Get a specific chat with messages (paginated)
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
  *     parameters:
- *       - in: path
- *         name: jobId
- *         required: true
+ *       - in: query
+ *         name: limit
  *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Chat retrieved successfully
- *       404:
- *         description: No chat found for this job
- *       500:
- *         description: Server error
+ *           type: number
+ *           default: 50
+ *       - in: query
+ *         name: lastMessageTimestamp
+ *         schema:
+ *           type: number
  */
-router.get('/job/:jobId', authenticateToken, requireRole(['broker', 'user', 'transporter']), ChatController.getChatByJob);
+router.get('/:chatId', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.getChat);
 
 module.exports = router;
