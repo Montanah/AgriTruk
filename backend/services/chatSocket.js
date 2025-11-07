@@ -51,7 +51,8 @@ function initializeSocket(server) {
     socket.join(`user:${socket.userId}`);
 
     // Join a specific chat room
-    socket.on('join_chat', async (chatId) => {
+    // Support both 'join_chat' and 'join_room' for compatibility
+    const handleJoinChat = async (chatId) => {
       try {
         // Verify user is participant in this chat
         const chat = await Chat.getChat(chatId);
@@ -72,19 +73,36 @@ function initializeSocket(server) {
           userId: socket.userId,
           userType: socket.userType
         });
+        
+        // Emit confirmation
+        socket.emit('joined_room', { chatId });
       } catch (error) {
         console.error('Error joining chat:', error);
         socket.emit('error', { message: 'Failed to join chat' });
       }
+    };
+
+    socket.on('join_chat', handleJoinChat);
+    socket.on('join_room', (data) => {
+      const chatId = typeof data === 'string' ? data : data?.chatId;
+      if (chatId) handleJoinChat(chatId);
     });
 
     // Leave a chat room
-    socket.on('leave_chat', (chatId) => {
+    // Support both 'leave_chat' and 'leave_room' for compatibility
+    const handleLeaveChat = (chatId) => {
       socket.leave(chatId);
       socket.to(chatId).emit('user_left_chat', {
         userId: socket.userId,
         userType: socket.userType
       });
+      socket.emit('left_room', { chatId });
+    };
+
+    socket.on('leave_chat', handleLeaveChat);
+    socket.on('leave_room', (data) => {
+      const chatId = typeof data === 'string' ? data : data?.chatId;
+      if (chatId) handleLeaveChat(chatId);
     });
 
     // Send message
@@ -115,7 +133,23 @@ function initializeSocket(server) {
         );
 
         // Emit to all users in the chat
+        // Support both 'new_message' and 'message' for compatibility
+        const formattedMessage = {
+          id: messageData.messageId,
+          chatId,
+          senderId: socket.userId,
+          senderName: socket.userId, // Can be enhanced by fetching user name
+          senderRole: socket.userType,
+          message: message || '',
+          timestamp: messageData.timestamp?.toDate?.() ? messageData.timestamp.toDate().toISOString() : new Date().toISOString(),
+          type: fileType || 'text',
+          read: false,
+          fileUrl,
+          fileName,
+        };
+        
         io.to(chatId).emit('new_message', messageData);
+        io.to(chatId).emit('message', formattedMessage);
 
         // Send push notification to offline users
         const otherParticipant = Object.entries(chat.participants).find(
@@ -160,23 +194,53 @@ function initializeSocket(server) {
     });
 
     // Typing indicator
+    // Support both 'typing' with isTyping and 'user_typing' for compatibility
     socket.on('typing', (data) => {
-      const { chatId } = data;
+      const { chatId, isTyping } = data;
       
-      if (!typingUsers.has(chatId)) {
-        typingUsers.set(chatId, new Set());
-      }
+      if (!chatId) return;
       
-      typingUsers.get(chatId).add(socket.userId);
-      
-      socket.to(chatId).emit('user_typing', {
-        userId: socket.userId,
-        userType: socket.userType,
-        chatId
-      });
+      if (isTyping) {
+        if (!typingUsers.has(chatId)) {
+          typingUsers.set(chatId, new Set());
+        }
+        
+        typingUsers.get(chatId).add(socket.userId);
+        
+        // Emit in both formats for compatibility
+        socket.to(chatId).emit('user_typing', {
+          userId: socket.userId,
+          userType: socket.userType,
+          chatId
+        });
+        
+        socket.to(chatId).emit('typing', {
+          chatId,
+          userId: socket.userId,
+          userName: socket.userId,
+          isTyping: true
+        });
 
-      // Auto-clear typing after 3 seconds
-      setTimeout(() => {
+        // Auto-clear typing after 3 seconds
+        setTimeout(() => {
+          const typingSet = typingUsers.get(chatId);
+          if (typingSet) {
+            typingSet.delete(socket.userId);
+            socket.to(chatId).emit('stop_typing', {
+              userId: socket.userId,
+              userType: socket.userType
+            });
+            
+            socket.to(chatId).emit('typing', {
+              chatId,
+              userId: socket.userId,
+              userName: socket.userId,
+              isTyping: false
+            });
+          }
+        }, 3000);
+      } else {
+        // Stop typing
         const typingSet = typingUsers.get(chatId);
         if (typingSet) {
           typingSet.delete(socket.userId);
@@ -185,7 +249,7 @@ function initializeSocket(server) {
             userType: socket.userType
           });
         }
-      }, 3000);
+      }
     });
 
     // Stop typing
@@ -203,6 +267,7 @@ function initializeSocket(server) {
     });
 
     // Mark message as read
+    // Support both 'message_read' and 'mark_read' for compatibility
     socket.on('message_read', async (data) => {
       try {
         const { chatId, messageId } = data;
@@ -214,8 +279,42 @@ function initializeSocket(server) {
           messageId,
           readBy: socket.userId
         });
+        
+        // Also emit in frontend format
+        socket.to(chatId).emit('message_read', {
+          chatId,
+          messageIds: [messageId],
+          readBy: socket.userId
+        });
       } catch (error) {
         console.error('Error marking message as read:', error);
+      }
+    });
+    
+    socket.on('mark_read', async (data) => {
+      try {
+        const { chatId, messageIds, userId } = data;
+        const readerId = userId || socket.userId;
+        
+        if (!chatId || !messageIds || !Array.isArray(messageIds)) {
+          socket.emit('error', { message: 'Invalid read request' });
+          return;
+        }
+        
+        // Mark messages as read in database
+        for (const messageId of messageIds) {
+          await Chat.markMessageAsRead(chatId, messageId, readerId);
+        }
+        
+        // Broadcast read receipt
+        socket.to(chatId).emit('message_read', {
+          chatId,
+          messageIds,
+          readBy: readerId
+        });
+      } catch (error) {
+        console.error('Error marking messages as read:', error);
+        socket.emit('error', { message: 'Failed to mark messages as read' });
       }
     });
 
