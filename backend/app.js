@@ -43,7 +43,10 @@ const CronScheduler = require('./jobs/cronScheduler');
 const { initializeSocket } = require('./services/chatSocket');
 
 // const { testJob } = require('./jobs/companyDocumentExpiryJob');
+// Create HTTP server - must be created before Socket.IO initialization
 const server = require('http').createServer(app);
+
+// Initialize Socket.IO on the HTTP server
 const io = initializeSocket(server);
 app.set('io', io);
 

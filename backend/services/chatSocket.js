@@ -8,13 +8,17 @@ const typingUsers = new Map(); // chatId -> Set of userIds
 
 function initializeSocket(server) {
   const io = socketIO(server, {
+    path: '/socket.io',
     cors: {
       origin: process.env.CLIENT_URL || '*',
       methods: ['GET', 'POST'],
-      credentials: true
+      credentials: true,
+      allowedHeaders: ['Authorization', 'Content-Type']
     },
+    transports: ['websocket', 'polling'],
     pingTimeout: 60000,
-    pingInterval: 25000
+    pingInterval: 25000,
+    allowEIO3: true
   });
 
   // Authentication middleware for socket
