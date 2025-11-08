@@ -50,8 +50,8 @@ const server = require('http').createServer(app);
 const io = initializeSocket(server);
 app.set('io', io);
 
-// Export server for use in server.js
-module.exports.server = server;
+// Attach server to app object so it can be exported
+app.server = server;
 
 app.use(helmet());
 app.set('trust proxy', 1);
