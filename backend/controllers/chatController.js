@@ -3,6 +3,8 @@ const Chat = require('../models/Chat');
 const Notification = require('../models/Notification');
 const sendEmail = require('../utils/sendEmail');
 const { uploadFile, deleteFile } = require('../utils/upload');
+const { sendChatNotificationMail } = require('../utils/sendMailTemplate');
+const e = require('express');
 
 exports.createChat = async (req, res) => {
   try {
@@ -50,6 +52,7 @@ exports.createChat = async (req, res) => {
     );
 
     const currentUser = await getUserData(participant1Id, participant1Type);
+    
     const notificationData = {
       userId: participant2Id,
       userType: participant2Type,
@@ -65,11 +68,22 @@ exports.createChat = async (req, res) => {
     
     if (participant2.notificationPreferences?.method === 'email' || 
         participant2.notificationPreferences?.method === 'both') {
+      
+      const emailData = sendChatNotificationMail({
+          type: 'chatRequest',
+          senderName: currentUser.name || currentUser.firstName || participant1Type,
+          senderType: participant1Type,
+          receiverName: participant2.name,
+          message: notificationData.message,
+          chatUrl: `${process.env.FRONTEND_URL}/chats/${chat.id}`
+      });
+
       await sendEmail({
         to: participant2.email,
-        subject: 'New Chat Request',
-        text: notificationData.message,
-        html: `<p>${notificationData.message}</p>`
+        subject: emailData.subject || 'New Chat Request',
+        html: emailData.html
+        // text: notificationData.message,
+        // html: `<p>${notificationData.message}</p>`
       });
     }
 
@@ -152,26 +166,26 @@ exports.sendMessage = async (req, res) => {
     );
 
     // Emit Socket.IO event for real-time updates
-    const io = req.app.get('io');
-    if (io) {
-      const formattedMessage = {
-        id: messageData.messageId,
-        chatId,
-        senderId,
-        senderName: senderId, // Can be enhanced by fetching user name
-        senderRole: senderType,
-        message: message || '',
-        timestamp: messageData.timestamp?.toDate?.() ? messageData.timestamp.toDate().toISOString() : new Date().toISOString(),
-        type: fileType || 'text',
-        read: false,
-        fileUrl,
-        fileName,
-      };
+    // const io = req.app.get('io');
+    // if (io) {
+    //   const formattedMessage = {
+    //     id: messageData.messageId,
+    //     chatId,
+    //     senderId,
+    //     senderName: senderId, 
+    //     senderRole: senderType,
+    //     message: message || '',
+    //     timestamp: messageData.timestamp?.toDate?.() ? messageData.timestamp.toDate().toISOString() : new Date().toISOString(),
+    //     type: fileType || 'text',
+    //     read: false,
+    //     fileUrl,
+    //     fileName,
+    //   };
       
-      // Emit to all users in the chat room
-      io.to(chatId).emit('new_message', messageData);
-      io.to(chatId).emit('message', formattedMessage);
-    }
+    //   // Emit to all users in the chat room
+    //   io.to(chatId).emit('new_message', messageData);
+    //   io.to(chatId).emit('message', formattedMessage);
+    // }
 
     // Find the other participant
     const otherParticipant = Object.entries(chat.participants).find(
@@ -203,11 +217,20 @@ exports.sendMessage = async (req, res) => {
 
         if (otherUser.notificationPreferences?.method === 'email' || 
             otherUser.notificationPreferences?.method === 'both') {
+          
+          const emailData = sendChatNotificationMail({
+            type: 'message',
+            senderName: sender.name,
+            senderType,
+            receiverName: otherUser.name,
+            message,
+            chatUrl: `${process.env.FRONTEND_URL}/chats/${chatId}`
+          });
           await sendEmail({
             to: otherUser.email,
-            subject: 'New Message',
-            text: `${sender.name || senderType} sent you a message`,
-            html: `<p><strong>${sender.name || senderType}</strong> sent you a message${message ? ': ' + message : ''}</p>`
+            subject: emailData.subject || 'New Message',
+            // text: `${sender.name || senderType} sent you a message`,
+            html: emailData.html // `<p><strong>${sender.name || senderType}</strong> sent you a message${message ? ': ' + message : ''}</p>`
           });
         }
       }
@@ -631,14 +654,17 @@ async function getUserData(userId, userType) {
   try {
     switch (userType) {
       case 'broker':
-        return await require('../models/Broker').get(userId);
+        return await require('../models/User').get(userId);
       case 'user':
       case 'client':
+      case 'Hr':
       case 'shipper':
       case 'business':
         return await require('../models/User').get(userId);
       case 'transporter':
-        return await require('../models/Transporter').get(userId);
+        return await require('../models/User').get(userId);
+      case 'driver':
+        return await require('../models/User').get(userId);
       default:
         console.warn(`Unknown user type: ${userType}, defaulting to user`);
         return await require('../models/User').get(userId);

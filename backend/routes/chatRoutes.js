@@ -21,6 +21,30 @@ const { upload } = require('../middlewares/uploadMiddleware');
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             properties:
+ *               participant2Id:
+ *                 type: string
+ *                 description: ID of the second participant
+ *               participant2Type:
+ *                 type: string
+ *                 description: Type of the second participant (broker, user, transporter, client)
+ *               jobId:
+ *                 type: string
+ *                 description: ID of the job (optional)
+ *     responses:
+ *       201:
+ *         description: Chat created successfully
+ *       400:
+ *         description: Participant details are required
+ *       404:
+ *         description: Participant not found
+ *       409:
+ *         description: Chat already exists
  */
 router.post('/', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business']), ChatController.createChat);
 
@@ -32,6 +56,13 @@ router.post('/', authenticateToken, requireRole(['broker', 'user', 'transporter'
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Chats retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
  */
 router.get('/', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business']), ChatController.getChats);
 
@@ -43,6 +74,31 @@ router.get('/', authenticateToken, requireRole(['broker', 'user', 'transporter',
  *     tags: [Chat]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - chatId
+ *             properties:
+ *               chatId:
+ *                 type: string
+ *                 description: ID of the chat
+ *               message:
+ *                 type: string
+ *                 description: Text content of the message
+ *               file:
+ *                 type: file
+ *                 description: File attachment for the message
+ *     responses:
+ *       201:
+ *         description: Message sent successfully
+ *       400:
+ *         description: Chat ID is required
+ *       403:
+ *         description: Unauthorized 
  */
 router.post('/messages', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business']), upload.single('file'), ChatController.sendMessage);
 
