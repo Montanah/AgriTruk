@@ -46,7 +46,7 @@ const { upload } = require('../middlewares/uploadMiddleware');
  *       409:
  *         description: Chat already exists
  */
-router.post('/', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.createChat);
+router.post('/', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.createChat);
 
 /**
  * @swagger
@@ -64,7 +64,7 @@ router.post('/', authenticateToken, requireRole(['broker', 'user', 'transporter'
  *       403:
  *         description: Forbidden
  */
-router.get('/', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.getChats);
+router.get('/', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.getChats);
 
 /**
  * @swagger
@@ -100,7 +100,7 @@ router.get('/', authenticateToken, requireRole(['broker', 'user', 'transporter',
  *       403:
  *         description: Unauthorized 
  */
-router.post('/messages', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), upload.single('file'), ChatController.sendMessage);
+router.post('/messages', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), upload.single('file'), ChatController.sendMessage);
 
 /**
  * @swagger
@@ -111,7 +111,7 @@ router.post('/messages', authenticateToken, requireRole(['broker', 'user', 'tran
  *     security:
  *       - bearerAuth: []
  */
-router.put('/messages/edit', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.editMessage);
+router.put('/messages/edit', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.editMessage);
 
 /**
  * @swagger
@@ -122,7 +122,7 @@ router.put('/messages/edit', authenticateToken, requireRole(['broker', 'user', '
  *     security:
  *       - bearerAuth: []
  */
-router.delete('/messages/:chatId/:messageId', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.deleteMessage);
+router.delete('/messages/:chatId/:messageId', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.deleteMessage);
 
 /**
  * @swagger
@@ -133,7 +133,7 @@ router.delete('/messages/:chatId/:messageId', authenticateToken, requireRole(['b
  *     security:
  *       - bearerAuth: []
  */
-router.put('/messages/read', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.markAsRead);
+router.put('/messages/read', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.markAsRead);
 
 /**
  * @swagger
@@ -144,7 +144,7 @@ router.put('/messages/read', authenticateToken, requireRole(['broker', 'user', '
  *     security:
  *       - bearerAuth: []
  */
-router.put('/:chatId/read-all', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.markAllAsRead);
+router.put('/:chatId/read-all', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.markAllAsRead);
 
 /**
  * @swagger
@@ -166,7 +166,7 @@ router.put('/:chatId/read-all', authenticateToken, requireRole(['broker', 'user'
  *           type: number
  *           default: 50
  */
-router.get('/:chatId/load-more', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.loadMoreMessages);
+router.get('/:chatId/load-more', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.loadMoreMessages);
 
 /**
  * @swagger
@@ -183,7 +183,7 @@ router.get('/:chatId/load-more', authenticateToken, requireRole(['broker', 'user
  *         schema:
  *           type: string
  */
-router.get('/:chatId/search', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.searchMessages);
+router.get('/:chatId/search', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.searchMessages);
 
 /**
  * @swagger
@@ -194,7 +194,7 @@ router.get('/:chatId/search', authenticateToken, requireRole(['broker', 'user', 
  *     security:
  *       - bearerAuth: []
  */
-router.put('/:chatId/mute', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.muteChat);
+router.put('/:chatId/mute', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.muteChat);
 
 /**
  * @swagger
@@ -205,7 +205,7 @@ router.put('/:chatId/mute', authenticateToken, requireRole(['broker', 'user', 't
  *     security:
  *       - bearerAuth: []
  */
-router.put('/:chatId/unmute', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.unmuteChat);
+router.put('/:chatId/unmute', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.unmuteChat);
 
 /**
  * @swagger
@@ -216,7 +216,7 @@ router.put('/:chatId/unmute', authenticateToken, requireRole(['broker', 'user', 
  *     security:
  *       - bearerAuth: []
  */
-router.put('/:chatId/block', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.blockChat);
+router.put('/:chatId/block', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.blockChat);
 
 /**
  * @swagger
@@ -227,7 +227,7 @@ router.put('/:chatId/block', authenticateToken, requireRole(['broker', 'user', '
  *     security:
  *       - bearerAuth: []
  */
-router.put('/:chatId/unblock', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.unblockChat);
+router.put('/:chatId/unblock', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.unblockChat);
 
 /**
  * @swagger
@@ -238,7 +238,7 @@ router.put('/:chatId/unblock', authenticateToken, requireRole(['broker', 'user',
  *     security:
  *       - bearerAuth: []
  */
-router.get('/job/:jobId', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.getChatByJob);
+router.get('/job/:jobId', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.getChatByJob);
 
 /**
  * @swagger
@@ -259,6 +259,6 @@ router.get('/job/:jobId', authenticateToken, requireRole(['broker', 'user', 'tra
  *         schema:
  *           type: number
  */
-router.get('/:chatId', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client']), ChatController.getChat);
+router.get('/:chatId', authenticateToken, requireRole(['broker', 'user', 'transporter', 'client', 'shipper', 'business', 'driver']), ChatController.getChat);
 
 module.exports = router;

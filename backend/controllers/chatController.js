@@ -656,8 +656,10 @@ async function getUserData(userId, userType) {
       case 'broker':
         return await require('../models/User').get(userId);
       case 'user':
+      case 'client':
       case 'Hr':
       case 'shipper':
+      case 'business':
         return await require('../models/User').get(userId);
       case 'transporter':
         return await require('../models/User').get(userId);
