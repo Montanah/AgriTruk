@@ -82,7 +82,13 @@ const Chat = {
         updatedAt: admin.firestore.Timestamp.now() 
       });
       
-      return messageData;
+      // Convert Firestore Timestamp to ISO string for response
+      const responseData = { ...messageData };
+      if (responseData.timestamp && responseData.timestamp.toDate) {
+        responseData.timestamp = responseData.timestamp.toDate().toISOString();
+      }
+      
+      return responseData;
     } catch (error) {
       console.error(`[Chat.sendMessage] Error saving message to chat ${chatId}:`, error);
       throw error;
@@ -176,7 +182,17 @@ const Chat = {
     const messagesSnapshot = await messagesQuery.get();
     
     const messages = messagesSnapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .map(doc => {
+        const data = doc.data();
+        // Convert Firestore Timestamp to ISO string
+        if (data.timestamp && data.timestamp.toDate) {
+          data.timestamp = data.timestamp.toDate().toISOString();
+        } else if (data.timestamp && data.timestamp._seconds !== undefined) {
+          // Handle serialized Firestore Timestamp
+          data.timestamp = new Date(data.timestamp._seconds * 1000 + (data.timestamp._nanoseconds || 0) / 1000000).toISOString();
+        }
+        return { id: doc.id, ...data };
+      })
       .filter(msg => !msg.deleted) // Filter out deleted messages
       .reverse(); // Reverse to show oldest first
     
@@ -200,7 +216,16 @@ const Chat = {
     const messagesSnapshot = await messagesQuery.get();
     
     const messages = messagesSnapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .map(doc => {
+        const data = doc.data();
+        // Convert Firestore Timestamp to ISO string
+        if (data.timestamp && data.timestamp.toDate) {
+          data.timestamp = data.timestamp.toDate().toISOString();
+        } else if (data.timestamp && data.timestamp._seconds !== undefined) {
+          data.timestamp = new Date(data.timestamp._seconds * 1000 + (data.timestamp._nanoseconds || 0) / 1000000).toISOString();
+        }
+        return { id: doc.id, ...data };
+      })
       .filter(msg => !msg.deleted)
       .reverse();
     
@@ -220,7 +245,16 @@ const Chat = {
       .get();
     
     const messages = messagesSnapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .map(doc => {
+        const data = doc.data();
+        // Convert Firestore Timestamp to ISO string
+        if (data.timestamp && data.timestamp.toDate) {
+          data.timestamp = data.timestamp.toDate().toISOString();
+        } else if (data.timestamp && data.timestamp._seconds !== undefined) {
+          data.timestamp = new Date(data.timestamp._seconds * 1000 + (data.timestamp._nanoseconds || 0) / 1000000).toISOString();
+        }
+        return { id: doc.id, ...data };
+      })
       .filter(msg => 
         !msg.deleted && 
         msg.message && 
@@ -256,10 +290,17 @@ const Chat = {
         .limit(1)
         .get();
       
-      const lastMessage = messagesSnapshot.docs[0] ? { 
-        id: messagesSnapshot.docs[0].id, 
-        ...messagesSnapshot.docs[0].data() 
-      } : null;
+      let lastMessage = null;
+      if (messagesSnapshot.docs[0]) {
+        const data = messagesSnapshot.docs[0].data();
+        // Convert Firestore Timestamp to ISO string
+        if (data.timestamp && data.timestamp.toDate) {
+          data.timestamp = data.timestamp.toDate().toISOString();
+        } else if (data.timestamp && data.timestamp._seconds !== undefined) {
+          data.timestamp = new Date(data.timestamp._seconds * 1000 + (data.timestamp._nanoseconds || 0) / 1000000).toISOString();
+        }
+        lastMessage = { id: messagesSnapshot.docs[0].id, ...data };
+      }
       
       const isMuted = chatData.mutedBy && chatData.mutedBy.includes(participantId);
       const isBlocked = chatData.blockedBy && chatData.blockedBy.includes(participantId);
@@ -296,10 +337,16 @@ const Chat = {
       .limit(50)
       .get();
     
-    const messages = messagesSnapshot.docs.map(doc => ({ 
-      id: doc.id, 
-      ...doc.data() 
-    }));
+    const messages = messagesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      // Convert Firestore Timestamp to ISO string
+      if (data.timestamp && data.timestamp.toDate) {
+        data.timestamp = data.timestamp.toDate().toISOString();
+      } else if (data.timestamp && data.timestamp._seconds !== undefined) {
+        data.timestamp = new Date(data.timestamp._seconds * 1000 + (data.timestamp._nanoseconds || 0) / 1000000).toISOString();
+      }
+      return { id: doc.id, ...data };
+    });
     
     return { id: doc.id, ...doc.data(), messages };
   },
