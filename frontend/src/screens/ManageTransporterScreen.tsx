@@ -2601,6 +2601,12 @@ export default function ManageTransporterScreen({ route }: any) {
             </View>
           </View>
         </Modal>
+        
+        <LogoutConfirmationDialog
+          visible={showLogoutDialog}
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogoutDialog(false)}
+        />
       </>
     );
   } else {
@@ -3379,6 +3385,12 @@ export default function ManageTransporterScreen({ route }: any) {
             action={toast.action}
           />
         )}
+        
+        <LogoutConfirmationDialog
+          visible={showLogoutDialog}
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogoutDialog(false)}
+        />
       </>
     );
   }
