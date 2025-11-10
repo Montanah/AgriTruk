@@ -119,8 +119,17 @@ function initializeSocket(server) {
           return;
         }
 
-        // Verify user is participant
-        const chat = await Chat.getChat(chatId);
+        // Verify chat exists and user is participant
+        let chat;
+        try {
+          chat = await Chat.getChat(chatId);
+        } catch (error) {
+          console.error(`[Socket.send_message] Error getting chat ${chatId}:`, error);
+          if (callback) callback({ success: false, error: `Chat not found: ${error.message}` });
+          socket.emit('error', { message: 'Chat not found' });
+          return;
+        }
+
         const isParticipant = Object.entries(chat.participants).some(
           ([type, id]) => type === socket.userType && id === socket.userId
         );
@@ -132,15 +141,25 @@ function initializeSocket(server) {
         }
 
         // Save message to database
-        const messageData = await Chat.sendMessage(
-          chatId,
-          socket.userId,
-          socket.userType,
-          message,
-          fileUrl,
-          fileName,
-          fileType || type || 'text'
-        );
+        console.log(`[Socket.send_message] Saving message to chat ${chatId} from user ${socket.userId}`);
+        let messageData;
+        try {
+          messageData = await Chat.sendMessage(
+            chatId,
+            socket.userId,
+            socket.userType,
+            message,
+            fileUrl,
+            fileName,
+            fileType || type || 'text'
+          );
+          console.log(`[Socket.send_message] Message saved successfully: ${messageData.messageId}`);
+        } catch (error) {
+          console.error(`[Socket.send_message] Error saving message:`, error);
+          if (callback) callback({ success: false, error: error.message || 'Failed to save message' });
+          socket.emit('error', { message: 'Failed to save message' });
+          return;
+        }
 
         // Emit to all users in the chat
         // Support both 'new_message' and 'message' for compatibility

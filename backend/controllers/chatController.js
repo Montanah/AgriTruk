@@ -122,8 +122,18 @@ exports.sendMessage = async (req, res) => {
       });
     }
 
-    // Verify user is a participant
-    const chat = await Chat.getChat(chatId);
+    // Verify chat exists and user is a participant
+    let chat;
+    try {
+      chat = await Chat.getChat(chatId);
+    } catch (error) {
+      console.error(`[ChatController.sendMessage] Error getting chat ${chatId}:`, error);
+      return res.status(404).json({ 
+        success: false, 
+        message: `Chat not found: ${error.message}` 
+      });
+    }
+
     const isParticipant = Object.entries(chat.participants).some(
       ([type, id]) => type === senderType && id === senderId
     );
@@ -155,15 +165,26 @@ exports.sendMessage = async (req, res) => {
       fileType = file.mimetype.split('/')[0]; // 'image', 'video', 'application', etc.
     }
 
-    const messageData = await Chat.sendMessage(
-      chatId, 
-      senderId, 
-      senderType, 
-      message || '', 
-      fileUrl, 
-      fileName, 
-      fileType
-    );
+    console.log(`[ChatController.sendMessage] Saving message to chat ${chatId} from user ${senderId}`);
+    let messageData;
+    try {
+      messageData = await Chat.sendMessage(
+        chatId, 
+        senderId, 
+        senderType, 
+        message || '', 
+        fileUrl, 
+        fileName, 
+        fileType
+      );
+      console.log(`[ChatController.sendMessage] Message saved successfully: ${messageData.messageId}`);
+    } catch (error) {
+      console.error(`[ChatController.sendMessage] Error saving message:`, error);
+      return res.status(500).json({ 
+        success: false, 
+        message: `Failed to save message: ${error.message}` 
+      });
+    }
 
     // Emit Socket.IO event for real-time updates
     const io = req.app.get('io');
