@@ -110,31 +110,56 @@ function initializeSocket(server) {
     });
 
     // Send message
-    socket.on('send_message', async (data) => {
+    socket.on('send_message', async (data, callback) => {
       try {
-        const { chatId, message, fileUrl, fileName, fileType } = data;
+        const { chatId, message, fileUrl, fileName, fileType, type } = data;
 
-        // Verify user is participant
-        const chat = await Chat.getChat(chatId);
+        if (!chatId || !message) {
+          if (callback) callback({ success: false, error: 'Chat ID and message are required' });
+          return;
+        }
+
+        // Verify chat exists and user is participant
+        let chat;
+        try {
+          chat = await Chat.getChat(chatId);
+        } catch (error) {
+          console.error(`[Socket.send_message] Error getting chat ${chatId}:`, error);
+          if (callback) callback({ success: false, error: `Chat not found: ${error.message}` });
+          socket.emit('error', { message: 'Chat not found' });
+          return;
+        }
+
         const isParticipant = Object.entries(chat.participants).some(
           ([type, id]) => type === socket.userType && id === socket.userId
         );
 
         if (!isParticipant) {
+          if (callback) callback({ success: false, error: 'Unauthorized' });
           socket.emit('error', { message: 'Unauthorized' });
           return;
         }
 
         // Save message to database
-        const messageData = await Chat.sendMessage(
-          chatId,
-          socket.userId,
-          socket.userType,
-          message,
-          fileUrl,
-          fileName,
-          fileType
-        );
+        console.log(`[Socket.send_message] Saving message to chat ${chatId} from user ${socket.userId}`);
+        let messageData;
+        try {
+          messageData = await Chat.sendMessage(
+            chatId,
+            socket.userId,
+            socket.userType,
+            message,
+            fileUrl,
+            fileName,
+            fileType || type || 'text'
+          );
+          console.log(`[Socket.send_message] Message saved successfully: ${messageData.messageId}`);
+        } catch (error) {
+          console.error(`[Socket.send_message] Error saving message:`, error);
+          if (callback) callback({ success: false, error: error.message || 'Failed to save message' });
+          socket.emit('error', { message: 'Failed to save message' });
+          return;
+        }
 
         // Emit to all users in the chat
         // Support both 'new_message' and 'message' for compatibility
@@ -146,7 +171,7 @@ function initializeSocket(server) {
           senderRole: socket.userType,
           message: message || '',
           timestamp: messageData.timestamp?.toDate?.() ? messageData.timestamp.toDate().toISOString() : new Date().toISOString(),
-          type: fileType || 'text',
+          type: fileType || type || 'text',
           read: false,
           fileUrl,
           fileName,
@@ -154,6 +179,14 @@ function initializeSocket(server) {
         
         io.to(chatId).emit('new_message', messageData);
         io.to(chatId).emit('message', formattedMessage);
+
+        // Send callback response to sender
+        if (callback) {
+          callback({ 
+            success: true, 
+            message: formattedMessage 
+          });
+        }
 
         // Send push notification to offline users
         const otherParticipant = Object.entries(chat.participants).find(
@@ -193,6 +226,9 @@ function initializeSocket(server) {
 
       } catch (error) {
         console.error('Error sending message:', error);
+        if (callback) {
+          callback({ success: false, error: error.message || 'Failed to send message' });
+        }
         socket.emit('error', { message: 'Failed to send message' });
       }
     });

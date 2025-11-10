@@ -50,29 +50,43 @@ const Chat = {
   },
 
   async sendMessage(chatId, senderId, senderType, message, fileUrl = null, fileName = null, fileType = null) {
-    const messageRef = db.collection('chats').doc(chatId).collection('messages').doc();
-    const messageData = {
-      messageId: messageRef.id,
-      senderId,
-      senderType,
-      message: message || '',
-      fileUrl: fileUrl || null,
-      fileName: fileName || null,
-      fileType: fileType || null, // 'image', 'document', 'video', etc.
-      timestamp: admin.firestore.Timestamp.now(),
-      readBy: [senderId],
-      edited: false,
-      editedAt: null,
-      deleted: false,
-      deletedAt: null,
-    };
-    
-    await messageRef.set(messageData);
-    await db.collection('chats').doc(chatId).update({ 
-      updatedAt: admin.firestore.Timestamp.now() 
-    });
-    
-    return messageData;
+    try {
+      // Verify chat exists
+      const chatDoc = await db.collection('chats').doc(chatId).get();
+      if (!chatDoc.exists) {
+        throw new Error(`Chat ${chatId} does not exist`);
+      }
+
+      const messageRef = db.collection('chats').doc(chatId).collection('messages').doc();
+      const messageData = {
+        messageId: messageRef.id,
+        senderId,
+        senderType,
+        message: message || '',
+        fileUrl: fileUrl || null,
+        fileName: fileName || null,
+        fileType: fileType || null, // 'image', 'document', 'video', etc.
+        timestamp: admin.firestore.Timestamp.now(),
+        readBy: [senderId],
+        edited: false,
+        editedAt: null,
+        deleted: false,
+        deletedAt: null,
+      };
+      
+      console.log(`[Chat.sendMessage] Saving message to chat ${chatId}, messageId: ${messageRef.id}`);
+      await messageRef.set(messageData);
+      console.log(`[Chat.sendMessage] Message saved successfully: ${messageRef.id}`);
+      
+      await db.collection('chats').doc(chatId).update({ 
+        updatedAt: admin.firestore.Timestamp.now() 
+      });
+      
+      return messageData;
+    } catch (error) {
+      console.error(`[Chat.sendMessage] Error saving message to chat ${chatId}:`, error);
+      throw error;
+    }
   },
 
   async editMessage(chatId, messageId, userId, newMessage) {
