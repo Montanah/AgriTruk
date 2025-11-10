@@ -783,20 +783,21 @@ const TripDetailsScreen = () => {
               <Text style={styles.ratedText}>Rated</Text>
             </View>
           )}
-          {/* Communication Buttons - Only show for accepted/confirmed/assigned bookings */}
-          {['accepted', 'confirmed', 'assigned'].includes((currentBooking?.status || currentTrip?.status || realBooking?.status || '').toLowerCase()) && commTarget && (
-            <View style={styles.actionIconsRight}>
-              <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
-                <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
-                <Ionicons name="call" size={22} color={colors.secondary} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${currentBooking?.client?.phone || (selectedTransporter && selectedTransporter.phone) || commTarget.phone}`)}>
-                <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
-              </TouchableOpacity>
-            </View>
-          )}
+          <View style={styles.actionIconsRight}>
+            {/* Communication Buttons - Only show for accepted/confirmed/assigned bookings */}
+            {['accepted', 'confirmed', 'assigned'].includes((currentBooking?.status || currentTrip?.status || realBooking?.status || '').toLowerCase()) && commTarget && (
+              <>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
+                  <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
+                  <Ionicons name="call" size={22} color={colors.secondary} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${currentBooking?.client?.phone || (selectedTransporter && selectedTransporter.phone) || commTarget.phone}`)}>
+                  <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
+                </TouchableOpacity>
+              </>
+            )}
             {isInstant && (
               <TouchableOpacity
                 style={styles.iconBtn}
