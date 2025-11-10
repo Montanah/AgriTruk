@@ -809,6 +809,15 @@ const TripDetailsScreen = () => {
                 <MaterialCommunityIcons name="map" size={22} color={colors.success} />
               </TouchableOpacity>
             )}
+            {/* Report Issue Button */}
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => navigation.navigate('CreateDispute' as never, { 
+                bookingId: currentBooking?.id || currentBooking?.bookingId || currentTrip?.id || realBooking?.id 
+              } as never)}
+            >
+              <MaterialCommunityIcons name="alert-circle" size={22} color={colors.error} />
+            </TouchableOpacity>
           </View>
         </View>
       </View>

@@ -975,6 +975,15 @@ const TrackingScreen = () => {
                                     <Text style={styles.rateButtonText}>Rate Driver</Text>
                                 </TouchableOpacity>
                             )}
+                            
+                            {/* Report Issue Button */}
+                            <TouchableOpacity 
+                                style={styles.reportButton}
+                                onPress={() => navigation.navigate('CreateDispute' as never, { bookingId: booking?.id || booking?.bookingId } as never)}
+                            >
+                                <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+                                <Text style={styles.reportButtonText}>Report Issue</Text>
+                            </TouchableOpacity>
 
                             {hasRated && (
                                 <View style={styles.ratedButton}>
@@ -1487,6 +1496,24 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.md,
         fontWeight: '600',
         marginLeft: spacing.sm,
+    },
+    reportButton: {
+        backgroundColor: colors.white,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+        borderWidth: 1,
+        borderColor: colors.error,
+        marginTop: spacing.sm,
+    },
+    reportButtonText: {
+        color: colors.error,
+        fontFamily: fonts.family.medium,
+        fontSize: fonts.size.sm,
     },
     vehicleSection: {
         marginTop: spacing.md,
