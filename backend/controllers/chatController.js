@@ -166,26 +166,26 @@ exports.sendMessage = async (req, res) => {
     );
 
     // Emit Socket.IO event for real-time updates
-    // const io = req.app.get('io');
-    // if (io) {
-    //   const formattedMessage = {
-    //     id: messageData.messageId,
-    //     chatId,
-    //     senderId,
-    //     senderName: senderId, 
-    //     senderRole: senderType,
-    //     message: message || '',
-    //     timestamp: messageData.timestamp?.toDate?.() ? messageData.timestamp.toDate().toISOString() : new Date().toISOString(),
-    //     type: fileType || 'text',
-    //     read: false,
-    //     fileUrl,
-    //     fileName,
-    //   };
+    const io = req.app.get('io');
+    if (io) {
+      const formattedMessage = {
+        id: messageData.messageId,
+        chatId,
+        senderId,
+        senderName: senderId, 
+        senderRole: senderType,
+        message: message || '',
+        timestamp: messageData.timestamp?.toDate?.() ? messageData.timestamp.toDate().toISOString() : new Date().toISOString(),
+        type: fileType || 'text',
+        read: false,
+        fileUrl,
+        fileName,
+      };
       
-    //   // Emit to all users in the chat room
-    //   io.to(chatId).emit('new_message', messageData);
-    //   io.to(chatId).emit('message', formattedMessage);
-    // }
+      // Emit to all users in the chat room
+      io.to(chatId).emit('new_message', messageData);
+      io.to(chatId).emit('message', formattedMessage);
+    }
 
     // Find the other participant
     const otherParticipant = Object.entries(chat.participants).find(
