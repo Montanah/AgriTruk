@@ -6,6 +6,7 @@ import { signOut } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
+import LogoutConfirmationDialog from '../components/common/LogoutConfirmationDialog';
 import { notificationService } from '../services/notificationService';
 import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
@@ -686,28 +687,23 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   };
 
-  // Updated logout handler: use common logout function
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  // Updated logout handler: use LogoutConfirmationDialog
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-              // After sign out, App.tsx auth listener will render the Welcome flow.
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Logout Error', 'Failed to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    setShowLogoutDialog(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      await signOut(auth);
+      setShowLogoutDialog(false);
+      // After sign out, App.tsx auth listener will render the Welcome flow.
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutDialog(false);
+      Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+    }
   };
 
   const handleSave = async () => {
