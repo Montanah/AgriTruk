@@ -110,9 +110,14 @@ function initializeSocket(server) {
     });
 
     // Send message
-    socket.on('send_message', async (data) => {
+    socket.on('send_message', async (data, callback) => {
       try {
-        const { chatId, message, fileUrl, fileName, fileType } = data;
+        const { chatId, message, fileUrl, fileName, fileType, type } = data;
+
+        if (!chatId || !message) {
+          if (callback) callback({ success: false, error: 'Chat ID and message are required' });
+          return;
+        }
 
         // Verify user is participant
         const chat = await Chat.getChat(chatId);
@@ -121,6 +126,7 @@ function initializeSocket(server) {
         );
 
         if (!isParticipant) {
+          if (callback) callback({ success: false, error: 'Unauthorized' });
           socket.emit('error', { message: 'Unauthorized' });
           return;
         }
@@ -133,7 +139,7 @@ function initializeSocket(server) {
           message,
           fileUrl,
           fileName,
-          fileType
+          fileType || type || 'text'
         );
 
         // Emit to all users in the chat
@@ -146,7 +152,7 @@ function initializeSocket(server) {
           senderRole: socket.userType,
           message: message || '',
           timestamp: messageData.timestamp?.toDate?.() ? messageData.timestamp.toDate().toISOString() : new Date().toISOString(),
-          type: fileType || 'text',
+          type: fileType || type || 'text',
           read: false,
           fileUrl,
           fileName,
@@ -154,6 +160,14 @@ function initializeSocket(server) {
         
         io.to(chatId).emit('new_message', messageData);
         io.to(chatId).emit('message', formattedMessage);
+
+        // Send callback response to sender
+        if (callback) {
+          callback({ 
+            success: true, 
+            message: formattedMessage 
+          });
+        }
 
         // Send push notification to offline users
         const otherParticipant = Object.entries(chat.participants).find(
@@ -193,6 +207,9 @@ function initializeSocket(server) {
 
       } catch (error) {
         console.error('Error sending message:', error);
+        if (callback) {
+          callback({ success: false, error: error.message || 'Failed to send message' });
+        }
         socket.emit('error', { message: 'Failed to send message' });
       }
     });
