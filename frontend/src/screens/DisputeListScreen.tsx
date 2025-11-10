@@ -84,9 +84,8 @@ const DisputeListScreen = () => {
 
   const getStatusColor = (status: DisputeStatus) => {
     switch (status) {
-      case 'pending': return colors.warning;
+      case 'open': return colors.warning; // Backend uses 'open' not 'pending'
       case 'resolved': return colors.success;
-      case 'escalated': return colors.error;
       case 'in_progress': return colors.primary;
       case 'closed': return colors.text.secondary;
       default: return colors.text.secondary;
@@ -119,22 +118,26 @@ const DisputeListScreen = () => {
       </View>
 
       <View style={styles.disputeBody}>
-        <View style={styles.partyRow}>
-          <MaterialCommunityIcons name="account" size={16} color={colors.text.secondary} />
-          <Text style={styles.partyLabel}>Customer:</Text>
-          <Text style={styles.partyValue}>{item.customer.name}</Text>
-          <Text style={styles.partyPhone}>{item.customer.phone}</Text>
-        </View>
+        {item.openedBy && typeof item.openedBy === 'object' && (
+          <View style={styles.partyRow}>
+            <MaterialCommunityIcons name="account" size={16} color={colors.text.secondary} />
+            <Text style={styles.partyLabel}>Customer:</Text>
+            <Text style={styles.partyValue}>{item.openedBy.name || item.openedBy.displayName || 'N/A'}</Text>
+            {item.openedBy.phone && <Text style={styles.partyPhone}>{item.openedBy.phone}</Text>}
+          </View>
+        )}
 
-        <View style={styles.partyRow}>
-          <MaterialCommunityIcons name="truck" size={16} color={colors.text.secondary} />
-          <Text style={styles.partyLabel}>Transporter:</Text>
-          <Text style={styles.partyValue}>{item.transporter.name}</Text>
-        </View>
+        {item.transporter && (
+          <View style={styles.partyRow}>
+            <MaterialCommunityIcons name="truck" size={16} color={colors.text.secondary} />
+            <Text style={styles.partyLabel}>Transporter:</Text>
+            <Text style={styles.partyValue}>{item.transporter.name || item.transporter.companyName || 'N/A'}</Text>
+          </View>
+        )}
 
         <View style={styles.issueRow}>
           <MaterialCommunityIcons name="alert-circle" size={16} color={colors.text.secondary} />
-          <Text style={styles.issueText}>{item.issue}</Text>
+          <Text style={styles.issueText}>{item.reason}</Text>
         </View>
 
         <View style={styles.dateRow}>
@@ -146,14 +149,14 @@ const DisputeListScreen = () => {
       <View style={styles.disputeActions}>
         <TouchableOpacity
           style={styles.viewButton}
-          onPress={() => navigation.navigate('DisputeDetail' as never, { disputeId: item.id } as never)}
+          onPress={() => navigation.navigate('DisputeDetail' as never, { disputeId: item.disputeId } as never)}
         >
           <Text style={styles.viewButtonText}>View</Text>
         </TouchableOpacity>
-        {item.status === 'pending' && (
+        {item.status === 'open' && (
           <TouchableOpacity
             style={styles.resolveButton}
-            onPress={() => navigation.navigate('DisputeDetail' as never, { disputeId: item.id, action: 'resolve' } as never)}
+            onPress={() => navigation.navigate('DisputeDetail' as never, { disputeId: item.disputeId, action: 'resolve' } as never)}
           >
             <Text style={styles.resolveButtonText}>Resolve</Text>
           </TouchableOpacity>

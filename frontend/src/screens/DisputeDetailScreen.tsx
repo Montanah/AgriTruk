@@ -72,9 +72,8 @@ const DisputeDetailScreen = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return colors.warning;
+      case 'open': return colors.warning; // Backend uses 'open' not 'pending'
       case 'resolved': return colors.success;
-      case 'escalated': return colors.error;
       case 'in_progress': return colors.primary;
       case 'closed': return colors.text.secondary;
       default: return colors.text.secondary;
@@ -156,73 +155,67 @@ const DisputeDetailScreen = () => {
           )}
         </View>
 
-        {/* Customer Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Customer</Text>
-          <View style={styles.infoRow}>
-            <MaterialCommunityIcons name="account" size={20} color={colors.text.secondary} />
-            <Text style={styles.infoLabel}>Name:</Text>
-            <Text style={styles.infoValue}>{dispute.customer.name}</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <MaterialCommunityIcons name="phone" size={20} color={colors.text.secondary} />
-            <Text style={styles.infoLabel}>Phone:</Text>
-            <Text style={styles.infoValue}>{dispute.customer.phone}</Text>
-          </View>
-          {dispute.customer.email && (
+        {/* Customer Information (from openedBy) */}
+        {dispute.openedBy && typeof dispute.openedBy === 'object' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Customer</Text>
             <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="email" size={20} color={colors.text.secondary} />
-              <Text style={styles.infoLabel}>Email:</Text>
-              <Text style={styles.infoValue}>{dispute.customer.email}</Text>
+              <MaterialCommunityIcons name="account" size={20} color={colors.text.secondary} />
+              <Text style={styles.infoLabel}>Name:</Text>
+              <Text style={styles.infoValue}>{dispute.openedBy.name || dispute.openedBy.displayName || 'N/A'}</Text>
             </View>
-          )}
-        </View>
+            {dispute.openedBy.phone && (
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="phone" size={20} color={colors.text.secondary} />
+                <Text style={styles.infoLabel}>Phone:</Text>
+                <Text style={styles.infoValue}>{dispute.openedBy.phone}</Text>
+              </View>
+            )}
+            {dispute.openedBy.email && (
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="email" size={20} color={colors.text.secondary} />
+                <Text style={styles.infoLabel}>Email:</Text>
+                <Text style={styles.infoValue}>{dispute.openedBy.email}</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Transporter Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Transporter</Text>
-          <View style={styles.infoRow}>
-            <MaterialCommunityIcons name="truck" size={20} color={colors.text.secondary} />
-            <Text style={styles.infoLabel}>Name:</Text>
-            <Text style={styles.infoValue}>{dispute.transporter.name}</Text>
-          </View>
-          {dispute.transporter.phone && (
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="phone" size={20} color={colors.text.secondary} />
-              <Text style={styles.infoLabel}>Phone:</Text>
-              <Text style={styles.infoValue}>{dispute.transporter.phone}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Issue Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Issue</Text>
-          <View style={styles.issueCard}>
-            <Text style={styles.issueTitle}>{dispute.issue}</Text>
-            <Text style={styles.issueDescription}>{dispute.description}</Text>
-            <View style={styles.categoryBadge}>
-              <MaterialCommunityIcons name="tag" size={14} color={colors.text.secondary} />
-              <Text style={styles.categoryText}>{dispute.category.replace('_', ' ')}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Attachments */}
-        {dispute.attachments && dispute.attachments.length > 0 && (
+        {dispute.transporter && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Attachments</Text>
+            <Text style={styles.sectionTitle}>Transporter</Text>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="truck" size={20} color={colors.text.secondary} />
+              <Text style={styles.infoLabel}>Name:</Text>
+              <Text style={styles.infoValue}>{dispute.transporter.name || dispute.transporter.companyName || 'N/A'}</Text>
+            </View>
+            {dispute.transporter.phone && (
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="phone" size={20} color={colors.text.secondary} />
+                <Text style={styles.infoLabel}>Phone:</Text>
+                <Text style={styles.infoValue}>{dispute.transporter.phone}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Issue Details (Backend uses 'reason') */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Reason for Dispute</Text>
+          <View style={styles.issueCard}>
+            <Text style={styles.issueDescription}>{dispute.reason}</Text>
+          </View>
+        </View>
+
+        {/* Evidence (Backend uses 'evidence' array) */}
+        {dispute.evidence && dispute.evidence.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Evidence</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {dispute.attachments.map((attachment, index) => (
+              {dispute.evidence.map((url, index) => (
                 <TouchableOpacity key={index} style={styles.attachmentCard}>
-                  {attachment.type === 'image' ? (
-                    <Image source={{ uri: attachment.url }} style={styles.attachmentImage} />
-                  ) : (
-                    <MaterialCommunityIcons name="file-document" size={40} color={colors.primary} />
-                  )}
-                  <Text style={styles.attachmentName} numberOfLines={1}>
-                    {attachment.name}
-                  </Text>
+                  <Image source={{ uri: url }} style={styles.attachmentImage} />
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -242,29 +235,35 @@ const DisputeDetailScreen = () => {
           </View>
         )}
 
-        {/* Resolution */}
+        {/* Resolution (Backend uses string, not object) */}
         {dispute.resolution && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Resolution</Text>
             <View style={styles.resolutionCard}>
-              <Text style={styles.resolutionOutcome}>
-                Outcome: {dispute.resolution.outcome.replace('_', ' ')}
-              </Text>
-              <Text style={styles.resolutionNotes}>{dispute.resolution.resolutionNotes}</Text>
-              {dispute.resolution.refundAmount && (
+              <Text style={styles.resolutionNotes}>{dispute.resolution}</Text>
+              {dispute.amountRefunded && dispute.amountRefunded > 0 && (
                 <Text style={styles.resolutionAmount}>
-                  Refund: KES {dispute.resolution.refundAmount.toLocaleString()}
+                  Amount Refunded: KES {dispute.amountRefunded.toLocaleString()}
                 </Text>
               )}
-              {dispute.resolution.compensationAmount && (
-                <Text style={styles.resolutionAmount}>
-                  Compensation: KES {dispute.resolution.compensationAmount.toLocaleString()}
+              {dispute.resolvedAt && (
+                <Text style={styles.resolutionDate}>
+                  Resolved: {formatDate(dispute.resolvedAt)}
                 </Text>
               )}
-              <Text style={styles.resolutionDate}>
-                Resolved: {formatDate(dispute.resolution.resolvedAt)}
-              </Text>
             </View>
+          </View>
+        )}
+
+        {/* Comments */}
+        {dispute.comments && dispute.comments.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Comments</Text>
+            {dispute.comments.map((comment, index) => (
+              <View key={index} style={styles.commentCard}>
+                <Text style={styles.commentText}>{comment}</Text>
+              </View>
+            ))}
           </View>
         )}
 
@@ -279,15 +278,6 @@ const DisputeDetailScreen = () => {
                 <Text style={styles.timelineDate}>{formatDate(dispute.createdAt)}</Text>
               </View>
             </View>
-            {dispute.escalatedAt && (
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineDot, { backgroundColor: colors.error }]} />
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineLabel}>Escalated</Text>
-                  <Text style={styles.timelineDate}>{formatDate(dispute.escalatedAt)}</Text>
-                </View>
-              </View>
-            )}
             {dispute.resolvedAt && (
               <View style={styles.timelineItem}>
                 <View style={[styles.timelineDot, { backgroundColor: colors.success }]} />
@@ -302,11 +292,11 @@ const DisputeDetailScreen = () => {
       </ScrollView>
 
       {/* Actions */}
-      {dispute.status === 'pending' && (
+      {dispute.status === 'open' && (
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('CreateDispute' as never, { disputeId: dispute.id, edit: true } as never)}
+            onPress={() => navigation.navigate('CreateDispute' as never, { disputeId: dispute.disputeId, edit: true } as never)}
           >
             <MaterialCommunityIcons name="pencil" size={20} color={colors.white} />
             <Text style={styles.actionButtonText}>Update</Text>

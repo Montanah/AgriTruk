@@ -22,19 +22,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
-import { disputeService, DisputeCategory, DisputePriority } from '../services/disputeService';
+import { disputeService, DisputePriority } from '../services/disputeService';
 import { unifiedBookingService } from '../services/unifiedBookingService';
-
-const CATEGORIES: { label: string; value: DisputeCategory; icon: string }[] = [
-  { label: 'Package Damaged', value: 'package_damaged', icon: 'package-variant' },
-  { label: 'Late Delivery', value: 'late_delivery', icon: 'clock-alert' },
-  { label: 'Wrong Address', value: 'wrong_address', icon: 'map-marker-alert' },
-  { label: 'Missing Items', value: 'missing_items', icon: 'package-variant-closed' },
-  { label: 'Billing Issue', value: 'billing_issue', icon: 'credit-card-alert' },
-  { label: 'Service Quality', value: 'service_quality', icon: 'star-alert' },
-  { label: 'Safety Concern', value: 'safety_concern', icon: 'shield-alert' },
-  { label: 'Other', value: 'other', icon: 'alert-circle' },
-];
 
 const PRIORITIES: { label: string; value: DisputePriority; color: string }[] = [
   { label: 'Low', value: 'low', color: colors.success },
@@ -52,10 +41,9 @@ const CreateDisputeScreen = () => {
   };
 
   const [booking, setBooking] = useState<any>(null);
-  const [issue, setIssue] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<DisputeCategory>('other');
+  const [reason, setReason] = useState(''); // Backend uses 'reason' not 'issue'/'description'
   const [priority, setPriority] = useState<DisputePriority>('medium');
+  const [evidence, setEvidence] = useState<string[]>([]); // Backend uses 'evidence' array of URLs
   const [attachments, setAttachments] = useState<Array<{ uri: string; type: string; name: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [loadingBooking, setLoadingBooking] = useState(false);
@@ -115,13 +103,8 @@ const CreateDisputeScreen = () => {
   };
 
   const handleSubmit = async () => {
-    if (!issue.trim()) {
-      Alert.alert('Error', 'Please enter an issue title');
-      return;
-    }
-
-    if (!description.trim()) {
-      Alert.alert('Error', 'Please describe the issue');
+    if (!reason.trim()) {
+      Alert.alert('Error', 'Please describe the issue/reason for the dispute');
       return;
     }
 
@@ -130,21 +113,27 @@ const CreateDisputeScreen = () => {
       return;
     }
 
+    // Get transporterId from booking
+    const transporterId = booking?.transporter?.id || booking?.transporterId || booking?.assignedDriver?.id;
+    if (!transporterId) {
+      Alert.alert('Error', 'Transporter/Driver information is required. Please ensure the booking has an assigned transporter.');
+      return;
+    }
+
     try {
       setLoading(true);
       
-      // Upload attachments if any
-      const uploadedAttachments: Array<{ url: string; type: string; name: string }> = [];
-      // TODO: Upload images to backend storage
-      // For now, we'll skip attachment uploads
+      // Upload attachments if any and convert to evidence URLs
+      // TODO: Upload images to backend storage and get URLs
+      // For now, we'll use the URIs directly (they should be uploaded first)
+      const evidenceUrls = attachments.map(att => att.uri);
 
       const disputeData = {
         bookingId: bookingId || booking?.id,
-        issue: issue.trim(),
-        description: description.trim(),
-        category,
+        transporterId,
+        reason: reason.trim(), // Backend uses 'reason'
         priority,
-        attachments: uploadedAttachments,
+        evidence: evidenceUrls, // Backend uses 'evidence' array
       };
 
       await disputeService.createDispute(disputeData);
@@ -203,63 +192,19 @@ const CreateDisputeScreen = () => {
           </View>
         )}
 
-        {/* Issue Title */}
+        {/* Reason (Backend uses 'reason' not 'issue'/'description') */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Issue Title *</Text>
-          <TextInput
-            style={styles.input}
-            value={issue}
-            onChangeText={setIssue}
-            placeholder="Brief description of the issue"
-            placeholderTextColor={colors.text.light}
-            maxLength={100}
-          />
-        </View>
-
-        {/* Description */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Description *</Text>
+          <Text style={styles.sectionTitle}>Reason for Dispute *</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Provide detailed information about the issue..."
+            value={reason}
+            onChangeText={setReason}
+            placeholder="Describe the issue or reason for this dispute..."
             placeholderTextColor={colors.text.light}
             multiline
             numberOfLines={6}
             textAlignVertical="top"
           />
-        </View>
-
-        {/* Category */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Category *</Text>
-          <View style={styles.categoryGrid}>
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat.value}
-                style={[
-                  styles.categoryCard,
-                  category === cat.value && styles.categoryCardSelected,
-                ]}
-                onPress={() => setCategory(cat.value)}
-              >
-                <MaterialCommunityIcons
-                  name={cat.icon as any}
-                  size={24}
-                  color={category === cat.value ? colors.primary : colors.text.secondary}
-                />
-                <Text
-                  style={[
-                    styles.categoryText,
-                    category === cat.value && styles.categoryTextSelected,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         {/* Priority */}

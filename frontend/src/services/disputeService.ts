@@ -7,90 +7,42 @@ import { API_ENDPOINTS } from '../constants/api';
 import { getAuth } from 'firebase/auth';
 
 export type DisputePriority = 'low' | 'medium' | 'high';
-export type DisputeStatus = 'pending' | 'resolved' | 'escalated' | 'in_progress' | 'closed';
-export type DisputeCategory = 
-  | 'package_damaged' 
-  | 'late_delivery' 
-  | 'wrong_address' 
-  | 'missing_items' 
-  | 'billing_issue'
-  | 'service_quality'
-  | 'safety_concern'
-  | 'other';
+export type DisputeStatus = 'open' | 'resolved' | 'in_progress' | 'closed'; // Backend uses 'open' not 'pending'
 
+// Backend Dispute structure matching the existing model
 export interface Dispute {
-  id: string;
-  disputeId: string; // Display ID like DSP001
+  disputeId: string; // Firestore document ID
   bookingId: string;
-  booking?: {
-    id: string;
-    readableId?: string;
-    fromLocation?: any;
-    toLocation?: any;
-    productType?: string;
-    weight?: string;
-  };
+  openedBy: string | any; // User ID or populated user object
+  transporterId: string | null;
+  userId: string | null;
+  transporterType?: 'transporter' | 'driver';
   
-  // Parties involved
-  customer: {
-    id: string;
-    name: string;
-    phone: string;
-    email?: string;
-    type: 'shipper' | 'broker' | 'business';
-  };
-  
-  transporter: {
-    id: string;
-    name: string;
-    phone?: string;
-    email?: string;
-  };
-  
-  // Dispute details
-  issue: string;
-  description: string;
-  category: DisputeCategory;
+  // Dispute details (backend uses 'reason' not 'issue'/'description')
+  reason: string;
+  status: DisputeStatus; // 'open' is default, not 'pending'
   priority: DisputePriority;
-  status: DisputeStatus;
   
-  // Evidence and attachments
-  attachments?: Array<{
-    id: string;
-    url: string;
-    type: 'image' | 'document' | 'video';
-    name: string;
-  }>;
+  // Evidence (backend uses 'evidence' not 'attachments')
+  evidence?: string[]; // Array of URLs or references
   
-  // Resolution
-  resolution?: {
-    resolvedBy: string;
-    resolvedAt: string;
-    resolutionNotes: string;
-    outcome: 'customer_favored' | 'transporter_favored' | 'partial' | 'dismissed';
-    refundAmount?: number;
-    compensationAmount?: number;
-  };
+  // Comments array
+  comments?: string[];
   
-  // Escalation
-  escalatedAt?: string;
-  escalatedBy?: string;
-  escalationReason?: string;
+  // Resolution (backend uses string, not object)
+  resolution?: string | null;
+  amountRefunded?: number;
+  resolvedBy?: string | null;
+  resolvedAt?: string | null;
   
   // Timeline
+  openedAt?: string;
   createdAt: string;
   updatedAt: string;
-  resolvedAt?: string;
-  closedAt?: string;
   
-  // Admin notes
-  adminNotes?: string;
-  
-  // Response from transporter
-  transporterResponse?: {
-    message: string;
-    respondedAt: string;
-  };
+  // Populated fields (from controller)
+  transporter?: any; // Populated transporter object
+  customer?: any; // Populated user object (from openedBy)
 }
 
 export interface DisputeStats {
@@ -103,7 +55,6 @@ export interface DisputeStats {
 export interface DisputeFilters {
   status?: DisputeStatus[];
   priority?: DisputePriority[];
-  category?: DisputeCategory[];
   dateFrom?: string;
   dateTo?: string;
   search?: string;
@@ -119,14 +70,16 @@ class DisputeService {
 
   /**
    * Create a new dispute
+   * Backend expects: bookingId, transporterId, reason, status, priority, comments, evidence
    */
   async createDispute(disputeData: {
     bookingId: string;
-    issue: string;
-    description: string;
-    category: DisputeCategory;
+    transporterId: string;
+    reason: string; // Backend uses 'reason' not 'issue'/'description'
     priority?: DisputePriority;
-    attachments?: Array<{ url: string; type: string; name: string }>;
+    status?: DisputeStatus;
+    comments?: string[];
+    evidence?: string[]; // Backend uses 'evidence' not 'attachments'
   }): Promise<Dispute> {
     try {
       const token = await this.getAuthToken();
@@ -138,8 +91,13 @@ class DisputeService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...disputeData,
+          bookingId: disputeData.bookingId,
+          transporterId: disputeData.transporterId,
+          reason: disputeData.reason,
           priority: disputeData.priority || 'medium',
+          status: disputeData.status || 'open',
+          comments: disputeData.comments || [],
+          evidence: disputeData.evidence || [],
         }),
       });
 
@@ -158,26 +116,20 @@ class DisputeService {
 
   /**
    * Get all disputes for the current user
+   * Backend has: /api/disputes/openedBy/:openedBy
    */
   async getDisputes(filters?: DisputeFilters): Promise<{ disputes: Dispute[]; stats: DisputeStats }> {
     try {
       const token = await this.getAuthToken();
+      const auth = getAuth();
+      const userId = auth.currentUser?.uid;
       
-      const queryParams = new URLSearchParams();
-      if (filters?.status) {
-        filters.status.forEach(s => queryParams.append('status', s));
+      if (!userId) {
+        throw new Error('User not authenticated');
       }
-      if (filters?.priority) {
-        filters.priority.forEach(p => queryParams.append('priority', p));
-      }
-      if (filters?.category) {
-        filters.category.forEach(c => queryParams.append('category', c));
-      }
-      if (filters?.dateFrom) queryParams.append('dateFrom', filters.dateFrom);
-      if (filters?.dateTo) queryParams.append('dateTo', filters.dateTo);
-      if (filters?.search) queryParams.append('search', filters.search);
-
-      const response = await fetch(`${API_ENDPOINTS.DISPUTES}?${queryParams}`, {
+      
+      // Backend endpoint: /api/disputes/openedBy/:openedBy
+      const response = await fetch(`${API_ENDPOINTS.DISPUTES}/openedBy/${userId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -189,16 +141,39 @@ class DisputeService {
         throw new Error(`Failed to get disputes: ${response.status}`);
       }
 
-      const data = await response.json();
-      return {
-        disputes: data.disputes || data || [],
-        stats: data.stats || {
-          pending: 0,
-          resolvedToday: 0,
-          escalated: 0,
-          total: 0,
-        },
+      let disputes: Dispute[] = await response.json();
+      
+      // Apply client-side filters if needed
+      if (filters?.status && filters.status.length > 0) {
+        disputes = disputes.filter(d => filters.status!.includes(d.status));
+      }
+      if (filters?.priority && filters.priority.length > 0) {
+        disputes = disputes.filter(d => filters.priority!.includes(d.priority));
+      }
+      if (filters?.search) {
+        const searchLower = filters.search.toLowerCase();
+        disputes = disputes.filter(d => 
+          d.reason?.toLowerCase().includes(searchLower) ||
+          d.disputeId?.toLowerCase().includes(searchLower) ||
+          d.bookingId?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      // Calculate stats
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const stats: DisputeStats = {
+        pending: disputes.filter(d => d.status === 'open').length,
+        resolvedToday: disputes.filter(d => {
+          if (d.status !== 'resolved' || !d.resolvedAt) return false;
+          const resolvedDate = new Date(d.resolvedAt);
+          return resolvedDate >= today;
+        }).length,
+        escalated: 0, // Backend doesn't have 'escalated' status
+        total: disputes.length,
       };
+      
+      return { disputes, stats };
     } catch (error) {
       console.error('Error getting disputes:', error);
       throw error;
@@ -266,24 +241,33 @@ class DisputeService {
   }
 
   /**
-   * Resolve a dispute (admin only, but can be called from mobile for viewing)
+   * Resolve a dispute (admin only)
+   * Backend expects: resolution, amountRefunded, comments
+   * Uses PUT /api/disputes/:disputeId with status 'resolved'
    */
-  async resolveDispute(disputeId: string, resolution: {
-    resolutionNotes: string;
-    outcome: 'customer_favored' | 'transporter_favored' | 'partial' | 'dismissed';
-    refundAmount?: number;
-    compensationAmount?: number;
+  async resolveDispute(disputeId: string, resolutionData: {
+    resolution: string;
+    amountRefunded?: number;
+    comments?: string;
   }): Promise<Dispute> {
     try {
       const token = await this.getAuthToken();
       
-      const response = await fetch(`${API_ENDPOINTS.DISPUTES}/${disputeId}/resolve`, {
-        method: 'POST',
+      // Backend resolve endpoint: PUT /api/disputes/:disputeId/resolve
+      // But based on controller, it seems to use a separate resolve method
+      // Let's use updateDispute with status 'resolved'
+      const response = await fetch(`${API_ENDPOINTS.DISPUTES}/${disputeId}`, {
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(resolution),
+        body: JSON.stringify({
+          status: 'resolved',
+          resolution: resolutionData.resolution,
+          amountRefunded: resolutionData.amountRefunded || 0,
+          comments: resolutionData.comments ? [resolutionData.comments] : undefined,
+        }),
       });
 
       if (!response.ok) {
@@ -300,62 +284,29 @@ class DisputeService {
   }
 
   /**
-   * Escalate a dispute
+   * Get disputes by booking ID
+   * Backend endpoint: /api/disputes/booking/:bookingId
    */
-  async escalateDispute(disputeId: string, reason: string): Promise<Dispute> {
+  async getDisputesByBookingId(bookingId: string): Promise<Dispute[]> {
     try {
       const token = await this.getAuthToken();
       
-      const response = await fetch(`${API_ENDPOINTS.DISPUTES}/${disputeId}/escalate`, {
-        method: 'POST',
+      const response = await fetch(`${API_ENDPOINTS.DISPUTES}/booking/${bookingId}`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ reason }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Failed to escalate dispute: ${response.status}`);
+        throw new Error(`Failed to get disputes: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data.dispute || data;
+      const disputes = await response.json();
+      return Array.isArray(disputes) ? disputes : [];
     } catch (error) {
-      console.error('Error escalating dispute:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Add attachment to dispute
-   */
-  async addAttachment(disputeId: string, attachment: {
-    url: string;
-    type: 'image' | 'document' | 'video';
-    name: string;
-  }): Promise<Dispute> {
-    try {
-      const token = await this.getAuthToken();
-      
-      const response = await fetch(`${API_ENDPOINTS.DISPUTES}/${disputeId}/attachments`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(attachment),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to add attachment: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.dispute || data;
-    } catch (error) {
-      console.error('Error adding attachment:', error);
+      console.error('Error getting disputes by booking ID:', error);
       throw error;
     }
   }
