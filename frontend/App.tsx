@@ -34,6 +34,9 @@ import RouteLoadsScreen from './src/screens/RouteLoadsScreen';
 import NotificationPreferencesScreen from './src/screens/NotificationPreferencesScreen';
 import RatingSubmissionScreen from './src/screens/RatingSubmissionScreen';
 import RatingAnalyticsScreen from './src/screens/RatingAnalyticsScreen';
+import DisputeListScreen from './src/screens/DisputeListScreen';
+import DisputeDetailScreen from './src/screens/DisputeDetailScreen';
+import CreateDisputeScreen from './src/screens/CreateDisputeScreen';
 
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
@@ -758,6 +761,9 @@ export default function App() {
         <Stack.Screen name="NotificationPreferences" component={NotificationPreferencesScreen} />
         <Stack.Screen name="RatingSubmission" component={RatingSubmissionScreen} />
         <Stack.Screen name="RatingAnalytics" component={RatingAnalyticsScreen} />
+        <Stack.Screen name="DisputeList" component={DisputeListScreen} />
+        <Stack.Screen name="DisputeDetail" component={DisputeDetailScreen} />
+        <Stack.Screen name="CreateDispute" component={CreateDisputeScreen} />
         {/* Temporary: allow navigation for UI testing */}
         <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
         <Stack.Screen name="DriverTabs" component={DriverTabNavigator} />

@@ -1017,10 +1017,10 @@ const AccountScreen = () => {
 
           <TouchableOpacity
             style={styles.complaintButton}
-            onPress={() => setShowConflictModal(true)}
+            onPress={() => navigation.navigate('DisputeList' as never)}
           >
             <MaterialCommunityIcons name="alert-circle-outline" size={20} color={colors.white} />
-            <Text style={styles.complaintButtonText}>Submit Complaint</Text>
+            <Text style={styles.complaintButtonText}>View Disputes</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
