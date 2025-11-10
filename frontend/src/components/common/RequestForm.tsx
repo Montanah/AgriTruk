@@ -180,18 +180,20 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     };
 
     // Get current location
-    const getCurrentLocation = async () => {
+    const getCurrentLocation = async (showError = true) => {
         try {
             setIsGettingLocation(true);
             
             // Request location permission
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert(
-                    'Location Permission Required',
-                    'Please enable location access to automatically set your pickup location.',
-                    [{ text: 'OK' }]
-                );
+                if (showError) {
+                    Alert.alert(
+                        'Location Permission Required',
+                        'Please enable location access to automatically set your pickup location.',
+                        [{ text: 'OK' }]
+                    );
+                }
                 setLocationPermissionGranted(false);
                 return;
             }
@@ -245,21 +247,46 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                 setFromLocationAddress('Current Location');
             }
             
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error getting current location:', error);
-            Alert.alert(
-                'Location Error',
-                'Could not get your current location. Please enter your pickup location manually.',
-                [{ text: 'OK' }]
-            );
+            
+            // Only show error if explicitly requested (manual button press)
+            if (showError) {
+                // Provide more specific error messages
+                let errorMessage = 'Could not get your current location. Please enter your pickup location manually.';
+                
+                if (error?.code === 'E_LOCATION_SERVICES_DISABLED') {
+                    errorMessage = 'Location services are disabled. Please enable them in your device settings.';
+                } else if (error?.code === 'E_LOCATION_UNAVAILABLE') {
+                    errorMessage = 'Location is unavailable. If you\'re using an emulator, please set a mock location in the emulator settings.';
+                } else if (error?.message?.includes('timeout') || error?.message?.includes('TIMEOUT')) {
+                    errorMessage = 'Location request timed out. Please try again or enter your location manually.';
+                } else if (error?.message?.includes('permission')) {
+                    errorMessage = 'Location permission was denied. Please enable location access in app settings.';
+                }
+                
+                Alert.alert(
+                    'Location Error',
+                    errorMessage,
+                    [{ text: 'OK' }]
+                );
+            } else {
+                // Silent failure for automatic location fetch on mount
+                console.log('Automatic location fetch skipped (emulator or unavailable):', error?.message || 'Location unavailable');
+            }
         } finally {
             setIsGettingLocation(false);
         }
     };
 
-    // Get current location on component mount
+    // Get current location on component mount (with error handling)
     useEffect(() => {
-        getCurrentLocation();
+        // Try to get location automatically, but don't show error if it fails
+        // User can manually click "Use Current" button if needed
+        getCurrentLocation(false).catch((error) => {
+            // Silent failure for automatic location fetch
+            console.log('Automatic location fetch skipped:', error?.message || 'Location unavailable');
+        });
     }, []);
 
     const createRequestData = () => {
