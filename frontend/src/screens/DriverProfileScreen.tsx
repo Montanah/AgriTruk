@@ -27,6 +27,7 @@ import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
+import LogoutConfirmationDialog from '../components/common/LogoutConfirmationDialog';
 import { apiRequest, uploadFile } from '../utils/api';
 import ImagePickerModal from '../components/common/ImagePickerModal';
 
@@ -473,32 +474,27 @@ const DriverProfileScreen = () => {
     return expiry.getTime() < now.getTime();
   };
 
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const auth = getAuth();
-              await signOut(auth);
-              // Navigate to Welcome screen after logout
-              (navigation as any).reset({
-                index: 0,
-                routes: [{ name: 'Welcome' }],
-              });
-            } catch (error: any) {
-              console.error('Logout error:', error);
-              Alert.alert('Logout Error', 'Failed to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    setShowLogoutDialog(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      const auth = getAuth();
+      await signOut(auth);
+      setShowLogoutDialog(false);
+      // Navigate to Welcome screen after logout
+      (navigation as any).reset({
+        index: 0,
+        routes: [{ name: 'Welcome' }],
+      });
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      setShowLogoutDialog(false);
+      Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+    }
   };
 
   // Profile editing functions
@@ -1046,6 +1042,12 @@ const DriverProfileScreen = () => {
       </ScrollView>
 
       {/* Image Picker Modal */}
+      
+      <LogoutConfirmationDialog
+        visible={showLogoutDialog}
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutDialog(false)}
+      />
       <ImagePickerModal
         visible={imagePickerVisible}
         onClose={() => setImagePickerVisible(false)}

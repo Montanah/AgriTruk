@@ -18,8 +18,9 @@ import colors from '../constants/colors';
 import spacing from '../constants/spacing';
 import fonts from '../constants/fonts';
 import { getLocationName } from '../utils/locationUtils';
-import ChatModal from '../components/Chat/ChatModal';
+import RealtimeChatModal from '../components/Chat/RealtimeChatModal';
 import { enhancedNotificationService } from '../services/enhancedNotificationService';
+import { getAuth } from 'firebase/auth';
 
 const { width, height } = Dimensions.get('window');
 
@@ -458,20 +459,23 @@ const ClientTrackingScreen: React.FC<ClientTrackingScreenProps> = ({ route, navi
             <Text style={styles.rating}>{trackingData?.transporter.rating}</Text>
           </View>
         </View>
-        <View style={styles.transporterActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleCallTransporter}
-          >
-            <MaterialCommunityIcons name="phone" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleChatTransporter}
-          >
-            <MaterialCommunityIcons name="message" size={20} color={colors.primary} />
-          </TouchableOpacity>
-        </View>
+        {/* Communication Buttons - Only show for accepted/confirmed/assigned bookings */}
+        {['accepted', 'confirmed', 'assigned'].includes((trackingData?.status || booking?.status || '').toLowerCase()) && (
+          <View style={styles.transporterActions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleCallTransporter}
+            >
+              <MaterialCommunityIcons name="phone" size={20} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleChatTransporter}
+            >
+              <MaterialCommunityIcons name="message" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -560,11 +564,22 @@ const ClientTrackingScreen: React.FC<ClientTrackingScreenProps> = ({ route, navi
       </ScrollView>
 
       {/* Modals */}
-      <ChatModal
-        visible={showChat}
-        onClose={() => setShowChat(false)}
-        targetUser={trackingData?.transporter}
-      />
+      {trackingData?.transporter && (
+        <RealtimeChatModal
+          visible={showChat}
+          onClose={() => setShowChat(false)}
+          bookingId={booking?.id || booking?.bookingId || trackingData?.bookingId}
+          participant1Id={getAuth().currentUser?.uid || ''}
+          participant1Type="shipper"
+          participant2Id={trackingData.transporter.id}
+          participant2Type="transporter"
+          participant2Name={trackingData.transporter.name}
+          participant2Photo={trackingData.transporter.profilePhoto}
+          onChatCreated={(chatRoom) => {
+            // Chat created
+          }}
+        />
+      )}
 
       <Modal
         visible={showCall}

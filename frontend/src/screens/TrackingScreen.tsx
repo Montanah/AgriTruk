@@ -11,6 +11,7 @@ import {
     View,
     Modal,
     Linking,
+    Alert,
 } from 'react-native';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
@@ -18,12 +19,13 @@ import spacing from '../constants/spacing';
 import { formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
 import { getDisplayBookingId } from '../utils/unifiedIdSystem';
-import ChatModal from '../components/Chat/ChatModal';
+import RealtimeChatModal from '../components/Chat/RealtimeChatModal';
 import { unifiedTrackingService, TrackingData as UnifiedTrackingData } from '../services/unifiedTrackingService';
 import { unifiedBookingService } from '../services/unifiedBookingService';
 import { API_ENDPOINTS } from '../constants/api';
 import { getAuth } from 'firebase/auth';
 import VehicleDisplayCard from '../components/common/VehicleDisplayCard';
+import { enhancedRatingService } from '../services/enhancedRatingService';
 // Mock data removed - now using real API calls
 
 interface TrackingData {
@@ -78,19 +80,30 @@ const TrackingScreen = () => {
     const [callVisible, setCallVisible] = useState(false);
     const [isTracking, setIsTracking] = useState(false);
     const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+    const [hasRated, setHasRated] = useState(false);
+    const [existingRating, setExistingRating] = useState<any>(null);
 
-    // Get transporter info for communication
+    // Get transporter info for communication - prioritize assignedDriver
     const transporter = booking?.transporter || trackingData?.transporterInfo;
-    const commTarget = transporter ? {
+    const assignedDriver = booking?.assignedDriver || transporter?.assignedDriver;
+    const commTarget = assignedDriver ? {
+        id: assignedDriver.id || assignedDriver.driverId || transporter?.id || transporter?.transporterId || 'driver-id',
+        name: assignedDriver.name || assignedDriver.driverName || transporter?.name || transporter?.transporterName || 'Driver',
+        phone: assignedDriver.phone || assignedDriver.driverPhone || transporter?.phone || transporter?.transporterPhone || transporter?.phoneNumber || '+254700000000',
+        role: 'driver',
+        photo: assignedDriver.photo || assignedDriver.profilePhoto || transporter?.photo || transporter?.profilePhoto
+    } : transporter ? {
         id: transporter.id || transporter.transporterId || 'transporter-id',
         name: transporter.name || transporter.transporterName || 'Transporter',
         phone: transporter.phone || transporter.transporterPhone || transporter.phoneNumber || '+254700000000',
-        role: 'Transporter'
+        role: 'transporter',
+        photo: transporter.photo || transporter.profilePhoto
     } : null;
 
     useEffect(() => {
         if (booking?.id || initialBooking?.id) {
             loadBookingData();
+            checkExistingRating();
             // Only auto-refresh if trip is active (started/in transit)
             // We'll check this after initial load and set up interval if needed
         }
@@ -101,7 +114,84 @@ const TrackingScreen = () => {
                 clearInterval(refreshInterval);
             }
         };
-    }, [initialBooking?.id]);
+    }, [initialBooking?.id, booking?.id]);
+
+    // Check if user has already rated this driver/transporter
+    const checkExistingRating = async () => {
+        try {
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user || !booking?.id) return;
+
+            const transporterId = booking?.assignedDriver?.id || 
+                                 booking?.assignedDriver?.driverId ||
+                                 booking?.transporter?.id || 
+                                 booking?.transporterId;
+            
+            if (!transporterId) return;
+
+            // Use getUserRatings and filter by bookingId
+            const { ratings } = await enhancedRatingService.getUserRatings({ transporterId });
+            const userRating = ratings.find((r: any) => r.bookingId === booking.id && r.raterId === user.uid);
+            
+            if (userRating) {
+                setHasRated(true);
+                setExistingRating(userRating);
+            }
+        } catch (error) {
+            console.error('Error checking existing rating:', error);
+        }
+    };
+
+    // Check if trip is completed
+    const isTripCompleted = () => {
+        const status = booking?.status?.toLowerCase() || '';
+        return ['delivered', 'completed', 'finished'].includes(status);
+    };
+
+    // Check if user can rate (not transporter/driver rating themselves)
+    const canRate = () => {
+        const currentUserType = userType || 'shipper';
+        return isTripCompleted() && 
+               !['transporter', 'driver'].includes(currentUserType) && 
+               !hasRated &&
+               (booking?.assignedDriver || booking?.transporter);
+    };
+
+    // Handle rating submission
+    const handleRateDriver = () => {
+        if (!booking) return;
+        
+        const transporterId = booking?.assignedDriver?.id || 
+                             booking?.assignedDriver?.driverId ||
+                             booking?.transporter?.id || 
+                             booking?.transporterId;
+        const transporterName = booking?.assignedDriver?.name || 
+                               booking?.assignedDriver?.driverName ||
+                               booking?.transporter?.name || 
+                               booking?.transporterName || 
+                               'Driver';
+        
+        if (!transporterId) {
+            Alert.alert('Error', 'Driver/Transporter information not available');
+            return;
+        }
+
+        // Determine rater role based on user type
+        let raterRole = 'client';
+        if (userType === 'broker') raterRole = 'broker';
+        if (userType === 'business') raterRole = 'business';
+        if (userType === 'shipper') raterRole = 'client';
+
+        (navigation as any).navigate('RatingSubmission', {
+            transporterId,
+            transporterName,
+            bookingId: booking?.id || booking?.bookingId,
+            tripId: booking?.tripId,
+            raterRole,
+            existingRating,
+        });
+    };
 
     const loadBookingData = async () => {
         try {
@@ -740,28 +830,68 @@ const TrackingScreen = () => {
                 </View>
 
                 {/* Transporter/Driver Information */}
-                {(booking.transporterId || booking.transporter) ? (
+                {(booking.transporterId || booking.transporter || booking.assignedDriver || booking.driver) ? (
                     <View style={styles.card}>
                         <View style={styles.cardHeader}>
                             <MaterialCommunityIcons name="account-tie" size={24} color={colors.tertiary} />
-                            <Text style={styles.cardTitle}>Assigned Driver</Text>
+                            <Text style={styles.cardTitle}>Transporter & Driver Details</Text>
                         </View>
                         <View style={styles.transporterInfo}>
-                            {(booking.transporter?.name || booking.transporterName) && (
+                            {/* Company Name - Always show for accepted bookings with driver */}
+                            {(() => {
+                                const companyName = 
+                                    booking.assignedDriver?.companyName || 
+                                    booking.assignedDriver?.company?.name ||
+                                    booking.driver?.companyName ||
+                                    booking.driver?.company?.name ||
+                                    booking.transporter?.assignedDriver?.companyName ||
+                                    booking.transporter?.assignedDriver?.company?.name ||
+                                    booking.transporter?.companyName || 
+                                    booking.transporter?.company?.name || 
+                                    booking.companyName;
+                                
+                                if (['accepted', 'confirmed', 'assigned'].includes(booking.status?.toLowerCase()) && 
+                                    (booking.assignedDriver || booking.driver || booking.transporter?.assignedDriver) && 
+                                    companyName) {
+                                    return (
+                                        <View style={styles.companyInfo}>
+                                            <MaterialCommunityIcons name="office-building" size={16} color={colors.primary} />
+                                            <Text style={styles.companyName}>{companyName}</Text>
+                                        </View>
+                                    );
+                                }
+                                return null;
+                            })()}
+                            
+                            {/* Driver Details - Show name and phone */}
+                            {(booking.assignedDriver || booking.driver || booking.transporter?.assignedDriver) && (
+                                <>
+                                    <View style={styles.transporterDetailRow}>
+                                        <MaterialCommunityIcons name="account" size={16} color={colors.text.secondary} />
+                                        <Text style={styles.transporterLabel}>Driver:</Text>
+                                        <Text style={styles.transporterValue}>
+                                            {booking.assignedDriver?.name || booking.assignedDriver?.driverName || booking.assignedDriver?.firstName && booking.assignedDriver?.lastName ? `${booking.assignedDriver.firstName} ${booking.assignedDriver.lastName}` : booking.driver?.name || booking.driver?.driverName || booking.transporter?.assignedDriver?.name || booking.transporter?.name || booking.transporterName || 'N/A'}
+                                        </Text>
+                                    </View>
+                                    {(booking.assignedDriver?.phone || booking.driver?.phone || booking.transporter?.assignedDriver?.phone) && (
+                                        <View style={styles.transporterDetailRow}>
+                                            <MaterialCommunityIcons name="phone" size={16} color={colors.text.secondary} />
+                                            <Text style={styles.transporterLabel}>Phone:</Text>
+                                            <Text style={styles.transporterValue}>
+                                                {booking.assignedDriver?.phone || booking.driver?.phone || booking.transporter?.assignedDriver?.phone || 'N/A'}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </>
+                            )}
+                            
+                            {/* Transporter Details (if no driver) - Just show name (phone is available for calling via buttons) */}
+                            {!booking.assignedDriver && !booking.driver && !booking.transporter?.assignedDriver && (booking.transporter?.name || booking.transporterName) && (
                                 <View style={styles.transporterDetailRow}>
                                     <MaterialCommunityIcons name="account" size={16} color={colors.text.secondary} />
                                     <Text style={styles.transporterLabel}>Name:</Text>
                                     <Text style={styles.transporterValue}>
                                         {booking.transporter?.name || booking.transporterName || 'N/A'}
-                                    </Text>
-                                </View>
-                            )}
-                            {(booking.transporter?.phone || booking.transporterPhone || booking.transporter?.phoneNumber) && (
-                                <View style={styles.transporterDetailRow}>
-                                    <MaterialCommunityIcons name="phone" size={16} color={colors.text.secondary} />
-                                    <Text style={styles.transporterLabel}>Phone:</Text>
-                                    <Text style={styles.transporterValue}>
-                                        {booking.transporter?.phone || booking.transporterPhone || booking.transporter?.phoneNumber || 'N/A'}
                                     </Text>
                                 </View>
                             )}
@@ -775,12 +905,23 @@ const TrackingScreen = () => {
                                 </View>
                             )}
                             
-                            {/* Vehicle Information - Show if available from transporter or booking */}
-                            {(booking.transporter?.vehicle || booking.vehicleId || booking.vehicleMake || booking.vehicleRegistration) && (
+                            {/* Vehicle Information - Always show for accepted bookings */}
+                            {['accepted', 'confirmed', 'assigned'].includes(booking.status?.toLowerCase()) && (
                                 <View style={styles.vehicleSection}>
                                     <Text style={styles.vehicleSectionTitle}>Vehicle Details</Text>
-                                    <VehicleDisplayCard 
-                                        vehicle={booking.transporter?.vehicle || {
+                                    {(() => {
+                                        const vehicle = 
+                                            booking.assignedDriver?.assignedVehicle ||
+                                            booking.assignedDriver?.vehicle ||
+                                            booking.driver?.assignedVehicle ||
+                                            booking.driver?.vehicle ||
+                                            booking.transporter?.assignedVehicle ||
+                                            booking.transporter?.assignedDriver?.assignedVehicle ||
+                                            booking.transporter?.assignedDriver?.vehicle ||
+                                            booking.transporter?.vehicle ||
+                                            booking.vehicle;
+                                        
+                                        const vehicleData = vehicle || {
                                             make: booking.vehicleMake,
                                             model: booking.vehicleModel,
                                             year: booking.vehicleYear,
@@ -790,31 +931,57 @@ const TrackingScreen = () => {
                                             color: booking.vehicleColor,
                                             vehicleImagesUrl: booking.vehiclePhotos ? (Array.isArray(booking.vehiclePhotos) ? booking.vehiclePhotos : [booking.vehiclePhotos]) : undefined,
                                             photos: booking.vehiclePhotos ? (Array.isArray(booking.vehiclePhotos) ? booking.vehiclePhotos : [booking.vehiclePhotos]) : undefined,
-                                        }}
-                                        showImages={true}
-                                        compact={false}
-                                    />
+                                        };
+                                        
+                                        return (
+                                            <VehicleDisplayCard 
+                                                vehicle={vehicleData}
+                                                showImages={true}
+                                                compact={false}
+                                            />
+                                        );
+                                    })()}
                                 </View>
                             )}
                             
-                            {/* Communication Buttons */}
-                            <View style={styles.communicationButtons}>
+                            {/* Communication Buttons - Only show for accepted/confirmed/assigned bookings */}
+                            {['accepted', 'confirmed', 'assigned'].includes(booking?.status?.toLowerCase()) && commTarget && (
+                                <View style={styles.communicationButtons}>
+                                    <TouchableOpacity 
+                                        style={styles.communicationButton}
+                                        onPress={() => setChatVisible(true)}
+                                    >
+                                        <MaterialCommunityIcons name="message-text" size={20} color={colors.primary} />
+                                        <Text style={styles.communicationButtonText}>Chat</Text>
+                                    </TouchableOpacity>
+                                    
+                                    <TouchableOpacity 
+                                        style={styles.communicationButton}
+                                        onPress={() => setCallVisible(true)}
+                                    >
+                                        <MaterialCommunityIcons name="phone" size={20} color={colors.success} />
+                                        <Text style={styles.communicationButtonText}>Call</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            {/* Rating Button - Show for completed trips */}
+                            {canRate() && (
                                 <TouchableOpacity 
-                                    style={styles.communicationButton}
-                                    onPress={() => setChatVisible(true)}
+                                    style={styles.rateButton}
+                                    onPress={handleRateDriver}
                                 >
-                                    <MaterialCommunityIcons name="message-text" size={20} color={colors.primary} />
-                                    <Text style={styles.communicationButtonText}>Chat</Text>
+                                    <MaterialCommunityIcons name="star" size={20} color={colors.white} />
+                                    <Text style={styles.rateButtonText}>Rate Driver</Text>
                                 </TouchableOpacity>
-                                
-                                <TouchableOpacity 
-                                    style={styles.communicationButton}
-                                    onPress={() => setCallVisible(true)}
-                                >
-                                    <MaterialCommunityIcons name="phone" size={20} color={colors.success} />
-                                    <Text style={styles.communicationButtonText}>Call</Text>
-                                </TouchableOpacity>
-                            </View>
+                            )}
+
+                            {hasRated && (
+                                <View style={styles.ratedButton}>
+                                    <MaterialCommunityIcons name="star-check" size={20} color={colors.success} />
+                                    <Text style={styles.ratedButtonText}>Rated</Text>
+                                </View>
+                            )}
                         </View>
                     </View>
                 ) : (
@@ -896,10 +1063,16 @@ const TrackingScreen = () => {
 
             {/* Chat Modal */}
             {commTarget && (
-                <ChatModal
+                <RealtimeChatModal
                     visible={chatVisible}
                     onClose={() => setChatVisible(false)}
-                    participantIds={[commTarget.id]}
+                    bookingId={booking?.id || booking?.bookingId}
+                    participant1Id={getAuth().currentUser?.uid || ''}
+                    participant1Type={userType || 'shipper'}
+                    participant2Id={commTarget.id}
+                    participant2Type={commTarget.role}
+                    participant2Name={commTarget.name}
+                    participant2Photo={commTarget.photo}
                     onChatCreated={(chatRoom) => {
                         // Chat created
                     }}
@@ -1092,6 +1265,21 @@ const styles = StyleSheet.create({
         marginVertical: spacing.xs,
         marginLeft: 10,
     },
+    companyInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        marginBottom: spacing.sm,
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        backgroundColor: colors.primary + '10',
+        borderRadius: 6,
+    },
+    companyName: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.primary,
+    },
     transporterInfo: {
         gap: spacing.sm,
     },
@@ -1265,6 +1453,40 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.sm,
         fontWeight: '600',
         marginLeft: spacing.xs,
+    },
+    rateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.secondary,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        borderRadius: 8,
+        marginTop: spacing.md,
+    },
+    rateButtonText: {
+        color: colors.white,
+        fontSize: fonts.size.md,
+        fontWeight: '600',
+        marginLeft: spacing.sm,
+    },
+    ratedButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.success + '20',
+        borderWidth: 1,
+        borderColor: colors.success,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.lg,
+        borderRadius: 8,
+        marginTop: spacing.md,
+    },
+    ratedButtonText: {
+        color: colors.success,
+        fontSize: fonts.size.md,
+        fontWeight: '600',
+        marginLeft: spacing.sm,
     },
     vehicleSection: {
         marginTop: spacing.md,

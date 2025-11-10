@@ -9,12 +9,13 @@ import { trafficMonitoringService } from '../services/trafficMonitoringService';
 import NotificationBell from '../components/Notification/NotificationBell';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
-import ChatModal from '../components/Chat/ChatModal';
+import RealtimeChatModal from '../components/Chat/RealtimeChatModal';
 import { enhancedRatingService } from '../services/enhancedRatingService';
 import colors from '../constants/colors';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { apiRequest } from '../utils/api';
 import { getLocationName, formatRoute } from '../utils/locationUtils';
+import { getAuth } from 'firebase/auth';
 import LocationDisplay from '../components/common/LocationDisplay';
 import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 
@@ -436,28 +437,32 @@ const TripDetailsScreen = () => {
   // Determine communication target: assigned driver (for company) or selected transporter
   let commTarget = null;
   let transporter = (booking && booking.transporter) || {};
+  const assignedDriver = booking?.assignedDriver || transporter?.assignedDriver;
 
-  if (booking && booking.transporterType === 'company' && booking.assignedDriver) {
+  if (assignedDriver) {
     commTarget = {
-      name: booking.assignedDriver.name,
-      phone: booking.assignedDriver.phone,
-      photo: booking.assignedDriver.photo,
-      role: 'Driver',
+      id: assignedDriver.id || assignedDriver.driverId || transporter?.id || 'driver-id',
+      name: assignedDriver.name || assignedDriver.driverName || 'Driver',
+      phone: assignedDriver.phone || assignedDriver.driverPhone || transporter?.phone || '+254700000000',
+      photo: assignedDriver.photo || assignedDriver.profilePhoto || transporter?.photo || PLACEHOLDER_IMAGES.DEFAULT_USER_MALE,
+      role: 'driver',
     };
   } else if (transporter && transporter.name) {
     commTarget = {
-      name: transporter.name,
-      phone: transporter.phone,
-      photo: transporter.photo || PLACEHOLDER_IMAGES.DEFAULT_USER_MALE,
-      role: 'Transporter',
+      id: transporter.id || transporter.transporterId || 'transporter-id',
+      name: transporter.name || transporter.transporterName || 'Transporter',
+      phone: transporter.phone || transporter.transporterPhone || '+254700000000',
+      photo: transporter.photo || transporter.profilePhoto || PLACEHOLDER_IMAGES.DEFAULT_USER_MALE,
+      role: 'transporter',
     };
   } else {
     // fallback: transporter info (mocked for now)
     commTarget = {
+      id: 'transporter-id',
       name: 'Transporter',
       phone: '+254700000000',
       photo: PLACEHOLDER_IMAGES.DEFAULT_USER_MALE,
-      role: 'Transporter',
+      role: 'transporter',
     };
   }
 
@@ -778,16 +783,20 @@ const TripDetailsScreen = () => {
               <Text style={styles.ratedText}>Rated</Text>
             </View>
           )}
-          <View style={styles.actionIconsRight}>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
-              <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
-              <Ionicons name="call" size={22} color={colors.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${currentBooking?.client?.phone || (selectedTransporter && selectedTransporter.phone) || commTarget.phone}`)}>
-              <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
-            </TouchableOpacity>
+          {/* Communication Buttons - Only show for accepted/confirmed/assigned bookings */}
+          {['accepted', 'confirmed', 'assigned'].includes((currentBooking?.status || currentTrip?.status || realBooking?.status || '').toLowerCase()) && commTarget && (
+            <View style={styles.actionIconsRight}>
+              <TouchableOpacity style={styles.iconBtn} onPress={() => setChatVisible(true)}>
+                <Ionicons name="chatbubble-ellipses" size={22} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconBtn} onPress={() => setCallVisible(true)}>
+                <Ionicons name="call" size={22} color={colors.secondary} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconBtn} onPress={() => Linking.openURL(`tel:${currentBooking?.client?.phone || (selectedTransporter && selectedTransporter.phone) || commTarget.phone}`)}>
+                <MaterialCommunityIcons name="phone-forward" size={22} color={colors.tertiary} />
+              </TouchableOpacity>
+            </View>
+          )}
             {isInstant && (
               <TouchableOpacity
                 style={styles.iconBtn}
@@ -804,14 +813,22 @@ const TripDetailsScreen = () => {
       </View>
 
       {/* Chat Modal */}
-      <ChatModal
-        visible={chatVisible}
-        onClose={() => setChatVisible(false)}
-        participantIds={[commTarget.id]}
-        onChatCreated={(chatRoom) => {
-          // Chat created
-        }}
-      />
+      {commTarget && (
+        <RealtimeChatModal
+          visible={chatVisible}
+          onClose={() => setChatVisible(false)}
+          bookingId={realBooking?.id || booking?.id || booking?.bookingId}
+          participant1Id={getAuth().currentUser?.uid || ''}
+          participant1Type={userType || 'shipper'}
+          participant2Id={commTarget.id}
+          participant2Type={commTarget.role}
+          participant2Name={commTarget.name}
+          participant2Photo={commTarget.photo}
+          onChatCreated={(chatRoom) => {
+            // Chat created
+          }}
+        />
+      )}
 
       {/* Call Modal */}
       <Modal visible={callVisible} animationType="fade" transparent>

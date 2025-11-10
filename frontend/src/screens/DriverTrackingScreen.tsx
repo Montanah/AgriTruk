@@ -21,10 +21,11 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
-import ChatModal from '../components/Chat/ChatModal';
+import RealtimeChatModal from '../components/Chat/RealtimeChatModal';
 import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 import { unifiedTrackingService, TrackingData as UnifiedTrackingData } from '../services/unifiedTrackingService';
 import { API_ENDPOINTS } from '../constants/api';
+import { getAuth } from 'firebase/auth';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,10 +53,11 @@ const DriverTrackingScreen = () => {
     // Get client info for communication
     const client = booking?.client || booking?.shipper;
     const commTarget = client ? {
-        id: client.id || 'client-id',
+        id: client.id || client.userId || 'client-id',
         name: client.name || client.companyName || 'Client',
         phone: client.phone || '+254700000000',
-        role: booking?.userType === 'broker' ? 'Broker' : booking?.userType === 'business' ? 'Business' : 'Shipper'
+        role: booking?.userType === 'broker' ? 'broker' : booking?.userType === 'business' ? 'business' : 'shipper',
+        photo: client.photo || client.profilePhoto
     } : null;
 
     useEffect(() => {
@@ -562,8 +564,8 @@ const DriverTrackingScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Communication Buttons */}
-                {commTarget && (
+                {/* Communication Buttons - Only show for accepted/confirmed/assigned bookings */}
+                {commTarget && ['accepted', 'confirmed', 'assigned'].includes((booking?.status || trackingData?.status || '').toLowerCase()) && (
                     <View style={styles.communicationButtons}>
                         <TouchableOpacity 
                             style={styles.communicationButton}
@@ -622,10 +624,16 @@ const DriverTrackingScreen = () => {
 
             {/* Chat Modal */}
             {commTarget && (
-                <ChatModal
+                <RealtimeChatModal
                     visible={chatVisible}
                     onClose={() => setChatVisible(false)}
-                    participantIds={[commTarget.id]}
+                    bookingId={booking?.id || booking?.bookingId}
+                    participant1Id={getAuth().currentUser?.uid || ''}
+                    participant1Type="driver"
+                    participant2Id={commTarget.id}
+                    participant2Type={commTarget.role}
+                    participant2Name={commTarget.name}
+                    participant2Photo={commTarget.photo}
                     onChatCreated={(chatRoom) => {
                         // Chat created
                     }}

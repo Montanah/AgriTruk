@@ -40,11 +40,19 @@ export interface UnifiedBooking {
     name: string;
     phone: string;
     profilePhoto?: string;
+    photo?: string;
     rating?: number;
     experience?: string;
     availability?: string;
     tripsCompleted?: number;
     status?: string;
+    companyName?: string;
+    company?: {
+      id: string;
+      name: string;
+    };
+    assignedVehicle?: any;
+    vehicle?: any;
   };
   
   // Vehicle information (when assigned)
@@ -57,6 +65,34 @@ export interface UnifiedBooking {
     registration: string;
     color: string;
     capacity: string;
+    photo?: string;
+    photos?: string[];
+    companyId?: string;
+    companyName?: string;
+  };
+  
+  // Driver information (when assigned - separate from transporter for company drivers)
+  assignedDriver?: {
+    id: string;
+    name: string;
+    phone: string;
+    photo?: string;
+    profilePhoto?: string;
+    profileImage?: string;
+    licenseNumber?: string;
+    companyName?: string;
+    company?: {
+      id: string;
+      name: string;
+    };
+    assignedVehicle?: any;
+    assignedVehicleId?: string;
+  };
+  
+  // Company information (for company drivers)
+  company?: {
+    id: string;
+    name: string;
   };
   
   // Consolidation data
@@ -246,7 +282,7 @@ class UnifiedBookingService {
             const probe = await response.clone().json();
             const arr = probe.bookings || probe.requests || probe.data || [];
             if (!Array.isArray(arr) || arr.length === 0) shouldFallback = true;
-          } catch (_) {
+          } catch {
             shouldFallback = true;
           }
         }
@@ -323,6 +359,22 @@ class UnifiedBookingService {
 
           bookings = await Promise.all(bookings.map(async (b) => {
             const enriched = { ...b } as UnifiedBooking;
+            
+            // Debug: Log what we have before enrichment
+            if (b.type === 'instant' || (b as any).bookingMode === 'instant' || ['accepted', 'confirmed', 'assigned'].includes((b.status || '').toLowerCase())) {
+              console.log('🔍 [enrichment] Before enrichment - Booking:', {
+                id: enriched.id,
+                status: enriched.status,
+                transporterId: (enriched as any)._raw?.transporterId,
+                assignedDriverId: (enriched as any)._raw?.assignedDriverId,
+                driverId: (enriched as any)._raw?.driverId,
+                vehicleId: (enriched as any)._raw?.vehicleId || (enriched as any)._raw?.selectedVehicleId,
+                hasVehicle: !!enriched.vehicle,
+                hasDriver: !!enriched.assignedDriver,
+                hasCompany: !!enriched.company,
+              });
+            }
+            
             // Client enrichment
             if ((enriched.client?.name === 'Client' || !enriched.client?.name) && clientsIndex && enriched.client?.id) {
               const c = clientsIndex[enriched.client.id];
@@ -338,32 +390,456 @@ class UnifiedBookingService {
               }
             }
 
-            // Vehicle enrichment via assigned driver if missing
-            if (!enriched.vehicle && enriched.transporter?.id) {
+            // Enhanced vehicle enrichment - check multiple sources
+            // First check if we already have vehicle from assignedDriver
+            if (!enriched.vehicle && enriched.assignedDriver?.assignedVehicleId) {
               try {
-                const vehRes = await fetch(`${API_ENDPOINTS.VEHICLES}?assignedDriverId=${encodeURIComponent(enriched.transporter.id)}`, {
+                const vehRes = await fetch(`${API_ENDPOINTS.VEHICLES}/${enriched.assignedDriver.assignedVehicleId}`, {
                   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
                 });
                 if (vehRes.ok) {
                   const vehData = await vehRes.json();
-                  const vehicles: any[] = vehData.data || vehData.vehicles || [];
-                  if (vehicles.length > 0) {
-                    const v = vehicles[0];
+                  const v = vehData.vehicle || vehData.data || vehData;
+                  if (v && (v.id || v.vehicleId)) {
                     enriched.vehicle = {
                       id: v.id || v.vehicleId,
-                      make: v.make,
-                      model: v.model,
-                      year: String(v.year || ''),
-                      type: v.bodyType || v.type,
-                      registration: v.vehicleRegistration || v.registration,
+                      make: v.make || v.vehicleMake,
+                      model: v.model || v.vehicleModel,
+                      year: String(v.year || v.vehicleYear || ''),
+                      type: v.bodyType || v.type || v.vehicleType,
+                      registration: v.vehicleRegistration || v.registration || v.reg,
                       color: v.color || v.vehicleColor,
                       capacity: String(v.capacity || v.vehicleCapacity || ''),
+                      photo: v.photo || v.vehiclePhoto || (v.photos && v.photos[0]) || (v.vehicleImagesUrl && v.vehicleImagesUrl[0]),
+                      photos: v.photos || v.vehicleImagesUrl || [],
+                      companyId: v.companyId,
+                      companyName: v.companyName,
                     };
                   }
                 }
               } catch {}
             }
+            
+            if (!enriched.vehicle) {
+              const rawBooking = (enriched as any)._raw || {};
+              const vehicleId = rawBooking.vehicleId || rawBooking.selectedVehicleId;
+              const driverId = enriched.assignedDriver?.id || enriched.transporter?.id || rawBooking.assignedDriverId || rawBooking.driverId;
+              
+              try {
+                // First try: fetch by vehicleId (for instant requests where user selected a vehicle)
+                if (vehicleId) {
+                  const vehRes = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicleId}`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                  });
+                  if (vehRes.ok) {
+                    const vehData = await vehRes.json();
+                    const v = vehData.vehicle || vehData.data || vehData;
+                    if (v && (v.id || v.vehicleId)) {
+                      enriched.vehicle = {
+                        id: v.id || v.vehicleId,
+                        make: v.make || v.vehicleMake,
+                        model: v.model || v.vehicleModel,
+                        year: String(v.year || v.vehicleYear || ''),
+                        type: v.bodyType || v.type || v.vehicleType,
+                        registration: v.vehicleRegistration || v.registration || v.reg,
+                        color: v.color || v.vehicleColor,
+                        capacity: String(v.capacity || v.vehicleCapacity || ''),
+                        photo: v.photo || v.vehiclePhoto || (v.photos && v.photos[0]) || (v.vehicleImagesUrl && v.vehicleImagesUrl[0]),
+                        photos: v.photos || v.vehicleImagesUrl || [],
+                        companyId: v.companyId,
+                        companyName: v.companyName,
+                      };
+                      
+                      // Also enrich driver if vehicle has assignedDriverId
+                      if (v.assignedDriverId && !enriched.assignedDriver) {
+                        try {
+                          const driverRes = await fetch(`${API_ENDPOINTS.DRIVERS}/${v.assignedDriverId}`, {
+                            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                          });
+                          if (driverRes.ok) {
+                            const driverData = await driverRes.json();
+                            const d = driverData.driver || driverData.data || driverData;
+                            if (d) {
+                              enriched.assignedDriver = {
+                                id: d.id || d.driverId,
+                                name: d.name || d.driverName || (d.firstName && d.lastName ? `${d?.firstName} ${d?.lastName}` : 'Driver'),
+                                phone: d.phone,
+                                photo: d.photo || d.profilePhoto || d.profileImage,
+                                licenseNumber: d.licenseNumber || d.driverLicense,
+                                companyName: d.companyName || d.company?.name,
+                                company: d.company || (d.companyId ? { id: d.companyId, name: d.companyName } : undefined),
+                                assignedVehicle: d.assignedVehicle || d.vehicle,
+                                assignedVehicleId: d.assignedVehicleId || d.assignedVehicle?.id || d.vehicle?.id,
+                              };
+                              
+                              // Enrich company if driver has companyId
+                              if (d.companyId && !enriched.company) {
+                                try {
+                                  const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/${d.companyId}`, {
+                                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                                  });
+                                  if (companyRes.ok) {
+                                    const companyData = await companyRes.json();
+                                    const c = companyData.company || companyData.data || companyData;
+                                    if (c) {
+                                      enriched.company = {
+                                        id: c.id || c.companyId,
+                                        name: c.name || c.companyName,
+                                      };
+                                    }
+                                  }
+                                } catch {}
+                              }
+                            }
+                          }
+                        } catch {}
+                      }
+                    }
+                  }
+                }
+                
+                // Second try: fetch by assignedDriverId (if vehicle not found by vehicleId)
+                if (!enriched.vehicle && driverId) {
+                  const vehRes = await fetch(`${API_ENDPOINTS.VEHICLES}?assignedDriverId=${encodeURIComponent(driverId)}`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                  });
+                  if (vehRes.ok) {
+                    const vehData = await vehRes.json();
+                    const vehicles: any[] = vehData.data || vehData.vehicles || [];
+                    if (vehicles.length > 0) {
+                      const v = vehicles[0];
+                      enriched.vehicle = {
+                        id: v.id || v.vehicleId,
+                        make: v.make || v.vehicleMake,
+                        model: v.model || v.vehicleModel,
+                        year: String(v.year || v.vehicleYear || ''),
+                        type: v.bodyType || v.type || v.vehicleType,
+                        registration: v.vehicleRegistration || v.registration || v.reg,
+                        color: v.color || v.vehicleColor,
+                        capacity: String(v.capacity || v.vehicleCapacity || ''),
+                        photo: v.photo || v.vehiclePhoto || (v.photos && v.photos[0]) || (v.vehicleImagesUrl && v.vehicleImagesUrl[0]),
+                        photos: v.photos || v.vehicleImagesUrl || [],
+                        companyId: v.companyId,
+                        companyName: v.companyName,
+                      };
+                    }
+                  }
+                }
+              } catch (err) {
+                console.warn('Vehicle enrichment failed:', err);
+              }
+            }
+            
+            // Enrich driver if missing - transporterId is usually the driver's userId
+            if (!enriched.assignedDriver) {
+              const rawBooking = (enriched as any)._raw || {};
+              const transporterId = rawBooking.transporterId || enriched.transporter?.id;
+              const driverId = rawBooking.assignedDriverId || rawBooking.driverId;
+              
+              // First try: Look up driver by userId (transporterId) - this is the most common case
+              if (transporterId) {
+                try {
+                  console.log(`🔍 [enrichment] Looking up driver by userId (transporterId): ${transporterId}`);
+                  
+                  // Try multiple endpoints to find the driver
+                  let driverData: any = null;
+                  
+                  // Method 1: Try /api/drivers/check/{userId}
+                  try {
+                    const checkRes = await fetch(`${API_ENDPOINTS.DRIVERS}/check/${transporterId}`, {
+                      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                    });
+                    if (checkRes.ok) {
+                      const checkData = await checkRes.json();
+                      if (checkData.success && checkData.isDriver && checkData.driver) {
+                        driverData = checkData.driver;
+                        console.log(`✅ [enrichment] Found driver via /check endpoint`);
+                      }
+                    }
+                  } catch (err) {
+                    console.warn('Driver check endpoint failed:', err);
+                  }
+                  
+                  // Method 2: Try /api/companies/driver/{userId} (fallback)
+                  if (!driverData) {
+                    try {
+                      const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/driver/${transporterId}`, {
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                      });
+                      if (companyRes.ok) {
+                        const companyData = await companyRes.json();
+                        driverData = companyData.driver || companyData.data || companyData;
+                        if (driverData) {
+                          console.log(`✅ [enrichment] Found driver via /companies/driver endpoint`);
+                        }
+                      }
+                    } catch (err) {
+                      console.warn('Company driver endpoint failed:', err);
+                    }
+                  }
+                  
+                  // If we found the driver but don't have full details, fetch by driverId
+                  if (driverData) {
+                    const foundDriverId = driverData.id || driverData.driverId;
+                    const hasVehicleId = driverData.assignedVehicleId || driverData.assignedVehicleDetails;
+                    const hasCompanyId = driverData.companyId;
+                    
+                    // Always fetch full driver details to ensure we have assignedVehicleId and companyId
+                    if (foundDriverId && (!hasVehicleId || !hasCompanyId)) {
+                      try {
+                        console.log(`🔍 [enrichment] Fetching full driver details by driverId: ${foundDriverId}`);
+                        const fullDriverRes = await fetch(`${API_ENDPOINTS.DRIVERS}/${foundDriverId}`, {
+                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                        });
+                        if (fullDriverRes.ok) {
+                          const fullDriverData = await fullDriverRes.json();
+                          const fullDriver = fullDriverData.driver || fullDriverData.data || fullDriverData;
+                          if (fullDriver) {
+                            // Merge full driver data, prioritizing full driver data
+                            driverData = { ...driverData, ...fullDriver };
+                            console.log(`✅ [enrichment] Enriched driver with full details:`, {
+                              assignedVehicleId: driverData.assignedVehicleId || driverData.assignedVehicleDetails,
+                              companyId: driverData.companyId,
+                            });
+                          }
+                        }
+                      } catch (err) {
+                        console.warn('Full driver fetch failed:', err);
+                      }
+                    }
+                  }
+                  
+                  if (driverData) {
+                    const d = driverData;
+                    console.log(`✅ [enrichment] Driver data:`, {
+                      driverId: d.id || d.driverId,
+                      name: d.name || d.driverName || (d.firstName && d.lastName ? `${d.firstName} ${d.lastName}` : 'Driver'),
+                      assignedVehicleId: d.assignedVehicleId,
+                      companyId: d.companyId,
+                    });
+                    
+                    enriched.assignedDriver = {
+                      id: d.id || d.driverId,
+                      name: d.name || d.driverName || (d.firstName && d.lastName ? `${d.firstName} ${d.lastName}` : 'Driver'),
+                      phone: d.phone,
+                      photo: d.photo || d.profilePhoto || d.profileImage,
+                      licenseNumber: d.licenseNumber || d.driverLicense,
+                      companyName: d.companyName || d.company?.name,
+                      company: d.company || (d.companyId ? { id: d.companyId, name: d.companyName } : undefined),
+                      assignedVehicle: d.assignedVehicle || d.vehicle,
+                      assignedVehicleId: d.assignedVehicleId || d.assignedVehicleDetails || d.assignedVehicle?.id || d.vehicle?.id,
+                    };
+                    
+                    // Enrich company from driver
+                    if (d.companyId && !enriched.company) {
+                      try {
+                        console.log(`🔍 [enrichment] Fetching company by companyId: ${d.companyId}`);
+                        const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/${d.companyId}`, {
+                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                        });
+                        if (companyRes.ok) {
+                          const companyData = await companyRes.json();
+                          const c = companyData.company || companyData.data || companyData;
+                          if (c) {
+                            console.log(`✅ [enrichment] Found company:`, {
+                              id: c.id || c.companyId,
+                              name: c.name || c.companyName,
+                            });
+                            enriched.company = {
+                              id: c.id || c.companyId,
+                              name: c.name || c.companyName,
+                            };
+                          }
+                        }
+                      } catch (err) {
+                        console.warn('Company enrichment failed:', err);
+                      }
+                    }
+                    
+                    // Enrich vehicle from driver's assignedVehicleId or assignedVehicleDetails
+                    const vehicleId = d.assignedVehicleId || d.assignedVehicleDetails;
+                    if (vehicleId && !enriched.vehicle) {
+                      try {
+                        console.log(`🔍 [enrichment] Fetching vehicle by assignedVehicleId: ${vehicleId}`);
+                        const vehRes = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicleId}`, {
+                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                        });
+                        if (vehRes.ok) {
+                          const vehData = await vehRes.json();
+                          const v = vehData.vehicle || vehData.data || vehData;
+                          if (v && (v.id || v.vehicleId)) {
+                            console.log(`✅ [enrichment] Found vehicle:`, {
+                              id: v.id || v.vehicleId,
+                              registration: v.vehicleRegistration || v.registration,
+                              make: v.make || v.vehicleMake,
+                              capacity: v.capacity || v.vehicleCapacity,
+                            });
+                            enriched.vehicle = {
+                              id: v.id || v.vehicleId,
+                              make: v.make || v.vehicleMake,
+                              model: v.model || v.vehicleModel,
+                              year: String(v.year || v.vehicleYear || ''),
+                              type: v.bodyType || v.type || v.vehicleType,
+                              registration: v.vehicleRegistration || v.registration || v.reg,
+                              color: v.color || v.vehicleColor,
+                              capacity: String(v.capacity || v.vehicleCapacity || ''),
+                              photo: v.photo || v.vehiclePhoto || (v.photos && v.photos[0]) || (v.vehicleImagesUrl && v.vehicleImagesUrl[0]),
+                              photos: v.photos || v.vehicleImagesUrl || [],
+                              companyId: v.companyId,
+                              companyName: v.companyName,
+                            };
+                          } else {
+                            console.warn(`⚠️ [enrichment] Vehicle data invalid for ID: ${vehicleId}`);
+                          }
+                        } else {
+                          console.warn(`⚠️ [enrichment] Vehicle fetch failed with status: ${vehRes.status} for ID: ${vehicleId}`);
+                        }
+                      } catch (err) {
+                        console.warn('Vehicle enrichment from driver failed:', err);
+                      }
+                    } else if (!vehicleId) {
+                      console.warn(`⚠️ [enrichment] Driver has no assignedVehicleId or assignedVehicleDetails`);
+                    }
+                  }
+                } catch (err) {
+                  console.warn('Driver enrichment by userId failed:', err);
+                }
+              }
+              
+              // Second try: Look up driver by driverId (if userId lookup failed)
+              if (!enriched.assignedDriver && driverId) {
+                try {
+                  const driverRes = await fetch(`${API_ENDPOINTS.DRIVERS}/${driverId}`, {
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                  });
+                  if (driverRes.ok) {
+                    const driverData = await driverRes.json();
+                    const d = driverData.driver || driverData.data || driverData;
+                    if (d) {
+                      enriched.assignedDriver = {
+                        id: d.id || d.driverId,
+                        name: d.name || d.driverName || (d.firstName && d.lastName ? `${d.firstName} ${d.lastName}` : 'Driver'),
+                        phone: d.phone,
+                        photo: d.photo || d.profilePhoto || d.profileImage,
+                        licenseNumber: d.licenseNumber || d.driverLicense,
+                        companyName: d.companyName || d.company?.name,
+                        company: d.company || (d.companyId ? { id: d.companyId, name: d.companyName } : undefined),
+                        assignedVehicle: d.assignedVehicle || d.vehicle,
+                        assignedVehicleId: d.assignedVehicleId || d.assignedVehicle?.id || d.vehicle?.id,
+                      };
+                      
+                      // Enrich company from driver
+                      if (d.companyId && !enriched.company) {
+                        try {
+                          console.log(`🔍 [enrichment] Fetching company by companyId: ${d.companyId}`);
+                          const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/${d.companyId}`, {
+                            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                          });
+                          if (companyRes.ok) {
+                            const companyData = await companyRes.json();
+                            const c = companyData.company || companyData.data || companyData;
+                            if (c) {
+                              console.log(`✅ [enrichment] Found company:`, {
+                                id: c.id || c.companyId,
+                                name: c.name || c.companyName,
+                              });
+                              enriched.company = {
+                                id: c.id || c.companyId,
+                                name: c.name || c.companyName,
+                              };
+                            }
+                          }
+                        } catch (err) {
+                          console.warn('Company enrichment failed:', err);
+                        }
+                      }
+                      
+                      // Enrich vehicle from driver's assignedVehicleId or assignedVehicleDetails
+                      const vehicleId2 = d.assignedVehicleId || d.assignedVehicleDetails;
+                      if (vehicleId2 && !enriched.vehicle) {
+                        try {
+                          console.log(`🔍 [enrichment] Fetching vehicle by assignedVehicleId: ${vehicleId2}`);
+                          const vehRes = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicleId2}`, {
+                            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                          });
+                          if (vehRes.ok) {
+                            const vehData = await vehRes.json();
+                            const v = vehData.vehicle || vehData.data || vehData;
+                            if (v && (v.id || v.vehicleId)) {
+                              console.log(`✅ [enrichment] Found vehicle:`, {
+                                id: v.id || v.vehicleId,
+                                registration: v.vehicleRegistration || v.registration,
+                                make: v.make || v.vehicleMake,
+                                capacity: v.capacity || v.vehicleCapacity,
+                              });
+                              enriched.vehicle = {
+                                id: v.id || v.vehicleId,
+                                make: v.make || v.vehicleMake,
+                                model: v.model || v.vehicleModel,
+                                year: String(v.year || v.vehicleYear || ''),
+                                type: v.bodyType || v.type || v.vehicleType,
+                                registration: v.vehicleRegistration || v.registration || v.reg,
+                                color: v.color || v.vehicleColor,
+                                capacity: String(v.capacity || v.vehicleCapacity || ''),
+                                photo: v.photo || v.vehiclePhoto || (v.photos && v.photos[0]) || (v.vehicleImagesUrl && v.vehicleImagesUrl[0]),
+                                photos: v.photos || v.vehicleImagesUrl || [],
+                                companyId: v.companyId,
+                                companyName: v.companyName,
+                              };
+                            } else {
+                              console.warn(`⚠️ [enrichment] Vehicle data invalid for ID: ${vehicleId2}`);
+                            }
+                          } else {
+                            console.warn(`⚠️ [enrichment] Vehicle fetch failed with status: ${vehRes.status} for ID: ${vehicleId2}`);
+                          }
+                        } catch (err) {
+                          console.warn('Vehicle enrichment from driver failed:', err);
+                        }
+                      } else if (!vehicleId2) {
+                        console.warn(`⚠️ [enrichment] Driver has no assignedVehicleId or assignedVehicleDetails`);
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.warn('Driver enrichment by driverId failed:', err);
+                }
+              }
+            }
 
+            // If vehicle is still missing but we have assignedDriver with assignedVehicle, use it
+            if (!enriched.vehicle && enriched.assignedDriver?.assignedVehicle) {
+              enriched.vehicle = enriched.assignedDriver.assignedVehicle;
+            }
+            
+            // If vehicle is still missing but we have transporter with assignedVehicle, use it
+            if (!enriched.vehicle && enriched.transporter?.assignedVehicle) {
+              enriched.vehicle = enriched.transporter.assignedVehicle;
+            }
+
+            // Debug: Log what we have after enrichment
+            if (b.type === 'instant' || (b as any).bookingMode === 'instant' || ['accepted', 'confirmed', 'assigned'].includes((b.status || '').toLowerCase())) {
+              console.log('✅ [enrichment] After enrichment - Booking:', {
+                id: enriched.id,
+                status: enriched.status,
+                hasVehicle: !!enriched.vehicle,
+                hasDriver: !!enriched.assignedDriver,
+                hasCompany: !!enriched.company,
+                vehicle: enriched.vehicle ? {
+                  id: enriched.vehicle.id,
+                  registration: enriched.vehicle.registration,
+                  capacity: enriched.vehicle.capacity,
+                  make: enriched.vehicle.make,
+                  hasPhoto: !!enriched.vehicle.photo,
+                } : null,
+                assignedDriver: enriched.assignedDriver ? {
+                  id: enriched.assignedDriver.id,
+                  name: enriched.assignedDriver.name,
+                  companyName: enriched.assignedDriver.companyName,
+                } : null,
+                company: enriched.company,
+              });
+            }
+            
             return enriched;
           }));
 
@@ -501,8 +977,8 @@ class UnifiedBookingService {
       // Generate unified booking ID
       const bookingId = generateUnifiedBookingId(
         bookingData.productType?.toLowerCase().includes('agricultural') ? 'agri' : 'cargo',
-        bookingData.type === 'instant' ? 'instant' : 'booking',
-        bookingData.isConsolidated || false
+        bookingData.isConsolidated ? 'consolidated' : (bookingData.type === 'instant' ? 'instant' : 'booking'),
+        1 // sequenceNumber - backend will assign proper sequence
       );
 
       const payload = {
@@ -573,8 +1049,8 @@ class UnifiedBookingService {
       
       const consolidationId = generateUnifiedBookingId(
         consolidationData.productType.toLowerCase().includes('agricultural') ? 'agri' : 'cargo',
-        'booking',
-        true
+        'consolidated',
+        1 // sequenceNumber - backend will assign proper sequence
       );
 
       const payload = {
@@ -648,28 +1124,73 @@ class UnifiedBookingService {
 
   /**
    * Normalize a single booking from API response
+   * Enhanced to properly extract vehicle, driver, and company data from various backend structures
+   * 
+   * For instant requests: Users select vehicles, so vehicleId/selectedVehicleId should be populated
+   * The backend should return vehicle details, or we fetch them via vehicleId
+   * 
+   * For accepted bookings: Vehicle is assigned to driver, driver is assigned to company
+   * Structure: company -> vehicle (with companyId) -> driver (assigned to vehicle) -> booking
    */
   private normalizeBooking(booking: any): UnifiedBooking {
-    // derive transporter
+    // Debug: Log raw booking data to understand structure
+    if (booking.type === 'instant' || booking.bookingMode === 'instant') {
+      console.log('🔍 [normalizeBooking] Instant request booking data:', {
+        id: booking.id || booking.bookingId,
+        vehicleId: booking.vehicleId || booking.selectedVehicleId,
+        assignedDriverId: booking.assignedDriverId || booking.driverId,
+        vehicle: booking.vehicle,
+        assignedDriver: booking.assignedDriver,
+        driver: booking.driver,
+        transporter: booking.transporter,
+        companyId: booking.companyId,
+        company: booking.company,
+      });
+    }
+    
+    // Extract driver/transporter data from multiple possible paths
+    const driver = booking.assignedDriver || booking.driver || booking.transporter?.assignedDriver || booking.transporter?.driver;
     const transporter = booking.transporter || {
-      id: booking.transporterId || booking.driverId,
-      name: booking.transporterName || booking.driverName,
-      phone: booking.transporterPhone || booking.driverPhone,
-      profilePhoto: booking.transporterPhoto || booking.driverPhoto,
-      rating: booking.transporterRating || booking.driverRating,
-      status: booking.transporterStatus || booking.driverStatus,
-      assignedVehicle: booking.assignedVehicle || booking.transporterAssignedVehicle,
+      id: booking.transporterId || booking.driverId || driver?.id || driver?.driverId,
+      name: booking.transporterName || booking.driverName || driver?.name || (driver?.firstName && driver?.lastName ? `${driver?.firstName} ${driver?.lastName}` : driver?.driverName),
+      phone: booking.transporterPhone || booking.driverPhone || driver?.phone,
+      profilePhoto: booking.transporterPhoto || booking.driverPhoto || driver?.photo || driver?.profilePhoto || driver?.profileImage,
+      rating: booking.transporterRating || booking.driverRating || driver?.rating,
+      status: booking.transporterStatus || booking.driverStatus || driver?.status,
+      // Company information from driver or transporter
+      companyName: driver?.companyName || driver?.company?.name || booking.transporter?.companyName || booking.transporter?.company?.name || booking.companyName,
+      company: driver?.company || booking.transporter?.company || (driver?.companyId || booking.companyId ? { id: driver?.companyId || booking.companyId, name: driver?.companyName || booking.companyName } : undefined),
+      // Vehicle from driver's assigned vehicle
+      assignedVehicle: driver?.assignedVehicle || driver?.vehicle || booking.transporter?.assignedVehicle || booking.transporter?.vehicle,
     };
 
-    // derive vehicle from explicit vehicle or assigned vehicle
-    const assignedVehicle = booking.vehicle || transporter?.assignedVehicle || booking.assignedVehicle;
+    // Extract vehicle data from multiple possible paths
+    // Priority: booking.vehicle > driver.assignedVehicle > transporter.assignedVehicle > booking.vehicleId lookup
+    const assignedVehicle = 
+      booking.vehicle || 
+      driver?.assignedVehicle || 
+      driver?.vehicle ||
+      transporter?.assignedVehicle || 
+      transporter?.vehicle ||
+      booking.assignedVehicle ||
+      // For instant requests, vehicle might be selected but not yet assigned
+      (booking.vehicleId || booking.selectedVehicleId ? {
+        id: booking.vehicleId || booking.selectedVehicleId,
+        make: booking.vehicleMake,
+        model: booking.vehicleModel,
+        year: booking.vehicleYear,
+        type: booking.vehicleType,
+        registration: booking.vehicleRegistration,
+        color: booking.vehicleColor,
+        capacity: booking.vehicleCapacity,
+        photos: booking.vehiclePhotos || booking.vehicleImagesUrl,
+      } : undefined);
 
-    return {
+    // Build normalized booking with all extracted data
+    const normalized: any = {
       id: booking.id || booking.bookingId || booking._id,
       // Preserve raw fields used by display ID logic
-      // These properties allow getDisplayBookingId(normalized) to render consistent IDs
       bookingId: booking.bookingId || getDisplayBookingId(booking) || booking.id,
-      // pass-throughs for display helpers
       // @ts-ignore - allow dynamic fields for display functions
       readableId: booking.readableId,
       // @ts-ignore
@@ -698,6 +1219,7 @@ class UnifiedBookingService {
         type: this.normalizeClientType(booking.clientType || booking.userType),
       },
       
+      // Transporter with company and driver info
       transporter: (transporter && (transporter.id || transporter.name)) ? {
         id: transporter.id,
         name: transporter.name,
@@ -708,18 +1230,50 @@ class UnifiedBookingService {
         availability: transporter.availability,
         tripsCompleted: transporter.tripsCompleted,
         status: transporter.status,
+        // Include company info in transporter
+        companyName: transporter.companyName,
+        company: transporter.company,
+        // Include assigned vehicle in transporter
+        assignedVehicle: transporter.assignedVehicle,
+        vehicle: transporter.assignedVehicle,
       } : undefined,
       
-      vehicle: assignedVehicle ? {
-        id: assignedVehicle.id || booking.vehicleId,
-        make: assignedVehicle.make || assignedVehicle.vehicleMake,
-        model: assignedVehicle.model || assignedVehicle.vehicleModel,
-        year: assignedVehicle.year || assignedVehicle.vehicleYear,
-        type: assignedVehicle.type || assignedVehicle.bodyType || assignedVehicle.vehicleType,
-        registration: assignedVehicle.registration || assignedVehicle.vehicleRegistration,
-        color: assignedVehicle.color || assignedVehicle.vehicleColor,
-        capacity: assignedVehicle.capacity || assignedVehicle.vehicleCapacity,
+      // Driver information (separate from transporter for company drivers)
+      assignedDriver: driver ? {
+        id: driver.id || driver.driverId,
+        name: driver.name || driver.driverName || (driver?.firstName && driver?.lastName ? `${driver.firstName} ${driver.lastName}` : 'Driver'),
+        phone: driver.phone,
+        photo: driver.photo || driver.profilePhoto || driver.profileImage,
+        licenseNumber: driver.licenseNumber || driver.driverLicense,
+        companyName: driver.companyName || driver.company?.name,
+        company: driver.company || (driver.companyId ? { id: driver.companyId, name: driver.companyName } : undefined),
+        assignedVehicle: driver.assignedVehicle || driver.vehicle,
+        assignedVehicleId: driver.assignedVehicleId || driver.assignedVehicleDetails || driver.assignedVehicle?.id || driver.vehicle?.id,
       } : undefined,
+      
+      // Vehicle with all details including photos
+      vehicle: assignedVehicle ? {
+        id: assignedVehicle.id || assignedVehicle.vehicleId || booking.vehicleId || booking.selectedVehicleId,
+        make: assignedVehicle.make || assignedVehicle.vehicleMake || booking.vehicleMake,
+        model: assignedVehicle.model || assignedVehicle.vehicleModel || booking.vehicleModel,
+        year: assignedVehicle.year || assignedVehicle.vehicleYear || booking.vehicleYear,
+        type: assignedVehicle.type || assignedVehicle.bodyType || assignedVehicle.vehicleType || booking.vehicleType,
+        registration: assignedVehicle.registration || assignedVehicle.vehicleRegistration || assignedVehicle.reg || booking.vehicleRegistration,
+        color: assignedVehicle.color || assignedVehicle.vehicleColor || booking.vehicleColor,
+        capacity: assignedVehicle.capacity || assignedVehicle.vehicleCapacity || booking.vehicleCapacity,
+        // Photos - check multiple possible paths
+        photo: assignedVehicle.photo || assignedVehicle.vehiclePhoto || (assignedVehicle.photos && assignedVehicle.photos[0]) || (assignedVehicle.vehicleImagesUrl && assignedVehicle.vehicleImagesUrl[0]) || booking.vehiclePhotos?.[0] || booking.vehicleImagesUrl?.[0],
+        photos: assignedVehicle.photos || assignedVehicle.vehicleImagesUrl || booking.vehiclePhotos || booking.vehicleImagesUrl || [],
+        // Company info from vehicle
+        companyId: assignedVehicle.companyId || driver?.companyId || transporter?.company?.id,
+        companyName: assignedVehicle.companyName || driver?.companyName || driver?.company?.name || transporter?.companyName || transporter?.company?.name,
+      } : undefined,
+      
+      // Company information (for company drivers)
+      company: transporter?.company || driver?.company || (transporter?.companyId || driver?.companyId ? {
+        id: transporter?.companyId || driver?.companyId,
+        name: transporter?.companyName || driver?.companyName,
+      } : undefined),
       
       isConsolidated: booking.isConsolidated || booking.type === 'consolidated',
       consolidatedBookings: booking.consolidatedBookings || booking.consolidatedRequests,
@@ -744,7 +1298,13 @@ class UnifiedBookingService {
         approvedBy: booking.businessData.approvedBy,
         approvedAt: booking.businessData.approvedAt,
       } : undefined,
+      
+      // Preserve raw booking data for debugging and additional field access
+      // @ts-ignore
+      _raw: booking,
     };
+
+    return normalized;
   }
 
   /**

@@ -6,6 +6,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
+import LogoutConfirmationDialog from '../components/common/LogoutConfirmationDialog';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
@@ -273,27 +274,22 @@ export default function BrokerProfileScreen() {
     }, [])
   );
 
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-              // After sign out, App.tsx auth listener will render the Welcome flow.
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Logout Error', 'Failed to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    setShowLogoutDialog(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      await signOut(auth);
+      setShowLogoutDialog(false);
+      // After sign out, App.tsx auth listener will render the Welcome flow.
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutDialog(false);
+      Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -1239,6 +1235,11 @@ export default function BrokerProfileScreen() {
           </View>
         </View>
       </Modal>
+      <LogoutConfirmationDialog
+        visible={showLogoutDialog}
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutDialog(false)}
+      />
     </SafeAreaView>
   );
 }

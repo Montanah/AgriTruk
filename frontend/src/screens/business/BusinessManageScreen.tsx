@@ -40,7 +40,39 @@ const BusinessManageScreen = ({ navigation }: any) => {
       };
       
       const bookings = await unifiedBookingService?.getBookings('business', filters);
-      console.log('Business requests from unified service:', bookings);
+      console.log('📦 [BusinessManageScreen] Business requests from unified service:', bookings);
+      
+      // Debug: Log vehicle, driver, and company data for accepted bookings
+      bookings?.forEach((booking: any) => {
+        if (['accepted', 'confirmed', 'assigned'].includes(booking.status?.toLowerCase())) {
+          console.log('🚗 [BusinessManageScreen] Accepted booking details:', {
+            id: booking.id,
+            type: booking.type,
+            status: booking.status,
+            hasVehicle: !!booking.vehicle,
+            hasDriver: !!booking.assignedDriver,
+            hasCompany: !!booking.company,
+            vehicle: booking.vehicle ? {
+              id: booking.vehicle.id,
+              registration: booking.vehicle.registration,
+              capacity: booking.vehicle.capacity,
+              make: booking.vehicle.make,
+              hasPhoto: !!booking.vehicle.photo,
+            } : null,
+            assignedDriver: booking.assignedDriver ? {
+              id: booking.assignedDriver.id,
+              name: booking.assignedDriver.name,
+              companyName: booking.assignedDriver.companyName,
+            } : null,
+            company: booking.company,
+            transporter: booking.transporter ? {
+              id: booking.transporter.id,
+              name: booking.transporter.name,
+              companyName: booking.transporter.companyName,
+            } : null,
+          });
+        }
+      });
       
       let allBookings = Array.isArray(bookings) ? bookings : [];
       
@@ -385,78 +417,158 @@ const BusinessManageScreen = ({ navigation }: any) => {
           </View>
         )}
 
-        {(item.transporterId || item.transporterName || item.transporter?.name || item.driverName) && (
+        {/* Transporter & Driver Details - Show if booking is accepted/confirmed or has transporter/driver */}
+        {(['accepted', 'confirmed', 'assigned'].includes(item.status?.toLowerCase()) || item.transporter || item.assignedDriver) && (
           <View style={styles.transporterInfo}>
             <View style={styles.transporterHeader}>
               <MaterialCommunityIcons name="account-tie" size={20} color={colors.success} />
-              <Text style={styles.transporterLabel}>Transporter Details</Text>
+              <Text style={styles.transporterLabel}>Transporter & Driver Details</Text>
             </View>
             <View style={styles.transporterDetails}>
-              <View style={styles.transporterProfile}>
-                <Image
-                  source={{ uri: item.transporter?.profilePhoto || item.transporter?.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_SMALL }}
-                  style={styles.transporterPhoto}
-                />
-                <View style={styles.transporterBasic}>
-                  <Text style={styles.transporterName}>
-                    {item.transporterName || item.transporter?.name || item.driverName || 'Unknown Transporter'}
-                  </Text>
-                  <View style={styles.transporterRating}>
-                    <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 2 }} />
-                    <Text style={styles.ratingText}>{item.transporterRating || item.transporter?.rating || 'N/A'}</Text>
-                    <Text style={styles.tripsText}> • {(item.transporterTripsCompleted || item.transporter?.tripsCompleted || 0)} trips</Text>
+              {/* Company Name - Always show for accepted bookings with driver or company */}
+              {(() => {
+                // Extract company name from normalized structure
+                const companyName = 
+                  item.company?.name ||
+                  item.assignedDriver?.companyName || 
+                  item.assignedDriver?.company?.name ||
+                  item.transporter?.companyName ||
+                  item.transporter?.company?.name ||
+                  item.vehicle?.companyName;
+                
+                // Always show company name for accepted bookings if available
+                if (['accepted', 'confirmed', 'assigned'].includes(item.status?.toLowerCase()) && companyName) {
+                  return (
+                    <View style={styles.companyInfo}>
+                      <MaterialCommunityIcons name="office-building" size={16} color={colors.primary} />
+                      <Text style={styles.companyName}>{companyName}</Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
+              
+              {/* Driver Details - Show if driver is assigned (name, photo, and phone) */}
+              {item.assignedDriver && (
+                <View style={styles.driverInfo}>
+                  <View style={styles.driverProfile}>
+                    <Image
+                      source={{ uri: item.assignedDriver.photo || item.assignedDriver.profilePhoto || item.assignedDriver.profileImage || PLACEHOLDER_IMAGES.PROFILE_PHOTO_SMALL }}
+                      style={styles.driverPhoto}
+                    />
+                    <View style={styles.driverBasic}>
+                      <Text style={styles.driverName}>
+                        {item.assignedDriver.name || 'Driver'}
+                      </Text>
+                      {item.assignedDriver.phone && (
+                        <Text style={styles.driverMetaText}>
+                          {item.assignedDriver.phone}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                 </View>
-              </View>
-              <View style={styles.transporterMeta}>
-                <Text style={styles.transporterMetaText}>
-                  {(item.transporterExperience || item.transporter?.experience || 'N/A')} • {(item.transporterAvailability || item.transporter?.availability || 'N/A')}
-                </Text>
-                <Text style={styles.transporterMetaText}>
-                  {item.transporter?.languages ? item.transporter.languages.join(', ') : 'N/A'}
-                </Text>
-              </View>
+              )}
+              
+              {/* Transporter Details (if no driver assigned) */}
+              {!item.assignedDriver && item.transporter && (
+                <View style={styles.transporterProfile}>
+                  <Image
+                    source={{ uri: item.transporter.profilePhoto || item.transporter.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_SMALL }}
+                    style={styles.transporterPhoto}
+                  />
+                  <View style={styles.transporterBasic}>
+                    <Text style={styles.transporterName}>
+                      {item.transporter.name || 'Unknown Transporter'}
+                    </Text>
+                    <View style={styles.transporterRating}>
+                      <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 2 }} />
+                      <Text style={styles.ratingText}>{item.transporter.rating || 'N/A'}</Text>
+                      <Text style={styles.tripsText}> • {(item.transporter.tripsCompleted || 0)} trips</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              
+              {item.transporter && (
+                <View style={styles.transporterMeta}>
+                  <Text style={styles.transporterMetaText}>
+                    {item.transporter.experience || 'N/A'} • {item.transporter.availability || 'N/A'}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         )}
 
-        {(item.vehicleId || item.vehicleMake || item.vehicleRegistration || item.vehicle?.make || item.vehicle?.registration || item.transporter?.assignedVehicle?.vehicleMake || item.transporter?.vehicleMake) && (
+        {/* Vehicle Details - Always show for accepted bookings, especially important for instant requests */}
+        {['accepted', 'confirmed', 'assigned'].includes(item.status?.toLowerCase()) && (
           <View style={styles.vehicleInfo}>
             <View style={styles.vehicleHeader}>
               <MaterialCommunityIcons name="truck" size={20} color={colors.secondary} />
               <Text style={styles.vehicleLabel}>Vehicle Details</Text>
             </View>
             <View style={styles.vehicleDetails}>
-              <View style={styles.vehicleRow}>
-                <Text style={styles.vehicleDetailLabel}>Vehicle:</Text>
-                <Text style={styles.vehicleDetailValue}>
-                  {(item.vehicleMake || item.vehicle?.make || item.transporter?.assignedVehicle?.vehicleMake || item.transporter?.vehicleMake || 'Unknown')} {(item.vehicleModel || item.vehicle?.model || item.transporter?.assignedVehicle?.vehicleModel || item.transporter?.vehicleModel || '')} ({item.vehicleYear || item.vehicle?.year || item.transporter?.assignedVehicle?.vehicleYear || item.transporter?.vehicleYear || 'N/A'})
-                </Text>
-              </View>
-              <View style={styles.vehicleRow}>
-                <Text style={styles.vehicleDetailLabel}>Registration:</Text>
-                <Text style={styles.vehicleDetailValue}>
-                  {item.vehicleRegistration || item.vehicle?.registration || item.transporter?.assignedVehicle?.vehicleRegistration || item.transporter?.vehicleRegistration || 'N/A'}
-                </Text>
-              </View>
-              <View style={styles.vehicleRow}>
-                <Text style={styles.vehicleDetailLabel}>Type:</Text>
-                <Text style={styles.vehicleDetailValue}>
-                  {item.vehicleType || item.vehicle?.type || item.transporter?.assignedVehicle?.vehicleType || item.transporter?.vehicleType || 'N/A'}
-                </Text>
-              </View>
-              <View style={styles.vehicleRow}>
-                <Text style={styles.vehicleDetailLabel}>Capacity:</Text>
-                <Text style={styles.vehicleDetailValue}>
-                  {item.vehicleCapacity || item.vehicle?.capacity || item.transporter?.assignedVehicle?.vehicleCapacity || item.transporter?.vehicleCapacity || 'N/A'}
-                </Text>
-              </View>
-              <View style={styles.vehicleRow}>
-                <Text style={styles.vehicleDetailLabel}>Color:</Text>
-                <Text style={styles.vehicleDetailValue}>
-                  {item.vehicleColor || item.vehicle?.color || item.transporter?.assignedVehicle?.vehicleColor || item.transporter?.vehicleColor || 'N/A'}
-                </Text>
-              </View>
+              {/* Use normalized vehicle data from unifiedBookingService */}
+              {item.vehicle ? (
+                <>
+                  {/* Vehicle Photo - Always show, use placeholder if missing */}
+                  <View style={styles.vehiclePhotoContainer}>
+                    <Image
+                      source={{ 
+                        uri: item.vehicle.photo || 
+                              (item.vehicle.photos && item.vehicle.photos[0]) ||
+                              PLACEHOLDER_IMAGES.VEHICLE_PHOTO 
+                      }}
+                      style={styles.vehiclePhoto}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  
+                  <View style={styles.vehicleRow}>
+                    <Text style={styles.vehicleDetailLabel}>Registration:</Text>
+                    <Text style={styles.vehicleDetailValue}>
+                      {item.vehicle.registration || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.vehicleRow}>
+                    <Text style={styles.vehicleDetailLabel}>Capacity:</Text>
+                    <Text style={styles.vehicleDetailValue}>
+                      {item.vehicle.capacity || 'N/A'}
+                    </Text>
+                  </View>
+                  <View style={styles.vehicleRow}>
+                    <Text style={styles.vehicleDetailLabel}>Vehicle:</Text>
+                    <Text style={styles.vehicleDetailValue}>
+                      {item.vehicle.make || 'Unknown'} {item.vehicle.model || ''} ({item.vehicle.year || 'N/A'})
+                    </Text>
+                  </View>
+                  {item.vehicle.type && (
+                    <View style={styles.vehicleRow}>
+                      <Text style={styles.vehicleDetailLabel}>Type:</Text>
+                      <Text style={styles.vehicleDetailValue}>
+                        {item.vehicle.type}
+                      </Text>
+                    </View>
+                  )}
+                  {item.vehicle.color && (
+                    <View style={styles.vehicleRow}>
+                      <Text style={styles.vehicleDetailLabel}>Color:</Text>
+                      <Text style={styles.vehicleDetailValue}>
+                        {item.vehicle.color}
+                      </Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={styles.noVehicleInfo}>
+                  <MaterialCommunityIcons name="truck-remove" size={32} color={colors.text.light} />
+                  <Text style={styles.noVehicleText}>Vehicle details not available</Text>
+                  <Text style={styles.noVehicleSubtext}>
+                    Vehicle information will be available once assigned
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -1027,6 +1139,64 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
   },
+  vehiclePhotoContainer: {
+    width: '100%',
+    marginBottom: spacing.md,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+  },
+  vehiclePhoto: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+  },
+  companyInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 8,
+  },
+  companyName: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginLeft: spacing.sm,
+  },
+  driverInfo: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  driverProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  driverPhoto: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: spacing.sm,
+  },
+  driverBasic: {
+    flex: 1,
+  },
+  driverName: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  driverMeta: {
+    marginTop: 2,
+  },
+  driverMetaText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginBottom: 2,
+  },
   // Consolidation Card Styles - Make it visually distinct
   consolidationCard: {
     borderWidth: 2,
@@ -1224,6 +1394,25 @@ const styles = StyleSheet.create({
   individualBookingLabel: {
     fontWeight: '600',
     color: colors.text.secondary,
+  },
+  noVehicleInfo: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  noVehicleText: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.text.secondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
+  noVehicleSubtext: {
+    fontSize: fonts.size.sm,
+    color: colors.text.light,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

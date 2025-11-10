@@ -19,10 +19,11 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { getReadableLocationName, formatRoute } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
-import ChatModal from '../components/Chat/ChatModal';
+import RealtimeChatModal from '../components/Chat/RealtimeChatModal';
 import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 import { unifiedTrackingService, TrackingData as UnifiedTrackingData } from '../services/unifiedTrackingService';
 import { API_ENDPOINTS } from '../constants/api';
+import { getAuth } from 'firebase/auth';
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,13 +43,21 @@ const MapViewScreen = () => {
     const [routePolyline, setRoutePolyline] = useState<Array<{ latitude: number; longitude: number }>>([]);
     const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
 
-    // Get transporter info for communication
+    // Get transporter info for communication - prioritize assignedDriver
     const transporter = booking?.transporter;
-    const commTarget = transporter ? {
-        id: transporter.id || 'transporter-id',
-        name: transporter.name || 'Transporter',
-        phone: transporter.phone || '+254700000000',
-        role: 'Transporter'
+    const assignedDriver = booking?.assignedDriver || transporter?.assignedDriver;
+    const commTarget = assignedDriver ? {
+        id: assignedDriver.id || assignedDriver.driverId || transporter?.id || 'driver-id',
+        name: assignedDriver.name || assignedDriver.driverName || transporter?.name || 'Driver',
+        phone: assignedDriver.phone || assignedDriver.driverPhone || transporter?.phone || '+254700000000',
+        role: 'driver',
+        photo: assignedDriver.photo || assignedDriver.profilePhoto || transporter?.photo || transporter?.profilePhoto
+    } : transporter ? {
+        id: transporter.id || transporter.transporterId || 'transporter-id',
+        name: transporter.name || transporter.transporterName || 'Transporter',
+        phone: transporter.phone || transporter.transporterPhone || '+254700000000',
+        role: 'transporter',
+        photo: transporter.photo || transporter.profilePhoto
     } : null;
 
     useEffect(() => {
@@ -541,8 +550,8 @@ const MapViewScreen = () => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Communication Buttons */}
-                {commTarget && (
+                {/* Communication Buttons - Only show for accepted/confirmed/assigned bookings */}
+                {commTarget && ['accepted', 'confirmed', 'assigned'].includes((booking?.status || unifiedTrackingData?.status || '').toLowerCase()) && (
                     <View style={styles.communicationButtons}>
                         <TouchableOpacity 
                             style={styles.communicationButton}
@@ -565,10 +574,16 @@ const MapViewScreen = () => {
 
             {/* Chat Modal */}
             {commTarget && (
-                <ChatModal
+                <RealtimeChatModal
                     visible={chatVisible}
                     onClose={() => setChatVisible(false)}
-                    participantIds={[commTarget.id]}
+                    bookingId={booking?.id || booking?.bookingId}
+                    participant1Id={getAuth().currentUser?.uid || ''}
+                    participant1Type={userType || 'shipper'}
+                    participant2Id={commTarget.id}
+                    participant2Type={commTarget.role}
+                    participant2Name={commTarget.name}
+                    participant2Photo={commTarget.photo}
                     onChatCreated={(chatRoom) => {
                         // Chat created
                     }}
