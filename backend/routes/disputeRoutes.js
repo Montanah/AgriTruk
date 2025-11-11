@@ -256,7 +256,7 @@ router.get('/booking/:bookingId', authenticateToken, requireRole(['user', 'trans
  *       500:
  *         description: Internal server error
  */
-router.get('/openedBy/:openedBy', authenticateToken, requireRole(['user', 'transporter', 'admin']), getDisputesByOpenedBy);
+router.get('/openedBy/:openedBy', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business', 'broker']), getDisputesByOpenedBy);
 
 /**
  * @swagger
