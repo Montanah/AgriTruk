@@ -6,6 +6,7 @@ const JobSeekerSchema = {
   lastName: "string",
   email: "string",
   phone: "string",
+  secondaryPhone: "string | null",
   dateOfBirth: "timestamp",
   gender: "string",
   age: "number",

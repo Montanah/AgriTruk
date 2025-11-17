@@ -102,6 +102,7 @@ const jobSeekerController = {
         name,
         email,
         phone,
+        secondaryPhone: jobSeekerData.secondaryPhone || null,
         ...jobSeekerData,
         address,
         experience,
