@@ -89,6 +89,7 @@ const JobSeeker = {
         name: userData.name || '',
         email: userData.email || '',
         phone: userData.phone || '',
+        secondaryPhone: data.secondaryPhone || null,
         userId: data.userId,
         dateOfBirth: data.dateOfBirth,
         gender: data.gender,
