@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { chatService, ChatMessage, ChatRoom } from '../../services/chatService';
+import { realtimeChatService, ChatMessage, ChatRoom } from '../../services/realtimeChatService';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 
@@ -53,7 +53,7 @@ const ChatModal: React.FC<ChatModalProps> = ({
   useEffect(() => {
     if (visible) {
       // Initialize chat service when modal opens
-      chatService.initialize();
+      realtimeChatService.initialize();
     }
   }, [visible]);
 
@@ -64,11 +64,20 @@ const ChatModal: React.FC<ChatModalProps> = ({
   }, [visible, participantIds]);
 
   const createOrGetChat = async () => {
-    if (!participantIds) return;
+    if (!participantIds || participantIds.length < 2) return;
 
     setLoading(true);
     try {
-      const chat = await chatService.createOrGetChat(participantIds);
+      // realtimeChatService expects bookingId, participant1Id, participant1Type, participant2Id, participant2Type
+      // For ChatModal, we'll use the first two participant IDs
+      const [participant1Id, participant2Id] = participantIds;
+      const chat = await realtimeChatService.getOrCreateChatRoom(
+        '', // bookingId - empty for general chat
+        participant1Id,
+        'user', // participant1Type - default
+        participant2Id,
+        'user' // participant2Type - default
+      );
       setCurrentChatRoom(chat);
       if (onChatCreated) {
         onChatCreated(chat);
@@ -85,7 +94,7 @@ const ChatModal: React.FC<ChatModalProps> = ({
 
     setLoading(true);
     try {
-      const chatMessages = await chatService.getChatMessages(currentChatRoom.id);
+      const chatMessages = await realtimeChatService.getMessages(currentChatRoom.id);
       setMessages(chatMessages);
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -97,10 +106,8 @@ const ChatModal: React.FC<ChatModalProps> = ({
   const setupMessageListener = () => {
     if (!currentChatRoom) return;
 
-    const unsubscribe = chatService.onMessage((message: ChatMessage) => {
-      if (message.chatId === currentChatRoom.id) {
-        setMessages(prev => [message, ...prev]);
-      }
+    const unsubscribe = realtimeChatService.onMessage(currentChatRoom.id, (message: ChatMessage) => {
+      setMessages(prev => [...prev, message]);
     });
 
     return unsubscribe;
@@ -114,7 +121,7 @@ const ChatModal: React.FC<ChatModalProps> = ({
     setSending(true);
 
     try {
-      await chatService.sendMessage(currentChatRoom.id, messageText);
+      await realtimeChatService.sendMessage(currentChatRoom.id, messageText);
     } catch (error) {
       console.error('Error sending message:', error);
       // Restore message on error

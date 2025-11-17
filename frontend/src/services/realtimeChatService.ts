@@ -179,11 +179,9 @@ class RealtimeChatService {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          bookingId,
-          participant1Id,
-          participant1Type,
           participant2Id,
           participant2Type,
+          jobId: bookingId || null, // Backend expects jobId, not bookingId
         }),
       });
 
@@ -216,7 +214,7 @@ class RealtimeChatService {
 
       const token = await user.getIdToken();
       const response = await fetch(
-        `${API_ENDPOINTS.CHATS}/${chatId}/messages?page=${page}&limit=${limit}`,
+        `${API_ENDPOINTS.CHATS}/${chatId}?limit=${limit}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -226,11 +224,17 @@ class RealtimeChatService {
       );
 
       if (!response.ok) {
+        if (response.status === 404) {
+          // Chat doesn't exist yet, return empty array
+          return [];
+        }
         throw new Error('Failed to fetch messages');
       }
 
       const result = await response.json();
-      return result.data || result.messages || [];
+      // Backend returns chat with messages array
+      const chatData = result.data || result;
+      return chatData.messages || [];
     } catch (error) {
       console.error('Error fetching messages:', error);
       return [];
@@ -286,7 +290,7 @@ class RealtimeChatService {
       if (!user) throw new Error('User not authenticated');
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.CHATS}/${chatId}/messages`, {
+      const response = await fetch(`${API_ENDPOINTS.CHATS}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

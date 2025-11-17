@@ -1037,6 +1037,22 @@ const DriverProfileScreen = () => {
 
       {/* Logout Section (optional duplicate can be removed if desired) */}
 
+      {/* Conflict Resolution Section */}
+      <View style={styles.conflictSection}>
+        <Text style={styles.sectionTitle}>Conflict Resolution</Text>
+        <Text style={styles.sectionDescription}>
+          Submit a complaint for admin mediation. You will be contacted via email and in-app.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.complaintButton}
+          onPress={() => navigation.navigate('DisputeList' as never)}
+        >
+          <MaterialCommunityIcons name="alert-circle-outline" size={20} color={colors.white} />
+          <Text style={styles.complaintButtonText}>View Disputes</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Bottom padding to prevent cut-off */}
       <View style={styles.bottomPadding} />
       </ScrollView>
@@ -1631,6 +1647,40 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 100,
+  },
+  conflictSection: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sectionDescription: {
+    fontSize: 15,
+    color: colors.text.light,
+    marginBottom: spacing.sm,
+    lineHeight: 22,
+  },
+  complaintButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  complaintButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: spacing.sm,
   },
 });
 

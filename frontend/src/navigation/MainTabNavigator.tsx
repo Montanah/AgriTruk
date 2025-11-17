@@ -15,6 +15,9 @@ import ActivityScreen from '../screens/ActivityScreen';
 import AccountScreen from '../screens/AccountScreen';
 import TrackingScreen from '../screens/TrackingScreen';
 import MapViewScreen from '../screens/MapViewScreen';
+import DisputeListScreen from '../screens/DisputeListScreen';
+import DisputeDetailScreen from '../screens/DisputeDetailScreen';
+import CreateDisputeScreen from '../screens/CreateDisputeScreen';
 
 const TabNavigator = () => {
   const insets = useSafeAreaInsets();
@@ -87,6 +90,9 @@ const MainTabNavigator = () => {
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
       <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+      <Stack.Screen name="DisputeList" component={DisputeListScreen} />
+      <Stack.Screen name="DisputeDetail" component={DisputeDetailScreen} />
+      <Stack.Screen name="CreateDispute" component={CreateDisputeScreen} />
     </Stack.Navigator>
   );
 };

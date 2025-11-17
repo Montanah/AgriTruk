@@ -29,6 +29,7 @@ interface JobSeeker {
   name: string;
   email: string;
   phone: string;
+  secondaryPhone?: string;
   profilePhoto?: string;
   age: number;
   experience: {
@@ -873,6 +874,9 @@ const JobSeekersMarketplaceScreen = () => {
               <Text style={styles.detailsSectionTitle}>Contact Information</Text>
               <Text style={styles.detailsText}>Email: {selectedJobSeeker.email}</Text>
               <Text style={styles.detailsText}>Phone: {selectedJobSeeker.phone}</Text>
+              {selectedJobSeeker.secondaryPhone && (
+                <Text style={styles.detailsText}>Secondary Phone: {selectedJobSeeker.secondaryPhone}</Text>
+              )}
             </View>
 
             <View style={styles.detailsSection}>
@@ -898,7 +902,7 @@ const JobSeekersMarketplaceScreen = () => {
             </View>
 
             <View style={styles.detailsSection}>
-              <Text style={styles.detailsSectionTitle}>Experience Description</Text>
+              <Text style={styles.detailsSectionTitle}>Profile Summary</Text>
               <Text style={styles.detailsText}>{selectedJobSeeker.experience.experienceDescription}</Text>
             </View>
 

@@ -786,7 +786,9 @@ const DriverJobManagementScreen = () => {
       bookingId: job.bookingId || job.id,
       clientId: job.client?.id || job.customerPhone,
       clientName: job.client?.name || job.customerName,
-      job: job // Pass full job object for proper ID generation
+      job: job, // Pass full job object for proper ID generation
+      participant1Type: 'driver', // Current user is a driver
+      participant2Type: job.userType || 'shipper' // Client type from job
     });
   };
 
@@ -1216,7 +1218,12 @@ const DriverJobManagementScreen = () => {
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Job Management</Text>
-        <View style={styles.headerRight} />
+        <TouchableOpacity
+          onPress={() => navigation.navigate('DisputeList' as never)}
+          style={styles.disputeButton}
+        >
+          <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.white} />
+        </TouchableOpacity>
       </View>
 
       {/* Job Summary Header */}
@@ -1406,6 +1413,10 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     width: 40,
+  },
+  disputeButton: {
+    padding: 8,
+    borderRadius: 20,
   },
   driverInfo: {
     backgroundColor: colors.white,

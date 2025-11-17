@@ -21,7 +21,7 @@ import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { API_ENDPOINTS } from '../constants/api';
 import LocationDisplay from '../components/common/LocationDisplay';
 import ExpoCompatibleMap from '../components/common/ExpoCompatibleMap';
-import ChatModal from '../components/Chat/ChatModal';
+import RealtimeChatModal from '../components/Chat/RealtimeChatModal';
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 
 interface TransporterJobDetailsParams {
@@ -482,13 +482,27 @@ const TransporterJobDetailsScreen = () => {
       </Modal>
 
       {/* Chat Modal */}
-      {showChat && (
-        <ChatModal
+      {showChat && job && (
+        <RealtimeChatModal
           visible={showChat}
           onClose={() => setShowChat(false)}
-          bookingId={job.id}
-          clientId={job.client?.id || job.userId}
-          transporterId={getAuth().currentUser?.uid}
+          bookingId={job.id || job.bookingId}
+          participant1Id={getAuth().currentUser?.uid || ''}
+          participant1Type="transporter"
+          participant2Id={
+            // Priority: Use userId/shipperId (user IDs) > client.id (if it's a user ID)
+            job.userId || 
+            job.shipperId || 
+            job.client?.id || 
+            job.clientId ||
+            'client-id'
+          }
+          participant2Type={job.userType || 'shipper'}
+          participant2Name={job.client?.name || job.clientName || 'Client'}
+          participant2Photo={job.client?.photo || job.clientPhoto}
+          onChatCreated={(chatRoom) => {
+            // Chat created
+          }}
         />
       )}
 

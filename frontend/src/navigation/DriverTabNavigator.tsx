@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ActivityIndicator, Text, View } from 'react-native';
 import colors from '../constants/colors';
@@ -25,6 +26,9 @@ const HomeStack = () => (
     <Stack.Screen name="RouteLoadsScreen" component={require('../screens/RouteLoadsScreen').default} />
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
     <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
+    <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+    <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+    <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
   </Stack.Navigator>
 );
 
@@ -39,6 +43,9 @@ const JobStack = () => (
     <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
     <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
     <Stack.Screen name="MapViewScreen" component={require('../screens/MapViewScreen').default} />
+    <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+    <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+    <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
   </Stack.Navigator>
 );
 
@@ -105,71 +112,78 @@ const DriverTabNavigator = () => {
     );
   }
 
+  const getScreenOptions = ({ route }: any) => {
+    const routeName = getFocusedRouteNameFromRoute(route) ?? route.name;
+    const isChatScreen = routeName === 'ChatScreen';
+    
+    return {
+      headerShown: false,
+      tabBarShowLabel: true,
+      tabBarShowIcon: true,
+      tabBarLabelStyle: {
+        fontSize: 12,
+        fontFamily: fonts.family.medium,
+        marginTop: 4,
+      },
+      tabBarStyle: isChatScreen ? { display: 'none' } : {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 0,
+        height: 70 + insets.bottom,
+        backgroundColor: colors.primary,
+        borderTopWidth: 0,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 8,
+        paddingBottom: insets.bottom + 8,
+        paddingTop: 8,
+      },
+      tabBarItemStyle: {
+        marginTop: 0,
+      },
+      tabBarActiveTintColor: colors.secondary,
+      tabBarInactiveTintColor: colors.white,
+      tabBarIcon: ({ focused, color }: any) => {
+        if (route.name === 'Home') {
+          return (
+            <MaterialCommunityIcons
+              name={focused ? 'home' : 'home-outline'}
+              size={28}
+              color={color}
+              style={{ marginBottom: -2 }}
+            />
+          );
+        } else if (route.name === 'Jobs') {
+          return (
+            <MaterialCommunityIcons
+              name={focused ? 'briefcase' : 'briefcase-outline'}
+              size={28}
+              color={color}
+              style={{ marginBottom: -2 }}
+            />
+          );
+        } else if (route.name === 'Profile') {
+          return (
+            <MaterialCommunityIcons
+              name={focused ? 'account' : 'account-outline'}
+              size={28}
+              color={color}
+              style={{ marginBottom: -2 }}
+            />
+          );
+        }
+      },
+      safeAreaInsets: { bottom: 0 },
+    };
+  };
+
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarShowLabel: true,
-        tabBarShowIcon: true,
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontFamily: fonts.family.medium,
-          marginTop: 4,
-        },
-        tabBarStyle: {
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: 0,
-          height: 70 + insets.bottom,
-          backgroundColor: colors.primary,
-          borderTopWidth: 0,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 8,
-          paddingBottom: insets.bottom + 8,
-          paddingTop: 8,
-        },
-        tabBarItemStyle: {
-          marginTop: 0,
-        },
-        tabBarActiveTintColor: colors.secondary,
-        tabBarInactiveTintColor: colors.white,
-        tabBarIcon: ({ focused, color }) => {
-          if (route.name === 'Home') {
-            return (
-              <MaterialCommunityIcons
-                name={focused ? 'home' : 'home-outline'}
-                size={28}
-                color={color}
-                style={{ marginBottom: -2 }}
-              />
-            );
-          } else if (route.name === 'Jobs') {
-            return (
-              <MaterialCommunityIcons
-                name={focused ? 'briefcase' : 'briefcase-outline'}
-                size={28}
-                color={color}
-                style={{ marginBottom: -2 }}
-              />
-            );
-          } else if (route.name === 'Profile') {
-            return (
-              <MaterialCommunityIcons
-                name={focused ? 'account' : 'account-outline'}
-                size={28}
-                color={color}
-                style={{ marginBottom: -2 }}
-              />
-            );
-          }
-        },
-        safeAreaInsets: { bottom: 0 },
-      })}
+      screenOptions={getScreenOptions}
     >
       <Tab.Screen 
         name="Home"

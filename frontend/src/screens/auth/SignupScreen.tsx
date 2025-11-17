@@ -19,14 +19,23 @@ import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PasswordStrengthIndicator from '../../components/common/PasswordStrengthIndicator';
 import { auth } from '../../firebaseConfig';
 
-WebBrowser.maybeCompleteAuthSession();
+import { useSafeGoogleAuth } from '../../hooks/useSafeGoogleAuth';
+
+// Conditionally import WebBrowser
+let WebBrowser: any = null;
+try {
+  WebBrowser = require('expo-web-browser');
+  if (WebBrowser && WebBrowser.maybeCompleteAuthSession) {
+    WebBrowser.maybeCompleteAuthSession();
+  }
+} catch (error) {
+  // WebBrowser not critical - app will continue to work
+}
 
 const countryOptions = [
   { code: '+255', name: 'Tanzania', flag: '🇹🇿' },
@@ -90,13 +99,8 @@ const SignupScreen = () => {
   const formOpacity = useRef(new Animated.Value(1)).current;
   const inputAnim = useRef(new Animated.Value(0)).current;
 
-  // Google Auth - Using proper client IDs
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
-  });
+  // Google Auth - Safe initialization that won't crash if expo-crypto is not available
+  const { request, response, promptAsync, isAvailable: googleAuthAvailable } = useSafeGoogleAuth();
 
   useEffect(() => {
     if (response?.type === 'success') {
@@ -441,7 +445,7 @@ const SignupScreen = () => {
               {/* Name Input */}
               <TextInput
                 style={styles.input}
-                placeholder="Full Name"
+                placeholder="Full ID Name"
                 value={name}
                 onChangeText={setName}
                 autoCapitalize="words"

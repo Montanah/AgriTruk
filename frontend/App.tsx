@@ -37,6 +37,7 @@ import RatingAnalyticsScreen from './src/screens/RatingAnalyticsScreen';
 import DisputeListScreen from './src/screens/DisputeListScreen';
 import DisputeDetailScreen from './src/screens/DisputeDetailScreen';
 import CreateDisputeScreen from './src/screens/CreateDisputeScreen';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc as firestoreDoc, getDoc } from 'firebase/firestore';
@@ -1587,7 +1588,6 @@ export default function App() {
   }
 
   // Wrap the entire app in a global error boundary
-  const ErrorBoundary = require('./src/components/ErrorBoundary').default;
   return (
     <ErrorBoundary>
       <ConsolidationProvider>

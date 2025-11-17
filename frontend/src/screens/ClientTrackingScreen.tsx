@@ -570,11 +570,37 @@ const ClientTrackingScreen: React.FC<ClientTrackingScreenProps> = ({ route, navi
           onClose={() => setShowChat(false)}
           bookingId={booking?.id || booking?.bookingId || trackingData?.bookingId}
           participant1Id={getAuth().currentUser?.uid || ''}
-          participant1Type="shipper"
-          participant2Id={trackingData.transporter.id}
-          participant2Type="transporter"
-          participant2Name={trackingData.transporter.name}
-          participant2Photo={trackingData.transporter.profilePhoto}
+          participant1Type={
+            // Get actual user type from booking (shipper, broker, or business)
+            booking?.userType || 
+            booking?.role || 
+            booking?.clientType ||
+            'shipper'
+          }
+          participant2Id={
+            // Priority: Use booking.transporterId (user ID) > trackingData.transporter.userId > trackingData.transporter.id
+            booking?.transporterId || 
+            trackingData.transporter.userId || 
+            trackingData.transporter.id
+          }
+          participant2Type={
+            // Use 'driver' if assignedDriver exists, otherwise 'transporter'
+            booking?.assignedDriver ? 'driver' : 'transporter'
+          }
+          participant2Name={
+            // Use actual driver/transporter name, not generic "Transporter"
+            booking?.assignedDriver?.name || 
+            booking?.assignedDriver?.driverName ||
+            trackingData.transporter.name || 
+            booking?.transporter?.name ||
+            'Driver'
+          }
+          participant2Photo={
+            booking?.assignedDriver?.photo || 
+            booking?.assignedDriver?.profilePhoto ||
+            trackingData.transporter.profilePhoto ||
+            booking?.transporter?.profilePhoto
+          }
           onChatCreated={(chatRoom) => {
             // Chat created
           }}

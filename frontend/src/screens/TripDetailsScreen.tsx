@@ -435,22 +435,44 @@ const TripDetailsScreen = () => {
   const currentTrip = tripData || trip;
 
   // Determine communication target: assigned driver (for company) or selected transporter
+  // IMPORTANT: For chat, we need USER IDs (Firebase UIDs), not driver IDs (Firestore doc IDs)
   let commTarget = null;
   let transporter = (booking && booking.transporter) || {};
   const assignedDriver = booking?.assignedDriver || transporter?.assignedDriver;
 
   if (assignedDriver) {
+    // Priority: Use booking.transporterId (user ID) > assignedDriver.userId > transporter.userId > transporter.id
+    const userId = booking?.transporterId || 
+                   assignedDriver.userId || 
+                   transporter?.userId || 
+                   transporter?.id || 
+                   'driver-id';
     commTarget = {
-      id: assignedDriver.id || assignedDriver.driverId || transporter?.id || 'driver-id',
-      name: assignedDriver.name || assignedDriver.driverName || 'Driver',
+      id: userId, // Use user ID for chat, not driver ID
+      // Use actual driver name, not generic "Driver"
+      name: assignedDriver.name || 
+            assignedDriver.driverName || 
+            transporter?.name || 
+            transporter?.transporterName ||
+            'Driver',
       phone: assignedDriver.phone || assignedDriver.driverPhone || transporter?.phone || '+254700000000',
       photo: assignedDriver.photo || assignedDriver.profilePhoto || transporter?.photo || PLACEHOLDER_IMAGES.DEFAULT_USER_MALE,
       role: 'driver',
     };
   } else if (transporter && transporter.name) {
+    // Priority: Use booking.transporterId (user ID) > transporter.userId > transporter.id
+    const userId = booking?.transporterId || 
+                   transporter.userId || 
+                   transporter.id || 
+                   transporter.transporterId || 
+                   'transporter-id';
     commTarget = {
-      id: transporter.id || transporter.transporterId || 'transporter-id',
-      name: transporter.name || transporter.transporterName || 'Transporter',
+      id: userId, // Use user ID for chat
+      // Use actual transporter name, not generic "Transporter"
+      name: transporter.name || 
+            transporter.transporterName || 
+            transporter.companyName ||
+            'Transporter',
       phone: transporter.phone || transporter.transporterPhone || '+254700000000',
       photo: transporter.photo || transporter.profilePhoto || PLACEHOLDER_IMAGES.DEFAULT_USER_MALE,
       role: 'transporter',
@@ -458,8 +480,8 @@ const TripDetailsScreen = () => {
   } else {
     // fallback: transporter info (mocked for now)
     commTarget = {
-      id: 'transporter-id',
-      name: 'Transporter',
+      id: booking?.transporterId || 'transporter-id',
+      name: booking?.transporter?.name || booking?.assignedDriver?.name || 'Transporter',
       phone: '+254700000000',
       photo: PLACEHOLDER_IMAGES.DEFAULT_USER_MALE,
       role: 'transporter',

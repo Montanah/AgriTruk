@@ -12,6 +12,7 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { realtimeChatService, ChatMessage, ChatRoom, TypingIndicator } from '../../services/realtimeChatService';
@@ -106,10 +107,29 @@ const RealtimeChatModal: React.FC<RealtimeChatModalProps> = ({
   };
 
   const createOrGetChat = async () => {
-    if (!participant1Id || !participant2Id) return;
+    if (!participant1Id || !participant2Id) {
+      console.error('❌ [RealtimeChatModal] Cannot create chat: missing participant IDs', {
+        participant1Id,
+        participant2Id,
+      });
+      Alert.alert(
+        'Error',
+        'Cannot create chat: Missing participant information. Please try again later.',
+        [{ text: 'OK', onPress: onClose }]
+      );
+      return;
+    }
 
     setLoading(true);
     try {
+      console.log('📤 [RealtimeChatModal] Creating chat room with:', {
+        bookingId: bookingId || 'none',
+        participant1Id,
+        participant1Type,
+        participant2Id,
+        participant2Type,
+      });
+      
       const room = await realtimeChatService.getOrCreateChatRoom(
         bookingId || '',
         participant1Id,
@@ -118,12 +138,21 @@ const RealtimeChatModal: React.FC<RealtimeChatModalProps> = ({
         participant2Type
       );
       
+      console.log('✅ [RealtimeChatModal] Chat room created successfully:', room);
       setCurrentChatRoom(room);
       if (onChatCreated) {
         onChatCreated(room);
       }
-    } catch (error) {
-      console.error('Error creating chat:', error);
+    } catch (error: any) {
+      console.error('❌ [RealtimeChatModal] Error creating chat:', error);
+      const errorMessage = error?.message || 'Failed to create chat room';
+      Alert.alert(
+        'Chat Error',
+        errorMessage.includes('Participant not found') 
+          ? 'One of the participants could not be found. Please ensure both parties are registered users.'
+          : errorMessage,
+        [{ text: 'OK', onPress: onClose }]
+      );
     } finally {
       setLoading(false);
     }

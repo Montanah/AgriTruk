@@ -74,6 +74,7 @@ export interface UnifiedBooking {
   // Driver information (when assigned - separate from transporter for company drivers)
   assignedDriver?: {
     id: string;
+    driverId?: string; // Firestore document ID for the driver (separate from id which might be userId)
     name: string;
     phone: string;
     photo?: string;
@@ -620,6 +621,7 @@ class UnifiedBookingService {
                     
                     enriched.assignedDriver = {
                       id: d.id || d.driverId,
+                      driverId: d.driverId || d.id, // Also store driverId separately for easier access
                       name: d.name || d.driverName || (d.firstName && d.lastName ? `${d.firstName} ${d.lastName}` : 'Driver'),
                       phone: d.phone,
                       photo: d.photo || d.profilePhoto || d.profileImage,

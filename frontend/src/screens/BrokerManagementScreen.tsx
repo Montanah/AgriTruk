@@ -1,11 +1,12 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { PLACEHOLDER_IMAGES } from '../constants/images';
 import { API_ENDPOINTS } from '../constants/api';
 import { getReadableLocationName, formatRoute, cleanLocationDisplay, getReadableLocationNameSync } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
@@ -624,20 +625,64 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 </View>
             )}
 
-            {/* Transporter Information */}
-            {(item.transporter?.id || item.transporter?.name) && (
+            {/* Transporter & Driver Information */}
+            {(item.transporter?.id || item.transporter?.name || item.assignedDriver || item.driver) && (
                 <View style={styles.transporterInfo}>
                     <View style={styles.transporterHeader}>
                         <MaterialCommunityIcons name="account-tie" size={16} color={colors.primary} />
-                        <Text style={styles.transporterLabel}>Assigned Transporter:</Text>
+                        <Text style={styles.transporterLabel}>Transporter & Driver Details</Text>
                     </View>
                     <View style={styles.transporterDetails}>
-                        <Text style={styles.transporterName}>
-                            {item.transporter?.name || 'Unknown Transporter'}
-                        </Text>
-                        <Text style={styles.transporterPhone}>
-                            {item.transporter?.phone || 'N/A'}
-                        </Text>
+                        {/* Company Name - Always show for accepted bookings with driver */}
+                        {(() => {
+                            const companyName = 
+                                item.assignedDriver?.companyName || 
+                                item.assignedDriver?.company?.name ||
+                                item.driver?.companyName ||
+                                item.driver?.company?.name ||
+                                item.transporter?.assignedDriver?.companyName ||
+                                item.transporter?.assignedDriver?.company?.name ||
+                                item.transporter?.companyName || 
+                                item.transporter?.company?.name || 
+                                item.companyName;
+                            
+                            if (['accepted', 'confirmed', 'assigned'].includes(item.status?.toLowerCase()) && 
+                                (item.assignedDriver || item.driver || item.transporter?.assignedDriver) && 
+                                companyName) {
+                                return (
+                                    <View style={styles.companyInfo}>
+                                        <MaterialCommunityIcons name="office-building" size={14} color={colors.primary} />
+                                        <Text style={styles.companyName}>{companyName}</Text>
+                                    </View>
+                                );
+                            }
+                            return null;
+                        })()}
+                        
+                        {/* Driver Details */}
+                        {(item.assignedDriver || item.driver || item.transporter?.assignedDriver) && (
+                            <View style={styles.driverInfo}>
+                                <Text style={styles.driverName}>
+                                    {item.assignedDriver?.name || item.assignedDriver?.driverName || item.assignedDriver?.firstName && item.assignedDriver?.lastName ? `${item.assignedDriver.firstName} ${item.assignedDriver.lastName}` : item.driver?.name || item.driver?.driverName || item.transporter?.assignedDriver?.name || 'Driver'}
+                                </Text>
+                                <Text style={styles.transporterPhone}>
+                                    {item.assignedDriver?.phone || item.driver?.phone || item.transporter?.assignedDriver?.phone || item.transporter?.phone || 'N/A'}
+                                </Text>
+                            </View>
+                        )}
+                        
+                        {/* Transporter Details (if no driver) */}
+                        {!item.assignedDriver && !item.driver && !item.transporter?.assignedDriver && (
+                            <>
+                                <Text style={styles.transporterName}>
+                                    {item.transporter?.name || 'Unknown Transporter'}
+                                </Text>
+                                <Text style={styles.transporterPhone}>
+                                    {item.transporter?.phone || 'N/A'}
+                                </Text>
+                            </>
+                        )}
+                        
                         {(item.transporterRating || item.transporter?.rating) && (
                             <View style={styles.ratingContainer}>
                                 <MaterialCommunityIcons name="star" size={14} color={colors.warning} />
@@ -650,26 +695,71 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                 </View>
             )}
 
-            {/* Vehicle Information */}
-            {(item.vehicleId || item.vehicleMake || item.vehicleRegistration || item.vehicle?.make || item.vehicle?.registration || item.transporter?.assignedVehicle?.vehicleMake || item.transporter?.vehicleMake) && (
+            {/* Vehicle Information - Always show for accepted bookings */}
+            {['accepted', 'confirmed', 'assigned'].includes(item.status?.toLowerCase()) && (
                 <View style={styles.vehicleInfo}>
                     <View style={styles.vehicleHeader}>
                         <MaterialCommunityIcons name="truck" size={16} color={colors.secondary} />
-                        <Text style={styles.vehicleLabel}>Vehicle Details:</Text>
+                        <Text style={styles.vehicleLabel}>Vehicle Details</Text>
                     </View>
                     <View style={styles.vehicleDetails}>
-                        <Text style={styles.vehicleName}>
-                            {item.vehicleMake || item.vehicle?.make || item.transporter?.assignedVehicle?.vehicleMake || item.transporter?.vehicleMake || 'Unknown'} {item.vehicleModel || item.vehicle?.model || item.transporter?.assignedVehicle?.vehicleModel || item.transporter?.vehicleModel || ''} ({item.vehicleYear || item.vehicle?.year || item.transporter?.assignedVehicle?.vehicleYear || item.transporter?.vehicleYear || 'N/A'})
-                        </Text>
-                        <Text style={styles.vehicleRegistration}>
-                            {item.vehicleRegistration || item.vehicle?.registration || item.transporter?.assignedVehicle?.vehicleRegistration || item.transporter?.vehicleRegistration || 'N/A'}
-                        </Text>
-                        <Text style={styles.vehicleType}>
-                            {item.vehicleType || item.vehicle?.type || item.transporter?.assignedVehicle?.vehicleType || item.transporter?.vehicleType || 'N/A'} • {item.vehicleCapacity || item.vehicle?.capacity || item.transporter?.assignedVehicle?.vehicleCapacity || item.transporter?.vehicleCapacity || 'N/A'}
-                        </Text>
-                        <Text style={styles.vehicleColor}>
-                            {item.vehicleColor || item.vehicle?.color || item.transporter?.assignedVehicle?.vehicleColor || item.transporter?.vehicleColor || 'N/A'}
-                        </Text>
+                        {(() => {
+                            const vehicle = 
+                                item.assignedDriver?.assignedVehicle ||
+                                item.assignedDriver?.vehicle ||
+                                item.driver?.assignedVehicle ||
+                                item.driver?.vehicle ||
+                                item.transporter?.assignedVehicle ||
+                                item.transporter?.assignedDriver?.assignedVehicle ||
+                                item.transporter?.assignedDriver?.vehicle ||
+                                item.transporter?.vehicle ||
+                                item.vehicle;
+                            
+                            const vehiclePhoto = 
+                                vehicle?.photo || 
+                                vehicle?.vehiclePhoto || 
+                                vehicle?.photos?.[0] ||
+                                vehicle?.vehicleImagesUrl?.[0] ||
+                                item.vehicle?.photo || 
+                                item.vehicle?.vehiclePhoto || 
+                                item.vehicle?.photos?.[0] ||
+                                item.transporter?.assignedVehicle?.photo || 
+                                item.transporter?.assignedVehicle?.vehiclePhoto || 
+                                item.transporter?.assignedVehicle?.photos?.[0] ||
+                                item.transporter?.vehicle?.photo ||
+                                item.transporter?.vehicle?.photos?.[0] ||
+                                item.assignedDriver?.vehicle?.photo || 
+                                item.assignedDriver?.assignedVehicle?.photo ||
+                                item.driver?.vehicle?.photo || 
+                                item.driver?.assignedVehicle?.photo ||
+                                PLACEHOLDER_IMAGES.VEHICLE_PHOTO;
+                            
+                            const vehicleMake = vehicle?.make || vehicle?.vehicleMake || item.vehicleMake || item.vehicle?.make || 'Unknown';
+                            const vehicleModel = vehicle?.model || vehicle?.vehicleModel || item.vehicleModel || item.vehicle?.model || '';
+                            const vehicleYear = vehicle?.year || vehicle?.vehicleYear || item.vehicleYear || item.vehicle?.year || 'N/A';
+                            const vehicleRegistration = vehicle?.registration || vehicle?.vehicleRegistration || vehicle?.reg || item.vehicleRegistration || item.vehicle?.registration || 'N/A';
+                            const vehicleCapacity = vehicle?.capacity || vehicle?.vehicleCapacity || item.vehicleCapacity || item.vehicle?.capacity || 'N/A';
+                            
+                            return (
+                                <>
+                                    {/* Vehicle Photo */}
+                                    <Image
+                                        source={{ uri: vehiclePhoto }}
+                                        style={styles.vehiclePhoto}
+                                        resizeMode="cover"
+                                    />
+                                    <Text style={styles.vehicleRegistration}>
+                                        Registration: {vehicleRegistration}
+                                    </Text>
+                                    <Text style={styles.vehicleCapacity}>
+                                        Capacity: {vehicleCapacity}
+                                    </Text>
+                                    <Text style={styles.vehicleName}>
+                                        {vehicleMake} {vehicleModel} ({vehicleYear})
+                                    </Text>
+                                </>
+                            );
+                        })()}
                     </View>
                 </View>
             )}
@@ -1041,7 +1131,12 @@ const BrokerManagementScreen = ({ navigation, route }: any) => {
                     <Ionicons name="arrow-back" size={24} color={colors.primary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Management</Text>
-                <View style={styles.headerSpacer} />
+                <TouchableOpacity
+                    onPress={() => navigation?.navigate?.('DisputeList' as never)}
+                    style={styles.disputeButton}
+                >
+                    <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.primary} />
+                </TouchableOpacity>
             </View>
 
             {/* Tab Navigation */}
@@ -1315,6 +1410,10 @@ const styles = StyleSheet.create({
     },
     headerSpacer: {
         width: 44,
+    },
+    disputeButton: {
+        padding: 8,
+        borderRadius: 20,
     },
     tabContainer: {
         backgroundColor: colors.white,
@@ -1700,9 +1799,31 @@ const styles = StyleSheet.create({
         marginLeft: spacing.xs,
     },
     transporterDetails: {
+        flexDirection: 'column',
+        gap: spacing.xs,
+    },
+    companyInfo: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        gap: spacing.xs,
+        marginBottom: spacing.xs,
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        backgroundColor: colors.primary + '10',
+        borderRadius: 6,
+    },
+    companyName: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.primary,
+    },
+    driverInfo: {
+        marginBottom: spacing.xs,
+    },
+    driverName: {
+        fontSize: fonts.size.sm,
+        fontWeight: '600',
+        color: colors.text.primary,
     },
     transporterName: {
         fontSize: fonts.size.sm,
@@ -1751,14 +1872,25 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         gap: spacing.xs,
     },
+    vehiclePhoto: {
+        width: '100%',
+        height: 200,
+        borderRadius: 12,
+        marginBottom: spacing.sm,
+    },
     vehicleName: {
         fontSize: fonts.size.sm,
         fontWeight: '600',
         color: colors.text.primary,
     },
     vehicleRegistration: {
-        fontSize: fonts.size.xs,
-        color: colors.text.secondary,
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
+        fontWeight: '500',
+    },
+    vehicleCapacity: {
+        fontSize: fonts.size.sm,
+        color: colors.text.primary,
         fontWeight: '500',
     },
     vehicleType: {

@@ -20,12 +20,20 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Spacer from '../../components/common/Spacer';
 import { colors, fonts, spacing } from '../../constants';
 
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
+import { useSafeGoogleAuth } from '../../hooks/useSafeGoogleAuth';
 
-WebBrowser.maybeCompleteAuthSession();
+// Conditionally import WebBrowser
+let WebBrowser: any = null;
+try {
+  WebBrowser = require('expo-web-browser');
+  if (WebBrowser && WebBrowser.maybeCompleteAuthSession) {
+    WebBrowser.maybeCompleteAuthSession();
+  }
+} catch (error) {
+  // WebBrowser not critical - app will continue to work
+}
 
 const LoginScreen = ({ navigation }: any) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -64,13 +72,8 @@ const LoginScreen = ({ navigation }: any) => {
     { code: '+254', flag: '🇰🇪' },
   ];
 
-  // Google Auth - Using proper client IDs
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '86814869135-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com',
-  });
+  // Google Auth - Safe initialization that won't crash if expo-crypto is not available
+  const { request, response, promptAsync, isAvailable: googleAuthAvailable } = useSafeGoogleAuth();
 
   useEffect(() => {
     if (response?.type === 'success') {

@@ -52,6 +52,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
   const [selectedVehicleClasses, setSelectedVehicleClasses] = useState<string[]>([]);
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([]);
   const [assignmentDescription, setAssignmentDescription] = useState('');
+  const [secondaryPhone, setSecondaryPhone] = useState('');
 
   // Religion options with valid Ionicons - using capitalized values to match marketplace filter
   const religionOptions = [
@@ -96,6 +97,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     psvBadge: null,
     nightTravelLicense: null,
     rslLicense: null,
+    anyOtherDocument: null,
     // Note: Driving License, Good Conduct Certificate, and ID Document are already handled as required documents
   });
   const [showDateOfBirthPicker, setShowDateOfBirthPicker] = useState(false);
@@ -805,6 +807,9 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
       
       formData.append('email', user.email || ''); // Add email field
       formData.append('phone', user.phoneNumber || ''); // Add phone field
+      if (secondaryPhone) {
+        formData.append('secondaryPhone', secondaryPhone); // Add secondary phone field
+      }
       formData.append('name', user.displayName || ''); // Add name field
       formData.append('dateOfBirth', dateOfBirth!.toISOString());
       formData.append('gender', gender);
@@ -952,6 +957,18 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
           fileType: fileType,
         };
         formData.append('rslLicense', fileObj as any);
+      }
+      
+      if (optionalDocuments.anyOtherDocument && optionalDocuments.anyOtherDocument.uri) {
+        const fileType = optionalDocuments.anyOtherDocument.type || 'image/jpeg';
+        const fileObj = {
+          uri: optionalDocuments.anyOtherDocument.uri,
+          type: fileType,
+          name: 'any-other-document.jpg',
+          fileName: 'any-other-document.jpg',
+          fileType: fileType,
+        };
+        formData.append('anyOtherDocument', fileObj as any);
       }
       
       // Log FormData contents for debugging
@@ -1675,6 +1692,25 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
             {assignmentDescription.length}/100 characters
           </Text>
 
+          {/* Secondary Phone Number */}
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="phone" size={20} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Secondary Phone Number (Optional)</Text>
+          </View>
+          <Text style={[styles.stepSubtitle, { marginBottom: spacing.sm }]}>
+            Add an additional contact number that companies can reach you on
+          </Text>
+          <View style={styles.inputGroup}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Enter secondary phone number (e.g., 0712345678)"
+              value={secondaryPhone}
+              onChangeText={setSecondaryPhone}
+              keyboardType="phone-pad"
+              placeholderTextColor={colors.text.secondary}
+            />
+          </View>
+
           {/* Profile Sharing Consent */}
           <View style={styles.consentContainer}>
             <TouchableOpacity
@@ -1777,6 +1813,27 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
                   >
                     {optionalDocuments.rslLicense ? (
                       <Image source={{ uri: optionalDocuments.rslLicense.uri }} style={styles.optionalDocumentPreview} />
+                    ) : (
+                      <View style={styles.optionalDocumentPlaceholder}>
+                        <MaterialCommunityIcons name="upload" size={24} color={colors.text.secondary} />
+                        <Text style={styles.optionalDocumentPlaceholderText}>Tap to upload</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Any Other Document/Qualification */}
+                <View style={styles.optionalDocumentItem}>
+                  <View style={styles.optionalDocumentHeader}>
+                    <MaterialCommunityIcons name="file-document-outline" size={20} color={colors.primary} />
+                    <Text style={styles.optionalDocumentLabel}>Any Other Document/Qualification</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.optionalDocumentUploader}
+                    onPress={() => handleOptionalDocumentUpload('anyOtherDocument')}
+                  >
+                    {optionalDocuments.anyOtherDocument ? (
+                      <Image source={{ uri: optionalDocuments.anyOtherDocument.uri }} style={styles.optionalDocumentPreview} />
                     ) : (
                       <View style={styles.optionalDocumentPlaceholder}>
                         <MaterialCommunityIcons name="upload" size={24} color={colors.text.secondary} />

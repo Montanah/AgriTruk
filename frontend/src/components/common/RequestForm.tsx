@@ -248,7 +248,13 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
             }
             
         } catch (error: any) {
-            console.error('Error getting current location:', error);
+            // Only log as error if user explicitly requested location
+            // For automatic calls, log as warning since it's expected behavior
+            if (showError) {
+                console.error('Error getting current location:', error);
+            } else {
+                console.warn('Automatic location fetch failed (expected):', error?.message || 'Location unavailable');
+            }
             
             // Only show error if explicitly requested (manual button press)
             if (showError) {
@@ -283,9 +289,9 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
     useEffect(() => {
         // Try to get location automatically, but don't show error if it fails
         // User can manually click "Use Current" button if needed
-        getCurrentLocation(false).catch((error) => {
-            // Silent failure for automatic location fetch
-            console.log('Automatic location fetch skipped:', error?.message || 'Location unavailable');
+        // Errors are logged as warnings in getCurrentLocation when showError=false
+        getCurrentLocation(false).catch(() => {
+            // Error already handled in getCurrentLocation with appropriate log level
         });
     }, []);
 

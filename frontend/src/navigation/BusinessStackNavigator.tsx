@@ -21,6 +21,9 @@ const BusinessStackNavigator = () => (
     <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
     <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
     <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+    <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+    <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+    <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
   </Stack.Navigator>
 );
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BusinessHomeScreen from '../screens/business/BusinessHomeScreen';
@@ -84,6 +85,9 @@ const BusinessTabNavigator = () => {
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
       <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+      <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+      <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+      <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
     </Stack.Navigator>
   );
 };

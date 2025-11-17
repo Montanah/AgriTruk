@@ -1017,7 +1017,15 @@ const AccountScreen = () => {
 
           <TouchableOpacity
             style={styles.complaintButton}
-            onPress={() => navigation.navigate('DisputeList' as never)}
+            onPress={() => {
+              console.log('Navigating to DisputeList...');
+              try {
+                (navigation as any).navigate('DisputeList');
+              } catch (error) {
+                console.error('Navigation error:', error);
+                Alert.alert('Error', 'Could not open disputes. Please try again.');
+              }
+            }}
           >
             <MaterialCommunityIcons name="alert-circle-outline" size={20} color={colors.white} />
             <Text style={styles.complaintButtonText}>View Disputes</Text>

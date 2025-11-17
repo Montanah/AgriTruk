@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../constants/colors';
@@ -19,46 +20,53 @@ const TabNavigator = ({ route }: any) => {
   const insets = useSafeAreaInsets();
   const subscriptionStatus = route.params?.subscriptionStatus;
 
+  const getScreenOptions = ({ route }: any) => {
+    const routeName = getFocusedRouteNameFromRoute(route) ?? route.name;
+    const isChatScreen = routeName === 'ChatScreen';
+    
+    return {
+      headerShown: false,
+      tabBarShowLabel: true,
+      tabBarActiveTintColor: colors.secondary,
+      tabBarInactiveTintColor: colors.white,
+      tabBarLabelStyle: {
+        fontWeight: 'bold',
+        fontSize: 13,
+        marginBottom: 2,
+      },
+      tabBarStyle: isChatScreen ? { display: 'none' } : {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 0,
+        height: 56 + insets.bottom,
+        backgroundColor: colors.primaryDark,
+        borderTopWidth: 1,
+        borderTopColor: '#222',
+        shadowColor: 'transparent',
+        elevation: 0,
+        paddingBottom: insets.bottom,
+      },
+      tabBarItemStyle: {
+        marginTop: 0,
+      },
+      tabBarIcon: ({ focused, color }: any) => {
+        if (route.name === 'Home') {
+          return <MaterialCommunityIcons name={focused ? 'home' : 'home-outline'} size={28} color={color} style={{ marginBottom: -2 }} />;
+        } else if (route.name === 'Management') {
+          return <MaterialCommunityIcons name={focused ? 'clipboard-list' : 'clipboard-list-outline'} size={28} color={color} style={{ marginBottom: -2 }} />;
+        } else if (route.name === 'Profile') {
+          return <MaterialCommunityIcons name={focused ? 'account' : 'account-outline'} size={28} color={color} style={{ marginBottom: -2 }} />;
+        }
+      },
+      safeAreaInsets: { bottom: 0 },
+    };
+  };
+
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarShowLabel: true,
-        tabBarActiveTintColor: colors.secondary,
-        tabBarInactiveTintColor: colors.white,
-        tabBarLabelStyle: {
-          fontWeight: 'bold',
-          fontSize: 13,
-          marginBottom: 2,
-        },
-        tabBarStyle: {
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: 0,
-          height: 56 + insets.bottom,
-          backgroundColor: colors.primaryDark,
-          borderTopWidth: 1,
-          borderTopColor: '#222',
-          shadowColor: 'transparent',
-          elevation: 0,
-          paddingBottom: insets.bottom,
-        },
-        tabBarItemStyle: {
-          marginTop: 0,
-        },
-        tabBarIcon: ({ focused, color }) => {
-          if (route.name === 'Home') {
-            return <MaterialCommunityIcons name={focused ? 'home' : 'home-outline'} size={28} color={color} style={{ marginBottom: -2 }} />;
-          } else if (route.name === 'Management') {
-            return <MaterialCommunityIcons name={focused ? 'clipboard-list' : 'clipboard-list-outline'} size={28} color={color} style={{ marginBottom: -2 }} />;
-          } else if (route.name === 'Profile') {
-            return <MaterialCommunityIcons name={focused ? 'account' : 'account-outline'} size={28} color={color} style={{ marginBottom: -2 }} />;
-          }
-        },
-        safeAreaInsets: { bottom: 0 },
-      })}
+      screenOptions={getScreenOptions}
     >
       <Tab.Screen
         name="Home"
@@ -90,6 +98,9 @@ export default function BrokerTabNavigator({ route }: any) {
       <Stack.Screen name="SubscriptionExpired" component={require('../screens/SubscriptionExpiredScreen').default} />
       <Stack.Screen name="ContactCustomer" component={require('../screens/ContactCustomerScreen').default} />
       <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
+      <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+      <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+      <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
     </Stack.Navigator>
   );
 }

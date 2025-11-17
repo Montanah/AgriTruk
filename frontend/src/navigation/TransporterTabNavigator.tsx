@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,6 +67,9 @@ const HomeStack = ({ transporterType }) => {
         <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
         <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
         <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+        <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+        <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+        <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
       </>
     ) : (
       // Individual transporter screens
@@ -88,6 +91,9 @@ const HomeStack = ({ transporterType }) => {
         <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
         <Stack.Screen name="TripNavigationScreen" component={require('../screens/TripNavigationScreen').default} />
         <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
+        <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+        <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+        <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
       </>
     )}
     </Stack.Navigator>
@@ -120,6 +126,9 @@ const ManageStack = ({ transporterType }) => (
         <Stack.Screen name="TripDetailsScreen" component={TripDetailsScreen} />
         <Stack.Screen name="TrackingScreen" component={TrackingScreen} />
         <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+        <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+        <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+        <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
       </>
     ) : (
       // Individual transporter management screens - job management
@@ -140,6 +149,9 @@ const ManageStack = ({ transporterType }) => (
         <Stack.Screen name="ChatScreen" component={require('../screens/ChatScreen').default} />
         <Stack.Screen name="TripNavigationScreen" component={require('../screens/TripNavigationScreen').default} />
         <Stack.Screen name="ShipmentManagementScreen" component={ShipmentManagementScreen} />
+        <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+        <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+        <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
       </>
     )}
   </Stack.Navigator>
@@ -162,6 +174,9 @@ const ProfileStack = ({ transporterType }) => (
     <Stack.Screen name="FleetAnalytics" component={FleetAnalyticsScreen} />
     <Stack.Screen name="FleetReports" component={FleetReportsScreen} />
     <Stack.Screen name="FleetMaintenance" component={FleetMaintenanceScreen} />
+    <Stack.Screen name="DisputeList" component={require('../screens/DisputeListScreen').default} />
+    <Stack.Screen name="DisputeDetail" component={require('../screens/DisputeDetailScreen').default} />
+    <Stack.Screen name="CreateDispute" component={require('../screens/CreateDisputeScreen').default} />
   </Stack.Navigator>
 );
 
@@ -236,92 +251,99 @@ const TransporterTabNavigator = () => {
     );
   }
 
-  return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarShowLabel: true,
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontFamily: fonts.family.medium,
-          marginTop: 4,
-        },
-        tabBarActiveTintColor: colors.secondary,
-        tabBarInactiveTintColor: colors.white,
-        tabBarStyle: {
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: 0,
-          height: 70 + insets.bottom,
-          backgroundColor: colors.primary,
-          borderTopWidth: 0,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 8,
-          paddingBottom: insets.bottom + 8,
-          paddingTop: 8,
-        },
-        tabBarItemStyle: {
-          marginTop: 0,
-        },
-        tabBarIcon: ({ focused }) => {
-          const iconColor = focused ? colors.secondary : colors.white;
-          
-          if (route.name === 'Home') {
-            if (transporterType === 'company') {
-              return (
-                <MaterialCommunityIcons
-                  name={focused ? 'view-dashboard' : 'view-dashboard-outline'}
-                  size={28}
-                  color={iconColor}
-                  style={{ marginBottom: -2 }}
-                />
-              );
-            } else {
-              return (
-                <Ionicons
-                  name={focused ? 'home' : 'home-outline'}
-                  size={28}
-                  color={iconColor}
-                  style={{ marginBottom: -2 }}
-                />
-              );
-            }
-          } else if (route.name === 'Fleet') {
+  const getScreenOptions = ({ route }: any) => {
+    const routeName = getFocusedRouteNameFromRoute(route) ?? route.name;
+    const isChatScreen = routeName === 'ChatScreen';
+    
+    return {
+      headerShown: false,
+      tabBarShowLabel: true,
+      tabBarLabelStyle: {
+        fontSize: 12,
+        fontFamily: fonts.family.medium,
+        marginTop: 4,
+      },
+      tabBarActiveTintColor: colors.secondary,
+      tabBarInactiveTintColor: colors.white,
+      tabBarStyle: isChatScreen ? { display: 'none' } : {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        borderRadius: 0,
+        height: 70 + insets.bottom,
+        backgroundColor: colors.primary,
+        borderTopWidth: 0,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 8,
+        paddingBottom: insets.bottom + 8,
+        paddingTop: 8,
+      },
+      tabBarItemStyle: {
+        marginTop: 0,
+      },
+      tabBarIcon: ({ focused }: any) => {
+        const iconColor = focused ? colors.secondary : colors.white;
+        
+        if (route.name === 'Home') {
+          if (transporterType === 'company') {
             return (
               <MaterialCommunityIcons
-                name={focused ? 'truck' : 'truck-outline'}
+                name={focused ? 'view-dashboard' : 'view-dashboard-outline'}
                 size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
               />
             );
-          } else if (route.name === 'Manage') {
+          } else {
             return (
-              <MaterialCommunityIcons
-                name={focused ? 'briefcase' : 'briefcase-outline'}
-                size={28}
-                color={iconColor}
-                style={{ marginBottom: -2 }}
-              />
-            );
-          } else if (route.name === 'Profile') {
-            return (
-              <MaterialCommunityIcons
-                name={focused ? 'account' : 'account-outline'}
+              <Ionicons
+                name={focused ? 'home' : 'home-outline'}
                 size={28}
                 color={iconColor}
                 style={{ marginBottom: -2 }}
               />
             );
           }
-        },
-        safeAreaInsets: { bottom: 0 },
-      })}
+        } else if (route.name === 'Fleet') {
+          return (
+            <MaterialCommunityIcons
+              name={focused ? 'truck' : 'truck-outline'}
+              size={28}
+              color={iconColor}
+              style={{ marginBottom: -2 }}
+            />
+          );
+        } else if (route.name === 'Manage') {
+          return (
+            <MaterialCommunityIcons
+              name={focused ? 'briefcase' : 'briefcase-outline'}
+              size={28}
+              color={iconColor}
+              style={{ marginBottom: -2 }}
+            />
+          );
+        } else if (route.name === 'Profile') {
+          return (
+            <MaterialCommunityIcons
+              name={focused ? 'account' : 'account-outline'}
+              size={28}
+              color={iconColor}
+              style={{ marginBottom: -2 }}
+            />
+          );
+        }
+      },
+      safeAreaInsets: { bottom: 0 },
+    };
+  };
+
+  return (
+    <Tab.Navigator
+      screenOptions={getScreenOptions}
     >
       <Tab.Screen 
         name="Home"

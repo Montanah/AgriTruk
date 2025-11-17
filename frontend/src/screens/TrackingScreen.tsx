@@ -84,17 +84,37 @@ const TrackingScreen = () => {
     const [existingRating, setExistingRating] = useState<any>(null);
 
     // Get transporter info for communication - prioritize assignedDriver
+    // IMPORTANT: For chat, we need USER IDs (Firebase UIDs), not driver IDs (Firestore doc IDs)
     const transporter = booking?.transporter || trackingData?.transporterInfo;
     const assignedDriver = booking?.assignedDriver || transporter?.assignedDriver;
     const commTarget = assignedDriver ? {
-        id: assignedDriver.id || assignedDriver.driverId || transporter?.id || transporter?.transporterId || 'driver-id',
-        name: assignedDriver.name || assignedDriver.driverName || transporter?.name || transporter?.transporterName || 'Driver',
+        // Priority: Use booking.transporterId (user ID) > assignedDriver.userId > transporter.userId > transporter.id
+        id: booking?.transporterId || 
+            assignedDriver.userId || 
+            transporter?.userId || 
+            transporter?.id || 
+            'driver-id',
+        // Use actual driver name, not generic "Driver"
+        name: assignedDriver.name || 
+              assignedDriver.driverName || 
+              transporter?.name || 
+              transporter?.transporterName || 
+              'Driver',
         phone: assignedDriver.phone || assignedDriver.driverPhone || transporter?.phone || transporter?.transporterPhone || transporter?.phoneNumber || '+254700000000',
         role: 'driver',
         photo: assignedDriver.photo || assignedDriver.profilePhoto || transporter?.photo || transporter?.profilePhoto
     } : transporter ? {
-        id: transporter.id || transporter.transporterId || 'transporter-id',
-        name: transporter.name || transporter.transporterName || 'Transporter',
+        // Priority: Use booking.transporterId (user ID) > transporter.userId > transporter.id
+        id: booking?.transporterId || 
+            transporter.userId || 
+            transporter.id || 
+            transporter.transporterId || 
+            'transporter-id',
+        // Use actual transporter name, not generic "Transporter"
+        name: transporter.name || 
+              transporter.transporterName || 
+              transporter.companyName ||
+              'Transporter',
         phone: transporter.phone || transporter.transporterPhone || transporter.phoneNumber || '+254700000000',
         role: 'transporter',
         photo: transporter.photo || transporter.profilePhoto

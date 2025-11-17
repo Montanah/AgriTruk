@@ -626,6 +626,12 @@ const BusinessManageScreen = ({ navigation }: any) => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manage Requests</Text>
           <View style={styles.headerActions}>
+            <TouchableOpacity 
+              onPress={() => navigation?.navigate?.('DisputeList' as never)} 
+              style={styles.disputeButton}
+            >
+              <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.white} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={fetchRequests} style={styles.refreshButton}>
               <Ionicons name="refresh" size={24} color={colors.white} />
             </TouchableOpacity>
@@ -735,6 +741,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  disputeButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   refreshButton: {
     padding: 8,

@@ -514,27 +514,80 @@ const ActivityScreen = () => {
         </View>
       </View>
 
-      {item.transporter && (
+      {/* Transporter & Driver Information */}
+      {(item.transporter || item.assignedDriver || item.driver) && (
         <View style={styles.transporterInfo}>
           <View style={styles.transporterHeader}>
             <MaterialCommunityIcons name="account-tie" size={20} color={colors.success} />
-            <Text style={styles.transporterLabel}>Transporter Details</Text>
+            <Text style={styles.transporterLabel}>Transporter & Driver Details</Text>
           </View>
           <View style={styles.transporterDetails}>
-            <View style={styles.transporterProfile}>
-              <Image
-                source={{ uri: item.transporter?.profilePhoto || item.transporter?.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_SMALL }}
-                style={styles.transporterPhoto}
-              />
-              <View style={styles.transporterBasic}>
-                <Text style={styles.transporterName}>{item.transporter.name}</Text>
-                <View style={styles.transporterRating}>
-                  <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 2 }} />
-                  <Text style={styles.ratingText}>{item.transporter?.rating || 'N/A'}</Text>
-                  <Text style={styles.tripsText}> • {item.transporter?.tripsCompleted || 0} trips</Text>
+            {/* Company Name - Always show for accepted bookings with driver */}
+            {(() => {
+              const companyName = 
+                item.assignedDriver?.companyName || 
+                item.assignedDriver?.company?.name ||
+                item.driver?.companyName ||
+                item.driver?.company?.name ||
+                item.transporter?.assignedDriver?.companyName ||
+                item.transporter?.assignedDriver?.company?.name ||
+                item.transporter?.companyName || 
+                item.transporter?.company?.name || 
+                item.companyName;
+              
+              if (['accepted', 'confirmed', 'assigned'].includes(item.status?.toLowerCase()) && 
+                  (item.assignedDriver || item.driver || item.transporter?.assignedDriver) && 
+                  companyName) {
+                return (
+                  <View style={styles.companyInfo}>
+                    <MaterialCommunityIcons name="office-building" size={16} color={colors.primary} />
+                    <Text style={styles.companyName}>{companyName}</Text>
+                  </View>
+                );
+              }
+              return null;
+            })()}
+            
+            {/* Driver Details */}
+            {(item.assignedDriver || item.driver || item.transporter?.assignedDriver) && (
+              <View style={styles.driverInfo}>
+                <View style={styles.driverProfile}>
+                  <Image
+                    source={{ uri: item.assignedDriver?.photo || item.assignedDriver?.profilePhoto || item.assignedDriver?.profileImage || item.driver?.photo || item.driver?.profilePhoto || item.driver?.profileImage || item.transporter?.assignedDriver?.photo || item.transporter?.assignedDriver?.profilePhoto || PLACEHOLDER_IMAGES.PROFILE_PHOTO_SMALL }}
+                    style={styles.driverPhoto}
+                  />
+                  <View style={styles.driverBasic}>
+                    <Text style={styles.driverName}>
+                      {item.assignedDriver?.name || item.assignedDriver?.driverName || item.assignedDriver?.firstName && item.assignedDriver?.lastName ? `${item.assignedDriver.firstName} ${item.assignedDriver.lastName}` : item.driver?.name || item.driver?.driverName || item.transporter?.assignedDriver?.name || 'Driver'}
+                    </Text>
+                    <View style={styles.driverMeta}>
+                      <Text style={styles.driverMetaText}>
+                        {item.assignedDriver?.phone || item.driver?.phone || item.transporter?.assignedDriver?.phone || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               </View>
-            </View>
+            )}
+            
+            {/* Transporter Details (if no driver) */}
+            {!item.assignedDriver && !item.driver && !item.transporter?.assignedDriver && item.transporter && (
+              <View style={styles.transporterProfile}>
+                <Image
+                  source={{ uri: item.transporter?.profilePhoto || item.transporter?.photo || PLACEHOLDER_IMAGES.PROFILE_PHOTO_SMALL }}
+                  style={styles.transporterPhoto}
+                />
+                <View style={styles.transporterBasic}>
+                  <Text style={styles.transporterName}>{item.transporter.name}</Text>
+                  <View style={styles.transporterRating}>
+                    <MaterialCommunityIcons name="star" size={14} color={colors.secondary} style={{ marginRight: 2 }} />
+                    <Text style={styles.ratingText}>{item.transporter?.rating || 'N/A'}</Text>
+                    <Text style={styles.tripsText}> • {item.transporter?.tripsCompleted || 0} trips</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            
             <View style={styles.transporterMeta}>
               <Text style={styles.transporterMetaText}>
                 {item.transporter?.experience || 'N/A'} • {item.transporter?.availability || 'N/A'}
@@ -549,15 +602,26 @@ const ActivityScreen = () => {
         </View>
       )}
 
-      {/* Vehicle Information - Show if available from item.vehicle or booking fields */}
-      {(item.vehicle || item.vehicleId || item.vehicleMake || item.vehicleRegistration) && (
+      {/* Vehicle Information - Always show for accepted bookings */}
+      {['accepted', 'confirmed', 'assigned'].includes(item.status?.toLowerCase()) && (
         <View style={styles.vehicleInfo}>
           <View style={styles.vehicleHeader}>
             <MaterialCommunityIcons name="truck" size={20} color={colors.primary} />
             <Text style={styles.vehicleLabel}>Vehicle Details</Text>
           </View>
-          <VehicleDisplayCard 
-            vehicle={item.vehicle || {
+          {(() => {
+            const vehicle = 
+              item.assignedDriver?.assignedVehicle ||
+              item.assignedDriver?.vehicle ||
+              item.driver?.assignedVehicle ||
+              item.driver?.vehicle ||
+              item.transporter?.assignedVehicle ||
+              item.transporter?.assignedDriver?.assignedVehicle ||
+              item.transporter?.assignedDriver?.vehicle ||
+              item.transporter?.vehicle ||
+              item.vehicle;
+            
+            const vehicleData = vehicle || {
               make: item.vehicleMake,
               model: item.vehicleModel,
               year: item.vehicleYear,
@@ -567,10 +631,16 @@ const ActivityScreen = () => {
               color: item.vehicleColor,
               vehicleImagesUrl: item.vehiclePhotos ? (Array.isArray(item.vehiclePhotos) ? item.vehiclePhotos : [item.vehiclePhotos]) : undefined,
               photos: item.vehiclePhotos ? (Array.isArray(item.vehiclePhotos) ? item.vehiclePhotos : [item.vehiclePhotos]) : undefined,
-            }}
-            showImages={true}
-            compact={false}
-          />
+            };
+            
+            return (
+              <VehicleDisplayCard 
+                vehicle={vehicleData}
+                showImages={true}
+                compact={false}
+              />
+            );
+          })()}
         </View>
       )}
 

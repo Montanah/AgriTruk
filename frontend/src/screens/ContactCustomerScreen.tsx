@@ -14,10 +14,11 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ChatModal from '../components/Chat/ChatModal';
+import RealtimeChatModal from '../components/Chat/RealtimeChatModal';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
+import { getAuth } from 'firebase/auth';
 
 interface Message {
     id: string;
@@ -209,10 +210,29 @@ const ContactCustomerScreen: React.FC<ContactCustomerScreenProps> = ({ route }) 
             </View>
 
             {/* Chat Modal */}
-            <ChatModal
+            <RealtimeChatModal
                 visible={chatVisible}
                 onClose={() => setChatVisible(false)}
-                participantIds={[customerEmail]} // Use customer email as participant ID
+                bookingId={requestId}
+                participant1Id={getAuth().currentUser?.uid || ''}
+                participant1Type="transporter"
+                participant2Id={
+                    // Priority: Use userId (user ID) > customerId (if it's a user ID) > fallback
+                    // NOTE: customerEmail is NOT a user ID, so we don't use it
+                    requestDetails?.userId || 
+                    requestDetails?.customerId || 
+                    requestDetails?.clientId ||
+                    'customer-id'
+                }
+                participant2Type={
+                    // Get actual user type (shipper, broker, or business), not just "shipper"
+                    requestDetails?.userType || 
+                    requestDetails?.role || 
+                    requestDetails?.clientType ||
+                    'shipper'
+                }
+                participant2Name={customerName}
+                participant2Photo={requestDetails?.customerPhoto}
                 onChatCreated={(chatRoom) => {
                     // Chat created with customer
                 }}

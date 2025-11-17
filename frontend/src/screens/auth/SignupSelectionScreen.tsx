@@ -153,6 +153,15 @@ const SignupSelectionScreen = () => {
         end={{ x: 0.8, y: 1 }}
       />
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.white} />
+        </TouchableOpacity>
+        
         <ScrollView 
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -259,6 +268,23 @@ const SignupSelectionScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  backButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? spacing.lg : spacing.md,
+    left: spacing.md,
+    zIndex: 1000,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   scrollView: {
     flex: 1,

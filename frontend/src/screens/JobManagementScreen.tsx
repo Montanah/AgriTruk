@@ -699,7 +699,12 @@ const JobManagementScreen = () => {
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text.primary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Job Management</Text>
-                    <View style={{ width: 24 }} />
+                    <TouchableOpacity
+                        onPress={() => (navigation as any).navigate('DisputeList')}
+                        style={styles.disputeButton}
+                    >
+                        <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.primary} />
+                    </TouchableOpacity>
                 </View>
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={colors.primary} />
@@ -717,7 +722,12 @@ const JobManagementScreen = () => {
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text.primary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Job Management</Text>
-                    <View style={{ width: 24 }} />
+                    <TouchableOpacity
+                        onPress={() => (navigation as any).navigate('DisputeList')}
+                        style={styles.disputeButton}
+                    >
+                        <MaterialCommunityIcons name="alert-circle-outline" size={22} color={colors.primary} />
+                    </TouchableOpacity>
                 </View>
                 <View style={styles.errorContainer}>
                     <MaterialCommunityIcons name="alert-circle" size={48} color={colors.error} />
@@ -951,6 +961,10 @@ const styles = StyleSheet.create({
         fontSize: fonts.size.lg,
         fontWeight: 'bold',
         color: colors.text.primary,
+    },
+    disputeButton: {
+        padding: 8,
+        borderRadius: 20,
     },
     // Enhanced Filter Styles
     filterContainer: {
