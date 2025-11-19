@@ -242,12 +242,6 @@ const Driver = {
     return { success: true, driverId, bookingId };
   },
 
-  // Existing get method
-  async get(driverId) {
-    const driverSnap = await db.collection('drivers').doc(driverId).get();
-    return driverSnap.exists ? { id: driverSnap.id, ...driverSnap.data() } : null;
-  },
-
   async getDriverIdByUserId(userId) {
     const driverSnap = await db.collection('drivers').where('userId', '==', userId).limit(1).get();
     return driverSnap.docs[0]?.data() || null;

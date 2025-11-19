@@ -36,7 +36,7 @@ exports.createDispute = async (req, res) => {
     let driverSnap = null;
 
     try { transporterSnap = await Transporter.get(transporterId); } catch {}
-    try { driverSnap = await Driver.get(transporterId); } catch {}
+    try { driverSnap = await Driver.getDriverIdByUserId(transporterId); } catch {}
 
     if (!transporterSnap && !driverSnap) {
       return res.status(404).json({ message: 'Transporter or driver not found' });
@@ -168,7 +168,6 @@ exports.getDispute = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch dispute' });
   }
 };
-
 
 exports.updateDispute = async (req, res) => {
   try {
@@ -344,7 +343,6 @@ exports.deleteDispute = async (req, res) => {
   }
 };
 
-
 exports.getAllDisputes = async (req, res) => {
   try {
     const disputes = await Dispute.getAll();
@@ -381,3 +379,84 @@ exports.getAllDisputes = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch disputes' });
   }
 };
+
+exports.getDisputeAdmin = async (req, res) => {
+  try {
+    const { disputeId } = req.params;
+    const userId = req.user.uid;
+    const dispute = await Dispute.get(disputeId);
+
+    if (!dispute) {
+      return res.status(404).json({ message: 'Dispute not found' });
+    }
+
+    // Security: Only admins or participants can view the dispute
+    const userRecord = await User.get(userId).catch(() => null);
+    const userRole = req.user.role || userRecord?.role;
+    const isAdmin = userRole === 'admin';
+    const isOpener = dispute.openedBy === userId;
+    const isTransporter = dispute.transporterId === userId;
+
+    if (!isAdmin && !isOpener && !isTransporter) {
+      return res.status(403).json({
+        message: 'Access denied. You can only view disputes you are involved in.',
+      });
+    }
+
+    let user = null;
+    let transporter = null;
+    let driver = null;
+
+    // Fetch the user who opened the dispute
+    try {
+      user = await User.get(dispute.openedBy);
+      dispute.openedBy = user;
+    } catch (err) {
+      dispute.openedBy = { error: 'User not found', id: dispute.openedBy };
+    }
+
+    // Fetch the transporter/driver
+    if (dispute.transporterId) {
+      try {
+        if (dispute.transporterType === 'driver') {
+          driver = await Driver.get(dispute.transporterId);
+          dispute.transporter = driver;
+        } else {
+          transporter = await Transporter.get(dispute.transporterId);
+          dispute.transporter = transporter;
+        }
+      } catch (err) {
+        try {
+          // Fallback: try alternate lookup
+          if (dispute.transporterType === 'driver') {
+            transporter = await Transporter.get(dispute.transporterId);
+            dispute.transporter = transporter;
+          } else {
+            driver = await Driver.getDriverIdByUserId(dispute.transporterId);
+            dispute.transporter = driver;
+          }
+        } catch (err2) {
+          dispute.transporter = { error: 'Transporter/Driver not found', id: dispute.transporterId };
+        }
+      }
+    }
+
+    await logAdminActivity(userId, 'get_dispute', req);
+
+    res.status(200).json({
+      message: 'Dispute fetched successfully',
+      dispute: formatTimestamps(dispute),
+      user: user ? formatTimestamps(user) : null,
+      transporter: transporter
+        ? formatTimestamps(transporter)
+        : driver
+        ? formatTimestamps(driver)
+        : null,
+    });
+  } catch (err) {
+    console.error('Get dispute error:', err);
+    res.status(500).json({ message: 'Failed to fetch dispute' });
+  }
+};
+
+

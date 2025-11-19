@@ -1312,4 +1312,30 @@ router.patch('/:bookingId/cancel', authenticateToken, requireRole('admin'), auth
  */
 router.get('/:userId/details', authenticateToken, requireRole('admin'), authorize(['view_users', 'super_admin']), authController.getUserDetails);
 
+/**
+ * @swagger
+ * /api/admin/disputes/{disputeId}:
+ *   get:
+ *     summary: Get a dispute by ID
+ *     description: Retrieves details of a specific dispute.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: disputeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the dispute to retrieve
+ *     responses:
+ *       200:
+ *         description: Dispute retrieved successfully
+ *       404:
+ *         description: Dispute not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/disputes/:disputeId', authenticateToken, requireRole(['admin']), authorize(['view_disputes', 'manage_disputes', 'super_admin']), disputeController.getDisputeAdmin);
+
 module.exports = router;
