@@ -21,6 +21,7 @@ import { COMPANY_FLEET_PLANS } from '../constants/subscriptionPlans';
 import subscriptionService, { SubscriptionStatus } from '../services/subscriptionService';
 import companyFleetValidationService from '../services/companyFleetValidationService';
 import { apiRequest } from '../utils/api';
+import { useResponsive } from '../hooks/useResponsive';
 
 interface FleetStats {
   totalVehicles: number;
@@ -47,6 +48,7 @@ interface RecentActivity {
 const CompanyDashboardScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { isTablet, maxContentWidth, width: screenWidth, isLandscape } = useResponsive();
   const [stats, setStats] = useState<FleetStats>({
     totalVehicles: 0,
     activeVehicles: 0,
@@ -287,19 +289,53 @@ const CompanyDashboardScreen = () => {
     validateFeatureAccess();
   }, [subscriptionStatus]);
 
-  const renderStatCard = (title: string, value: string | number, icon: string, color: string, onPress?: () => void) => (
-    <TouchableOpacity
-      style={[styles.statCard, { borderLeftColor: color }]}
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <View style={styles.statHeader}>
-        <MaterialCommunityIcons name={icon} size={24} color={color} />
-        <Text style={styles.statValue}>{value}</Text>
-      </View>
-      <Text style={styles.statTitle}>{title}</Text>
-    </TouchableOpacity>
-  );
+  // Calculate responsive card width based on device type and orientation
+  const getCardWidth = (columns: number = 2) => {
+    if (isTablet) {
+      if (isLandscape) {
+        // Landscape tablets: more columns
+        if (columns === 4) {
+          return '18%'; // 5 columns in landscape
+        } else if (columns === 3) {
+          return '23%'; // 4 columns in landscape
+        }
+      } else {
+        // Portrait tablets
+        if (columns === 4) {
+          return '23%'; // 4 columns in portrait
+        } else if (columns === 3) {
+          return '31%'; // 3 columns in portrait
+        }
+      }
+      return '48%'; // fallback
+    }
+    // Phones: 2 columns (48% each)
+    return '48%';
+  };
+
+  // Number of columns for stats grid - adjust for landscape
+  const statsColumns = isTablet ? (isLandscape ? 5 : 4) : 2;
+  const actionsColumns = isTablet ? (isLandscape ? 4 : 3) : 2;
+
+  // Create styles early so they're available for loading state
+  const styles = getStyles(isTablet, maxContentWidth, isLandscape);
+
+  const renderStatCard = (title: string, value: string | number, icon: string, color: string, onPress?: () => void) => {
+    const cardWidth = getCardWidth(statsColumns);
+    return (
+      <TouchableOpacity
+        style={[styles.statCard, { borderLeftColor: color, width: cardWidth }]}
+        onPress={onPress}
+        disabled={!onPress}
+      >
+        <View style={styles.statHeader}>
+          <MaterialCommunityIcons name={icon} size={isTablet ? 28 : 24} color={color} />
+          <Text style={styles.statValue}>{value}</Text>
+        </View>
+        <Text style={styles.statTitle}>{title}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderActivityItem = (activity: RecentActivity) => (
     <View key={activity.id} style={styles.activityItem}>
@@ -347,7 +383,11 @@ const CompanyDashboardScreen = () => {
 
       <ScrollView
         style={styles.content}
-        contentContainerStyle={{ paddingBottom: 100 + insets.bottom }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: 100 + insets.bottom },
+          isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -378,7 +418,7 @@ const CompanyDashboardScreen = () => {
         {/* Fleet Overview */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fleet Overview</Text>
-          <View style={styles.statsGrid}>
+          <View style={[styles.statsGrid, { gap: 12 }]}>
             {renderStatCard(
               'Total Vehicles',
               stats.totalVehicles,
@@ -411,7 +451,7 @@ const CompanyDashboardScreen = () => {
         {/* Job Performance */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Job Performance</Text>
-          <View style={styles.statsGrid}>
+          <View style={[styles.statsGrid, { gap: 12 }]}>
             {renderStatCard(
               'Total Jobs',
               stats.totalJobs,
@@ -442,9 +482,9 @@ const CompanyDashboardScreen = () => {
         {/* Quick Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
+          <View style={[styles.actionsGrid, { gap: 12 }]}>
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { width: getCardWidth(actionsColumns) }]}
               onPress={() => {
                 // Navigate to Fleet tab and then to VehicleManagement screen
                 navigation.navigate('Fleet', { 
@@ -452,11 +492,11 @@ const CompanyDashboardScreen = () => {
                 });
               }}
             >
-              <MaterialCommunityIcons name="truck-plus" size={32} color={colors.primary} />
+              <MaterialCommunityIcons name="truck-plus" size={isTablet ? 36 : 32} color={colors.primary} />
               <Text style={styles.actionText}>Add Vehicle</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { width: getCardWidth(actionsColumns) }]}
               onPress={() => {
                 // Navigate to Fleet tab and then to DriverManagement screen
                 navigation.navigate('Fleet', { 
@@ -464,11 +504,11 @@ const CompanyDashboardScreen = () => {
                 });
               }}
             >
-              <MaterialCommunityIcons name="account-plus" size={32} color={colors.primary} />
+              <MaterialCommunityIcons name="account-plus" size={isTablet ? 36 : 32} color={colors.primary} />
               <Text style={styles.actionText}>Recruit Driver</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { width: getCardWidth(actionsColumns) }]}
               onPress={() => {
                 // Navigate to Fleet tab and then to FleetAnalytics screen
                 navigation.navigate('Fleet', { 
@@ -476,12 +516,13 @@ const CompanyDashboardScreen = () => {
                 });
               }}
             >
-              <MaterialCommunityIcons name="chart-line" size={32} color={colors.primary} />
+              <MaterialCommunityIcons name="chart-line" size={isTablet ? 36 : 32} color={colors.primary} />
               <Text style={styles.actionText}>Analytics</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.actionButton,
+                { width: getCardWidth(actionsColumns) },
                 (!featureAccess?.jobSeekers?.hasAccess) && styles.actionButtonDisabled
               ]}
               onPress={() => {
@@ -504,7 +545,7 @@ const CompanyDashboardScreen = () => {
             >
               <MaterialCommunityIcons 
                 name="account-search" 
-                size={32} 
+                size={isTablet ? 36 : 32} 
                 color={featureAccess?.jobSeekers?.hasAccess ? colors.primary : colors.text.secondary} 
               />
               <Text style={[
@@ -515,7 +556,7 @@ const CompanyDashboardScreen = () => {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { width: getCardWidth(actionsColumns) }]}
               onPress={() => {
                 // Navigate to Fleet tab and then to FleetReports screen
                 navigation.navigate('Fleet', { 
@@ -523,7 +564,7 @@ const CompanyDashboardScreen = () => {
                 });
               }}
             >
-              <MaterialCommunityIcons name="file-document" size={32} color={colors.primary} />
+              <MaterialCommunityIcons name="file-document" size={isTablet ? 36 : 32} color={colors.primary} />
               <Text style={styles.actionText}>Reports</Text>
             </TouchableOpacity>
           </View>
@@ -558,7 +599,7 @@ const CompanyDashboardScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (isTablet: boolean, maxContentWidth: number, isLandscape: boolean) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -567,13 +608,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingTop: 50,
     paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: isTablet ? 40 : 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: isTablet ? 24 : 20,
     fontFamily: fonts.family.bold,
     color: colors.white,
   },
@@ -582,26 +623,27 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+  },
+  scrollContent: {
+    padding: isTablet ? (isLandscape ? 24 : 32) : 20,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: isTablet ? 32 : 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: isTablet ? 20 : 18,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
-    marginBottom: 16,
+    marginBottom: isTablet ? 20 : 16,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: isTablet && isLandscape ? 'space-between' : 'flex-start',
   },
   statCard: {
-    width: '48%',
     backgroundColor: colors.white,
-    padding: 16,
+    padding: isTablet ? 20 : 16,
     borderRadius: 12,
     marginBottom: 12,
     borderLeftWidth: 4,
@@ -618,24 +660,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: isTablet ? 28 : 24,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
   },
   statTitle: {
-    fontSize: 14,
+    fontSize: isTablet ? 15 : 14,
     fontFamily: fonts.family.medium,
     color: colors.text.secondary,
   },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: isTablet && isLandscape ? 'space-between' : 'flex-start',
   },
   actionButton: {
-    width: '48%',
     backgroundColor: colors.white,
-    padding: 16,
+    padding: isTablet ? 20 : 16,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
@@ -650,10 +691,10 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   actionText: {
-    fontSize: 14,
+    fontSize: isTablet ? 15 : 14,
     fontFamily: fonts.family.medium,
     color: colors.text.primary,
-    marginTop: 8,
+    marginTop: isTablet ? 10 : 8,
   },
   actionTextDisabled: {
     color: colors.text.secondary,

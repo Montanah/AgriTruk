@@ -92,13 +92,15 @@ export default function TransporterProcessingScreen({ route }) {
       // Priority 3: Check if user needs trial activation (no active subscription)
       if (status && status.needsTrialActivation) {
         console.log('Transporter needs trial activation, redirecting to trial screen');
+        // Determine correct userType based on transporterType
+        const userType = transporterType === 'company' ? 'company' : 'transporter';
         // Use immediate navigation without setTimeout
         navigation.reset({
           index: 0,
           routes: [{
             name: 'SubscriptionTrial',
             params: {
-              userType: 'transporter',
+              userType: userType,
               transporterType: transporterType,
               subscriptionStatus: status
             }
@@ -109,13 +111,15 @@ export default function TransporterProcessingScreen({ route }) {
       
       // Priority 4: Fallback - if no subscription status or unknown state, assume needs trial
       console.log('No subscription status or unknown state, redirecting to trial screen');
+      // Determine correct userType based on transporterType
+      const userType = transporterType === 'company' ? 'company' : 'transporter';
       // Use immediate navigation without setTimeout
       navigation.reset({
         index: 0,
         routes: [{
           name: 'SubscriptionTrial',
           params: {
-            userType: 'transporter',
+            userType: userType,
             transporterType: transporterType,
             subscriptionStatus: status || { needsTrialActivation: true }
           }
@@ -125,9 +129,11 @@ export default function TransporterProcessingScreen({ route }) {
     } catch (error) {
       console.error('Error checking subscription status:', error);
       // On error, assume user needs trial activation
+      // Determine correct userType based on transporterType
+      const userType = transporterType === 'company' ? 'company' : 'transporter';
       try {
         navigation.navigate('SubscriptionTrial', {
-          userType: 'transporter',
+          userType: userType,
           transporterType: transporterType,
           subscriptionStatus: { needsTrialActivation: true }
         });
@@ -138,7 +144,7 @@ export default function TransporterProcessingScreen({ route }) {
           routes: [{
             name: 'SubscriptionTrial',
             params: {
-              userType: 'transporter',
+              userType: userType,
               transporterType: transporterType,
               subscriptionStatus: { needsTrialActivation: true }
             }

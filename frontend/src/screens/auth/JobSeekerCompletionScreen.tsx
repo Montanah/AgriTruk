@@ -7,7 +7,7 @@ import { handleImagePicker } from '../../utils/permissionUtils';
 import { getAuth } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
+// Removed DateTimePickerModal - using text inputs with smart parsing instead
 import {
   ActivityIndicator,
   Image,
@@ -79,7 +79,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
   // Address fields
   const [address, setAddress] = useState({
     street: '',
-    city: '',
+    town: '',
     county: '',
     country: 'Kenya',
     postalCode: ''
@@ -100,8 +100,12 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     anyOtherDocument: null,
     // Note: Driving License, Good Conduct Certificate, and ID Document are already handled as required documents
   });
-  const [showDateOfBirthPicker, setShowDateOfBirthPicker] = useState(false);
-  const [showCareerStartDatePicker, setShowCareerStartDatePicker] = useState(false);
+  const [dateOfBirthText, setDateOfBirthText] = useState('');
+  const [careerStartDateText, setCareerStartDateText] = useState('');
+  const [dateOfBirthError, setDateOfBirthError] = useState('');
+  const [careerStartDateError, setCareerStartDateError] = useState('');
+  const [dateOfBirthTouched, setDateOfBirthTouched] = useState(false);
+  const [careerStartDateTouched, setCareerStartDateTouched] = useState(false);
   const [vehicleClassModal, setVehicleClassModal] = useState(false);
   const [specializationModal, setSpecializationModal] = useState(false);
   const [mediaLibraryPermission, requestMediaLibraryPermission] = useMediaLibraryPermissions();
@@ -185,6 +189,255 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     return false;
   };
 
+  // Smart date parsing function - handles multiple formats
+  const parseDate = (dateString: string): Date | null => {
+    if (!dateString || dateString.trim() === '') return null;
+    
+    // Remove any whitespace
+    const cleaned = dateString.trim().replace(/\s+/g, '');
+    
+    // Try different date formats
+    const formats = [
+      // DD/MM/YYYY or DD-MM-YYYY (most common in Kenya)
+      /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/,
+      // MM/DD/YYYY or MM-DD-YYYY (US format)
+      /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/,
+      // YYYY/MM/DD or YYYY-MM-DD
+      /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/,
+      // DD.MM.YYYY
+      /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/,
+    ];
+    
+    for (const format of formats) {
+      const match = cleaned.match(format);
+      if (match) {
+        let day: number, month: number, year: number;
+        
+        // Determine format based on pattern
+        if (format.source.includes('^\\d{4}')) {
+          // YYYY-MM-DD format
+          year = parseInt(match[1], 10);
+          month = parseInt(match[2], 10);
+          day = parseInt(match[3], 10);
+        } else {
+          // DD-MM-YYYY or MM-DD-YYYY format
+          const first = parseInt(match[1], 10);
+          const second = parseInt(match[2], 10);
+          const third = parseInt(match[3], 10);
+          
+          // Smart detection: if first > 12, it's DD/MM/YYYY, else try MM/DD/YYYY
+          if (first > 12) {
+            // DD/MM/YYYY format
+            day = first;
+            month = second;
+            year = third;
+          } else if (second > 12) {
+            // MM/DD/YYYY format
+            month = first;
+            day = second;
+            year = third;
+          } else {
+            // Ambiguous - prefer DD/MM/YYYY (more common in Kenya)
+            // But check if it's a valid date in both formats
+            const date1 = new Date(third, first - 1, second);
+            const date2 = new Date(third, second - 1, first);
+            
+            // Use the one that makes more sense (not in future, reasonable year)
+            const now = new Date();
+            if (date1.getFullYear() === third && date1.getMonth() === first - 1 && date1.getDate() === second && 
+                date1 <= now && date1.getFullYear() >= 1900) {
+              // DD/MM/YYYY
+              day = first;
+              month = second;
+              year = third;
+            } else if (date2.getFullYear() === third && date2.getMonth() === second - 1 && date2.getDate() === first && 
+                       date2 <= now && date2.getFullYear() >= 1900) {
+              // MM/DD/YYYY
+              month = first;
+              day = second;
+              year = third;
+            } else {
+              // Default to DD/MM/YYYY
+              day = first;
+              month = second;
+              year = third;
+            }
+          }
+        }
+        
+        // Validate date
+        if (year < 1900 || year > new Date().getFullYear()) return null;
+        if (month < 1 || month > 12) return null;
+        if (day < 1 || day > 31) return null;
+        
+        const date = new Date(year, month - 1, day);
+        
+        // Verify the date is valid (handles invalid dates like Feb 30)
+        if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
+          // Check if date is not in the future
+          if (date <= new Date()) {
+            return date;
+          }
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  // Auto-format date input (adds "/" automatically)
+  const formatDateInput = (text: string): string => {
+    // Remove all non-digit characters
+    const digitsOnly = text.replace(/\D/g, '');
+    
+    // Limit to 8 digits (DDMMYYYY)
+    const limited = digitsOnly.slice(0, 8);
+    
+    // Add slashes automatically
+    if (limited.length <= 2) {
+      return limited;
+    } else if (limited.length <= 4) {
+      return `${limited.slice(0, 2)}/${limited.slice(2)}`;
+    } else {
+      return `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4)}`;
+    }
+  };
+
+  // Handle date input change with smart parsing and auto-formatting
+  const handleDateOfBirthChange = (text: string) => {
+    // Auto-format the input - always preserve what user is typing
+    const formatted = formatDateInput(text);
+    setDateOfBirthText(formatted);
+    
+    // Clear error while typing - don't interfere with user input
+    if (!dateOfBirthTouched) {
+      setDateOfBirthError('');
+    }
+    
+    if (formatted.trim() === '') {
+      setDateOfBirth(null);
+      // Only show error if field was touched and is now empty
+      if (dateOfBirthTouched) {
+        setDateOfBirthError('');
+      }
+      return;
+    }
+    
+    // Only parse and validate if we have a complete date (at least 8 digits = DD/MM/YYYY)
+    const digitsOnly = formatted.replace(/\D/g, '');
+    if (digitsOnly.length >= 8) {
+      const parsed = parseDate(formatted);
+      if (parsed) {
+        setDateOfBirth(parsed);
+        setDateOfBirthError(''); // Clear error on valid date
+      } else {
+        // Only show error if field was touched (user finished typing)
+        // This allows user to continue typing without interruption
+        if (dateOfBirthTouched) {
+          setDateOfBirthError('Invalid date format. Please check and try again.');
+        }
+        setDateOfBirth(null);
+      }
+    } else {
+      // Clear date if incomplete - but don't show error while typing
+      setDateOfBirth(null);
+      if (dateOfBirthTouched && digitsOnly.length > 0) {
+        // Only show error if user has touched field and entered something incomplete
+        setDateOfBirthError('');
+      }
+    }
+  };
+
+  // Handle blur - validate when user finishes typing
+  const handleDateOfBirthBlur = () => {
+    setDateOfBirthTouched(true);
+    const digitsOnly = dateOfBirthText.replace(/\D/g, '');
+    
+    if (dateOfBirthText.trim() === '') {
+      setDateOfBirthError('');
+      return;
+    }
+    
+    if (digitsOnly.length < 8) {
+      setDateOfBirthError('Please enter a complete date (DD/MM/YYYY)');
+      return;
+    }
+    
+    const parsed = parseDate(dateOfBirthText);
+    if (!parsed) {
+      setDateOfBirthError('Invalid date. Please check the format (DD/MM/YYYY)');
+    } else {
+      setDateOfBirthError('');
+    }
+  };
+
+  const handleCareerStartDateChange = (text: string) => {
+    // Auto-format the input - always preserve what user is typing
+    const formatted = formatDateInput(text);
+    setCareerStartDateText(formatted);
+    
+    // Clear error while typing - don't interfere with user input
+    if (!careerStartDateTouched) {
+      setCareerStartDateError('');
+    }
+    
+    if (formatted.trim() === '') {
+      setCareerStartDate(null);
+      // Only show error if field was touched and is now empty
+      if (careerStartDateTouched) {
+        setCareerStartDateError('');
+      }
+      return;
+    }
+    
+    // Only parse and validate if we have a complete date (at least 8 digits = DD/MM/YYYY)
+    const digitsOnly = formatted.replace(/\D/g, '');
+    if (digitsOnly.length >= 8) {
+      const parsed = parseDate(formatted);
+      if (parsed) {
+        setCareerStartDate(parsed);
+        setCareerStartDateError(''); // Clear error on valid date
+      } else {
+        // Only show error if field was touched (user finished typing)
+        // This allows user to continue typing without interruption
+        if (careerStartDateTouched) {
+          setCareerStartDateError('Invalid date format. Please check and try again.');
+        }
+        setCareerStartDate(null);
+      }
+    } else {
+      // Clear date if incomplete - but don't show error while typing
+      setCareerStartDate(null);
+      if (careerStartDateTouched && digitsOnly.length > 0) {
+        // Only show error if user has touched field and entered something incomplete
+        setCareerStartDateError('');
+      }
+    }
+  };
+
+  // Handle blur - validate when user finishes typing
+  const handleCareerStartDateBlur = () => {
+    setCareerStartDateTouched(true);
+    const digitsOnly = careerStartDateText.replace(/\D/g, '');
+    
+    if (careerStartDateText.trim() === '') {
+      setCareerStartDateError('');
+      return;
+    }
+    
+    if (digitsOnly.length < 8) {
+      setCareerStartDateError('Please enter a complete date (DD/MM/YYYY)');
+      return;
+    }
+    
+    const parsed = parseDate(careerStartDateText);
+    if (!parsed) {
+      setCareerStartDateError('Invalid date. Please check the format (DD/MM/YYYY)');
+    } else {
+      setCareerStartDateError('');
+    }
+  };
+
   // Helper functions
   const calculateAge = (birthDate: Date): number => {
     const today = new Date();
@@ -232,13 +485,13 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
       dateOfBirth: !!dateOfBirth,
       careerStartDate: !!careerStartDate,
       gender: !!gender,
-      address: !!(address.street && address.city && address.county),
+      address: !!(address.street && address.town && address.county),
       vehicleClasses: selectedVehicleClasses.length > 0,
       specializations: selectedSpecializations.length > 0,
       consentToShare: !!consentToShare,
       allValid: !!profilePhoto && !!dlFile && !!goodConductCert && !!idFile && 
                 !!dateOfBirth && !!careerStartDate && !!gender && !!religion &&
-                !!(address.street && address.city && address.county) &&
+                !!(address.street && address.town && address.county) &&
                 selectedVehicleClasses.length > 0 && selectedSpecializations.length > 0 &&
                 !!consentToShare
     };
@@ -758,7 +1011,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
     if (!careerStartDate) { setError('Please select your career start date.'); return false; }
     if (!gender) { setError('Please select your gender.'); return false; }
     if (!religion) { setError('Please select your religion.'); return false; }
-    if (!address.street || !address.city || !address.county) { setError('Please fill in your address information.'); return false; }
+    if (!address.street || !address.town || !address.county) { setError('Please fill in your address information.'); return false; }
     if (selectedVehicleClasses.length === 0) { setError('Please select at least one vehicle class.'); return false; }
     if (selectedSpecializations.length === 0) { setError('Please select at least one specialization.'); return false; }
     if (!consentToShare) { setError('You must consent to sharing your profile information with companies before submitting.'); return false; }
@@ -841,7 +1094,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
       // Add address as JSON string (required by backend)
       const addressData = {
         street: address.street,
-        city: address.city, 
+        city: address.town, 
         county: address.county,
         country: address.country,
         postalCode: address.postalCode || ''
@@ -1190,7 +1443,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
               <Text style={styles.progressLabel}>Personal</Text>
             </View>
             <View style={styles.progressItem}>
-              <View style={[styles.progressDot, address.street && address.city && address.county && styles.progressDotCompleted]} />
+              <View style={[styles.progressDot, address.street && address.town && address.county && styles.progressDotCompleted]} />
               <Text style={styles.progressLabel}>Address</Text>
             </View>
             <View style={styles.progressItem}>
@@ -1237,38 +1490,77 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
           </TouchableOpacity>
 
           {/* Date of Birth */}
+          {/* Date of Birth - Text Input */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Date of Birth</Text>
             {getJobSeekerValidationStatus().dateOfBirth && (
               <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
             )}
           </View>
-          <TouchableOpacity 
-            style={styles.dateInput}
-            onPress={() => setShowDateOfBirthPicker(true)}
-          >
-            <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-            <Text style={styles.dateInputText}>
-              {dateOfBirth ? dateOfBirth.toLocaleDateString() : 'Select your date of birth'}
+          <View style={styles.dateInputContainer}>
+            <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} style={styles.dateInputIcon} />
+            <TextInput
+              style={[styles.dateTextInput, dateOfBirthError && styles.dateTextInputError]}
+              value={dateOfBirthText}
+              onChangeText={handleDateOfBirthChange}
+              onBlur={handleDateOfBirthBlur}
+              onFocus={() => setDateOfBirthTouched(false)}
+              placeholder="DD/MM/YYYY"
+              placeholderTextColor={colors.text.light}
+              keyboardType="number-pad"
+              maxLength={10}
+            />
+            {dateOfBirth && (
+              <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} style={styles.dateInputCheck} />
+            )}
+          </View>
+          {dateOfBirthError ? (
+            <Text style={styles.dateErrorText}>{dateOfBirthError}</Text>
+          ) : dateOfBirth ? (
+            <Text style={styles.dateHelperText}>
+              ✓ {dateOfBirth.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} • Age: {calculateAge(dateOfBirth)} years
             </Text>
-          </TouchableOpacity>
+          ) : (
+            <Text style={styles.dateHelperText}>
+              Type numbers only (e.g., 10051996)
+            </Text>
+          )}
 
-          {/* Career Start Date */}
+          {/* Career Start Date - Text Input */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Career Start Date</Text>
             {getJobSeekerValidationStatus().careerStartDate && (
               <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
             )}
           </View>
-          <TouchableOpacity 
-            style={styles.dateInput}
-            onPress={() => setShowCareerStartDatePicker(true)}
-          >
-            <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-            <Text style={styles.dateInputText}>
-              {careerStartDate ? careerStartDate.toLocaleDateString() : 'Select when you started driving professionally'}
+          <View style={styles.dateInputContainer}>
+            <MaterialCommunityIcons name="calendar" size={20} color={colors.primary} style={styles.dateInputIcon} />
+            <TextInput
+              style={[styles.dateTextInput, careerStartDateError && styles.dateTextInputError]}
+              value={careerStartDateText}
+              onChangeText={handleCareerStartDateChange}
+              onBlur={handleCareerStartDateBlur}
+              onFocus={() => setCareerStartDateTouched(false)}
+              placeholder="DD/MM/YYYY"
+              placeholderTextColor={colors.text.light}
+              keyboardType="number-pad"
+              maxLength={10}
+            />
+            {careerStartDate && (
+              <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} style={styles.dateInputCheck} />
+            )}
+          </View>
+          {careerStartDateError ? (
+            <Text style={styles.dateErrorText}>{careerStartDateError}</Text>
+          ) : careerStartDate ? (
+            <Text style={styles.dateHelperText}>
+              ✓ {careerStartDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })} • Experience: {calculateExperience(careerStartDate)} years
             </Text>
-          </TouchableOpacity>
+          ) : (
+            <Text style={styles.dateHelperText}>
+              Type numbers only (e.g., 15032010)
+            </Text>
+          )}
 
           {/* Gender Selection */}
           <ModernDropdown
@@ -1299,7 +1591,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
                 <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} style={styles.sectionIcon} />
                 <Text style={styles.sectionTitle}>Address Information</Text>
               </View>
-              {address.street && address.city && address.county && (
+              {address.street && address.town && address.county && (
                 <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
               )}
             </View>
@@ -1322,16 +1614,16 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
               />
             </View>
 
-            {/* City and County Row */}
+            {/* Town and County Row */}
             <View style={styles.inputRow}>
               <View style={[styles.inputGroup, styles.inputGroupHalf]}>
                 <Text style={styles.inputLabel}>
-                  City <Text style={styles.required}>*</Text>
+                  Town <Text style={styles.required}>*</Text>
                 </Text>
                 <TextInput
                   style={styles.textInput}
-                  value={address.city}
-                  onChangeText={(text) => setAddress(prev => ({ ...prev, city: text }))}
+                  value={address.town}
+                  onChangeText={(text) => setAddress(prev => ({ ...prev, town: text }))}
                   placeholder="e.g., Nairobi"
                   placeholderTextColor={colors.text.secondary}
                 />
@@ -1894,32 +2186,7 @@ export default function JobSeekerCompletionScreen({ route }: JobSeekerCompletion
         )}
       </View>
 
-      {/* Date Pickers */}
-      <DateTimePickerModal
-        isVisible={showDateOfBirthPicker}
-        mode="date"
-        date={dateOfBirth || new Date()}
-        onConfirm={(date) => {
-          setDateOfBirth(date);
-          setShowDateOfBirthPicker(false);
-        }}
-        onCancel={() => setShowDateOfBirthPicker(false)}
-        maximumDate={new Date()}
-        minimumDate={new Date(1900, 0, 1)}
-      />
-
-      <DateTimePickerModal
-        isVisible={showCareerStartDatePicker}
-        mode="date"
-        date={careerStartDate || new Date()}
-        onConfirm={(date) => {
-          setCareerStartDate(date);
-          setShowCareerStartDatePicker(false);
-        }}
-        onCancel={() => setShowCareerStartDatePicker(false)}
-        maximumDate={new Date()}
-        minimumDate={new Date(1900, 0, 1)}
-      />
+      {/* Date pickers removed - using text inputs with smart parsing instead */}
 
       {/* Vehicle Class Selection Modal */}
       <Modal
@@ -2268,6 +2535,44 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 8,
     resizeMode: 'cover',
+  },
+  dateInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.2,
+    borderColor: colors.text.light,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.white,
+    marginBottom: spacing.xs,
+  },
+  dateInputIcon: {
+    marginRight: spacing.sm,
+  },
+  dateTextInput: {
+    flex: 1,
+    fontSize: fonts.size.md,
+    color: colors.text.primary,
+    paddingVertical: 0,
+  },
+  dateTextInputError: {
+    borderColor: colors.error,
+  },
+  dateInputCheck: {
+    marginLeft: spacing.sm,
+  },
+  dateErrorText: {
+    fontSize: fonts.size.sm,
+    color: colors.error,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  dateHelperText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
   },
   dateInput: {
     flexDirection: 'row',

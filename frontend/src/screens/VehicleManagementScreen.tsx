@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -70,6 +70,9 @@ const VehicleManagementScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Use ref to track if we're currently fetching (prevents race conditions)
+  const isFetchingRef = useRef(false);
   
   // Vehicle modal state
   const [showVehicleModal, setShowVehicleModal] = useState(false);
@@ -383,13 +386,24 @@ const VehicleManagementScreen = () => {
   };
 
   const fetchVehicles = async () => {
+    // Prevent multiple simultaneous fetches using ref (more reliable than state)
+    if (isFetchingRef.current) {
+      console.log('🚗 Already fetching vehicles, skipping...');
+      return;
+    }
+
     try {
+      isFetchingRef.current = true;
       setError(null);
       setLoading(true);
       const { getAuth } = require('firebase/auth');
       const auth = getAuth();
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        isFetchingRef.current = false;
+        return;
+      }
 
       // Ensure company profile is loaded - get it directly from the function
       let currentProfile = companyProfile;
@@ -400,6 +414,7 @@ const VehicleManagementScreen = () => {
           console.error('🏢 Failed to load company profile');
           setError('Unable to load company profile. Please try again.');
           setLoading(false);
+          isFetchingRef.current = false;
           return;
         }
       }
@@ -410,6 +425,7 @@ const VehicleManagementScreen = () => {
         console.error('🏢 Company ID not available');
         setError('Company ID not available. Please try again.');
         setLoading(false);
+        isFetchingRef.current = false;
         return;
       }
 
@@ -430,6 +446,7 @@ const VehicleManagementScreen = () => {
       setError(err.message || 'Failed to fetch vehicles');
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
@@ -445,18 +462,31 @@ const VehicleManagementScreen = () => {
     const initializeData = async () => {
       await fetchSubscriptionStatus();
       const profileLoaded = await fetchCompanyProfile();
-      // Wait for company profile before fetching vehicles and drivers
-      // The useEffect below will handle fetching vehicles/drivers when profile is loaded
+      // After profile is loaded, fetch vehicles and drivers
+      if (profileLoaded && (profileLoaded.id || profileLoaded.companyId)) {
+        await fetchVehicles();
+        await fetchDriverCount();
+      }
     };
     
     initializeData();
   }, []);
 
-  // Refetch vehicles and drivers when company profile is loaded
+  // Refetch vehicles when company profile changes (but only if not already fetching)
   useEffect(() => {
-    if ((companyProfile?.id || companyProfile?.companyId) && !loading) {
+    const companyId = companyProfile?.id || companyProfile?.companyId;
+    // Only fetch if we have a company ID, we're not already fetching, and not loading company profile
+    if (companyId && !isFetchingRef.current && !loadingCompanyProfile && !loading) {
+      console.log('🚗 useEffect triggered: Fetching vehicles for company:', companyId);
       fetchVehicles();
       fetchDriverCount();
+    } else {
+      console.log('🚗 useEffect skipped:', {
+        hasCompanyId: !!companyId,
+        isFetching: isFetchingRef.current,
+        loadingCompanyProfile,
+        loading
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyProfile?.id, companyProfile?.companyId]);
@@ -1882,40 +1912,46 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
+    paddingHorizontal: 2,
   },
   statCard: {
     flex: 1,
     backgroundColor: colors.white,
-    padding: 16,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+    minHeight: 80,
+    justifyContent: 'center',
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: fonts.family.bold,
     color: colors.primary,
+    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fonts.family.medium,
     color: colors.text.secondary,
-    marginTop: 4,
+    textAlign: 'center',
+    marginTop: 2,
   },
   statSubtext: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: fonts.family.medium,
     color: colors.primary,
     marginTop: 2,
@@ -1923,41 +1959,41 @@ const styles = StyleSheet.create({
   },
   vehicleCard: {
     backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    marginHorizontal: 4, // Add horizontal margin to prevent overflow
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    marginHorizontal: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
     borderWidth: 1,
     borderColor: colors.border,
   },
   // Enhanced Vehicle Header
   vehicleHeaderContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   vehicleImageContainer: {
     position: 'relative',
-    marginRight: 12,
+    marginRight: 10,
   },
   vehicleImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
+    width: 70,
+    height: 70,
+    borderRadius: 10,
     backgroundColor: colors.background,
   },
   vehicleImagePlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
+    width: 70,
+    height: 70,
+    borderRadius: 10,
     backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderStyle: 'dashed',
   },
@@ -1982,66 +2018,67 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   vehicleTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
     flex: 1,
-    marginRight: 8,
+    marginRight: 6,
   },
   vehicleSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: fonts.family.medium,
     color: colors.text.secondary,
-    lineHeight: 18,
+    lineHeight: 16,
+    marginTop: 2,
   },
   // Compact Specifications Grid
   specsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 10,
+    gap: 6,
   },
   specItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.background,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderRadius: 6,
     minWidth: '22%',
     flex: 1,
   },
   specLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: fonts.family.medium,
     color: colors.text.secondary,
-    marginLeft: 4,
-    marginRight: 4,
+    marginLeft: 3,
+    marginRight: 3,
   },
   specValue: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
   },
   // Features Tags
   featuresContainer: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   featuresTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 5,
   },
   featureTag: {
     backgroundColor: colors.primary + '15',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.primary + '30',
   },
   featureTagText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: fonts.family.medium,
     color: colors.primary,
   },
@@ -2050,7 +2087,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: colors.background,
   },
@@ -2062,35 +2099,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.success + '15',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   insuranceText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: fonts.family.medium,
     color: colors.success,
-    marginLeft: 4,
+    marginLeft: 3,
   },
   driverStatus: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary + '15',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   driverText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: fonts.family.medium,
     color: colors.primary,
-    marginLeft: 4,
+    marginLeft: 3,
   },
   vehicleActions: {
     flexDirection: 'row',
-    gap: 6,
-    marginTop: 12,
-    paddingHorizontal: 4,
+    gap: 5,
+    marginTop: 8,
+    paddingHorizontal: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2100,41 +2137,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1.5,
     borderColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 1,
   },
   assignButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
     justifyContent: 'center',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 1,
   },
   actionButtonText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fonts.family.semiBold,
     color: colors.primary,
-    marginLeft: 6,
+    marginLeft: 4,
   },
   assignButtonText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fonts.family.bold,
     color: colors.white,
-    marginLeft: 6,
+    marginLeft: 4,
   },
   reassignButton: {
     backgroundColor: colors.warning,
@@ -2154,23 +2191,23 @@ const styles = StyleSheet.create({
   },
   assignedDriverInfo: {
     backgroundColor: colors.background.secondary,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-    borderLeftWidth: 3,
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 6,
+    borderLeftWidth: 2,
     borderLeftColor: colors.success,
   },
   driverName: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
-    marginTop: 4,
+    marginTop: 2,
   },
   driverPhone: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fonts.family.medium,
     color: colors.text.secondary,
-    marginTop: 2,
+    marginTop: 1,
   },
   vehiclePhotoContainer: {
     marginBottom: 12,
@@ -2320,21 +2357,21 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   statusBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 1,
   },
   statusText: {
-    fontSize: 13,
+    fontSize: 10,
     fontFamily: fonts.family.bold,
     color: colors.white,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   vehicleDetails: {
     marginBottom: 12,
@@ -2815,44 +2852,44 @@ const styles = StyleSheet.create({
   // Search and Filter Styles
   searchFilterContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 16,
-    gap: 12,
+    paddingHorizontal: 2,
+    marginBottom: 12,
+    gap: 8,
   },
   searchContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: colors.border,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: fonts.family.medium,
     color: colors.text.primary,
-    marginLeft: 8,
+    marginLeft: 6,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: colors.border,
     position: 'relative',
   },
   filterButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: fonts.family.medium,
     color: colors.primary,
-    marginLeft: 6,
+    marginLeft: 5,
   },
   filterBadge: {
     position: 'absolute',

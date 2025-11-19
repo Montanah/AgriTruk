@@ -16,8 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/common/Button';
 import Spacer from '../components/common/Spacer';
 import { colors, fonts, spacing } from '../constants';
-
-const { width } = Dimensions.get('window');
+import { useResponsive } from '../hooks/useResponsive';
 
 const features = [
   {
@@ -58,7 +57,16 @@ const ANIMATION_DURATION = 700;
 const DISPLAY_DURATION = 5000;
 
 const WelcomeScreen = () => {
+  const { isTablet, maxContentWidth, width: screenWidth, isLandscape } = useResponsive();
   const navigation = useNavigation();
+  
+  // Responsive logo size - smaller on tablets to prevent it from being too large
+  // Even smaller in landscape
+  const logoSize = isTablet 
+    ? (isLandscape ? Math.min(screenWidth * 0.15, 150) : Math.min(screenWidth * 0.25, 200))
+    : screenWidth * 0.36;
+  
+  const styles = getStyles(isTablet, maxContentWidth, screenWidth, isLandscape, logoSize);
   const [featureIndex, setFeatureIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const translateYAnim = useRef(new Animated.Value(0)).current;
@@ -228,113 +236,121 @@ const WelcomeScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  backgroundGradient: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 0,
-  },
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
-    zIndex: 1,
-  },
-  logoBgWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-    zIndex: 2,
-    width: width * 0.36,
-    height: width * 0.36,
-  },
-  logoBg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: width * 0.36,
-    height: width * 0.36,
-    borderRadius: 32,
-    backgroundColor: colors.white,
-    zIndex: 1,
-    elevation: 6,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-  },
-  logo: {
-    width: width * 0.32,
-    height: width * 0.32,
-    borderRadius: 24,
-    zIndex: 2,
-    resizeMode: 'contain',
-  },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  brandName: {
-    fontSize: fonts.size.xxl,
-    fontWeight: 'bold',
-    color: colors.primary,
-    letterSpacing: 1.2,
-    fontFamily: fonts.family.bold,
-    marginRight: 8,
-  },
-  brandApp: {
-    fontSize: fonts.size.xxl,
-    fontWeight: 'bold',
-    fontFamily: fonts.family.bold,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    minWidth: 48, // Ensures enough space for "APP"
-    overflow: 'visible',
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: fonts.size.lg,
-    color: colors.text.primary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginTop: 2,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-    maxWidth: 320,
-    marginBottom: spacing.lg,
-    fontFamily: fonts.family.medium,
-  },
-  featureCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderRadius: 28,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    marginTop: 2,
-    marginBottom: 2,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 16,
-    width: '100%',
-    maxWidth: 420,
-    minHeight: 110,
-    borderWidth: 1.5,
-    borderColor: '#f2f2f2',
-    position: 'relative',
-    overflow: Platform.OS === 'android' ? 'hidden' : 'visible',
-  },
+// Styles need to be created inside component to access responsive values
+// We'll create a function that returns styles based on responsive values
+const getStyles = (isTablet: boolean, maxContentWidth: number, screenWidth: number, isLandscape: boolean, logoSize: number) => {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
+    backgroundGradient: {
+      ...StyleSheet.absoluteFillObject,
+      zIndex: 0,
+    },
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: isTablet ? (isLandscape ? spacing.xxl : spacing.xxl * 2) : spacing.xl,
+      paddingTop: spacing.xl,
+      paddingBottom: spacing.xxl,
+      zIndex: 1,
+      maxWidth: isTablet ? maxContentWidth : '100%',
+      alignSelf: 'center',
+      width: '100%',
+      flexDirection: isTablet && isLandscape ? 'row' : 'column',
+      flexWrap: isTablet && isLandscape ? 'wrap' : 'nowrap',
+    },
+    logoBgWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.lg,
+      zIndex: 2,
+      width: logoSize,
+      height: logoSize,
+    },
+    logoBg: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: logoSize,
+      height: logoSize,
+      borderRadius: 32,
+      backgroundColor: colors.white,
+      zIndex: 1,
+      elevation: 6,
+      shadowColor: colors.black,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+    },
+    logo: {
+      width: logoSize * 0.89,
+      height: logoSize * 0.89,
+      borderRadius: 24,
+      zIndex: 2,
+      resizeMode: 'contain',
+    },
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    brandName: {
+      fontSize: isTablet ? fonts.size.xxl * 1.2 : fonts.size.xxl,
+      fontWeight: 'bold',
+      color: colors.primary,
+      letterSpacing: 1.2,
+      fontFamily: fonts.family.bold,
+      marginRight: 8,
+    },
+    brandApp: {
+      fontSize: isTablet ? fonts.size.xxl * 1.2 : fonts.size.xxl,
+      fontWeight: 'bold',
+      fontFamily: fonts.family.bold,
+      letterSpacing: 1.2,
+      textTransform: 'uppercase',
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 8,
+      minWidth: 48,
+      overflow: 'visible',
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: isTablet ? fonts.size.lg * 1.1 : fonts.size.lg,
+      color: colors.text.primary,
+      textAlign: 'center',
+      lineHeight: isTablet ? 28 : 24,
+      marginTop: 2,
+      fontWeight: '600',
+      letterSpacing: 0.2,
+      maxWidth: isTablet ? 500 : 320,
+      marginBottom: spacing.lg,
+      fontFamily: fonts.family.medium,
+    },
+    featureCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,255,255,0.7)',
+      borderRadius: 28,
+      paddingVertical: isTablet ? spacing.xl * 1.2 : spacing.xl,
+      paddingHorizontal: isTablet ? spacing.xl : spacing.lg,
+      marginTop: 2,
+      marginBottom: 2,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.18,
+      shadowRadius: 24,
+      elevation: 16,
+      width: '100%',
+      maxWidth: isTablet ? 600 : 420,
+      minHeight: isTablet ? 130 : 110,
+      borderWidth: 1.5,
+      borderColor: '#f2f2f2',
+      position: 'relative',
+      overflow: Platform.OS === 'android' ? 'hidden' : 'visible',
+    },
   featureAccentDot: {
     position: 'absolute',
     left: 18,
@@ -390,19 +406,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
-  button: {
-    width: 220,
-    borderRadius: 18,
-    elevation: 2,
-  },
-  signInButton: {
-    backgroundColor: colors.white,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    width: 220,
-    borderRadius: 18,
-    elevation: 0,
-  },
-});
+    button: {
+      width: isTablet ? 280 : 220,
+      borderRadius: 18,
+      elevation: 2,
+    },
+    signInButton: {
+      backgroundColor: colors.white,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      width: isTablet ? 280 : 220,
+      borderRadius: 18,
+      elevation: 0,
+    },
+  });
+};
 
 export default WelcomeScreen;

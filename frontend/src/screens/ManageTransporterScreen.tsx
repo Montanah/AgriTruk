@@ -1288,10 +1288,28 @@ export default function ManageTransporterScreen({ route }: any) {
     if (!result.canceled && result.assets && result.assets[0].uri) setInsurance(result.assets[0]);
   };
 
+  const resetVehicleForm = () => {
+    setVehicleType('');
+    setVehicleMake('');
+    setVehicleColor('');
+    setVehicleReg('');
+    setVehicleCapacity('');
+    setVehicleYear('');
+    setVehicleDriveType('');
+    setBodyType('closed');
+    setHumidityControl(false);
+    setRefrigeration(false);
+    setSpecialCargo(false);
+    setVehicleFeatures('');
+    setVehiclePhotos([]);
+    setInsurance(null);
+    setAssignedDriverId(null);
+  };
+
   // Vehicle add/edit logic
   const openAddVehicle = () => {
     setVehicleEditIdx(null);
-    setVehicleType(''); setVehicleReg(''); setRefrigeration(false); setHumidityControl(false); setSpecialCargo(false); setVehicleFeatures(''); setInsurance(null); setVehiclePhotos([]); setAssignedDriverId(null);
+    resetVehicleForm();
     setVehicleModal(true);
   };
   const openEditVehicle = (idx: number) => {
@@ -1301,53 +1319,170 @@ export default function ManageTransporterScreen({ route }: any) {
     setVehicleModal(true);
   };
   const handleSaveVehicle = async () => {
+    // Enhanced validation with detailed error messages
+    const validationErrors = [];
     
-    if (!vehicleType || !vehicleReg || !insurance || vehiclePhotos.length < 1) {
-      const missingFields = [];
-      if (!vehicleType) missingFields.push('Vehicle Type');
-      if (!vehicleReg) missingFields.push('Registration Number');
-      if (!insurance) missingFields.push('Vehicle Insurance Document');
-      if (vehiclePhotos.length < 1) missingFields.push('At least 1 photo');
-      
-      Alert.alert('Missing Info', `Please provide: ${missingFields.join(', ')}`);
+    if (!vehicleType) {
+      validationErrors.push('Vehicle Type is required');
+    }
+    
+    if (!vehicleReg || vehicleReg.trim().length === 0) {
+      validationErrors.push('Registration Number is required');
+    } else if (vehicleReg.trim().length < 3) {
+      validationErrors.push('Registration Number must be at least 3 characters');
+    }
+    
+    if (!vehicleMake || vehicleMake.trim().length === 0) {
+      validationErrors.push('Vehicle Make is required');
+    }
+    
+    if (!vehicleColor || vehicleColor.trim().length === 0) {
+      validationErrors.push('Vehicle Color is required');
+    }
+    
+    const yearNum = parseInt(vehicleYear);
+    const capacityNum = parseFloat(vehicleCapacity);
+    
+    if (!vehicleYear || yearNum < 1990 || yearNum > new Date().getFullYear() + 1) {
+      validationErrors.push('Vehicle Year must be between 1990 and ' + (new Date().getFullYear() + 1));
+    }
+    
+    if (!vehicleCapacity || capacityNum < 1 || capacityNum > 50) {
+      validationErrors.push('Vehicle Capacity must be between 1 and 50 tons');
+    }
+    
+    if (!insurance) {
+      validationErrors.push('Vehicle Insurance Document is required');
+    }
+    
+    if (vehiclePhotos.length < 1) {
+      validationErrors.push('At least 1 vehicle photo is required');
+    } else if (vehiclePhotos.length > 10) {
+      validationErrors.push('Maximum 10 vehicle photos allowed');
+    }
+    
+    if (validationErrors.length > 0) {
+      Alert.alert(
+        'Validation Error', 
+        validationErrors.join('\n\n'),
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
+    if (!companyProfile?.id && !companyProfile?.companyId) {
+      Alert.alert('Error', 'Company profile not loaded. Please refresh and try again.');
+      console.error('🚗 Company profile missing:', companyProfile);
       return;
     }
 
     try {
       setLoadingProfile(true);
       
-      const vehicleData = {
-        vehicleType: vehicleType,
-        vehicleRegistration: vehicleReg,
-        vehicleMake: vehicleMake,
-        vehicleModel: vehicleMake, // Use vehicleMake as model for backend compatibility
-        vehicleColor: vehicleColor,
-        year: vehicleYear,
-        capacity: vehicleCapacity,
-        driveType: vehicleDriveType,
-        bodyType: bodyType,
-        refrigeration: refrigeration,
-        humidityControl: humidityControl,
-        specialCargo: specialCargo,
-        features: vehicleFeatures,
-        insurance: insurance,
-        photos: vehiclePhotos,
-        assignedDriverId: assignedDriverId,
-        status: 'pending' // Set to pending for admin approval
-      };
-
+      // Get auth token
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
       
-      // Create vehicle via API
-      const response = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`, {
+      const token = await user.getIdToken();
+      
+      // Use the correct endpoint structure - same as VehicleManagementScreen
+      const companyId = companyProfile?.id || companyProfile?.companyId;
+      console.log('🏢 Using company ID for vehicle endpoint:', companyId);
+      
+      if (!companyId) {
+        throw new Error('Company ID not found in profile. Please refresh and try again.');
+      }
+      
+      const url = `${API_ENDPOINTS.VEHICLES}`;
+      
+      // Create FormData for multipart upload (same approach as VehicleManagementScreen)
+      const formData = new FormData();
+      
+      // Add vehicle data fields - match backend field names and validation requirements
+      formData.append('companyId', companyId);
+      formData.append('vehicleType', vehicleType);
+      formData.append('vehicleMake', vehicleMake);
+      formData.append('vehicleModel', vehicleMake); // Backend validation requires this field
+      formData.append('vehicleColor', vehicleColor);
+      formData.append('vehicleRegistration', vehicleReg);
+      formData.append('vehicleYear', vehicleYear);
+      formData.append('vehicleCapacity', vehicleCapacity);
+      formData.append('features', vehicleFeatures);
+      formData.append('specialCargo', specialCargo.toString());
+      formData.append('refrigerated', refrigeration.toString());
+      formData.append('humidityControl', humidityControl.toString());
+      formData.append('bodyType', bodyType);
+      formData.append('driveType', vehicleDriveType);
+      if (assignedDriverId) {
+        formData.append('assignedDriverId', assignedDriverId);
+      }
+      
+      // Add vehicle photos with proper file structure
+      if (vehiclePhotos.length > 0) {
+        vehiclePhotos.forEach((photo, index) => {
+          formData.append('vehicleImages', {
+            uri: photo.uri,
+            type: photo.mimeType || photo.type || 'image/jpeg',
+            name: photo.fileName || photo.name || `vehicle_photo_${index + 1}.jpg`,
+          } as any);
+        });
+      }
+      
+      // Add insurance document with proper file structure
+      if (insurance) {
+        formData.append('insurance', {
+          uri: insurance.uri,
+          type: insurance.mimeType || insurance.type || 'image/jpeg',
+          name: insurance.fileName || insurance.name || 'insurance.pdf',
+        } as any);
+      }
+      
+      console.log('🚗 Sending vehicle creation request to:', url);
+      
+      const response = await fetch(url, {
         method: 'POST',
-        body: vehicleData
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData - let React Native set it automatically
+        },
+        body: formData
       });
-
-      if (response.success) {
+      
+      // Handle response
+      const responseText = await response.text();
+      let responseData = null;
+      
+      try {
+        if (responseText.trim()) {
+          responseData = JSON.parse(responseText);
+        }
+      } catch (parseErr) {
+        console.error('🚗 JSON parse error:', parseErr);
+        throw new Error(`Invalid response format: ${responseText}`);
+      }
+      
+      // Check for validation errors
+      if (!response.ok) {
+        if (response.status === 400 && responseData?.errors) {
+          const errorMessages = responseData.errors.map((err: any) => err.msg || err.message).join(', ');
+          throw new Error(`Validation failed: ${errorMessages}`);
+        } else if (responseData?.message) {
+          throw new Error(responseData.message);
+        } else {
+          throw new Error(`Request failed: ${response.status} - ${response.statusText}`);
+        }
+      }
+      
+      if (response.ok && responseData && responseData.success) {
+        console.log('✅ Vehicle created successfully:', responseData);
         
         // Update local state
         const newVehicle = {
-          id: response.vehicle?.vehicleId || Date.now().toString(),
+          id: responseData.data?.vehicle?.id || responseData.data?.id || Date.now().toString(),
           type: vehicleType,
           reg: vehicleReg,
           bodyType,
@@ -1371,21 +1506,51 @@ export default function ManageTransporterScreen({ route }: any) {
         setVehicles(updated);
         setVehicleModal(false);
         
+        // Reset form
+        resetVehicleForm();
+        
         Alert.alert(
           'Success', 
           'Vehicle added successfully! It will be reviewed by admin before approval.',
           [{ text: 'OK' }]
         );
+        
+        // Refresh vehicles list from backend
+        setTimeout(() => {
+          if (transporterType === 'company' && companyProfile?.companyId) {
+            const fetchData = async () => {
+              try {
+                const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
+                const approvedVehicles = vehiclesData?.vehicles?.filter(v => v.status === 'approved') || [];
+                setVehicles(approvedVehicles);
+              } catch (error) {
+                console.error('Error refreshing vehicles:', error);
+              }
+            };
+            fetchData();
+          }
+        }, 1000);
       } else {
-        throw new Error(response.message || 'Failed to create vehicle');
+        const errorMessage = responseData?.message || `Server error: ${response.status} - ${response.statusText}`;
+        console.error('❌ Vehicle creation failed:', responseData);
+        Alert.alert('Error', errorMessage);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error creating vehicle:', error);
-      Alert.alert('Error', `Failed to create vehicle: ${error.message}`);
+      let errorMessage = 'Failed to create vehicle. Please try again.';
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.name === 'AbortError') {
+        errorMessage = 'Request timed out. Please try again with a better connection.';
+      } else if (error.message?.includes('fetch') || error.message?.includes('Network')) {
+        errorMessage = 'Network request failed. Please check your internet connection.';
+      }
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoadingProfile(false);
     }
   };
+
   const handleRemoveVehicle = (idx: number) => {
     setVehicles(vehicles.filter((_, i) => i !== idx));
   };

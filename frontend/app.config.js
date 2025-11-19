@@ -1,5 +1,3 @@
-const isProduction = process.env.NODE_ENV === 'production' || process.env.EXPO_PUBLIC_BUILD_MODE === 'production';
-
 module.exports = {
   expo: {
     name: "TRUKapp",
@@ -18,8 +16,75 @@ module.exports = {
         googleMapsApiKey: "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"
       },
       infoPlist: {
+        // ============================================
+        // CRITICAL iOS Info.plist SETTINGS - EXPLICITLY ENFORCED
+        // These settings are REQUIRED to prevent iOS crashes
+        // DO NOT REMOVE OR MODIFY WITHOUT TESTING
+        // ============================================
+        
+        // Performance fix to prevent crashes - CRITICAL
+        CADisableMinimumFrameDurationOnPhone: true,
+        
+        // Google Maps API Key - REQUIRED for map functionality
+        GMSApiKey: "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4",
+        
+        // Encryption declaration - REQUIRED for App Store submission
+        ITSAppUsesNonExemptEncryption: false,
+        
+        // Minimum iOS version - REQUIRED
+        LSMinimumSystemVersion: "12.0",
+        
+        // App Transport Security settings - REQUIRED for network requests
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: false,
+          NSAllowsLocalNetworking: true
+        },
+        
+        // Location permissions - REQUIRED for location features
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Allow TRUKapp to use your location to show your position on the map and calculate routes.",
+        NSLocationAlwaysUsageDescription: "Allow TRUKapp to access your location",
         NSLocationWhenInUseUsageDescription: "This app needs access to location to show your position on the map and calculate routes.",
-        ITSAppUsesNonExemptEncryption: false
+        
+        // Camera permission - REQUIRED for camera features
+        NSCameraUsageDescription: "Allow TRUKapp to use your camera to capture relevant images.",
+        
+        // Photo library permission - REQUIRED for photo uploads
+        NSPhotoLibraryUsageDescription: "Allow TRUKapp to upload images from your photo library",
+        
+        // URL schemes for deep linking - REQUIRED for app links
+        CFBundleURLTypes: [
+          {
+            CFBundleURLSchemes: [
+              "trukapp",
+              "com.truk.trukapp"
+            ]
+          }
+        ],
+        
+        // Launch screen - REQUIRED
+        UILaunchStoryboardName: "SplashScreen",
+        
+        // UI settings - REQUIRED for proper display
+        UIRequiresFullScreen: false,
+        UIStatusBarStyle: "UIStatusBarStyleDefault",
+        UIUserInterfaceStyle: "Automatic",
+        UIViewControllerBasedStatusBarAppearance: false,
+        
+        // Supported orientations - REQUIRED
+        UISupportedInterfaceOrientations: [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown"
+        ],
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ]
+        
+        // ============================================
+        // END OF CRITICAL iOS Info.plist SETTINGS
+        // ============================================
       }
     },
     android: {
@@ -106,11 +171,6 @@ module.exports = {
       EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: "agritruk-d543b.firebasestorage.app",
       EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "86814869135",
       EXPO_PUBLIC_FIREBASE_APP_ID: "1:86814869135:web:49d6806e9b9917eb6e92fa",
-      // Cloudinary configuration
-      EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME: "trukapp",
-      EXPO_PUBLIC_CLOUDINARY_PRESET: "trukapp_unsigned",
-      EXPO_PUBLIC_CLOUDINARY_API_KEY: "your_cloudinary_api_key_here",
-      EXPO_PUBLIC_CLOUDINARY_API_SECRET: "your_cloudinary_api_secret_here",
     }
   }
 };

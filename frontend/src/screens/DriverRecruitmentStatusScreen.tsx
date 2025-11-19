@@ -31,6 +31,7 @@ interface DriverProfile {
   name: string;
   email: string;
   phone: string;
+  secondaryPhone?: string;
   status: 'pending_approval' | 'approved' | 'rejected' | 'recruited' | 'active' | 'inactive';
   profilePhoto?: string;
   profileImage?: string;
@@ -61,6 +62,7 @@ const DriverRecruitmentStatusScreen = () => {
   const [editingContact, setEditingContact] = useState(false);
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editSecondaryPhone, setEditSecondaryPhone] = useState('');
   const [updatingContact, setUpdatingContact] = useState(false);
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [emailNeedsVerification, setEmailNeedsVerification] = useState(false);
@@ -377,6 +379,7 @@ const DriverRecruitmentStatusScreen = () => {
       const token = await user.getIdToken();
       const emailChanged = editEmail !== driverProfile?.email;
       const phoneChanged = editPhone !== driverProfile?.phone;
+      const secondaryPhoneChanged = editSecondaryPhone !== (driverProfile?.secondaryPhone || '');
 
       // Update user profile via /auth/update endpoint (updates user document)
       const updatePayload: any = {};
@@ -393,31 +396,45 @@ const DriverRecruitmentStatusScreen = () => {
           method: 'PUT',
           body: JSON.stringify(updatePayload),
         });
+      }
 
-        // Also update job seeker document if email changed
-        if (emailChanged && driverProfile?.id) {
-          try {
-            await fetch(`${API_ENDPOINTS.JOB_SEEKERS}/${driverProfile.id}`, {
-              method: 'PATCH',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                email: editEmail
-              }),
-            });
-            console.log('Job seeker document email updated successfully');
-          } catch (jobSeekerError) {
-            console.warn('Failed to update job seeker document email:', jobSeekerError);
-            // Continue - user document update succeeded
+      // Update job seeker document for email, phone, and secondary phone
+      if (driverProfile?.id && (emailChanged || phoneChanged || secondaryPhoneChanged)) {
+        try {
+          const jobSeekerUpdatePayload: any = {};
+          if (emailChanged) {
+            jobSeekerUpdatePayload.email = editEmail;
           }
+          if (phoneChanged) {
+            jobSeekerUpdatePayload.phone = editPhone;
+          }
+          if (secondaryPhoneChanged) {
+            jobSeekerUpdatePayload.secondaryPhone = editSecondaryPhone || null;
+          }
+
+          await fetch(`${API_ENDPOINTS.JOB_SEEKERS}/${driverProfile.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(jobSeekerUpdatePayload),
+          });
+          console.log('Job seeker document updated successfully');
+        } catch (jobSeekerError) {
+          console.warn('Failed to update job seeker document:', jobSeekerError);
+          // Continue - user document update succeeded
         }
       }
 
       // Update local state
       setDriverProfile((prev) => 
-        prev ? { ...prev, email: editEmail, phone: editPhone } : null
+        prev ? { 
+          ...prev, 
+          email: editEmail, 
+          phone: editPhone,
+          secondaryPhone: editSecondaryPhone || undefined
+        } : null
       );
 
       setEditingContact(false);
@@ -762,23 +779,33 @@ const DriverRecruitmentStatusScreen = () => {
                   {driverProfile?.status === 'rejected' && 'Profile Rejected'}
                   {driverProfile?.status === 'recruited' && 'Successfully Recruited!'}
                 </Text>
-                <Text style={styles.statusDescription}>
-                  {driverProfile?.status === 'pending_approval' && 
-                    'Your application is being reviewed by our team. You\'ll be notified once approved.'}
-                  {driverProfile?.status === 'approved' && 
-                    'Your profile is now visible to companies. You can receive recruitment requests.'}
-                  {driverProfile?.status === 'rejected' && 
-                    'Your application was not approved. Please contact support for more information.'}
-                  {driverProfile?.status === 'recruited' && 
-                    'Congratulations! You have been recruited by a company. You will no longer appear in job seeker listings.'}
-                </Text>
                 {driverProfile?.status === 'pending_approval' && (
-                  <View style={styles.progressContainer}>
-                    <View style={styles.progressBar}>
-                      <View style={styles.progressFill} />
+                  <>
+                    <Text style={styles.statusDescription}>
+                      Your application is being reviewed by our team. Approval typically takes up to 12 hours. You'll receive a notification once your profile is reviewed.
+                    </Text>
+                    <View style={styles.progressContainer}>
+                      <View style={styles.progressBar}>
+                        <View style={styles.progressFill} />
+                      </View>
+                      <Text style={styles.progressText}>Review in progress...</Text>
                     </View>
-                    <Text style={styles.progressText}>Review in progress...</Text>
-                  </View>
+                  </>
+                )}
+                {driverProfile?.status === 'approved' && (
+                  <Text style={styles.statusDescription}>
+                    Your profile is now visible to companies. You can receive recruitment requests.
+                  </Text>
+                )}
+                {driverProfile?.status === 'rejected' && (
+                  <Text style={styles.statusDescription}>
+                    Your application was not approved. Please contact support for more information.
+                  </Text>
+                )}
+                {driverProfile?.status === 'recruited' && (
+                  <Text style={styles.statusDescription}>
+                    Congratulations! You have been recruited by a company. You will no longer appear in job seeker listings.
+                  </Text>
                 )}
                 {driverProfile?.status === 'approved' && (
                   <View style={styles.approvedActions}>
@@ -803,62 +830,6 @@ const DriverRecruitmentStatusScreen = () => {
                   </View>
                 )}
                 
-                {/* Document Status Details - Only show if there are issues with required documents */}
-                {driverProfile?.documents && hasRequiredDocumentIssues(driverProfile.documents) && (
-                  <View style={styles.documentStatusContainer}>
-                    <Text style={styles.documentStatusTitle}>Document Issues</Text>
-                    {Object.entries(driverProfile.documents).map(([docType, docData]: [string, any]) => {
-                      // Only show required documents with issues
-                      if (!docData || docType === 'backgroundCheck' || docType === 'goodsServiceLicense') return null;
-                      if (docData.status === 'approved') return null; // Don't show approved documents
-                      
-                      const isPending = docData.status === 'pending';
-                      const isRejected = docData.status === 'rejected';
-                      
-                      return (
-                        <View key={docType} style={styles.documentStatusItem}>
-                          <View style={styles.documentStatusLeft}>
-                            <MaterialCommunityIcons 
-                              name={getDocumentIcon(docType) as any} 
-                              size={20} 
-                              color={isRejected ? colors.error : colors.warning} 
-                            />
-                            <Text style={styles.documentStatusName}>{getDocumentName(docType)}</Text>
-                          </View>
-                          <View style={styles.documentStatusRight}>
-                            <View style={[
-                              styles.documentStatusBadge,
-                              isPending && styles.documentStatusPending,
-                              isRejected && styles.documentStatusRejected,
-                            ]}>
-                              <Text style={[
-                                styles.documentStatusText,
-                                isPending && styles.documentStatusTextPending,
-                                isRejected && styles.documentStatusTextRejected,
-                              ]}>
-                                {isRejected ? 'Rejected' : 'Pending'}
-                              </Text>
-                            </View>
-                            {isRejected && docData.rejectionReason && (
-                              <Text style={styles.documentRejectionReason}>{docData.rejectionReason}</Text>
-                            )}
-                          </View>
-                        </View>
-                      );
-                    })}
-                    
-                    {/* Action buttons for document issues */}
-                    <View style={styles.documentActions}>
-                      <TouchableOpacity 
-                        style={styles.correctDocumentsButton}
-                        onPress={handleCorrectDocuments}
-                      >
-                        <MaterialCommunityIcons name="pencil" size={16} color={colors.white} />
-                        <Text style={styles.correctDocumentsText}>Correct Issues</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
                 {driverProfile?.status === 'rejected' && (
                   <View style={styles.rejectionActions}>
                     <TouchableOpacity style={styles.contactSupportButton}>
@@ -870,6 +841,68 @@ const DriverRecruitmentStatusScreen = () => {
               </View>
             </View>
           </View>
+          
+          {/* Document Status Details - Only show if there are issues with required documents */}
+          {driverProfile?.documents && hasRequiredDocumentIssues(driverProfile.documents) && (
+            <View style={styles.documentStatusContainer}>
+              <Text style={styles.documentStatusTitle}>Document Status</Text>
+              {Object.entries(driverProfile.documents).map(([docType, docData]: [string, any]) => {
+                // Only show documents that were actually uploaded (have a URL)
+                if (!docData || !docData.url) return null;
+                
+                // Skip optional documents
+                if (docType === 'backgroundCheck' || docType === 'goodsServiceLicense') return null;
+                
+                // Only show pending or rejected documents
+                if (docData.status === 'approved') return null;
+                
+                const isPending = docData.status === 'pending';
+                const isRejected = docData.status === 'rejected';
+                
+                return (
+                  <View key={docType} style={styles.documentStatusItem}>
+                    <View style={styles.documentStatusLeft}>
+                      <MaterialCommunityIcons 
+                        name={getDocumentIcon(docType) as any} 
+                        size={20} 
+                        color={isRejected ? colors.error : colors.warning} 
+                      />
+                      <Text style={styles.documentStatusName}>{getDocumentName(docType)}</Text>
+                    </View>
+                    <View style={styles.documentStatusRight}>
+                      <View style={[
+                        styles.documentStatusBadge,
+                        isPending && styles.documentStatusPending,
+                        isRejected && styles.documentStatusRejected,
+                      ]}>
+                        <Text style={[
+                          styles.documentStatusText,
+                          isPending && styles.documentStatusTextPending,
+                          isRejected && styles.documentStatusTextRejected,
+                        ]}>
+                          {isRejected ? 'Rejected' : 'Pending Review'}
+                        </Text>
+                      </View>
+                      {isRejected && docData.rejectionReason && (
+                        <Text style={styles.documentRejectionReason}>{docData.rejectionReason}</Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+              
+              {/* Action buttons for document issues */}
+              <View style={styles.documentActions}>
+                <TouchableOpacity 
+                  style={styles.correctDocumentsButton}
+                  onPress={handleCorrectDocuments}
+                >
+                  <MaterialCommunityIcons name="pencil" size={16} color={colors.white} />
+                  <Text style={styles.correctDocumentsText}>Update Documents</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Contact Information for Companies */}
@@ -882,6 +915,7 @@ const DriverRecruitmentStatusScreen = () => {
                 onPress={() => {
                   setEditEmail(driverProfile.email || '');
                   setEditPhone(driverProfile.phone || '');
+                  setEditSecondaryPhone(driverProfile.secondaryPhone || '');
                   setEditingContact(true);
                 }}
               >
@@ -921,6 +955,35 @@ const DriverRecruitmentStatusScreen = () => {
                   ) : null}
                 </View>
               </View>
+              {driverProfile.secondaryPhone ? (
+                <View style={styles.contactItem}>
+                  <MaterialCommunityIcons name="phone" size={20} color={colors.primary} />
+                  <Text style={styles.contactLabel}>Secondary:</Text>
+                  <View style={styles.contactValueContainer}>
+                    <Text style={styles.contactValue}>{driverProfile.secondaryPhone}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.secondaryPhonePrompt}>
+                  <MaterialCommunityIcons name="phone-plus" size={18} color={colors.primary} />
+                  <View style={styles.secondaryPhonePromptContent}>
+                    <Text style={styles.secondaryPhonePromptTitle}>Add Secondary Phone Number</Text>
+                    <Text style={styles.secondaryPhonePromptText}>
+                      Add an additional contact number to increase your chances of being reached by companies.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.addSecondaryPhoneButton}
+                    onPress={() => {
+                      setEditEmail(driverProfile.email || '');
+                      setEditPhone(driverProfile.phone || '');
+                      setEditingContact(true);
+                    }}
+                  >
+                    <MaterialCommunityIcons name="plus" size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
             <View style={styles.contactNote}>
               <MaterialCommunityIcons name="information" size={16} color={colors.primary} />
@@ -1018,6 +1081,26 @@ const DriverRecruitmentStatusScreen = () => {
                     keyboardType="phone-pad"
                   />
                 </View>
+
+                <View style={styles.modalInputGroup}>
+                  <Text style={styles.modalLabel}>
+                    Secondary Phone (Optional)
+                  </Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={editSecondaryPhone}
+                    onChangeText={setEditSecondaryPhone}
+                    placeholder="Enter secondary phone number (e.g., 0712345678)"
+                    placeholderTextColor={colors.text.light}
+                    keyboardType="phone-pad"
+                  />
+                  <View style={styles.modalHelperText}>
+                    <MaterialCommunityIcons name="information" size={14} color={colors.primary} />
+                    <Text style={[styles.modalHelperTextContent, { color: colors.text.secondary }]}>
+                      Add an additional contact number to increase your chances of being reached by companies.
+                    </Text>
+                  </View>
+                </View>
               </ScrollView>
 
               <View style={styles.modalFooter}>
@@ -1091,7 +1174,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 12,
     paddingBottom: 40,
   },
   loadingContainer: {
@@ -1135,11 +1218,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: 12,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   profileHeader: {
@@ -1253,8 +1336,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   contactItem: {
@@ -1345,6 +1428,42 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.bold,
     color: colors.white,
   },
+  secondaryPhonePrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '08',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.primary + '20',
+    marginTop: 8,
+  },
+  secondaryPhonePromptContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  secondaryPhonePromptTitle: {
+    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  secondaryPhonePromptText: {
+    fontSize: 12,
+    fontFamily: fonts.family.regular,
+    color: colors.text.secondary,
+    lineHeight: 16,
+  },
+  addSecondaryPhoneButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
   // Removed old recruitment request styles - no longer needed
   // Enhanced Status Indicator Styles
   statusIndicatorContainer: {
@@ -1355,12 +1474,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     padding: 20,
     borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   statusIndicatorPending: {
     backgroundColor: colors.warning + '15',
@@ -1379,9 +1498,9 @@ const styles = StyleSheet.create({
     borderColor: colors.primary + '40',
   },
   statusIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1389,7 +1508,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 3,
     elevation: 2,
   },
   statusContent: {
@@ -1420,7 +1539,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   progressContainer: {
-    marginTop: 8,
+    marginTop: 12,
   },
   progressBar: {
     height: 4,
@@ -1479,26 +1598,27 @@ const styles = StyleSheet.create({
   },
   // Document Status Styles
   documentStatusContainer: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border + '30',
+    backgroundColor: 'transparent',
   },
   documentStatusTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.text.primary,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   documentStatusItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.border + '30',
+    marginBottom: 4,
   },
   documentStatusLeft: {
     flexDirection: 'row',
@@ -1515,10 +1635,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   documentStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
-    minWidth: 70,
+    minWidth: 85,
     alignItems: 'center',
   },
   documentStatusApproved: {
@@ -1560,15 +1680,16 @@ const styles = StyleSheet.create({
   correctDocumentsButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderRadius: 8,
-    alignSelf: 'flex-start',
+    width: '100%',
   },
   correctDocumentsText: {
     fontSize: 14,
-    fontFamily: fonts.family.medium,
+    fontFamily: fonts.family.bold,
     color: colors.white,
     marginLeft: 6,
   },

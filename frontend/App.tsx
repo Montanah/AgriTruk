@@ -298,6 +298,30 @@ export default function App() {
     };
   }, []);
 
+  // Add subscription status listener for transporters/brokers
+  React.useEffect(() => {
+    if (!user || !role || (role !== 'transporter' && role !== 'broker')) {
+      return;
+    }
+
+    // Set up interval to check subscription status periodically
+    // This ensures navigation updates when subscription status changes (e.g., after trial activation)
+    const subscriptionCheckInterval = setInterval(async () => {
+      try {
+        if (role === 'transporter' || role === 'broker') {
+          const currentStatus = await checkSubscriptionStatus(user.uid, role);
+          setSubscriptionStatus(currentStatus);
+        }
+      } catch (error) {
+        console.error('Error checking subscription status in interval:', error);
+      }
+    }, 5000); // Check every 5 seconds
+
+    return () => {
+      clearInterval(subscriptionCheckInterval);
+    };
+  }, [user, role]);
+
   React.useEffect(() => {
     // Setting up auth state listener
     if (!auth) {
@@ -1074,6 +1098,7 @@ export default function App() {
                 component={SubscriptionTrialScreen as any}
                 initialParams={{
                   userType: userData?.transporterType === 'company' ? 'company' : 'individual',
+                  transporterType: transporterType,
                   subscriptionStatus: subscriptionStatus
                 }}
               />

@@ -50,15 +50,165 @@ check_directory() {
     fi
 }
 
+# Function to get the EAS command to use
+get_eas_cmd() {
+    if command -v eas >/dev/null 2>&1; then
+        echo "eas"
+    elif command -v npx >/dev/null 2>&1; then
+        echo "npx eas-cli@latest"
+    else
+        print_error "Neither 'eas' nor 'npx' found. Please install eas-cli: npm install -g eas-cli"
+        exit 1
+    fi
+}
+
 # Function to check EAS login
 check_eas_login() {
     print_status "Checking EAS login status..."
-    if ! (cd frontend && npx eas whoami >/dev/null 2>&1); then
-        print_error "Not logged in to EAS. Please run 'cd frontend && npx eas login' first"
+    
+    # Determine which eas command to use
+    local eas_cmd=$(get_eas_cmd)
+    print_status "Using EAS command: $eas_cmd"
+    
+    # Change to frontend directory first
+    cd frontend
+    
+    # Try to get current user with timeout
+    local whoami_output
+    local whoami_exit_code
+    
+    # Use a more aggressive timeout approach
+    if command -v timeout >/dev/null 2>&1; then
+        # Use timeout with kill signal after 10 seconds
+        whoami_output=$(timeout -k 5 10 $eas_cmd whoami 2>&1 || echo "TIMEOUT_OR_ERROR")
+        whoami_exit_code=$?
+    else
+        # Fallback: try to use a background process with timeout simulation
+        local temp_file=$(mktemp)
+        ($eas_cmd whoami > "$temp_file" 2>&1) &
+        local pid=$!
+        local count=0
+        while [ $count -lt 10 ]; do
+            if ! kill -0 $pid 2>/dev/null; then
+                # Process finished
+                break
+            fi
+            sleep 1
+            count=$((count + 1))
+        done
+        if kill -0 $pid 2>/dev/null; then
+            # Still running, kill it
+            kill $pid 2>/dev/null
+            whoami_output="TIMEOUT_OR_ERROR"
+            whoami_exit_code=124
+        else
+            whoami_output=$(cat "$temp_file" 2>/dev/null || echo "ERROR")
+            whoami_exit_code=$?
+            rm -f "$temp_file"
+        fi
+    fi
+    
+    # Go back to root directory
+    cd ..
+    
+    # If timeout or failed, try once more with shorter timeout
+    if [ $whoami_exit_code -ne 0 ] || [ -z "$whoami_output" ] || [ "$whoami_output" = "TIMEOUT_OR_ERROR" ]; then
+        print_warning "First login check failed or timed out, retrying..."
+        sleep 2
+        cd frontend
+        if command -v timeout >/dev/null 2>&1; then
+            whoami_output=$(timeout -k 3 8 $eas_cmd whoami 2>&1 || echo "TIMEOUT_OR_ERROR")
+            whoami_exit_code=$?
+        else
+            # Quick retry without timeout
+            whoami_output=$($eas_cmd whoami 2>&1 | head -20 || echo "ERROR")
+            whoami_exit_code=$?
+        fi
+        cd ..
+    fi
+    
+    # Check for timeout first
+    if [ "$whoami_output" = "TIMEOUT_OR_ERROR" ] || [ $whoami_exit_code -eq 124 ]; then
+        print_warning "EAS login check timed out after multiple attempts."
+        print_warning "This may be due to network issues or EAS service problems."
+        print_status "Proceeding with build - EAS will handle authentication during build."
+        print_status "If build fails due to authentication, run: cd frontend && eas login"
+        return 0  # Don't exit, allow build to proceed
+    fi
+    
+    # Check for network/DNS errors first
+    if echo "$whoami_output" | grep -qi "getaddrinfo EAI_AGAIN\|ECONNREFUSED\|ETIMEDOUT\|DNS\|network\|connection refused"; then
+        print_error "Network/DNS error detected when checking EAS login status."
+        print_error "Error: $whoami_output"
+        print_error "Cannot connect to api.expo.dev. Please check:"
+        print_status "  1. Your internet connection"
+        print_status "  2. DNS settings (try: nslookup api.expo.dev)"
+        print_status "  3. Firewall/proxy settings"
+        print_status "  4. Try: ping api.expo.dev"
+        print_error "Build cannot proceed without network connectivity."
         exit 1
     fi
-    local current_user=$(cd frontend && npx eas whoami 2>/dev/null)
-    print_success "Logged in to EAS as: $current_user"
+    
+    # Check if we got a valid username (non-empty and not an error message)
+    if [ $whoami_exit_code -ne 0 ] || [ -z "$whoami_output" ] || echo "$whoami_output" | grep -qi "error\|not logged\|unauthorized\|Please log in"; then
+        print_error "Not logged in to EAS or connection failed."
+        print_status "Output: $whoami_output"
+        print_status "Attempting automatic login..."
+        
+        cd frontend
+        # Try to login automatically (this will prompt if needed, but we'll handle it)
+        local login_output
+        login_output=$($eas_cmd login --non-interactive 2>&1 || echo "LOGIN_FAILED")
+        cd ..
+        
+        if echo "$login_output" | grep -qi "successfully\|already logged\|logged in"; then
+            print_success "Successfully logged in to EAS"
+            # Get username after login
+            cd frontend
+            local current_user=$($eas_cmd whoami 2>/dev/null | head -n1 | tr -d '\n\r' || echo "")
+            cd ..
+            if [ -n "$current_user" ] && [ "$current_user" != "" ]; then
+                print_success "Logged in as: $current_user"
+            fi
+        else
+            print_warning "Automatic login failed or requires interactive input."
+            print_status "You may already be logged in. Proceeding with build..."
+            print_status "If build fails, run manually: cd frontend && eas login"
+            # Don't exit - allow build to proceed
+        fi
+    else
+        # Successfully got username - extract it from output
+        # Output format: version warnings, then "username", then "Accounts:" section
+        # Filter out version warnings and empty lines, get the username line
+        local current_user=$(echo "$whoami_output" | \
+            grep -v "^★" | \
+            grep -v "^eas-cli@" | \
+            grep -v "^To upgrade" | \
+            grep -v "^Proceeding" | \
+            grep -v "^Accounts:" | \
+            grep -v "^$" | \
+            head -n1 | \
+            tr -d '\n\r' | \
+            awk '{print $1}')
+        
+        # Clean up the username
+        current_user=$(echo "$current_user" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+        
+        if [ -n "$current_user" ] && [ "$current_user" != "" ] && [ "$current_user" != "whoami" ] && [ "$current_user" != "eas-cli" ]; then
+            print_success "Logged in to EAS as: $current_user"
+            # Show accounts if available
+            cd frontend
+            local accounts_output=$($eas_cmd whoami 2>/dev/null || echo "")
+            cd ..
+            if echo "$accounts_output" | grep -qE "^•|^Accounts:"; then
+                echo "$accounts_output" | grep -E "^•|^Accounts:" || true
+            fi
+        else
+            # If we can't parse username but command succeeded, assume we're logged in
+            print_success "EAS login check passed ✓"
+            print_status "Login verified (username parsing skipped)"
+        fi
+    fi
 }
 
 # Function to clean up project
@@ -106,13 +256,59 @@ cleanup_dev_deps() {
     print_success "Development dependencies cleaned up"
 }
 
+# Function to verify critical iOS Info.plist settings
+verify_ios_info_plist_settings() {
+    print_status "Verifying critical iOS Info.plist settings in app.config.js..."
+    
+    local config_file="frontend/app.config.js"
+    
+    if [ ! -f "$config_file" ]; then
+        print_error "app.config.js not found at $config_file"
+        return 1
+    fi
+    
+    local missing_settings=()
+    
+    # Critical settings that prevent crashes
+    local critical_settings=(
+        "CADisableMinimumFrameDurationOnPhone"
+        "GMSApiKey"
+        "NSLocationWhenInUseUsageDescription"
+        "NSCameraUsageDescription"
+        "NSPhotoLibraryUsageDescription"
+    )
+    
+    for setting in "${critical_settings[@]}"; do
+        if ! grep -q "$setting" "$config_file" 2>/dev/null; then
+            missing_settings+=("$setting")
+        fi
+    done
+    
+    if [ ${#missing_settings[@]} -gt 0 ]; then
+        print_error "Missing critical iOS Info.plist settings:"
+        for setting in "${missing_settings[@]}"; do
+            print_error "  - $setting"
+        done
+        print_error "This may cause iOS crashes. Please ensure app.config.js includes all required settings."
+        return 1
+    fi
+    
+    # Verify CADisableMinimumFrameDurationOnPhone is set to true
+    if ! grep -q "CADisableMinimumFrameDurationOnPhone.*true" "$config_file" 2>/dev/null; then
+        print_warning "CADisableMinimumFrameDurationOnPhone may not be set to true"
+        print_warning "This setting is critical to prevent iOS crashes"
+        return 1
+    fi
+    
+    print_success "All critical iOS Info.plist settings verified ✓"
+    return 0
+}
+
 # Function to update app config for production
 update_app_config_for_production() {
     print_status "Updating app configuration for production builds..."
     
     cat > frontend/app.config.js << 'EOF'
-const isProduction = process.env.NODE_ENV === 'production' || process.env.EXPO_PUBLIC_BUILD_MODE === 'production';
-
 module.exports = {
   expo: {
     name: "TRUKapp",
@@ -131,8 +327,75 @@ module.exports = {
         googleMapsApiKey: "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"
       },
       infoPlist: {
+        // ============================================
+        // CRITICAL iOS Info.plist SETTINGS - EXPLICITLY ENFORCED
+        // These settings are REQUIRED to prevent iOS crashes
+        // DO NOT REMOVE OR MODIFY WITHOUT TESTING
+        // ============================================
+        
+        // Performance fix to prevent crashes - CRITICAL
+        CADisableMinimumFrameDurationOnPhone: true,
+        
+        // Google Maps API Key - REQUIRED for map functionality
+        GMSApiKey: "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4",
+        
+        // Encryption declaration - REQUIRED for App Store submission
+        ITSAppUsesNonExemptEncryption: false,
+        
+        // Minimum iOS version - REQUIRED
+        LSMinimumSystemVersion: "12.0",
+        
+        // App Transport Security settings - REQUIRED for network requests
+        NSAppTransportSecurity: {
+          NSAllowsArbitraryLoads: false,
+          NSAllowsLocalNetworking: true
+        },
+        
+        // Location permissions - REQUIRED for location features
+        NSLocationAlwaysAndWhenInUseUsageDescription: "Allow TRUKapp to use your location to show your position on the map and calculate routes.",
+        NSLocationAlwaysUsageDescription: "Allow TRUKapp to access your location",
         NSLocationWhenInUseUsageDescription: "This app needs access to location to show your position on the map and calculate routes.",
-        ITSAppUsesNonExemptEncryption: false
+        
+        // Camera permission - REQUIRED for camera features
+        NSCameraUsageDescription: "Allow TRUKapp to use your camera to capture relevant images.",
+        
+        // Photo library permission - REQUIRED for photo uploads
+        NSPhotoLibraryUsageDescription: "Allow TRUKapp to upload images from your photo library",
+        
+        // URL schemes for deep linking - REQUIRED for app links
+        CFBundleURLTypes: [
+          {
+            CFBundleURLSchemes: [
+              "trukapp",
+              "com.truk.trukapp"
+            ]
+          }
+        ],
+        
+        // Launch screen - REQUIRED
+        UILaunchStoryboardName: "SplashScreen",
+        
+        // UI settings - REQUIRED for proper display
+        UIRequiresFullScreen: false,
+        UIStatusBarStyle: "UIStatusBarStyleDefault",
+        UIUserInterfaceStyle: "Automatic",
+        UIViewControllerBasedStatusBarAppearance: false,
+        
+        // Supported orientations - REQUIRED
+        UISupportedInterfaceOrientations: [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown"
+        ],
+        "UISupportedInterfaceOrientations~ipad": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ]
+        
+        // ============================================
+        // END OF CRITICAL iOS Info.plist SETTINGS
+        // ============================================
       }
     },
     android: {
@@ -219,17 +482,30 @@ module.exports = {
       EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: "agritruk-d543b.firebasestorage.app",
       EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "86814869135",
       EXPO_PUBLIC_FIREBASE_APP_ID: "1:86814869135:web:49d6806e9b9917eb6e92fa",
-      // Cloudinary configuration
-      EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME: "trukapp",
-      EXPO_PUBLIC_CLOUDINARY_PRESET: "trukapp_unsigned",
-      EXPO_PUBLIC_CLOUDINARY_API_KEY: "your_cloudinary_api_key_here",
-      EXPO_PUBLIC_CLOUDINARY_API_SECRET: "your_cloudinary_api_secret_here",
     }
   }
 };
 EOF
     
     print_success "App configuration updated for production builds"
+    
+    # CRITICAL: Verify iOS Info.plist settings are explicitly enforced
+    print_status "Verifying iOS Info.plist settings are explicitly enforced..."
+    if ! verify_ios_info_plist_settings; then
+        print_error "CRITICAL: iOS Info.plist settings verification failed!"
+        print_error "The build will ABORT to prevent iOS crashes."
+        print_error "Please check app.config.js and ensure all required settings are present."
+        exit 1
+    fi
+    
+    # Double-check that CADisableMinimumFrameDurationOnPhone is explicitly set
+    if ! grep -q "CADisableMinimumFrameDurationOnPhone.*true" frontend/app.config.js 2>/dev/null; then
+        print_error "CRITICAL: CADisableMinimumFrameDurationOnPhone is not set to true!"
+        print_error "This will cause iOS crashes. Aborting build."
+        exit 1
+    fi
+    
+    print_success "✅ iOS Info.plist settings explicitly enforced and verified"
 }
 
 # Function to build APK locally
@@ -339,7 +615,8 @@ build_apk_eas() {
     
     print_step "Starting EAS build (APK for testing)..."
     cd frontend
-    npx eas build --platform android --profile production-apk --non-interactive
+    local eas_cmd=$(get_eas_cmd)
+    $eas_cmd build --platform android --profile production-apk --non-interactive
     cd ..
     
     print_success "APK build initiated on EAS! Check EAS dashboard for progress."
@@ -350,6 +627,12 @@ build_apk_eas() {
 build_aab_eas() {
     print_header "Building AAB with EAS (Cloud Build)"
     print_warning "This will build AAB using EAS cloud servers for Google Play Store"
+    
+    # Check network connectivity first
+    if ! check_network; then
+        print_error "Network connectivity check failed. Please fix network issues and try again."
+        exit 1
+    fi
     
     check_eas_login
     
@@ -365,12 +648,76 @@ build_aab_eas() {
     
     print_step "Starting EAS build (AAB for Google Play Store)..."
     cd frontend
-    npx eas build --platform android --profile production --non-interactive
+    
+    # Retry logic for network failures
+    local max_retries=3
+    local retry_count=0
+    local build_success=false
+    
+    while [ $retry_count -lt $max_retries ]; do
+        if [ $retry_count -gt 0 ]; then
+            print_warning "Retry attempt $retry_count of $max_retries..."
+            sleep 5
+        fi
+        
+        # Capture both stdout and stderr
+        local eas_cmd=$(get_eas_cmd)
+        local build_output
+        build_output=$($eas_cmd build --platform android --profile production --non-interactive 2>&1)
+        local exit_code=$?
+        
+        if [ $exit_code -eq 0 ]; then
+            build_success=true
+            break
+        else
+            print_error "Build command failed with exit code $exit_code"
+            # Check if it's a network error
+            if echo "$build_output" | grep -q "getaddrinfo EAI_AGAIN\|ECONNREFUSED\|ETIMEDOUT\|EAI_AGAIN"; then
+                print_warning "Network error detected. Will retry..."
+                retry_count=$((retry_count + 1))
+            else
+                print_error "Non-network error detected:"
+                echo "$build_output" | tail -20
+                print_error "Stopping retries."
+                break
+            fi
+        fi
+    done
+    
     cd ..
     
-    print_success "AAB build initiated on EAS! Check EAS dashboard for progress."
-    print_status "Once complete, you can download the AAB and upload to Google Play Store."
-    print_warning "Note: AAB is the preferred format for Google Play Store."
+    if [ "$build_success" = true ]; then
+        print_success "AAB build initiated on EAS! Check EAS dashboard for progress."
+        print_status "Once complete, you can download the AAB and upload to Google Play Store."
+        print_warning "Note: AAB is the preferred format for Google Play Store."
+    else
+        print_error "AAB build failed after $max_retries attempts."
+        print_status "Please check:"
+        print_status "  1. Your internet connection"
+        print_status "  2. DNS settings (try: nslookup api.expo.dev)"
+        print_status "  3. Firewall/proxy settings"
+        print_status "  4. EAS service status: https://status.expo.dev"
+        exit 1
+    fi
+}
+
+# Function to check network connectivity
+check_network() {
+    print_status "Checking network connectivity to Expo servers..."
+    if ! curl -s --max-time 5 https://api.expo.dev > /dev/null 2>&1; then
+        print_error "Cannot reach Expo servers. Please check your internet connection."
+        print_status "Trying DNS resolution..."
+        if ! nslookup api.expo.dev > /dev/null 2>&1; then
+            print_error "DNS resolution failed. Please check your DNS settings or try:"
+            print_status "  - Restart your network connection"
+            print_status "  - Try using a different DNS server (e.g., 8.8.8.8)"
+            print_status "  - Check if you're behind a firewall/proxy"
+            return 1
+        fi
+        return 1
+    fi
+    print_success "Network connectivity OK"
+    return 0
 }
 
 # Function to build IPA with EAS
@@ -380,11 +727,32 @@ build_ipa_eas() {
     
     check_eas_login
     
+    # Check network connectivity
+    if ! check_network; then
+        print_error "Network connectivity check failed. Please fix network issues and try again."
+        exit 1
+    fi
+    
+    # Verify iOS settings BEFORE updating config (in case update fails)
+    print_status "Pre-build verification: Checking iOS Info.plist settings..."
+    if ! verify_ios_info_plist_settings; then
+        print_warning "Some critical settings may be missing. Continuing anyway..."
+        print_warning "The build script will attempt to add them."
+    fi
+    
     # Clean up development dependencies
     cleanup_dev_deps
     
-    # Update app config for production
+    # Update app config for production (this will add all required settings)
     update_app_config_for_production
+    
+    # Final verification after config update
+    print_status "Post-config verification: Ensuring all settings are present..."
+    if ! verify_ios_info_plist_settings; then
+        print_error "CRITICAL: iOS Info.plist settings verification failed after config update!"
+        print_error "This may cause iOS crashes. Aborting build."
+        exit 1
+    fi
     
     # Set production environment
     export EXPO_PUBLIC_BUILD_MODE=production
@@ -393,17 +761,62 @@ build_ipa_eas() {
     print_step "Starting EAS build (IPA for Apple App Store)..."
     print_warning "Note: iOS builds require Apple Developer credentials to be set up first."
     print_status "If this is your first iOS build, you may need to run:"
-    print_status "  cd frontend && npx eas credentials"
+    print_status "  cd frontend && eas credentials"
     print_status "This will set up your Apple Developer certificates and provisioning profiles."
     echo ""
     
     cd frontend
-    npx eas build --platform ios --profile production --non-interactive
+    
+    # Retry logic for network failures
+    local max_retries=3
+    local retry_count=0
+    local build_success=false
+    
+    while [ $retry_count -lt $max_retries ]; do
+        if [ $retry_count -gt 0 ]; then
+            print_warning "Retry attempt $retry_count of $max_retries..."
+            sleep 5
+        fi
+        
+        # Capture both stdout and stderr
+        local eas_cmd=$(get_eas_cmd)
+        local build_output
+        build_output=$($eas_cmd build --platform ios --profile production --non-interactive 2>&1)
+        local exit_code=$?
+        
+        if [ $exit_code -eq 0 ]; then
+            build_success=true
+            break
+        else
+            print_error "Build command failed with exit code $exit_code"
+            # Check if it's a network error
+            if echo "$build_output" | grep -q "getaddrinfo EAI_AGAIN\|ECONNREFUSED\|ETIMEDOUT\|EAI_AGAIN"; then
+                print_warning "Network error detected. Will retry..."
+                retry_count=$((retry_count + 1))
+            else
+                print_error "Non-network error detected:"
+                echo "$build_output" | tail -20
+                print_error "Stopping retries."
+                break
+            fi
+        fi
+    done
+    
     cd ..
     
-    print_success "IPA build initiated on EAS! Check EAS dashboard for progress."
-    print_status "Once complete, you can download the IPA and upload to App Store Connect."
-    print_warning "Note: You'll need an Apple Developer account for App Store submission."
+    if [ "$build_success" = true ]; then
+        print_success "IPA build initiated on EAS! Check EAS dashboard for progress."
+        print_status "Once complete, you can download the IPA and upload to App Store Connect."
+        print_warning "Note: You'll need an Apple Developer account for App Store submission."
+    else
+        print_error "IPA build failed after $max_retries attempts."
+        print_status "Please check:"
+        print_status "  1. Your internet connection"
+        print_status "  2. DNS settings (try: nslookup api.expo.dev)"
+        print_status "  3. Firewall/proxy settings"
+        print_status "  4. EAS service status: https://status.expo.dev"
+        exit 1
+    fi
 }
 
 # Function to create APK sharing info
@@ -485,7 +898,8 @@ setup_ios_credentials() {
     
     cd frontend
     print_step "Starting EAS credentials setup..."
-    npx eas credentials
+    local eas_cmd=$(get_eas_cmd)
+    $eas_cmd credentials
     cd ..
     
     print_success "iOS credentials setup completed!"
@@ -496,7 +910,8 @@ setup_ios_credentials() {
 show_build_status() {
     print_status "Checking EAS build status..."
     cd frontend
-    npx eas build:list --limit 10
+    local eas_cmd=$(get_eas_cmd)
+    $eas_cmd build:list --limit 10
     cd ..
 }
 
@@ -556,6 +971,7 @@ show_help() {
     echo "  aab-eas          - Build AAB with EAS"
     echo "  ipa-eas          - Build IPA with EAS"
     echo "  ios-credentials  - Setup iOS credentials"
+    echo "  verify-ios       - Verify iOS Info.plist settings"
     echo "  clean            - Clean project"
     echo "  deps             - Install dependencies"
     echo "  status           - Show EAS build status"
@@ -593,10 +1009,11 @@ main_menu() {
         echo "  8) Show EAS build status"
         echo "  9) Install APK on emulator"
         echo "  10) Setup iOS credentials (for IPA builds)"
-        echo "  11) Show help"
+        echo "  11) Verify iOS Info.plist settings"
+        echo "  12) Show help"
         echo "  0) Exit"
         echo ""
-        read -p "Select an option (0-11): " choice
+        read -p "Select an option (0-12): " choice
         
         case $choice in
             1)
@@ -630,6 +1047,14 @@ main_menu() {
                 setup_ios_credentials
                 ;;
             11)
+                if verify_ios_info_plist_settings; then
+                    print_success "iOS Info.plist settings verification passed!"
+                else
+                    print_error "iOS Info.plist settings verification failed!"
+                    print_status "Please check frontend/app.config.js and ensure all required settings are present."
+                fi
+                ;;
+            12)
                 show_help
                 ;;
             0)
@@ -637,7 +1062,7 @@ main_menu() {
                 exit 0
                 ;;
             *)
-                print_error "Invalid option. Please select 0-11"
+                print_error "Invalid option. Please select 0-12"
                 ;;
         esac
     done
@@ -689,6 +1114,16 @@ else
         ios-credentials)
             check_directory
             setup_ios_credentials
+            ;;
+        verify-ios)
+            check_directory
+            if verify_ios_info_plist_settings; then
+                print_success "iOS Info.plist settings verification passed!"
+                exit 0
+            else
+                print_error "iOS Info.plist settings verification failed!"
+                exit 1
+            fi
             ;;
         help)
             show_help
