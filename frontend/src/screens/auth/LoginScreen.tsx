@@ -21,8 +21,11 @@ import Spacer from '../../components/common/Spacer';
 import { colors, fonts, spacing } from '../../constants';
 
 import { GoogleAuthProvider, signInWithCredential, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../firebaseConfig';
 import { useSafeGoogleAuth } from '../../hooks/useSafeGoogleAuth';
+import { apiRequest } from '../../utils/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Conditionally import WebBrowser
 let WebBrowser: any = null;
@@ -283,9 +286,47 @@ const LoginScreen = ({ navigation }: any) => {
 
                         // Check if phone is verified
                         if (!userData.phoneVerified) {
-                          setLoading(false);
-                          setError('This phone number is not verified. Please verify your phone number first.');
-                          return;
+                          // User exists but phone is not verified - resend verification code and navigate to verification
+                          console.log('Phone not verified - resending verification code');
+                          
+                          try {
+                            // Sign in with Firebase Auth first to get token
+                            const userCredential = await signInWithEmailAndPassword(auth, userData.email, password);
+                            const token = await userCredential.user.getIdToken();
+                            await AsyncStorage.setItem('jwt', token);
+                            
+                            // Resend phone verification code
+                            await apiRequest('/auth', {
+                              method: 'POST',
+                              headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                              },
+                              body: JSON.stringify({
+                                action: 'resend-phone-code',
+                                userId: userCredential.user.uid,
+                              }),
+                            });
+                            
+                            console.log('Phone verification code resent - navigating to PhoneOTPScreen');
+                            
+                            // Navigate to phone verification screen
+                            navigation.navigate('PhoneOTPScreen', {
+                              email: userData.email,
+                              phone: fullPhone,
+                              role: userData.role || 'shipper',
+                              userId: userCredential.user.uid,
+                              password: password
+                            });
+                            
+                            setLoading(false);
+                            return;
+                          } catch (resendError: any) {
+                            console.error('Error resending phone verification code:', resendError);
+                            setLoading(false);
+                            setError('This phone number is not verified. Verification code could not be sent. Please try again.');
+                            return;
+                          }
                         }
 
                         // Use the found email to sign in with Firebase Auth
