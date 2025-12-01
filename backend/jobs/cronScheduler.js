@@ -135,7 +135,7 @@ const CronScheduler = {
    * Runs every 15 minutes
    */
   checkPendingDeletions() {
-    cron.schedule('*/01 * * * *', async () => {
+    cron.schedule('*/15 * * * *', async () => {
       console.log('Checking pending deletions...');
       try {
         await processPendingDeletions();
