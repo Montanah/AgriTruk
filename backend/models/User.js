@@ -1,6 +1,5 @@
 // Description: User model for managing user data in Firestore
 const admin = require("../config/firebase");
-const { status } = require("../schemas/JobSeekerSchema");
 const db = admin.firestore(); 
 
 const USERS_COLLECTION = 'users';
@@ -88,20 +87,23 @@ const User = {
     const searchTerm = query.toLowerCase().trim();
     const phoneSearch = query.replace(/[^\d]/g, '');
     const usersRef = db.collection(USERS_COLLECTION);
-    
+
     // Create queries for each searchable field
     const queries = [
       // Name search (partial match)
       usersRef.where('name_lower', '>=', searchTerm)
-              .where('name_lower', '<=', searchTerm + '\uf8ff'),
-      
+              .where('name_lower', '<=', searchTerm + '\uf8ff')
+              .where('status', '!=', 'deleted'),
+
       // Email search (partial match)
       usersRef.where('email_lower', '>=', searchTerm)
-              .where('email_lower', '<=', searchTerm + '\uf8ff'),
-      
+              .where('email_lower', '<=', searchTerm + '\uf8ff')
+              .where('status', '!=', 'deleted'),
+
       // Phone search (starts with)
       usersRef.where('phone_clean', '>=', phoneSearch)
               .where('phone_clean', '<=', phoneSearch + '\uf8ff')
+              .where('status', '!=', 'deleted')
     ];
 
     // Execute all queries in parallel
@@ -122,26 +124,26 @@ const User = {
   },
 
   async getAllUsers() {
-    const snapshot = await db.collection(USERS_COLLECTION).get();
+    const snapshot = await db.collection(USERS_COLLECTION).where('status', '!=', 'deleted').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
   
   async getUserByEmail(email) {
-    const snapshot = await db.collection(USERS_COLLECTION).where('email', '==', email).get();
+    const snapshot = await db.collection(USERS_COLLECTION).where('email', '==', email).where('status', '!=', 'deleted').get();
     return snapshot.empty ? null : snapshot.docs[0].data();
   },
 
   async getUserByPhone(phone) {
-    const snapshot = await db.collection(USERS_COLLECTION).where('phone', '==', phone).get();
+    const snapshot = await db.collection(USERS_COLLECTION).where('phone', '==', phone).where('status', '!=', 'deleted').get();
     return snapshot.empty ? null : snapshot.docs[0].data();
   },
   async getShippers() {
-    const snapshot = await db.collection(USERS_COLLECTION).where('role', '==', 'shipper').get();
+    const snapshot = await db.collection(USERS_COLLECTION).where('role', '==', 'shipper').where('status', '!=', 'deleted').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
 
   async getRecruiters() {
-    const snapshot = await db.collection(USERS_COLLECTION).where('role', '==', 'recruiter').get();
+    const snapshot = await db.collection(USERS_COLLECTION).where('role', '==', 'recruiter').where('status', '!=', 'deleted').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   },
 
@@ -153,7 +155,23 @@ const User = {
   async unbanUser(userId) {
     await db.collection(USERS_COLLECTION).doc(userId).update({ isBanned: false, status: 'active' });
     return true;
-  }
+  },
+
+  async getUsersSheduledForDeletion() {
+    const now = Date.now();
+    const snapshot = await db.collection(USERS_COLLECTION).where('deleteScheduledFor', '<', now).get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async getUserFromToken(token) {
+    const snapshot = await db.collection(USERS_COLLECTION).where('restoreToken', '==', token).get();
+    return snapshot.empty ? null : snapshot.docs[0].data();
+  },
+
+  async getDeletedUsers() {
+    const snapshot = await db.collection(USERS_COLLECTION).where('status', '==', 'deleted').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
 };
 
 module.exports = User;

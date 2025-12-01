@@ -3,7 +3,7 @@ const User = require("../models/User");
 const ActivityLog = require("../models/ActivityLog");
 const generateOtp = require("../utils/generateOtp");
 const sendEmail = require("../utils/sendEmail");
-const { getMFATemplate, getResetPasswordTemplate, getSuccessTemplate, getRejectTemplate } = require("../utils/sendMailTemplate");
+const { getMFATemplate, getResetPasswordTemplate, getSuccessTemplate, getRejectTemplate, getDeleteAccountTemplate } = require("../utils/sendMailTemplate");
 const getGeoLocation = require("../utils/locationHelper");
 const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const { uploadImage } = require('../utils/upload');
@@ -13,6 +13,7 @@ const SMSService = require('../utils/sendSms');
 const Booking = require("../models/Booking");
 const Dispute = require("../models/Dispute");
 const { formatTimestamps } = require("../utils/formatData");
+const Broker = require("../models/Broker");
 
 const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
 
@@ -1084,5 +1085,170 @@ exports.getUserDetails = async (req, res) => {
       code: 'ERR_SERVER_ERROR',
       message: 'Internal server error'
     });
+  }
+};
+
+exports.requestAccountDeletion = async (req, res) => {
+  try {
+    const uid  = req.user.uid;
+    const { reason } = req.body;
+
+    const user = await User.get(uid);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.isDeleted) {
+      return res.status(400).json({ message: "Account is already in deletion state." });
+    }
+    
+    const crypto = require("crypto");
+
+    const restoreToken = crypto.randomBytes(32).toString("hex");
+
+    // 1. Disable user in Firebase Auth
+    await admin.auth().updateUser(uid, { disabled: true });
+
+    // 2. Soft delete Firestore record
+    await User.update(uid, {
+      restoreToken,
+      restoreExpires: Date.now() + 30*24*60*60*1000, // 30 days
+      isDeleted: true,
+      deletedAt: new Date(),
+      deleteScheduledFor: Date.now(), //+ (30 * 24 * 60 * 60 * 1000), // 30 days
+      status: "pending_deletion",
+      deletion_reason: reason || "No reason provided"
+    });
+
+    // 3. Log admin/user activity
+    await logActivity(uid, 'account_deletion_requested', req);
+
+    // 4. Notify user via email
+    const restoreLink = `https://${process.env.FRONTEND_URL}/restore-account?token=${restoreToken}`;
+
+    await sendEmail({
+      to: req.user.email,
+      subject: "Account Deletion Requested",
+      html: getDeleteAccountTemplate(user.name, new Date(Date.now() + 30*24*60*60*1000).toLocaleString(), restoreLink, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
+     });
+
+    // 5. Log notification
+    await Notification.create({
+      type: "Account Deletion Initiated",
+      message: "You have requested deletion of your account.",
+      userId: uid,
+      userType: "user",
+    });
+
+    return res.json({ message: "Account deletion initiated. You have 30 days to restore your account." });
+
+  } catch (error) {
+    console.error("Delete request error:", error);
+    return res.status(500).json({
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to initiate account deletion"
+    });
+  }
+};
+
+exports.restoreAccount = async (req, res) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token)
+      return res.status(400).json({ message: "Missing restore token." });
+
+    // Find user by restore token
+    const userDoc = await User.getUserFromToken(token);
+
+    const uid = userDoc.uid;
+
+    if (!userDoc || !userDoc.isDeleted) {
+      return res.status(400).json({ message: "Account is not in deletion state." });
+    }
+
+    // 1. Enable Firebase Auth user
+    await admin.auth().updateUser(uid, { disabled: false });
+
+    // 2. Remove deletion flags
+    await User.update(uid, {
+      isDeleted: false,
+      deletedAt: null,
+      deleteScheduledFor: null,
+      restoreToken: null, 
+      restoreExpires: null,
+      status: "active",
+    });
+
+    return res.json({ message: "Your account has been restored." });
+
+  } catch (error) {
+    console.error("Restore account error:", error);
+    return res.status(500).json({
+      message: "Failed to restore account"
+    });
+  }
+};
+
+exports.processPendingDeletions = async () => {
+  const now = Date.now();
+ // console.log(now);
+
+  // const snapshot = await User.where('deleteScheduledFor', '<=', now).get();
+  // console.log(`Found ${snapshot.size} pending deletions`);
+  const users = await User.getUsersSheduledForDeletion();
+ // console.log(`Found ${users.length} pending deletions`);
+
+  for (const doc of users) {
+    const uid = doc.id;
+
+    try {
+      // 🔥 1. Delete from Firebase Auth
+      // await admin.auth().deleteUser(uid);
+
+      // 🧹 2. Anonymize user data instead of deleting
+      await User.update(uid, {
+        email: `deleted_${uid}@example.com`,
+        phone: null,
+        name: "Deleted User",
+        status: "deleted",
+        permanentlyDeletedAt: new Date(),
+        deleteScheduledFor: null,
+        restoreToken: null, 
+        restoreExpires: null,
+      });
+
+      // 📘 Delete sensitive subcollections
+      //check user role
+      const userRole = users.role;
+     // console.log("User role:", userRole);
+
+      if (userRole === "driver") {
+        await Driver.delete(uid);
+      } else if (userRole === "company") {
+        await Company.delete(uid);
+      } else if (userRole === "transporter") {
+        await Transporter.delete(uid);
+      } else  if (userRole === "broker") {
+        await Broker.delete(uid);
+      } else if (userRole === "business") {
+        await Business.delete(uid);
+      } else if (userRole === "job_seeker") {
+        await JobSeeker.delete(uid);
+      }      
+
+      // 📌 4. Notification log
+      await Notification.create({
+        type: "Account Deleted",
+        message: "Your account has been permanently deleted after 30 days.",
+        userId: uid,
+      });
+
+      console.log(`Deleted and anonymized user ${uid}`);
+
+    } catch (err) {
+      console.error("Cron deletion error:", err);
+    }
   }
 };

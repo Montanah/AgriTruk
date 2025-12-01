@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const SubscriptionService = require('../services/subscriptionService');
 const DocumentExpiryService = require('../services/companyDocumentExpiryService');
 const RecruiterSubscriptionService = require('../services/RecruiterSubscriptionService');
-
+const processPendingDeletions = require('../controllers/authController').processPendingDeletions;
 /**
  * Cron job scheduler for automated tasks
  */
@@ -24,6 +24,9 @@ const CronScheduler = {
 
     // Weekly summary on Monday at 10:00 AM
     this.weeklySummary();
+
+    // check pending deletions every 15 minutes
+    this.checkPendingDeletions();
 
     console.log('All cron jobs initialized');
   },
@@ -127,7 +130,24 @@ const CronScheduler = {
 
     console.log('✓ Weekly summary scheduled (Monday at 10:00 AM)');
   },
+  /**
+   * Check pending deletions
+   * Runs every 15 minutes
+   */
+  checkPendingDeletions() {
+    cron.schedule('*/15 * * * *', async () => {
+      console.log('Checking pending deletions...');
+      try {
+        await processPendingDeletions();
+        // This can be expanded to generate comprehensive reports
+        console.log('Checked pending deletions');
+      } catch (error) {
+        console.error('Error checking pending deletions:', error);
+      }
+    });
 
+    console.log('✓ Pending deletions check scheduled (Every 15 minutes)');
+  },
   /**
    * Test all notification systems (manual trigger)
    */
