@@ -363,3 +363,46 @@ exports.sendChatNotificationMail = function (data) {
 
   return { subject, html };
 };
+
+exports.getDeleteAccountTemplate = function (userName, deadlineDate, restoreLink, location, ip, device) {
+  return `
+    <div style="max-width: 500px; margin: auto; padding: 20px; font-family: Arial, sans-serif; border-radius: 10px; border: 1px solid #ddd;">
+      <div style="text-align: center;">
+        <img src="https://res.cloudinary.com/trukapp/image/upload/v1750965061/TRUK_Logo_zp8lv3.png" alt="Truk Logo" style="width: 60px; margin-bottom: 20px;" />
+        
+        <h2 style="color: #000;">Account Deletion Request</h2>
+        <p>Hello <strong>${userName}</strong>,</p>
+
+        <p>We received a request to <strong>delete your Truk account</strong>. Your account has been temporarily disabled and scheduled for permanent deletion.</p>
+
+        <p>You have <strong>30 days</strong> to cancel this request.  
+        If you log in before the deadline below, your account will be fully restored:</p>
+
+        <h3 style="margin: 20px 0; color: #d9534f;">Deletion Deadline: ${deadlineDate}</h3>
+
+        <p>If you did not request this, you can restore your account immediately:</p>
+
+        <a href="${restoreLink}" 
+          style="display:inline-block; padding: 12px 20px; background:#1a73e8; 
+                  color:#fff; text-decoration:none; border-radius:6px; margin-top:10px;">
+          Restore My Account
+        </a>
+
+        <hr style="margin: 30px 0;" />
+
+        <div style="font-size: 14px; color: #555;">
+          <p><strong>Request Details:</strong></p>
+          <p><strong>Device:</strong> ${device}</p>
+          <p><strong>Location:</strong> ${location}</p>
+          <p><strong>IP Address:</strong> ${ip}</p>
+        </div>
+
+        <hr style="margin: 30px 0;" />
+
+        <p style="font-size: 13px; color: #777;">
+          If you do nothing, your account will be permanently deleted after the 30-day period.
+        </p>
+      </div>
+    </div>
+  `;
+};

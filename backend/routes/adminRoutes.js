@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminManagementController');
-const {getAllBookings, getPermissions, getAllUsers, searchUsers, exportToCSV, generatePDFReport, generateReports, getAllShippers, getAllActions, markAsResolved, getPendingActions, banUser, unbanUser } = require('../controllers/adminController');
+const {getAllBookings, getPermissions, getAllUsers, searchUsers, getAllDeletedUsers, exportToCSV, generatePDFReport, generateReports, getAllShippers, getAllActions, markAsResolved, getPendingActions, banUser, unbanUser } = require('../controllers/adminController');
 const authController = require("../controllers/authController");
 const {
   authorize,
@@ -532,6 +532,22 @@ router.get('/brokers', authenticateToken, requireRole('admin'), authorize(['view
  *         description: Server error
  */
 router.get('/permissions', authenticateToken, requireRole('admin'), authorize(['super_admin']), getPermissions);
+
+/**
+ * @swagger
+ * /api/admin/deleted-users:
+ *   get:
+ *     summary: Get a list of deleted users (Super Admin & Manage Users only)
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of deleted users
+ *       500:
+ *         description: Server error
+ */
+router.get('/deleted-users', authenticateToken, requireRole('admin'), authorize(['super_admin', 'manage_users']), getAllDeletedUsers);
 
 /**
  * @swagger
