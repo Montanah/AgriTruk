@@ -412,7 +412,7 @@ export default function TransporterProcessingScreen({ route }) {
       <View style={styles.cardWrap}>
         <View style={styles.headerContainer}>
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>{transporterType === 'company' ? 'Company Profile Under Review' : 'Documents Under Review'}</Text>
+            <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>{transporterType === 'company' ? 'Company Profile Under Review' : 'Documents Under Review'}</Text>
           </View>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: fonts.size.xl,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.primary,
     marginBottom: spacing.md,

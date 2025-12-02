@@ -532,7 +532,7 @@ const ClientTrackingScreen: React.FC<ClientTrackingScreenProps> = ({ route, navi
         >
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Track Your Delivery</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Track Your Delivery</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.headerButton}
@@ -671,6 +671,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: 'white',
+    flex: 1,
+    marginRight: 8,
   },
   headerActions: {
     flexDirection: 'row',

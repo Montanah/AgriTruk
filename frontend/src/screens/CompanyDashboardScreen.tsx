@@ -372,7 +372,7 @@ const CompanyDashboardScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Fleet Dashboard</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Fleet Dashboard</Text>
         <TouchableOpacity
           style={styles.refreshButton}
           onPress={onRefresh}
@@ -614,9 +614,11 @@ const getStyles = (isTablet: boolean, maxContentWidth: number, isLandscape: bool
     justifyContent: 'space-between',
   },
   headerTitle: {
-    fontSize: isTablet ? 24 : 20,
+    fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.white,
+    flex: 1,
+    marginRight: 8,
   },
   refreshButton: {
     padding: 8,

@@ -115,7 +115,7 @@ const SubscriptionPlansScreen: React.FC = () => {
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
                     </TouchableOpacity>
                     <View style={styles.headerTitleContainer}>
-                        <Text style={styles.headerTitle}>
+                        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>
                             {isUpgrade ? 'Upgrade Plan' : 'Choose Your Plan'}
                         </Text>
                         <Text style={styles.headerSubtitle}>
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     headerTitle: {
-        fontSize: fonts.size.lg,
+        fontSize: 18,
         fontWeight: 'bold',
         color: colors.white,
         textAlign: 'center',

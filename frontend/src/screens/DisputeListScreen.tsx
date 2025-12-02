@@ -375,7 +375,7 @@ const DisputeListScreen = () => {
             <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Dispute Resolution</Text>
+            <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Dispute Resolution</Text>
             <Text style={styles.headerSubtitle}>Manage and track disputes</Text>
           </View>
           <TouchableOpacity onPress={() => setShowFilters(!showFilters)} style={styles.filterButton}>
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: fonts.size.xl,
+    fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.white,
   },

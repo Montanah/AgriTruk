@@ -720,6 +720,33 @@ check_network() {
     return 0
 }
 
+# Function to verify iOS credentials are set up
+verify_ios_credentials() {
+    print_status "Verifying iOS credentials setup..."
+    cd frontend
+    local eas_cmd=$(get_eas_cmd)
+    
+    # Try to check credentials with a short timeout
+    local creds_output
+    if command -v timeout >/dev/null 2>&1; then
+        creds_output=$(timeout 10 $eas_cmd credentials --platform ios 2>&1 | grep -i "production\|store\|configured" | head -5 || echo "")
+    else
+        # Quick check without timeout
+        creds_output=$($eas_cmd credentials --platform ios 2>&1 | grep -i "production\|store\|configured" | head -5 || echo "")
+    fi
+    
+    cd ..
+    
+    if [ -n "$creds_output" ]; then
+        print_success "iOS credentials appear to be configured"
+        return 0
+    else
+        print_warning "Could not verify iOS credentials automatically"
+        print_warning "If build hangs, credentials may need to be set up"
+        return 1
+    fi
+}
+
 # Function to build IPA with EAS
 build_ipa_eas() {
     print_header "Building IPA with EAS (Cloud Build)"
@@ -732,6 +759,9 @@ build_ipa_eas() {
         print_error "Network connectivity check failed. Please fix network issues and try again."
         exit 1
     fi
+    
+    # Verify credentials (non-blocking)
+    verify_ios_credentials || true
     
     # Verify iOS settings BEFORE updating config (in case update fails)
     print_status "Pre-build verification: Checking iOS Info.plist settings..."
@@ -766,56 +796,78 @@ build_ipa_eas() {
     echo ""
     
     cd frontend
+    local eas_cmd=$(get_eas_cmd)
     
-    # Retry logic for network failures
-    local max_retries=3
-    local retry_count=0
-    local build_success=false
+    echo ""
+    print_status "Starting EAS build process..."
+    print_status "Command: $eas_cmd build --platform ios --profile production --non-interactive"
+    print_warning "If the build hangs, it may be waiting for credentials setup."
+    print_warning "Press Ctrl+C to cancel, then run: cd frontend && eas credentials --platform ios"
+    echo ""
     
-    while [ $retry_count -lt $max_retries ]; do
-        if [ $retry_count -gt 0 ]; then
-            print_warning "Retry attempt $retry_count of $max_retries..."
-            sleep 5
-        fi
+    # Run build command directly without capturing output
+    # This allows real-time output and prevents hanging issues
+    # The --non-interactive flag should prevent prompts, but if credentials
+    # aren't set up, it may still hang - user can Ctrl+C and set up credentials
+    
+    if command -v timeout >/dev/null 2>&1; then
+        # Use timeout of 2 minutes for initial validation
+        # If credentials are set up, the build should start quickly
+        # If it hangs longer, it's likely waiting for credentials
+        print_status "Starting build (2-minute timeout for initial validation)..."
+        print_status "If it hangs, press Ctrl+C and set up credentials first."
+        echo ""
         
-        # Capture both stdout and stderr
-        local eas_cmd=$(get_eas_cmd)
-        local build_output
-        build_output=$($eas_cmd build --platform ios --profile production --non-interactive 2>&1)
-        local exit_code=$?
-        
-        if [ $exit_code -eq 0 ]; then
-            build_success=true
-            break
+        if timeout 120 $eas_cmd build --platform ios --profile production --non-interactive; then
+            print_success ""
+            print_success "IPA build initiated on EAS! Check EAS dashboard for progress."
+            print_status "Once complete, you can download the IPA and upload to App Store Connect."
+            print_warning "Note: You'll need an Apple Developer account for App Store submission."
+            cd ..
+            return 0
         else
-            print_error "Build command failed with exit code $exit_code"
-            # Check if it's a network error
-            if echo "$build_output" | grep -q "getaddrinfo EAI_AGAIN\|ECONNREFUSED\|ETIMEDOUT\|EAI_AGAIN"; then
-                print_warning "Network error detected. Will retry..."
-                retry_count=$((retry_count + 1))
+            local exit_code=$?
+            cd ..
+            if [ $exit_code -eq 124 ]; then
+                print_error ""
+                print_error "Build command timed out after 2 minutes."
+                print_error "This usually means it's waiting for iOS credentials setup."
+                print_status ""
+                print_status "To fix this, run:"
+                print_status "  cd frontend"
+                print_status "  eas credentials --platform ios"
+                print_status ""
+                print_status "Then run the build again."
+                exit 1
             else
-                print_error "Non-network error detected:"
-                echo "$build_output" | tail -20
-                print_error "Stopping retries."
-                break
+                print_error "Build command failed with exit code $exit_code"
+                print_status "Check the output above for details."
+                exit 1
             fi
         fi
-    done
-    
-    cd ..
-    
-    if [ "$build_success" = true ]; then
-        print_success "IPA build initiated on EAS! Check EAS dashboard for progress."
-        print_status "Once complete, you can download the IPA and upload to App Store Connect."
-        print_warning "Note: You'll need an Apple Developer account for App Store submission."
     else
-        print_error "IPA build failed after $max_retries attempts."
-        print_status "Please check:"
-        print_status "  1. Your internet connection"
-        print_status "  2. DNS settings (try: nslookup api.expo.dev)"
-        print_status "  3. Firewall/proxy settings"
-        print_status "  4. EAS service status: https://status.expo.dev"
-        exit 1
+        # No timeout available - run directly
+        print_status "Starting build (no timeout - if it hangs, press Ctrl+C)..."
+        echo ""
+        
+        if $eas_cmd build --platform ios --profile production --non-interactive; then
+            print_success ""
+            print_success "IPA build initiated on EAS! Check EAS dashboard for progress."
+            print_status "Once complete, you can download the IPA and upload to App Store Connect."
+            print_warning "Note: You'll need an Apple Developer account for App Store submission."
+            cd ..
+            return 0
+        else
+            local exit_code=$?
+            cd ..
+            print_error "Build command failed with exit code $exit_code"
+            print_status "Check the output above for details."
+            print_status ""
+            print_status "If it hung, you may need to set up credentials:"
+            print_status "  cd frontend"
+            print_status "  eas credentials --platform ios"
+            exit 1
+        fi
     fi
 }
 

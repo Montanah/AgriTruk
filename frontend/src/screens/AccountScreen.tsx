@@ -24,6 +24,7 @@ import spacing from '../constants/spacing';
 import { auth, db } from '../firebaseConfig';
 import { apiRequest, uploadFile } from '../utils/api';
 import { useCustomAlert } from '../hooks/useCustomAlert';
+import DeleteAccountModal from '../components/common/DeleteAccountModal';
 
 interface ShipperProfileData {
   name: string;
@@ -66,6 +67,8 @@ const AccountScreen = () => {
   const [complaintText, setComplaintText] = useState('');
   const [verifyingPhone, setVerifyingPhone] = useState(false);
   const [showPrimaryContactModal, setShowPrimaryContactModal] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const user = auth?.currentUser;
 
@@ -502,6 +505,46 @@ const AccountScreen = () => {
     );
   };
 
+  const handleDeleteAccount = async (reason: string) => {
+    if (!user?.uid) {
+      showAlert('Error', 'User not authenticated.');
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const token = await user.getIdToken();
+      
+      // Call delete account API
+      await apiRequest(`/auth/${user.uid}/delete/request`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: reason,
+        }),
+      });
+
+      // Sign out user
+      await signOut(auth);
+      
+      // Navigate to account deleted screen
+      (navigation as any).reset({
+        index: 0,
+        routes: [{ name: 'AccountDeleted' }],
+      });
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      showAlert(
+        'Delete Account Failed',
+        error.message || 'Failed to delete account. Please try again or contact support.'
+      );
+      setDeletingAccount(false);
+    }
+  };
+
   const handleSubmitComplaint = async () => {
     if (!user?.uid || !complaintText.trim()) {
       Alert.alert('Error', 'Please enter a complaint message.');
@@ -554,7 +597,7 @@ const AccountScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Account</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Account</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <TouchableOpacity
               style={styles.editButton}
@@ -978,6 +1021,14 @@ const AccountScreen = () => {
             <Text style={styles.utilityButtonText}>Change Password</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={() => setShowDeleteAccountModal(true)}
+          >
+            <MaterialCommunityIcons name="delete-outline" size={24} color={colors.error} />
+            <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+          </TouchableOpacity>
+
           {/* Removed duplicate in-content logout; standardized to header-right */}
         </View>
 
@@ -1222,6 +1273,13 @@ const AccountScreen = () => {
         </View>
       </Modal>
 
+      <DeleteAccountModal
+        visible={showDeleteAccountModal}
+        onClose={() => setShowDeleteAccountModal(false)}
+        onConfirm={handleDeleteAccount}
+        loading={deletingAccount}
+      />
+
       <CustomAlertComponent />
     </SafeAreaView>
   );
@@ -1254,10 +1312,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.white,
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: 'bold',
     flex: 1,
-    marginRight: spacing.sm,
+    marginRight: 8,
   },
   editButton: {
     padding: 8,
@@ -1620,6 +1678,24 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     fontSize: 16,
+    marginLeft: spacing.sm,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.error + '15',
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    borderWidth: 1.5,
+    borderColor: colors.error + '30',
+  },
+  deleteAccountButtonText: {
+    fontSize: fonts.size.md,
+    fontWeight: '600',
+    color: colors.error,
     marginLeft: spacing.sm,
   },
   logoutButton: {

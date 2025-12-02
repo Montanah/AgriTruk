@@ -43,11 +43,11 @@ const EnhancedSubscriptionProgressBar: React.FC<EnhancedSubscriptionProgressBarP
 
   useEffect(() => {
     if (animated) {
-      // Animate progress bar fill
+      // Animate progress bar fill using scaleX transform (supported by native driver)
       Animated.timing(progressWidth, {
         toValue: progressPercentage,
         duration: 1000,
-        useNativeDriver: false,
+        useNativeDriver: true, // Can use native driver with scaleX transform
       }).start();
 
       // Add pulse animation for expiring soon
@@ -173,33 +173,39 @@ const EnhancedSubscriptionProgressBar: React.FC<EnhancedSubscriptionProgressBarP
       <View style={styles.progressContainer}>
         {/* Background Bar */}
         <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-          {/* Animated Progress Fill */}
-          <Animated.View
-            style={[
-              styles.progressFill,
-              {
-                width: progressWidth.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0%', '100%'],
-                }),
-                backgroundColor: getProgressColor(),
-                transform: [{ scaleY: pulseAnim }],
-              },
-            ]}
-          >
-            {/* Glow Effect for Expiring Soon */}
-            {isExpiringSoon && (
-              <Animated.View
-                style={[
-                  styles.glowEffect,
-                  {
-                    opacity: glowAnim,
-                    backgroundColor: getProgressColor(),
-                  },
-                ]}
-              />
-            )}
-          </Animated.View>
+          {/* Wrapper to clip the animated fill */}
+          <View style={styles.progressFillWrapper}>
+            <Animated.View
+              style={[
+                styles.progressFill,
+                {
+                  backgroundColor: getProgressColor(),
+                  transform: [
+                    { 
+                      scaleX: progressWidth.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.0001, 1], // Use 0.0001 instead of 0 to avoid rendering issues
+                      })
+                    },
+                    { scaleY: pulseAnim }
+                  ],
+                },
+              ]}
+            >
+              {/* Glow Effect for Expiring Soon */}
+              {isExpiringSoon && (
+                <Animated.View
+                  style={[
+                    styles.glowEffect,
+                    {
+                      opacity: glowAnim,
+                      backgroundColor: getProgressColor(),
+                    },
+                  ]}
+                />
+              )}
+            </Animated.View>
+          </View>
 
           {/* Milestones */}
           {showDetails && renderMilestones()}
@@ -265,10 +271,17 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  progressFill: {
+  progressFillWrapper: {
     height: '100%',
+    width: '100%',
+    overflow: 'hidden',
     borderRadius: 4,
     position: 'relative',
+  },
+  progressFill: {
+    height: '100%',
+    width: '100%',
+    borderRadius: 4,
   },
   glowEffect: {
     position: 'absolute',

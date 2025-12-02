@@ -28,6 +28,7 @@ import { API_ENDPOINTS } from '../constants/api';
 import { PLACEHOLDER_IMAGES } from '../constants/images';
 import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
 import LogoutConfirmationDialog from '../components/common/LogoutConfirmationDialog';
+import DeleteAccountModal from '../components/common/DeleteAccountModal';
 import { apiRequest, uploadFile } from '../utils/api';
 import ImagePickerModal from '../components/common/ImagePickerModal';
 
@@ -475,9 +476,50 @@ const DriverProfileScreen = () => {
   };
 
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleLogout = () => {
     setShowLogoutDialog(true);
+  };
+
+  const handleDeleteAccount = async (reason: string) => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user?.uid) {
+      Alert.alert('Error', 'User not authenticated.');
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const token = await user.getIdToken();
+      
+      await apiRequest(`/auth/${user.uid}/delete/request`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: reason,
+        }),
+      });
+
+      await signOut(auth);
+      
+      (navigation as any).reset({
+        index: 0,
+        routes: [{ name: 'AccountDeleted' }],
+      });
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      Alert.alert(
+        'Delete Account Failed',
+        error.message || 'Failed to delete account. Please try again or contact support.'
+      );
+      setDeletingAccount(false);
+    }
   };
 
   const confirmLogout = async () => {
@@ -701,7 +743,7 @@ const DriverProfileScreen = () => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Driver Profile</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Driver Profile</Text>
           <TouchableOpacity 
             onPress={handleLogout} 
             style={styles.logoutButton}
@@ -1053,6 +1095,17 @@ const DriverProfileScreen = () => {
         </TouchableOpacity>
       </View>
 
+      {/* Delete Account Section */}
+      <View style={styles.deleteAccountSection}>
+        <TouchableOpacity
+          style={styles.deleteAccountButton}
+          onPress={() => setShowDeleteAccountModal(true)}
+        >
+          <MaterialCommunityIcons name="delete-outline" size={20} color={colors.error} />
+          <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Bottom padding to prevent cut-off */}
       <View style={styles.bottomPadding} />
       </ScrollView>
@@ -1064,6 +1117,14 @@ const DriverProfileScreen = () => {
         onConfirm={confirmLogout}
         onCancel={() => setShowLogoutDialog(false)}
       />
+
+      <DeleteAccountModal
+        visible={showDeleteAccountModal}
+        onClose={() => setShowDeleteAccountModal(false)}
+        onConfirm={handleDeleteAccount}
+        loading={deletingAccount}
+      />
+
       <ImagePickerModal
         visible={imagePickerVisible}
         onClose={() => setImagePickerVisible(false)}
@@ -1155,9 +1216,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   headerTitle: {
-    fontSize: fonts.size.xl,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.white,
+    flex: 1,
+    marginRight: 8,
   },
   logoutButton: {
     flexDirection: 'row',
@@ -1680,6 +1743,27 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: 'bold',
     fontSize: 16,
+    marginLeft: spacing.sm,
+  },
+  deleteAccountSection: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.error + '15',
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.error + '30',
+  },
+  deleteAccountButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.error,
     marginLeft: spacing.sm,
   },
 });

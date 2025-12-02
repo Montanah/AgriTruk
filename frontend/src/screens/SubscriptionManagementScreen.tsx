@@ -241,7 +241,7 @@ const SubscriptionManagementScreen: React.FC = ({ route }: any) => {
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
                     </TouchableOpacity>
                     <View style={styles.headerContent}>
-                        <Text style={styles.headerTitle}>Subscription Management</Text>
+                        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Subscription Management</Text>
                         {companyInfo && (
                             <Text style={styles.companyName}>{companyInfo.companyName}</Text>
                         )}
@@ -399,9 +399,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     headerTitle: {
-        fontSize: fonts.size.lg,
+        fontSize: 18,
         fontWeight: 'bold',
         color: colors.white,
+        flex: 1,
+        marginRight: 8,
     },
     companyName: {
         fontSize: fonts.size.sm,

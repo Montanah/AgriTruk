@@ -132,7 +132,7 @@ const ConsolidationScreen = ({ navigation }: any) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, borderRadius: 16, backgroundColor: colors.surface, marginRight: 10 }}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Consolidations</Text>
+        <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Consolidations</Text>
         {/* Spacer to push link right */}
         <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={() => navigation.navigate('BusinessRequest')} style={{ padding: 8, borderRadius: 16, backgroundColor: colors.surface }}>
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    fontSize: fonts.size.xl,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.primary,
     marginBottom: 18,

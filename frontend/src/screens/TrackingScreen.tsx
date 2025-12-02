@@ -713,7 +713,7 @@ const TrackingScreen = () => {
                 >
                     <Ionicons name="arrow-back" size={24} color={colors.primary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Track Booking</Text>
+                <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Track Booking</Text>
                 <View style={styles.headerSpacer} />
             </View>
 
@@ -1162,9 +1162,11 @@ const styles = StyleSheet.create({
         padding: spacing.sm,
     },
     headerTitle: {
-        fontSize: fonts.size.lg,
+        fontSize: 18,
         fontWeight: 'bold',
         color: colors.primary,
+        flex: 1,
+        marginRight: 8,
     },
     headerSpacer: {
         width: 44,

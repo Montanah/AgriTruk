@@ -665,7 +665,7 @@ const DriverRecruitmentStatusScreen = () => {
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Recruitment Status</Text>
+        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Recruitment Status</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.refreshButton}
@@ -1166,9 +1166,11 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '180deg' }],
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.white,
+    flex: 1,
+    marginRight: 8,
   },
   content: {
     flex: 1,

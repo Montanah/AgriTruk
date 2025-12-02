@@ -654,7 +654,7 @@ const CreateDisputeScreen = () => {
             <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>
+            <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>
               {edit ? 'Update Dispute' : 'Create Dispute'}
             </Text>
             <Text style={styles.headerSubtitle}>Submit a new dispute for review</Text>
@@ -948,7 +948,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: fonts.size.xl,
+    fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.white,
   },

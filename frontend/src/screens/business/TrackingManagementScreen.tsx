@@ -36,7 +36,7 @@ const TrackingManagementScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Track & Manage Shipments</Text>
+      <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Track & Manage Shipments</Text>
       <FlatList
         data={shipments}
         renderItem={renderShipment}
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    fontSize: fonts.size.xl,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.primary,
     marginBottom: 18,

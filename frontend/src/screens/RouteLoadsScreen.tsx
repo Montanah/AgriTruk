@@ -357,7 +357,7 @@ const RouteLoadsScreen = () => {
                     <TouchableOpacity onPress={() => navigation.goBack()}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text.primary} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Route Loads</Text>
+                    <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Route Loads</Text>
                     <View style={{ width: 24 }} />
                 </View>
                 <View style={styles.loadingContainer}>
@@ -375,7 +375,7 @@ const RouteLoadsScreen = () => {
                     <TouchableOpacity onPress={() => navigation.goBack()}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text.primary} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Route Loads</Text>
+                    <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Route Loads</Text>
                     <View style={{ width: 24 }} />
                 </View>
                 <View style={styles.errorContainer}>
@@ -623,9 +623,11 @@ const styles = StyleSheet.create({
         borderBottomColor: colors.border,
     },
     headerTitle: {
-        fontSize: fonts.size.lg,
+        fontSize: 18,
         fontWeight: 'bold',
         color: colors.text.primary,
+        flex: 1,
+        marginRight: 8,
     },
     filterContainer: {
         backgroundColor: colors.white,

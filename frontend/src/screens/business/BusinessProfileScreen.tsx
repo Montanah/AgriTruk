@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ImagePickerModal from '../../components/common/ImagePickerModal';
 import LogoutConfirmationDialog from '../../components/common/LogoutConfirmationDialog';
+import DeleteAccountModal from '../../components/common/DeleteAccountModal';
 import colors from '../../constants/colors';
 import fonts from '../../constants/fonts';
 import spacing from '../../constants/spacing';
@@ -500,9 +501,48 @@ const BusinessProfileScreen = ({ navigation }: any) => {
 
 
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleLogout = () => {
     setShowLogoutDialog(true);
+  };
+
+  const handleDeleteAccount = async (reason: string) => {
+    if (!user?.uid) {
+      Alert.alert('Error', 'User not authenticated.');
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const token = await user.getIdToken();
+      
+      await apiRequest(`/auth/${user.uid}/delete/request`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: reason,
+        }),
+      });
+
+      await signOut(auth);
+      
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AccountDeleted' }],
+      });
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      Alert.alert(
+        'Delete Account Failed',
+        error.message || 'Failed to delete account. Please try again or contact support.'
+      );
+      setDeletingAccount(false);
+    }
   };
 
   const confirmLogout = async () => {
@@ -559,7 +599,7 @@ const BusinessProfileScreen = ({ navigation }: any) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Business Profile</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Business Profile</Text>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="log-out-outline" size={20} color={colors.white} />
@@ -1075,6 +1115,17 @@ const BusinessProfileScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
+        {/* Delete Account Section */}
+        <View style={styles.deleteAccountSection}>
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={() => setShowDeleteAccountModal(true)}
+          >
+            <MaterialCommunityIcons name="delete-outline" size={20} color={colors.error} />
+            <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -1188,6 +1239,13 @@ const BusinessProfileScreen = ({ navigation }: any) => {
         onConfirm={confirmLogout}
         onCancel={() => setShowLogoutDialog(false)}
       />
+
+      <DeleteAccountModal
+        visible={showDeleteAccountModal}
+        onClose={() => setShowDeleteAccountModal(false)}
+        onConfirm={handleDeleteAccount}
+        loading={deletingAccount}
+      />
     </SafeAreaView>
   );
 };
@@ -1213,9 +1271,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   headerTitle: {
-    fontSize: fonts.size.xl,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.white,
+    flex: 1,
+    marginRight: 8,
   },
   logoutButton: {
     padding: 8,
@@ -1546,6 +1606,27 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: 'bold',
     fontSize: 16,
+    marginLeft: spacing.sm,
+  },
+  deleteAccountSection: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.error + '15',
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.error + '30',
+  },
+  deleteAccountButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.error,
     marginLeft: spacing.sm,
   },
   verifyButton: {

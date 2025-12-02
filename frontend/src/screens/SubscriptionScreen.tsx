@@ -80,7 +80,7 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
                     >
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>
+                    <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>
                         {userType === 'company' ? 'Fleet' : userType === 'broker' ? 'Broker' : 'Individual'} Subscription
                     </Text>
                     <View style={styles.headerSpacer} />
@@ -91,7 +91,7 @@ const SubscriptionScreen: React.FC<SubscriptionScreenProps> = ({ route }) => {
 
                 {/* Plan Type Header */}
                 <View style={styles.planTypeHeader}>
-                    <Text style={styles.planTypeTitle}>
+                    <Text style={styles.planTypeTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>
                         {userType === 'company' ? 'Company Fleet Plans' : 
                          userType === 'broker' ? 'Broker Plans' : 
                          'Individual Transporter Plans'}
@@ -264,9 +264,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.2)',
     },
     headerTitle: {
-        fontSize: fonts.size.lg,
+        fontSize: 18,
         fontWeight: 'bold',
         color: colors.white,
+        flex: 1,
+        marginRight: 8,
     },
     headerSpacer: {
         width: 44,

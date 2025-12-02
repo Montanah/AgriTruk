@@ -340,7 +340,7 @@ const ChatScreen = () => {
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Chat with {params.clientName}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Chat with {params.clientName}</Text>
           <Text style={styles.headerSubtitle}>Job #{getDisplayBookingId(params.job || { id: params.bookingId, bookingId: params.bookingId })}</Text>
         </View>
         <View style={styles.headerRight} />

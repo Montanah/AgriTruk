@@ -1056,7 +1056,7 @@ const JobSeekersMarketplaceScreen = () => {
           >
             <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Job Seekers</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Job Seekers</Text>
           <View style={{ width: 24 }} />
         </View>
         
@@ -1227,10 +1227,12 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontFamily: fonts.family.bold,
     color: colors.white,
     letterSpacing: 0.5,
+    flex: 1,
+    marginRight: 8,
   },
   filterButton: {
     padding: 12,

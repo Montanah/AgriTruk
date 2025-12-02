@@ -687,7 +687,7 @@ const ActivityScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Shipments</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>My Shipments</Text>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -701,7 +701,7 @@ const ActivityScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Shipments</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>My Shipments</Text>
         </View>
         <View style={styles.errorContainer}>
           <MaterialCommunityIcons name="alert-circle" size={64} color={colors.error} />
@@ -805,9 +805,11 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.text.light + '20',
   },
   headerTitle: {
-    fontSize: fonts.size.xl,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.text.primary,
+    flex: 1,
+    marginRight: 8,
   },
   headerActions: {
     flexDirection: 'row',

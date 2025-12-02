@@ -758,6 +758,8 @@ export default function App() {
         <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
         <Stack.Screen name="PasswordResetScreen" component={require('./src/screens/auth/PasswordResetScreen').default} />
         <Stack.Screen name="ChangePasswordScreen" component={require('./src/screens/auth/ChangePasswordScreen').default} />
+        <Stack.Screen name="AccountDeleted" component={require('./src/screens/AccountDeletedScreen').default} />
+        <Stack.Screen name="RestoreAccount" component={require('./src/screens/RestoreAccountScreen').default} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
         <Stack.Screen name="TransporterCompletionScreen" component={TransporterCompletionScreen} />

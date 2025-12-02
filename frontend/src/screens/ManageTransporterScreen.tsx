@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
 import LogoutConfirmationDialog from '../components/common/LogoutConfirmationDialog';
+import DeleteAccountModal from '../components/common/DeleteAccountModal';
 import { notificationService } from '../services/notificationService';
 import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
@@ -689,10 +690,50 @@ export default function ManageTransporterScreen({ route }: any) {
   };
 
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Updated logout handler: use LogoutConfirmationDialog
   const handleLogout = () => {
     setShowLogoutDialog(true);
+  };
+
+  const handleDeleteAccount = async (reason: string) => {
+    const user = auth.currentUser;
+    if (!user?.uid) {
+      Alert.alert('Error', 'User not authenticated.');
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      const token = await user.getIdToken();
+      
+      await apiRequest(`/auth/${user.uid}/delete/request`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: reason,
+        }),
+      });
+
+      await signOut(auth);
+      
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AccountDeleted' }],
+      });
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      Alert.alert(
+        'Delete Account Failed',
+        error.message || 'Failed to delete account. Please try again or contact support.'
+      );
+      setDeletingAccount(false);
+    }
   };
 
   const confirmLogout = async () => {
@@ -1957,7 +1998,7 @@ export default function ManageTransporterScreen({ route }: any) {
         <FormKeyboardWrapper style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}>
           {/* Header with Logout Button */}
           <View style={styles.headerContainer}>
-            <Text style={styles.title}>Manage Vehicles, Drivers, Assignments</Text>
+            <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Manage Vehicles, Drivers, Assignments</Text>
             <TouchableOpacity 
               onPress={handleLogout} 
               style={styles.logoutButton}
@@ -2708,6 +2749,17 @@ export default function ManageTransporterScreen({ route }: any) {
               <Text style={styles.complaintButtonText}>View Disputes</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Delete Account Section */}
+          <View style={styles.deleteAccountSection}>
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={() => setShowDeleteAccountModal(true)}
+            >
+              <MaterialCommunityIcons name="delete-outline" size={20} color={colors.error} />
+              <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+            </TouchableOpacity>
+          </View>
         </FormKeyboardWrapper>
         {/* Edit Profile Modal (always rendered) */}
         <Modal
@@ -2787,6 +2839,13 @@ export default function ManageTransporterScreen({ route }: any) {
           visible={showLogoutDialog}
           onConfirm={confirmLogout}
           onCancel={() => setShowLogoutDialog(false)}
+        />
+
+        <DeleteAccountModal
+          visible={showDeleteAccountModal}
+          onClose={() => setShowDeleteAccountModal(false)}
+          onConfirm={handleDeleteAccount}
+          loading={deletingAccount}
         />
       </>
     );
@@ -2997,7 +3056,7 @@ export default function ManageTransporterScreen({ route }: any) {
       <>
         {/* --- INDIVIDUAL UI --- */}
         <FormKeyboardWrapper style={styles.bg} contentContainerStyle={{ ...styles.container, paddingBottom: 120 }}>
-          <Text style={styles.title}>Manage My Vehicle & Profile</Text>
+          <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Manage My Vehicle & Profile</Text>
           <View style={[styles.card, { alignItems: 'center', paddingTop: 24, paddingBottom: 18, marginBottom: 12 }]}>
             <View style={{ alignItems: 'center', marginBottom: 8 }}>
               {individualProfilePhoto ? (
@@ -3501,6 +3560,17 @@ export default function ManageTransporterScreen({ route }: any) {
               </ScrollView>
             </View>
           </Modal>
+
+          {/* Delete Account Section for Individual Transporter */}
+          <View style={styles.deleteAccountSection}>
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={() => setShowDeleteAccountModal(true)}
+            >
+              <MaterialCommunityIcons name="delete-outline" size={20} color={colors.error} />
+              <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+            </TouchableOpacity>
+          </View>
         </FormKeyboardWrapper>
         
         {/* Edit Profile Modal (always rendered) */}
@@ -3572,6 +3642,13 @@ export default function ManageTransporterScreen({ route }: any) {
           onConfirm={confirmLogout}
           onCancel={() => setShowLogoutDialog(false)}
         />
+
+        <DeleteAccountModal
+          visible={showDeleteAccountModal}
+          onClose={() => setShowDeleteAccountModal(false)}
+          onConfirm={handleDeleteAccount}
+          loading={deletingAccount}
+        />
       </>
     );
   }
@@ -3587,7 +3664,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     paddingHorizontal: 4,
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: colors.primaryDark, flex: 1 },
+  title: { fontSize: 18, fontWeight: 'bold', color: colors.primaryDark, flex: 1, marginRight: 8 },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3838,6 +3915,27 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: 'bold',
     fontSize: 16,
+    marginLeft: spacing.sm,
+  },
+  deleteAccountSection: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.error + '15',
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.error + '30',
+  },
+  deleteAccountButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.error,
     marginLeft: spacing.sm,
   },
 });

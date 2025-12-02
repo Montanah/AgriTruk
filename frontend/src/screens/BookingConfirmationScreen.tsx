@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../constants/colors';
@@ -17,6 +17,7 @@ import { getDisplayBookingId } from '../utils/unifiedIdSystem';
 
 // Accepts either a single booking or an array of bookings (for consolidated)
 const BookingConfirmationScreen = ({ route, navigation }: any) => {
+  const insets = useSafeAreaInsets();
   const params = route?.params || {};
   const requests = Array.isArray(params?.requests) ? params.requests : (params?.booking ? [params.booking] : []);
   const isConsolidation = params.isConsolidation === true; // Flag to indicate consolidation mode
@@ -1017,7 +1018,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <KeyboardAvoidingView 
         style={styles.keyboardView} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1036,7 +1037,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
                 size={24} 
                 color={colors.primary} 
               />
-      <Text style={styles.title}>
+      <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>
                 {isConsolidation ? 'Confirm Consolidated Booking' : isConsolidated ? 'Confirm Consolidated Booking' : 'Confirm Booking'}
         {mode !== 'shipper' && ` (${mode})`}
       </Text>
@@ -1247,7 +1248,7 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
         </ScrollView>
         
         {/* Fixed Submit Button at Bottom */}
-        <View style={styles.fixedButtonContainer}>
+        <View style={[styles.fixedButtonContainer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
       <TouchableOpacity
         style={[styles.postBtn, posting && { opacity: 0.6 }]}
         onPress={handlePostBooking}
@@ -1323,7 +1324,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.xl + 100, // Extra padding to ensure content is not hidden behind button
   },
   container: {
     flex: 1,
@@ -1337,7 +1338,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    fontSize: fonts.size.xl,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.primary,
     fontFamily: fonts.family.bold,
@@ -1346,7 +1347,7 @@ const styles = StyleSheet.create({
   fixedButtonContainer: {
     backgroundColor: colors.white,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.text.light + '20',
     shadowColor: colors.black,
