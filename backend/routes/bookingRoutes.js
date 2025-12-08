@@ -375,7 +375,7 @@ router.get('/fleet', authenticateToken, requireRole(['transporter', 'broker', 'a
 router
   .route('/')
   .get(authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), validateBookingAccess, bookingController.getAllBookings)
-  .post(authenticateToken, requireRole(['shipper', 'business', 'broker']), bookingController.createBooking);
+  .post(authenticateToken, requireRole(['shipper', 'business', 'broker', 'admin']), bookingController.createBooking);
 
 /**
  * @swagger
