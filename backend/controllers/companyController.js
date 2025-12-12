@@ -12,7 +12,8 @@ const User = require("../models/User");
 const { formatTimestamps } = require('../utils/formatData');
 const Action = require('../models/Action');
 const { uploadDocuments } = require('./transporterController');
-const { adminNotification } = require('../utils/sendMailTemplate');
+const { adminNotification, getBrokerTemplate } = require('../utils/sendMailTemplate');
+const SubscriptionService = require('../services/subscriptionService');
 
 exports.generateRandomPassword = () => {
   const length = 10;
@@ -214,14 +215,24 @@ exports.approveCompany = async (req, res) => {
 
     const updatedCompany = await Company.approve(companyId);
     
+    //create a onboarding trial
+    const subscriber = await SubscriptionService.startSubscription(company.transporterId, "GovVkOXOqNB3wRyFdK5o", null);
+  ""
+    //console.log("Updated Company", updatedCompany);
+
+    //console.log("Subscriber", subscriber);
+
     const email = company.companyEmail;
-    console.log("Email", email);
+
+    const user = await User.get(company.transporterId);
+   
     await sendEmail({
       to: email,
       subject: 'Company Status',
       text: 'Your company has been approved, proceed to add Drivers and Vehicles.',
+      html: getBrokerTemplate(user, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')  
       //html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
-      html: `<p>Your Company has been approved</p>`
+      // html: `<p>Your Company has been approved</p>`
     });
 
     await logAdminActivity(req.user.uid, 'approve_company', req);
