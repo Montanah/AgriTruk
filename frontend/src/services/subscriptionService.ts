@@ -256,48 +256,23 @@ class SubscriptionService {
         const subscriber = subscriberData.subscriber;
         const hasActiveSubscriber = subscriber && subscriber.status === 'active' && subscriber.isActive === true;
     
-    // Determine if it's a trial based on subscriber data
-    const isTrial = subscriber && (subscriber.isTrial === true || subscriptionData.isTrial === true);
-    
-    // Active subscription is either a paid subscription or an active trial
-    const hasActiveSubscription = subscriptionData.hasActiveSubscription === true || 
-                                 (hasActiveSubscriber && !isTrial);
-    
-    // Trial is active if subscriber is active and it's a trial
-    const isTrialActive = subscriptionData.isTrialActive === true || 
-                         (hasActiveSubscriber && isTrial);
-    
+    // Use backend's calculated values directly - backend handles all calculations correctly
+    // Backend determines isTrial based on plan.price === 0
+    // Backend calculates daysRemaining from endDate - currentTime
+    // Backend uses plan.trialDays (90) or plan.duration (3 months) for trial plans
+    const isTrial = subscriptionData.isTrial === true;
+    const hasActiveSubscription = subscriptionData.hasActiveSubscription === true;
+    const isTrialActive = subscriptionData.isTrialActive === true;
     const needsTrialActivation = subscriptionData.needsTrialActivation === true;
-    const subscriptionStatus = subscriptionData.subscriptionStatus || 
-                              (hasActiveSubscriber ? (isTrial ? 'trial' : 'active') : 'none');
+    const subscriptionStatus = subscriptionData.subscriptionStatus || 'none';
     
-    // Calculate actual days remaining based on start date
-    let daysRemaining = 0;
-    let trialDaysRemaining = 0;
+    // Use backend's calculated daysRemaining directly - backend handles all calculations correctly
+    // Backend calculates: daysRemaining = Math.ceil((endDateMillis - currentTime) / (1000 * 60 * 60 * 24))
+    // Backend uses plan.trialDays (90) or plan.duration (3 months) when creating subscriber
+    // Admin creates subscription with 90-day trial, backend calculates endDate accordingly
+    const daysRemaining = subscriptionData.daysRemaining || 0;
+    const trialDaysRemaining = subscriptionData.trialDaysRemaining || (isTrialActive ? daysRemaining : 0);
     
-    if (subscriberData.subscriber && subscriberData.subscriber.startDate) {
-      const startDate = new Date(subscriberData.subscriber.startDate);
-      const endDate = new Date(subscriberData.subscriber.endDate);
-      const now = new Date();
-      
-      // Calculate days since start
-      const daysSinceStart = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
-      
-      if (isTrial) {
-        // For trial, calculate remaining days from 30-day trial period
-        const totalTrialDays = 30;
-        trialDaysRemaining = Math.max(0, totalTrialDays - daysSinceStart);
-        daysRemaining = trialDaysRemaining;
-      } else {
-        // For regular subscription, calculate from end date
-        const timeDiff = endDate.getTime() - now.getTime();
-        daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
-      }
-    } else {
-      // Fallback to API values if subscriber data not available
-      daysRemaining = subscriptionData.daysRemaining || 0;
-      trialDaysRemaining = subscriptionData.trialDaysRemaining || 0;
-    }
     
     const result = {
       hasActiveSubscription,
@@ -371,10 +346,10 @@ class SubscriptionService {
       return [{
         id: 'trial-plan',
         name: 'Trial Plan',
-        description: '30-day free trial',
+        description: '3-month free trial',
         price: 0,
-        duration: 30,
-        features: ['Basic features', '30-day trial'],
+        duration: 90,
+        features: ['Basic features', '3-month trial'],
         isTrial: true,
         isActive: true
       }];
@@ -720,7 +695,9 @@ class SubscriptionService {
       statusText = 'Trial Active';
       daysRemaining = status.daysRemaining;
       isTrial = true;
-      progressPercentage = Math.max(0, Math.min(1, (30 - daysRemaining) / 30));
+      // Backend uses 90 days (3 months) for trial - use that for progress calculation
+      const totalTrialDays = 90;
+      progressPercentage = Math.max(0, Math.min(1, daysRemaining / totalTrialDays));
       statusColor = '#4ECDC4';
     } else if (status.hasActiveSubscription && status.currentPlan) {
       planName = status.currentPlan.name;
