@@ -1,0 +1,71 @@
+TRUKapp - Complete Transportation Management Platform
+
+TRUKapp is a comprehensive transportation and logistics management platform connecting transporters, brokers, drivers, and businesses across Kenya. Our app streamlines the entire logistics workflow from booking to delivery, making transportation management simple, efficient, and transparent.
+
+KEY FEATURES:
+
+🚛 For Transporters & Fleet Owners:
+• Manage your entire fleet of vehicles and drivers from one dashboard
+• Track real-time vehicle locations and route optimization
+• Accept bookings, manage assignments, and monitor job completion
+• Access detailed analytics and earnings reports
+• Company profile management with document verification
+• 90-day free trial with flexible subscription plans
+
+🚚 For Drivers:
+• Find and accept available jobs in your area
+• Real-time navigation and route guidance
+• Track earnings and job history
+• Update availability status and manage your profile
+• Direct communication with transporters and clients
+
+🏢 For Businesses & Shippers:
+• Book transportation services instantly
+• Track shipments in real-time from pickup to delivery
+• Manage multiple bookings and consolidate shipments
+• Access detailed booking history and invoices
+• Direct communication with transporters
+
+🤝 For Brokers:
+• Connect transporters with clients
+• Manage commissions and transactions
+• Monitor marketplace activity
+• Profile verification and management
+
+WHAT'S NEW IN THIS RELEASE:
+
+✨ Extended Free Trial: Enjoy a longer 90-day (3-month) free trial period for all new users, giving you more time to explore all features.
+
+🔐 Enhanced Account Management: Added secure account deletion functionality with restoration options for better user control.
+
+🎨 Improved User Experience: Fixed screen title displays, improved button positioning, and enhanced date/time formatting across all screens for a cleaner, more professional interface.
+
+⚡ Performance Improvements: Better subscription tracking, improved error handling, and enhanced synchronization with backend services for a smoother experience.
+
+🐛 Bug Fixes: Resolved date/time display issues, fixed navigation problems, and improved overall app stability.
+
+WHY CHOOSE TRUKAPP:
+
+• All-in-one platform for complete logistics management
+• Real-time tracking and communication
+• Secure payment processing
+• Verified transporters and drivers
+• Transparent pricing and booking system
+• Mobile-first design for on-the-go management
+• 24/7 support and assistance
+
+Download TRUKapp today and experience the future of transportation management in Kenya!
+
+---
+
+SHORT VERSION (500 characters):
+
+TRUKapp connects transporters, drivers, brokers & businesses in Kenya. Manage fleets, track shipments, find jobs & handle logistics from one platform. NEW: Extended 90-day free trial, account deletion, improved UI/UX, better performance & bug fixes. Real-time tracking, secure payments, verified users. Download now!
+
+---
+
+ULTRA-SHORT VERSION (80 characters):
+
+Complete logistics platform. 90-day trial. Fleet management, real-time tracking, secure bookings.
+
+

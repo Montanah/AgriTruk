@@ -8,6 +8,7 @@ import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, T
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
 import LogoutConfirmationDialog from '../components/common/LogoutConfirmationDialog';
 import DeleteAccountModal from '../components/common/DeleteAccountModal';
+import BackgroundLocationDisclosureModal from '../components/common/BackgroundLocationDisclosureModal';
 import { notificationService } from '../services/notificationService';
 import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
@@ -108,6 +109,7 @@ export default function ManageTransporterScreen({ route }: any) {
   const [isLocationTracking, setIsLocationTracking] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<any>(null);
   const [locationPermission, setLocationPermission] = useState<string | null>(null);
+  const [showBackgroundLocationDisclosure, setShowBackgroundLocationDisclosure] = useState(false);
   const [locationHistory, setLocationHistory] = useState<any[]>([]);
   const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -466,8 +468,14 @@ export default function ManageTransporterScreen({ route }: any) {
           // Check if location tracking should be active
           // This would typically be based on transporter's online status
           // For now, we'll start tracking when the component mounts
-          const isTracking = await locationService.startLocationTracking();
-          setIsLocationTracking(isTracking);
+          // Check for background location consent first (required by Google Play)
+          const result = await locationService.startLocationTracking();
+          if (result.needsConsent) {
+            // Show disclosure modal - don't start tracking yet
+            setShowBackgroundLocationDisclosure(true);
+          } else {
+            setIsLocationTracking(result.success);
+          }
         } catch (error) {
           console.error('Location tracking setup error:', error);
         }
@@ -3295,7 +3303,14 @@ export default function ManageTransporterScreen({ route }: any) {
           {/* Location Tracking Section */}
           <View style={[styles.card, { marginTop: 8 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={styles.sectionTitle}>Location Tracking</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>Location Tracking</Text>
+                <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 4 }}>
+                  {isLocationTracking 
+                    ? 'Tracking active - Your location is being shared with clients'
+                    : 'Start tracking to share your location with clients during trips'}
+                </Text>
+              </View>
               <TouchableOpacity
                 style={{
                   backgroundColor: isLocationTracking ? colors.success : colors.error,
@@ -3310,8 +3325,22 @@ export default function ManageTransporterScreen({ route }: any) {
                     await locationService.stopLocationTracking();
                     setIsLocationTracking(false);
                   } else {
-                    const started = await locationService.startLocationTracking();
-                    setIsLocationTracking(started);
+                    // Check for background location consent before starting tracking
+                    const result = await locationService.startLocationTracking();
+                    
+                    if (result.needsConsent) {
+                      // Show disclosure modal - user must consent before tracking can start
+                      setShowBackgroundLocationDisclosure(true);
+                    } else {
+                      setIsLocationTracking(result.success);
+                      if (!result.success) {
+                        Alert.alert(
+                          'Location Permission Required',
+                          'Please enable location permissions in your device settings to start tracking.',
+                          [{ text: 'OK' }]
+                        );
+                      }
+                    }
                   }
                 }}
               >
@@ -3648,6 +3677,51 @@ export default function ManageTransporterScreen({ route }: any) {
           onClose={() => setShowDeleteAccountModal(false)}
           onConfirm={handleDeleteAccount}
           loading={deletingAccount}
+        />
+
+        {/* Background Location Disclosure Modal - Required by Google Play Store */}
+        <BackgroundLocationDisclosureModal
+          visible={showBackgroundLocationDisclosure}
+          onAccept={async () => {
+            // User consented - save consent and start tracking
+            await locationService.saveBackgroundLocationConsent(true);
+            setShowBackgroundLocationDisclosure(false);
+            
+            // Now start location tracking with consent
+            const result = await locationService.startLocationTracking(true);
+            setIsLocationTracking(result.success);
+            
+            if (!result.success) {
+              Alert.alert(
+                'Location Permission Required',
+                'Please enable location permissions in your device settings to start tracking.',
+                [{ text: 'OK' }]
+              );
+            }
+          }}
+          onDecline={async () => {
+            // User declined - save consent status and close modal
+            await locationService.saveBackgroundLocationConsent(false);
+            setShowBackgroundLocationDisclosure(false);
+            
+            // Start foreground-only tracking (no background permission needed)
+            const started = await locationService.startForegroundOnlyTracking();
+            setIsLocationTracking(started);
+            
+            if (started) {
+              Alert.alert(
+                'Limited Tracking',
+                'Background location access was declined. Tracking will work when the app is open.',
+                [{ text: 'OK' }]
+              );
+            } else {
+              Alert.alert(
+                'Location Permission Required',
+                'Please enable location permissions in your device settings to start tracking.',
+                [{ text: 'OK' }]
+              );
+            }
+          }}
         />
       </>
     );

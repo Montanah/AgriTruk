@@ -1,0 +1,44 @@
+WHAT'S NEW
+
+🎉 Extended Free Trial
+• Enjoy a longer 90-day (3-month) free trial period for all new users
+• Better subscription tracking and status display
+
+🔐 Account Management
+• Added secure account deletion functionality
+• Account restoration option available
+
+✨ User Interface Improvements
+• Fixed screen title display issues across all screens
+• Improved button positioning and layout consistency
+• Enhanced date and time display formatting
+• Better responsive design for various screen sizes
+
+🚀 Performance & Stability
+• Fixed subscription status calculation errors
+• Improved error handling for network requests
+• Enhanced API response handling
+• Better synchronization with backend services
+
+🐛 Bug Fixes
+• Fixed date/time overlap issues on booking confirmation screen
+• Resolved subscription status display inconsistencies
+• Fixed navigation issues after profile completion
+• Improved error messages for better user understanding
+
+---
+
+SHORT VERSION (for "Recent changes" field - 500 chars):
+
+Extended 90-day free trial for all new users. Added account deletion functionality. Improved UI/UX with better title displays and button positioning. Fixed date/time display issues. Enhanced subscription management and tracking. Better performance and stability improvements. Fixed subscription status calculation errors. Resolved navigation issues. Improved error handling.
+
+---
+
+ULTRA-SHORT VERSION (for summary - 80 chars):
+
+Extended 90-day trial, account deletion, UI improvements, bug fixes & performance enhancements.
+
+
+
+
+

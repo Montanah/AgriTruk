@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../constants/api';
 
 interface LocationUpdate {
@@ -6,6 +7,8 @@ interface LocationUpdate {
   longitude: number;
   timestamp: number;
 }
+
+const BACKGROUND_LOCATION_CONSENT_KEY = '@trukapp:background_location_consent';
 
 class LocationService {
   private watchId: Location.LocationSubscription | null = null;
@@ -16,19 +19,90 @@ class LocationService {
   private onLocationUpdateCallback?: (location: LocationUpdate) => void;
 
   /**
-   * Start automatic location tracking for transporters
+   * Check if user has consented to background location disclosure
+   * Required by Google Play Store before requesting BACKGROUND_LOCATION permission
    */
-  async startLocationTracking(): Promise<boolean> {
+  async hasBackgroundLocationConsent(): Promise<boolean> {
     try {
-      // Starting location tracking
+      const consent = await AsyncStorage.getItem(BACKGROUND_LOCATION_CONSENT_KEY);
+      return consent === 'true';
+    } catch (error) {
+      console.error('Error checking background location consent:', error);
+      return false;
+    }
+  }
 
-      // Request permissions
+  /**
+   * Save user consent for background location disclosure
+   */
+  async saveBackgroundLocationConsent(consented: boolean): Promise<void> {
+    try {
+      await AsyncStorage.setItem(BACKGROUND_LOCATION_CONSENT_KEY, consented ? 'true' : 'false');
+    } catch (error) {
+      console.error('Error saving background location consent:', error);
+    }
+  }
+
+  /**
+   * Start location tracking with foreground permissions only (no background)
+   * Used when user declines background location consent
+   */
+  async startForegroundOnlyTracking(): Promise<boolean> {
+    try {
+      // Request foreground permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.error('Location permission denied');
+        console.error('Foreground location permission denied');
         return false;
       }
 
+      // Start watching location (foreground only)
+      this.watchId = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: this.updateInterval,
+          distanceInterval: this.minDistanceInterval,
+        },
+        (location) => this.handleLocationUpdate(location),
+      );
+
+      this.isTracking = true;
+      return true;
+    } catch (error) {
+      console.error('Failed to start foreground-only location tracking:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Start automatic location tracking for transporters
+   * 
+   * IMPORTANT: This method now requires explicit user consent for background location
+   * per Google Play Store's Prominent Disclosure requirement. Call hasBackgroundLocationConsent()
+   * first and show BackgroundLocationDisclosureModal if consent hasn't been given.
+   */
+  async startLocationTracking(hasConsent: boolean = false): Promise<{ success: boolean; needsConsent: boolean }> {
+    try {
+      // Starting location tracking
+
+      // Request foreground permissions first
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.error('Location permission denied');
+        return { success: false, needsConsent: false };
+      }
+
+      // Check if background location consent has been given
+      // This is required by Google Play Store before requesting BACKGROUND_LOCATION permission
+      const hasConsentValue = hasConsent || await this.hasBackgroundLocationConsent();
+      
+      if (!hasConsentValue) {
+        // Consent not given - return needsConsent flag
+        // The calling component should show BackgroundLocationDisclosureModal
+        return { success: false, needsConsent: true };
+      }
+
+      // Consent has been given - safe to request background permissions
       // Request background permissions for continuous tracking
       try {
         const backgroundStatus = await Location.requestBackgroundPermissionsAsync();
@@ -52,10 +126,10 @@ class LocationService {
       );
 
       this.isTracking = true;
-      return true;
+      return { success: true, needsConsent: false };
     } catch (error) {
       console.error('Failed to start location tracking:', error);
-      return false;
+      return { success: false, needsConsent: false };
     }
   }
 

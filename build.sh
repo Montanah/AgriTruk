@@ -726,13 +726,60 @@ verify_ios_credentials() {
     cd frontend
     local eas_cmd=$(get_eas_cmd)
     
-    # Try to check credentials with a short timeout
-    local creds_output
+    # Try to check credentials with a short timeout and kill signal
+    # Use a background process with timeout to prevent hanging
+    local creds_output=""
+    local temp_file=$(mktemp)
+    
     if command -v timeout >/dev/null 2>&1; then
-        creds_output=$(timeout 10 $eas_cmd credentials --platform ios 2>&1 | grep -i "production\|store\|configured" | head -5 || echo "")
+        # Use timeout with kill signal - 5 seconds should be enough
+        # Redirect input from /dev/null to prevent interactive prompts
+        (timeout -k 2 5 $eas_cmd credentials --platform ios < /dev/null 2>&1 | grep -i "production\|store\|configured" | head -5 > "$temp_file" 2>&1) &
+        local creds_pid=$!
+        
+        # Wait for process with timeout
+        local wait_count=0
+        while kill -0 $creds_pid 2>/dev/null && [ $wait_count -lt 6 ]; do
+            sleep 1
+            wait_count=$((wait_count + 1))
+        done
+        
+        # Kill if still running
+        if kill -0 $creds_pid 2>/dev/null; then
+            kill $creds_pid 2>/dev/null || true
+            sleep 1
+            kill -9 $creds_pid 2>/dev/null || true
+        fi
+        
+        # Read output if available
+        if [ -f "$temp_file" ]; then
+            creds_output=$(cat "$temp_file" 2>/dev/null || echo "")
+        fi
+        rm -f "$temp_file"
     else
-        # Quick check without timeout
-        creds_output=$($eas_cmd credentials --platform ios 2>&1 | grep -i "production\|store\|configured" | head -5 || echo "")
+        # Quick check without timeout - use background process
+        ($eas_cmd credentials --platform ios < /dev/null 2>&1 | grep -i "production\|store\|configured" | head -5 > "$temp_file" 2>&1) &
+        local creds_pid=$!
+        
+        # Wait max 5 seconds
+        local wait_count=0
+        while kill -0 $creds_pid 2>/dev/null && [ $wait_count -lt 5 ]; do
+            sleep 1
+            wait_count=$((wait_count + 1))
+        done
+        
+        # Kill if still running
+        if kill -0 $creds_pid 2>/dev/null; then
+            kill $creds_pid 2>/dev/null || true
+            sleep 1
+            kill -9 $creds_pid 2>/dev/null || true
+        fi
+        
+        # Read output if available
+        if [ -f "$temp_file" ]; then
+            creds_output=$(cat "$temp_file" 2>/dev/null || echo "")
+        fi
+        rm -f "$temp_file"
     fi
     
     cd ..
@@ -741,8 +788,8 @@ verify_ios_credentials() {
         print_success "iOS credentials appear to be configured"
         return 0
     else
-        print_warning "Could not verify iOS credentials automatically"
-        print_warning "If build hangs, credentials may need to be set up"
+        print_warning "Could not verify iOS credentials automatically (check skipped to prevent hanging)"
+        print_warning "Build will proceed - EAS will handle credentials during build if needed"
         return 1
     fi
 }
@@ -751,36 +798,39 @@ verify_ios_credentials() {
 build_ipa_eas() {
     print_header "Building IPA with EAS (Cloud Build)"
     print_warning "This will build IPA using EAS cloud servers for Apple App Store"
+    echo ""
     
-    check_eas_login
+    # Check EAS login
+    print_status "Checking EAS login..."
+    cd frontend
+    local eas_cmd=$(get_eas_cmd)
+    local login_check=$(timeout 5 $eas_cmd whoami 2>&1 | head -1 || echo "")
+    cd ..
     
-    # Check network connectivity
-    if ! check_network; then
-        print_error "Network connectivity check failed. Please fix network issues and try again."
+    if [ -z "$login_check" ] || echo "$login_check" | grep -qi "error\|not logged\|unauthorized"; then
+        print_error "EAS login check failed or timed out."
+        print_status "Please login first: cd frontend && eas login"
         exit 1
+    else
+        print_success "EAS login verified: $login_check"
     fi
+    echo ""
     
-    # Verify credentials (non-blocking)
-    verify_ios_credentials || true
-    
-    # Verify iOS settings BEFORE updating config (in case update fails)
-    print_status "Pre-build verification: Checking iOS Info.plist settings..."
+    # Verify iOS settings
+    print_status "Verifying iOS Info.plist settings..."
     if ! verify_ios_info_plist_settings; then
-        print_warning "Some critical settings may be missing. Continuing anyway..."
-        print_warning "The build script will attempt to add them."
+        print_warning "Some settings may be missing. The build script will add them."
     fi
     
     # Clean up development dependencies
     cleanup_dev_deps
     
-    # Update app config for production (this will add all required settings)
+    # Update app config for production
     update_app_config_for_production
     
-    # Final verification after config update
-    print_status "Post-config verification: Ensuring all settings are present..."
+    # Final verification
     if ! verify_ios_info_plist_settings; then
-        print_error "CRITICAL: iOS Info.plist settings verification failed after config update!"
-        print_error "This may cause iOS crashes. Aborting build."
+        print_error "CRITICAL: iOS Info.plist settings verification failed!"
         exit 1
     fi
     
@@ -788,86 +838,212 @@ build_ipa_eas() {
     export EXPO_PUBLIC_BUILD_MODE=production
     export NODE_ENV=production
     
-    print_step "Starting EAS build (IPA for Apple App Store)..."
-    print_warning "Note: iOS builds require Apple Developer credentials to be set up first."
-    print_status "If this is your first iOS build, you may need to run:"
-    print_status "  cd frontend && eas credentials"
-    print_status "This will set up your Apple Developer certificates and provisioning profiles."
+    print_step "Starting EAS iOS build..."
+    echo ""
+    print_warning "⚠️  IMPORTANT: iOS builds require Apple Developer credentials"
+    print_status "If credentials aren't set up, the build will hang."
     echo ""
     
+    # Check credentials BEFORE building to avoid hangs
+    print_status "Checking iOS credentials setup..."
     cd frontend
-    local eas_cmd=$(get_eas_cmd)
     
-    echo ""
-    print_status "Starting EAS build process..."
-    print_status "Command: $eas_cmd build --platform ios --profile production --non-interactive"
-    print_warning "If the build hangs, it may be waiting for credentials setup."
-    print_warning "Press Ctrl+C to cancel, then run: cd frontend && eas credentials --platform ios"
-    echo ""
+    # Try to check credentials status (non-blocking)
+    local creds_check=$(timeout 10 $eas_cmd credentials --platform ios --profile production 2>&1 | grep -i "configured\|production\|store\|app.*id\|team" | head -3 || echo "")
     
-    # Run build command directly without capturing output
-    # This allows real-time output and prevents hanging issues
-    # The --non-interactive flag should prevent prompts, but if credentials
-    # aren't set up, it may still hang - user can Ctrl+C and set up credentials
-    
-    if command -v timeout >/dev/null 2>&1; then
-        # Use timeout of 2 minutes for initial validation
-        # If credentials are set up, the build should start quickly
-        # If it hangs longer, it's likely waiting for credentials
-        print_status "Starting build (2-minute timeout for initial validation)..."
-        print_status "If it hangs, press Ctrl+C and set up credentials first."
-        echo ""
-        
-        if timeout 120 $eas_cmd build --platform ios --profile production --non-interactive; then
-            print_success ""
-            print_success "IPA build initiated on EAS! Check EAS dashboard for progress."
-            print_status "Once complete, you can download the IPA and upload to App Store Connect."
-            print_warning "Note: You'll need an Apple Developer account for App Store submission."
-            cd ..
-            return 0
-        else
-            local exit_code=$?
-            cd ..
-            if [ $exit_code -eq 124 ]; then
-                print_error ""
-                print_error "Build command timed out after 2 minutes."
-                print_error "This usually means it's waiting for iOS credentials setup."
-                print_status ""
-                print_status "To fix this, run:"
-                print_status "  cd frontend"
-                print_status "  eas credentials --platform ios"
-                print_status ""
-                print_status "Then run the build again."
-                exit 1
-            else
-                print_error "Build command failed with exit code $exit_code"
-                print_status "Check the output above for details."
-                exit 1
-            fi
-        fi
-    else
-        # No timeout available - run directly
-        print_status "Starting build (no timeout - if it hangs, press Ctrl+C)..."
-        echo ""
-        
-        if $eas_cmd build --platform ios --profile production --non-interactive; then
-            print_success ""
-            print_success "IPA build initiated on EAS! Check EAS dashboard for progress."
-            print_status "Once complete, you can download the IPA and upload to App Store Connect."
-            print_warning "Note: You'll need an Apple Developer account for App Store submission."
-            cd ..
-            return 0
-        else
-            local exit_code=$?
-            cd ..
-            print_error "Build command failed with exit code $exit_code"
-            print_status "Check the output above for details."
+    if [ -z "$creds_check" ]; then
+        print_warning "Could not verify credentials automatically."
+        print_status ""
+        read -p "Have you set up iOS credentials? (y/n): " has_creds
+        if [ "$has_creds" != "y" ] && [ "$has_creds" != "Y" ]; then
+            print_error ""
+            print_error "❌ Please set up credentials first!"
             print_status ""
-            print_status "If it hung, you may need to set up credentials:"
+            print_status "Run these commands:"
             print_status "  cd frontend"
-            print_status "  eas credentials --platform ios"
+            print_status "  eas credentials --platform ios --profile production"
+            print_status ""
+            print_status "Follow the prompts to set up your Apple Developer account."
+            cd ..
             exit 1
         fi
+    else
+        print_success "Credentials check passed"
+    fi
+    echo ""
+    
+    print_status "Starting build..."
+    print_status "Note: Uploads can take 5-10 minutes - please be patient!"
+    echo ""
+    
+    # Use a background process with monitoring to handle hangs
+    local build_log=$(mktemp)
+    local build_pid_file=$(mktemp)
+    
+    # Set up trap for cleanup
+    trap "rm -f $build_log $build_pid_file 2>/dev/null; cd .. 2>/dev/null; exit 130" INT TERM
+    
+    # Start build in background
+    (
+        $eas_cmd build --platform ios --profile production --non-interactive > "$build_log" 2>&1
+        echo $? > "$build_pid_file"
+    ) &
+    local build_pid=$!
+    
+    # Monitor the build process
+    local elapsed=0
+    local max_wait=600  # 10 minutes for uploads/builds
+    local last_output_size=0
+    local last_output_time=$(date +%s)
+    local no_output_threshold=180  # 3 minutes without output = potential hang
+    
+    print_status "Build started (PID: $build_pid)"
+    print_status "Monitoring build progress (uploads can take several minutes)..."
+    echo ""
+    
+    while kill -0 $build_pid 2>/dev/null && [ $elapsed -lt $max_wait ]; do
+        sleep 5
+        elapsed=$((elapsed + 5))
+        
+        # Check if output is growing (build is progressing)
+        local current_size=$(wc -c < "$build_log" 2>/dev/null || echo 0)
+        local current_time=$(date +%s)
+        
+        if [ $current_size -gt $last_output_size ]; then
+            # Output is growing - show recent lines
+            local recent_lines=$(tail -3 "$build_log" 2>/dev/null | grep -v "^$" | tail -1)
+            if [ -n "$recent_lines" ]; then
+                echo "$recent_lines"
+            fi
+            last_output_size=$current_size
+            last_output_time=$current_time
+        else
+            # No new output - check how long it's been
+            local time_since_output=$((current_time - last_output_time))
+            
+            # Check if process is still active (not hung)
+            if command -v ps >/dev/null 2>&1; then
+                # Check if process is consuming CPU or has network activity
+                local proc_state=$(ps -o state= -p $build_pid 2>/dev/null || echo "")
+                if [ "$proc_state" != "T" ] && [ "$proc_state" != "Z" ]; then
+                    # Process is running (not stopped/zombie) - likely uploading
+                    if [ $time_since_output -gt $no_output_threshold ]; then
+                        # Been too long without output, but process is active
+                        # Check if it's actually uploading (check for upload keywords in last output)
+                        local last_line=$(tail -1 "$build_log" 2>/dev/null || echo "")
+                        if echo "$last_line" | grep -qi "upload\|compress\|building\|preparing"; then
+                            # Likely still uploading/processing - reset timer
+                            last_output_time=$current_time
+                            print_status "Still uploading/processing... ($(($elapsed / 60))m $(($elapsed % 60))s)"
+                        fi
+                    fi
+                fi
+            fi
+        fi
+        
+        # Show progress every 30 seconds
+        if [ $((elapsed % 30)) -eq 0 ] && [ $elapsed -gt 0 ]; then
+            local minutes=$((elapsed / 60))
+            local seconds=$((elapsed % 60))
+            print_status "Build in progress... (${minutes}m ${seconds}s)"
+        fi
+    done
+    
+    # Check if build is still running
+    if kill -0 $build_pid 2>/dev/null; then
+        # Check if we timed out or if it's actually hung
+        local time_since_output=$(($(date +%s) - last_output_time))
+        local last_line=$(tail -1 "$build_log" 2>/dev/null || echo "")
+        
+        # If last line mentions upload/compress, allow much more time (uploads are slow)
+        if echo "$last_line" | grep -qi "upload\|compress\|uploading"; then
+            print_warning ""
+            print_warning "Build is uploading files (this can take 10+ minutes for large projects)"
+            print_status "Continuing to monitor upload progress..."
+            print_status "Press Ctrl+C to cancel if needed"
+            echo ""
+            
+            # Continue monitoring during upload - don't kill it
+            while kill -0 $build_pid 2>/dev/null; do
+                sleep 10
+                local current_size=$(wc -c < "$build_log" 2>/dev/null || echo 0)
+                if [ $current_size -gt $last_output_size ]; then
+                    # New output - show it
+                    tail -1 "$build_log" 2>/dev/null
+                    last_output_size=$current_size
+                    last_output_time=$(date +%s)
+                else
+                    # Still no output - check if still uploading
+                    local current_line=$(tail -1 "$build_log" 2>/dev/null || echo "")
+                    if ! echo "$current_line" | grep -qi "upload\|compress"; then
+                        # No longer uploading - might be done or error
+                        break
+                    fi
+                    # Still uploading - show status
+                    local elapsed_total=$(($(date +%s) - (last_output_time - time_since_output)))
+                    local elapsed_min=$((elapsed_total / 60))
+                    if [ $((elapsed_total % 60)) -eq 0 ] && [ $elapsed_min -gt 0 ]; then
+                        print_status "Still uploading... (${elapsed_min}m elapsed)"
+                    fi
+                fi
+            done
+        elif [ $time_since_output -gt $no_output_threshold ]; then
+            # Build appears hung - kill it
+            print_error ""
+            print_error "❌ Build appears to be hanging (no output for $(($time_since_output / 60)) minutes)"
+            print_status "Killing build process..."
+            kill $build_pid 2>/dev/null
+            sleep 2
+            kill -9 $build_pid 2>/dev/null
+            rm -f "$build_log" "$build_pid_file"
+            cd ..
+            trap - INT TERM
+            
+            print_error ""
+            print_error "Build was cancelled due to hang."
+            print_status ""
+            print_status "If this was during upload, your network may be slow."
+            print_status "Try again or check: cd frontend && eas build:list"
+            exit 1
+        else
+            # Just hit max wait time - let it continue
+            print_warning ""
+            print_warning "Build is taking longer than expected, but appears to be progressing..."
+            print_status "Continuing to monitor..."
+        fi
+    fi
+    
+    # Wait for build to finish
+    wait $build_pid 2>/dev/null
+    local build_result=$(cat "$build_pid_file" 2>/dev/null || echo 1)
+    
+    # Show full output
+    echo ""
+    print_status "Build output:"
+    cat "$build_log"
+    echo ""
+    
+    # Cleanup
+    rm -f "$build_log" "$build_pid_file"
+    cd ..
+    trap - INT TERM
+    
+    # Check result
+    if [ "$build_result" = "0" ]; then
+        print_success ""
+        print_success "✅ IPA build initiated successfully!"
+        print_status "Check EAS dashboard for build progress: https://expo.dev/accounts/truk/projects/TRUKapp/builds"
+        print_status "Once complete, download the IPA and upload to App Store Connect."
+        return 0
+    else
+        print_error ""
+        print_error "❌ Build failed with exit code $build_result"
+        print_status ""
+        print_status "Common causes:"
+        print_status "  • Missing iOS credentials (run: cd frontend && eas credentials --platform ios --profile production)"
+        print_status "  • Network/API issues (check: https://status.expo.dev)"
+        print_status "  • Configuration errors"
+        exit 1
     fi
 }
 

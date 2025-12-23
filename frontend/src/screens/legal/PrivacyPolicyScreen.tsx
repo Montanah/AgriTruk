@@ -17,7 +17,7 @@ const PrivacyPolicyScreen = () => {
   const navigation = useNavigation();
 
   const dataCollection = [
-    { userType: 'Drivers', data: 'Name, phone, email, National ID, driving license, Certificate of Good Conduct, PSV badge, photo, location, experience, ratings' },
+    { userType: 'Drivers/Transporters', data: 'Name, phone, email, National ID, driving license, Certificate of Good Conduct, PSV badge, photo, location (including background location when transporting), experience, ratings' },
     { userType: 'Recruiters', data: 'Company name, contact person, phone, email, payment details, subscription history' },
     { userType: 'All Users', data: 'IP address, device info, browser type, usage patterns, cookies' },
   ];
@@ -28,6 +28,9 @@ const PrivacyPolicyScreen = () => {
     { purpose: 'Match drivers with job opportunities', legalBasis: 'Contract' },
     { purpose: 'Process payments and subscriptions', legalBasis: 'Contract' },
     { purpose: 'Send job alerts and notifications', legalBasis: 'Consent' },
+    { purpose: 'Real-time vehicle tracking during active trips', legalBasis: 'Consent' },
+    { purpose: 'Provide accurate delivery ETAs and status updates', legalBasis: 'Consent' },
+    { purpose: 'Ensure safety and enable quick assistance if needed', legalBasis: 'Consent' },
     { purpose: 'Improve platform performance', legalBasis: 'Legitimate Interest' },
     { purpose: 'Prevent fraud and ensure security', legalBasis: 'Legitimate Interest' },
     { purpose: 'Comply with legal obligations', legalBasis: 'Legal Obligation' },
@@ -59,7 +62,7 @@ const PrivacyPolicyScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.lastUpdated}>
-          <Text style={styles.lastUpdatedText}>Last Updated: November 2, 2025</Text>
+          <Text style={styles.lastUpdatedText}>Last Updated: December 2024</Text>
         </View>
 
         {/* Section 1: Introduction */}
@@ -87,6 +90,11 @@ const PrivacyPolicyScreen = () => {
                 </View>
               </View>
             ))}
+          </View>
+          <View style={styles.highlightBox}>
+            <Text style={styles.highlightText}>
+              Background Location: For transporters/drivers, we collect location data in the background only when you're actively transporting goods. This requires your explicit consent, which is requested through a prominent disclosure before enabling background location tracking.
+            </Text>
           </View>
         </View>
 
@@ -237,9 +245,43 @@ const PrivacyPolicyScreen = () => {
           </View>
         </View>
 
-        {/* Section 8: Cookies & Tracking */}
+        {/* Section 8: Location Tracking & Cookies */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>8. Cookies & Tracking</Text>
+          <Text style={styles.sectionTitle}>8. Location Tracking & Cookies</Text>
+          
+          <Text style={styles.sectionContent}>
+            <Text style={styles.boldText}>Location Tracking:</Text>
+          </Text>
+          <View style={styles.bulletList}>
+            <View style={styles.bulletItem}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.bulletText}>
+                <Text style={styles.boldText}>Foreground Location:</Text> Used when the app is open to show your position on maps and calculate routes.
+              </Text>
+            </View>
+            <View style={styles.bulletItem}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.bulletText}>
+                <Text style={styles.boldText}>Background Location:</Text> Only collected when you're actively transporting goods, with your explicit consent. Location updates are sent every 10 seconds or when you move 100 meters, whichever comes first.
+              </Text>
+            </View>
+            <View style={styles.bulletItem}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.bulletText}>
+                <Text style={styles.boldText}>You can stop tracking:</Text> At any time from the app settings or by disabling location permissions in your device settings.
+              </Text>
+            </View>
+            <View style={styles.bulletItem}>
+              <Text style={styles.bullet}>•</Text>
+              <Text style={styles.bulletText}>
+                <Text style={styles.boldText}>Location data is:</Text> Encrypted, securely stored, and only shared with clients for active bookings.
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionContent}>
+            <Text style={styles.boldText}>Cookies & Tracking:</Text>
+          </Text>
           <View style={styles.bulletList}>
             <View style={styles.bulletItem}>
               <Text style={styles.bullet}>•</Text>
