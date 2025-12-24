@@ -29,16 +29,19 @@ const SubscriptionExpiredScreen: React.FC<SubscriptionExpiredScreenProps> = ({ r
     const { userType, userId, expiredDate } = route.params;
 
     const handleRenewSubscription = () => {
-        if (userType === 'broker') {
-            // Navigate to payment confirmation for brokers after subscription renewal
-            navigation.navigate('PaymentConfirmation', {
-                userType: 'broker',
-                subscriptionType: 'renewal',
-                expiredDate: expiredDate
-            });
-        } else {
-            navigation.navigate('SubscriptionScreen', { userType });
-        }
+        // Navigate to SubscriptionTrialScreen for plan purchase (reused for renewal)
+        // This screen handles payment method selection and smart card for paid plans
+        // Works for both transporters and brokers
+        navigation.navigate('SubscriptionTrial', {
+            userType: userType, // Can be 'individual', 'broker', or 'company'
+            transporterType: userType === 'company' ? 'company' : (userType === 'individual' ? 'individual' : undefined),
+            subscriptionStatus: {
+                subscriptionStatus: 'expired',
+                isExpired: true,
+                needsRenewal: true
+            },
+            isRenewal: true // Flag to indicate this is for renewal/purchase, not trial activation
+        });
     };
 
     const handleContactSupport = () => {
@@ -47,16 +50,19 @@ const SubscriptionExpiredScreen: React.FC<SubscriptionExpiredScreenProps> = ({ r
     };
 
     const getExpiredFeatures = () => {
-        if (userType === 'transporter') {
+        // Features for transporters (individual or company)
+        if (userType === 'individual' || userType === 'company') {
             return [
                 'Job request access',
                 'Route optimization',
                 'Real-time tracking',
                 'Customer support',
                 'Analytics & insights',
-                'Fleet management tools',
+                userType === 'company' ? 'Fleet management tools' : 'Vehicle management',
             ];
-        } else {
+        } 
+        // Features for brokers
+        else if (userType === 'broker') {
             return [
                 'Client request access',
                 'Consolidation tools',
@@ -67,6 +73,13 @@ const SubscriptionExpiredScreen: React.FC<SubscriptionExpiredScreenProps> = ({ r
                 'Client management tools',
             ];
         }
+        // Default fallback
+        return [
+            'Access to all premium features',
+            'Real-time tracking',
+            'Customer support',
+            'Analytics & insights',
+        ];
     };
 
     const formatExpiredDate = (dateString: string) => {

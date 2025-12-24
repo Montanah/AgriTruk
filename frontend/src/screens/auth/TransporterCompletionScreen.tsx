@@ -202,30 +202,31 @@ export default function TransporterCompletionScreen() {
                 else if (subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
                   console.log('⚠️ User subscription expired, navigating to expired screen');
                   clearTimeout(timeout);
+                  // Map transporterType to correct userType for expired screen
+                  const userTypeForExpired = transporterType === 'company' ? 'company' : 'individual';
                   navigation.reset({
                     index: 0,
                     routes: [
                       { name: 'SubscriptionExpiredScreen', params: { 
-                        userType: 'transporter',
+                        userType: userTypeForExpired,
                         userId: 'current_user',
-                        expiredDate: new Date().toISOString()
+                        expiredDate: subscriptionStatus.subscriptionExpiryDate || new Date().toISOString()
                       } },
                     ],
                   } as any);
                   return;
                 } 
                 
-                // Priority 3: No subscription or needs trial activation - go to trial screen
+                // Priority 3: No subscription or needs trial activation
+                // NOTE: If admin creates subscriptions, users don't activate trials themselves
+                // Just redirect to dashboard - admin will create subscription when ready
                 else {
-                  console.log('🔄 User needs trial activation, navigating to trial screen');
+                  console.log('ℹ️ User needs subscription - admin will create it. Navigating to dashboard.');
                   clearTimeout(timeout);
                   navigation.reset({
                     index: 0,
                     routes: [
-                      { name: 'SubscriptionTrial', params: { 
-                        userType: 'transporter',
-                        subscriptionStatus: subscriptionStatus 
-                      } },
+                      { name: 'TransporterTabs', params: { transporterType: transporterType } },
                     ],
                   } as any);
                   return;

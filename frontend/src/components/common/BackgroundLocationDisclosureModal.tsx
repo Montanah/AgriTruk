@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { colors } from '../../constants/colors';
+import colors from '../../constants/colors';
 
 interface BackgroundLocationDisclosureModalProps {
   visible: boolean;
@@ -36,14 +36,24 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
   onAccept,
   onDecline,
 }) => {
-  const [hasScrolled, setHasScrolled] = useState(false);
   const navigation = useNavigation<any>();
+
+  // Log when modal is shown - CRITICAL for Google Play compliance verification
+  useEffect(() => {
+    if (visible) {
+      console.log('📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: Modal is now VISIBLE');
+      console.log('📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: This is the Prominent Disclosure required by Google Play Store');
+      console.log('📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: Modal shown BEFORE requesting BACKGROUND_LOCATION permission');
+    }
+  }, [visible]);
 
   // Prevent dismissing modal with back button (Android)
   useEffect(() => {
     if (visible) {
       const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
         // Prevent closing modal with back button - user must make a choice
+        // This ensures compliance with Google Play requirements
+        console.log('📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: Back button pressed - blocking dismissal');
         return true;
       });
 
@@ -71,8 +81,6 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
-          onScroll={() => setHasScrolled(true)}
-          scrollEventThrottle={16}
         >
           {/* Header */}
           <View style={styles.header}>
@@ -190,14 +198,22 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.button, styles.declineButton]}
-            onPress={onDecline}
+            onPress={() => {
+              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User DECLINED background location disclosure');
+              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: App will use foreground-only location tracking');
+              onDecline();
+            }}
           >
             <Text style={styles.declineButtonText}>Not Now</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.acceptButton]}
-            onPress={onAccept}
+            onPress={() => {
+              console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User ACCEPTED background location disclosure');
+              console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Consent saved - can now request BACKGROUND_LOCATION permission');
+              onAccept();
+            }}
           >
             <MaterialCommunityIcons
               name="check"

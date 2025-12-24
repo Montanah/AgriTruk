@@ -8,6 +8,7 @@ import NetworkTest from '../components/NetworkTest';
 import TransporterProfile from '../components/TransporterService/TransporterProfile';
 import TransporterInsights from '../components/TransporterService/TransporterInsights';
 import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
+import BackgroundLocationDisclosureModal from '../components/common/BackgroundLocationDisclosureModal';
 import { fonts, spacing } from '../constants';
 import colors from '../constants/colors';
 import { API_ENDPOINTS } from '../constants/api';
@@ -16,6 +17,7 @@ import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
 import { getLocationName, formatRoute, getLocationNameSync } from '../utils/locationUtils';
 import LocationDisplay from '../components/common/LocationDisplay';
 import { getDisplayBookingId, getBookingType } from '../utils/bookingIdGenerator';
+import locationService from '../services/locationService';
 
 export default function TransporterHomeScreen() {
   const navigation = useNavigation();
@@ -46,6 +48,10 @@ export default function TransporterHomeScreen() {
   
   // Subscription status
   const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
+  
+  // Background location disclosure state - CRITICAL for Google Play compliance
+  const [showBackgroundLocationDisclosure, setShowBackgroundLocationDisclosure] = useState(false);
+  const [hasCheckedConsent, setHasCheckedConsent] = useState(false);
 
   const testBackend = async () => {
     setConnectivityStatus('Testing...');
@@ -102,6 +108,33 @@ export default function TransporterHomeScreen() {
       setUpdatingBookingStatus(false);
     }
   };
+
+  // Check background location consent on mount - CRITICAL for Google Play compliance
+  useEffect(() => {
+    const checkBackgroundLocationConsent = async () => {
+      try {
+        console.log('🔍 TransporterHomeScreen: Checking background location consent...');
+        const hasConsent = await locationService.hasBackgroundLocationConsent();
+        console.log('🔍 TransporterHomeScreen: Background location consent status:', hasConsent);
+        
+        // If consent hasn't been given, show the prominent disclosure modal
+        // This ensures Google Play reviewers will see it immediately
+        if (!hasConsent) {
+          console.log('📢 TransporterHomeScreen: No consent found - showing prominent disclosure modal');
+          setShowBackgroundLocationDisclosure(true);
+        }
+        
+        setHasCheckedConsent(true);
+      } catch (error) {
+        console.error('Error checking background location consent:', error);
+        // On error, show the disclosure to be safe (better to show it than miss it)
+        setShowBackgroundLocationDisclosure(true);
+        setHasCheckedConsent(true);
+      }
+    };
+
+    checkBackgroundLocationConsent();
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -796,6 +829,31 @@ export default function TransporterHomeScreen() {
           </View>
         </View>
       )}
+      
+      {/* Background Location Disclosure Modal - CRITICAL for Google Play compliance */}
+      {/* This modal MUST be shown before requesting BACKGROUND_LOCATION permission */}
+      <BackgroundLocationDisclosureModal
+        visible={showBackgroundLocationDisclosure}
+        onAccept={async () => {
+          console.log('✅ TransporterHomeScreen: User accepted background location disclosure');
+          // User consented - save consent
+          await locationService.saveBackgroundLocationConsent(true);
+          setShowBackgroundLocationDisclosure(false);
+          
+          // Note: We don't start tracking here - that happens when user explicitly starts tracking
+          // This disclosure is just for consent, per Google Play requirements
+          console.log('✅ TransporterHomeScreen: Background location consent saved');
+        }}
+        onDecline={async () => {
+          console.log('❌ TransporterHomeScreen: User declined background location disclosure');
+          // User declined - save consent status
+          await locationService.saveBackgroundLocationConsent(false);
+          setShowBackgroundLocationDisclosure(false);
+          
+          // User can still use the app, but background location won't be available
+          console.log('ℹ️ TransporterHomeScreen: Background location consent declined - app will use foreground-only tracking');
+        }}
+      />
     </ScrollView>
   );
 }

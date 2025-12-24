@@ -43,15 +43,43 @@ const SmartPaymentForm: React.FC<SmartPaymentFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const scaleAnim = React.useRef(new Animated.Value(0.95)).current;
+  const fadeAnim = React.useRef(new Animated.Value(1)).current; // Start visible
+  const scaleAnim = React.useRef(new Animated.Value(1)).current; // Start at full scale
+
+  // Animate in on mount
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   // Validate card data whenever it changes
   useEffect(() => {
+    // Only validate if user has started entering data
     if (cardData.number || cardData.expiry || cardData.cvv || cardData.cardholderName) {
       const validationResult = validateFullCard(cardData);
       setValidation(validationResult);
-      onValidationChange?.(validationResult.overall.isValid);
+      
+      // Only report as valid if all fields are complete and valid
+      // Don't show errors while user is still typing
+      const isComplete = cardData.number.length >= 13 && 
+                         cardData.expiry.length >= 4 && 
+                         cardData.cvv.length >= 3 && 
+                         cardData.cardholderName.length >= 2;
+      
+      onValidationChange?.(validationResult.overall.isValid && isComplete);
+    } else {
+      // Reset validation when form is empty
+      onValidationChange?.(false);
     }
   }, [cardData, onValidationChange]);
 
@@ -107,9 +135,30 @@ const SmartPaymentForm: React.FC<SmartPaymentFormProps> = ({
     }
   };
 
-  // Get field error message
+  // Get field error message - only show when field is complete or user has blurred
   const getFieldError = (field: keyof CardData): string | undefined => {
     if (!validation) return undefined;
+    
+    // Don't show errors while user is still typing
+    const isFieldComplete = (() => {
+      switch (field) {
+        case 'number':
+          return cardData.number.replace(/\D/g, '').length >= 13;
+        case 'expiry':
+          return cardData.expiry.length >= 5; // MM/YY format
+        case 'cvv':
+          return cardData.cvv.length >= 3;
+        case 'cardholderName':
+          return cardData.cardholderName.length >= 2;
+        default:
+          return false;
+      }
+    })();
+    
+    // Only show error if field is complete or user has blurred the field
+    if (!isFieldComplete && focusedField === field) {
+      return undefined;
+    }
     
     switch (field) {
       case 'number':
@@ -138,7 +187,7 @@ const SmartPaymentForm: React.FC<SmartPaymentFormProps> = ({
   };
 
   return (
-    <ScrollView style={[styles.container, style]} showsVerticalScrollIndicator={false}>
+    <View style={[styles.container, style]}>
       <Animated.View
         style={[
           styles.form,
@@ -148,6 +197,36 @@ const SmartPaymentForm: React.FC<SmartPaymentFormProps> = ({
           },
         ]}
       >
+        {/* Card Preview - Show above card number input */}
+        {showCardPreview && validation?.number.cardType && (
+          <View style={styles.cardPreview}>
+            <View style={styles.cardPreviewHeader}>
+              <Text style={styles.cardPreviewTitle}>Card Preview</Text>
+              <MaterialCommunityIcons
+                name={validation.number.icon as any}
+                size={24}
+                color={validation.number.color}
+              />
+            </View>
+            <View style={styles.cardPreviewContent}>
+              <Text style={[styles.cardPreviewType, { color: validation.number.color }]}>
+                {validation.number.cardType}
+              </Text>
+              <Text style={styles.cardPreviewNumber}>
+                {validation.number.formattedNumber || '•••• •••• •••• ••••'}
+              </Text>
+              <View style={styles.cardPreviewDetails}>
+                <Text style={styles.cardPreviewExpiry}>
+                  {cardData.expiry || 'MM/YY'}
+                </Text>
+                <Text style={styles.cardPreviewName}>
+                  {cardData.cardholderName || 'CARDHOLDER NAME'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Card Number Input */}
         <View style={styles.fieldContainer}>
           <Text style={styles.fieldLabel}>Card Number *</Text>
@@ -237,36 +316,6 @@ const SmartPaymentForm: React.FC<SmartPaymentFormProps> = ({
           )}
         </View>
 
-        {/* Card Preview */}
-        {showCardPreview && validation?.number.cardType && (
-          <View style={styles.cardPreview}>
-            <View style={styles.cardPreviewHeader}>
-              <Text style={styles.cardPreviewTitle}>Card Preview</Text>
-              <MaterialCommunityIcons
-                name={validation.number.icon as any}
-                size={24}
-                color={validation.number.color}
-              />
-            </View>
-            <View style={styles.cardPreviewContent}>
-              <Text style={[styles.cardPreviewType, { color: validation.number.color }]}>
-                {validation.number.cardType}
-              </Text>
-              <Text style={styles.cardPreviewNumber}>
-                {validation.number.formattedNumber || '•••• •••• •••• ••••'}
-              </Text>
-              <View style={styles.cardPreviewDetails}>
-                <Text style={styles.cardPreviewExpiry}>
-                  {cardData.expiry || 'MM/YY'}
-                </Text>
-                <Text style={styles.cardPreviewName}>
-                  {cardData.cardholderName || 'CARDHOLDER NAME'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         {/* Submit Button */}
         <TouchableOpacity
           style={[
@@ -301,13 +350,13 @@ const SmartPaymentForm: React.FC<SmartPaymentFormProps> = ({
           </Text>
         </View>
       </Animated.View>
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    width: '100%',
   },
   form: {
     padding: spacing.md,
@@ -344,12 +393,17 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   cardPreview: {
-    marginTop: spacing.lg,
+    marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: 12,
     backgroundColor: colors.background.light,
-    borderWidth: 1,
-    borderColor: colors.border.light,
+    borderWidth: 2,
+    borderColor: colors.primary + '30',
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardPreviewHeader: {
     flexDirection: 'row',

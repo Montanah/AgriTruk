@@ -103,15 +103,24 @@ class LocationService {
       }
 
       // Consent has been given - safe to request background permissions
-      // Request background permissions for continuous tracking
+      // CRITICAL: This is where we request BACKGROUND_LOCATION permission
+      // The prominent disclosure MUST have been shown before reaching this point
+      console.log('📢 LOCATION_SERVICE: Requesting BACKGROUND_LOCATION permission');
+      console.log('📢 LOCATION_SERVICE: User has already seen and accepted the prominent disclosure');
+      console.log('📢 LOCATION_SERVICE: This request happens AFTER prominent disclosure (Google Play requirement)');
+      
       try {
         const backgroundStatus = await Location.requestBackgroundPermissionsAsync();
+        console.log('📢 LOCATION_SERVICE: Background permission status:', backgroundStatus.status);
+        
         if (backgroundStatus.status !== 'granted') {
-          console.warn('Background location permission denied - tracking may be limited');
+          console.warn('⚠️ LOCATION_SERVICE: Background location permission denied - tracking may be limited');
           // Continue with foreground tracking only
+        } else {
+          console.log('✅ LOCATION_SERVICE: Background location permission GRANTED');
         }
       } catch (error) {
-        console.warn('Background location permission request failed:', error);
+        console.warn('⚠️ LOCATION_SERVICE: Background location permission request failed:', error);
         // Continue with foreground tracking only
       }
 

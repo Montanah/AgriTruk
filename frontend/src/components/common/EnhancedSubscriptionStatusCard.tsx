@@ -70,7 +70,9 @@ const EnhancedSubscriptionStatusCard: React.FC<EnhancedSubscriptionStatusCardPro
     if (status.isTrialActive) {
       planName = 'Free Trial';
       statusText = 'Trial Active';
-      daysRemaining = status.daysRemaining || 0;
+      // Cap trial days at 90 (3 months) - backend should return correct value but protect against errors
+      const rawDaysRemaining = status.daysRemaining || 0;
+      daysRemaining = rawDaysRemaining > 90 ? 90 : rawDaysRemaining;
       isTrial = true;
       statusColor = colors.success;
       statusIcon = 'star';
@@ -260,7 +262,7 @@ const EnhancedSubscriptionStatusCard: React.FC<EnhancedSubscriptionStatusCardPro
         {formatted.showProgress && (
           <EnhancedSubscriptionProgressBar
             daysRemaining={formatted.daysRemaining}
-            totalDays={30}
+            totalDays={formatted.isTrial ? 90 : 30}
             isTrial={formatted.isTrial}
             statusColor={formatted.statusColor}
             showDetails={showDetails}

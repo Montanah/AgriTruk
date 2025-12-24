@@ -1090,20 +1090,12 @@ export default function App() {
             </>
           );
         } else if (needsTrialActivation || (!hasActiveSubscription && !isTrialActive)) {
-          // No active subscription - route to trial activation
-          console.log('App.tsx: No active subscription - routing to trial activation');
-          initialRouteName = 'SubscriptionTrial';
+          // No active subscription - NOTE: Admin creates subscriptions, so just route to dashboard
+          // Admin will create subscription when ready - users don't activate trials themselves
+          console.log('App.tsx: No active subscription - admin will create it. Routing to dashboard.');
+          initialRouteName = 'TransporterTabs';
           screens = (
             <>
-              <Stack.Screen
-                name="SubscriptionTrial"
-                component={SubscriptionTrialScreen as any}
-                initialParams={{
-                  userType: userData?.transporterType === 'company' ? 'company' : 'individual',
-                  transporterType: transporterType,
-                  subscriptionStatus: subscriptionStatus
-                }}
-              />
               <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
               <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
               <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />
@@ -1491,7 +1483,7 @@ export default function App() {
       
       // Check subscription status for approved transporters
       if (subscriptionStatus?.subscriptionStatus === 'expired') {
-        // Routing transporter to expired screen
+        // Routing transporter to expired screen - works for both individual and company transporters
         initialRouteName = 'SubscriptionExpired';
         screens = (
           <>
@@ -1504,6 +1496,7 @@ export default function App() {
                 expiredDate: subscriptionStatus?.subscriptionExpiryDate || new Date().toISOString()
               }}
             />
+            <Stack.Screen name="SubscriptionTrial" component={SubscriptionTrialScreen as any} />
             <Stack.Screen name="TransporterTabs" component={TransporterTabNavigator} />
             <Stack.Screen name="SubscriptionScreen" component={require('./src/screens/SubscriptionScreen').default} />
             <Stack.Screen name="PaymentScreen" component={require('./src/screens/PaymentScreen').default} />

@@ -65,18 +65,14 @@ const BrokerSubscriptionChecker: React.FC<BrokerSubscriptionCheckerProps> = ({ o
         });
       } 
       
-      // Priority 3: No subscription or needs trial activation - route to trial activation
+      // Priority 3: No subscription or needs trial activation
+      // NOTE: Admin creates subscriptions - users don't activate trials themselves
+      // Just redirect to dashboard - admin will create subscription when ready
       else {
-        console.log('🔄 Broker needs trial activation, navigating to trial screen');
+        console.log('ℹ️ Broker needs subscription - admin will create it. Navigating to dashboard.');
         navigation.reset({
           index: 0,
-          routes: [{
-            name: 'SubscriptionTrial',
-            params: {
-              userType: 'broker',
-              subscriptionStatus: subscriptionStatus
-            }
-          }]
+          routes: [{ name: 'BrokerTabs' }]
         });
       }
       

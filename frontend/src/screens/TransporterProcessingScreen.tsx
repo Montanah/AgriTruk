@@ -64,12 +64,13 @@ export default function TransporterProcessingScreen({ route }) {
       // Priority 2: Check if subscription has expired
       if (status && (status.subscriptionStatus === 'expired' || status.trialUsed)) {
         console.log('Transporter subscription expired, redirecting to expired screen');
+        // Map transporterType to correct userType for expired screen
+        const userTypeForExpired = transporterType === 'company' ? 'company' : 'individual';
         try {
           navigation.navigate('SubscriptionExpired', {
-            userType: 'transporter',
-            transporterType: transporterType,
+            userType: userTypeForExpired,
             userId: 'current_user',
-            expiredDate: new Date().toISOString()
+            expiredDate: status.subscriptionExpiryDate || new Date().toISOString()
           });
         } catch (navError) {
           console.log('Navigation error, trying reset:', navError);
@@ -78,10 +79,9 @@ export default function TransporterProcessingScreen({ route }) {
             routes: [{
               name: 'SubscriptionExpired',
               params: {
-                userType: 'transporter',
-                transporterType: transporterType,
+                userType: userTypeForExpired,
                 userId: 'current_user',
-                expiredDate: new Date().toISOString()
+                expiredDate: status.subscriptionExpiryDate || new Date().toISOString()
               }
             }]
           });
@@ -110,44 +110,30 @@ export default function TransporterProcessingScreen({ route }) {
       }
       
       // Priority 4: Fallback - if no subscription status or unknown state, assume needs trial
-      console.log('No subscription status or unknown state, redirecting to trial screen');
-      // Determine correct userType based on transporterType
-      const userType = transporterType === 'company' ? 'company' : 'transporter';
-      // Use immediate navigation without setTimeout
+      console.log('No subscription status - admin will create subscription. Redirecting to dashboard.');
+      // NOTE: Admin creates subscriptions - users don't activate trials themselves
+      // Just redirect to dashboard - admin will create subscription when ready
       navigation.reset({
         index: 0,
         routes: [{
-          name: 'SubscriptionTrial',
-          params: {
-            userType: userType,
-            transporterType: transporterType,
-            subscriptionStatus: status || { needsTrialActivation: true }
-          }
+          name: 'TransporterTabs',
+          params: { transporterType: transporterType }
         }]
       });
 
     } catch (error) {
       console.error('Error checking subscription status:', error);
-      // On error, assume user needs trial activation
-      // Determine correct userType based on transporterType
-      const userType = transporterType === 'company' ? 'company' : 'transporter';
+      // On error, just redirect to dashboard - admin will create subscription
+      console.log('Error checking subscription - admin will create subscription. Redirecting to dashboard.');
       try {
-        navigation.navigate('SubscriptionTrial', {
-          userType: userType,
-          transporterType: transporterType,
-          subscriptionStatus: { needsTrialActivation: true }
-        });
+        navigation.navigate('TransporterTabs', { transporterType: transporterType });
       } catch (navError) {
         console.log('Navigation error, trying reset:', navError);
         navigation.reset({
           index: 0,
           routes: [{
-            name: 'SubscriptionTrial',
-            params: {
-              userType: userType,
-              transporterType: transporterType,
-              subscriptionStatus: { needsTrialActivation: true }
-            }
+            name: 'TransporterTabs',
+            params: { transporterType: transporterType }
           }]
         });
       }

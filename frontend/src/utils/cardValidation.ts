@@ -288,43 +288,85 @@ export const formatCardNumber = (number: string, cardType: any = null): string =
   }
 };
 
-// Validate card number
+// Validate card number - only shows errors when complete
 export const validateCardNumber = (number: string): CardValidationResult => {
   const cleanNumber = number.replace(/\D/g, '');
+  
+  // Don't validate empty numbers
+  if (!cleanNumber) {
+    return {
+      isValid: false,
+      cardType: null,
+      formattedNumber: '',
+      cvvLength: 3,
+      color: '#666666',
+      icon: 'credit-card',
+    };
+  }
+  
   const cardType = detectCardType(cleanNumber);
   
+  // If we have a card type detected, format it properly
+  const formatted = formatCardNumber(cleanNumber, cardType);
+  
+  // If no card type detected yet but user is typing, don't show error
+  if (!cardType && cleanNumber.length < 4) {
+    return {
+      isValid: false,
+      cardType: null,
+      formattedNumber: formatted,
+      cvvLength: 3,
+      color: '#666666',
+      icon: 'credit-card',
+    };
+  }
+  
+  // If card type detected but number incomplete, don't show error yet
+  if (cardType && cleanNumber.length < cardType.maxLength) {
+    return {
+      isValid: false,
+      cardType: cardType.name,
+      formattedNumber: formatted,
+      cvvLength: cardType.cvvLength,
+      color: cardType.color,
+      icon: cardType.icon,
+      // No error message while still typing
+    };
+  }
+  
+  // Only validate when number is complete
   if (!cardType) {
     return {
       isValid: false,
       cardType: null,
-      formattedNumber: formatCardNumber(cleanNumber),
+      formattedNumber: formatted,
       cvvLength: 3,
       color: '#666666',
       icon: 'credit-card',
-      errorMessage: 'Unsupported card type',
+      errorMessage: cleanNumber.length >= 4 ? 'Unsupported card type' : undefined,
     };
   }
 
-  // Check length
+  // Check length - only show error if number is complete but wrong length
   if (cleanNumber.length !== cardType.maxLength) {
     return {
       isValid: false,
       cardType: cardType.name,
-      formattedNumber: formatCardNumber(cleanNumber, cardType),
+      formattedNumber: formatted,
       cvvLength: cardType.cvvLength,
       color: cardType.color,
       icon: cardType.icon,
-      errorMessage: `Card number must be ${cardType.maxLength} digits`,
+      errorMessage: cleanNumber.length >= cardType.maxLength ? `Card number must be ${cardType.maxLength} digits` : undefined,
     };
   }
 
-  // Luhn algorithm check
+  // Luhn algorithm check - only when complete
   const luhnValid = luhnCheck(cleanNumber);
   
   return {
     isValid: luhnValid,
     cardType: cardType.name,
-    formattedNumber: formatCardNumber(cleanNumber, cardType),
+    formattedNumber: formatted,
     cvvLength: cardType.cvvLength,
     color: cardType.color,
     icon: cardType.icon,

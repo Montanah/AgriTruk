@@ -262,32 +262,53 @@ const SmartCardInput: React.FC<SmartCardInputProps> = ({
     return CARD_TYPES.find(type => type.pattern.test(cleanNumber)) || null;
   };
 
-  // Format card number
+  // Format card number - groups digits in 4s as user types
   const formatCardNumber = (number: string, type: CardType | null): string => {
     const cleanNumber = number.replace(/\D/g, '');
     
-    if (!type) {
-      // Default formatting for unknown cards
-      return cleanNumber.replace(/(\d{4})(?=\d)/g, '$1 ');
-    }
-
-    if (type.name === 'American Express') {
-      return cleanNumber.replace(/(\d{4})(\d{6})(\d{5})/, '$1 $2 $3');
-    } else if (type.name === 'Diners Club') {
-      return cleanNumber.replace(/(\d{4})(\d{6})(\d{4})/, '$1 $2 $3');
+    if (!cleanNumber) return '';
+    
+    // Detect type first if not provided
+    const detectedType = type || detectCardType(cleanNumber);
+    
+    if (detectedType?.name === 'American Express') {
+      // Amex: 4-6-5 format (e.g., 3456 789012 34567)
+      if (cleanNumber.length <= 4) {
+        return cleanNumber;
+      } else if (cleanNumber.length <= 10) {
+        return `${cleanNumber.slice(0, 4)} ${cleanNumber.slice(4)}`;
+      } else {
+        return `${cleanNumber.slice(0, 4)} ${cleanNumber.slice(4, 10)} ${cleanNumber.slice(10, 15)}`;
+      }
+    } else if (detectedType?.name === 'Diners Club') {
+      // Diners Club: 4-6-4 format
+      if (cleanNumber.length <= 4) {
+        return cleanNumber;
+      } else if (cleanNumber.length <= 10) {
+        return `${cleanNumber.slice(0, 4)} ${cleanNumber.slice(4)}`;
+      } else {
+        return `${cleanNumber.slice(0, 4)} ${cleanNumber.slice(4, 10)} ${cleanNumber.slice(10, 14)}`;
+      }
     } else {
-      return cleanNumber.replace(/(\d{4})(?=\d)/g, '$1 ');
+      // Default: groups of 4 digits (e.g., 1234 5678 9012 3456)
+      const parts = [];
+      for (let i = 0; i < cleanNumber.length; i += 4) {
+        parts.push(cleanNumber.slice(i, i + 4));
+      }
+      return parts.join(' ');
     }
   };
 
-  // Validate card number
+  // Validate card number - only validate when complete
   const validateCard = (number: string, type: CardType | null): boolean => {
     const cleanNumber = number.replace(/\D/g, '');
     
-    if (!type) return false;
+    if (!type || cleanNumber.length === 0) return false;
     
     // Check length based on card type
     const expectedLength = type.name === 'American Express' ? 15 : 16;
+    
+    // Only validate if number is complete
     if (cleanNumber.length !== expectedLength) return false;
     
     // Luhn algorithm check
@@ -296,9 +317,16 @@ const SmartCardInput: React.FC<SmartCardInputProps> = ({
 
   // Handle card number change
   const handleCardChange = (text: string) => {
+    // Remove all non-digits first
     const cleanText = text.replace(/\D/g, '');
+    
+    // Detect card type from first few digits (works immediately)
     const detectedType = detectCardType(cleanText);
+    
+    // Format with proper grouping as user types
     const formatted = formatCardNumber(cleanText, detectedType);
+    
+    // Only validate when number is complete
     const valid = validateCard(cleanText, detectedType);
 
     setCardNumber(formatted);
@@ -422,9 +450,9 @@ const SmartCardInput: React.FC<SmartCardInputProps> = ({
             placeholder={placeholder}
             placeholderTextColor={colors.text.secondary}
             keyboardType="numeric"
-            maxLength={19} // Max length for formatted card
+            maxLength={cardType?.name === 'American Express' ? 17 : 19} // Max length for formatted card (includes spaces)
             editable={!disabled}
-            selectTextOnFocus
+            selectTextOnFocus={false}
           />
           
           {/* Card type indicator */}
@@ -464,7 +492,7 @@ const SmartCardInput: React.FC<SmartCardInputProps> = ({
       </Animated.View>
 
       {/* Validation feedback */}
-      {showValidation && cardNumber.length > 0 && (
+      {cardNumber.length > 0 && (
         <Animated.View style={styles.validationContainer}>
           {isValid ? (
             <View style={styles.validationSuccess}>
@@ -475,18 +503,42 @@ const SmartCardInput: React.FC<SmartCardInputProps> = ({
               />
               <Text style={styles.validationText}>Valid {cardType?.name} card</Text>
             </View>
-          ) : (
-            <View style={styles.validationError}>
-              <MaterialCommunityIcons
-                name="alert-circle"
-                size={16}
-                color={colors.error}
-              />
-              <Text style={styles.validationText}>
-                {cardType ? 'Invalid card number' : 'Unsupported card type'}
-              </Text>
-            </View>
-          )}
+          ) : cardType ? (
+            // Show card type detected while typing (don't show error until complete)
+            (() => {
+              const cleanNumber = cardNumber.replace(/\D/g, '');
+              const expectedLength = cardType.name === 'American Express' ? 15 : 16;
+              const isComplete = cleanNumber.length >= expectedLength;
+              
+              if (isComplete && showValidation) {
+                // Card is complete but invalid
+                return (
+                  <View style={styles.validationError}>
+                    <MaterialCommunityIcons
+                      name="alert-circle"
+                      size={16}
+                      color={colors.error}
+                    />
+                    <Text style={styles.validationText}>Invalid card number</Text>
+                  </View>
+                );
+              } else {
+                // Show card type detected while typing
+                return (
+                  <View style={styles.validationSuccess}>
+                    <MaterialCommunityIcons
+                      name="credit-card"
+                      size={16}
+                      color={cardType.color}
+                    />
+                    <Text style={[styles.validationText, { color: cardType.color }]}>
+                      {cardType.name} detected
+                    </Text>
+                  </View>
+                );
+              }
+            })()
+          ) : null}
         </Animated.View>
       )}
 
