@@ -277,7 +277,7 @@ const getStyles = (isTablet: boolean, maxContentWidth: number, screenWidth: numb
       width: logoSize,
       height: logoSize,
       borderRadius: 32,
-      backgroundColor: colors.white,
+      backgroundColor: 'transparent',
       zIndex: 1,
       elevation: 6,
       shadowColor: colors.black,

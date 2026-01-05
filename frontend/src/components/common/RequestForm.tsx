@@ -669,7 +669,16 @@ const RequestForm: React.FC<RequestFormProps> = ({ mode, clientId, selectedClien
                             } else if (isModal && onClose) {
                                 onClose();
                             } else {
-                                navigation.goBack();
+                                // Try to go back, but if that fails, navigate to home
+                                if (navigation.canGoBack()) {
+                                    navigation.goBack();
+                                } else {
+                                    // Fallback: navigate to appropriate home screen
+                                    const targetScreen = mode === 'broker' ? 'BrokerTabs' : 
+                                                         mode === 'business' ? 'BusinessTabs' : 
+                                                         'MainTabs';
+                                    navigation.navigate(targetScreen);
+                                }
                             }
                         }}
                         style={styles.backButton}

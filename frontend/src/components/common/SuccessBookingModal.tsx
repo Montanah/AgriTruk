@@ -180,7 +180,12 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
             </Text>
           </LinearGradient>
 
-          <View style={styles.content}>
+          <ScrollView 
+            style={styles.contentScrollView}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
             {/* Booking ID Section */}
             <View style={styles.bookingIdSection}>
               <View style={styles.bookingIdContainer}>
@@ -295,7 +300,7 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
             >
               <Text style={styles.continueButtonText}>Continue</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </Animated.View>
       </Animated.View>
     </Modal>
@@ -313,6 +318,7 @@ const styles = StyleSheet.create({
   modalContainer: {
     width: '100%',
     maxWidth: 400,
+    maxHeight: '90%',
     backgroundColor: colors.white,
     borderRadius: 24,
     overflow: 'hidden',
@@ -345,6 +351,9 @@ const styles = StyleSheet.create({
     color: colors.white + 'CC',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  contentScrollView: {
+    flexGrow: 0,
   },
   content: {
     padding: spacing.lg,

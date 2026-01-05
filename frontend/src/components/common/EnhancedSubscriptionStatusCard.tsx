@@ -124,7 +124,7 @@ const EnhancedSubscriptionStatusCard: React.FC<EnhancedSubscriptionStatusCardPro
     } else if (formatted.statusText === 'Expired') {
       return 'Your subscription has expired';
     } else if (formatted.statusText === 'Activate Trial') {
-      return 'Start your free 30-day trial';
+      return 'Start your free 90-day trial';
     } else {
       return 'No active subscription';
     }

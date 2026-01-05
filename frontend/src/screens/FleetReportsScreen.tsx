@@ -136,7 +136,26 @@ const FleetReportsScreen = () => {
       }
     } catch (err: any) {
       console.error('Error generating report:', err);
-      Alert.alert('Error', 'Failed to generate report. Please try again.');
+      const errorMessage = err.message || 'Unknown error occurred';
+      if (errorMessage.includes('404') || errorMessage.includes('not found') || errorMessage.includes('No data')) {
+        Alert.alert(
+          'No Data Available',
+          'There is no data available for the selected report type and date range. Please try a different date range or ensure you have completed bookings/activities.',
+          [{ text: 'OK' }]
+        );
+      } else if (errorMessage.includes('403') || errorMessage.includes('unauthorized')) {
+        Alert.alert(
+          'Access Denied',
+          'You do not have permission to generate this report. Please contact support if you believe this is an error.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Report Generation Failed',
+          'Unable to generate the report at this time. Please check your internet connection and try again. If the problem persists, contact support.',
+          [{ text: 'OK' }]
+        );
+      }
     }
   };
 

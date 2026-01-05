@@ -1201,6 +1201,26 @@ const BookingConfirmationScreen = ({ route, navigation }: any) => {
                   <Text style={styles.summaryRowLabel}>Number of Bookings</Text>
                   <Text style={styles.summaryRowValue}>{individualEstimates.length || requests.length || '—'}</Text>
                 </View>
+                {/* Show list of all bookings in summary */}
+                {individualEstimates.length > 0 && (
+                  <View style={styles.summaryBookingsList}>
+                    <Text style={styles.summaryBookingsTitle}>Individual Bookings:</Text>
+                    {individualEstimates.map((item, index) => (
+                      <View key={item.request.id || index} style={styles.summaryBookingItem}>
+                        <Text style={styles.summaryBookingText}>
+                          <Text style={{ fontWeight: '600' }}>Booking {index + 1}:</Text> {getDisplayBookingId({
+                            ...item.request,
+                            readableId: item.request.readableId,
+                            bookingType: item.request.bookingType || (item.request.type === 'agriTRUK' ? 'Agri' : 'Cargo'),
+                            bookingMode: item.request.bookingMode || (item.request.requestType === 'instant' ? 'instant' : 'booking'),
+                            createdAt: item.request.createdAt || item.request.date,
+                            bookingId: item.request.id || item.request.bookingId
+                          })} - {formatCostRange(item.estimate)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
                 {/* Note explaining why distance/duration are not shown */}
                 <View style={styles.summaryNote}>
                   <MaterialCommunityIcons name="information-outline" size={16} color={colors.primary} style={{ marginRight: 8 }} />
@@ -1601,6 +1621,32 @@ const styles = StyleSheet.create({
     fontSize: fonts.size.sm,
     color: colors.text.primary,
     flex: 1,
+    lineHeight: 20,
+    fontFamily: fonts.family.regular,
+  },
+  summaryBookingsList: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  summaryBookingsTitle: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    fontFamily: fonts.family.bold,
+  },
+  summaryBookingItem: {
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  summaryBookingText: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
     lineHeight: 20,
     fontFamily: fonts.family.regular,
   },

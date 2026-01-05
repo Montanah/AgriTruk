@@ -804,14 +804,44 @@ const TrackingScreen = () => {
                     </View>
                     {isConsolidated && consolidatedRequests && (
                         <View style={styles.consolidatedInfo}>
-                            <Text style={styles.consolidatedTitle}>Consolidated Requests:</Text>
-                            {consolidatedRequests.map((req: any, index: number) => (
-                                <View key={req.id} style={styles.consolidatedItem}>
-                                    <Text style={styles.consolidatedItemText}>
-                                        • {formatRoute(req.fromLocation, req.toLocation)} ({req.productType}, {req.weight})
-                                    </Text>
-                                </View>
-                            ))}
+                            <Text style={styles.consolidatedTitle}>Consolidated Bookings ({consolidatedRequests.length}):</Text>
+                            {consolidatedRequests.map((req: any, index: number) => {
+                                const individualBookingId = req.id || req.bookingId || req.readableId;
+                                return (
+                                    <View key={req.id || index} style={styles.consolidatedItem}>
+                                        <View style={styles.consolidatedItemHeader}>
+                                            <Text style={styles.consolidatedItemBookingId}>
+                                                Booking {index + 1}: {individualBookingId ? getDisplayBookingId({
+                                                    ...req,
+                                                    bookingId: individualBookingId,
+                                                    readableId: req.readableId,
+                                                    bookingType: req.bookingType || req.type,
+                                                    bookingMode: req.bookingMode || (req.type === 'instant' ? 'instant' : 'booking'),
+                                                    createdAt: req.createdAt
+                                                }) : `#${index + 1}`}
+                                            </Text>
+                                            {req.status && (
+                                                <View style={[styles.consolidatedStatusBadge, { 
+                                                    backgroundColor: getStatusConfig(req.status).color + '15',
+                                                    borderColor: getStatusConfig(req.status).color + '50'
+                                                }]}>
+                                                    <Text style={[styles.consolidatedStatusText, { color: getStatusConfig(req.status).color }]}>
+                                                        {getStatusConfig(req.status).label}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        <Text style={styles.consolidatedItemText}>
+                                            {formatRoute(req.fromLocation, req.toLocation)} • {req.productType} • {req.weight || req.weightKg || 'N/A'}
+                                        </Text>
+                                        {req.trackingData && (
+                                            <Text style={styles.consolidatedTrackingText}>
+                                                Tracking: {req.trackingData.status || 'Pending'}
+                                            </Text>
+                                        )}
+                                    </View>
+                                );
+                            })}
                         </View>
                     )}
                 </View>
@@ -964,12 +994,18 @@ const TrackingScreen = () => {
                                 </View>
                             )}
                             
-                            {/* Communication Buttons - Only show for accepted/confirmed/assigned bookings */}
-                            {['accepted', 'confirmed', 'assigned'].includes(booking?.status?.toLowerCase()) && commTarget && (
+                            {/* Communication Buttons - Only show for accepted/confirmed/assigned bookings with valid commTarget */}
+                            {['accepted', 'confirmed', 'assigned'].includes(booking?.status?.toLowerCase()) && commTarget && commTarget.id && (
                                 <View style={styles.communicationButtons}>
                                     <TouchableOpacity 
                                         style={styles.communicationButton}
-                                        onPress={() => setChatVisible(true)}
+                                        onPress={() => {
+                                            if (commTarget && commTarget.id) {
+                                                setChatVisible(true);
+                                            } else {
+                                                Alert.alert('Unable to Chat', 'Transporter information is not available yet. Please wait for the booking to be accepted.');
+                                            }
+                                        }}
                                     >
                                         <MaterialCommunityIcons name="message-text" size={20} color={colors.primary} />
                                         <Text style={styles.communicationButtonText}>Chat</Text>
@@ -977,7 +1013,13 @@ const TrackingScreen = () => {
                                     
                                     <TouchableOpacity 
                                         style={styles.communicationButton}
-                                        onPress={() => setCallVisible(true)}
+                                        onPress={() => {
+                                            if (commTarget && commTarget.phone && commTarget.phone !== '+254700000000') {
+                                                setCallVisible(true);
+                                            } else {
+                                                Alert.alert('Unable to Call', 'Transporter contact information is not available yet. Please wait for the booking to be accepted.');
+                                            }
+                                        }}
                                     >
                                         <MaterialCommunityIcons name="phone" size={20} color={colors.success} />
                                         <Text style={styles.communicationButtonText}>Call</Text>
@@ -1108,17 +1150,18 @@ const TrackingScreen = () => {
                 />
             )}
 
-            {/* Call Modal */}
-            <Modal visible={callVisible} animationType="fade" transparent>
-                <View style={styles.modalBg}>
-                    <View style={styles.callModal}>
-                        <MaterialCommunityIcons name="call" size={48} color={colors.secondary} style={{ marginBottom: 12 }} />
-                        <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
-                            Calling {commTarget?.role || 'Transporter'}...
-                        </Text>
-                        <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>
-                            {commTarget?.name || 'Transporter'} ({commTarget?.phone || 'N/A'})
-                        </Text>
+            {/* Call Modal - Only show if commTarget exists and booking is accepted/confirmed */}
+            {commTarget && commTarget.id && ['accepted', 'confirmed', 'assigned'].includes(booking?.status?.toLowerCase()) && (
+                <Modal visible={callVisible} animationType="fade" transparent>
+                    <View style={styles.modalBg}>
+                        <View style={styles.callModal}>
+                            <MaterialCommunityIcons name="call" size={48} color={colors.secondary} style={{ marginBottom: 12 }} />
+                            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 8 }}>
+                                Calling {commTarget?.role || 'Transporter'}...
+                            </Text>
+                            <Text style={{ color: colors.text.secondary, marginBottom: 16 }}>
+                                {commTarget?.name || 'Transporter'} ({commTarget?.phone || 'N/A'})
+                            </Text>
                         <TouchableOpacity 
                             style={styles.cancelBtn} 
                             onPress={() => setCallVisible(false)}
@@ -1139,6 +1182,7 @@ const TrackingScreen = () => {
                     </View>
                 </View>
             </Modal>
+            )}
         </SafeAreaView>
     );
 };
@@ -1458,6 +1502,35 @@ const styles = StyleSheet.create({
     consolidatedItemText: {
         fontSize: fonts.size.sm,
         color: colors.text.primary,
+        marginTop: spacing.xs,
+    },
+    consolidatedItemHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    consolidatedItemBookingId: {
+        fontSize: fonts.size.sm,
+        fontWeight: 'bold',
+        color: colors.primary,
+        flex: 1,
+    },
+    consolidatedStatusBadge: {
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: 4,
+        borderWidth: 1,
+    },
+    consolidatedStatusText: {
+        fontSize: fonts.size.xs,
+        fontWeight: '600',
+    },
+    consolidatedTrackingText: {
+        fontSize: fonts.size.xs,
+        color: colors.text.secondary,
+        marginTop: spacing.xs,
+        fontStyle: 'italic',
     },
     communicationButtons: {
         flexDirection: 'row',

@@ -506,7 +506,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
                         nestedScrollEnabled={true}
                         showsVerticalScrollIndicator={true}
                         keyboardShouldPersistTaps="handled"
-                        style={[styles.searchResultsScrollView, isCompact && { maxHeight: 200 }]}
+                        style={[styles.searchResultsScrollView, isCompact && { maxHeight: 250 }]}
                         contentContainerStyle={styles.searchResultsContent}
                     >
                         {searchResults.map((item, index) => (
@@ -954,7 +954,7 @@ const styles = StyleSheet.create({
         maxHeight: 200,
     },
     searchResultsScrollView: {
-        maxHeight: 300,
+        maxHeight: 400,
     },
     searchResultsContent: {
         paddingVertical: spacing.xs,

@@ -1015,7 +1015,18 @@ const AccountScreen = () => {
 
           <TouchableOpacity
             style={styles.utilityButton}
-            onPress={() => navigation?.navigate?.('ChangePasswordScreen')}
+            onPress={() => {
+              try {
+                if (navigation && typeof navigation.navigate === 'function') {
+                  navigation.navigate('ChangePasswordScreen' as never);
+                } else {
+                  Alert.alert('Navigation Error', 'Unable to navigate to Change Password screen. Please try again.');
+                }
+              } catch (error) {
+                console.error('Error navigating to ChangePasswordScreen:', error);
+                Alert.alert('Navigation Error', 'Unable to navigate to Change Password screen. Please try again.');
+              }
+            }}
           >
             <MaterialCommunityIcons name="lock" size={24} color={colors.primary} />
             <Text style={styles.utilityButtonText}>Change Password</Text>

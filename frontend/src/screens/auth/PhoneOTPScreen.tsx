@@ -151,6 +151,57 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
       // Success - user is now verified
       // Phone verification successful
       setVerified(true);
+      
+      // Wait a moment for the backend to update Firestore
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Verify that the user is now verified in Firestore - retry up to 3 times
+      let retryCount = 0;
+      const maxRetries = 3;
+      let isVerifiedInFirestore = false;
+      
+      while (retryCount < maxRetries && !isVerifiedInFirestore) {
+        try {
+          const { getAuth } = require('firebase/auth');
+          const { doc, getDoc } = require('firebase/firestore');
+          const { db } = require('../../firebaseConfig');
+          const auth = getAuth();
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              console.log(`Phone verification status check (attempt ${retryCount + 1}):`, {
+                isVerified: userData.isVerified,
+                emailVerified: userData.emailVerified,
+                phoneVerified: userData.phoneVerified
+              });
+              
+              if (userData.isVerified) {
+                console.log('✅ User is now verified in Firestore - proceeding with navigation');
+                isVerifiedInFirestore = true;
+                break;
+              } else {
+                console.log(`⏳ User not yet verified in Firestore (attempt ${retryCount + 1}/${maxRetries}) - waiting...`);
+                retryCount++;
+                if (retryCount < maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+              }
+            }
+          }
+        } catch (verifyError) {
+          console.error('Error verifying user status:', verifyError);
+          retryCount++;
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+      
+      if (!isVerifiedInFirestore) {
+        console.warn('⚠️ User verification status not confirmed in Firestore after retries - proceeding anyway');
+      }
 
       // Send phone verification success notification
       try {
@@ -165,8 +216,10 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
       }
 
       // Show success animation briefly, then navigate directly
+      // IMPORTANT: Wait for App.tsx to re-evaluate user status after Firestore update
       setTimeout(async () => {
         // Phone verification complete - navigating to appropriate screen for role
+        // Note: App.tsx will automatically re-route based on updated verification status via onAuthStateChanged
         
         // Navigate directly based on role
         if (role === 'shipper') {
@@ -193,9 +246,15 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             // If we don't have credentials, navigate to VerifyIdentificationDocument directly
             // The user is already verified, so VerifyIdentificationDocument will check status and route accordingly
             console.log('No credentials for broker re-authentication - navigating to VerifyIdentificationDocument');
-            navigation.navigate('VerifyIdentificationDocument', {
-              userId: userId,
-              role: role
+            navigation.reset({
+              index: 0,
+              routes: [{
+                name: 'VerifyIdentificationDocument',
+                params: {
+                  userId: userId,
+                  role: role
+                }
+              }]
             });
             return;
           }
@@ -222,9 +281,15 @@ const PhoneOTPScreen = ({ navigation, route }: { navigation: any; route: any }) 
             // If sign-in fails, navigate to VerifyIdentificationDocument as fallback
             // Since the user is verified, VerifyIdentificationDocument will check status and route accordingly
             console.log('Sign-in failed, navigating to VerifyIdentificationDocument as fallback');
-            navigation.navigate('VerifyIdentificationDocument', {
-              userId: userId,
-              role: role
+            navigation.reset({
+              index: 0,
+              routes: [{
+                name: 'VerifyIdentificationDocument',
+                params: {
+                  userId: userId,
+                  role: role
+                }
+              }]
             });
           }
         } else if (role === 'transporter') {
