@@ -24,7 +24,7 @@ function calculateTransportCost(bookingData) {
   const RATE_PER_TON_KM = 4; // Ksh 4 per ton per km
 
   // Base cost
-  let cost = Math.max(actualDistance * weightTons * RATE_PER_TON_KM, 5000); // Minimum Ksh 5,000
+  let cost = Math.max(actualDistance * weightTons * RATE_PER_TON_KM, 300); // Minimum Ksh 300
   costBreakdown.baseCost = cost;
 
    // Perishable surcharge (flat per km)
