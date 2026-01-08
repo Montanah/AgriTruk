@@ -22,6 +22,8 @@ import subscriptionService, { SubscriptionStatus } from '../services/subscriptio
 import companyFleetValidationService from '../services/companyFleetValidationService';
 import { apiRequest } from '../utils/api';
 import { useResponsive } from '../hooks/useResponsive';
+import BackgroundLocationDisclosureModal from '../components/common/BackgroundLocationDisclosureModal';
+import locationService from '../services/locationService';
 
 interface FleetStats {
   totalVehicles: number;
@@ -75,6 +77,37 @@ const CompanyDashboardScreen = () => {
   
   // Use the subscription hook for better subscription management
   const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
+  
+  // Background location disclosure state - CRITICAL for Google Play compliance
+  const [showBackgroundLocationDisclosure, setShowBackgroundLocationDisclosure] = useState(false);
+  const [hasCheckedConsent, setHasCheckedConsent] = useState(false);
+
+  // Check background location consent on mount - CRITICAL for Google Play compliance
+  useEffect(() => {
+    const checkBackgroundLocationConsent = async () => {
+      try {
+        console.log('🔍 CompanyDashboardScreen: Checking background location consent...');
+        const hasConsent = await locationService.hasBackgroundLocationConsent();
+        console.log('🔍 CompanyDashboardScreen: Background location consent status:', hasConsent);
+        
+        // If consent hasn't been given, show the prominent disclosure modal
+        // This ensures Google Play reviewers will see it immediately
+        if (!hasConsent) {
+          console.log('📢 CompanyDashboardScreen: No consent found - showing prominent disclosure modal');
+          setShowBackgroundLocationDisclosure(true);
+        }
+        
+        setHasCheckedConsent(true);
+      } catch (error) {
+        console.error('Error checking background location consent:', error);
+        // On error, show the disclosure to be safe (better to show it than miss it)
+        setShowBackgroundLocationDisclosure(true);
+        setHasCheckedConsent(true);
+      }
+    };
+
+    checkBackgroundLocationConsent();
+  }, []);
 
   const validateFeatureAccess = async () => {
     if (subscriptionStatus) {
@@ -595,6 +628,32 @@ const CompanyDashboardScreen = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* Background Location Disclosure Modal - Required by Google Play Store */}
+      <BackgroundLocationDisclosureModal
+        visible={showBackgroundLocationDisclosure}
+        userRole="company"
+        transporterType="company"
+        onAccept={async () => {
+          console.log('✅ CompanyDashboardScreen: User accepted background location disclosure');
+          // User consented - save consent
+          await locationService.saveBackgroundLocationConsent(true);
+          setShowBackgroundLocationDisclosure(false);
+          
+          // Note: We don't start tracking here - that happens when user explicitly starts tracking
+          // This disclosure is just for consent, per Google Play requirements
+          console.log('✅ CompanyDashboardScreen: Background location consent saved');
+        }}
+        onDecline={async () => {
+          console.log('❌ CompanyDashboardScreen: User declined background location disclosure');
+          // User declined - save consent status
+          await locationService.saveBackgroundLocationConsent(false);
+          setShowBackgroundLocationDisclosure(false);
+          
+          // User can still use the app, but background location won't be available
+          console.log('ℹ️ CompanyDashboardScreen: Background location consent declined - app will use foreground-only tracking');
+        }}
+      />
     </View>
   );
 };

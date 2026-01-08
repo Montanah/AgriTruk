@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Modal,
   RefreshControl,
   ScrollView,
@@ -513,33 +514,44 @@ const AccountScreen = () => {
 
     setDeletingAccount(true);
     try {
+      // Get auth token
       const token = await user.getIdToken();
       
-      // Call delete account API
-      await apiRequest(`/auth/${user.uid}/delete/request`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          reason: reason,
-        }),
-      });
+      // Get user email
+      const email = user.email || profile?.email || '';
+      if (!email) {
+        showAlert('Error', 'Email address not found. Please ensure your account has an email.');
+        setDeletingAccount(false);
+        return;
+      }
 
-      // Sign out user
-      await signOut(auth);
-      
-      // Navigate to account deleted screen
-      (navigation as any).reset({
-        index: 0,
-        routes: [{ name: 'AccountDeleted' }],
-      });
+      // Generate Unix timestamp in seconds
+      const timestamp = Math.floor(Date.now() / 1000);
+
+      // Build URL with required parameters
+      const deleteAccountUrl = `https://trukafrica.com/delete-account?token=${encodeURIComponent(token)}&uid=${encodeURIComponent(user.uid)}&email=${encodeURIComponent(email)}&ts=${timestamp}`;
+
+      console.log('Redirecting to delete account page:', deleteAccountUrl);
+
+      // Close modal first
+      setShowDeleteAccountModal(false);
+      setDeletingAccount(false);
+
+      // Open web page in browser
+      const canOpen = await Linking.canOpenURL(deleteAccountUrl);
+      if (canOpen) {
+        await Linking.openURL(deleteAccountUrl);
+      } else {
+        showAlert(
+          'Error',
+          'Unable to open delete account page. Please try again or contact support.'
+        );
+      }
     } catch (error: any) {
       console.error('Delete account error:', error);
       showAlert(
         'Delete Account Failed',
-        error.message || 'Failed to delete account. Please try again or contact support.'
+        error.message || 'Failed to open delete account page. Please try again or contact support.'
       );
       setDeletingAccount(false);
     }

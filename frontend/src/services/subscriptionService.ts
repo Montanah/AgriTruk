@@ -266,11 +266,20 @@ class SubscriptionService {
     const needsTrialActivation = subscriptionData.needsTrialActivation === true;
     const subscriptionStatus = subscriptionData.subscriptionStatus || 'none';
     
-    // Use backend's calculated daysRemaining directly - backend handles all calculations correctly
+    // Use backend's calculated daysRemaining, but validate it
     // Backend calculates: daysRemaining = Math.ceil((endDateMillis - currentTime) / (1000 * 60 * 60 * 24))
     // Backend uses plan.trialDays (90) or plan.duration (3 months) when creating subscriber
     // Admin creates subscription with 90-day trial, backend calculates endDate accordingly
-    const daysRemaining = subscriptionData.daysRemaining || 0;
+    let daysRemaining = subscriptionData.daysRemaining || 0;
+    
+    // Validate daysRemaining for trials - should never exceed 90 days
+    if (isTrialActive && daysRemaining > 90) {
+      console.error('⚠️ SUBSCRIPTION SERVICE ERROR: Backend returned', daysRemaining, 'days remaining for trial.');
+      console.error('⚠️ This exceeds the 90-day trial period. Backend subscription data:', JSON.stringify(subscriptionData, null, 2));
+      console.error('⚠️ Capping daysRemaining at 90 days. Backend needs to fix trial end date calculation.');
+      daysRemaining = 90; // Cap at maximum trial period
+    }
+    
     const trialDaysRemaining = subscriptionData.trialDaysRemaining || (isTrialActive ? daysRemaining : 0);
     
     

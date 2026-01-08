@@ -17,6 +17,8 @@ interface BackgroundLocationDisclosureModalProps {
   visible: boolean;
   onAccept: () => void;
   onDecline: () => void;
+  userRole?: 'company' | 'individual' | 'driver' | 'shipper' | 'broker' | 'business';
+  transporterType?: 'company' | 'individual';
 }
 
 /**
@@ -35,8 +37,54 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
   visible,
   onAccept,
   onDecline,
+  userRole,
+  transporterType,
 }) => {
   const navigation = useNavigation<any>();
+
+  // Determine user type for dynamic content
+  const getUserTypeLabel = () => {
+    if (userRole === 'driver') {
+      return 'driver';
+    } else if (transporterType === 'company' || userRole === 'company') {
+      return 'company transporter';
+    } else if (transporterType === 'individual' || userRole === 'individual') {
+      return 'individual transporter';
+    }
+    return 'transporter'; // Default fallback
+  };
+
+  const userTypeLabel = getUserTypeLabel();
+  const isDriver = userRole === 'driver';
+  const isCompanyTransporter = transporterType === 'company' || userRole === 'company';
+
+  // Dynamic text based on user role
+  const trackingType = isDriver ? 'delivery' : 'vehicle';
+  const trackingContext = isDriver ? ' during active trips' : '';
+  const sharingContext = isDriver ? 'your company and ' : '';
+  const trackingTarget = isDriver 
+    ? 'of your deliveries' 
+    : isCompanyTransporter 
+    ? 'of your fleet vehicles' 
+    : 'of your vehicle';
+  const activityContext = isDriver ? "you're making deliveries" : "you're transporting goods";
+  const realTimeTrackingText = isDriver 
+    ? 'Your company and clients can see your location in real-time during active deliveries' 
+    : isCompanyTransporter 
+    ? 'You and your clients can track all fleet vehicles in real-time during active trips' 
+    : "Clients can see your vehicle's location in real-time during active trips";
+  const dataCollectionContext = isDriver ? "you're actively making deliveries" : "you're actively transporting goods";
+  const dataUsageContext = isDriver ? 'delivery' : 'vehicle';
+  const dataSharingContext = isDriver 
+    ? 'your company and ' 
+    : isCompanyTransporter 
+    ? 'your company and ' 
+    : '';
+  const bookingContext = isDriver 
+    ? ' assigned to you' 
+    : isCompanyTransporter 
+    ? ' with your company' 
+    : ' with you';
 
   // Log when modal is shown - CRITICAL for Google Play compliance verification
   useEffect(() => {
@@ -95,35 +143,50 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
 
           {/* Main Content */}
           <View style={styles.content}>
+            {/* Prominent Disclosure Statement - Google Play Required Format */}
+            <View style={styles.prominentDisclosureBox}>
+              <MaterialCommunityIcons
+                name="alert-circle"
+                size={24}
+                color={colors.primary}
+                style={styles.disclosureIcon}
+              />
+              <Text style={styles.prominentDisclosureText}>
+                <Text style={styles.boldText}>TRUKapp collects location data</Text> to enable real-time {trackingType} tracking even when the app is closed or not in use{trackingContext}, and shares this data with {sharingContext}clients for active bookings.
+              </Text>
+            </View>
+
             <Text style={styles.sectionTitle}>Why We Need Background Location</Text>
             <Text style={styles.description}>
               TRUKapp needs to access your location in the background to provide continuous
-              real-time tracking of your vehicle while you're transporting goods. This allows:
+              real-time tracking {trackingTarget} while {activityContext}. This allows:
             </Text>
 
             <View style={styles.benefitsList}>
               <View style={styles.benefitItem}>
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={24}
-                  color={colors.success}
-                  style={styles.benefitIcon}
-                />
+                <View style={styles.benefitIconContainer}>
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={22}
+                    color={colors.success}
+                  />
+                </View>
                 <View style={styles.benefitText}>
                   <Text style={styles.benefitTitle}>Real-Time Tracking</Text>
                   <Text style={styles.benefitDescription}>
-                    Clients can see your vehicle's location in real-time during active trips
+                    {realTimeTrackingText}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.benefitItem}>
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={24}
-                  color={colors.success}
-                  style={styles.benefitIcon}
-                />
+                <View style={styles.benefitIconContainer}>
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={22}
+                    color={colors.success}
+                  />
+                </View>
                 <View style={styles.benefitText}>
                   <Text style={styles.benefitTitle}>Accurate Delivery Updates</Text>
                   <Text style={styles.benefitDescription}>
@@ -133,12 +196,13 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
               </View>
 
               <View style={styles.benefitItem}>
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={24}
-                  color={colors.success}
-                  style={styles.benefitIcon}
-                />
+                <View style={styles.benefitIconContainer}>
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={22}
+                    color={colors.success}
+                  />
+                </View>
                 <View style={styles.benefitText}>
                   <Text style={styles.benefitTitle}>Safety & Security</Text>
                   <Text style={styles.benefitDescription}>
@@ -156,12 +220,13 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
                 style={styles.infoIcon}
               />
               <View style={styles.noteContent}>
-                <Text style={styles.noteTitle}>Important Information</Text>
+                <Text style={styles.noteTitle}>How Your Location Data is Used</Text>
                 <Text style={styles.noteText}>
-                  • Location is only tracked when you're actively transporting goods{'\n'}
-                  • You can stop tracking at any time from the app settings{'\n'}
-                  • Your location data is encrypted and securely stored{'\n'}
-                  • Location is only shared with clients for active bookings
+                  <Text style={styles.boldText}>Data Collection:</Text> TRUKapp collects your precise location data in the background when {dataCollectionContext}.{'\n\n'}
+                  <Text style={styles.boldText}>Data Usage:</Text> Your location is used to enable real-time {dataUsageContext} tracking, provide accurate delivery ETAs, and ensure safety during active trips.{'\n\n'}
+                  <Text style={styles.boldText}>Data Sharing:</Text> Your location data is shared with {dataSharingContext}clients who have active bookings{bookingContext}, so they can track their shipments in real-time.{'\n\n'}
+                  <Text style={styles.boldText}>Data Storage:</Text> Your location data is encrypted and securely stored. Location updates are sent every 10 seconds or when you move 100 meters.{'\n\n'}
+                  <Text style={styles.boldText}>Your Control:</Text> You can stop location tracking at any time from the app settings. Location is only tracked when {dataCollectionContext}.
                 </Text>
               </View>
             </View>
@@ -195,33 +260,38 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
         </ScrollView>
 
         {/* Action Buttons */}
-        <View style={styles.actions}>
+        <View style={styles.actionsContainer}>
+          {/* Primary Action Button - Full Width */}
           <TouchableOpacity
-            style={[styles.button, styles.declineButton]}
-            onPress={() => {
-              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User DECLINED background location disclosure');
-              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: App will use foreground-only location tracking');
-              onDecline();
-            }}
-          >
-            <Text style={styles.declineButtonText}>Not Now</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.acceptButton]}
+            style={styles.acceptButton}
             onPress={() => {
               console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User ACCEPTED background location disclosure');
               console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Consent saved - can now request BACKGROUND_LOCATION permission');
               onAccept();
             }}
+            activeOpacity={0.8}
           >
-            <MaterialCommunityIcons
-              name="check"
-              size={20}
-              color="#fff"
-              style={styles.buttonIcon}
-            />
-            <Text style={styles.acceptButtonText}>Allow Background Location</Text>
+            <View style={styles.acceptButtonContent}>
+              <MaterialCommunityIcons
+                name="check-circle"
+                size={22}
+                color="#fff"
+              />
+              <Text style={styles.acceptButtonText}>Allow Background Location</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Secondary Action Button */}
+          <TouchableOpacity
+            style={styles.declineButton}
+            onPress={() => {
+              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User DECLINED background location disclosure');
+              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: App will use foreground-only location tracking');
+              onDecline();
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.declineButtonText}>Not Now</Text>
           </TouchableOpacity>
         </View>
 
@@ -246,49 +316,62 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   header: {
     alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 30,
+    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+    paddingBottom: 32,
     paddingHorizontal: 20,
     backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
   },
   icon: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '700',
     color: colors.text.primary,
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   content: {
-    padding: 20,
+    padding: 24,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: colors.text.primary,
-    marginBottom: 12,
+    marginBottom: 14,
+    marginTop: 8,
   },
   description: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.text.secondary,
-    lineHeight: 24,
-    marginBottom: 24,
+    lineHeight: 22,
+    marginBottom: 26,
   },
   benefitsList: {
     marginBottom: 24,
   },
   benefitItem: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 14,
     alignItems: 'flex-start',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 14,
+    padding: 16,
   },
-  benefitIcon: {
-    marginRight: 12,
+  benefitIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.success + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
     marginTop: 2,
   },
   benefitText: {
@@ -298,7 +381,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text.primary,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   benefitDescription: {
     fontSize: 14,
@@ -308,11 +391,16 @@ const styles = StyleSheet.create({
   importantNote: {
     flexDirection: 'row',
     backgroundColor: '#fff3cd',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    borderLeftWidth: 4,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 26,
+    borderLeftWidth: 5,
     borderLeftColor: colors.warning,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   infoIcon: {
     marginRight: 12,
@@ -334,9 +422,11 @@ const styles = StyleSheet.create({
   },
   dataUsage: {
     backgroundColor: '#e7f3ff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 26,
+    borderWidth: 1,
+    borderColor: '#b3d9ff',
   },
   dataUsageTitle: {
     fontSize: 16,
@@ -352,12 +442,12 @@ const styles = StyleSheet.create({
   privacyNote: {
     flexDirection: 'row',
     backgroundColor: '#f0f7ff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 8,
     alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: colors.primary + '30',
+    borderWidth: 1.5,
+    borderColor: colors.primary + '40',
   },
   privacyIcon: {
     marginRight: 12,
@@ -374,60 +464,103 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
-  actions: {
-    flexDirection: 'row',
-    padding: 20,
-    paddingBottom: 10,
+  actionsContainer: {
+    padding: 24,
+    paddingTop: 20,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    gap: 12,
+    borderTopColor: '#e9ecef',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  button: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
+  acceptButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  acceptButtonContent: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  acceptButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.3,
   },
   declineButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#dee2e6',
   },
   declineButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text.secondary,
   },
-  acceptButton: {
-    backgroundColor: colors.primary,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  acceptButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginLeft: 8,
-  },
-  buttonIcon: {
-    marginRight: 0,
-  },
   footer: {
     padding: 20,
-    paddingTop: 10,
-    backgroundColor: '#fff',
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    backgroundColor: '#f8f9fa',
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#e9ecef',
   },
   footerText: {
     fontSize: 12,
     color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 18,
+    opacity: 0.8,
+  },
+  prominentDisclosureBox: {
+    flexDirection: 'row',
+    backgroundColor: '#e3f2fd',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 28,
+    borderLeftWidth: 5,
+    borderLeftColor: colors.primary,
+    alignItems: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  disclosureIcon: {
+    marginRight: 14,
+    marginTop: 2,
+  },
+  prominentDisclosureText: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.text.primary,
+    lineHeight: 24,
+    fontWeight: '500',
+  },
+  boldText: {
+    fontWeight: '700',
+    color: colors.primary,
   },
 });
 

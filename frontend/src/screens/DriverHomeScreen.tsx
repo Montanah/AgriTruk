@@ -24,6 +24,8 @@ import IncomingRequestsCard from '../components/TransporterService/IncomingReque
 import AvailableLoadsAlongRoute from '../components/TransporterService/AvailableLoadsAlongRoute';
 import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
 import LocationDisplay from '../components/common/LocationDisplay';
+import BackgroundLocationDisclosureModal from '../components/common/BackgroundLocationDisclosureModal';
+import locationService from '../services/locationService';
 
 interface DriverProfile {
   id: string;
@@ -65,6 +67,37 @@ const DriverHomeScreen = () => {
   // Drivers accept jobs themselves, so we fetch accepted jobs (not assigned)
   const [acceptedJobs, setAcceptedJobs] = useState<any[]>([]);
   const [loadingAcceptedJobs, setLoadingAcceptedJobs] = useState(false);
+  
+  // Background location disclosure state - CRITICAL for Google Play compliance
+  const [showBackgroundLocationDisclosure, setShowBackgroundLocationDisclosure] = useState(false);
+  const [hasCheckedConsent, setHasCheckedConsent] = useState(false);
+
+  // Check background location consent on mount - CRITICAL for Google Play compliance
+  useEffect(() => {
+    const checkBackgroundLocationConsent = async () => {
+      try {
+        console.log('🔍 DriverHomeScreen: Checking background location consent...');
+        const hasConsent = await locationService.hasBackgroundLocationConsent();
+        console.log('🔍 DriverHomeScreen: Background location consent status:', hasConsent);
+        
+        // If consent hasn't been given, show the prominent disclosure modal
+        // This ensures Google Play reviewers will see it immediately
+        if (!hasConsent) {
+          console.log('📢 DriverHomeScreen: No consent found - showing prominent disclosure modal');
+          setShowBackgroundLocationDisclosure(true);
+        }
+        
+        setHasCheckedConsent(true);
+      } catch (error) {
+        console.error('Error checking background location consent:', error);
+        // On error, show the disclosure to be safe (better to show it than miss it)
+        setShowBackgroundLocationDisclosure(true);
+        setHasCheckedConsent(true);
+      }
+    };
+
+    checkBackgroundLocationConsent();
+  }, []);
 
   useEffect(() => {
     fetchDriverProfile();
@@ -361,12 +394,13 @@ const DriverHomeScreen = () => {
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <View style={{ flex: 1 }}>
+      <ScrollView 
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
       {/* Driver Info Header with Gradient */}
       <LinearGradient
         colors={[colors.primary, colors.primary + 'DD']}
@@ -611,6 +645,32 @@ const DriverHomeScreen = () => {
       {/* Bottom padding to prevent cut-off */}
       <View style={styles.bottomPadding} />
     </ScrollView>
+
+    {/* Background Location Disclosure Modal - Required by Google Play Store */}
+    <BackgroundLocationDisclosureModal
+      visible={showBackgroundLocationDisclosure}
+      userRole="driver"
+      onAccept={async () => {
+        console.log('✅ DriverHomeScreen: User accepted background location disclosure');
+        // User consented - save consent
+        await locationService.saveBackgroundLocationConsent(true);
+        setShowBackgroundLocationDisclosure(false);
+        
+        // Note: We don't start tracking here - that happens when driver starts a trip
+        // This disclosure is just for consent, per Google Play requirements
+        console.log('✅ DriverHomeScreen: Background location consent saved');
+      }}
+      onDecline={async () => {
+        console.log('❌ DriverHomeScreen: User declined background location disclosure');
+        // User declined - save consent status
+        await locationService.saveBackgroundLocationConsent(false);
+        setShowBackgroundLocationDisclosure(false);
+        
+        // User can still use the app, but background location won't be available
+        console.log('ℹ️ DriverHomeScreen: Background location consent declined - app will use foreground-only tracking');
+      }}
+    />
+  </View>
   );
 };
 

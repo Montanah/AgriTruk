@@ -834,6 +834,8 @@ export default function TransporterHomeScreen() {
       {/* This modal MUST be shown before requesting BACKGROUND_LOCATION permission */}
       <BackgroundLocationDisclosureModal
         visible={showBackgroundLocationDisclosure}
+        userRole="individual"
+        transporterType="individual"
         onAccept={async () => {
           console.log('✅ TransporterHomeScreen: User accepted background location disclosure');
           // User consented - save consent
