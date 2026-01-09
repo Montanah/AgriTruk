@@ -46,6 +46,8 @@ import NotificationManager from './src/components/Notification/NotificationManag
 import { ConsolidationProvider } from './src/context/ConsolidationContext';
 import fonts from './src/constants/fonts';
 import { auth, db } from './src/firebaseConfig';
+import BackgroundLocationDisclosureModal from './src/components/common/BackgroundLocationDisclosureModal';
+import locationService from './src/services/locationService';
 
 const Stack = createStackNavigator();
 
@@ -272,6 +274,12 @@ export default function App() {
   const [connectionError, setConnectionError] = React.useState<string | null>(null);
   const [userData, setUserData] = React.useState<any>(null);
   const [isDriver, setIsDriver] = React.useState<any>(false);
+  
+  // Global background location disclosure state - CRITICAL for Google Play compliance
+  const [showGlobalBackgroundLocationDisclosure, setShowGlobalBackgroundLocationDisclosure] = React.useState(false);
+  const [hasCheckedGlobalConsent, setHasCheckedGlobalConsent] = React.useState(false);
+  const [disclosureUserRole, setDisclosureUserRole] = React.useState<'company' | 'individual' | 'driver' | undefined>(undefined);
+  const [disclosureTransporterType, setDisclosureTransporterType] = React.useState<'company' | 'individual' | undefined>(undefined);
 
   // Retry function for connection errors
   const retryConnection = React.useCallback(() => {
@@ -386,6 +394,36 @@ export default function App() {
             }
             
             // User data processed
+
+            // CRITICAL: Check background location disclosure BEFORE navigation
+            // This must happen BEFORE any screens are shown to comply with Google Play requirements
+            const needsBackgroundLocation = data.role === 'transporter' || data.role === 'driver';
+            if (needsBackgroundLocation && !hasCheckedGlobalConsent) {
+              console.log('📢 App.tsx: User needs background location - checking disclosure consent');
+              const hasConsent = await locationService.hasBackgroundLocationConsent();
+              
+              if (!hasConsent) {
+                console.log('📢 App.tsx: No consent found - will show global prominent disclosure BEFORE navigation');
+                // Determine user role for disclosure
+                if (data.role === 'driver') {
+                  setDisclosureUserRole('driver');
+                } else if (data.transporterType === 'company' || (data.role === 'transporter' && !data.transporterType)) {
+                  setDisclosureUserRole('company');
+                  setDisclosureTransporterType('company');
+                } else {
+                  setDisclosureUserRole('individual');
+                  setDisclosureTransporterType('individual');
+                }
+                setShowGlobalBackgroundLocationDisclosure(true);
+              } else {
+                console.log('📢 App.tsx: User has already consented to background location disclosure');
+              }
+              setHasCheckedGlobalConsent(true);
+            } else if (!needsBackgroundLocation) {
+              setHasCheckedGlobalConsent(true);
+            }
+            
+            // Continue with transporter profile check (don't return early)
 
             // For transporters, check if they have a profile and if they're a driver
             if (data.role === 'transporter') {
@@ -1604,6 +1642,35 @@ export default function App() {
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="SignIn" component={LoginScreen} />
       </>
+    );
+  }
+
+  // CRITICAL: Show global background location disclosure BEFORE any navigation
+  // This ensures Google Play compliance - disclosure must be shown BEFORE permission request
+  if (showGlobalBackgroundLocationDisclosure && disclosureUserRole) {
+    return (
+      <ErrorBoundary>
+        <StatusBar style="dark" translucent />
+        <BackgroundLocationDisclosureModal
+          visible={true}
+          userRole={disclosureUserRole}
+          transporterType={disclosureTransporterType}
+          onAccept={async () => {
+            console.log('✅ App.tsx: User accepted global background location disclosure');
+            await locationService.saveBackgroundLocationConsent(true);
+            setShowGlobalBackgroundLocationDisclosure(false);
+            // Now allow navigation to proceed
+            setHasCheckedGlobalConsent(true);
+          }}
+          onDecline={async () => {
+            console.log('❌ App.tsx: User declined global background location disclosure');
+            await locationService.saveBackgroundLocationConsent(false);
+            setShowGlobalBackgroundLocationDisclosure(false);
+            // Still allow navigation, but background location won't be available
+            setHasCheckedGlobalConsent(true);
+          }}
+        />
+      </ErrorBoundary>
     );
   }
 

@@ -32,14 +32,14 @@ function isTransporterProfileComplete(transporter: any) {
   console.log('Checking company profile completeness for:', transporter);
   
   // Required fields for a completed company profile
+  // NOTE: Registration is optional initially - will be required after 5 completed trips
   const requiredFields = [
     'name', // Company name
-    'registration', // Company registration
     'contact', // Company contact
     'status',
   ];
   
-  // Check basic required fields
+  // Check basic required fields (registration is optional)
   for (const field of requiredFields) {
     if (!transporter[field] || typeof transporter[field] !== 'string' || transporter[field].length === 0) {
       console.log(`Missing or empty field: ${field} = ${transporter[field]}`);
@@ -409,11 +409,12 @@ export default function TransporterCompletionScreen() {
   // Get validation status for each section
   const getValidationStatus = () => {
     return {
-      companyDetails: !!(companyName && companyReg && companyContact && validatePhone(companyContact)),
+      companyDetails: !!(companyName && companyContact && validatePhone(companyContact)),
+      // Registration is optional initially - will be required after 5 trips
+      registrationProvided: !!companyReg,
       profilePhoto: !!profilePhoto,
       allValid: !!(
         companyName &&
-        companyReg &&
         companyContact &&
         validatePhone(companyContact) &&
         profilePhoto
@@ -439,10 +440,13 @@ export default function TransporterCompletionScreen() {
     setError('');
 
     // Validation for company transporters only
+    // NOTE: Registration number is optional initially - will be required after 5 completed trips
     if (!companyName) { setError('Please enter the company name.'); return false; }
-    if (!companyReg) { setError('Please enter the company registration number.'); return false; }
     if (!companyContact) { setError('Please enter the company contact number.'); return false; }
     if (!profilePhoto) { setError('Please upload a company logo.'); return false; }
+    
+    // Registration is optional - user can skip and provide later
+    // Backend will track completed trips and require it after 5 trips
 
     try {
       const auth = getAuth();
@@ -457,7 +461,10 @@ export default function TransporterCompletionScreen() {
         
         // Company-specific fields (using correct backend field names)
         formData.append('name', companyName);
-        formData.append('registration', companyReg);
+        // Registration is optional - only append if provided
+        if (companyReg && companyReg.trim()) {
+          formData.append('registration', companyReg.trim());
+        }
         formData.append('contact', companyContact);
         formData.append('address', companyAddress || '');
         
@@ -478,10 +485,10 @@ export default function TransporterCompletionScreen() {
         }
         
         // Validate required fields before sending
-        if (!companyName || !companyReg || !companyContact) {
+        // Registration is optional - will be required after 5 trips
+        if (!companyName || !companyContact) {
           const missingFields = [];
           if (!companyName) missingFields.push('Company Name');
-          if (!companyReg) missingFields.push('Registration Number');
           if (!companyContact) missingFields.push('Contact');
           
           throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
@@ -901,15 +908,20 @@ export default function TransporterCompletionScreen() {
             />
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
               <MaterialCommunityIcons name="file-document-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
-              <Text style={styles.label}>Company/Business Registration Number</Text>
+              <Text style={styles.label}>Company/Business Registration Number (Optional)</Text>
             </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter registration number (e.g. CPR/2023/123456)"
-              placeholderTextColor={colors.text.light}
-              value={companyReg}
-              onChangeText={setCompanyReg}
-            />
+            <View style={{ marginBottom: 8 }}>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter registration number (e.g. CPR/2023/123456) - Optional"
+                placeholderTextColor={colors.text.light}
+                value={companyReg}
+                onChangeText={setCompanyReg}
+              />
+              <Text style={{ fontSize: 12, color: colors.text.light, marginTop: 4, fontStyle: 'italic' }}>
+                You can skip this now. Registration will be required after 5 completed trips.
+              </Text>
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
               <Ionicons name="call-outline" size={22} color={colors.tertiary} style={{ marginRight: 8 }} />
               <Text style={styles.label}>Contact Number</Text>

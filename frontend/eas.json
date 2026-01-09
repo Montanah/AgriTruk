@@ -43,11 +43,13 @@
     "production": {
       "autoIncrement": true,
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleRelease"
       },
       "ios": {
         "buildConfiguration": "Release",
-        "distribution": "store"
+        "distribution": "store",
+        "autoIncrement": true
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://agritruk.onrender.com",
@@ -119,9 +121,11 @@
       }
     },
     "appstore": {
+      "autoIncrement": true,
       "ios": {
         "buildConfiguration": "Release",
-        "distribution": "store"
+        "distribution": "store",
+        "autoIncrement": true
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://agritruk.onrender.com",

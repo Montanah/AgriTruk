@@ -86,6 +86,7 @@ export default function ManageTransporterScreen({ route }: any) {
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editProfilePhoto, setEditProfilePhoto] = useState<any>(null);
+  const [editRegistrationNumber, setEditRegistrationNumber] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(true);
   
   // Verification states for company transporter
@@ -103,7 +104,6 @@ export default function ManageTransporterScreen({ route }: any) {
   
   // Company profile states
   const [companyProfile, setCompanyProfile] = useState<any>(null);
-  const [registrationDocument, setRegistrationDocument] = useState<any>(null);
   
   // Location tracking state
   const [isLocationTracking, setIsLocationTracking] = useState(false);
@@ -680,22 +680,6 @@ export default function ManageTransporterScreen({ route }: any) {
     }
   };
 
-  const pickRegistrationDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*'],
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setRegistrationDocument(result.assets[0]);
-        Alert.alert('Success', 'Registration document selected. You can upload it when editing company details.');
-      }
-    } catch (error) {
-      console.error('Error picking document:', error);
-      Alert.alert('Error', 'Failed to select document. Please try again.');
-    }
-  };
 
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
@@ -802,6 +786,44 @@ export default function ManageTransporterScreen({ route }: any) {
           method: 'PUT',
           body: JSON.stringify(updatePayload),
         });
+        
+        // If company transporter, also update company registration
+        if (transporterType === 'company' && companyProfile?.companyId) {
+          try {
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (user) {
+              const token = await user.getIdToken();
+              const companyUpdatePayload: any = {};
+              
+              // Update registration number if provided
+              if (editRegistrationNumber && editRegistrationNumber.trim()) {
+                companyUpdatePayload.registration = editRegistrationNumber.trim();
+              }
+              
+              // Update company profile if there are changes
+              if (Object.keys(companyUpdatePayload).length > 0) {
+                const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}`, {
+                  method: 'PATCH',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(companyUpdatePayload),
+                });
+                
+                if (companyResponse.ok) {
+                  // Refresh company profile
+                  fetchProfile();
+                }
+              }
+            }
+          } catch (companyUpdateError) {
+            console.error('Error updating company registration:', companyUpdateError);
+            // Don't fail the whole update if company update fails
+          }
+        }
         
         // Update local user profile/state when available
         setUserProfile((prev: any) => prev ? { ...prev, name: editName || prev.name, email: editEmail || prev.email, phoneNumber: editPhone || prev.phoneNumber } : prev);
@@ -2040,6 +2062,7 @@ export default function ManageTransporterScreen({ route }: any) {
                   setEditName(userProfile?.name || editName || '');
                   setEditEmail(userProfile?.email || editEmail || '');
                   setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                  setEditRegistrationNumber(companyProfile?.companyRegistration || editRegistrationNumber || '');
                   setEditModal(true);
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -2074,7 +2097,9 @@ export default function ManageTransporterScreen({ route }: any) {
               </View>
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="file-document" size={16} color={colors.text.secondary} />
-                <Text style={styles.infoText}>{companyProfile?.companyRegistration || 'Registration Number'}</Text>
+                <Text style={styles.infoText}>
+                  {companyProfile?.companyRegistration || 'Registration Number (Optional - Required after 5 trips)'}
+                </Text>
               </View>
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="phone" size={16} color={colors.text.secondary} />
@@ -2094,11 +2119,12 @@ export default function ManageTransporterScreen({ route }: any) {
               </View>
             </View>
 
-            {/* Registration Document Upload */}
-            <TouchableOpacity style={[styles.actionBtn, { marginTop: 12, backgroundColor: colors.background.secondary }]} onPress={pickRegistrationDocument}>
-              <MaterialCommunityIcons name="file-upload" size={20} color={colors.primary} />
-              <Text style={[styles.actionText, { color: colors.primary }]}>Upload Registration Document</Text>
-            </TouchableOpacity>
+            {/* Registration Number Info */}
+            <View style={{ marginTop: 12, padding: 12, backgroundColor: colors.background.secondary, borderRadius: 8 }}>
+              <Text style={{ fontSize: 12, color: colors.text.secondary, textAlign: 'center', fontStyle: 'italic' }}>
+                Registration number is required after 5 completed trips. Update via Edit Profile above.
+              </Text>
+            </View>
             
             {/* Removed duplicate Logout; standardized to header-right */}
           </View>
@@ -2834,6 +2860,23 @@ export default function ManageTransporterScreen({ route }: any) {
                   placeholder="Phone"
                 />
               </View>
+              {transporterType === 'company' && (
+                <>
+                  <View style={styles.editDivider} />
+                  <View style={styles.editFieldWrap}>
+                    <Text style={styles.editLabel}>Registration Number</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={editRegistrationNumber}
+                      onChangeText={setEditRegistrationNumber}
+                      placeholder="Company Registration Number (Optional)"
+                    />
+                    <Text style={{ fontSize: 11, color: colors.text.light, marginTop: 4, fontStyle: 'italic' }}>
+                      Required after 5 completed trips
+                    </Text>
+                  </View>
+                </>
+              )}
               <View style={styles.editDivider} />
               <View style={styles.editFieldWrap}>
                 <Text style={styles.editLabel}>Change Password</Text>

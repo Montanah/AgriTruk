@@ -25,7 +25,9 @@ import AvailableLoadsAlongRoute from '../components/TransporterService/Available
 import OfflineInstructionsCard from '../components/TransporterService/OfflineInstructionsCard';
 import LocationDisplay from '../components/common/LocationDisplay';
 import BackgroundLocationDisclosureModal from '../components/common/BackgroundLocationDisclosureModal';
+import CompanyRegistrationBlockModal from '../components/common/CompanyRegistrationBlockModal';
 import locationService from '../services/locationService';
+import companyRegistrationService from '../services/companyRegistrationService';
 
 interface DriverProfile {
   id: string;
@@ -71,6 +73,10 @@ const DriverHomeScreen = () => {
   // Background location disclosure state - CRITICAL for Google Play compliance
   const [showBackgroundLocationDisclosure, setShowBackgroundLocationDisclosure] = useState(false);
   const [hasCheckedConsent, setHasCheckedConsent] = useState(false);
+  
+  // Company registration requirement state
+  const [registrationStatus, setRegistrationStatus] = useState<any>(null);
+  const [showRegistrationBlock, setShowRegistrationBlock] = useState(false);
 
   // Check background location consent on mount - CRITICAL for Google Play compliance
   useEffect(() => {
@@ -176,6 +182,17 @@ const DriverHomeScreen = () => {
                          driver.status === 'approved' &&
                          !driver.acceptingBooking && !driver.availability;
         setIsFirstTimeUser(isNewUser);
+        
+        // Check company registration requirement
+        if (profileData.company?.id) {
+          const regStatus = await companyRegistrationService.checkRegistrationRequirement(profileData.company.id);
+          setRegistrationStatus(regStatus);
+          
+          // Show blocking modal if registration is required but not provided
+          if (regStatus.registrationRequired && !regStatus.registrationProvided) {
+            setShowRegistrationBlock(true);
+          }
+        }
         
         // Check for active trip
         if (profileData.assignedVehicle?.id) {
@@ -670,6 +687,29 @@ const DriverHomeScreen = () => {
         console.log('ℹ️ DriverHomeScreen: Background location consent declined - app will use foreground-only tracking');
       }}
     />
+
+    {/* Company Registration Block Modal - Blocks services if registration required */}
+    {registrationStatus && (
+      <CompanyRegistrationBlockModal
+        visible={showRegistrationBlock}
+        completedTrips={registrationStatus.completedTrips || 0}
+        tripsThreshold={registrationStatus.tripsThreshold || 5}
+        onClose={() => {
+          setShowRegistrationBlock(false);
+          // Re-check registration status when modal is closed
+          if (driverProfile?.company?.id) {
+            companyRegistrationService.checkRegistrationRequirement(driverProfile.company.id)
+              .then(status => {
+                setRegistrationStatus(status);
+                if (status.registrationRequired && !status.registrationProvided) {
+                  // Still blocked - show again after a delay
+                  setTimeout(() => setShowRegistrationBlock(true), 1000);
+                }
+              });
+          }
+        }}
+      />
+    )}
   </View>
   );
 };
