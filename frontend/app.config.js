@@ -96,6 +96,10 @@ module.exports = {
         backgroundColor: "#ffffff"
       },
       edgeToEdgeEnabled: true,
+      // Large screen support - remove resizability restrictions
+      resizeableActivity: true,
+      // Support multiple screen sizes and densities for large screen devices
+      supportsTablet: true,
       config: {
         googleMaps: {
           apiKey: "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"
@@ -154,7 +158,9 @@ module.exports = {
       "expo-asset",
       "expo-font",
       "expo-maps",
-      "expo-web-browser"
+      "expo-web-browser",
+      // Custom plugin for large screen and edge-to-edge support
+      "./plugins/withAndroidLargeScreenSupport.js"
     ],
     experiments: {
       typedRoutes: true
