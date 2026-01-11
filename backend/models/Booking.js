@@ -189,19 +189,48 @@ const Booking = {
 
   async cancel(bookingId, reason, userId) {
     try {
-      await db.collection('bookings').doc(bookingId).update({ 
-        status: 'cancelled', 
-        cancelledAt: admin.firestore.Timestamp.now(), 
+      await db.collection('bookings').doc(bookingId).update({
+        status: 'cancelled',
+        cancelledAt: admin.firestore.Timestamp.now(),
         cancellationReason: 'No reason provided' || reason,
         cancelledBy: userId,
         statusHistory: admin.firestore.FieldValue.arrayUnion({ status: 'cancelled', timestamp: admin.firestore.Timestamp.now(), reason: 'No reason provided' || reason, cancelledBy: userId })
-       });
+      });
       return true;
     } catch (error) {
       console.error('Error cancelling booking:', error);
       return false;
     }
-  }
+  },
+
+  async startBooking(bookingId) {
+    const updates = {
+      status: 'in_progress',
+      startedAt: admin.firestore.Timestamp.now()
+    };
+    await db.collection('bookings').doc(bookingId).update(updates);
+    return updates;
+  },
+
+  async completeBooking(bookingId) {
+    const updates = {
+      status: 'completed',
+      completedAt: admin.firestore.Timestamp.now()
+    };
+    await db.collection('bookings').doc(bookingId).update(updates);
+    const booking = await this.get(bookingId);
+    // Update transporter total trips
+    await db.collection('companies').doc(booking.companyId).update({
+      completedTripsCount: admin.firestore.FieldValue.increment(1)
+    });
+    
+    return updates;
+  },
+
+   async countCompletedTripsForCompany(companyId) {
+    const snapshot = await db.collection('bookings').where('transporterId', '==', companyId).where('status', '==', 'completed').get();
+    return snapshot.size;
+  },
 };
 
 module.exports = Booking;

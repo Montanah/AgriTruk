@@ -819,4 +819,72 @@ router.patch('/:companyId/accept/:bookingId', authenticateToken, requireRole([ '
  */
 router.post('/estimate', authenticateToken, bookingController.estimateBooking);
 
+/** 
+ * @swagger
+ * /api/bookings/{companyId}/start/{bookingId}:
+ *   patch:
+ *     summary: Start a booking for a specific company
+ *     description: Allows a transporter to start a booking for a specific company
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking to start
+ *     responses:
+ *       200:
+ *         description: Booking started successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+*/
+router.patch('/:companyId/start/:bookingId', authenticateToken, requireRole([ 'transporter', 'driver']), validateBookingAccess, bookingController.startBooking);
+
+/**
+ * @swagger
+ * /api/bookings/{companyId}/complete/{bookingId}:
+ *   patch:
+ *     summary: Complete a booking for a specific company
+ *     description: Allows a transporter to complete a booking for a specific company
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking to complete
+ *     responses:
+ *       200:
+ *         description: Booking completed successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+ */
+router.patch('/:companyId/complete/:bookingId', authenticateToken, requireRole([ 'transporter', 'driver']), validateBookingAccess, bookingController.completeBooking);
+
 module.exports = router;

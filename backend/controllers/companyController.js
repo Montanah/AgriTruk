@@ -14,6 +14,7 @@ const Action = require('../models/Action');
 const { uploadDocuments } = require('./transporterController');
 const { adminNotification, getBrokerTemplate } = require('../utils/sendMailTemplate');
 const SubscriptionService = require('../services/subscriptionService');
+const e = require('express');
 
 exports.generateRandomPassword = () => {
   const length = 10;
@@ -26,7 +27,7 @@ exports.generateRandomPassword = () => {
 };
 
 const generateSignInLink = (email) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://trukap.com';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://trukapp.com';
   return `${frontendUrl}/auth/signin?email=${encodeURIComponent(email)}`;
 };
 
@@ -36,15 +37,16 @@ exports.createCompany = async (req, res) => {
     const { name, registration, contact } = req.body;
     console.log("details", name, registration, contact);
 
-    if (!name || !registration || !contact) {
+    if (!name || !contact) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
     // Check if company already exists
-    const existingCompanyByRegistration = await Company.getByRegistration(registration);
-    console.log("Existing company by registration:", existingCompanyByRegistration);
-    if (existingCompanyByRegistration) {
-      return res.status(400).json({ message: 'Company with the same registration number already exists' });
+    if (registration) {
+      const existingCompanyByRegistration = await Company.getByRegistration(registration);
+      if (existingCompanyByRegistration) {
+        return res.status(400).json({ message: 'Company with the same registration number already exists' });
+      }
     }
 
     const existingCompanyByName = await Company.getByName(name);
@@ -75,12 +77,15 @@ exports.createCompany = async (req, res) => {
 
     const companyData = {
       name,
-      registration,
       contact,
       email: userData.email,
       transporterId: req.user.uid,
       status: 'pending',
       logo: logoUrl, 
+      registration: registration || null,
+      registrationProvided: !!registration,
+      registrationRequired: false,
+      completedTripsCount: 0,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -1604,3 +1609,24 @@ exports.reviewDriver = async (req, res) => {
   }
 };
 
+exports.getRegistrationStatus = async (req, res) => {
+  try {
+    const {companyId} = req.params;
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+    return res.status(200).json({
+      success: true,
+      egistrationRequired: company.registrationRequired,
+      registrationProvided: company.registrationProvided,
+      completedTripsCount: company.completedTripsCount,
+      tripsThreshold: 5,
+      registrationNumber: company.companyRegistration,
+      message: 'Registration status retrieved successfully',
+    });
+  } catch (error) {
+    console.error('Get registration status error:', error);
+    res.status(500).json({ message: 'Failed to get registration status' });
+  }
+};

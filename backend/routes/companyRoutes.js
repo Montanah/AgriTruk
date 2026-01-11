@@ -48,7 +48,6 @@ const { requireActiveSubscription, validateDriverAddition, validateVehicleAdditi
  *             type: object
  *             required:
  *               - name
- *               - registration
  *               - contact
  *             properties:
  *               name:
@@ -298,7 +297,7 @@ router.post('/:companyId/test', (req, res) => {
 
 // Company fleet management endpoints
 console.log('🚗 REGISTERING VEHICLE CREATION ROUTE: POST /:companyId/vehicles');
-router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny, (req, res, next) => {
+router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny,(req, res, next) => {
   console.log('🚗 ===== VEHICLE CREATION ROUTE HIT! =====');
   console.log('🚗 Timestamp:', new Date().toISOString());
   console.log('🚗 Company ID from params:', req.params.companyId);
@@ -319,11 +318,10 @@ router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'
   });
   console.log('🚗 ===== END ROUTE DEBUG =====');
   next();
-}, authenticateToken,
- requireRole('transporter'), 
+}, 
  requireActiveSubscription,
  validateVehicleAddition,
- uploadAny, require('../controllers/vehicleController').createVehicle);
+ require('../controllers/vehicleController').createVehicle);
 
 /**
  * @swagger
@@ -1233,5 +1231,28 @@ router.get('/:companyId/job-seekers/:jobSeekerId/documents', authenticateToken, 
  *         description: Internal server error
  */
 router.patch('/:companyId/updateRoute', authenticateToken, requireRole('driver'), requireActiveSubscription, driverController.updateLocation);
+
+/**
+ * @swagger
+ * /api/companies/{companyId}/registration-status:
+ *   get:
+ *     summary: Get registration status of a company
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *     responses:
+ *       200:
+ *         description: Registration status retrieved successfully
+ *       500:
+ *         description: Internal server errorS
+ */
+router.get(':companyId/registration-status', authenticateToken, requireRole('transporter'), requireActiveSubscription, require('../controllers/companyController').getRegistrationStatus);
 
 module.exports = router;  

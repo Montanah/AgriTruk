@@ -39,7 +39,7 @@ const SubscriptionService = {
         endDate.setDate(endDate.getDate() + (plan.trialDays || 14));
       } else {
         endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + 1);
+        endDate.setMonth(endDate.getMonth() + plan.duration);
       }
 
       // For paid plans, verify payment

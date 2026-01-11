@@ -16,6 +16,7 @@ const { driverId } = require('../schemas/DriverSchema');
 const Driver = require('../models/Driver');
 const Broker = require('../models/Broker');
 const Client = require('../models/Client');
+const Company = require('../models/Company');
 require('dotenv').config();
 
 const google_key = process.env.GOOGLE_MAPS_API_KEY;
@@ -2075,5 +2076,156 @@ exports.cancelBooking = async (req, res) => {
       message: 'Failed to cancel booking: ' + error.message
     });
 
+  }
+};
+
+exports.startBooking = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    console.log('u', userId);
+    const { bookingId, companyId } = req.params;
+
+    if (!bookingId) {
+      return res.status(400).json({ message: 'Booking ID is required' });
+    }
+
+    if (!companyId) {
+      return res.status(400).json({ message: 'Company ID is required' });
+    }
+
+    // Get company details
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+    }
+
+    // Check if company is approved
+    if (company.status === 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Company is not approved yet'
+      });
+    }
+
+    // Check if overlimit and no registration
+    // 🚫 Block if over limit and no registration
+    if (!company.registrationProvided && company.tripsCount >= 5) {
+      return res.status(403).json({
+        success: false,
+        message: 'Company registration required to continue creating trips',
+        code: 'REGISTRATION_REQUIRED',
+      });
+    }
+
+    const booking = await Booking.get(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (booking.status !== 'accepted') {
+      return res.status(400).json({ message: 'Booking is not available for start' });
+    }
+
+    const transporter = await Company.get(companyId);
+    if (!transporter) {
+      return res.status(404).json({ message: 'Transporter not found' });
+    }
+
+    if (transporter.registrationRequired && !transporter.registrationProvided) {
+      return res.status(400).json({ message: 'Transporter registration is required' });
+    }
+
+    const started = await Booking.startBooking(bookingId);
+
+    if (!started) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    await logActivity(req.user.uid, 'start_booking', req);
+
+    await Notification.create({
+      type: "Start AgriTRUK Booking",
+      message: `You started one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
+    res.status(200).json({
+      message: "AgriTRUK booking started successfully",
+      booking: started
+    });
+  } catch (error) {
+    console.error("Start agri booking error:", error);
+    res.status(500).json({
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to start agriTRUK booking"
+    });
+  }
+};
+
+exports.completeBooking = async (req, res) => {
+  try {
+    const { bookingId, companyId } = req.params;
+
+    if (!bookingId) {
+      return res.status(400).json({ message: 'Booking ID is required' });
+    }
+
+    if (!companyId) {
+      return res.status(400).json({ message: 'Company ID is required' });
+    }
+
+    const booking = await Booking.get(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if(booking.status !== 'in_progress') {
+      return res.status(400).json({ message: 'Booking is not available for complete' });
+    }
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+    
+    const completed = await Booking.completeBooking(bookingId);
+
+    if (!completed) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    // const update = await Company.updateTrips(companyId);
+
+    // console.log("Update", update);
+
+    //flag
+    if (!company.registrationProvided && company.completedTripsCount + 1 >= 5) {
+      await Company.update(company.id, {
+        registrationRequired: true,
+      });
+    }
+
+    await logActivity(req.user.uid, 'complete_booking', req);
+
+    await Notification.create({
+      type: "Complete AgriTRUK Booking",
+      message: `You completed one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    })
+
+    res.status(200).json({
+      message: "AgriTRUK booking completed successfully",
+      booking: completed
+    });
+  } catch (error) {
+    console.error("Complete agri booking error:", error);
+    res.status(500).json({
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to complete agriTRUK booking"
+    });
   }
 };

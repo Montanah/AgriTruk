@@ -8,7 +8,7 @@ const Company = {
       companyId,
       transporterId: data.transporterId,
       companyName: data.name,
-      companyRegistration: data.registration,
+      companyRegistration: data.registration || '',
       companyEmail: data.email,
       companyContact: data.contact || '',
       companyAddress: data.address || '',
@@ -16,6 +16,10 @@ const Company = {
       rating: data.rating || 0,
       status: data.status || 'pending',
       rejectionReason: data.rejectionReason || null,
+      //trips
+      completedTripsCount: data.completedTripsCount || 0,
+      registrationRequired: data.registrationRequired || false,
+      registrationProvided: data.registrationProvided || false,
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
 
@@ -87,6 +91,12 @@ const Company = {
   async getByStatus(status) {
     const snapshot = await db.collection('companies').where('status', '==', status).get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async updateTrips(companyId) {
+     await db.collection('companies').doc(companyId).update({
+          completedTripsCount: admin.firestore.FieldValue.increment(1)
+        });
   },
 };
 

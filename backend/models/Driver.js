@@ -60,6 +60,12 @@ const Driver = {
     };
   },
 
+  async getbyUserId(userId) {
+    const snapshot = await db.collection('drivers').where('userId', '==', userId).limit(1).get();
+    if (snapshot.empty) return null;
+    return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+  },
+
   async update(driverId, updates) {
     const updated = {
       ...updates,
