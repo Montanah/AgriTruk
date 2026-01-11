@@ -2111,8 +2111,7 @@ exports.startBooking = async (req, res) => {
     }
 
     // Check if overlimit and no registration
-    // 🚫 Block if over limit and no registration
-    if (!company.registrationProvided && company.tripsCount >= 5) {
+    if (!company.registrationProvided && company.completedTripsCount >= 5) {
       return res.status(403).json({
         success: false,
         message: 'Company registration required to continue creating trips',
