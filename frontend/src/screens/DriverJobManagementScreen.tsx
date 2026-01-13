@@ -514,6 +514,18 @@ const DriverJobManagementScreen = () => {
     }
   };
 
+  // Helper function to get companyId for API calls
+  const getCompanyId = (): string => {
+    // For company drivers, use company.id from driver profile
+    if (driverProfile?.company?.id) {
+      return driverProfile.company.id;
+    }
+    // For individual transporters/drivers, use userId as companyId
+    const auth = getAuth();
+    const user = auth.currentUser;
+    return user?.uid || '';
+  };
+
   const handleStartTrip = async (job: Job) => {
     try {
       const auth = getAuth();
@@ -528,27 +540,29 @@ const DriverJobManagementScreen = () => {
 
       const token = await user.getIdToken();
       
-      // CRITICAL: For API calls, always use the raw database ID
-      // The backend likely expects the Firestore document ID, which is typically in the 'id' field
-      // bookingId might be a different field (like requestId or readableId)
+      // Get companyId and bookingId
+      const companyId = getCompanyId();
       const bookingId = job.id || job._id || job.bookingId;
       
       if (!bookingId) {
         throw new Error('Booking ID not found. Cannot start trip.');
       }
       
+      if (!companyId) {
+        throw new Error('Company ID not found. Cannot start trip.');
+      }
+      
       console.log('Starting trip for job:', {
+        companyId,
+        bookingId,
         rawId: job.id,
         rawBookingId: job.bookingId,
-        requestId: (job as any).requestId,
         displayId: (job as any).readableId || getDisplayBookingId(job),
-        usingForAPI: bookingId,
-        fullJobObject: JSON.stringify(job, null, 2).substring(0, 500) // First 500 chars for debugging
       });
       
-      // Use the correct endpoint for updating booking status - try /update/:bookingId endpoint
-      let response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${bookingId}`, {
-        method: 'PATCH',
+      // Use the correct endpoint: POST /api/bookings/:companyId/start/:bookingId
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${companyId}/start/${bookingId}`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -559,29 +573,23 @@ const DriverJobManagementScreen = () => {
         })
       });
 
-      // Fallback to /status endpoint if /update doesn't work
-      if (!response.ok && response.status === 404) {
-        response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${bookingId}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            status: 'started',
-            startedAt: new Date().toISOString()
-          })
-        });
-      }
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         
-        // Handle specific error cases
+        // Handle specific error cases including registration required
         if (response.status === 401) {
           throw new Error('Authorization failed. Please log out and log back in.');
         } else if (response.status === 403) {
-          throw new Error('You do not have permission to start this trip. Please contact support.');
+          // Check if it's a registration required error
+          if (errorData.error === 'REGISTRATION_REQUIRED') {
+            const regStatus = errorData.registrationStatus;
+            throw new Error(
+              `Company registration number is required to continue using services. ` +
+              `Your company has completed ${regStatus?.completedTrips || 0} trips. ` +
+              `Please contact your company administrator to update the registration number.`
+            );
+          }
+          throw new Error(errorData.message || 'You do not have permission to start this trip. Please contact support.');
         } else if (response.status === 404) {
           throw new Error('Booking not found.');
         } else {
@@ -623,8 +631,24 @@ const DriverJobManagementScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/update/${job.id}`, {
-        method: 'PATCH',
+      
+      // Get companyId and bookingId
+      const companyId = getCompanyId();
+      const bookingId = job.id || job._id || job.bookingId;
+      
+      if (!bookingId) {
+        throw new Error('Booking ID not found. Cannot complete trip.');
+      }
+      
+      if (!companyId) {
+        throw new Error('Company ID not found. Cannot complete trip.');
+      }
+      
+      console.log('Completing trip:', { companyId, bookingId });
+      
+      // Use the correct endpoint: POST /api/bookings/:companyId/complete/:bookingId
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${companyId}/complete/${bookingId}`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -632,13 +656,25 @@ const DriverJobManagementScreen = () => {
         body: JSON.stringify({ status: 'completed' })
       });
 
-      if (response.ok) {
-        Alert.alert('Success', 'Trip completed successfully!');
-        fetchJobs();
-        fetchCurrentTrip();
-      } else {
-        throw new Error('Failed to complete trip');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          throw new Error('Authorization failed. Please log out and log back in.');
+        } else if (response.status === 403) {
+          throw new Error(errorData.message || 'You do not have permission to complete this trip.');
+        } else if (response.status === 404) {
+          throw new Error('Booking not found.');
+        } else {
+          throw new Error(errorData.message || `Failed to complete trip (${response.status})`);
+        }
       }
+
+      const data = await response.json();
+      Alert.alert('Success', 'Trip completed successfully!');
+      fetchJobs();
+      fetchCurrentTrip();
     } catch (err: any) {
       console.error('Error completing trip:', err);
       Alert.alert('Error', err.message || 'Failed to complete trip');

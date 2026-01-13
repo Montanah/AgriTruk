@@ -172,26 +172,58 @@ const ShipmentManagementScreen = () => {
     return R * c;
   };
 
+  // Helper function to get companyId
+  const getCompanyId = (): string => {
+    // Use transporterId as companyId (for individual transporters, userId = companyId)
+    // For company transporters, booking should have companyId field
+    return booking?.companyId || booking?.company?.id || transporterId || '';
+  };
+
   const handleStartTrip = async () => {
     try {
       setLoading(true);
       
-      const response = await apiRequest(`/bookings/${booking.id}/start`, {
+      const companyId = getCompanyId();
+      const bookingId = booking.id;
+      
+      if (!companyId) {
+        throw new Error('Company ID not found. Cannot start trip.');
+      }
+      
+      if (!bookingId) {
+        throw new Error('Booking ID not found. Cannot start trip.');
+      }
+      
+      // Use the correct endpoint: POST /api/bookings/:companyId/start/:bookingId
+      const response = await apiRequest(`/bookings/${companyId}/start/${bookingId}`, {
         method: 'POST',
         body: JSON.stringify({
           transporterId: transporterId,
-          status: 'in_progress'
+          status: 'started'
         })
       });
 
       if (response.success) {
         Alert.alert('Trip Started! 🚛', 'You have started the trip. The client has been notified.');
         // Update booking status locally
-        booking.status = 'in_progress';
+        booking.status = 'started';
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting trip:', error);
-      Alert.alert('Error', 'Failed to start trip');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to start trip';
+      
+      // Handle registration required error
+      if (error?.response?.status === 403 && error?.response?.data?.error === 'REGISTRATION_REQUIRED') {
+        const regStatus = error.response.data.registrationStatus;
+        Alert.alert(
+          'Registration Required',
+          `Company registration number is required to continue using services. ` +
+          `Your company has completed ${regStatus?.completedTrips || 0} trips. ` +
+          `Please update the registration number in your profile.`
+        );
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -201,7 +233,19 @@ const ShipmentManagementScreen = () => {
     try {
       setLoading(true);
       
-      const response = await apiRequest(`/bookings/${booking.id}/complete`, {
+      const companyId = getCompanyId();
+      const bookingId = booking.id;
+      
+      if (!companyId) {
+        throw new Error('Company ID not found. Cannot complete trip.');
+      }
+      
+      if (!bookingId) {
+        throw new Error('Booking ID not found. Cannot complete trip.');
+      }
+      
+      // Use the correct endpoint: POST /api/bookings/:companyId/complete/:bookingId
+      const response = await apiRequest(`/bookings/${companyId}/complete/${bookingId}`, {
         method: 'POST',
         body: JSON.stringify({
           transporterId: transporterId,
@@ -213,9 +257,10 @@ const ShipmentManagementScreen = () => {
         Alert.alert('Trip Completed! ✅', 'Great job! The client has been notified.');
         navigation.goBack();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing trip:', error);
-      Alert.alert('Error', 'Failed to complete trip');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to complete trip';
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }

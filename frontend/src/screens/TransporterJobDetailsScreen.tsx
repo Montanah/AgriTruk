@@ -112,6 +112,52 @@ const TransporterJobDetailsScreen = () => {
     }
   };
 
+  // Helper function to get companyId
+  const getCompanyId = async (): Promise<string> => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return '';
+
+      // Check if job has companyId
+      if (job?.companyId) {
+        return job.companyId;
+      }
+      if (job?.company?.id) {
+        return job.company.id;
+      }
+      if (job?.transporter?.company?.id) {
+        return job.transporter.company.id;
+      }
+
+      // For individual transporters, use userId as companyId
+      // For company transporters, fetch company profile
+      const token = await user.getIdToken();
+      try {
+        const response = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const companyData = await response.json();
+          const company = Array.isArray(companyData) ? companyData[0] : companyData;
+          if (company?.id) {
+            return company.id;
+          }
+        }
+      } catch (e) {
+        // If no company found, use userId as companyId for individual transporters
+      }
+      
+      return user.uid; // Fallback to userId
+    } catch (err) {
+      console.error('Error getting companyId:', err);
+      const auth = getAuth();
+      const user = auth.currentUser;
+      return user?.uid || '';
+    }
+  };
+
   const handleStartTrip = async () => {
     try {
       const auth = getAuth();
@@ -119,8 +165,20 @@ const TransporterJobDetailsScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/bookings/${job.id}/update`, {
-        method: 'PATCH',
+      const companyId = await getCompanyId();
+      const bookingId = job.id || job.bookingId;
+      
+      if (!companyId) {
+        throw new Error('Company ID not found. Cannot start trip.');
+      }
+      
+      if (!bookingId) {
+        throw new Error('Booking ID not found. Cannot start trip.');
+      }
+      
+      // Use the correct endpoint: POST /api/bookings/:companyId/start/:bookingId
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${companyId}/start/${bookingId}`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -128,12 +186,26 @@ const TransporterJobDetailsScreen = () => {
         body: JSON.stringify({ status: 'started' })
       });
 
-      if (response.ok) {
-        Alert.alert('Success', 'Trip started successfully!');
-        fetchJobDetails(); // Refresh data
-      } else {
-        throw new Error('Failed to start trip');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        
+        // Handle registration required error
+        if (response.status === 403 && errorData.error === 'REGISTRATION_REQUIRED') {
+          const regStatus = errorData.registrationStatus;
+          Alert.alert(
+            'Registration Required',
+            `Company registration number is required to continue using services. ` +
+            `Your company has completed ${regStatus?.completedTrips || 0} trips. ` +
+            `Please update the registration number in your profile.`
+          );
+          return;
+        }
+        
+        throw new Error(errorData.message || 'Failed to start trip');
       }
+
+      Alert.alert('Success', 'Trip started successfully!');
+      fetchJobDetails(); // Refresh data
     } catch (err: any) {
       console.error('Error starting trip:', err);
       Alert.alert('Error', err.message || 'Failed to start trip');
@@ -147,8 +219,20 @@ const TransporterJobDetailsScreen = () => {
       if (!user) return;
 
       const token = await user.getIdToken();
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/bookings/${job.id}/update`, {
-        method: 'PATCH',
+      const companyId = await getCompanyId();
+      const bookingId = job.id || job.bookingId;
+      
+      if (!companyId) {
+        throw new Error('Company ID not found. Cannot complete trip.');
+      }
+      
+      if (!bookingId) {
+        throw new Error('Booking ID not found. Cannot complete trip.');
+      }
+      
+      // Use the correct endpoint: POST /api/bookings/:companyId/complete/:bookingId
+      const response = await fetch(`${API_ENDPOINTS.BOOKINGS}/${companyId}/complete/${bookingId}`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -156,12 +240,13 @@ const TransporterJobDetailsScreen = () => {
         body: JSON.stringify({ status: 'completed' })
       });
 
-      if (response.ok) {
-        Alert.alert('Success', 'Trip completed successfully!');
-        navigation.goBack();
-      } else {
-        throw new Error('Failed to complete trip');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to complete trip');
       }
+
+      Alert.alert('Success', 'Trip completed successfully!');
+      navigation.goBack();
     } catch (err: any) {
       console.error('Error completing trip:', err);
       Alert.alert('Error', err.message || 'Failed to complete trip');

@@ -272,11 +272,11 @@ class SubscriptionService {
     // Admin creates subscription with 90-day trial, backend calculates endDate accordingly
     let daysRemaining = subscriptionData.daysRemaining || 0;
     
-    // Validate daysRemaining for trials - should never exceed 90 days
+    // Safety validation: Cap daysRemaining at 90 days for trials (fallback safety measure)
+    // Backend should now return correct values, but this ensures UI never shows invalid data
     if (isTrialActive && daysRemaining > 90) {
-      console.error('⚠️ SUBSCRIPTION SERVICE ERROR: Backend returned', daysRemaining, 'days remaining for trial.');
-      console.error('⚠️ This exceeds the 90-day trial period. Backend subscription data:', JSON.stringify(subscriptionData, null, 2));
-      console.error('⚠️ Capping daysRemaining at 90 days. Backend needs to fix trial end date calculation.');
+      console.warn('⚠️ SUBSCRIPTION SERVICE: Backend returned', daysRemaining, 'days remaining for trial (exceeds 90). Capping at 90 days as safety measure.');
+      console.warn('⚠️ Backend subscription data:', JSON.stringify(subscriptionData, null, 2));
       daysRemaining = 90; // Cap at maximum trial period
     }
     

@@ -400,7 +400,13 @@ export default function App() {
             const needsBackgroundLocation = data.role === 'transporter' || data.role === 'driver';
             if (needsBackgroundLocation && !hasCheckedGlobalConsent) {
               console.log('📢 App.tsx: User needs background location - checking disclosure consent');
-              const hasConsent = await locationService.hasBackgroundLocationConsent();
+              let hasConsent = false;
+              try {
+                hasConsent = await locationService.hasBackgroundLocationConsent();
+              } catch (consentError: any) {
+                console.warn('App.tsx: Error checking background location consent:', consentError);
+                hasConsent = false; // Default to false on error
+              }
               
               if (!hasConsent) {
                 console.log('📢 App.tsx: No consent found - will show global prominent disclosure BEFORE navigation');
@@ -428,20 +434,86 @@ export default function App() {
             // For transporters, check if they have a profile and if they're a driver
             if (data.role === 'transporter') {
               // Check if this user is a driver (only for transporters)
-              const driverCheck = await checkIfDriver(firebaseUser.uid);
+              // Wrap in try-catch to prevent unhandled errors
+              let driverCheck = false;
+              try {
+                driverCheck = await checkIfDriver(firebaseUser.uid);
+              } catch (driverCheckError: any) {
+                console.warn('App.tsx: Error checking driver status:', driverCheckError);
+                driverCheck = false; // Default to false on error
+              }
               setIsDriver(driverCheck);
               try {
                 // First check if this is a company transporter by calling the backend API
-                const token = await firebaseUser.getIdToken();
-                const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${firebaseUser.uid}`, {
-                  headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
-                });
+                let token: string;
+                try {
+                  token = await firebaseUser.getIdToken();
+                } catch (tokenError: any) {
+                  console.warn('App.tsx: Error getting auth token:', tokenError);
+                  // Set defaults and let outer catch handle the rest
+                  setProfileCompleted(false);
+                  data.transporterStatus = 'incomplete';
+                  data.transporterType = 'company';
+                  setSubscriptionStatus({
+                    hasActiveSubscription: false,
+                    isTrialActive: false,
+                    needsTrialActivation: true,
+                    currentPlan: null,
+                    daysRemaining: 0,
+                    subscriptionStatus: 'none',
+                    transporterType: 'company'
+                  });
+                  throw tokenError; // Re-throw to be caught by outer catch
+                }
+                
+                let companyResponse: Response;
+                try {
+                  companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${firebaseUser.uid}`, {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                  });
+                } catch (fetchError: any) {
+                  console.warn('App.tsx: Error fetching company data:', fetchError);
+                  // Set defaults and let outer catch handle the rest
+                  setProfileCompleted(false);
+                  data.transporterStatus = 'incomplete';
+                  data.transporterType = 'company';
+                  setSubscriptionStatus({
+                    hasActiveSubscription: false,
+                    isTrialActive: false,
+                    needsTrialActivation: true,
+                    currentPlan: null,
+                    daysRemaining: 0,
+                    subscriptionStatus: 'none',
+                    transporterType: 'company'
+                  });
+                  throw fetchError; // Re-throw to be caught by outer catch
+                }
                 
                 if (companyResponse.ok) {
-                  const companyData = await companyResponse.json();
+                  let companyData: any;
+                  try {
+                    companyData = await companyResponse.json();
+                  } catch (jsonError: any) {
+                    console.warn('App.tsx: Error parsing company response:', jsonError);
+                    // Set defaults and let outer catch handle the rest
+                    setProfileCompleted(false);
+                    data.transporterStatus = 'incomplete';
+                    data.transporterType = 'company';
+                    setSubscriptionStatus({
+                      hasActiveSubscription: false,
+                      isTrialActive: false,
+                      needsTrialActivation: true,
+                      currentPlan: null,
+                      daysRemaining: 0,
+                      subscriptionStatus: 'none',
+                      transporterType: 'company'
+                    });
+                    throw jsonError; // Re-throw to be caught by outer catch
+                  }
+                  
                   if (companyData && companyData.length > 0) {
                     // This is a company owner - check company profile completion
                     const company = companyData[0];
@@ -451,8 +523,22 @@ export default function App() {
                     data.transporterType = 'company';
                     
                     // Check subscription status for company
-                    const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
-                    setSubscriptionStatus(subStatus);
+                    try {
+                      const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'transporter');
+                      setSubscriptionStatus(subStatus);
+                    } catch (subError: any) {
+                      console.warn('App.tsx: Error checking subscription status:', subError);
+                      // Set default subscription status on error
+                      setSubscriptionStatus({
+                        hasActiveSubscription: false,
+                        isTrialActive: false,
+                        needsTrialActivation: true,
+                        currentPlan: null,
+                        daysRemaining: 0,
+                        subscriptionStatus: 'none',
+                        transporterType: 'company'
+                      });
+                    }
                   } else {
                     // No company found - this is a new transporter
                     setProfileCompleted(false);
@@ -487,16 +573,41 @@ export default function App() {
                     transporterType: 'company'
                   });
                 }
-              } catch (e) {
+              } catch (e: any) {
+                console.error('App.tsx: Error checking transporter profile:', e);
+                // Set safe defaults on any error
                 setProfileCompleted(false);
                 data.transporterStatus = 'incomplete';
-                console.error('Error checking transporter profile:', e);
+                data.transporterType = 'company';
+                setSubscriptionStatus({
+                  hasActiveSubscription: false,
+                  isTrialActive: false,
+                  needsTrialActivation: true,
+                  currentPlan: null,
+                  daysRemaining: 0,
+                  subscriptionStatus: 'none',
+                  transporterType: 'company'
+                });
               }
             } else if (data.role === 'broker') {
               // Check subscription status for brokers
               if (data.isVerified) {
-                const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'broker');
-                setSubscriptionStatus(subStatus);
+                try {
+                  const subStatus = await checkSubscriptionStatus(firebaseUser.uid, 'broker');
+                  setSubscriptionStatus(subStatus);
+                } catch (subError: any) {
+                  console.warn('App.tsx: Error checking broker subscription status:', subError);
+                  // Set default subscription status on error
+                  setSubscriptionStatus({
+                    hasActiveSubscription: false,
+                    isTrialActive: false,
+                    needsTrialActivation: true,
+                    currentPlan: null,
+                    daysRemaining: 0,
+                    subscriptionStatus: 'none',
+                    transporterType: null
+                  });
+                }
               }
               setIsDriver(false); // Brokers are not drivers
             } else if (data.role === 'business') {

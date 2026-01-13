@@ -74,11 +74,10 @@ const EnhancedSubscriptionStatusCard: React.FC<EnhancedSubscriptionStatusCardPro
       // Backend sets trial to 90 days initially, then calculates remaining days correctly
       const rawDaysRemaining = status.daysRemaining || 0;
       
-      // Validate: Trial should never exceed 90 days (3 months)
-      // If backend returns > 90, it's a calculation error - cap it and log the issue
+      // Safety validation: Cap at 90 days for trials (fallback safety measure)
+      // Backend should now return correct values, but this ensures UI never shows invalid data
       if (rawDaysRemaining > 90) {
-        console.error('⚠️ TRIAL COUNTDOWN ERROR: Backend returned', rawDaysRemaining, 'days remaining for trial. This exceeds the 90-day trial period. Capping at 90 days.');
-        console.error('⚠️ Backend subscription data:', JSON.stringify(status, null, 2));
+        console.warn('⚠️ TRIAL COUNTDOWN: Backend returned', rawDaysRemaining, 'days remaining for trial (exceeds 90). Capping at 90 days as safety measure.');
         daysRemaining = 90; // Cap at maximum trial period
       } else if (rawDaysRemaining < 0) {
         console.warn('⚠️ TRIAL COUNTDOWN WARNING: Backend returned negative days remaining:', rawDaysRemaining);
