@@ -397,35 +397,49 @@ export default function App() {
 
             // CRITICAL: Check background location disclosure BEFORE navigation
             // This must happen BEFORE any screens are shown to comply with Google Play requirements
+            // Check for ALL roles that need background location: transporter (both company and individual) and driver
             const needsBackgroundLocation = data.role === 'transporter' || data.role === 'driver';
+            
             if (needsBackgroundLocation && !hasCheckedGlobalConsent) {
               console.log('📢 App.tsx: User needs background location - checking disclosure consent');
+              console.log('📢 App.tsx: User role:', data.role, 'transporterType:', data.transporterType);
+              
               let hasConsent = false;
               try {
                 hasConsent = await locationService.hasBackgroundLocationConsent();
+                console.log('📢 App.tsx: Background location consent check result:', hasConsent);
               } catch (consentError: any) {
                 console.warn('App.tsx: Error checking background location consent:', consentError);
-                hasConsent = false; // Default to false on error
+                hasConsent = false; // Default to false on error - must show disclosure
               }
               
               if (!hasConsent) {
                 console.log('📢 App.tsx: No consent found - will show global prominent disclosure BEFORE navigation');
+                console.log('📢 App.tsx: This disclosure MUST be shown before any permission requests (Google Play requirement)');
+                
                 // Determine user role for disclosure
                 if (data.role === 'driver') {
                   setDisclosureUserRole('driver');
+                  console.log('📢 App.tsx: Setting disclosure for driver role');
                 } else if (data.transporterType === 'company' || (data.role === 'transporter' && !data.transporterType)) {
                   setDisclosureUserRole('company');
                   setDisclosureTransporterType('company');
+                  console.log('📢 App.tsx: Setting disclosure for company transporter');
                 } else {
                   setDisclosureUserRole('individual');
                   setDisclosureTransporterType('individual');
+                  console.log('📢 App.tsx: Setting disclosure for individual transporter');
                 }
+                
+                // Set the modal to show - this will block navigation
                 setShowGlobalBackgroundLocationDisclosure(true);
+                console.log('📢 App.tsx: Global background location disclosure modal will be shown - navigation blocked until user responds');
               } else {
                 console.log('📢 App.tsx: User has already consented to background location disclosure');
               }
               setHasCheckedGlobalConsent(true);
             } else if (!needsBackgroundLocation) {
+              // User doesn't need background location - mark as checked
               setHasCheckedGlobalConsent(true);
             }
             
@@ -803,7 +817,13 @@ export default function App() {
         setRole(null);
         setProfileCompleted(false);
         setSubscriptionStatus(null);
+        // No user - mark consent as checked (no disclosure needed)
+        setHasCheckedGlobalConsent(true);
       }
+      
+      // CRITICAL: Only set loading to false AFTER disclosure check completes
+      // If disclosure modal needs to be shown, it will block navigation
+      // The modal is shown outside NavigationContainer, so loading state doesn't matter
       setLoading(false);
     });
     return unsubscribe;
@@ -1758,7 +1778,13 @@ export default function App() {
 
   // CRITICAL: Show global background location disclosure BEFORE any navigation
   // This ensures Google Play compliance - disclosure must be shown BEFORE permission request
+  // This modal MUST be shown before ANY screens render to meet Google Play requirements
   if (showGlobalBackgroundLocationDisclosure && disclosureUserRole) {
+    console.log('📢 App.tsx: ========== SHOWING GLOBAL BACKGROUND LOCATION DISCLOSURE ==========');
+    console.log('📢 App.tsx: This is the Prominent Disclosure required by Google Play Store');
+    console.log('📢 App.tsx: Navigation is BLOCKED until user responds to this disclosure');
+    console.log('📢 App.tsx: User role:', disclosureUserRole, 'Transporter type:', disclosureTransporterType);
+    
     return (
       <ErrorBoundary>
         <StatusBar style="dark" translucent />
@@ -1768,17 +1794,21 @@ export default function App() {
           transporterType={disclosureTransporterType}
           onAccept={async () => {
             console.log('✅ App.tsx: User accepted global background location disclosure');
+            console.log('✅ App.tsx: Saving consent - navigation will proceed after this');
             await locationService.saveBackgroundLocationConsent(true);
             setShowGlobalBackgroundLocationDisclosure(false);
             // Now allow navigation to proceed
             setHasCheckedGlobalConsent(true);
+            console.log('✅ App.tsx: Consent saved - navigation will now proceed');
           }}
           onDecline={async () => {
             console.log('❌ App.tsx: User declined global background location disclosure');
+            console.log('❌ App.tsx: Saving declined status - navigation will proceed but background location disabled');
             await locationService.saveBackgroundLocationConsent(false);
             setShowGlobalBackgroundLocationDisclosure(false);
             // Still allow navigation, but background location won't be available
             setHasCheckedGlobalConsent(true);
+            console.log('❌ App.tsx: Declined status saved - navigation will now proceed');
           }}
         />
       </ErrorBoundary>

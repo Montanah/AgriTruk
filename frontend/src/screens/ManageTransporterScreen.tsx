@@ -468,12 +468,17 @@ export default function ManageTransporterScreen({ route }: any) {
           // Check if location tracking should be active
           // This would typically be based on transporter's online status
           // For now, we'll start tracking when the component mounts
-          // Check for background location consent first (required by Google Play)
-          const result = await locationService.startLocationTracking();
-          if (result.needsConsent) {
-            // Show disclosure modal - don't start tracking yet
+          // CRITICAL: Check for background location consent first (required by Google Play)
+          // The global disclosure in App.tsx should have already been shown, but check again to be safe
+          const hasConsent = await locationService.hasBackgroundLocationConsent();
+          if (!hasConsent) {
+            // Consent not given - the global disclosure in App.tsx should handle this
+            // But if we reach here, show the disclosure modal as a fallback
+            console.log('⚠️ ManageTransporterScreen: No background location consent found - showing disclosure modal');
             setShowBackgroundLocationDisclosure(true);
           } else {
+            // Consent given - safe to start tracking
+            const result = await locationService.startLocationTracking(true);
             setIsLocationTracking(result.success);
           }
         } catch (error) {
@@ -3382,13 +3387,16 @@ export default function ManageTransporterScreen({ route }: any) {
                     await locationService.stopLocationTracking();
                     setIsLocationTracking(false);
                   } else {
-                    // Check for background location consent before starting tracking
-                    const result = await locationService.startLocationTracking();
-                    
-                    if (result.needsConsent) {
-                      // Show disclosure modal - user must consent before tracking can start
+                    // CRITICAL: Check for background location consent before starting tracking
+                    // The global disclosure in App.tsx should have already been shown
+                    const hasConsent = await locationService.hasBackgroundLocationConsent();
+                    if (!hasConsent) {
+                      // Consent not given - show disclosure modal as fallback
+                      console.log('⚠️ ManageTransporterScreen: No background location consent - showing disclosure modal');
                       setShowBackgroundLocationDisclosure(true);
                     } else {
+                      // Consent given - safe to start tracking
+                      const result = await locationService.startLocationTracking(true);
                       setIsLocationTracking(result.success);
                       if (!result.success) {
                         Alert.alert(
