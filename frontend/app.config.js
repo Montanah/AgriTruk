@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: "TRUKapp",
     slug: "TRUKapp",
-    version: "1.0.2",
+    version: "1.0.3",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "trukapp",
@@ -10,7 +10,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.truk.trukapp",
-      buildNumber: "2",
+      buildNumber: "3",
       supportsTablet: true,
       icon: "./assets/images/ios-icon-1024.png",
       config: {
@@ -90,7 +90,7 @@ module.exports = {
     },
     android: {
       package: "com.truk.trukapp",
-      versionCode: 2,
+      versionCode: 3,
       icon: "./assets/images/android-icon-512.png",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon-foreground.png",
