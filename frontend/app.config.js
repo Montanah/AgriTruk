@@ -10,7 +10,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.truk.trukapp",
-      buildNumber: "3",
+      buildNumber: "5",
       supportsTablet: true,
       icon: "./assets/images/ios-icon-1024.png",
       config: {
@@ -90,13 +90,15 @@ module.exports = {
     },
     android: {
       package: "com.truk.trukapp",
-      versionCode: 3,
+      versionCode: 5,
       icon: "./assets/images/android-icon-512.png",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon-foreground.png",
         backgroundColor: "#ffffff"
       },
       edgeToEdgeEnabled: true,
+      // Ensure Hermes is used for better startup performance on device
+      jsEngine: "hermes",
       // Large screen support - remove resizability restrictions
       resizeableActivity: true,
       // Support multiple screen sizes and densities for large screen devices

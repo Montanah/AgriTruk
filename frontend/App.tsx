@@ -53,6 +53,11 @@ const Stack = createStackNavigator();
 
 LogBox.ignoreLogs(['useInsertionEffect must not schedule updates']);
 
+// Validate Firebase is initialized before using it
+if (!auth || !db) {
+  console.error('CRITICAL: Firebase not properly initialized. Auth:', !!auth, 'Firestore:', !!db);
+}
+
 // App initialization
 
 // Helper function to check if user is a driver (company or individual)
@@ -280,6 +285,8 @@ export default function App() {
   const [hasCheckedGlobalConsent, setHasCheckedGlobalConsent] = React.useState(false);
   const [disclosureUserRole, setDisclosureUserRole] = React.useState<'company' | 'individual' | 'driver' | undefined>(undefined);
   const [disclosureTransporterType, setDisclosureTransporterType] = React.useState<'company' | 'individual' | undefined>(undefined);
+  // Ref to track if disclosure will be shown (for loading state management)
+  const willShowDisclosureRef = React.useRef(false);
 
   // Retry function for connection errors
   const retryConnection = React.useCallback(() => {
@@ -332,28 +339,31 @@ export default function App() {
 
   React.useEffect(() => {
     // Setting up auth state listener
-    if (!auth) {
-      console.error('Firebase auth is not initialized');
+    if (!auth || !db) {
+      console.error('Firebase not properly initialized - Auth:', !!auth, 'Firestore:', !!db);
+      setConnectionError('Firebase initialization failed. Please restart the app.');
       setLoading(false);
       return;
     }
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Auth state changed
-      // Ensure we show loading while we resolve user role and verification status to prevent flicker
-      setLoading(true);
-      
-      // Debug: Check if user is being lost
-      if (!firebaseUser && user) {
-        // User lost
-      }
-      
-      // Debug: Check if this is the initial auth state
-      if (firebaseUser && !user) {
-        // User found - initial authentication state
-      }
-      
-      setUser(firebaseUser);
+      // Wrap entire auth flow in try-catch to prevent unhandled errors from crashing the app
+      try {
+        // Auth state changed
+        // Ensure we show loading while we resolve user role and verification status to prevent flicker
+        setLoading(true);
+        
+        // Debug: Check if user is being lost
+        if (!firebaseUser && user) {
+          // User lost
+        }
+        
+        // Debug: Check if this is the initial auth state
+        if (firebaseUser && !user) {
+          // User found - initial authentication state
+        }
+        
+        setUser(firebaseUser);
       if (firebaseUser) {
         try {
           // Clear any previous connection errors
@@ -361,7 +371,15 @@ export default function App() {
           
           // Fetching user data from Firestore
           // Try users collection first
-          let snap = await getDoc(firestoreDoc(db, 'users', firebaseUser.uid));
+          let snap;
+          try {
+            snap = await getDoc(firestoreDoc(db, 'users', firebaseUser.uid));
+          } catch (firestoreError: any) {
+            console.error('App.tsx: Error fetching from Firestore:', firestoreError);
+            // Fallback - continue with null data instead of crashing
+            snap = { exists: () => false };
+          }
+          
           let data = snap.exists() ? snap.data() : null;
           // Firestore data fetched
           
@@ -400,6 +418,9 @@ export default function App() {
             // Check for ALL roles that need background location: transporter (both company and individual) and driver
             const needsBackgroundLocation = data.role === 'transporter' || data.role === 'driver';
             
+            // Reset disclosure ref for this auth flow
+            willShowDisclosureRef.current = false;
+            
             if (needsBackgroundLocation && !hasCheckedGlobalConsent) {
               console.log('📢 App.tsx: User needs background location - checking disclosure consent');
               console.log('📢 App.tsx: User role:', data.role, 'transporterType:', data.transporterType);
@@ -432,7 +453,9 @@ export default function App() {
                 }
                 
                 // Set the modal to show - this will block navigation
+                // DO NOT set loading to false here - keep it true until user responds
                 setShowGlobalBackgroundLocationDisclosure(true);
+                willShowDisclosureRef.current = true; // Track that disclosure will be shown
                 console.log('📢 App.tsx: Global background location disclosure modal will be shown - navigation blocked until user responds');
               } else {
                 console.log('📢 App.tsx: User has already consented to background location disclosure');
@@ -819,12 +842,29 @@ export default function App() {
         setSubscriptionStatus(null);
         // No user - mark consent as checked (no disclosure needed)
         setHasCheckedGlobalConsent(true);
+        // No user - safe to set loading to false
+        setLoading(false);
       }
       
-      // CRITICAL: Only set loading to false AFTER disclosure check completes
-      // If disclosure modal needs to be shown, it will block navigation
-      // The modal is shown outside NavigationContainer, so loading state doesn't matter
-      setLoading(false);
+        // CRITICAL: Only set loading to false if disclosure modal is NOT being shown
+        // If disclosure modal needs to be shown, loading will remain true until user responds
+        // Loading will be set to false in the disclosure modal callbacks (onAccept/onDecline)
+        if (!willShowDisclosureRef.current) {
+          setLoading(false);
+        }
+      } catch (error: any) {
+        // Catch any unhandled errors in the auth flow
+        console.error('App.tsx: Unhandled error in auth state listener:', error);
+        console.error('App.tsx: Error message:', error?.message);
+        console.error('App.tsx: Error stack:', error?.stack);
+        
+        // Set safe defaults to prevent app from being stuck
+        setConnectionError('An error occurred during login. Please try again.');
+        setLoading(false);
+        
+        // Don't throw - let the app continue with error state
+        // The ErrorBoundary will catch React errors, but async errors need to be handled here
+      }
     });
     return unsubscribe;
   }, []);
@@ -832,53 +872,111 @@ export default function App() {
   if (loading) {
     // Show a proper loading screen instead of null to prevent navigation issues
     return (
-      <NavigationContainer key={`${user ? user.uid : 'guest'}-${role || 'none'}`}>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Loading">
-            {() => (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={{ marginTop: 16, fontSize: 16, color: colors.text.primary }}>Loading...</Text>
-              </View>
-            )}
-          </Stack.Screen>
-        </Stack.Navigator>
-      </NavigationContainer>
+      <ErrorBoundary>
+        <>
+          <NavigationContainer key={`${user ? user.uid : 'guest'}-${role || 'none'}`}>
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Loading">
+                {() => (
+                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={{ marginTop: 16, fontSize: 16, color: colors.text.primary }}>Loading...</Text>
+                  </View>
+                )}
+              </Stack.Screen>
+            </Stack.Navigator>
+          </NavigationContainer>
+          {/* Global Background Location Disclosure - must be rendered before any permission requests */}
+          <BackgroundLocationDisclosureModal
+            visible={showGlobalBackgroundLocationDisclosure}
+            userRole={disclosureUserRole}
+            transporterType={disclosureTransporterType}
+            onAccept={async () => {
+              try {
+                await locationService.saveBackgroundLocationConsent(true);
+              } catch (error: any) {
+                console.warn('App.tsx: Error saving background location consent:', error);
+              }
+              setShowGlobalBackgroundLocationDisclosure(false);
+              willShowDisclosureRef.current = false;
+              setHasCheckedGlobalConsent(true);
+              setLoading(false);
+            }}
+            onDecline={async () => {
+              try {
+                await locationService.saveBackgroundLocationConsent(false);
+              } catch (error: any) {
+                console.warn('App.tsx: Error saving background location decline:', error);
+              }
+              setShowGlobalBackgroundLocationDisclosure(false);
+              willShowDisclosureRef.current = false;
+              setHasCheckedGlobalConsent(true);
+              setLoading(false);
+            }}
+          />
+        </>
+      </ErrorBoundary>
     );
   }
 
   // Show connection error screen if there's a connection error
   if (connectionError) {
     return (
-      <NavigationContainer key={`${user ? user.uid : 'guest'}-error`}>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="ConnectionError">
-            {() => (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: 20 }}>
-                <MaterialCommunityIcons name="wifi-off" size={64} color={colors.error} />
-                <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text.primary, marginTop: 16, textAlign: 'center' }}>
-                  Connection Error
-                </Text>
-                <Text style={{ fontSize: 16, color: colors.text.secondary, marginTop: 8, textAlign: 'center', lineHeight: 24 }}>
-                  {connectionError}
-                </Text>
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: colors.primary,
-                    paddingHorizontal: 24,
-                    paddingVertical: 12,
-                    borderRadius: 8,
-                    marginTop: 24,
-                  }}
-                  onPress={retryConnection}
-                >
-                  <Text style={{ color: colors.white, fontSize: 16, fontWeight: '600' }}>Retry</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </Stack.Screen>
-        </Stack.Navigator>
-      </NavigationContainer>
+      <ErrorBoundary>
+        <>
+          <NavigationContainer key={`${user ? user.uid : 'guest'}-error`}>
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="ConnectionError">
+                {() => (
+                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: 20 }}>
+                    <MaterialCommunityIcons name="wifi-off" size={64} color={colors.error} />
+                    <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.text.primary, marginTop: 16, textAlign: 'center' }}>
+                      Connection Error
+                    </Text>
+                    <Text style={{ fontSize: 16, color: colors.text.secondary, marginTop: 8, textAlign: 'center', lineHeight: 24 }}>
+                      {connectionError}
+                    </Text>
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: colors.primary,
+                        paddingHorizontal: 24,
+                        paddingVertical: 12,
+                        borderRadius: 8,
+                        marginTop: 24,
+                      }}
+                      onPress={retryConnection}
+                    >
+                      <Text style={{ color: colors.white, fontSize: 16, fontWeight: '600' }}>Retry</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </Stack.Screen>
+            </Stack.Navigator>
+          </NavigationContainer>
+          {/* Keep global disclosure available even on error to satisfy Play compliance if needed */}
+          <BackgroundLocationDisclosureModal
+            visible={showGlobalBackgroundLocationDisclosure}
+            userRole={disclosureUserRole}
+            transporterType={disclosureTransporterType}
+            onAccept={async () => {
+              try { await locationService.saveBackgroundLocationConsent(true); } catch (error: any) {
+                console.warn('App.tsx: Error in disclosure onAccept:', error);
+              }
+              setShowGlobalBackgroundLocationDisclosure(false);
+              willShowDisclosureRef.current = false;
+              setHasCheckedGlobalConsent(true);
+            }}
+            onDecline={async () => {
+              try { await locationService.saveBackgroundLocationConsent(false); } catch (error: any) {
+                console.warn('App.tsx: Error in disclosure onDecline:', error);
+              }
+              setShowGlobalBackgroundLocationDisclosure(false);
+              willShowDisclosureRef.current = false;
+              setHasCheckedGlobalConsent(true);
+            }}
+          />
+        </>
+      </ErrorBoundary>
     );
   }
 
@@ -1793,22 +1891,46 @@ export default function App() {
           userRole={disclosureUserRole}
           transporterType={disclosureTransporterType}
           onAccept={async () => {
-            console.log('✅ App.tsx: User accepted global background location disclosure');
-            console.log('✅ App.tsx: Saving consent - navigation will proceed after this');
-            await locationService.saveBackgroundLocationConsent(true);
-            setShowGlobalBackgroundLocationDisclosure(false);
-            // Now allow navigation to proceed
-            setHasCheckedGlobalConsent(true);
-            console.log('✅ App.tsx: Consent saved - navigation will now proceed');
+            try {
+              console.log('✅ App.tsx: User accepted global background location disclosure');
+              console.log('✅ App.tsx: Saving consent - navigation will proceed after this');
+              await locationService.saveBackgroundLocationConsent(true);
+              setShowGlobalBackgroundLocationDisclosure(false);
+              willShowDisclosureRef.current = false; // Reset ref
+              // Now allow navigation to proceed
+              setHasCheckedGlobalConsent(true);
+              // CRITICAL: Set loading to false AFTER disclosure is handled
+              setLoading(false);
+              console.log('✅ App.tsx: Consent saved - navigation will now proceed');
+            } catch (error: any) {
+              console.error('App.tsx: Error handling disclosure acceptance:', error);
+              // Even on error, allow navigation to proceed
+              setShowGlobalBackgroundLocationDisclosure(false);
+              willShowDisclosureRef.current = false; // Reset ref
+              setHasCheckedGlobalConsent(true);
+              setLoading(false);
+            }
           }}
           onDecline={async () => {
-            console.log('❌ App.tsx: User declined global background location disclosure');
-            console.log('❌ App.tsx: Saving declined status - navigation will proceed but background location disabled');
-            await locationService.saveBackgroundLocationConsent(false);
-            setShowGlobalBackgroundLocationDisclosure(false);
-            // Still allow navigation, but background location won't be available
-            setHasCheckedGlobalConsent(true);
-            console.log('❌ App.tsx: Declined status saved - navigation will now proceed');
+            try {
+              console.log('❌ App.tsx: User declined global background location disclosure');
+              console.log('❌ App.tsx: Saving declined status - navigation will proceed but background location disabled');
+              await locationService.saveBackgroundLocationConsent(false);
+              setShowGlobalBackgroundLocationDisclosure(false);
+              willShowDisclosureRef.current = false; // Reset ref
+              // Still allow navigation, but background location won't be available
+              setHasCheckedGlobalConsent(true);
+              // CRITICAL: Set loading to false AFTER disclosure is handled
+              setLoading(false);
+              console.log('❌ App.tsx: Declined status saved - navigation will now proceed');
+            } catch (error: any) {
+              console.error('App.tsx: Error handling disclosure decline:', error);
+              // Even on error, allow navigation to proceed
+              setShowGlobalBackgroundLocationDisclosure(false);
+              willShowDisclosureRef.current = false; // Reset ref
+              setHasCheckedGlobalConsent(true);
+              setLoading(false);
+            }
           }}
         />
       </ErrorBoundary>
@@ -1816,21 +1938,36 @@ export default function App() {
   }
 
   // Wrap the entire app in a global error boundary
-  return (
-    <ErrorBoundary>
-      <ConsolidationProvider>
-        <NotificationProvider>
-          <StatusBar style="dark" translucent />
-          <NavigationContainer key={`${user ? user.uid : 'guest'}-${role || 'none'}`}>
-            <Stack.Navigator key={`${user ? user.uid : 'guest'}-${role || 'none'}`} screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
-              {screens}
-            </Stack.Navigator>
-          </NavigationContainer>
-          <NotificationManager />
-        </NotificationProvider>
-      </ConsolidationProvider>
-    </ErrorBoundary>
-  );
-}
-
-export default App;
+  try {
+    return (
+      <ErrorBoundary>
+        <ConsolidationProvider>
+          <NotificationProvider>
+            <StatusBar style="dark" translucent />
+            <NavigationContainer key={`${user ? user.uid : 'guest'}-${role || 'none'}`}>
+              <Stack.Navigator key={`${user ? user.uid : 'guest'}-${role || 'none'}`} screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+                {screens}
+              </Stack.Navigator>
+            </NavigationContainer>
+            <NotificationManager />
+          </NotificationProvider>
+        </ConsolidationProvider>
+      </ErrorBoundary>
+    );
+  } catch (error: any) {
+    console.error('App.tsx: Critical error in app rendering:', error);
+    // If rendering fails, show error boundary immediately
+    return (
+      <ErrorBoundary>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+          <MaterialCommunityIcons name="alert-circle" size={64} color={colors.error} />
+          <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.error, marginTop: 16, textAlign: 'center' }}>
+            Application Error
+          </Text>
+          <Text style={{ fontSize: 14, color: colors.text.secondary, marginTop: 8, textAlign: 'center', paddingHorizontal: 20 }}>
+            {error?.message || 'An unexpected error occurred. Please restart the app.'}
+          </Text>
+        </View>
+      </ErrorBoundary>
+    );
+  }

@@ -26,8 +26,11 @@ class LocationService {
     try {
       const consent = await AsyncStorage.getItem(BACKGROUND_LOCATION_CONSENT_KEY);
       return consent === 'true';
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking background location consent:', error);
+      // On physical devices, AsyncStorage might fail due to permissions or storage issues
+      // Return false to show disclosure (safer default)
+      // Don't throw - let the app continue
       return false;
     }
   }
@@ -38,8 +41,12 @@ class LocationService {
   async saveBackgroundLocationConsent(consented: boolean): Promise<void> {
     try {
       await AsyncStorage.setItem(BACKGROUND_LOCATION_CONSENT_KEY, consented ? 'true' : 'false');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving background location consent:', error);
+      // On physical devices, AsyncStorage might fail due to permissions or storage issues
+      // Log but don't throw - the app should continue even if consent can't be saved
+      // The disclosure will be shown again next time, which is acceptable
+      console.warn('Could not save background location consent - will show disclosure again next time');
     }
   }
 

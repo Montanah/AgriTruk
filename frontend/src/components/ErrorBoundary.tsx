@@ -36,6 +36,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   render() {
     if (this.state.hasError) {
+      const errorMessage = this.state.error?.message || this.state.error?.toString() || 'Unknown error';
+      const errorStack = this.state.errorInfo?.componentStack || '';
+      
+      // Log full error details for debugging
+      console.error('ErrorBoundary - Full error details:', {
+        error: this.state.error,
+        errorInfo: this.state.errorInfo,
+        message: errorMessage,
+        stack: errorStack
+      });
+      
       return (
         <ScrollView contentContainerStyle={styles.container}>
           <MaterialCommunityIcons name="alert-circle" size={64} color={colors.error} style={styles.icon} />
@@ -43,6 +54,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           <Text style={styles.message}>
             We're sorry, but something unexpected happened. Please try again.
           </Text>
+          
+          {/* Show error details in development mode */}
+          {(typeof __DEV__ !== 'undefined' && __DEV__) && (
+            <View style={styles.errorDetails}>
+              <Text style={styles.errorDetailsTitle}>Error Details (Dev Mode):</Text>
+              <Text style={styles.errorDetailsText}>{errorMessage}</Text>
+              {errorStack ? (
+                <Text style={styles.errorStackText}>{errorStack.substring(0, 500)}</Text>
+              ) : null}
+            </View>
+          )}
           
           <TouchableOpacity style={styles.reloadButton} onPress={this.handleReload}>
             <MaterialCommunityIcons name="refresh" size={20} color={colors.white} style={{ marginRight: 8 }} />
@@ -95,6 +117,33 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  errorDetails: {
+    backgroundColor: '#fff3cd',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    width: '100%',
+    maxWidth: '90%',
+  },
+  errorDetailsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.error,
+    marginBottom: 8,
+  },
+  errorDetailsText: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    fontFamily: 'monospace',
+    marginBottom: 8,
+  },
+  errorStackText: {
+    fontSize: 10,
+    color: colors.text.secondary,
+    fontFamily: 'monospace',
+    opacity: 0.7,
   },
 });
 
