@@ -112,7 +112,23 @@ exports.paymentCallback = async (req, res) => {
       const subscription = await Subscribers.getByUserId(metadata.userId);
       if (subscription && subscription.transactionId === reference) {
         const plan = await SubscriptionPlans.getSubscriptionPlan(metadata.planId);
-        const endDate = new Date(Date.now() + plan.duration * 24 * 60 * 60 * 1000);
+        
+        // CRITICAL FIX: Calculate endDate correctly based on plan type
+        const endDate = new Date();
+        if (plan.price === 0) {
+          // Trial plan
+          const trialDays = plan.trialDays || plan.duration || 90;
+          console.log(`✅ Payment callback: Trial plan with ${trialDays} days`);
+          endDate.setDate(endDate.getDate() + trialDays);
+        } else {
+          // Paid plan: duration handling
+          // If duration is in months (typically 1, 3, 12), multiply by 30
+          // If duration is already in days (> 12), use directly
+          const durationInDays = plan.duration > 12 ? plan.duration : plan.duration * 30;
+          console.log(`✅ Payment callback: Paid plan with ${durationInDays} days (duration: ${plan.duration})`);
+          endDate.setDate(endDate.getDate() + durationInDays);
+        }
+        
         await Subscribers.update(subscription.id, {
           endDate: admin.firestore.Timestamp.fromDate(endDate),
           isActive: true,
@@ -230,8 +246,23 @@ exports.createSubscriber = async (req, res) => {
 
     const startDate = new Date(Date.now());
     const endDate = new Date(startDate); // Create a new Date object
-    endDate.setMonth(endDate.getMonth() + plan.duration);
-    // endDate.setDate(endDate.getDate() + plan.duration); // Add days, not months
+    
+    // CRITICAL FIX: Handle trial vs paid plan duration correctly
+    // For trial plans (price === 0): duration should be in days (typically 90 days)
+    // For paid plans (price > 0): duration should be in days as well (converted from months)
+    if (plan.price === 0) {
+      // Trial plan: use trialDays if available, otherwise use duration as days
+      const trialDays = plan.trialDays || plan.duration || 90;
+      console.log(`🔧 Creating trial subscriber with ${trialDays} days (plan.duration: ${plan.duration}, plan.trialDays: ${plan.trialDays})`);
+      endDate.setDate(endDate.getDate() + trialDays);
+    } else {
+      // Paid plan: duration is typically in months, need to convert
+      // If duration is already in days (which it should be), add directly
+      // If it's in months, multiply by 30
+      const durationInDays = plan.duration > 12 ? plan.duration : plan.duration * 30; // Heuristic: if > 12, assume days
+      console.log(`🔧 Creating paid subscriber with ${durationInDays} days (plan.duration: ${plan.duration})`);
+      endDate.setDate(endDate.getDate() + durationInDays);
+    }
     const isActive = true;
     const paymentStatus = 'pending';
     const transactionId = null;
