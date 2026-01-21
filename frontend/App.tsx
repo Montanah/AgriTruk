@@ -253,8 +253,11 @@ const checkSubscriptionStatus = async (userId: string, userType: 'transporter' |
     });
     
     return status;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error checking subscription status:', error);
+    
+    // Check if this was a timeout error
+    const isTimeout = error.name === 'AbortError' || error.message?.includes('timeout') || error.message?.includes('aborted');
     
     // Return a consistent fallback status
     return {
@@ -264,7 +267,9 @@ const checkSubscriptionStatus = async (userId: string, userType: 'transporter' |
       currentPlan: null,
       daysRemaining: 0,
       subscriptionStatus: 'none',
-      isApiError: true
+      isApiError: true,
+      isTimeout: isTimeout, // Flag for UI to handle timeout specially
+      errorMessage: isTimeout ? 'Taking longer than expected. Please check your connection.' : 'Could not verify subscription status.'
     };
   }
 };

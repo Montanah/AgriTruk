@@ -311,7 +311,13 @@ class SubscriptionService {
         
       } catch (error: any) {
         lastError = error;
-        console.warn(`Subscription status fetch failed (attempt ${attempt}/${maxRetries}):`, error.message);
+        
+        // Handle timeout/abort errors specifically
+        if (error.name === 'AbortError' || error.message.includes('aborted')) {
+          console.warn(`Subscription status request timed out (attempt ${attempt}/${maxRetries})`);
+        } else {
+          console.warn(`Subscription status fetch failed (attempt ${attempt}/${maxRetries}):`, error.message);
+        }
         
         if (attempt === maxRetries) {
           console.error('All subscription status fetch attempts failed:', error);
@@ -393,6 +399,15 @@ class SubscriptionService {
         throw new Error(data.message || 'Failed to create subscription');
       }
 
+      // Clear subscription cache after successful subscription creation
+      // This ensures the user sees the updated subscription immediately
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (user) {
+        this.clearCache(user.uid);
+        console.log('✅ Cleared subscription cache after successful payment');
+      }
+
       return { success: true, data };
     } catch (error) {
       console.error('Error creating subscription:', error);
@@ -426,6 +441,15 @@ class SubscriptionService {
 
       if (!response.ok) {
         throw new Error(data.message || 'Failed to upgrade plan');
+      }
+
+      // Clear subscription cache after successful upgrade
+      // This ensures the user sees the updated subscription plan immediately
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (user) {
+        this.clearCache(user.uid);
+        console.log('✅ Cleared subscription cache after successful upgrade');
       }
 
       return { success: true, data };

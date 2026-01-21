@@ -21,6 +21,7 @@ import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import CardValidator, { CardData, CardValidationResult } from '../utils/cardValidation';
 import paymentService from '../services/paymentService';
+import mpesaPaymentService from '../services/mpesaPaymentService';
 
 interface PaymentScreenProps {
     route: {
@@ -131,23 +132,64 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ route }) => {
         setPaymentStep('processing');
 
         try {
-            // Simulate M-PESA payment processing
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Use the real M-PESA payment service
+            const result = await mpesaPaymentService.initiateStkPush({
+                phoneNumber: phoneNumber,
+                amount: Math.ceil(plan.price), // Round up to nearest whole number
+                planId: plan.id,
+                planName: plan.name,
+            });
 
-            // Here you would integrate with actual M-PESA API
+            if (result.success) {
+                // Payment was successful
+                Alert.alert(
+                    'Payment Successful',
+                    `Your ${plan.name} subscription has been ${isUpgrade ? 'upgraded' : 'activated'} successfully!`,
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => navigation.navigate('PaymentSuccess', { plan, userType, isUpgrade })
+                        }
+                    ]
+                );
+            } else {
+                // Payment failed or was cancelled
+                Alert.alert(
+                    'Payment Failed',
+                    result.error || 'There was an error processing your payment. Please try again.',
+                    [
+                        {
+                            text: 'Try Again',
+                            onPress: () => {
+                                setPaymentStep('details');
+                                setLoading(false);
+                            }
+                        },
+                        {
+                            text: 'Cancel',
+                            onPress: () => {
+                                setPaymentStep('method');
+                                setLoading(false);
+                            }
+                        }
+                    ]
+                );
+            }
+        } catch (error) {
+            console.error('M-PESA payment error:', error);
             Alert.alert(
-                'Payment Successful',
-                `Your ${plan.name} subscription has been ${isUpgrade ? 'upgraded' : 'activated'} successfully!`,
+                'Payment Error',
+                'An unexpected error occurred. Please try again.',
                 [
                     {
-                        text: 'OK',
-                        onPress: () => navigation.navigate('PaymentSuccess', { plan, userType, isUpgrade })
+                        text: 'Try Again',
+                        onPress: () => {
+                            setPaymentStep('details');
+                            setLoading(false);
+                        }
                     }
                 ]
             );
-        } catch (error) {
-            Alert.alert('Payment Failed', 'There was an error processing your payment. Please try again.');
-            setPaymentStep('details');
         } finally {
             setLoading(false);
         }
