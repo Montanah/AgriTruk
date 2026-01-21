@@ -37,7 +37,7 @@
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "agritruk-d543b",
         "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "agritruk-d543b.firebasestorage.app",
         "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "86814869135",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa"
       }
     },
     "production": {
@@ -57,7 +57,7 @@
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "agritruk-d543b",
         "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "agritruk-d543b.firebasestorage.app",
         "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "86814869135",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa"
       }
     },
     "testing": {
@@ -78,7 +78,7 @@
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "agritruk-d543b",
         "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "agritruk-d543b.firebasestorage.app",
         "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "86814869135",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa"
       }
     },
     "tester": {
@@ -99,7 +99,7 @@
         "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "agritruk-d543b",
         "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "agritruk-d543b.firebasestorage.app",
         "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "86814869135",
-        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:86814869135:web:49d6806e9b9917eb6e92fa"
       }
     },
     "production-apk": {

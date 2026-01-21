@@ -10,9 +10,12 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.truk.trukapp",
-      buildNumber: "5",
+      buildNumber: "6",
       supportsTablet: true,
       icon: "./assets/images/ios-icon-1024.png",
+      // Updated to iOS 14.0 to support iOS 26 SDK (was 13.4)
+      // iOS 26 SDK requires minimum deployment target of at least iOS 14
+      deploymentTarget: "14.0",
       config: {
         googleMapsApiKey: "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"
       },
@@ -33,7 +36,8 @@ module.exports = {
         ITSAppUsesNonExemptEncryption: false,
         
         // Minimum iOS version - REQUIRED
-        LSMinimumSystemVersion: "12.0",
+        // Updated to iOS 13.4 to meet Apple App Store requirements (iOS 13+ for 2025)
+        LSMinimumSystemVersion: "13.4",
         
         // App Transport Security settings - REQUIRED for network requests
         NSAppTransportSecurity: {
