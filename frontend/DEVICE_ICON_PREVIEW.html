@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRUK App Icon - Device Preview</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #0F2B04 0%, #27AE60 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #0F2B04;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.2em;
+        }
+        
+        .device-section {
+            margin-bottom: 50px;
+        }
+        
+        .device-section h2 {
+            color: #0F2B04;
+            border-bottom: 3px solid #27AE60;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+            font-size: 1.8em;
+        }
+        
+        .device-mockup {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .phone-mockup {
+            width: 300px;
+            height: 600px;
+            background: #1a1a1a;
+            border-radius: 30px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        
+        .phone-mockup.iphone {
+            background: linear-gradient(145deg, #2c2c2c, #1a1a1a);
+        }
+        
+        .phone-mockup.android {
+            background: linear-gradient(145deg, #333, #222);
+        }
+        
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .status-bar {
+            height: 30px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .home-screen {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: calc(100% - 30px);
+            border-radius: 0 0 20px 20px;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            align-content: start;
+        }
+        
+        .app-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        
+        .app-icon:hover {
+            transform: scale(1.1);
+        }
+        
+        .app-icon img {
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+        }
+        
+        .truk-icon {
+            grid-column: 2;
+            grid-row: 2;
+            position: relative;
+        }
+        
+        .truk-icon::after {
+            content: "TRUK";
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .dock {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            height: 80px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .dock-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .dock-icon img {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+        }
+        
+        .icon-variants {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .variant-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 2px solid #e9ecef;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .variant-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .variant-card h3 {
+            margin: 15px 0 10px 0;
+            color: #0F2B04;
+            font-size: 1.1em;
+        }
+        
+        .variant-card p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .variant-preview {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+        }
+        
+        .variant-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 8px;
+        }
+        
+        .comparison-section {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+        
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .comparison-item {
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .comparison-item.ios {
+            background: linear-gradient(135deg, #007AFF, #5856D6);
+            color: white;
+            border-color: #007AFF;
+        }
+        
+        .comparison-item.android {
+            background: linear-gradient(135deg, #3DDC84, #1F8A70);
+            color: white;
+            border-color: #3DDC84;
+        }
+        
+        .comparison-item h4 {
+            margin: 0 0 15px 0;
+            font-size: 1.2em;
+        }
+        
+        .comparison-item img {
+            width: 100px;
+            height: 100px;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            margin-bottom: 15px;
+        }
+        
+        .comparison-item p {
+            margin: 0;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        
+        .specs {
+            background: #e8f5e8;
+            border-left: 4px solid #27AE60;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .specs h4 {
+            margin-top: 0;
+            color: #0F2B04;
+        }
+        
+        .specs ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .specs li {
+            margin: 8px 0;
+            color: #333;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .device-mockup {
+                flex-direction: column;
+            }
+            
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 TRUK App Icon - Device Preview</h1>
+        <p class="subtitle">See how your app icon will look on iPhone and Android devices</p>
+        
+        <div class="device-section">
+            <h2>📱 iPhone Preview</h2>
+            <div class="device-mockup">
+                <div class="phone-mockup iphone">
+                    <div class="phone-screen">
+                        <div class="status-bar">
+                            <span>9:41</span>
+                            <span>🔋 100%</span>
+                        </div>
+                        <div class="home-screen">
+                            <!-- Other app icons -->
+                            <div class="app-icon" style="background: #FF3B30;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            <div class="app-icon" style="background: #FF9500;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            <div class="app-icon" style="background: #FFCC00;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            <div class="app-icon" style="background: #34C759;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            
+                            <div class="app-icon" style="background: #007AFF;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            <div class="app-icon truk-icon" style="background: #FFFFFF;"><img src="assets/images/ios-icon-60.png" alt="TRUK"></div>
+                            <div class="app-icon" style="background: #5856D6;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            <div class="app-icon" style="background: #AF52DE;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            
+                            <div class="app-icon" style="background: #FF2D92;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            <div class="app-icon" style="background: #8E8E93;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            <div class="app-icon" style="background: #FF9500;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                            <div class="app-icon" style="background: #34C759;"><img src="assets/images/ios-icon-60.png" alt="App"></div>
+                        </div>
+                        <div class="dock">
+                            <div class="dock-icon" style="background: #FF3B30;"><img src="assets/images/ios-icon-60.png" alt="Phone"></div>
+                            <div class="dock-icon" style="background: #34C759;"><img src="assets/images/ios-icon-60.png" alt="Messages"></div>
+                            <div class="dock-icon" style="background: #007AFF;"><img src="assets/images/ios-icon-60.png" alt="Safari"></div>
+                            <div class="dock-icon" style="background: #FF9500;"><img src="assets/images/ios-icon-60.png" alt="Music"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="device-section">
+            <h2>🤖 Android Preview</h2>
+            <div class="device-mockup">
+                <div class="phone-mockup android">
+                    <div class="phone-screen">
+                        <div class="status-bar">
+                            <span>9:41</span>
+                            <span>🔋 100%</span>
+                        </div>
+                        <div class="home-screen">
+                            <!-- Other app icons -->
+                            <div class="app-icon" style="background: #FF5722;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            <div class="app-icon" style="background: #FF9800;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            <div class="app-icon" style="background: #FFC107;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            <div class="app-icon" style="background: #4CAF50;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            
+                            <div class="app-icon" style="background: #2196F3;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            <div class="app-icon truk-icon" style="background: #FFFFFF;"><img src="assets/images/android-icon-96.png" alt="TRUK"></div>
+                            <div class="app-icon" style="background: #9C27B0;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            <div class="app-icon" style="background: #E91E63;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            
+                            <div class="app-icon" style="background: #607D8B;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            <div class="app-icon" style="background: #795548;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            <div class="app-icon" style="background: #FF9800;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                            <div class="app-icon" style="background: #4CAF50;"><img src="assets/images/android-icon-96.png" alt="App"></div>
+                        </div>
+                        <div class="dock">
+                            <div class="dock-icon" style="background: #FF5722;"><img src="assets/images/android-icon-96.png" alt="Phone"></div>
+                            <div class="dock-icon" style="background: #4CAF50;"><img src="assets/images/android-icon-96.png" alt="Messages"></div>
+                            <div class="dock-icon" style="background: #2196F3;"><img src="assets/images/android-icon-96.png" alt="Chrome"></div>
+                            <div class="dock-icon" style="background: #FF9800;"><img src="assets/images/android-icon-96.png" alt="Music"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="comparison-section">
+            <h2>🔄 iOS vs Android Icon Comparison</h2>
+            <div class="comparison-grid">
+                <div class="comparison-item ios">
+                    <h4>🍎 iOS App Icon</h4>
+                    <img src="assets/images/ios-icon-180.png" alt="iOS Icon">
+                    <p><strong>Background:</strong> White (#FFFFFF)<br>
+                    <strong>Style:</strong> Rounded square with shadow<br>
+                    <strong>Size:</strong> 180x180px (iPhone)<br>
+                    <strong>Logo:</strong> 85% of icon size</p>
+                </div>
+                <div class="comparison-item android">
+                    <h4>🤖 Android Adaptive Icon</h4>
+                    <img src="assets/images/adaptive-icon.png" alt="Android Icon">
+                    <p><strong>Background:</strong> White (#ffffff)<br>
+                    <strong>Style:</strong> Adaptive with system theming<br>
+                    <strong>Size:</strong> 108x108px (adaptive)<br>
+                    <strong>Logo:</strong> 80% of icon size</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="specs">
+            <h4>📋 Icon Specifications</h4>
+            <ul>
+                <li><strong>iOS:</strong> Uses white background (#FFFFFF) with TRUK logo at 85% size</li>
+                <li><strong>Android:</strong> Uses white background (#ffffff) with TRUK logo at 80% size for adaptive icons</li>
+                <li><strong>Logo Size:</strong> Optimized for visibility while maintaining professional spacing</li>
+                <li><strong>Quality:</strong> High-resolution PNG with crisp edges for all screen densities</li>
+                <li><strong>Consistency:</strong> White background for both iOS and Android platforms</li>
+            </ul>
+        </div>
+        
+        <div class="device-section">
+            <h2>🎨 Icon Color Variants</h2>
+            <div class="icon-variants">
+                <div class="variant-card">
+                    <div class="variant-preview">
+                        <img src="assets/images/icon.png" alt="Pure White">
+                    </div>
+                    <h3>Pure White</h3>
+                    <p>#FFFFFF - Clean white background (Default)</p>
+                </div>
+                
+                <div class="variant-card">
+                    <div class="variant-preview">
+                        <img src="assets/images/icon-light.png" alt="Light Gray">
+                    </div>
+                    <h3>Light Gray</h3>
+                    <p>#F8FAFC - Light gray background</p>
+                </div>
+                
+                <div class="variant-card">
+                    <div class="variant-preview">
+                        <img src="assets/images/icon-surface.png" alt="Surface Gray">
+                    </div>
+                    <h3>Surface Gray</h3>
+                    <p>#F0F0F0 - Light surface background</p>
+                </div>
+                
+                <div class="variant-card">
+                    <div class="variant-preview">
+                        <img src="assets/images/icon-background.png" alt="Background Gray">
+                    </div>
+                    <h3>Background Gray</h3>
+                    <p>#F7F9FC - Light background color</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>🚛 TRUK App Icons - Production Ready | Optimized for iPhone and Android</p>
+            <p>Icons will appear exactly as shown above on device home screens</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,724 @@
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import React from 'react';
+import { ActivityIndicator, Alert, Animated, Easing, Image, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getAuth, signOut } from 'firebase/auth';
+import { fonts, spacing } from '../constants';
+import colors from '../constants/colors';
+import { API_ENDPOINTS } from '../constants/api';
+import subscriptionService from '../services/subscriptionService';
+
+export default function TransporterProcessingScreen({ route }) {
+  // route.params?.transporterType can be 'individual' or 'company'
+  const transporterType = route?.params?.transporterType || 'company';
+  const navigation = useNavigation();
+  const [profilePhotoUrl, setProfilePhotoUrl] = React.useState(null);
+  const [loadingProfile, setLoadingProfile] = React.useState(true);
+  const [currentStatus, setCurrentStatus] = React.useState('pending'); // pending, under review, approved, rejected, etc.
+  const [statusMessage, setStatusMessage] = React.useState('Your documents are under review. You will be notified once your account is activated.');
+  const [subscriptionStatus, setSubscriptionStatus] = React.useState(null);
+  const [checkingSubscription, setCheckingSubscription] = React.useState(false);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [lastFetchTime, setLastFetchTime] = React.useState(0);
+
+  // Helper to map status to step index
+  const getStepIndex = (status) => {
+    if (!status) return 0;
+    if (status === 'approved') return 2;
+    if (status === 'pending' || status === 'under review' || status === 'under_review') return 1;
+    return 0;
+  };
+
+  // Helper to get user-friendly status message
+  const getStatusMessage = (status) => {
+    if (status === 'approved') return 'Your account has been approved! Redirecting to dashboard...';
+    if (status === 'rejected') return 'Your documents were rejected. Please contact support or re-submit.';
+    if (status === 'pending' || status === 'under review' || status === 'under_review') return 'Your documents are under review. You will be notified once your account is activated.';
+    return 'Your profile status is being processed.';
+  };
+
+  // Check subscription status
+  const checkSubscriptionStatus = async () => {
+    try {
+      setCheckingSubscription(true);
+      const status = await subscriptionService.getSubscriptionStatus();
+      setSubscriptionStatus(status);
+      
+      console.log('Transporter subscription status:', status);
+      
+      // Priority 1: Check if user has active subscription or trial - go to dashboard
+      if (status && (status.hasActiveSubscription || status.isTrialActive)) {
+        console.log('Transporter has active subscription/trial, navigating to dashboard');
+        // Use immediate navigation without setTimeout
+        navigation.reset({
+          index: 0,
+          routes: [{
+            name: 'TransporterTabs',
+            params: { transporterType: transporterType }
+          }]
+        });
+        return;
+      }
+      
+      // Priority 2: Check if subscription has expired
+      if (status && (status.subscriptionStatus === 'expired' || status.trialUsed)) {
+        console.log('Transporter subscription expired, redirecting to expired screen');
+        // Map transporterType to correct userType for expired screen
+        const userTypeForExpired = transporterType === 'company' ? 'company' : 'individual';
+        try {
+          navigation.navigate('SubscriptionExpired', {
+            userType: userTypeForExpired,
+            userId: 'current_user',
+            expiredDate: status.subscriptionExpiryDate || new Date().toISOString()
+          });
+        } catch (navError) {
+          console.log('Navigation error, trying reset:', navError);
+          navigation.reset({
+            index: 0,
+            routes: [{
+              name: 'SubscriptionExpired',
+              params: {
+                userType: userTypeForExpired,
+                userId: 'current_user',
+                expiredDate: status.subscriptionExpiryDate || new Date().toISOString()
+              }
+            }]
+          });
+        }
+        return;
+      }
+      
+      // Priority 3: Check if user needs trial activation (no active subscription)
+      if (status && status.needsTrialActivation) {
+        console.log('Transporter needs trial activation, redirecting to trial screen');
+        // Determine correct userType based on transporterType
+        const userType = transporterType === 'company' ? 'company' : 'transporter';
+        // Use immediate navigation without setTimeout
+        navigation.reset({
+          index: 0,
+          routes: [{
+            name: 'SubscriptionTrial',
+            params: {
+              userType: userType,
+              transporterType: transporterType,
+              subscriptionStatus: status
+            }
+          }]
+        });
+        return;
+      }
+      
+      // Priority 4: Fallback - if no subscription status or unknown state, assume needs trial
+      console.log('No subscription status - admin will create subscription. Redirecting to dashboard.');
+      // NOTE: Admin creates subscriptions - users don't activate trials themselves
+      // Just redirect to dashboard - admin will create subscription when ready
+      navigation.reset({
+        index: 0,
+        routes: [{
+          name: 'TransporterTabs',
+          params: { transporterType: transporterType }
+        }]
+      });
+
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      // On error, just redirect to dashboard - admin will create subscription
+      console.log('Error checking subscription - admin will create subscription. Redirecting to dashboard.');
+      try {
+        navigation.navigate('TransporterTabs', { transporterType: transporterType });
+      } catch (navError) {
+        console.log('Navigation error, trying reset:', navError);
+        navigation.reset({
+          index: 0,
+          routes: [{
+            name: 'TransporterTabs',
+            params: { transporterType: transporterType }
+          }]
+        });
+      }
+    } finally {
+      setCheckingSubscription(false);
+    }
+  };
+
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      Alert.alert(
+        'Logout',
+        'Are you sure you want to logout? You will need to complete your profile again when you return.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Logout',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const auth = getAuth();
+                await signOut(auth);
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Welcome' }]
+                });
+              } catch (error) {
+                console.error('Logout error:', error);
+                Alert.alert('Error', 'Failed to logout. Please try again.');
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
+
+  // Fetch profile photo and status function
+  const fetchProfile = React.useCallback(async (isManualRefresh = false) => {
+    // Rate limiting: prevent requests more than once every 3 seconds
+    const now = Date.now();
+    if (now - lastFetchTime < 3000) {
+      console.log('Rate limited: Too soon since last request');
+      return;
+    }
+
+    // Prevent multiple simultaneous requests
+    if (isRefreshing && !isManualRefresh) {
+      console.log('Request already in progress, skipping');
+      return;
+    }
+
+    setIsRefreshing(true);
+    setLastFetchTime(now);
+
+    try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) {
+          setStatusMessage('Not authenticated. Please sign in again.');
+          setLoadingProfile(false);
+          return;
+        }
+        
+        const token = await user.getIdToken();
+        
+        // Determine endpoint based on transporterType
+        const endpoint = transporterType === 'company'
+          ? `${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`
+          : `${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`;
+        
+        
+        // Add timeout to the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        try {
+          const res = await fetch(endpoint, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (res.ok) {
+            const data = await res.json();
+            
+            if (transporterType === 'company') {
+              // Handle companies array response
+              if (Array.isArray(data) && data.length > 0) {
+                const company = data[0]; // Get the first (and should be only) company
+                
+                if (company.companyLogo) {
+                  setProfilePhotoUrl(company.companyLogo);
+                }
+                if (company.status) {
+                  setCurrentStatus(company.status);
+                  setStatusMessage(getStatusMessage(company.status));
+                  // If approved, check subscription status before navigating
+                  if (company.status === 'approved') {
+                    // Check subscription status and let it handle navigation
+                    await checkSubscriptionStatus();
+                    
+                    // No additional navigation needed - checkSubscriptionStatus handles everything
+                    // It will redirect to trial screen, expired screen, or dashboard as appropriate
+                  }
+                }
+              } else {
+                console.log('No companies found for transporter');
+                setStatusMessage('No company profile found. Please complete your company profile first.');
+              }
+            } else {
+              // Handle individual transporter response
+              if (data.transporter && data.transporter.driverProfileImage) {
+                setProfilePhotoUrl(data.transporter.driverProfileImage);
+              }
+              if (data.transporter && data.transporter.status) {
+                setCurrentStatus(data.transporter.status);
+                setStatusMessage(getStatusMessage(data.transporter.status));
+                // If approved, check subscription status before navigating
+                if (data.transporter.status === 'approved') {
+                  // Check subscription status and let it handle navigation
+                  await checkSubscriptionStatus();
+                  
+                  // No additional navigation needed - checkSubscriptionStatus handles everything
+                  // It will redirect to trial screen, expired screen, or dashboard as appropriate
+                }
+              }
+            }
+          } else {
+            const errorText = await res.text();
+            console.error('Initial fetch error:', res.status, errorText);
+            setStatusMessage(`Failed to load status: ${res.status} - ${errorText}`);
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          if (fetchError.name === 'AbortError') {
+            setStatusMessage('Request timed out. Please check your internet connection and try refreshing.');
+          } else {
+            throw fetchError;
+          }
+        }
+      } catch (err) {
+        console.error('Initial fetch error:', err);
+        if (err.message.includes('Network request failed')) {
+          setStatusMessage('Network error: Please check your internet connection and try refreshing.');
+        } else if (err.message.includes('timeout')) {
+          setStatusMessage('Request timed out. Please try refreshing.');
+        } else {
+          setStatusMessage('Error loading status: ' + err.message);
+        }
+      } finally {
+        setLoadingProfile(false);
+        setIsRefreshing(false);
+      }
+  }, [transporterType, checkSubscriptionStatus, lastFetchTime, isRefreshing]);
+
+  // Fetch profile photo and status on mount
+  React.useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  // Animated glowing ring effect (LED-like)
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 4000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.18,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+  const ringSpin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  // Progress steps
+  const steps = [
+    { label: 'Submitted', icon: 'cloud-upload-outline' },
+    { label: 'Under Review', icon: 'eye-outline' },
+    { label: 'Approved', icon: 'checkmark-circle-outline' },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.profileGlowWrap}>
+        <Animated.View
+          style={{
+            transform: [{ rotate: ringSpin }, { scale: pulseAnim }],
+            position: 'absolute',
+            left: 0, right: 0, top: 0, bottom: 0,
+            alignItems: 'center', justifyContent: 'center',
+            shadowColor: '#00FF6A',
+            shadowOpacity: 0.85,
+            shadowRadius: 24,
+            shadowOffset: { width: 0, height: 0 },
+            elevation: 16,
+          }}
+        >
+          <LinearGradient
+            colors={['#00FF6A', '#00C853', '#00FF6A', '#00C853', '#00FF6A']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.glowRing}
+          />
+          <Animated.View
+            style={{
+              position: 'absolute',
+              left: 30, top: 30, right: 30, bottom: 30,
+              borderRadius: 30,
+              backgroundColor: '#00FF6A',
+              opacity: pulseAnim.interpolate({ inputRange: [1, 1.18], outputRange: [0.18, 0.32] }),
+              shadowColor: '#00FF6A',
+              shadowOpacity: 0.9,
+              shadowRadius: 18,
+              shadowOffset: { width: 0, height: 0 },
+              elevation: 10,
+            }}
+          />
+        </Animated.View>
+        <View style={styles.profileIconWrap}>
+          {loadingProfile ? (
+            <ActivityIndicator size="large" color={colors.primary} />
+          ) : profilePhotoUrl ? (
+            <Image
+              source={{ uri: profilePhotoUrl }}
+              style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: '#eee' }}
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons name={transporterType === 'company' ? 'business-outline' : 'person-circle-outline'} size={80} color={'#00FF6A'} />
+          )}
+        </View>
+      </View>
+      <View style={styles.cardWrap}>
+        <View style={styles.headerContainer}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>{transporterType === 'company' ? 'Company Profile Under Review' : 'Documents Under Review'}</Text>
+          </View>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+            <MaterialCommunityIcons name="logout" size={20} color={colors.error} />
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.subtitle}>
+          {transporterType === 'company'
+            ? 'Your company profile and documents have been submitted and are being reviewed by our admin team.'
+            : 'Your profile and documents have been submitted and are being reviewed by our admin team.'}
+        </Text>
+        {/* Progress Timeline */}
+        <View style={styles.progressStepperRow}>
+          {steps.map((step, idx) => {
+            const stepIndex = getStepIndex(currentStatus);
+            const isCurrent = idx === stepIndex;
+            const isCompleted = idx < stepIndex;
+            return (
+              <React.Fragment key={step.label}>
+                <View style={[styles.progressStepCircle, isCurrent && styles.progressStepCircleActive, isCompleted && styles.progressStepCircleCompleted]}>
+                  <LinearGradient
+                    colors={isCurrent ? ['#00FF6A', '#00C853'] : isCompleted ? ['#00C853', '#00FF6A'] : ['#e0e0e0', '#f5f5f5']}
+                    style={styles.progressStepGradient}
+                  >
+                    <Ionicons
+                      name={step.icon}
+                      size={26}
+                      color={isCurrent || isCompleted ? '#fff' : colors.text.light}
+                      style={{ alignSelf: 'center' }}
+                    />
+                  </LinearGradient>
+                </View>
+                {idx < steps.length - 1 && (
+                  <View style={[styles.progressStepBar, isCompleted && styles.progressStepBarCompleted, isCurrent && styles.progressStepBarActive]} />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </View>
+        <View style={styles.progressStepperLabelsRow}>
+          {steps.map((step, idx) => {
+            const stepIndex = getStepIndex(currentStatus);
+            const isCurrent = idx === stepIndex;
+            return (
+              <Text
+                key={step.label}
+                style={[styles.progressStepperLabel, isCurrent && styles.progressStepperLabelActive]}
+              >
+                {step.label}
+              </Text>
+            );
+          })}
+        </View>
+        <Text style={styles.waitingText}>{statusMessage}</Text>
+        
+        {checkingSubscription && (
+          <View style={styles.subscriptionCheckContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.subscriptionCheckText}>Checking subscription status...</Text>
+          </View>
+        )}
+        <View style={styles.tipsBox}>
+          <Ionicons name="information-circle-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
+          <Text style={styles.tipsText}>
+            {transporterType === 'company'
+              ? 'Tip: You can prepare your fleet and driver details for quick onboarding once approved.'
+              : 'Tip: Make sure your contact details are up to date for faster communication.'}
+          </Text>
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.refreshBtn,
+            pressed && { backgroundColor: colors.primary + '22' },
+            isRefreshing && { opacity: 0.6 },
+          ]}
+          disabled={isRefreshing}
+          onPress={async () => {
+            if (isRefreshing) return;
+            
+            // Use the centralized fetchProfile function with manual refresh flag
+            await fetchProfile(true);
+          }}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 6 }} />
+          ) : (
+            <Ionicons name="refresh" size={20} color={colors.primary} style={{ marginRight: 6 }} />
+          )}
+          <Text style={styles.refreshBtnText}>
+            {isRefreshing ? 'Refreshing...' : 'Refresh Status'}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    padding: spacing.lg,
+  },
+  profileGlowWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
+  },
+  glowRing: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.92,
+    borderWidth: 4,
+    borderColor: '#00FF6A',
+    backgroundColor: '#003f1f',
+  },
+  profileIconWrap: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  cardWrap: {
+    backgroundColor: colors.white,
+    borderRadius: 18,
+    padding: 22,
+    marginBottom: 18,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    shadowColor: colors.black,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: fonts.size.md,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+    maxWidth: 340,
+  },
+  progressStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: spacing.lg,
+    width: '100%',
+    minHeight: 54,
+  },
+  progressStepCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    elevation: 2,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    marginHorizontal: 2,
+  },
+  progressStepCircleActive: {
+    borderColor: '#00FF6A',
+    backgroundColor: '#00FF6A22',
+    elevation: 4,
+    shadowOpacity: 0.18,
+  },
+  progressStepCircleCompleted: {
+    borderColor: '#00C853',
+    backgroundColor: '#00C85322',
+  },
+  progressStepGradient: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressStepBar: {
+    height: 6,
+    width: 32,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+    marginHorizontal: 2,
+  },
+  progressStepBarActive: {
+    backgroundColor: '#00FF6A',
+  },
+  progressStepBarCompleted: {
+    backgroundColor: '#00C853',
+  },
+  progressStepperLabelsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginBottom: spacing.md,
+  },
+  progressStepperLabel: {
+    flex: 1,
+    fontSize: fonts.size.sm,
+    color: colors.text.light,
+    textAlign: 'center',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  progressStepperLabelActive: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: fonts.size.md,
+    textShadowColor: '#00FF6A44',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  waitingText: {
+    color: colors.text.secondary,
+    fontSize: fonts.size.md,
+    marginTop: spacing.lg,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
+  tipsBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.secondary + '33',
+    maxWidth: 340,
+    alignSelf: 'center',
+  },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1.2,
+    borderColor: colors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    marginTop: 18,
+    marginBottom: 2,
+  },
+  refreshBtnText: {
+    color: colors.primary,
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  tipsText: {
+    color: colors.secondary,
+    fontSize: fonts.size.sm,
+    flex: 1,
+  },
+  subscriptionCheckContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    padding: spacing.sm,
+    backgroundColor: colors.primary + '10',
+    borderRadius: 8,
+  },
+  subscriptionCheckText: {
+    color: colors.primary,
+    fontSize: fonts.size.sm,
+    marginLeft: spacing.sm,
+    fontWeight: '500',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.error + '15',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.error + '30',
+  },
+  logoutText: {
+    color: colors.error,
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 4,
+  },
+});

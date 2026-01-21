@@ -1,0 +1,4082 @@
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { signOut } from 'firebase/auth';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
+import LogoutConfirmationDialog from '../components/common/LogoutConfirmationDialog';
+import DeleteAccountModal from '../components/common/DeleteAccountModal';
+import BackgroundLocationDisclosureModal from '../components/common/BackgroundLocationDisclosureModal';
+import { notificationService } from '../services/notificationService';
+import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
+import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import VehicleDetailsForm from '../components/VehicleDetailsForm';
+import colors from '../constants/colors';
+import fonts from '../constants/fonts';
+import spacing from '../constants/spacing';
+import { API_ENDPOINTS } from '../constants/api';
+import { convertCoordinatesToPlaceName, getShortLocationName } from '../utils/locationUtils';
+import LocationDisplay from '../components/common/LocationDisplay';
+import { auth } from '../firebaseConfig';
+import Toast, { ToastProps } from '../components/common/Toast';
+import ModernToggle from '../components/common/ModernToggle';
+import locationService from '../services/locationService';
+import subscriptionService from '../services/subscriptionService';
+import { INDIVIDUAL_PLANS, COMPANY_FLEET_PLANS } from '../constants/subscriptionPlans';
+import { apiRequest, uploadFile } from '../utils/api';
+
+export default function ManageTransporterScreen({ route }: any) {
+  const transporterType = route?.params?.transporterType || 'company';
+  const navigation = useNavigation<any>();
+
+  // Modal state and profile state for individual
+  // Use the subscription hook for better subscription management
+  const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(true);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+
+  const handlePayment = async () => {
+    try {
+      // Get available plans
+      const plans = await subscriptionService.getSubscriptionPlans();
+      if (plans.length === 0) {
+        Alert.alert('No Plans Available', 'No subscription plans are currently available.');
+        return;
+      }
+
+      // For now, use the first available plan
+      const selectedPlan = plans[0];
+      const result = await subscriptionService.upgradePlan(selectedPlan.id, 'mpesa');
+
+      if (result.success) {
+        Alert.alert('Success', 'Payment processed successfully!');
+        // Subscription status will be automatically refreshed by the hook
+      } else {
+        Alert.alert('Payment Failed', result.message || 'Failed to process payment.');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      Alert.alert('Error', 'Failed to process payment. Please try again.');
+    }
+  };
+
+
+  const handleActivateTrial = async () => {
+    try {
+      const result = await subscriptionService.activateTrial('transporter');
+      if (result.success) {
+        Alert.alert('Trial Activated!', 'Your free trial has been activated successfully.');
+        // Subscription status will be automatically refreshed by the hook
+      } else {
+        Alert.alert('Activation Failed', result.message || 'Failed to activate trial.');
+      }
+    } catch (error) {
+      console.error('Trial activation error:', error);
+      Alert.alert('Error', 'Failed to activate trial. Please try again.');
+    }
+  };
+
+  const [editModal, setEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editProfilePhoto, setEditProfilePhoto] = useState<any>(null);
+  const [editRegistrationNumber, setEditRegistrationNumber] = useState('');
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  
+  // Verification states for company transporter
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [verifyingPhone, setVerifyingPhone] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [acceptingBooking, setAcceptingBooking] = useState(false);
+  const [updatingBookingStatus, setUpdatingBookingStatus] = useState(false);
+  const [toast, setToast] = useState<ToastProps | null>(null);
+  
+  // Individual transporter states
+  const [individualProfile, setIndividualProfile] = useState<any>(null);
+  const [loadingIndividualProfile, setLoadingIndividualProfile] = useState(true);
+  const [individualProfilePhoto, setIndividualProfilePhoto] = useState<any>(null);
+  
+  // Company profile states
+  const [companyProfile, setCompanyProfile] = useState<any>(null);
+  
+  // Location tracking state
+  const [isLocationTracking, setIsLocationTracking] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<any>(null);
+  const [locationPermission, setLocationPermission] = useState<string | null>(null);
+  const [showBackgroundLocationDisclosure, setShowBackgroundLocationDisclosure] = useState(false);
+  const [locationHistory, setLocationHistory] = useState<any[]>([]);
+  const [lastLocationUpdate, setLastLocationUpdate] = useState<Date | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+  const [locationSpeed, setLocationSpeed] = useState<number | null>(null);
+  const [locationHeading, setLocationHeading] = useState<number | null>(null);
+  const [locationAltitude, setLocationAltitude] = useState<number | null>(null);
+  // Use the location display hook for better coordinate-to-name conversion
+  const currentLocationForDisplay = currentLocation || individualProfile?.lastKnownLocation;
+  
+  // Modal states
+  const [insuranceModalVisible, setInsuranceModalVisible] = useState(false);
+  const [licenseModalVisible, setLicenseModalVisible] = useState(false);
+  const [photoGalleryModalVisible, setPhotoGalleryModalVisible] = useState(false);
+
+  // Fetch company profile data
+  useEffect(() => {
+    const fetchCompanyProfile = async () => {
+      if (transporterType === 'company') {
+        try {
+          const { getAuth } = require('firebase/auth');
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (!user) return;
+
+          const token = await user.getIdToken();
+          console.log('Fetching company profile from:', `${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`);
+          const response = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          console.log('Company profile response status:', response.status);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Company profile data:', data);
+            setCompanyProfile(data[0] || data); // Handle both array and object responses
+          } else {
+            const errorText = await response.text();
+            console.error('Company profile fetch error:', response.status, errorText);
+          }
+        } catch (error) {
+          console.error('Error fetching company profile:', error);
+        }
+      }
+    };
+
+    fetchCompanyProfile();
+  }, [transporterType]);
+
+  // Fetch drivers and vehicles data (only for company transporters)
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Only fetch drivers/vehicles for company transporters
+        if (transporterType === 'company' && companyProfile?.companyId) {
+          // Fetch drivers using company-specific endpoint
+          const driversData = await apiRequest(`/companies/${companyProfile.companyId}/drivers`);
+          // Only show active drivers for companies
+          const activeDrivers = driversData?.drivers?.filter(d => d.status === 'active') || [];
+          // Map drivers to ensure name is properly constructed
+          const mappedDrivers = activeDrivers.map((d: any) => ({
+            ...d,
+            name: d.firstName && d.lastName 
+              ? `${d.firstName} ${d.lastName}` 
+              : d.name || '',
+            idNumber: d.idNumber || d.idDocumentNumber || '',
+          }));
+          setDrivers(mappedDrivers);
+
+          // Fetch vehicles using company-specific endpoint
+          const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
+          // Only show approved vehicles for companies
+          const approvedVehicles = vehiclesData?.vehicles?.filter(v => v.status === 'approved') || [];
+          setVehicles(approvedVehicles);
+        } else {
+          // For individual transporters, set empty arrays
+          setDrivers([]);
+          setVehicles([]);
+        }
+
+        } catch (error) {
+          console.error('Failed to fetch drivers/vehicles:', error);
+          // Set empty arrays on error and show user-friendly message
+          setDrivers([]);
+          setVehicles([]);
+          
+          // Show more specific error message
+          const errorMessage = error.message || 'Unknown error occurred';
+          console.log('Error details:', errorMessage);
+          
+          // Don't show alert for 404 errors (company might not have data yet)
+          if (!errorMessage.includes('404') && !errorMessage.includes('not found')) {
+            Alert.alert(
+              'Unable to Load Fleet Data', 
+              `We couldn't load your fleet information: ${errorMessage}`,
+              [{ text: 'OK' }]
+            );
+          } else {
+            console.log('Company has no fleet data yet - this is normal for new companies');
+          }
+        } finally {
+        setLoadingDrivers(false);
+        setLoadingVehicles(false);
+      }
+    };
+
+    fetchData();
+  }, [transporterType, companyProfile?.companyId]);
+
+  // Subscription status is now managed by the useSubscriptionStatus hook
+
+  // Fetch user profile for verification status
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const token = await user.getIdToken();
+        const response = await fetch(`${API_ENDPOINTS.AUTH}/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const userProfileData = data.userData || data;
+          
+          // Debug: Log the actual data from user collection
+          console.log('🔍 User profile data from /auth/profile:', userProfileData);
+          console.log('📧 emailVerified from user collection:', userProfileData.emailVerified);
+          console.log('📱 phoneVerified from user collection:', userProfileData.phoneVerified);
+          console.log('✅ isVerified from user collection:', userProfileData.isVerified);
+          
+          setUserProfile({
+            ...userProfileData,
+            emailVerified: userProfileData.emailVerified === true,
+            phoneVerified: userProfileData.phoneVerified === true,
+            isVerified: userProfileData.isVerified === true,
+          });
+        } else {
+          console.error('Failed to fetch user profile:', response.status, response.statusText);
+          // Fallback to Firebase user data
+          setUserProfile({
+            name: user.displayName || user.email?.split('@')[0] || 'User',
+            firstName: user.displayName || user.email?.split('@')[0] || 'User',
+            profilePhotoUrl: user.photoURL || null,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+            emailVerified: user.emailVerified === true,
+            phoneVerified: false,
+            isVerified: user.emailVerified === true,
+            role: 'transporter',
+            status: 'active'
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        // Fallback to Firebase user data on error
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          setUserProfile({
+            name: user.displayName || user.email?.split('@')[0] || 'User',
+            firstName: user.displayName || user.email?.split('@')[0] || 'User',
+            profilePhotoUrl: user.photoURL || null,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+            emailVerified: user.emailVerified === true,
+            phoneVerified: false,
+            isVerified: user.emailVerified === true,
+            role: 'transporter',
+            status: 'active'
+          });
+        }
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  // Individual transporter profile fetch
+  useEffect(() => {
+    if (transporterType === 'individual') {
+      const fetchProfile = async () => {
+        try {
+          const { getAuth } = require('firebase/auth');
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (!user) return;
+          const token = await user.getIdToken();
+          
+          // Fetch both transporter profile and user verification status
+          const [transporterRes, userRes] = await Promise.all([
+            fetch(`${API_ENDPOINTS.TRANSPORTERS}/profile`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }),
+            fetch(`${API_ENDPOINTS.AUTH}/profile`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            })
+          ]);
+          
+          if (transporterRes.ok) {
+            const transporterData = await transporterRes.json();
+            setIndividualProfile(transporterData.transporter);
+            setAcceptingBooking(transporterData.transporter?.acceptingBooking || false);
+            if (transporterData.transporter?.driverProfileImage) {
+              setIndividualProfilePhoto({ uri: transporterData.transporter.driverProfileImage });
+            }
+          }
+          
+          if (userRes.ok) {
+            const userData = await userRes.json();
+            const userProfileData = userData.userData || userData;
+            // Debug: Log the actual data from user collection for individual transporters
+            console.log('🔍 Individual transporter user profile data:', userProfileData);
+            console.log('📧 emailVerified from user collection (individual):', userProfileData.emailVerified);
+            console.log('📱 phoneVerified from user collection (individual):', userProfileData.phoneVerified);
+            console.log('✅ isVerified from user collection (individual):', userProfileData.isVerified);
+            
+            setUserProfile({
+              ...userProfileData,
+              emailVerified: userProfileData.emailVerified === true,
+              phoneVerified: userProfileData.phoneVerified === true,
+              isVerified: userProfileData.isVerified === true,
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching individual transporter profile:', error);
+        }
+        setLoadingIndividualProfile(false);
+      };
+      fetchProfile();
+    }
+  }, [transporterType]);
+
+  // Function to update location in backend
+  const updateLocationInBackend = async (location: any) => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/update-location`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          latitude: location.latitude,
+          longitude: location.longitude,
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Location updated in backend successfully');
+        // Update the individual profile with the new location
+        setIndividualProfile((prev: any) => ({
+          ...prev,
+          lastKnownLocation: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            updatedAt: new Date().toISOString(),
+          }
+        }));
+      } else {
+        console.error('Failed to update location in backend:', response.status);
+      }
+    } catch (error) {
+      console.error('Error updating location in backend:', error);
+    }
+  };
+
+  // Function to update vehicle body type in backend
+  const updateVehicleBodyType = async (newBodyType: 'closed' | 'open') => {
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      
+      // For individual transporters, update the transporter vehicle body type
+      if (transporterType === 'individual') {
+        const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bodyType: newBodyType
+          }),
+        });
+
+        if (response.ok) {
+          // Update local state
+          setIndividualProfile(prev => ({
+            ...prev,
+            bodyType: newBodyType
+          }));
+          Alert.alert('Success', `Vehicle body type updated to ${newBodyType}`);
+        } else {
+          const errorText = await response.text();
+          console.error('Failed to update body type:', response.status, errorText);
+          Alert.alert('Error', 'Failed to update vehicle body type. Please try again.');
+        }
+      } else {
+        // For company transporters, we need to update the vehicle
+        // This would require knowing which vehicle to update
+        // For now, show a message that this needs to be done from vehicle management
+        Alert.alert(
+          'Vehicle Update Required', 
+          'To update body type for company vehicles, please use the vehicle management section.'
+        );
+      }
+    } catch (error) {
+      console.error('Error updating vehicle body type:', error);
+      Alert.alert('Error', 'Failed to update vehicle body type. Please try again.');
+    }
+  };
+
+  // Location tracking setup
+  useEffect(() => {
+    if (transporterType === 'individual') {
+      const setupLocationTracking = async () => {
+          try {
+            // Set up location update callback
+            locationService.setLocationUpdateCallback(async (location) => {
+              setCurrentLocation(location);
+              
+              // Update location in backend
+              await updateLocationInBackend(location);
+              
+              // Location coordinates are now automatically converted to place names by LocationDisplay component
+            });
+
+          // Check if location tracking should be active
+          // This would typically be based on transporter's online status
+          // For now, we'll start tracking when the component mounts
+          // CRITICAL: Check for background location consent first (required by Google Play)
+          // The global disclosure in App.tsx should have already been shown, but check again to be safe
+          const hasConsent = await locationService.hasBackgroundLocationConsent();
+          if (!hasConsent) {
+            // Consent not given - the global disclosure in App.tsx should handle this
+            // But if we reach here, show the disclosure modal as a fallback
+            console.log('⚠️ ManageTransporterScreen: No background location consent found - showing disclosure modal');
+            setShowBackgroundLocationDisclosure(true);
+          } else {
+            // Consent given - safe to start tracking
+            const result = await locationService.startLocationTracking(true);
+            setIsLocationTracking(result.success);
+          }
+        } catch (error) {
+          console.error('Location tracking setup error:', error);
+        }
+      };
+
+      setupLocationTracking();
+    }
+  }, [transporterType]);
+
+  // Location name conversion is now handled automatically by LocationDisplay component
+
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) return;
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEditName(data.transporter?.displayName || '');
+          setEditPhone(data.transporter?.phoneNumber || '');
+          if (data.transporter?.driverProfileImage) {
+            setEditProfilePhoto({ uri: data.transporter.driverProfileImage });
+          }
+        } else if (res.status === 404) {
+          // Profile doesn't exist yet, this is expected for new transporters
+          // Transporter profile not found - user needs to complete profile setup
+        }
+      } catch (error) {
+        console.error('Error fetching transporter profile:', error);
+      }
+      setLoadingProfile(false);
+    };
+    fetchProfile();
+  }, []);
+
+  const pickProfilePhoto = async () => {
+    Alert.alert(
+      'Select Photo',
+      'Choose how you want to add your profile photo',
+      [
+        { text: 'Take Photo', onPress: () => pickProfilePhotoCamera() },
+        { text: 'Choose from Gallery', onPress: () => pickProfilePhotoGallery() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickProfilePhotoCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows flexible cropping for profile photos
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        const asset = result.assets[0];
+        setEditProfilePhoto(asset);
+        
+        // Upload the company logo
+        try {
+          setLoadingProfile(true);
+          const user = auth.currentUser;
+          if (user && companyProfile?.companyId) {
+            // Upload to backend API which handles Cloudinary upload
+            const token = await user.getIdToken();
+            const formData = new FormData();
+            formData.append('logo', {
+              uri: asset.uri,
+              type: asset.type || 'image/jpeg',
+              name: 'company-logo.jpg',
+            } as any);
+            
+            console.log('Uploading company logo to:', `${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`);
+            console.log('FormData contents:', formData);
+            console.log('Asset details:', {
+              uri: asset.uri,
+              type: asset.type,
+              name: 'company-logo.jpg'
+            });
+            
+            const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                // Don't set Content-Type for FormData - let React Native set it with boundary
+              },
+              body: formData,
+            });
+            
+            if (response.ok) {
+              const responseData = await response.json();
+              console.log('Company logo upload response:', responseData);
+              setEditProfilePhoto({ ...asset, uri: asset.uri });
+              Alert.alert('Success', 'Company logo updated successfully');
+              // Refresh company profile to show updated logo
+              fetchProfile();
+            } else {
+              const errorData = await response.text();
+              console.error('Backend response error:', errorData);
+              throw new Error('Failed to update company logo in database');
+            }
+          }
+        } catch (uploadError: any) {
+          console.error('Upload error:', uploadError);
+          Alert.alert('Upload Error', 'Failed to upload company logo. Please try again.');
+        } finally {
+          setLoadingProfile(false);
+        }
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickProfilePhotoGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        // No aspect ratio constraint - allows flexible cropping for profile photos
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        const asset = result.assets[0];
+        setEditProfilePhoto(asset);
+        
+        // Upload the company logo
+        try {
+          setLoadingProfile(true);
+          const user = auth.currentUser;
+          if (user && companyProfile?.companyId) {
+            // Upload to backend API which handles Cloudinary upload
+            const token = await user.getIdToken();
+            const formData = new FormData();
+            formData.append('logo', {
+              uri: asset.uri,
+              type: asset.type || 'image/jpeg',
+              name: 'company-logo.jpg',
+            } as any);
+            
+            console.log('Uploading company logo to:', `${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`);
+            console.log('FormData contents:', formData);
+            console.log('Asset details:', {
+              uri: asset.uri,
+              type: asset.type,
+              name: 'company-logo.jpg'
+            });
+            
+            const response = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}/upload`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                // Don't set Content-Type for FormData - let React Native set it with boundary
+              },
+              body: formData,
+            });
+            
+            if (response.ok) {
+              const responseData = await response.json();
+              console.log('Company logo upload response:', responseData);
+              setEditProfilePhoto({ ...asset, uri: asset.uri });
+              Alert.alert('Success', 'Company logo updated successfully');
+              // Refresh company profile to show updated logo
+              fetchProfile();
+            } else {
+              const errorData = await response.text();
+              console.error('Backend response error:', errorData);
+              throw new Error('Failed to update company logo in database');
+            }
+          }
+        } catch (uploadError: any) {
+          console.error('Upload error:', uploadError);
+          Alert.alert('Upload Error', 'Failed to upload company logo. Please try again.');
+        } finally {
+          setLoadingProfile(false);
+        }
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  // Updated logout handler: use LogoutConfirmationDialog
+  const handleLogout = () => {
+    setShowLogoutDialog(true);
+  };
+
+  const handleDeleteAccount = async (reason: string) => {
+    const user = auth.currentUser;
+    if (!user?.uid) {
+      Alert.alert('Error', 'User not authenticated.');
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      // Get auth token
+      const token = await user.getIdToken();
+      
+      // Get user email
+      const email = user.email || '';
+      if (!email) {
+        Alert.alert('Error', 'Email address not found. Please ensure your account has an email.');
+        setDeletingAccount(false);
+        return;
+      }
+
+      // Generate Unix timestamp in seconds
+      const timestamp = Math.floor(Date.now() / 1000);
+
+      // Build URL with required parameters
+      const deleteAccountUrl = `https://trukafrica.com/delete-account?token=${encodeURIComponent(token)}&uid=${encodeURIComponent(user.uid)}&email=${encodeURIComponent(email)}&ts=${timestamp}`;
+
+      console.log('Redirecting to delete account page:', deleteAccountUrl);
+
+      // Close modal first
+      setShowDeleteAccountModal(false);
+      setDeletingAccount(false);
+
+      // Open web page in browser
+      const canOpen = await Linking.canOpenURL(deleteAccountUrl);
+      if (canOpen) {
+        await Linking.openURL(deleteAccountUrl);
+      } else {
+        Alert.alert(
+          'Error',
+          'Unable to open delete account page. Please try again or contact support.'
+        );
+      }
+    } catch (error: any) {
+      console.error('Delete account error:', error);
+      Alert.alert(
+        'Delete Account Failed',
+        error.message || 'Failed to open delete account page. Please try again or contact support.'
+      );
+      setDeletingAccount(false);
+    }
+  };
+
+  const confirmLogout = async () => {
+    try {
+      await signOut(auth);
+      setShowLogoutDialog(false);
+      // After sign out, App.tsx auth listener will render the Welcome flow.
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutDialog(false);
+      Alert.alert('Logout Error', 'Failed to logout. Please try again.');
+    }
+  };
+
+  const handleSave = async () => {
+    if (editPassword) {
+      try {
+        if (auth.currentUser) {
+          await auth.currentUser.updatePassword(editPassword);
+        }
+      } catch (err: any) {
+        Alert.alert('Password Change Error', err.message || 'Failed to change password.');
+        return;
+      }
+    }
+    try {
+      if (auth.currentUser) {
+        // Use existing backend route PUT /api/auth/update
+        // This endpoint updates user profile only (name, phone, email) - NOT company profile fields
+        // Note: The signup error (User.getByEmail/getByPhone) was fixed in backend, and this update endpoint
+        // uses User.getUserByEmail/getUserByPhone which are the correct methods
+        const updatePayload: any = {
+          name: editName,
+          phone: editPhone,
+          email: editEmail,
+        };
+        
+        // Include profilePhotoUrl if available (from previously uploaded photo)
+        if (editProfilePhoto?.uri && editProfilePhoto.uri.startsWith('http')) {
+          updatePayload.profilePhotoUrl = editProfilePhoto.uri;
+        }
+        
+        await apiRequest('/auth/update', {
+          method: 'PUT',
+          body: JSON.stringify(updatePayload),
+        });
+        
+        // If company transporter, also update company registration
+        if (transporterType === 'company' && companyProfile?.companyId) {
+          try {
+            const { getAuth } = require('firebase/auth');
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (user) {
+              const token = await user.getIdToken();
+              const companyUpdatePayload: any = {};
+              
+              // Update registration number if provided
+              if (editRegistrationNumber && editRegistrationNumber.trim()) {
+                companyUpdatePayload.registration = editRegistrationNumber.trim();
+              }
+              
+              // Update company profile if there are changes
+              if (Object.keys(companyUpdatePayload).length > 0) {
+                const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyProfile.companyId}`, {
+                  method: 'PATCH',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(companyUpdatePayload),
+                });
+                
+                if (companyResponse.ok) {
+                  // Refresh company profile
+                  fetchProfile();
+                }
+              }
+            }
+          } catch (companyUpdateError) {
+            console.error('Error updating company registration:', companyUpdateError);
+            // Don't fail the whole update if company update fails
+          }
+        }
+        
+        // Update local user profile/state when available
+        setUserProfile((prev: any) => prev ? { ...prev, name: editName || prev.name, email: editEmail || prev.email, phoneNumber: editPhone || prev.phoneNumber } : prev);
+        
+        // Refresh user profile data from backend
+        try {
+          const { getAuth } = require('firebase/auth');
+          const auth = getAuth();
+          const user = auth.currentUser;
+          if (user) {
+            const token = await user.getIdToken();
+            const response = await fetch(`${API_ENDPOINTS.AUTH}/profile`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (response.ok) {
+              const data = await response.json();
+              const userProfileData = data.userData || data;
+              setUserProfile({
+                ...userProfileData,
+                emailVerified: userProfileData.emailVerified === true,
+                phoneVerified: userProfileData.phoneVerified === true,
+                isVerified: userProfileData.isVerified === true,
+              });
+            }
+          }
+        } catch (refreshError) {
+          console.error('Error refreshing profile:', refreshError);
+        }
+        
+        Alert.alert('Success', 'Profile updated successfully');
+      }
+    } catch (e: any) {
+      console.error('Profile update error:', e);
+      Alert.alert('Profile Update Error', e.message || 'Failed to update profile. Please try again.');
+      return;
+    }
+    setEditModal(false);
+    setEditPassword('');
+  };
+  
+  // Utility functions for generated values (same as BrokerProfileScreen)
+  const isGeneratedPhone = (value?: string) => {
+    if (!value) return false;
+    // Check for patterns like +254000... or placeholder phones
+    return /^\+2540{4,}/.test(value.trim()) || value.includes('0000000');
+  };
+  
+  const isGeneratedEmail = (value?: string) => {
+    if (!value) return false;
+    // Check for patterns like @trukapp.generated, @generated, or userXXX@
+    return /@trukapp\.generated$|@generated($|\.)|^user\d+@/i.test(value);
+  };
+
+  // Vehicles and Drivers state
+  const [vehicleSearch, setVehicleSearch] = useState('');
+
+  // Assignment modal state
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignModalVehicleIdx, setAssignModalVehicleIdx] = useState<number | null>(null);
+  const [driverSearch, setDriverSearch] = useState('');
+  const [assigningDriver, setAssigningDriver] = useState(false);
+
+  // Recruit Driver modal state and fields
+  const [recruitModal, setRecruitModal] = useState(false);
+  const [recruiting, setRecruiting] = useState(false);
+  const [recruitName, setRecruitName] = useState('');
+  const [recruitEmail, setRecruitEmail] = useState('');
+  const [recruitPhone, setRecruitPhone] = useState('');
+  const [recruitPhoto, setRecruitPhoto] = useState<any>(null);
+  const [recruitIdDoc, setRecruitIdDoc] = useState<any>(null);
+  const [recruitLicense, setRecruitLicense] = useState<any>(null);
+
+  // Recruit driver logic
+  const openRecruitDriver = () => {
+    setRecruitName('');
+    setRecruitEmail('');
+    setRecruitPhone('');
+    setRecruitPhoto(null);
+    setRecruitIdDoc(null);
+    setRecruitLicense(null);
+    setRecruitModal(true);
+  };
+  const handleRecruitDriver = async () => {
+    if (!recruitName || !recruitEmail || !recruitPhone || !recruitPhoto || !recruitIdDoc || !recruitLicense) {
+      Alert.alert('Missing Info', 'Please fill all required fields.');
+      return;
+    }
+
+    setRecruiting(true);
+    try {
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        Alert.alert('Error', 'Please log in to recruit drivers');
+        return;
+      }
+
+      const token = await user.getIdToken();
+      
+      // Get company info first
+      const companyResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/transporter/${user.uid}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!companyResponse.ok) {
+        Alert.alert('Error', 'Company information not found');
+        return;
+      }
+      
+      const companyData = await companyResponse.json();
+      const company = companyData[0] || companyData;
+      
+      // Prepare form data for multipart upload
+      const formData = new FormData();
+      
+      // Split name into first and last name
+      const nameParts = recruitName.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || firstName;
+      
+      formData.append('companyId', company?.id || '');
+      formData.append('firstName', firstName);
+      formData.append('lastName', lastName);
+      formData.append('email', recruitEmail.trim());
+      formData.append('phone', recruitPhone.trim());
+      formData.append('driverLicenseNumber', 'DL-' + Date.now());
+      formData.append('idNumber', 'ID-' + Date.now());
+      
+      // Add files
+      if (recruitPhoto) {
+        formData.append('profileImage', {
+          uri: recruitPhoto.uri,
+          type: recruitPhoto.mimeType || 'image/jpeg',
+          name: recruitPhoto.fileName || 'profile_photo.jpg',
+        } as any);
+      }
+      
+      if (recruitIdDoc) {
+        formData.append('idDocument', {
+          uri: recruitIdDoc.uri,
+          type: recruitIdDoc.mimeType || 'image/jpeg',
+          name: recruitIdDoc.fileName || 'id_document.jpg',
+        } as any);
+      }
+      
+      if (recruitLicense) {
+        formData.append('driverLicense', {
+          uri: recruitLicense.uri,
+          type: recruitLicense.mimeType || 'image/jpeg',
+          name: recruitLicense.fileName || 'driver_license.jpg',
+        } as any);
+      }
+
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://agritruk.onrender.com'}/api/companies/${company?.id}/drivers`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Success', 'Driver recruited successfully! They will receive login credentials via email.');
+        setRecruitModal(false);
+        // Reset form
+        setRecruitName('');
+        setRecruitEmail('');
+        setRecruitPhone('');
+        setRecruitPhoto(null);
+        setRecruitIdDoc(null);
+        setRecruitLicense(null);
+        // Note: Drivers will be refreshed when navigating back to this screen
+      } else {
+        Alert.alert('Error', result.message || 'Failed to recruit driver');
+      }
+    } catch (error) {
+      console.error('Error recruiting driver:', error);
+      Alert.alert('Error', 'Failed to recruit driver. Please try again.');
+    } finally {
+      setRecruiting(false);
+    }
+  };
+
+  // Modularized image/file pickers for recruitment
+  const pickDriverPhoto = async (setFn: (value: any) => void) => {
+    Alert.alert(
+      'Select Profile Photo',
+      'Choose how you want to add the driver\'s profile photo',
+      [
+        { text: 'Take Photo', onPress: () => pickDriverPhotoFromCamera(setFn) },
+        { text: 'Choose from Gallery', onPress: () => pickDriverPhotoFromGallery(setFn) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickDriverPhotoFromCamera = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'profile_photo.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickDriverPhotoFromGallery = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'profile_photo.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+  const pickDriverIdDoc = async (setFn: (value: any) => void) => {
+    Alert.alert(
+      'Select ID Document',
+      'Choose how you want to add your ID document',
+      [
+        { text: 'Take Photo', onPress: () => pickDriverIdDocFromCamera(setFn) },
+        { text: 'Choose from Gallery', onPress: () => pickDriverIdDocFromGallery(setFn) },
+        { text: 'Upload PDF', onPress: () => pickDriverIdDocFromPDF(setFn) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickDriverIdDocFromCamera = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'id_document.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickDriverIdDocFromGallery = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'id_document.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const pickDriverIdDocFromPDF = async (setFn: (value: any) => void) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: result.assets[0].name || 'id_document.pdf',
+          mimeType: 'application/pdf'
+        });
+      }
+    } catch (error) {
+      console.error('PDF picker error:', error);
+      Alert.alert('Error', 'Failed to select PDF');
+    }
+  };
+
+  const pickDriverLicense = async (setFn: (value: any) => void) => {
+    Alert.alert(
+      'Select Driver\'s License',
+      'Choose how you want to add your driver\'s license',
+      [
+        { text: 'Take Photo', onPress: () => pickDriverLicenseFromCamera(setFn) },
+        { text: 'Choose from Gallery', onPress: () => pickDriverLicenseFromGallery(setFn) },
+        { text: 'Upload PDF', onPress: () => pickDriverLicenseFromPDF(setFn) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickDriverLicenseFromCamera = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'driver_license.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickDriverLicenseFromGallery = async (setFn: (value: any) => void) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: 'driver_license.jpg',
+          mimeType: 'image/jpeg'
+        });
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+  const pickDriverLicenseFromPDF = async (setFn: (value: any) => void) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setFn({
+          ...result.assets[0],
+          name: result.assets[0].name || 'driver_license.pdf',
+          mimeType: 'application/pdf'
+        });
+      }
+    } catch (error) {
+      console.error('PDF picker error:', error);
+      Alert.alert('Error', 'Failed to select PDF');
+    }
+  };
+
+  // Vehicle modal state and fields
+  const [vehicleModal, setVehicleModal] = useState(false);
+  const [vehicleEditIdx, setVehicleEditIdx] = useState<number | null>(null);
+  const VEHICLE_TYPES = [
+    {
+      label: 'Truck',
+      value: 'truck',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="truck" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Tractor',
+      value: 'tractor',
+      icon: (active: boolean) => (
+        <FontAwesome5 name="tractor" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Trailer',
+      value: 'trailer',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="truck-trailer" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Tanker',
+      value: 'tanker',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="truck-cargo-container" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Flatbed',
+      value: 'flatbed',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="truck-flatbed" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Van',
+      value: 'van',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="van-utility" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Pickup',
+      value: 'pickup',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="car-pickup" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Refrigerated Truck',
+      value: 'refrigerated_truck',
+      icon: (active: boolean) => (
+        <MaterialCommunityIcons name="snowflake" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+    {
+      label: 'Other',
+      value: 'other',
+      icon: (active: boolean) => (
+        <Ionicons name="car-outline" size={26} color={active ? colors.primary : colors.text.secondary} />
+      ),
+    },
+  ];
+  const [vehicleType, setVehicleType] = useState('');
+  const [showVehicleTypeDropdown, setShowVehicleTypeDropdown] = useState(false);
+  const [vehicleMake, setVehicleMake] = useState('');
+  const [vehicleColor, setVehicleColor] = useState('');
+  const [vehicleCapacity, setVehicleCapacity] = useState('');
+  const [vehicleYear, setVehicleYear] = useState('');
+  const [vehicleDriveType, setVehicleDriveType] = useState('');
+  const [bodyType, setBodyType] = useState('closed'); // 'closed' or 'open'
+  const [vehicleReg, setVehicleReg] = useState('');
+  const [refrigeration, setRefrigeration] = useState(false);
+  const [humidityControl, setHumidityControl] = useState(false);
+  const [specialCargo, setSpecialCargo] = useState(false);
+  const [vehicleFeatures, setVehicleFeatures] = useState('');
+  const [insurance, setInsurance] = useState<any>(null);
+  const [vehiclePhotos, setVehiclePhotos] = useState<any[]>([]);
+  const [assignedDriverId, setAssignedDriverId] = useState<string | null>(null);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+
+  // Robust photo add handler (always uses latest state)
+  const pickVehiclePhotos = async () => {
+    if (vehiclePhotos.length >= 4) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ 
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+      allowsMultipleSelection: true,
+      allowsEditing: false, 
+      quality: 0.7 
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      // Add all selected photos up to the limit
+      const newPhotos = result.assets.slice(0, 4 - vehiclePhotos.length);
+      setVehiclePhotos(prev => [...prev, ...newPhotos]);
+    }
+  };
+  // Robust photo remove handler
+  const removeVehiclePhoto = (idx: number) => {
+    setVehiclePhotos(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Driver modal state and fields
+  const [driverModal, setDriverModal] = useState(false);
+  const [driverEditIdx, setDriverEditIdx] = useState<number | null>(null);
+  const [driverName, setDriverName] = useState('');
+  const [driverPhone, setDriverPhone] = useState('');
+  const [driverPhoto, setDriverPhoto] = useState<any>(null);
+  const [driverLicense, setDriverLicense] = useState<any>(null);
+
+  // Image/file pickers (handled above as modularized functions)
+  const pickInsurance = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, allowsEditing: true, quality: 0.7 });
+    if (!result.canceled && result.assets && result.assets[0].uri) setInsurance(result.assets[0]);
+  };
+
+  const resetVehicleForm = () => {
+    setVehicleType('');
+    setVehicleMake('');
+    setVehicleColor('');
+    setVehicleReg('');
+    setVehicleCapacity('');
+    setVehicleYear('');
+    setVehicleDriveType('');
+    setBodyType('closed');
+    setHumidityControl(false);
+    setRefrigeration(false);
+    setSpecialCargo(false);
+    setVehicleFeatures('');
+    setVehiclePhotos([]);
+    setInsurance(null);
+    setAssignedDriverId(null);
+  };
+
+  // Vehicle add/edit logic
+  const openAddVehicle = () => {
+    setVehicleEditIdx(null);
+    resetVehicleForm();
+    setVehicleModal(true);
+  };
+  const openEditVehicle = (idx: number) => {
+    const v = vehicles[idx];
+    setVehicleEditIdx(idx);
+    setVehicleType(v.type); setVehicleReg(v.reg); setRefrigeration(v.refrigeration); setHumidityControl(v.humidityControl); setSpecialCargo(v.specialCargo); setVehicleFeatures(v.features); setInsurance(v.insurance); setVehiclePhotos(v.photos); setAssignedDriverId(v.assignedDriverId || null);
+    setVehicleModal(true);
+  };
+  const handleSaveVehicle = async () => {
+    // Enhanced validation with detailed error messages
+    const validationErrors = [];
+    
+    if (!vehicleType) {
+      validationErrors.push('Vehicle Type is required');
+    }
+    
+    if (!vehicleReg || vehicleReg.trim().length === 0) {
+      validationErrors.push('Registration Number is required');
+    } else if (vehicleReg.trim().length < 3) {
+      validationErrors.push('Registration Number must be at least 3 characters');
+    }
+    
+    if (!vehicleMake || vehicleMake.trim().length === 0) {
+      validationErrors.push('Vehicle Make is required');
+    }
+    
+    if (!vehicleColor || vehicleColor.trim().length === 0) {
+      validationErrors.push('Vehicle Color is required');
+    }
+    
+    const yearNum = parseInt(vehicleYear);
+    const capacityNum = parseFloat(vehicleCapacity);
+    
+    if (!vehicleYear || yearNum < 1990 || yearNum > new Date().getFullYear() + 1) {
+      validationErrors.push('Vehicle Year must be between 1990 and ' + (new Date().getFullYear() + 1));
+    }
+    
+    if (!vehicleCapacity || capacityNum < 1 || capacityNum > 50) {
+      validationErrors.push('Vehicle Capacity must be between 1 and 50 tons');
+    }
+    
+    if (!insurance) {
+      validationErrors.push('Vehicle Insurance Document is required');
+    }
+    
+    if (vehiclePhotos.length < 1) {
+      validationErrors.push('At least 1 vehicle photo is required');
+    } else if (vehiclePhotos.length > 10) {
+      validationErrors.push('Maximum 10 vehicle photos allowed');
+    }
+    
+    if (validationErrors.length > 0) {
+      Alert.alert(
+        'Validation Error', 
+        validationErrors.join('\n\n'),
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
+    if (!companyProfile?.id && !companyProfile?.companyId) {
+      Alert.alert('Error', 'Company profile not loaded. Please refresh and try again.');
+      console.error('🚗 Company profile missing:', companyProfile);
+      return;
+    }
+
+    try {
+      setLoadingProfile(true);
+      
+      // Get auth token
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      
+      const token = await user.getIdToken();
+      
+      // Use the correct endpoint structure - same as VehicleManagementScreen
+      const companyId = companyProfile?.id || companyProfile?.companyId;
+      console.log('🏢 Using company ID for vehicle endpoint:', companyId);
+      
+      if (!companyId) {
+        throw new Error('Company ID not found in profile. Please refresh and try again.');
+      }
+      
+      const url = `${API_ENDPOINTS.VEHICLES}`;
+      
+      // Create FormData for multipart upload (same approach as VehicleManagementScreen)
+      const formData = new FormData();
+      
+      // Add vehicle data fields - match backend field names and validation requirements
+      formData.append('companyId', companyId);
+      formData.append('vehicleType', vehicleType);
+      formData.append('vehicleMake', vehicleMake);
+      formData.append('vehicleModel', vehicleMake); // Backend validation requires this field
+      formData.append('vehicleColor', vehicleColor);
+      formData.append('vehicleRegistration', vehicleReg);
+      formData.append('vehicleYear', vehicleYear);
+      formData.append('vehicleCapacity', vehicleCapacity);
+      formData.append('features', vehicleFeatures);
+      formData.append('specialCargo', specialCargo.toString());
+      formData.append('refrigerated', refrigeration.toString());
+      formData.append('humidityControl', humidityControl.toString());
+      formData.append('bodyType', bodyType);
+      formData.append('driveType', vehicleDriveType);
+      if (assignedDriverId) {
+        formData.append('assignedDriverId', assignedDriverId);
+      }
+      
+      // Add vehicle photos with proper file structure
+      if (vehiclePhotos.length > 0) {
+        vehiclePhotos.forEach((photo, index) => {
+          formData.append('vehicleImages', {
+            uri: photo.uri,
+            type: photo.mimeType || photo.type || 'image/jpeg',
+            name: photo.fileName || photo.name || `vehicle_photo_${index + 1}.jpg`,
+          } as any);
+        });
+      }
+      
+      // Add insurance document with proper file structure
+      if (insurance) {
+        formData.append('insurance', {
+          uri: insurance.uri,
+          type: insurance.mimeType || insurance.type || 'image/jpeg',
+          name: insurance.fileName || insurance.name || 'insurance.pdf',
+        } as any);
+      }
+      
+      console.log('🚗 Sending vehicle creation request to:', url);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData - let React Native set it automatically
+        },
+        body: formData
+      });
+      
+      // Handle response
+      const responseText = await response.text();
+      let responseData = null;
+      
+      try {
+        if (responseText.trim()) {
+          responseData = JSON.parse(responseText);
+        }
+      } catch (parseErr) {
+        console.error('🚗 JSON parse error:', parseErr);
+        throw new Error(`Invalid response format: ${responseText}`);
+      }
+      
+      // Check for validation errors
+      if (!response.ok) {
+        if (response.status === 400 && responseData?.errors) {
+          const errorMessages = responseData.errors.map((err: any) => err.msg || err.message).join(', ');
+          throw new Error(`Validation failed: ${errorMessages}`);
+        } else if (responseData?.message) {
+          throw new Error(responseData.message);
+        } else {
+          throw new Error(`Request failed: ${response.status} - ${response.statusText}`);
+        }
+      }
+      
+      if (response.ok && responseData && responseData.success) {
+        console.log('✅ Vehicle created successfully:', responseData);
+        
+        // Update local state
+        const newVehicle = {
+          id: responseData.data?.vehicle?.id || responseData.data?.id || Date.now().toString(),
+          type: vehicleType,
+          reg: vehicleReg,
+          bodyType,
+          refrigeration,
+          humidityControl,
+          specialCargo,
+          features: vehicleFeatures,
+          insurance,
+          photos: vehiclePhotos,
+          assignedDriverId,
+          status: 'pending' // Show pending status
+        };
+        
+        let updated;
+        if (vehicleEditIdx !== null) {
+          updated = [...vehicles];
+          updated[vehicleEditIdx] = newVehicle;
+        } else {
+          updated = [...vehicles, newVehicle];
+        }
+        setVehicles(updated);
+        setVehicleModal(false);
+        
+        // Reset form
+        resetVehicleForm();
+        
+        Alert.alert(
+          'Success', 
+          'Vehicle added successfully! It will be reviewed by admin before approval.',
+          [{ text: 'OK' }]
+        );
+        
+        // Refresh vehicles list from backend
+        setTimeout(() => {
+          if (transporterType === 'company' && companyProfile?.companyId) {
+            const fetchData = async () => {
+              try {
+                const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
+                const approvedVehicles = vehiclesData?.vehicles?.filter(v => v.status === 'approved') || [];
+                setVehicles(approvedVehicles);
+              } catch (error) {
+                console.error('Error refreshing vehicles:', error);
+              }
+            };
+            fetchData();
+          }
+        }, 1000);
+      } else {
+        const errorMessage = responseData?.message || `Server error: ${response.status} - ${response.statusText}`;
+        console.error('❌ Vehicle creation failed:', responseData);
+        Alert.alert('Error', errorMessage);
+      }
+    } catch (error: any) {
+      console.error('❌ Error creating vehicle:', error);
+      let errorMessage = 'Failed to create vehicle. Please try again.';
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.name === 'AbortError') {
+        errorMessage = 'Request timed out. Please try again with a better connection.';
+      } else if (error.message?.includes('fetch') || error.message?.includes('Network')) {
+        errorMessage = 'Network request failed. Please check your internet connection.';
+      }
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const handleRemoveVehicle = (idx: number) => {
+    setVehicles(vehicles.filter((_, i) => i !== idx));
+  };
+
+  // Driver add/edit logic
+  const openAddDriver = () => {
+    setDriverEditIdx(null);
+    setDriverName(''); setDriverPhone(''); setDriverPhoto(null); setDriverLicense(null);
+    setDriverModal(true);
+  };
+  const openEditDriver = (idx: number) => {
+    const d = drivers[idx];
+    setDriverEditIdx(idx);
+    setDriverName(d.name); setDriverPhone(d.phone); setDriverPhoto(d.photo); setDriverLicense(d.license);
+    setDriverModal(true);
+  };
+  const handleSaveDriver = () => {
+    if (!driverName || !driverPhoto || !driverLicense) {
+      Alert.alert('Missing Info', 'Please provide name, profile photo, and license.');
+      return;
+    }
+    const driver = {
+      id: driverEditIdx !== null ? drivers[driverEditIdx].id : Date.now().toString(),
+      name: driverName,
+      phone: driverPhone,
+      photo: driverPhoto,
+      license: driverLicense,
+    };
+    let updated;
+    if (driverEditIdx !== null) {
+      updated = [...drivers];
+      updated[driverEditIdx] = driver;
+    } else {
+      updated = [...drivers, driver];
+    }
+    setDrivers(updated);
+    setDriverModal(false);
+  };
+  const handleRemoveDriver = (idx: number) => {
+    setDrivers(drivers.filter((_, i) => i !== idx));
+    setVehicles(vehicles.map(v => v.assignedDriverId === drivers[idx].id ? { ...v, assignedDriverId: null } : v));
+  };
+
+  // Verification functions for company transporter
+  const handleVerifyEmail = async () => {
+    const emailToVerify = userProfile?.email || editEmail || auth.currentUser?.email;
+    if (!emailToVerify) {
+      Alert.alert('Error', 'No email address found. Please add an email address in your profile.');
+      return;
+    }
+    
+    // Check if email is generated
+    if (isGeneratedEmail(emailToVerify)) {
+      Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Update Now', onPress: () => setEditModal(true) }
+      ]);
+      return;
+    }
+    
+    try {
+      setVerifyingEmail(true);
+
+      // Use backend API for email verification - same pattern as EmailVerificationScreen
+      await apiRequest('/auth', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'resend-email-code',
+          email: emailToVerify
+        }),
+      });
+
+      Alert.alert(
+        'Verification Email Sent',
+        'Please check your email for the verification code. You can then use your email to log in.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Go to Verification',
+            onPress: () => navigation?.navigate?.('EmailVerification')
+          }
+        ]
+      );
+    } catch (e: any) {
+      console.error('Email verification error:', e);
+      Alert.alert(
+        'Verification Failed',
+        e.message || 'Unable to send verification email. Please check your internet connection and try again later.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  const handleVerifyPhone = async () => {
+    const phoneToVerify = userProfile?.phone || editPhone || auth.currentUser?.phoneNumber;
+    if (!phoneToVerify) {
+      Alert.alert('Error', 'No phone number found. Please add a phone number in your profile.');
+      return;
+    }
+    
+    // Check if phone is generated
+    if (isGeneratedPhone(phoneToVerify)) {
+      Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Update Now', onPress: () => setEditModal(true) }
+      ]);
+      return;
+    }
+    
+    try {
+      setVerifyingPhone(true);
+
+      // Use backend API for phone verification - same pattern as auth flow
+      await apiRequest('/auth', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'resend-phone-code',
+          phoneNumber: phoneToVerify
+        }),
+      });
+
+      Alert.alert(
+        'Verification SMS Sent',
+        'Please check your phone for the verification code. You can then use your phone to log in.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Go to Verification',
+            onPress: () => navigation?.navigate?.('PhoneOTPScreen')
+          }
+        ]
+      );
+    } catch (e: any) {
+      console.error('Phone verification error:', e);
+      Alert.alert(
+        'Verification Failed',
+        e.message || 'Unable to send verification SMS. Please check your internet connection and try again later.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setVerifyingPhone(false);
+    }
+  };
+
+  // Availability toggle functionality for company transporter
+  const updateAcceptingBookingStatus = async (newStatus: boolean) => {
+    try {
+      setUpdatingBookingStatus(true);
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          acceptingBooking: newStatus,
+        }),
+      });
+
+      if (response.ok) {
+        setAcceptingBooking(newStatus);
+        
+        // Show success toast
+        setToast({
+          visible: true,
+          message: newStatus 
+            ? '🎉 You are now accepting new booking requests!' 
+            : '⏸️ You have paused accepting new booking requests',
+          type: 'success',
+          duration: 3000,
+          onHide: () => setToast(null),
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update booking status');
+      }
+    } catch (error: any) {
+      console.error('Error updating booking status:', error);
+      
+      // Show error toast
+      setToast({
+        visible: true,
+        message: '❌ Failed to update booking status. Please try again.',
+        type: 'error',
+        duration: 4000,
+        onHide: () => setToast(null),
+        action: {
+          label: 'Retry',
+          onPress: () => updateAcceptingBookingStatus(!acceptingBooking),
+        },
+      });
+    } finally {
+      setUpdatingBookingStatus(false);
+    }
+  };
+
+  const assignDriverToVehicle = async (vehicleIdx: number, driverId: string) => {
+    try {
+      setAssigningDriver(true);
+      const vehicle = vehicles[vehicleIdx];
+      if (!vehicle) return;
+
+      // Use the same approach as DriverAssignmentsScreen: fetch directly with API_ENDPOINTS
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        setAssigningDriver(false);
+        return;
+      }
+
+      const token = await user.getIdToken();
+
+      // Use the same endpoint as DriverAssignmentsScreen: POST /api/vehicles/:id/assign-driver
+      const assignmentData = {
+        driverId,
+        activateDriver: true // Always activate driver before assignment
+      };
+
+      const response = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicle.id}/assign-driver`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(assignmentData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to assign driver to vehicle: ${response.status}`);
+      }
+
+      // Update local state only if backend call succeeds
+      setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: driverId } : v));
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        // Refetch drivers and vehicles
+        if (transporterType === 'company' && companyProfile?.companyId) {
+          const fetchData = async () => {
+            try {
+              const driversData = await apiRequest(`/companies/${companyProfile.companyId}/drivers`);
+              const activeDrivers = driversData?.drivers?.filter(d => d.status === 'active') || [];
+              const mappedDrivers = activeDrivers.map((d: any) => ({
+                ...d,
+                name: d.firstName && d.lastName 
+                  ? `${d.firstName} ${d.lastName}` 
+                  : d.name || '',
+                idNumber: d.idNumber || d.idDocumentNumber || '',
+              }));
+              setDrivers(mappedDrivers);
+
+              const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
+              const approvedVehicles = vehiclesData?.vehicles?.filter(v => v.status === 'approved') || [];
+              setVehicles(approvedVehicles);
+            } catch (error) {
+              console.error('Error refreshing data:', error);
+            }
+          };
+          fetchData();
+        }
+      }, 1000);
+      
+      // Show success message
+      Alert.alert(
+        'Success',
+        `Driver assigned to vehicle ${vehicle.reg || vehicle.vehicleRegistration || vehicle.id} successfully!`,
+        [{ text: 'OK' }]
+      );
+
+      // Send notification to driver
+      const driver = drivers.find(d => d.id === driverId);
+      if (driver) {
+        const driverName = driver.firstName && driver.lastName 
+          ? `${driver.firstName} ${driver.lastName}` 
+          : driver.name || 'Driver';
+        notificationService.sendEmail(
+          driver.email,
+          'Vehicle Assignment',
+          `Hi ${driverName}, you have been assigned vehicle ${vehicle.reg || vehicle.vehicleRegistration || vehicle.id} (${vehicle.type || 'vehicle'}). Please check your dashboard for details.`,
+          'driver',
+          'vehicle_assigned',
+          { vehicle, driver }
+        );
+      }
+    } catch (error: any) {
+      console.error('Error assigning driver to vehicle:', error);
+      Alert.alert(
+        'Assignment Failed',
+        error?.message || 'Failed to assign driver to vehicle. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setAssigningDriver(false);
+    }
+  };
+
+  const unassignDriverFromVehicle = async (vehicleIdx: number) => {
+    try {
+      const vehicle = vehicles[vehicleIdx];
+      if (!vehicle || !vehicle.assignedDriverId) return;
+
+      const driverId = vehicle.assignedDriverId;
+
+      // Use the same approach as DriverAssignmentsScreen: fetch directly with API_ENDPOINTS
+      const { getAuth } = require('firebase/auth');
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const token = await user.getIdToken();
+
+      // Use the same endpoint as DriverAssignmentsScreen: DELETE /api/vehicles/:id/unassign-driver
+      const response = await fetch(`${API_ENDPOINTS.VEHICLES}/${vehicle.id}/unassign-driver`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to unassign driver from vehicle: ${response.status}`);
+      }
+
+      // Update local state only if backend call succeeds
+      setVehicles(vehicles.map((v, i) => i === vehicleIdx ? { ...v, assignedDriverId: null } : v));
+      
+      // Refresh data to ensure consistency
+      setTimeout(() => {
+        // Refetch drivers and vehicles
+        if (transporterType === 'company' && companyProfile?.companyId) {
+          const fetchData = async () => {
+            try {
+              const driversData = await apiRequest(`/companies/${companyProfile.companyId}/drivers`);
+              const activeDrivers = driversData?.drivers?.filter(d => d.status === 'active') || [];
+              const mappedDrivers = activeDrivers.map((d: any) => ({
+                ...d,
+                name: d.firstName && d.lastName 
+                  ? `${d.firstName} ${d.lastName}` 
+                  : d.name || '',
+                idNumber: d.idNumber || d.idDocumentNumber || '',
+              }));
+              setDrivers(mappedDrivers);
+
+              const vehiclesData = await apiRequest(`/companies/${companyProfile.companyId}/vehicles`);
+              const approvedVehicles = vehiclesData?.vehicles?.filter(v => v.status === 'approved') || [];
+              setVehicles(approvedVehicles);
+            } catch (error) {
+              console.error('Error refreshing data:', error);
+            }
+          };
+          fetchData();
+        }
+      }, 1000);
+      
+      // Show success message
+      Alert.alert(
+        'Success',
+        `Driver unassigned from vehicle ${vehicle.reg || vehicle.vehicleRegistration || vehicle.id} successfully!`,
+        [{ text: 'OK' }]
+      );
+
+      // Send notification to driver
+      const driver = drivers.find(d => d.id === driverId);
+      if (driver) {
+        const driverName = driver.firstName && driver.lastName 
+          ? `${driver.firstName} ${driver.lastName}` 
+          : driver.name || 'Driver';
+        notificationService.sendEmail(
+          driver.email,
+          'Vehicle Assignment Removed',
+          `Hi ${driverName}, you have been unassigned from vehicle ${vehicle.reg || vehicle.vehicleRegistration || vehicle.id} (${vehicle.type || 'vehicle'}).`,
+          'driver',
+          'vehicle_unassigned',
+          { vehicle, driver }
+        );
+      }
+    } catch (error: any) {
+      console.error('Error unassigning driver from vehicle:', error);
+      Alert.alert(
+        'Unassignment Failed',
+        error?.message || 'Failed to unassign driver from vehicle. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  // Logout button is now rendered directly in the UI for company transporter
+
+  if (transporterType === 'company') {
+    return (
+      <>
+        <FormKeyboardWrapper style={styles.bg} contentContainerStyle={[styles.container, { paddingTop: 32, paddingBottom: 100 }]}>
+          {/* Header with Logout Button */}
+          <View style={styles.headerContainer}>
+            <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Manage Vehicles, Drivers, Assignments</Text>
+            <TouchableOpacity 
+              onPress={handleLogout} 
+              style={styles.logoutButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="log-out-outline" size={20} color={colors.error} style={{ marginRight: 4 }} />
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+          {/* Company Profile Section */}
+          <View style={styles.card}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={styles.sectionTitle}>Company Profile</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  // Initialize edit fields with current values
+                  setEditName(userProfile?.name || editName || '');
+                  setEditEmail(userProfile?.email || editEmail || '');
+                  setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                  setEditRegistrationNumber(companyProfile?.companyRegistration || editRegistrationNumber || '');
+                  setEditModal(true);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="pencil" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Company Logo */}
+            <TouchableOpacity style={{ alignItems: 'center', marginBottom: 16 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
+              {editProfilePhoto ? (
+                <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background }} />
+              ) : companyProfile?.companyLogo ? (
+                <Image source={{ uri: companyProfile.companyLogo }} style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background }} />
+              ) : loadingProfile ? (
+                <ActivityIndicator size="large" color={colors.primary} />
+              ) : (
+                <View style={{ width: 80, height: 80, borderRadius: 12, backgroundColor: colors.background.secondary, alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons name="office-building" size={40} color={colors.primary} />
+                </View>
+              )}
+              <Text style={{ color: colors.primary, marginTop: 8, textAlign: 'center', fontSize: 14, fontFamily: fonts.family.medium }}>
+                {companyProfile?.companyLogo ? 'Update Company Logo' : 'Upload Company Logo'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Company Information */}
+            <View style={styles.companyInfo}>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="office-building" size={16} color={colors.text.secondary} />
+                <Text style={styles.companyName}>{companyProfile?.companyName || 'Company Name'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="file-document" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>
+                  {companyProfile?.companyRegistration || 'Registration Number (Optional - Required after 5 trips)'}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="phone" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>{companyProfile?.companyContact || 'Contact Number'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="email" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>{companyProfile?.companyEmail || 'Email Address'}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <MaterialCommunityIcons name="map-marker" size={16} color={colors.text.secondary} />
+                <Text style={styles.infoText}>
+                  {companyProfile?.companyAddress && companyProfile.companyAddress.trim() !== '' 
+                    ? companyProfile.companyAddress 
+                    : 'No address provided'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Registration Number Info */}
+            <View style={{ marginTop: 12, padding: 12, backgroundColor: colors.background.secondary, borderRadius: 8 }}>
+              <Text style={{ fontSize: 12, color: colors.text.secondary, textAlign: 'center', fontStyle: 'italic' }}>
+                Registration number is required after 5 completed trips. Update via Edit Profile above.
+              </Text>
+            </View>
+            
+            {/* Removed duplicate Logout; standardized to header-right */}
+          </View>
+
+          {/* Contact Verification Section */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Contact Verification</Text>
+            
+            {/* Note about generated contacts */}
+            {((userProfile?.email && isGeneratedEmail(userProfile.email)) || (userProfile?.phone && isGeneratedPhone(userProfile.phone))) && (
+              <View style={{ backgroundColor: colors.warningLight, padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <Ionicons name="information-circle" size={18} color={colors.warning} style={{ marginRight: 8, marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.warning, fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
+                      Update Your Contact Information
+                    </Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 12, lineHeight: 18 }}>
+                      {isGeneratedEmail(userProfile?.email) && isGeneratedPhone(userProfile?.phone)
+                        ? "Both your email and phone were auto-generated during signup. Please update them with your correct information before verifying."
+                        : isGeneratedEmail(userProfile?.email)
+                        ? "Your email was auto-generated during signup. Please update it to your actual email address before verifying."
+                        : "Your phone number was auto-generated during signup. Please update it to your actual phone number before verifying."}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      style={{ marginTop: 8 }}
+                    >
+                      <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>
+                        Update Contact Info →
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+            
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Email</Text>
+                <View style={[
+                  styles.verificationBadge,
+                  userProfile?.emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
+                ]}>
+                  <MaterialCommunityIcons
+                    name={userProfile?.emailVerified ? "check-circle" : "close-circle"}
+                    size={12}
+                    color={userProfile?.emailVerified ? colors.success : colors.error}
+                  />
+                  <Text style={[
+                    styles.verificationBadgeText,
+                    userProfile?.emailVerified ? styles.verifiedText : styles.unverifiedText
+                  ]}>
+                    {userProfile?.emailVerified ? 'Verified' : 'Unverified'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+                {userProfile?.email || editEmail || 'No email set'}
+              </Text>
+              {isGeneratedEmail(userProfile?.email || editEmail) && (
+                <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                  This email is auto-generated. Please update it before verifying.
+                </Text>
+              )}
+              {!userProfile?.emailVerified && (
+                <TouchableOpacity
+                  style={[styles.verifyButton, isGeneratedEmail(userProfile?.email || editEmail) && styles.verifyButtonDisabled]}
+                  onPress={() => {
+                    if (isGeneratedEmail(userProfile?.email || editEmail)) {
+                      Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Update Now', onPress: () => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      ]);
+                      return;
+                    }
+                    handleVerifyEmail();
+                  }}
+                  disabled={verifyingEmail || isGeneratedEmail(userProfile?.email || editEmail)}
+                >
+                  {verifyingEmail ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={[styles.verifyButtonText, isGeneratedEmail(userProfile?.email || editEmail) && { color: colors.text.light }]}>
+                      Verify Email
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Phone</Text>
+                <View style={[
+                  styles.verificationBadge,
+                  userProfile?.phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
+                ]}>
+                  <MaterialCommunityIcons
+                    name={userProfile?.phoneVerified ? "check-circle" : "close-circle"}
+                    size={12}
+                    color={userProfile?.phoneVerified ? colors.success : colors.error}
+                  />
+                  <Text style={[
+                    styles.verificationBadgeText,
+                    userProfile?.phoneVerified ? styles.verifiedText : styles.unverifiedText
+                  ]}>
+                    {userProfile?.phoneVerified ? 'Verified' : 'Unverified'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+                {userProfile?.phone || editPhone || 'No phone set'}
+              </Text>
+              {isGeneratedPhone(userProfile?.phone || editPhone) && (
+                <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                  This phone number is auto-generated. Please update it before verifying.
+                </Text>
+              )}
+              {!userProfile?.phoneVerified && (
+                <TouchableOpacity
+                  style={[styles.verifyButton, isGeneratedPhone(userProfile?.phone || editPhone) && styles.verifyButtonDisabled]}
+                  onPress={() => {
+                    if (isGeneratedPhone(userProfile?.phone || editPhone)) {
+                      Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Update Now', onPress: () => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      ]);
+                      return;
+                    }
+                    handleVerifyPhone();
+                  }}
+                  disabled={verifyingPhone || isGeneratedPhone(userProfile?.phone || editPhone)}
+                >
+                  {verifyingPhone ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={[styles.verifyButtonText, isGeneratedPhone(userProfile?.phone || editPhone) && { color: colors.text.light }]}>
+                      Verify Phone
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* Subscription Section */}
+          <View style={styles.card}>
+            <EnhancedSubscriptionStatusCard
+              subscriptionStatus={subscriptionStatus || {
+                hasActiveSubscription: true,
+                isTrialActive: false,
+                needsTrialActivation: false,
+                currentPlan: (transporterType === 'company' ? COMPANY_FLEET_PLANS : INDIVIDUAL_PLANS)?.find(plan => plan.id === (transporterType === 'company' ? 'fleet_growing' : 'individual_pro')) || (transporterType === 'company' ? COMPANY_FLEET_PLANS : INDIVIDUAL_PLANS)?.[1],
+                daysRemaining: 15,
+                subscriptionStatus: 'active'
+              }}
+              onManagePress={() => {
+                console.log('Manage button pressed!');
+                navigation.navigate('SubscriptionManagement', { userType: transporterType === 'company' ? 'company' : 'transporter' });
+              }}
+              onRenewPress={handlePayment}
+              onUpgradePress={() => navigation.navigate('SubscriptionManagement')}
+              showUpgradeOptions={true}
+              animated={true}
+              onActivateTrial={handleActivateTrial}
+              loading={subscriptionLoading}
+            />
+          </View>
+
+          {/* Vehicles List */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Vehicles</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity style={[styles.actionBtn, { flex: 1, marginRight: 8 }]} onPress={openAddVehicle}>
+                <Ionicons name="add-circle" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Add Vehicle</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, { flex: 1, marginLeft: 8 }]} 
+                onPress={() => navigation.navigate('Fleet', { screen: 'VehicleManagement' })}
+              >
+                <MaterialCommunityIcons name="truck" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Manage Fleet</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Search vehicles..."
+              value={vehicleSearch}
+              onChangeText={setVehicleSearch}
+            />
+            {vehicles.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="truck-outline" size={48} color={colors.text.secondary} />
+                <Text style={styles.emptyStateTitle}>No Vehicles Yet</Text>
+                <Text style={styles.emptyStateText}>Start building your fleet by adding your first vehicle.</Text>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={openAddVehicle}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                  <Text style={styles.emptyStateButtonText}>Add Vehicle</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              vehicles.filter(item => {
+                const assignedDriver = drivers.find(d => d.id === item.assignedDriverId);
+                return (
+                  (item.reg && item.reg.toLowerCase().includes(vehicleSearch.toLowerCase())) ||
+                  (item.type && item.type.toLowerCase().includes(vehicleSearch.toLowerCase())) ||
+                  (assignedDriver && assignedDriver.name && assignedDriver.name.toLowerCase().includes(vehicleSearch.toLowerCase()))
+                );
+              }).map((item, index) => (
+                <View style={styles.vehicleListItem} key={item.id}>
+                  <View style={styles.vehicleBasicInfo}>
+                    <Text style={styles.vehicleTitle}>
+                      {item.make || 'Unknown'} {item.model || ''} ({item.year || 'N/A'})
+                    </Text>
+                    <Text style={styles.vehicleReg}>{item.reg} • {item.type}</Text>
+                    <Text style={styles.vehicleCapacity}>
+                      {item.capacity ? `${item.capacity} tons` : 'Capacity N/A'} • {item.color || 'Color N/A'}
+                    </Text>
+                  </View>
+                  <Text style={styles.value}>
+                    Assigned Driver: {item.assignedDriverId ? (
+                      <Text style={{ color: colors.success, fontWeight: 'bold' }}>
+                        {drivers.find(d => d.id === item.assignedDriverId)?.name || 'Unknown'}
+                      </Text>
+                    ) : (
+                      <Text style={{ color: colors.text.secondary, fontStyle: 'italic' }}>None</Text>
+                    )}
+                  </Text>
+                  <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                    <TouchableOpacity style={styles.editBtn} onPress={() => openEditVehicle(index)}>
+                      <Ionicons name="create-outline" size={18} color={colors.secondary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveVehicle(index)}>
+                      <Ionicons name="trash" size={18} color={colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ marginTop: 6, flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity 
+                      style={[styles.driverAssignBtn, { minWidth: 120, justifyContent: 'center' }]} 
+                      onPress={() => { setAssignModalVehicleIdx(index); setShowAssignModal(true); }}
+                    >
+                      <Ionicons name="swap-horizontal" size={18} color={colors.primary} />
+                      <Text style={{ color: colors.primary, marginLeft: 8, fontWeight: 'bold' }}>
+                        {item.assignedDriverId ? 'Reassign' : 'Assign'} Driver
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    {item.assignedDriverId && (
+                      <TouchableOpacity 
+                        style={[styles.driverAssignBtn, { minWidth: 120, justifyContent: 'center', backgroundColor: colors.error }]} 
+                        onPress={() => {
+                          Alert.alert(
+                            'Confirm Unassignment',
+                            `Are you sure you want to unassign the driver from vehicle ${item.reg}?`,
+                            [
+                              { text: 'Cancel', style: 'cancel' },
+                              { 
+                                text: 'Unassign', 
+                                style: 'destructive',
+                                onPress: () => unassignDriverFromVehicle(index)
+                              }
+                            ]
+                          );
+                        }}
+                      >
+                        <Ionicons name="person-remove" size={18} color={colors.white} />
+                        <Text style={{ color: colors.white, marginLeft: 8, fontWeight: 'bold' }}>Unassign</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+          {/* Assign Driver Modal */}
+          <Modal
+            visible={showAssignModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setShowAssignModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.vehicleModalCard}>
+                <Text style={styles.editTitle}>Assign Driver</Text>
+                {assignModalVehicleIdx !== null && vehicles[assignModalVehicleIdx] && (
+                  <View style={{ backgroundColor: colors.background.secondary, padding: 12, borderRadius: 8, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: colors.primary }}>
+                    <Text style={{ fontSize: 14, fontFamily: fonts.family.bold, color: colors.text.primary, marginBottom: 4 }}>
+                      Vehicle Details:
+                    </Text>
+                    <Text style={{ fontSize: 14, fontFamily: fonts.family.medium, color: colors.text.primary }}>
+                      {vehicles[assignModalVehicleIdx].make || 'Unknown'} {vehicles[assignModalVehicleIdx].model || ''} ({vehicles[assignModalVehicleIdx].year || 'N/A'})
+                    </Text>
+                    <Text style={{ fontSize: 14, fontFamily: fonts.family.bold, color: colors.primary, marginTop: 4 }}>
+                      Registration: {vehicles[assignModalVehicleIdx].reg || vehicles[assignModalVehicleIdx].vehicleRegistration || vehicles[assignModalVehicleIdx].registration || 'N/A'}
+                    </Text>
+                    <Text style={{ fontSize: 12, fontFamily: fonts.family.medium, color: colors.text.secondary, marginTop: 2 }}>
+                      {vehicles[assignModalVehicleIdx].type || 'N/A'} • {vehicles[assignModalVehicleIdx].capacity ? `${vehicles[assignModalVehicleIdx].capacity} tons` : 'Capacity N/A'}
+                    </Text>
+                  </View>
+                )}
+                <TextInput
+                  style={styles.input}
+                  placeholder="Search drivers by name, email, or phone"
+                  value={driverSearch}
+                  onChangeText={setDriverSearch}
+                />
+                {assigningDriver && (
+                  <View style={{ alignItems: 'center', marginVertical: 10 }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={{ color: colors.text.secondary, marginTop: 5 }}>Assigning driver...</Text>
+                  </View>
+                )}
+                <ScrollView style={{ maxHeight: 320, width: '100%' }}>
+                  {drivers.filter(d => {
+                    const driverName = d.firstName && d.lastName 
+                      ? `${d.firstName} ${d.lastName}` 
+                      : d.name || '';
+                    return (
+                      (driverName && driverName.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                      (d.email && d.email.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                      (d.phone && d.phone.toLowerCase().includes(driverSearch.toLowerCase()))
+                    );
+                  }).map((d) => {
+                    const driverName = d.firstName && d.lastName 
+                      ? `${d.firstName} ${d.lastName}` 
+                      : d.name || 'Not Available';
+                    const driverIdNumber = d.idNumber || d.idDocumentNumber || 'Not Available';
+                    return (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={[styles.driverAssignBtn, assignModalVehicleIdx !== null && vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && styles.driverAssignBtnActive, { flexDirection: 'row', alignItems: 'center', marginBottom: 8 }]}
+                        onPress={async () => {
+                          if (assignModalVehicleIdx !== null) {
+                            await assignDriverToVehicle(assignModalVehicleIdx, d.id);
+                          }
+                          setShowAssignModal(false);
+                        }}
+                      >
+                        <Image source={{ uri: d.photo?.uri }} style={styles.driverAssignPhoto} />
+                        <View style={{ marginLeft: 8, flex: 1 }}>
+                          <Text style={styles.driverAssignName}>Name: {driverName}</Text>
+                          <Text style={styles.driverAssignName}>Contact: {d.phone || 'Not Available'}</Text>
+                          <Text style={styles.driverAssignName}>Email: {d.email || 'Not Available'}</Text>
+                          <Text style={styles.driverAssignName}>ID: {driverIdNumber}</Text>
+                        {d.assignedVehicleId && (
+                          <Text style={[styles.driverAssignName, { color: colors.warning, fontWeight: 'bold' }]}>
+                            Currently assigned to: {d.assignedVehicleId}
+                          </Text>
+                        )}
+                      </View>
+                      {assignModalVehicleIdx !== null && vehicles[assignModalVehicleIdx]?.assignedDriverId === d.id && (
+                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} style={{ marginLeft: 8 }} />
+                      )}
+                    </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+                <View style={styles.editActionsRow}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAssignModal(false)}>
+                    <Text style={styles.cancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+          {/* Add/Edit Vehicle Modal */}
+          <Modal
+            visible={vehicleModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setVehicleModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>{vehicleEditIdx !== null ? 'Edit Vehicle' : 'Add Vehicle'}</Text>
+                  {/* Vehicle Details Form (Reusable) */}
+                  <VehicleDetailsForm
+                    initial={{
+                      vehicleType: vehicleType,
+                      vehicleMake: vehicleMake,
+                      vehicleColor: vehicleColor,
+                      registration: vehicleReg,
+                      maxCapacity: vehicleCapacity,
+                      year: vehicleYear,
+                      driveType: vehicleDriveType,
+                      bodyType: bodyType,
+                      humidityControl: humidityControl,
+                      refrigeration: refrigeration,
+                      vehicleFeatures: vehicleFeatures
+                    }}
+                    onChange={(data) => {
+                      setVehicleType(data.vehicleType);
+                      setVehicleMake(data.vehicleMake);
+                      setVehicleColor(data.vehicleColor);
+                      setVehicleReg(data.registration);
+                      setVehicleCapacity(data.maxCapacity);
+                      setVehicleYear(data.year);
+                      setVehicleDriveType(data.driveType);
+                      setBodyType(data.bodyType);
+                      setHumidityControl(data.humidityControl);
+                      setRefrigeration(data.refrigeration);
+                      setVehicleFeatures(data.vehicleFeatures);
+                    }}
+                    onPhotoAdd={pickVehiclePhotos}
+                    onPhotoRemove={removeVehiclePhoto}
+                    vehiclePhotos={vehiclePhotos}
+                    error={undefined}
+                  />
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>Vehicle Insurance Document (PDF or Image) *</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={pickInsurance}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{insurance ? 'Change File' : 'Upload Vehicle Insurance'}</Text>
+                    </TouchableOpacity>
+                    {insurance && <Text style={styles.fileName}>{insurance.fileName || insurance.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSaveVehicle}>
+                      <Text style={styles.saveText}>{vehicleEditIdx !== null ? 'Save Changes' : 'Add Vehicle'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+          {/* Drivers List */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Drivers</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity style={[styles.actionBtn, { flex: 1, marginRight: 8 }]} onPress={openRecruitDriver}>
+                <Ionicons name="add-circle" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Recruit Driver</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, { flex: 1, marginLeft: 8 }]} 
+                onPress={() => navigation.navigate('DriverManagement')}
+              >
+                <MaterialCommunityIcons name="account-group" size={20} color={colors.primary} />
+                <Text style={styles.actionText}>Manage Drivers</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Search drivers..."
+              value={driverSearch}
+              onChangeText={setDriverSearch}
+            />
+            {drivers.length === 0 ? (
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons name="account-group-outline" size={48} color={colors.text.secondary} />
+                <Text style={styles.emptyStateTitle}>No Drivers Yet</Text>
+                <Text style={styles.emptyStateText}>Start building your team by recruiting your first driver.</Text>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={openRecruitDriver}>
+                  <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                  <Text style={styles.emptyStateButtonText}>Recruit Driver</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <ScrollView style={{ maxHeight: 340 }}>
+                {drivers.filter(item =>
+                  (item.name && item.name.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                  (item.email && item.email.toLowerCase().includes(driverSearch.toLowerCase())) ||
+                  (item.phone && item.phone.toLowerCase().includes(driverSearch.toLowerCase()))
+                ).map((item, index) => (
+                  <View style={styles.driverListItem} key={item.id}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}>
+                      {/* Driver Profile Photo */}
+                      <View style={{ marginRight: 12 }}>
+                        {item.profileImage ? (
+                          <Image source={{ uri: item.profileImage }} style={styles.driverPhoto} />
+                        ) : (
+                          <View style={[styles.driverPhoto, { backgroundColor: colors.background.secondary, justifyContent: 'center', alignItems: 'center' }]}>
+                            <MaterialCommunityIcons name="account" size={24} color={colors.text.secondary} />
+                          </View>
+                        )}
+                      </View>
+                      
+                      {/* Driver Info */}
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.value, { fontWeight: 'bold', fontSize: 16, marginBottom: 2 }]}>
+                          {item.firstName && item.lastName ? `${item.firstName} ${item.lastName}` : item.name || 'Unknown Driver'}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                          <MaterialCommunityIcons name="phone" size={14} color={colors.text.secondary} />
+                          <Text style={[styles.value, { fontSize: 12, marginLeft: 4, color: colors.text.secondary }]}>
+                            {item.phone || 'No phone'}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={[
+                            { 
+                              paddingHorizontal: 6, 
+                              paddingVertical: 2, 
+                              borderRadius: 8,
+                              backgroundColor: item.status === 'active' ? colors.success + '20' : 
+                                             item.status === 'pending' ? colors.warning + '20' : 
+                                             colors.text.secondary + '20'
+                            }
+                          ]}>
+                            <Text style={[
+                              styles.value, 
+                              { 
+                                fontSize: 10, 
+                                fontWeight: 'bold',
+                                color: item.status === 'active' ? colors.success : 
+                                       item.status === 'pending' ? colors.warning : 
+                                       colors.text.secondary
+                              }
+                            ]}>
+                              {item.status?.toUpperCase() || 'UNKNOWN'}
+                            </Text>
+                          </View>
+                          {item.assignedVehicleId && (
+                            <View style={{ marginLeft: 8, flexDirection: 'row', alignItems: 'center' }}>
+                              <MaterialCommunityIcons name="truck" size={12} color={colors.primary} />
+                              <Text style={[styles.value, { fontSize: 10, marginLeft: 2, color: colors.primary }]}>
+                                ASSIGNED
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      
+                      {/* Action Buttons */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity style={styles.editBtn} onPress={() => openEditDriver(index)}>
+                          <Ionicons name="create-outline" size={18} color={colors.secondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveDriver(index)}>
+                          <Ionicons name="trash" size={18} color={colors.error} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+          {/* Recruit Driver Modal */}
+          <Modal
+            visible={recruitModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setRecruitModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>Recruit Driver</Text>
+                  <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={() => pickDriverPhoto(setRecruitPhoto)}>
+                    {recruitPhoto ? (
+                      <Image source={{ uri: recruitPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                    ) : (
+                      <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                      </View>
+                    )}
+                    <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo *</Text>
+                  </TouchableOpacity>
+                  <TextInput style={styles.input} placeholder="Driver Name *" value={recruitName} onChangeText={setRecruitName} />
+                  <TextInput style={styles.input} placeholder="Email *" value={recruitEmail} onChangeText={setRecruitEmail} keyboardType="email-address" />
+                  <TextInput style={styles.input} placeholder="Phone *" value={recruitPhone} onChangeText={setRecruitPhone} keyboardType="phone-pad" />
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>ID Document (PDF or Image) *</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverIdDoc(setRecruitIdDoc)}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{recruitIdDoc ? 'Change File' : 'Upload File'}</Text>
+                    </TouchableOpacity>
+                    {recruitIdDoc && <Text style={styles.fileName}>{recruitIdDoc.fileName || recruitIdDoc.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>Driver&apos;s License (PDF or Image) *</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverLicense(setRecruitLicense)}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{recruitLicense ? 'Change File' : 'Upload File'}</Text>
+                    </TouchableOpacity>
+                    {recruitLicense && <Text style={styles.fileName}>{recruitLicense.fileName || recruitLicense.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setRecruitModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleRecruitDriver}>
+                      <Text style={styles.saveText}>Recruit</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+          {/* Add/Edit Driver Modal */}
+          <Modal
+            visible={driverModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setDriverModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>{driverEditIdx !== null ? 'Edit Driver' : 'Add Driver'}</Text>
+                  <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={() => pickDriverPhoto(setDriverPhoto)}>
+                    {driverPhoto ? (
+                      <Image source={{ uri: driverPhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                    ) : (
+                      <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                      </View>
+                    )}
+                    <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo *</Text>
+                  </TouchableOpacity>
+                  <TextInput style={styles.input} placeholder="Driver Name *" value={driverName} onChangeText={setDriverName} />
+                  <TextInput style={styles.input} placeholder="Phone Number" value={driverPhone} onChangeText={setDriverPhone} />
+                  <View style={styles.section}>
+                    <Text style={styles.editLabel}>License Document (PDF or Image) *</Text>
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => pickDriverLicense(setDriverLicense)}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={22} color={colors.primary} />
+                      <Text style={styles.uploadBtnText}>{driverLicense ? 'Change File' : 'Upload File'}</Text>
+                    </TouchableOpacity>
+                    {driverLicense && <Text style={styles.fileName}>{driverLicense.fileName || driverLicense.uri?.split('/').pop()}</Text>}
+                  </View>
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setDriverModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSaveDriver}>
+                      <Text style={styles.saveText}>{driverEditIdx !== null ? 'Save Changes' : 'Add Driver'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+          {/* Conflict Resolution Section */}
+          <View style={styles.conflictSection}>
+            <Text style={styles.sectionTitle}>Conflict Resolution</Text>
+            <Text style={styles.sectionDescription}>
+              Submit a complaint for admin mediation. You will be contacted via email and in-app.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.complaintButton}
+              onPress={() => navigation.navigate('DisputeList' as never)}
+            >
+              <MaterialCommunityIcons name="alert-circle-outline" size={20} color={colors.white} />
+              <Text style={styles.complaintButtonText}>View Disputes</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Delete Account Section */}
+          <View style={styles.deleteAccountSection}>
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={() => setShowDeleteAccountModal(true)}
+            >
+              <MaterialCommunityIcons name="delete-outline" size={20} color={colors.error} />
+              <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+            </TouchableOpacity>
+          </View>
+        </FormKeyboardWrapper>
+        {/* Edit Profile Modal (always rendered) */}
+        <Modal
+          visible={editModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setEditModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.editModalCard}>
+              <Text style={styles.editTitle}>Edit Profile</Text>
+              <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={pickProfilePhoto} activeOpacity={0.7}>
+                {editProfilePhoto ? (
+                  <Image source={{ uri: editProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                ) : (
+                  <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                  </View>
+                )}
+                <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
+              </TouchableOpacity>
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Full Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Full Name"
+                />
+              </View>
+              <View style={styles.editDivider} />
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editEmail}
+                  onChangeText={setEditEmail}
+                  placeholder="Email"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+              <View style={styles.editDivider} />
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="Phone"
+                />
+              </View>
+              {transporterType === 'company' && (
+                <>
+                  <View style={styles.editDivider} />
+                  <View style={styles.editFieldWrap}>
+                    <Text style={styles.editLabel}>Registration Number</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={editRegistrationNumber}
+                      onChangeText={setEditRegistrationNumber}
+                      placeholder="Company Registration Number (Optional)"
+                    />
+                    <Text style={{ fontSize: 11, color: colors.text.light, marginTop: 4, fontStyle: 'italic' }}>
+                      Required after 5 completed trips
+                    </Text>
+                  </View>
+                </>
+              )}
+              <View style={styles.editDivider} />
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Change Password</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="New Password"
+                  secureTextEntry
+                  value={editPassword}
+                  onChangeText={setEditPassword}
+                />
+              </View>
+              <View style={styles.editActionsRow}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModal(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                  <Text style={styles.saveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        
+        <LogoutConfirmationDialog
+          visible={showLogoutDialog}
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogoutDialog(false)}
+        />
+
+        <DeleteAccountModal
+          visible={showDeleteAccountModal}
+          onClose={() => setShowDeleteAccountModal(false)}
+          onConfirm={handleDeleteAccount}
+          loading={deletingAccount}
+        />
+      </>
+    );
+  } else {
+    // Individual transporter: fetch and show real profile
+  // Add: image picker for individual profile
+  const pickIndividualProfilePhoto = async () => {
+    Alert.alert(
+      'Select Photo',
+      'Choose how you want to add your profile photo',
+      [
+        { text: 'Take Photo', onPress: () => pickIndividualProfilePhotoCamera() },
+        { text: 'Choose from Gallery', onPress: () => pickIndividualProfilePhotoGallery() },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const pickIndividualProfilePhotoCamera = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access camera is required!');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        setIndividualProfilePhoto({ uri: result.assets[0].uri });
+        // Optionally: upload to backend here
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
+
+  const pickIndividualProfilePhotoGallery = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Permission to access media library is required!');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].uri) {
+        setIndividualProfilePhoto({ uri: result.assets[0].uri });
+        // Optionally: upload to backend here
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+      Alert.alert('Error', 'Failed to select image');
+    }
+  };
+
+    
+    // Verification functions for individual transporter
+    const handleVerifyEmail = async () => {
+      const emailToVerify = userProfile?.email || auth.currentUser?.email;
+      if (!emailToVerify) {
+        Alert.alert('Error', 'No email address found. Please add an email address in your profile.');
+        return;
+      }
+      
+      // Check if email is generated
+      if (isGeneratedEmail(emailToVerify)) {
+        Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Update Now', onPress: () => setEditModal(true) }
+        ]);
+        return;
+      }
+      
+      try {
+        setVerifyingEmail(true);
+
+        // Use backend API for email verification - same pattern as EmailVerificationScreen
+        await apiRequest('/auth', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'resend-email-code',
+            email: emailToVerify
+          }),
+        });
+
+        Alert.alert(
+          'Verification Email Sent',
+          'Please check your email for the verification code. You can then use your email to log in.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation?.navigate?.('EmailVerification')
+            }
+          ]
+        );
+      } catch (e: any) {
+        console.error('Email verification error:', e);
+        Alert.alert(
+          'Verification Failed',
+          e.message || 'Unable to send verification email. Please check your internet connection and try again later.',
+          [{ text: 'OK' }]
+        );
+      } finally {
+        setVerifyingEmail(false);
+      }
+    };
+
+    const handleVerifyPhone = async () => {
+      const phoneToVerify = userProfile?.phone || individualProfile?.phoneNumber || auth.currentUser?.phoneNumber;
+      if (!phoneToVerify) {
+        Alert.alert('Error', 'No phone number found. Please add a phone number in your profile.');
+        return;
+      }
+      
+      // Check if phone is generated
+      if (isGeneratedPhone(phoneToVerify)) {
+        Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Update Now', onPress: () => setEditModal(true) }
+        ]);
+        return;
+      }
+      
+      try {
+        setVerifyingPhone(true);
+
+        // Use backend API for phone verification - same pattern as auth flow
+        await apiRequest('/auth', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'resend-phone-code',
+            phoneNumber: phoneToVerify
+          }),
+        });
+
+        Alert.alert(
+          'Verification SMS Sent',
+          'Please check your phone for the verification code. You can then use your phone to log in.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Go to Verification',
+              onPress: () => navigation?.navigate?.('PhoneOTPScreen')
+            }
+          ]
+        );
+      } catch (e: any) {
+        console.error('Phone verification error:', e);
+        Alert.alert(
+          'Verification Failed',
+          e.message || 'Unable to send verification SMS. Please check your internet connection and try again later.',
+          [{ text: 'OK' }]
+        );
+      } finally {
+        setVerifyingPhone(false);
+      }
+    };
+
+    const updateAcceptingBookingStatus = async (newStatus: boolean) => {
+      try {
+        setUpdatingBookingStatus(true);
+        const { getAuth } = require('firebase/auth');
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (!user) throw new Error('Not authenticated');
+
+        const token = await user.getIdToken();
+        const response = await fetch(`${API_ENDPOINTS.TRANSPORTERS}/${user.uid}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            acceptingBooking: newStatus,
+          }),
+        });
+
+        if (response.ok) {
+          setAcceptingBooking(newStatus);
+          setIndividualProfile((prev: any) => ({ ...prev, acceptingBooking: newStatus }));
+          Alert.alert(
+            'Status Updated',
+            `You are now ${newStatus ? 'accepting' : 'not accepting'} new booking requests.`
+          );
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to update booking status');
+        }
+      } catch (error: any) {
+        console.error('Error updating booking status:', error);
+        Alert.alert('Error', error.message || 'Failed to update booking status. Please try again.');
+      } finally {
+        setUpdatingBookingStatus(false);
+      }
+    };
+    
+    // Modal state for insurance and photo gallery
+    return (
+      <>
+        {/* --- INDIVIDUAL UI --- */}
+        <FormKeyboardWrapper style={styles.bg} contentContainerStyle={{ ...styles.container, paddingBottom: 120 }}>
+          <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Manage My Vehicle & Profile</Text>
+          <View style={[styles.card, { alignItems: 'center', paddingTop: 24, paddingBottom: 18, marginBottom: 12 }]}>
+            <View style={{ alignItems: 'center', marginBottom: 8 }}>
+              {individualProfilePhoto ? (
+                <Image source={{ uri: individualProfilePhoto.uri }} style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: colors.background, marginBottom: 10, borderWidth: 2, borderColor: colors.primary }} />
+              ) : loadingIndividualProfile ? (
+                <ActivityIndicator size="large" color={colors.primary} />
+              ) : (
+                <MaterialCommunityIcons name="account-circle" size={100} color={colors.primary} style={{ marginBottom: 10 }} />
+              )}
+              <Text style={{ color: colors.primary, fontWeight: 'bold', fontSize: 18, marginBottom: 2 }}>{individualProfile?.displayName || ''}</Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 15 }}>{individualProfile?.phoneNumber || ''}</Text>
+            </View>
+            
+            {/* Accepting Requests Toggle */}
+            <View style={styles.toggleContainer}>
+              <ModernToggle
+                value={acceptingBooking}
+                onValueChange={updateAcceptingBookingStatus}
+                disabled={updatingBookingStatus}
+                loading={updatingBookingStatus}
+                label="Accepting New Requests"
+                description={acceptingBooking 
+                  ? 'You are currently accepting new booking requests' 
+                  : 'You are not accepting new booking requests'
+                }
+                size="medium"
+                variant="success"
+              />
+            </View>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12, marginTop: 6 }}>
+              <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 22, marginRight: 8 }} onPress={() => {
+                // Initialize edit fields with current values for individual transporter
+                setEditName(individualProfile?.displayName || editName || '');
+                setEditEmail(userProfile?.email || individualProfile?.email || editEmail || '');
+                setEditPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber || editPhone || '');
+                setEditModal(true);
+              }}>
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Edit Profile</Text>
+              </TouchableOpacity>
+              {/* Removed duplicate Logout; standardized to header-right */}
+            </View>
+          </View>
+
+          {/* Contact Verification Section */}
+          <View style={[styles.card, { marginBottom: 12 }]}>
+            <Text style={styles.sectionTitle}>Contact Verification</Text>
+            
+            {/* Note about generated contacts */}
+            {((userProfile?.email && isGeneratedEmail(userProfile.email)) || (userProfile?.phone && isGeneratedPhone(userProfile.phone))) && (
+              <View style={{ backgroundColor: colors.warningLight, padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <Ionicons name="information-circle" size={18} color={colors.warning} style={{ marginRight: 8, marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.warning, fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
+                      Update Your Contact Information
+                    </Text>
+                    <Text style={{ color: colors.text.secondary, fontSize: 12, lineHeight: 18 }}>
+                      {isGeneratedEmail(userProfile?.email) && isGeneratedPhone(userProfile?.phone)
+                        ? "Both your email and phone were auto-generated during signup. Please update them with your correct information before verifying."
+                        : isGeneratedEmail(userProfile?.email)
+                        ? "Your email was auto-generated during signup. Please update it to your actual email address before verifying."
+                        : "Your phone number was auto-generated during signup. Please update it to your actual phone number before verifying."}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      style={{ marginTop: 8 }}
+                    >
+                      <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>
+                        Update Contact Info →
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+            
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Email</Text>
+                <View style={[
+                  styles.verificationBadge,
+                  userProfile?.emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
+                ]}>
+                  <MaterialCommunityIcons
+                    name={userProfile?.emailVerified ? "check-circle" : "close-circle"}
+                    size={12}
+                    color={userProfile?.emailVerified ? colors.success : colors.error}
+                  />
+                  <Text style={[
+                    styles.verificationBadgeText,
+                    userProfile?.emailVerified ? styles.verifiedText : styles.unverifiedText
+                  ]}>
+                    {userProfile?.emailVerified ? 'Verified' : 'Unverified'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+                {userProfile?.email || individualProfile?.email || 'No email set'}
+              </Text>
+              {isGeneratedEmail(userProfile?.email || individualProfile?.email) && (
+                <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                  This email is auto-generated. Please update it before verifying.
+                </Text>
+              )}
+              {!userProfile?.emailVerified && (
+                <TouchableOpacity
+                  style={[styles.verifyButton, isGeneratedEmail(userProfile?.email || individualProfile?.email) && styles.verifyButtonDisabled]}
+                  onPress={() => {
+                    if (isGeneratedEmail(userProfile?.email || individualProfile?.email)) {
+                      Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Update Now', onPress: () => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      ]);
+                      return;
+                    }
+                    handleVerifyEmail();
+                  }}
+                  disabled={verifyingEmail || isGeneratedEmail(userProfile?.email || individualProfile?.email)}
+                >
+                  {verifyingEmail ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={[styles.verifyButtonText, isGeneratedEmail(userProfile?.email || individualProfile?.email) && { color: colors.text.light }]}>
+                      Verify Email
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: colors.text.primary, fontSize: 16, fontWeight: '600' }}>Phone</Text>
+                <View style={[
+                  styles.verificationBadge,
+                  userProfile?.phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
+                ]}>
+                  <MaterialCommunityIcons
+                    name={userProfile?.phoneVerified ? "check-circle" : "close-circle"}
+                    size={12}
+                    color={userProfile?.phoneVerified ? colors.success : colors.error}
+                  />
+                  <Text style={[
+                    styles.verificationBadgeText,
+                    userProfile?.phoneVerified ? styles.verifiedText : styles.unverifiedText
+                  ]}>
+                    {userProfile?.phoneVerified ? 'Verified' : 'Unverified'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+                {userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber || 'No phone set'}
+              </Text>
+              {isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber) && (
+                <Text style={{ color: colors.warning, fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                  This phone number is auto-generated. Please update it before verifying.
+                </Text>
+              )}
+              {!userProfile?.phoneVerified && (
+                <TouchableOpacity
+                  style={[styles.verifyButton, isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber) && styles.verifyButtonDisabled]}
+                  onPress={() => {
+                    if (isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber)) {
+                      Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Update Now', onPress: () => {
+                        // Initialize edit fields with current values
+                        setEditName(userProfile?.name || editName || '');
+                        setEditEmail(userProfile?.email || editEmail || '');
+                        setEditPhone(userProfile?.phone || userProfile?.phoneNumber || editPhone || '');
+                        setEditModal(true);
+                      }}
+                      ]);
+                      return;
+                    }
+                    handleVerifyPhone();
+                  }}
+                  disabled={verifyingPhone || isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber)}
+                >
+                  {verifyingPhone ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={[styles.verifyButtonText, isGeneratedPhone(userProfile?.phone || userProfile?.phoneNumber || individualProfile?.phoneNumber) && { color: colors.text.light }]}>
+                      Verify Phone
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {userProfile?.emailVerified && userProfile?.phoneVerified && (
+              <View style={styles.allVerified}>
+                <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
+                <Text style={styles.allVerifiedText}>All contact methods verified!</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Subscription Section */}
+          <View style={styles.card}>
+            <EnhancedSubscriptionStatusCard
+              subscriptionStatus={subscriptionStatus || {
+                hasActiveSubscription: true,
+                isTrialActive: false,
+                needsTrialActivation: false,
+                currentPlan: (transporterType === 'company' ? COMPANY_FLEET_PLANS : INDIVIDUAL_PLANS)?.find(plan => plan.id === (transporterType === 'company' ? 'fleet_growing' : 'individual_pro')) || (transporterType === 'company' ? COMPANY_FLEET_PLANS : INDIVIDUAL_PLANS)?.[1],
+                daysRemaining: 15,
+                subscriptionStatus: 'active'
+              }}
+              onManagePress={() => {
+                console.log('Manage button pressed!');
+                navigation.navigate('SubscriptionManagement', { userType: transporterType === 'company' ? 'company' : 'transporter' });
+              }}
+              onRenewPress={handlePayment}
+              onUpgradePress={() => navigation.navigate('SubscriptionManagement')}
+              showUpgradeOptions={true}
+              animated={true}
+              onActivateTrial={handleActivateTrial}
+              loading={subscriptionLoading}
+            />
+          </View>
+
+          {/* Location Tracking Section */}
+          <View style={[styles.card, { marginTop: 8 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>Location Tracking</Text>
+                <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 4 }}>
+                  {isLocationTracking 
+                    ? 'Tracking active - Your location is being shared with clients'
+                    : 'Start tracking to share your location with clients during trips'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isLocationTracking ? colors.success : colors.error,
+                  borderRadius: 20,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+                onPress={async () => {
+                  if (isLocationTracking) {
+                    await locationService.stopLocationTracking();
+                    setIsLocationTracking(false);
+                  } else {
+                    // CRITICAL: Check for background location consent before starting tracking
+                    // The global disclosure in App.tsx should have already been shown
+                    const hasConsent = await locationService.hasBackgroundLocationConsent();
+                    if (!hasConsent) {
+                      // Consent not given - show disclosure modal as fallback
+                      console.log('⚠️ ManageTransporterScreen: No background location consent - showing disclosure modal');
+                      setShowBackgroundLocationDisclosure(true);
+                    } else {
+                      // Consent given - safe to start tracking
+                      const result = await locationService.startLocationTracking(true);
+                      setIsLocationTracking(result.success);
+                      if (!result.success) {
+                        Alert.alert(
+                          'Location Permission Required',
+                          'Please enable location permissions in your device settings to start tracking.',
+                          [{ text: 'OK' }]
+                        );
+                      }
+                    }
+                  }
+                }}
+              >
+                <MaterialCommunityIcons
+                  name={isLocationTracking ? "map-marker" : "map-marker-off"}
+                  size={16}
+                  color="#fff"
+                  style={{ marginRight: 6 }}
+                />
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>
+                  {isLocationTracking ? 'Tracking' : 'Start Tracking'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: colors.text.secondary, fontSize: 14, marginBottom: 8 }}>
+              {isLocationTracking
+                ? 'Your location is being tracked and shared with clients during trips.'
+                : 'Enable location tracking to receive nearby job requests and share your location with clients.'
+              }
+            </Text>
+            {(currentLocation || individualProfile?.lastKnownLocation) && (
+              <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 12, marginTop: 8 }}>
+                <Text style={{ color: colors.text.secondary, fontSize: 12, marginBottom: 4 }}>Last Updated Location:</Text>
+                <LocationDisplay 
+                  location={currentLocationForDisplay}
+                  style={{ color: colors.primary, fontSize: 14, fontWeight: 'bold' }}
+                  showIcon={false}
+                  showLoading={true}
+                />
+                <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 4 }}>
+                  Updated: {(() => {
+                    const location = currentLocation || individualProfile?.lastKnownLocation;
+                    if (location?.timestamp) {
+                      return new Date(location.timestamp).toLocaleTimeString();
+                    } else if (location?.updatedAt) {
+                      return new Date(location.updatedAt).toLocaleTimeString();
+                    }
+                    return 'Unknown';
+                  })()}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={[styles.card, { marginTop: 8 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={styles.sectionTitle}>Vehicle</Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.primary,
+                  borderRadius: 50,
+                  width: 44,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: colors.primary,
+                  shadowOpacity: 0.18,
+                  shadowRadius: 8,
+                  elevation: 3,
+                }}
+                onPress={() => setVehicleModal(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add" size={28} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            {individualProfile ? (
+              <View style={{ alignItems: 'center', marginBottom: 8 }}>
+                {/* Main Photo with overlay registration */}
+                {individualProfile.vehicleImagesUrl && individualProfile.vehicleImagesUrl.length > 0 ? (
+                  <View style={{ width: 210, height: 130, borderRadius: 18, overflow: 'hidden', marginBottom: 10, backgroundColor: '#eee', elevation: 2, shadowColor: colors.primary, shadowOpacity: 0.08, shadowRadius: 8 }}>
+                    <Image source={{ uri: individualProfile.vehicleImagesUrl[0] }} style={{ width: 210, height: 130, resizeMode: 'cover' }} />
+                    <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.primary + 'cc', paddingVertical: 4, alignItems: 'center' }}>
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15, letterSpacing: 1 }}>{individualProfile.vehicleRegistration}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={{ width: 120, height: 90, borderRadius: 12, backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                    <MaterialCommunityIcons name="truck" size={48} color={colors.primary} />
+                  </View>
+                )}
+                {/* Main Info and Status */}
+                <Text style={{ fontWeight: 'bold', fontSize: 20, color: colors.primaryDark, marginBottom: 4 }}>{individualProfile.vehicleMake} ({individualProfile.vehicleType})</Text>
+                {/* Documents Card */}
+                <View style={{ width: '100%', backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 12, marginTop: 2, elevation: 1 }}>
+                  <Text style={{ fontWeight: 'bold', fontSize: 15, color: colors.secondary, marginBottom: 8 }}>Documents</Text>
+                  {/* Insurance Row */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name={individualProfile.insuranceUrl ? 'shield-check' : 'shield-alert'} size={20} color={individualProfile.insuranceUrl ? colors.success : colors.error} style={{ marginRight: 8 }} />
+                      <Text style={{ color: individualProfile.insuranceUrl ? colors.success : colors.error, fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>Insurance</Text>
+                      <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
+                        {individualProfile.insuranceUrl ? 'Uploaded' : 'Not Uploaded'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setInsuranceModalVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 14 }}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13, marginLeft: 6 }}>Renew</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ height: 1, backgroundColor: colors.text.light, marginVertical: 4, width: '100%' }} />
+                  {/* DL Row */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2, justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <MaterialCommunityIcons name={individualProfile.driverLicense ? 'card-account-details-outline' : 'card-account-details-outline'} size={20} color={individualProfile.driverLicense ? colors.success : colors.error} style={{ marginRight: 8 }} />
+                      <Text style={{ color: individualProfile.driverLicense ? colors.success : colors.error, fontWeight: 'bold', fontSize: 15, marginRight: 8 }}>Driver&apos;s License</Text>
+                      <Text style={{ color: colors.text.secondary, fontSize: 13 }}>
+                        {individualProfile.driverLicense ? 'Uploaded' : 'Not Uploaded'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setLicenseModalVisible(true)} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 14 }}>
+                      <MaterialCommunityIcons name="file-upload-outline" size={18} color="#fff" />
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13, marginLeft: 6 }}>Renew</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                {/* End Documents Card */}
+
+                {/* Features Card */}
+                <View style={{ width: '100%', backgroundColor: colors.background, borderRadius: 12, padding: 14, marginBottom: 12, marginTop: 2, elevation: 1 }}>
+                  <Text style={{ fontWeight: 'bold', fontSize: 15, color: colors.secondary, marginBottom: 8 }}>Features</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 2 }}>
+                    {/* Capacity */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary + '11', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="weight-kilogram" size={16} color={colors.primary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.primary, fontSize: 13 }}>{individualProfile.vehicleCapacity ? `${individualProfile.vehicleCapacity}t` : '--'}</Text>
+                    </View>
+                    {/* Body Type */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.secondary + '11', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="car-cog" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.secondary, fontSize: 13 }}>{individualProfile.bodyType ? individualProfile.bodyType.charAt(0).toUpperCase() + individualProfile.bodyType.slice(1) : '--'}</Text>
+                    </View>
+                    {/* Drive Type */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.secondary + '11', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="steering" size={16} color={colors.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: colors.secondary, fontSize: 13 }}>{individualProfile.driveType ? individualProfile.driveType : '--'}</Text>
+                    </View>
+                    {/* Refrigeration */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: individualProfile.refrigeration ? '#e0f7fa' : colors.text.light + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="snowflake" size={16} color={individualProfile.refrigeration ? colors.primary : colors.text.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: individualProfile.refrigeration ? colors.primary : colors.text.secondary, fontSize: 13 }}>Refrigeration</Text>
+                    </View>
+                    {/* Humidity */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: individualProfile.humidityControl ? '#e3f2fd' : colors.text.light + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="water-percent" size={16} color={individualProfile.humidityControl ? colors.primary : colors.text.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: individualProfile.humidityControl ? colors.primary : colors.text.secondary, fontSize: 13 }}>Humidity</Text>
+                    </View>
+                    {/* Special Cargo */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: individualProfile.specialCargo ? '#f3e5f5' : colors.text.light + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="cube-outline" size={16} color={individualProfile.specialCargo ? colors.primary : colors.text.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: individualProfile.specialCargo ? colors.primary : colors.text.secondary, fontSize: 13 }}>Special Cargo</Text>
+                    </View>
+                    {/* Other Features */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: individualProfile.vehicleFeatures ? colors.primary + '22' : colors.text.light + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 }}>
+                      <MaterialCommunityIcons name="star-circle" size={16} color={individualProfile.vehicleFeatures ? colors.primary : colors.text.secondary} style={{ marginRight: 4 }} />
+                      <Text style={{ color: individualProfile.vehicleFeatures ? colors.primary : colors.text.secondary, fontSize: 13 }}>{individualProfile.vehicleFeatures ? individualProfile.vehicleFeatures : 'Other Features'}</Text>
+                    </View>
+                  </View>
+                </View>
+                {/* End Features Card */}
+                {/* Body Type Toggle */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10, backgroundColor: colors.background, borderRadius: 10, padding: 6 }}>
+                  <Text style={{ color: colors.secondary, fontWeight: 'bold', fontSize: 14, marginRight: 8 }}>Body:</Text>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: individualProfile.bodyType === 'closed' ? colors.primary : colors.surface,
+                      borderRadius: 8,
+                      paddingVertical: 6,
+                      paddingHorizontal: 18,
+                      marginRight: 6,
+                    }}
+                    onPress={() => updateVehicleBodyType('closed')}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: individualProfile.bodyType === 'closed' ? '#fff' : colors.primary, fontWeight: 'bold' }}>Closed</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: individualProfile.bodyType === 'open' ? colors.primary : colors.surface,
+                      borderRadius: 8,
+                      paddingVertical: 6,
+                      paddingHorizontal: 18,
+                    }}
+                    onPress={() => updateVehicleBodyType('open')}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: individualProfile.bodyType === 'open' ? '#fff' : colors.primary, fontWeight: 'bold' }}>Open</Text>
+                  </TouchableOpacity>
+                </View>
+                {/* Action Row */}
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 2, gap: 10 }}>
+                  <TouchableOpacity onPress={() => setPhotoGalleryModalVisible(true)} style={{ marginHorizontal: 4 }}>
+                    <MaterialCommunityIcons name="image-multiple" size={22} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setVehicleModal(true)} style={{ marginHorizontal: 4 }}>
+                    <MaterialCommunityIcons name="pencil" size={22} color={colors.secondary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setInsuranceModalVisible(true)} style={{ marginHorizontal: 4 }}>
+                    <MaterialCommunityIcons name="file-document-edit" size={22} color={colors.secondary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                <MaterialCommunityIcons name="truck-plus" size={60} color={colors.primary} style={{ marginBottom: 10 }} />
+                <Text style={{ color: colors.text.secondary, fontSize: 16, marginBottom: 8 }}>No vehicle data found.</Text>
+                <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 28, marginTop: 8 }} onPress={() => setVehicleModal(true)}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Add Vehicle</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          {/* Add Vehicle Modal for Individual */}
+          <Modal
+            visible={vehicleModal}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setVehicleModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <ScrollView style={{ width: '100%' }} contentContainerStyle={{ alignItems: 'center', justifyContent: 'center' }}>
+                <View style={styles.vehicleModalCard}>
+                  <Text style={styles.editTitle}>Add/Replace Vehicle</Text>
+                  <VehicleDetailsForm
+                    initial={{}}
+                    onChange={() => { }}
+                    onPhotoAdd={pickVehiclePhotos}
+                    onPhotoRemove={removeVehiclePhoto}
+                    vehiclePhotos={vehiclePhotos}
+                    error={undefined}
+                  />
+                  <View style={styles.editActionsRow}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setVehicleModal(false)}>
+                      <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={() => {
+                      // Replace the current vehicle with the new one
+                      // (In real app, send to backend and refetch profile)
+                      setVehicleModal(false);
+                      Alert.alert('Vehicle Updated', 'Your vehicle has been replaced. Await approval if required.');
+                    }}>
+                      <Text style={styles.saveText}>Save Vehicle</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </Modal>
+
+          {/* Delete Account Section for Individual Transporter */}
+          <View style={styles.deleteAccountSection}>
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={() => setShowDeleteAccountModal(true)}
+            >
+              <MaterialCommunityIcons name="delete-outline" size={20} color={colors.error} />
+              <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+            </TouchableOpacity>
+          </View>
+        </FormKeyboardWrapper>
+        
+        {/* Edit Profile Modal (always rendered) */}
+        <Modal
+          visible={editModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setEditModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.editModalCard}>
+              <Text style={styles.editTitle}>Edit Profile</Text>
+              {/* Profile Photo Picker for Individual */}
+              <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 16 }} onPress={pickIndividualProfilePhoto} activeOpacity={0.7}>
+                {individualProfilePhoto ? (
+                  <Image source={{ uri: individualProfilePhoto.uri }} style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background }} />
+                ) : (
+                  <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="person-circle-outline" size={60} color={colors.text.light} />
+                  </View>
+                )}
+                <Text style={{ color: colors.primary, marginTop: 6, textAlign: 'center' }}>Upload Profile Photo</Text>
+              </TouchableOpacity>
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Full Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Full Name"
+                />
+              </View>
+              <View style={styles.editDivider} />
+              <View style={styles.editFieldWrap}>
+                <Text style={styles.editLabel}>Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="Phone"
+                />
+              </View>
+              <View style={styles.editActionsRow}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModal(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+                  <Text style={styles.saveText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        
+        {/* Toast Notification */}
+        {toast && (
+          <Toast
+            visible={toast.visible}
+            message={toast.message}
+            type={toast.type}
+            duration={toast.duration}
+            onHide={toast.onHide}
+            action={toast.action}
+          />
+        )}
+        
+        <LogoutConfirmationDialog
+          visible={showLogoutDialog}
+          onConfirm={confirmLogout}
+          onCancel={() => setShowLogoutDialog(false)}
+        />
+
+        <DeleteAccountModal
+          visible={showDeleteAccountModal}
+          onClose={() => setShowDeleteAccountModal(false)}
+          onConfirm={handleDeleteAccount}
+          loading={deletingAccount}
+        />
+
+        {/* Background Location Disclosure Modal - Required by Google Play Store */}
+        <BackgroundLocationDisclosureModal
+          visible={showBackgroundLocationDisclosure}
+          userRole={transporterType === 'company' ? 'company' : 'individual'}
+          transporterType={transporterType}
+          onAccept={async () => {
+            // User consented - save consent and start tracking
+            await locationService.saveBackgroundLocationConsent(true);
+            setShowBackgroundLocationDisclosure(false);
+            
+            // Now start location tracking with consent
+            const result = await locationService.startLocationTracking(true);
+            setIsLocationTracking(result.success);
+            
+            if (!result.success) {
+              Alert.alert(
+                'Location Permission Required',
+                'Please enable location permissions in your device settings to start tracking.',
+                [{ text: 'OK' }]
+              );
+            }
+          }}
+          onDecline={async () => {
+            // User declined - save consent status and close modal
+            await locationService.saveBackgroundLocationConsent(false);
+            setShowBackgroundLocationDisclosure(false);
+            
+            // Start foreground-only tracking (no background permission needed)
+            const started = await locationService.startForegroundOnlyTracking();
+            setIsLocationTracking(started);
+            
+            if (started) {
+              Alert.alert(
+                'Limited Tracking',
+                'Background location access was declined. Tracking will work when the app is open.',
+                [{ text: 'OK' }]
+              );
+            } else {
+              Alert.alert(
+                'Location Permission Required',
+                'Please enable location permissions in your device settings to start tracking.',
+                [{ text: 'OK' }]
+              );
+            }
+          }}
+        />
+      </>
+    );
+  }
+}
+
+const styles = StyleSheet.create({
+  bg: { flex: 1, backgroundColor: colors.background },
+  container: { padding: 18, paddingBottom: 40 },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+    paddingHorizontal: 4,
+  },
+  title: { fontSize: 18, fontWeight: 'bold', color: colors.primaryDark, flex: 1, marginRight: 8 },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  logoutButtonText: {
+    color: colors.error,
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: 4,
+  },
+  card: { backgroundColor: colors.white, borderRadius: 14, padding: 16, marginBottom: 16, elevation: 1 },
+  sectionTitle: { fontSize: 17, fontWeight: 'bold', color: colors.secondary, marginBottom: 8 },
+  value: { fontSize: 15, color: colors.text.primary, marginBottom: 2 },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginTop: 2 },
+  actionText: { color: colors.primary, fontWeight: 'bold', marginLeft: 6, fontSize: 15 },
+  vehicleListItem: { borderBottomWidth: 1, borderBottomColor: colors.background, paddingVertical: 10, marginBottom: 6 },
+  vehicleBasicInfo: { marginBottom: 8 },
+  vehicleTitle: { fontSize: 16, fontWeight: 'bold', color: colors.text.primary, marginBottom: 4 },
+  vehicleReg: { fontSize: 14, color: colors.text.secondary, marginBottom: 2 },
+  vehicleCapacity: { fontSize: 13, color: colors.text.light },
+  driverListItem: { borderBottomWidth: 1, borderBottomColor: colors.background, paddingVertical: 10, marginBottom: 6 },
+  editBtn: { marginRight: 10 },
+  removeBtn: {},
+  driverAssignBtn: { alignItems: 'center', marginRight: 10, padding: 6, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.text.light },
+  driverAssignBtnActive: { backgroundColor: colors.primary + '22', borderColor: colors.primary },
+  driverAssignPhoto: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#eee' },
+  driverAssignName: { fontSize: 12, color: colors.text.primary, marginTop: 2 },
+  driverPhoto: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#eee' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.18)', justifyContent: 'center', alignItems: 'center' },
+  editModalCard: { backgroundColor: colors.white, borderRadius: 22, padding: 22, width: '92%', shadowColor: colors.black, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
+  editTitle: { fontSize: 20, fontWeight: 'bold', color: colors.primaryDark, marginBottom: 16, textAlign: 'center' },
+  editFieldWrap: { marginBottom: 10, width: '100%' },
+  editLabel: { color: colors.text.secondary, fontWeight: '600', marginBottom: 4, fontSize: 14 },
+  editDivider: { height: 1, backgroundColor: colors.background, marginVertical: 6, width: '100%' },
+  editActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 12 },
+  cancelBtn: { backgroundColor: colors.background, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 18, borderWidth: 1, borderColor: colors.text.light, marginRight: 8 },
+  cancelText: { color: colors.error, fontWeight: 'bold', fontSize: 15 },
+  saveBtn: { backgroundColor: colors.primary, borderRadius: 8, padding: 10, alignItems: 'center', marginTop: 8 },
+  saveText: { color: colors.white, fontWeight: 'bold' },
+  vehicleModalCard: {
+    backgroundColor: colors.white,
+    borderRadius: 22,
+    padding: 22,
+    width: '96%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    shadowColor: colors.black,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+    marginTop: 60,
+    marginBottom: 40,
+  },
+  section: { backgroundColor: colors.background, borderRadius: 12, padding: 10, marginBottom: 12 },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, padding: 10, marginTop: 6, marginBottom: 4 },
+  uploadBtnText: { color: colors.primary, marginLeft: 8, fontWeight: 'bold' },
+  fileName: { color: colors.text.secondary, fontSize: 13, marginTop: 2 },
+  featuresRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    marginBottom: 2,
+    gap: 8,
+    justifyContent: 'flex-start',
+  },
+  featureBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, marginRight: 8 },
+  featureBtnActive: { backgroundColor: colors.primary },
+  featureText: { color: colors.primary, marginLeft: 6, fontWeight: '600' },
+  photosRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  photoWrap: { position: 'relative', marginRight: 8 },
+  photo: { width: 64, height: 64, borderRadius: 10, backgroundColor: '#eee' },
+  removePhotoBtn: { position: 'absolute', top: -8, right: -8, backgroundColor: colors.background, borderRadius: 10 },
+  addPhotoBtn: { width: 64, height: 64, borderRadius: 10, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.primary },
+  photoHint: { color: colors.text.light, fontSize: 13, marginTop: 4 },
+  inputDropdownWrap: { marginBottom: 12 },
+  inputDropdownLabel: { color: colors.text.secondary, fontWeight: '600', marginBottom: 4, fontSize: 14 },
+  inputDropdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.background, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: colors.text.light },
+  dropdownList: { backgroundColor: colors.white, borderRadius: 8, marginTop: 2, borderWidth: 1, borderColor: colors.text.light, width: '100%' },
+  dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: colors.background },
+  input: { backgroundColor: colors.background, borderRadius: 8, padding: 10, marginVertical: 6, fontSize: 15, borderWidth: 1, borderColor: colors.text.light, color: colors.text.primary },
+  // Verification styles
+  verificationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  verifiedBadge: {
+    backgroundColor: colors.success + '20',
+  },
+  unverifiedBadge: {
+    backgroundColor: colors.warning + '20',
+  },
+  verificationBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  verifiedText: {
+    color: colors.success,
+  },
+  unverifiedText: {
+    color: colors.warning,
+  },
+  verifyButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  verifyButtonDisabled: {
+    backgroundColor: colors.background,
+    opacity: 0.6,
+  },
+  verifyButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  allVerified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success + '10',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  allVerifiedText: {
+    color: colors.success,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    fontSize: 14,
+  },
+  // Toggle styles
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.text.light + '30',
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text.primary,
+    marginBottom: 4,
+  },
+  toggleDescription: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    lineHeight: 18,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  emptyStateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyStateButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.family.bold,
+    color: colors.white,
+    marginLeft: 8,
+  },
+  companyInfo: {
+    marginBottom: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  companyName: {
+    fontSize: 18,
+    fontFamily: fonts.family.bold,
+    color: colors.text.primary,
+    marginLeft: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    fontFamily: fonts.family.medium,
+    color: colors.text.secondary,
+    marginLeft: 8,
+  },
+  conflictSection: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 24,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sectionDescription: {
+    fontSize: 15,
+    color: colors.text.light,
+    marginBottom: spacing.sm,
+    lineHeight: 22,
+  },
+  complaintButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  complaintButtonText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginLeft: spacing.sm,
+  },
+  deleteAccountSection: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.error + '15',
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.error + '30',
+  },
+  deleteAccountButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.error,
+    marginLeft: spacing.sm,
+  },
+});

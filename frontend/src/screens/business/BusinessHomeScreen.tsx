@@ -1,0 +1,1001 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getAuth } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, RefreshControl } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import Avatar from '../../components/common/Avatar';
+import Button from '../../components/common/Button';
+import Card from '../../components/common/Card';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Spacer from '../../components/common/Spacer';
+import colors from '../../constants/colors';
+import fonts from '../../constants/fonts';
+import { db } from '../../firebaseConfig';
+import { getDisplayBookingId } from '../../utils/unifiedIdSystem';
+import { getLocationNameSync, getReadableLocationNameSync } from '../../utils/locationUtils';
+import { unifiedBookingService } from '../../services/unifiedBookingService';
+import { formatCostRange, formatAverageCost, getAverageCost } from '../../utils/costCalculator';
+
+interface BusinessData {
+  name: string;
+  logo?: string;
+  contact: string;
+  email: string;
+}
+
+interface BusinessStats {
+  activeBookings: number;
+  consolidations: number;
+  inTransit: number;
+  completed: number;
+  totalSpent: string;
+  mostUsedRoute: string;
+}
+const getStatsData = (stats: BusinessStats) => [
+  {
+    icon: <MaterialCommunityIcons name="clipboard-list-outline" size={28} color={colors.primary} />,
+    label: 'Active Bookings',
+    value: stats.activeBookings,
+  },
+  {
+    icon: <MaterialCommunityIcons name="layers-outline" size={28} color={colors.primary} />,
+    label: 'Consolidations',
+    value: stats.consolidations,
+  },
+  {
+    icon: <MaterialCommunityIcons name="truck-delivery-outline" size={28} color={colors.primary} />,
+    label: 'In Transit',
+    value: stats.inTransit,
+  },
+  {
+    icon: <MaterialCommunityIcons name="check-circle-outline" size={28} color={colors.primary} />,
+    label: 'Completed',
+    value: stats.completed,
+  },
+];
+// No mock data - will fetch from API when ready
+
+
+const BusinessHomeScreen = ({ navigation }: any) => {
+  const [loading, setLoading] = useState(true);
+  const [business, setBusiness] = useState<BusinessData>({
+    name: '',
+    logo: undefined,
+    contact: '',
+    email: '',
+  });
+  const [stats, setStats] = useState<BusinessStats>({
+    activeBookings: 0,
+    consolidations: 0,
+    inTransit: 0,
+    completed: 0,
+    totalSpent: 'KES 0',
+    mostUsedRoute: 'N/A',
+  });
+  const [recentBookings, setRecentBookings] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [expandedConsolidations, setExpandedConsolidations] = useState<Set<string>>(new Set()); // Track expanded consolidation groups
+
+  useEffect(() => {
+    fetchBusinessData();
+  }, []);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchBusinessStats();
+      fetchRecentBookings();
+    }, [])
+  );
+
+  const fetchBusinessData = async (retryCount = 0) => {
+    const maxRetries = 3;
+    
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (user) {
+        // Fetching business data for user
+
+        // Add timeout to prevent connection abort
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 10000)
+        );
+
+        // Get business profile data with timeout
+        const userDoc = await Promise.race([
+          getDoc(doc(db, 'users', user.uid)),
+          timeoutPromise
+        ]) as any;
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          // Business user data found
+          
+          setBusiness({
+            name: userData.businessName || userData.name || 'Business',
+            logo: userData.profilePhotoUrl || userData.logo,
+            contact: userData.phone || user.phoneNumber || '',
+            email: userData.email || user.email || '',
+          });
+        } else {
+          console.warn('⚠️ Business user document not found');
+          // Set default business data
+          setBusiness({
+            name: 'Business',
+            logo: null,
+            contact: user.phoneNumber || '',
+            email: user.email || '',
+          });
+        }
+
+        // Fetch business statistics and recent bookings
+        await fetchBusinessStats();
+        await fetchRecentBookings();
+        
+        // Business data fetch completed successfully
+      } else {
+        console.warn('⚠️ No authenticated user found');
+        setLoading(false);
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching business data:', error);
+      console.error('Error details:', {
+        message: error?.message || 'Unknown error',
+        code: error?.code,
+        stack: error?.stack
+      });
+      
+      // Retry logic for network errors
+      const errorMessage = error?.message || '';
+      if (retryCount < maxRetries && (
+        errorMessage.includes('connection') || 
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('abort') ||
+        error?.code === 'unavailable'
+      )) {
+        // Retrying business data fetch
+        setTimeout(() => {
+          fetchBusinessData(retryCount + 1);
+        }, 2000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
+      
+      // Set default data on error after all retries
+      setBusiness({
+        name: 'Business',
+        logo: null,
+        contact: '',
+        email: '',
+      });
+      setStats({
+        activeBookings: 0,
+        consolidations: 0,
+        inTransit: 0,
+        completed: 0,
+        totalSpent: 'KES 0',
+        mostUsedRoute: 'N/A',
+      });
+      setRecentBookings([]);
+    } finally {
+      if (retryCount === 0) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const fetchBusinessStats = async () => {
+    try {
+      // Use unifiedBookingService to get booking stats
+      const statsData = await unifiedBookingService?.getBookingStats('business');
+      
+      if (!statsData) {
+        console.warn('No stats data returned');
+        return;
+      }
+      
+      // Get all bookings first to calculate consolidations
+      const bookings = await unifiedBookingService?.getBookings('business') || [];
+      
+      // Calculate consolidations (count unique consolidation groups)
+      let consolidations = 0;
+      if (Array.isArray(bookings)) {
+        // Group bookings by consolidationGroupId to count unique consolidation groups
+        const consolidationGroups = new Set<string>();
+        bookings.forEach(b => {
+          if (b && b.consolidationGroupId) {
+            consolidationGroups.add(b.consolidationGroupId);
+          }
+        });
+        consolidations = consolidationGroups.size;
+      }
+      
+      // Calculate active bookings (pending + confirmed)
+      // Individual bookings from consolidations should still count in active bookings
+      const activeBookings = (statsData.pending || 0) + (statsData.confirmed || 0);
+      
+      // Calculate in-transit (including started, picked_up, etc.)
+      const inTransit = statsData.inTransit || 0;
+      
+      // Completed/delivered bookings
+      const completed = statsData.delivered || 0;
+      
+      // Calculate total spent (sum of all booking costs from last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      let totalSpent = 0;
+      if (Array.isArray(bookings)) {
+        bookings.forEach(booking => {
+          if (!booking) return;
+          try {
+            const createdAt = booking.createdAt ? new Date(booking.createdAt) : null;
+            if (createdAt && !isNaN(createdAt.getTime()) && createdAt >= thirtyDaysAgo) {
+          // Use average cost from range for revenue/spent calculations
+          const averageCost = getAverageCost(booking);
+          if (averageCost > 0) {
+            totalSpent += averageCost;
+          }
+            }
+          } catch (e) {
+            console.warn('Error processing booking cost:', e);
+          }
+        });
+      }
+      
+      // Calculate most used route
+      const routeCounts: { [key: string]: number } = {};
+      if (Array.isArray(bookings)) {
+        bookings.forEach(booking => {
+          if (!booking) return;
+          try {
+            if (booking.fromLocation && booking.toLocation) {
+              const fromName = getReadableLocationNameSync(booking.fromLocation);
+              const toName = getReadableLocationNameSync(booking.toLocation);
+              if (fromName && toName && fromName !== toName) {
+                const route = `${fromName} → ${toName}`;
+                routeCounts[route] = (routeCounts[route] || 0) + 1;
+              }
+            }
+          } catch (e) {
+            console.warn('Error processing route:', e);
+          }
+        });
+      }
+      
+      let mostUsedRoute = 'N/A';
+      let maxCount = 0;
+      Object.entries(routeCounts).forEach(([route, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          mostUsedRoute = route;
+        }
+      });
+      
+      setStats({
+        activeBookings,
+        consolidations,
+        inTransit,
+        completed,
+        totalSpent: `KES ${totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        mostUsedRoute: mostUsedRoute !== 'N/A' ? mostUsedRoute : 'N/A',
+      });
+    } catch (error: any) {
+      console.error('Error fetching business stats:', error);
+      // Set default stats on error
+      setStats({
+        activeBookings: 0,
+        consolidations: 0,
+        inTransit: 0,
+        completed: 0,
+        totalSpent: 'KES 0',
+        mostUsedRoute: 'N/A',
+      });
+    }
+  };
+
+  const fetchRecentBookings = async () => {
+    try {
+      // Fetch recent bookings (last 10, ordered by date)
+      const bookings = await unifiedBookingService?.getBookings('business');
+      
+      if (!Array.isArray(bookings)) {
+        setRecentBookings([]);
+        return;
+      }
+      
+      // Group consolidated bookings by consolidationGroupId
+      const consolidationMap = new Map<string, any[]>();
+      const nonConsolidated: any[] = [];
+      
+      bookings.forEach((booking: any) => {
+        // Only include bookings that have consolidationGroupId
+        if (booking && booking.consolidationGroupId) {
+          const groupId = booking.consolidationGroupId;
+          if (!consolidationMap.has(groupId)) {
+            consolidationMap.set(groupId, []);
+          }
+          consolidationMap.get(groupId)!.push(booking);
+        } else if (booking && !booking.consolidationGroupId) {
+          // Only add to nonConsolidated if it doesn't have a consolidationGroupId
+          nonConsolidated.push(booking);
+        }
+      });
+      
+      // Create consolidation objects - one per group
+      const consolidationObjects = Array.from(consolidationMap.entries()).map(([groupId, bookings]) => {
+        // Calculate total cost range
+        let totalMinCost = 0;
+        let totalMaxCost = 0;
+        
+        bookings.forEach((booking: any) => {
+          const minCost = booking.estimatedCostRange?.min || 
+                         booking.costRange?.min || 
+                         booking.minCost || 
+                         booking.estimatedCost || 
+                         booking.cost || 
+                         0;
+          const maxCost = booking.estimatedCostRange?.max || 
+                        booking.costRange?.max || 
+                        booking.maxCost || 
+                        booking.estimatedCost || 
+                        booking.cost || 
+                        0;
+          totalMinCost += minCost;
+          totalMaxCost += maxCost;
+        });
+        
+        // Get the most recent booking's date for sorting
+        const mostRecent = bookings.sort((a: any, b: any) => {
+          const dateA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        })[0];
+        
+        let dateStr = 'N/A';
+        if (mostRecent?.createdAt) {
+          try {
+            const date = new Date(mostRecent.createdAt);
+            if (!isNaN(date.getTime())) {
+              dateStr = date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric' 
+              });
+            }
+          } catch (e) {
+            console.warn('Error formatting date:', e);
+          }
+        }
+        
+        return {
+          id: groupId,
+          consolidationGroupId: groupId,
+          isConsolidation: true,
+          totalBookings: bookings.length,
+          consolidatedBookings: bookings,
+          totalCostRange: { min: totalMinCost, max: totalMaxCost },
+          status: mostRecent?.status || 'pending',
+          createdAt: mostRecent?.createdAt,
+          date: dateStr,
+        };
+      });
+      
+      // Process non-consolidated bookings
+      const processedNonConsolidated = nonConsolidated
+        .filter(booking => booking != null)
+        .map(booking => {
+          try {
+            let dateStr = 'N/A';
+            if (booking.createdAt) {
+              try {
+                const date = new Date(booking.createdAt);
+                if (!isNaN(date.getTime())) {
+                  dateStr = date.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                  });
+                }
+              } catch (e) {
+                console.warn('Error formatting date:', e);
+              }
+            }
+            
+            return {
+              ...booking,
+              id: booking.id || booking.bookingId || '',
+              bookingId: booking.bookingId || booking.id || '',
+              type: booking.type || 'booking',
+              status: booking.status || 'pending',
+              from: booking.fromLocation || null,
+              to: booking.toLocation || null,
+              date: dateStr,
+            };
+          } catch (e) {
+            console.warn('Error mapping booking:', e);
+            return null;
+          }
+        })
+        .filter(booking => booking != null);
+      
+      // Combine and sort by date (most recent first), take top 5
+      const allBookings = [...consolidationObjects, ...processedNonConsolidated]
+        .sort((a, b) => {
+          try {
+            const dateA = a?.createdAt ? new Date(a.createdAt).getTime() : (a?.date ? 0 : 0);
+            const dateB = b?.createdAt ? new Date(b.createdAt).getTime() : (b?.date ? 0 : 0);
+            if (isNaN(dateA)) return 1;
+            if (isNaN(dateB)) return -1;
+            return dateB - dateA;
+          } catch (e) {
+            console.warn('Error sorting bookings:', e);
+            return 0;
+          }
+        })
+        .slice(0, 5);
+      
+      setRecentBookings(allBookings);
+    } catch (error: any) {
+      console.error('Error fetching recent bookings:', error);
+      setRecentBookings([]);
+    }
+  };
+  
+  const toggleConsolidationExpansion = (groupId: string) => {
+    setExpandedConsolidations(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
+      }
+      return newSet;
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <LoadingSpinner
+          visible={true}
+          message="Loading Business Dashboard..."
+          size="large"
+          type="pulse"
+          logo={true}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[styles.scrollContainer, { paddingBottom: 100 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={async () => {
+                setRefreshing(true);
+                await Promise.all([fetchBusinessStats(), fetchRecentBookings()]);
+                setRefreshing(false);
+              }}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {/* Header: Business Branding */}
+          <View style={styles.headerRow}>
+            <Avatar uri={business?.logo} size={64} style={styles.avatar} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greeting}>Welcome back,</Text>
+              <Text style={styles.businessName}>{business?.name || 'Business'}</Text>
+              <Text style={styles.contact}>{business?.contact || ''}</Text>
+            </View>
+          </View>
+          <Spacer size={18} />
+          {/* Quick Actions */}
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity style={styles.quickAction} onPress={() => navigation?.navigate?.('BusinessRequest')}>
+              <MaterialCommunityIcons name="cube-send" size={28} color={colors.secondary} />
+              <Text style={styles.quickActionLabel}>Request Transport</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickAction} onPress={() => navigation?.navigate?.('BusinessManage')}>
+              <MaterialCommunityIcons name="layers-outline" size={28} color={colors.secondary} />
+              <Text style={styles.quickActionLabel}>Consolidate Cargo Shipments</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickAction} onPress={() => navigation?.navigate?.('BusinessManage')}>
+              <MaterialCommunityIcons name="map-search-outline" size={28} color={colors.secondary} />
+              <Text style={styles.quickActionLabel}>Track Your Shipments</Text>
+            </TouchableOpacity>
+          </View>
+          <Spacer size={18} />
+          {/* Analytics Widgets */}
+          <View style={styles.statsGrid}>
+            {getStatsData(stats || {
+              activeBookings: 0,
+              consolidations: 0,
+              inTransit: 0,
+              completed: 0,
+              totalSpent: 'KES 0',
+              mostUsedRoute: 'N/A',
+            }).map((stat) => (
+              <Card key={stat.label} style={styles.statCard}>
+                {stat.icon}
+                <Spacer size={8} />
+                <Text style={styles.statValue}>{stat.value ?? 0}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </Card>
+            ))}
+          </View>
+          <Spacer size={18} />
+          {/* Recent Activity */}
+          <Card style={styles.activityCard}>
+            <Text style={styles.sectionTitle}>Recent Bookings</Text>
+            {recentBookings.length > 0 ? (
+              <>
+                {recentBookings.map((b, index) => {
+                  if (!b) return null;
+                  
+                  try {
+                    // Check if this is a consolidation object
+                    // Consolidation objects should have isConsolidation flag or consolidationGroupId with consolidatedBookings
+                    const isConsolidation = (b.isConsolidation === true) || 
+                                           (b.consolidationGroupId && b.consolidatedBookings && Array.isArray(b.consolidatedBookings) && b.consolidatedBookings.length > 0);
+                    const isExpanded = isConsolidation && expandedConsolidations.has(b.consolidationGroupId || b.id);
+                    
+                    const statusDisplay = b.status === 'delivered' || b.status === 'completed' 
+                      ? 'Completed' 
+                      : b.status === 'in_transit' || b.status === 'picked_up' || b.status === 'in_progress'
+                      ? 'In Transit'
+                      : b.status === 'confirmed' || b.status === 'accepted'
+                      ? 'Confirmed'
+                      : b.status === 'pending'
+                      ? 'Pending'
+                      : b.status || 'Pending';
+                    
+                    const bookingKey = b.id || b.bookingId || `booking-${index}`;
+                    
+                    if (isConsolidation) {
+                      // Render consolidation object
+                      return (
+                        <View key={bookingKey} style={styles.consolidationRow}>
+                          <TouchableOpacity 
+                            style={styles.consolidationHeader} 
+                            activeOpacity={0.8}
+                            onPress={() => toggleConsolidationExpansion(b.consolidationGroupId || b.id)}
+                          >
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                <MaterialCommunityIcons name="package-variant-closed" size={16} color={colors.primary} style={{ marginRight: 6 }} />
+                                <Text style={styles.bookingId}>Consolidation ({b.totalBookings || b.consolidatedBookings?.length || 0} bookings)</Text>
+                              </View>
+                              <Text style={styles.bookingRoute}>Multiple locations</Text>
+                              <Text style={styles.bookingType}>Total: {b.totalCostRange ? formatAverageCost({ costRange: b.totalCostRange }) : 'N/A'}</Text>
+                            </View>
+                            <View style={styles.bookingStatusWrap}>
+                              <Text style={[
+                                styles.bookingStatus, 
+                                statusDisplay === 'Completed' ? styles.statusCompleted : 
+                                statusDisplay === 'In Transit' ? styles.statusInTransit :
+                                statusDisplay === 'Confirmed' ? styles.statusCompleted :
+                                styles.statusInTransit
+                              ]}>{statusDisplay}</Text>
+                              <Text style={styles.bookingDate}>{b.date || 'N/A'}</Text>
+                              <MaterialCommunityIcons 
+                                name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+                                size={20} 
+                                color={colors.primary} 
+                                style={{ marginTop: 4 }}
+                              />
+                            </View>
+                          </TouchableOpacity>
+                          
+                          {/* Individual bookings when expanded */}
+                          {isExpanded && b.consolidatedBookings && (
+                            <View style={styles.individualBookingsContainer}>
+                              {b.consolidatedBookings.map((booking: any, idx: number) => {
+                                const fromLocation = booking.fromLocation || booking.from;
+                                const toLocation = booking.toLocation || booking.to;
+                                return (
+                                  <View key={booking.id || booking.bookingId || idx} style={styles.individualBookingItem}>
+                                    <Text style={styles.individualBookingId}>
+                                      {getDisplayBookingId(booking) || booking.id || booking.bookingId}
+                                    </Text>
+                                    <Text style={styles.individualBookingRoute}>
+                                      {fromLocation ? (getReadableLocationNameSync(fromLocation) || 'Unknown') : 'Unknown'} → {toLocation ? (getReadableLocationNameSync(toLocation) || 'Unknown') : 'Unknown'}
+                                    </Text>
+                                    <Text style={styles.individualBookingCost}>
+                                      {formatAverageCost(booking)}
+                                    </Text>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    }
+                    
+                    // Render normal booking
+                    const fromLocation = b.from || b.fromLocation;
+                    const toLocation = b.to || b.toLocation;
+                    
+                    return (
+                      <TouchableOpacity 
+                        key={bookingKey} 
+                        style={styles.bookingRow} 
+                        activeOpacity={0.8}
+                        onPress={() => navigation?.navigate?.('BusinessManage')}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.bookingId}>{getDisplayBookingId(b) || bookingKey}</Text>
+                          <Text style={styles.bookingRoute}>
+                            {fromLocation ? (getReadableLocationNameSync(fromLocation) || 'Unknown') : 'Unknown'} → {toLocation ? (getReadableLocationNameSync(toLocation) || 'Unknown') : 'Unknown'}
+                          </Text>
+                          <Text style={styles.bookingType}>{b.type === 'instant' ? 'Instant' : 'Booking'}</Text>
+                        </View>
+                        <View style={styles.bookingStatusWrap}>
+                          <Text style={[
+                            styles.bookingStatus, 
+                            statusDisplay === 'Completed' ? styles.statusCompleted : 
+                            statusDisplay === 'In Transit' ? styles.statusInTransit :
+                            statusDisplay === 'Confirmed' ? styles.statusCompleted :
+                            styles.statusInTransit
+                          ]}>{statusDisplay}</Text>
+                          <Text style={styles.bookingDate}>{b.date || 'N/A'}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  } catch (e) {
+                    console.warn('Error rendering booking:', e, b);
+                    return null;
+                  }
+                })}
+                <Button
+                  title="View All Bookings"
+                  onPress={() => navigation?.navigate?.('BusinessManage')}
+                  style={styles.viewAllBtn}
+                />
+              </>
+            ) : (
+              <View style={styles.emptyBookingsContainer}>
+                <MaterialCommunityIcons name="file-document-outline" size={48} color={colors.text.light} />
+                <Text style={styles.emptyBookingsTitle}>No recent bookings</Text>
+                <Text style={styles.emptyBookingsSubtitle}>Create your first booking to get started</Text>
+                <Button
+                  title="Create Booking"
+                  onPress={() => navigation?.navigate?.('BusinessRequest')}
+                  style={styles.createBookingBtn}
+                />
+              </View>
+            )}
+          </Card>
+          <Spacer size={18} />
+          {/* Insights Widgets */}
+          <View style={styles.insightsRow}>
+            <Card style={styles.insightCard}>
+              <MaterialCommunityIcons name="cash-multiple" size={24} color={colors.secondary} style={{ marginBottom: 6 }} />
+              <Text style={styles.insightValue}>{stats?.totalSpent || 'KES 0'}</Text>
+              <Text style={styles.insightLabel}>Total Spent (30d)</Text>
+            </Card>
+            <Card style={styles.insightCard}>
+              <MaterialCommunityIcons name="map-marker-path" size={24} color={colors.secondary} style={{ marginBottom: 6 }} />
+              <Text style={styles.insightValue} numberOfLines={2}>{stats?.mostUsedRoute || 'N/A'}</Text>
+              <Text style={styles.insightLabel}>Most Used Route</Text>
+            </Card>
+          </View>
+          <Spacer size={18} />
+          {/* Business Tips / Platform Updates */}
+          <Card style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Business Tips</Text>
+            <Text style={styles.infoText}>
+              Maximize your logistics efficiency: Try consolidating multiple requests for better rates, or use the "Track" tab to monitor all your shipments in real time.
+            </Text>
+            <Text style={styles.infoText}>
+              Stay tuned for platform updates and new features designed for business clients.
+            </Text>
+          </Card>
+          <Spacer size={40} />
+          <Button
+            title="Request Transport"
+            onPress={() => navigation?.navigate?.('BusinessRequest')}
+            style={styles.requestBtn}
+          />
+        </ScrollView>
+      </View>
+      {/* No modal, navigation only */}
+    </>
+  );
+};
+
+// ...styles remain unchanged
+
+const styles = StyleSheet.create({
+  scrollContainer: {
+    alignItems: 'center',
+    padding: 24,
+    paddingBottom: 40,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 8,
+  },
+  avatar: {
+    marginRight: 18,
+  },
+  greeting: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  businessName: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.primary,
+    fontFamily: fonts.family.bold,
+  },
+  contact: {
+    fontSize: fonts.size.sm,
+    color: colors.text.light,
+    marginTop: 2,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  quickAction: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    paddingVertical: 22,
+    paddingHorizontal: 6,
+    marginHorizontal: 4,
+    minHeight: 110,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  quickActionLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.secondary,
+    fontWeight: '600',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 4,
+    lineHeight: 16,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  statCard: {
+    width: '47%',
+    alignItems: 'center',
+    marginBottom: 18,
+    paddingVertical: 22,
+    backgroundColor: colors.surface,
+  },
+  statValue: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 2,
+    fontFamily: fonts.family.bold,
+  },
+  statLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  activityCard: {
+    width: '100%',
+    backgroundColor: colors.white,
+    alignItems: 'flex-start',
+    marginBottom: 0,
+  },
+  sectionTitle: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 8,
+    fontFamily: fonts.family.bold,
+  },
+  bookingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surface,
+  },
+  bookingId: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    fontWeight: 'bold',
+  },
+  bookingRoute: {
+    fontSize: fonts.size.md,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  bookingType: {
+    fontSize: fonts.size.sm,
+    color: colors.secondary,
+    fontWeight: '500',
+  },
+  bookingStatusWrap: {
+    alignItems: 'flex-end',
+    minWidth: 80,
+  },
+  bookingStatus: {
+    fontSize: fonts.size.sm,
+    fontWeight: 'bold',
+    paddingVertical: 2,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 2,
+    textAlign: 'right',
+  },
+  statusCompleted: {
+    backgroundColor: colors.success + '22',
+    color: colors.success,
+  },
+  statusInTransit: {
+    backgroundColor: colors.secondary + '22',
+    color: colors.secondary,
+  },
+  bookingDate: {
+    fontSize: fonts.size.xs,
+    color: colors.text.light,
+  },
+  consolidationRow: {
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surface,
+    paddingBottom: 8,
+  },
+  consolidationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 10,
+  },
+  individualBookingsContainer: {
+    marginTop: 8,
+    paddingLeft: 20,
+    paddingTop: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.primary + '40',
+  },
+  individualBookingItem: {
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surface,
+  },
+  individualBookingId: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  individualBookingRoute: {
+    fontSize: fonts.size.sm,
+    color: colors.primary,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  individualBookingCost: {
+    fontSize: fonts.size.sm,
+    color: colors.success,
+    fontWeight: '600',
+  },
+  viewAllBtn: {
+    marginTop: 10,
+    width: '100%',
+    backgroundColor: colors.secondary,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  insightsRow: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+  },
+  insightCard: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 6,
+    backgroundColor: colors.surface,
+    paddingVertical: 18,
+  },
+  insightValue: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  insightLabel: {
+    fontSize: fonts.size.sm,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  infoCard: {
+    marginTop: 12,
+    backgroundColor: colors.surface,
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  infoTitle: {
+    fontSize: fonts.size.lg,
+    fontWeight: 'bold',
+    color: colors.secondary,
+    marginBottom: 6,
+    fontFamily: fonts.family.bold,
+  },
+  infoText: {
+    fontSize: fonts.size.md,
+    color: colors.text.secondary,
+    lineHeight: 22,
+    marginBottom: 10,
+  },
+  supportBtn: {
+    width: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  requestBtn: {
+    marginTop: 10,
+    width: '100%',
+    backgroundColor: colors.secondary,
+    borderRadius: 10,
+    paddingVertical: 16,
+  },
+  emptyBookingsContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  emptyBookingsTitle: {
+    fontSize: fonts.size.md,
+    fontWeight: 'bold',
+    color: colors.text.secondary,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  emptyBookingsSubtitle: {
+    fontSize: fonts.size.sm,
+    color: colors.text.light,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  createBookingBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+});
+
+export default BusinessHomeScreen;
