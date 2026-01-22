@@ -272,7 +272,7 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
         console.log('Approved By:', brokerData.approvedBy);
         
         if (brokerData.status === 'approved' && brokerData.idVerified === true) {
-          console.log('Broker is approved and verified - checking subscription status and navigating');
+          console.log('✅ Broker is approved and verified - auto-activating 90-day trial and navigating to dashboard');
           setStatus('verified');
           
           // Clear any pending refresh intervals since we're verified now
@@ -281,60 +281,49 @@ const VerifyIdentificationDocumentScreen = ({ navigation, route }: VerifyIdentif
             setRefreshInterval(null);
           }
           
-          // Since user is authenticated, we're in the authenticated broker stack
-          // SubscriptionTrial is available in this stack, so navigation should work
+          // Auto-activate trial and navigate to dashboard
           // Use setTimeout to ensure navigation happens after state updates and screen is ready
           setTimeout(async () => {
             try {
-              const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
-              console.log('Broker subscription status:', subscriptionStatus);
+              // Auto-activate 90-day trial for approved brokers
+              console.log('🔄 Auto-activating 90-day trial for approved broker...');
+              const activateResult = await subscriptionService.activateTrial('broker');
               
-              // Priority 1: Check expired status first (highest priority)
-              const isExpired = subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive';
-              
-              if (isExpired) {
-                // Subscription expired - reset navigation to expired screen for renewal/upgrade
-                console.log('⚠️ Verified broker subscription expired, resetting to expired screen');
-                const auth = getAuth();
-                const user = auth.currentUser;
-                navigation.reset({
-                  index: 0,
-                  routes: [{
-                    name: 'SubscriptionExpired',
-                    params: {
-                      userType: 'broker',
-                      userId: user?.uid || '',
-                      expiredDate: subscriptionStatus.subscriptionExpiryDate || new Date().toISOString()
-                    }
-                  }]
-                });
-              } 
-              // Priority 2: User has active subscription or trial - go directly to dashboard
-              else if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
-                console.log('✅ Verified broker has active subscription/trial, resetting to dashboard');
+              if (activateResult.success) {
+                console.log('✅ Trial activated successfully, navigating to dashboard');
+                // Navigate directly to dashboard after successful trial activation
                 navigation.reset({
                   index: 0,
                   routes: [{ name: 'BrokerTabs' }]
                 });
-              } 
-              
-              // Priority 3: No subscription or needs trial activation - go to trial screen
-              else {
-                console.log('🔄 Verified broker needs trial activation, resetting to trial screen');
-                // Reset navigation to SubscriptionTrial - this ensures proper stack initialization
-                navigation.reset({
-                  index: 0,
-                  routes: [{
-                    name: 'SubscriptionTrial',
-                    params: {
-                      userType: 'broker',
-                      subscriptionStatus: subscriptionStatus
-                    }
-                  }]
-                });
+              } else {
+                console.error('❌ Failed to activate trial:', activateResult.message);
+                // Fallback: check subscription status and navigate accordingly
+                const subscriptionStatus = await subscriptionService.getSubscriptionStatus();
+                console.log('Fallback: Broker subscription status:', subscriptionStatus);
+                
+                if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
+                  console.log('✅ Broker has active subscription/trial via fallback, resetting to dashboard');
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'BrokerTabs' }]
+                  });
+                } else {
+                  console.log('⚠️ No active subscription found, showing trial screen');
+                  navigation.reset({
+                    index: 0,
+                    routes: [{
+                      name: 'SubscriptionTrial',
+                      params: {
+                        userType: 'broker',
+                        subscriptionStatus: subscriptionStatus
+                      }
+                    }]
+                  });
+                }
               }
             } catch (error) {
-              console.error('Error checking subscription status:', error);
+              console.error('Error auto-activating trial:', error);
             }
           }, 200); // Small delay to ensure state updates complete and navigation stack is ready
         } else if (brokerData.status === 'deactivated') {

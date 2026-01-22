@@ -4,12 +4,14 @@ import { Alert, FlatList, Image, Modal, RefreshControl, ScrollView, StyleSheet, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import FormKeyboardWrapper from '../components/common/FormKeyboardWrapper';
+import BackgroundLocationDisclosureModal from '../components/common/BackgroundLocationDisclosureModal';
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';
 import { API_ENDPOINTS } from '../constants/api';
 import { unifiedBookingService } from '../services/unifiedBookingService';
 import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
+import locationService from '../services/locationService';
 
 interface BrokerStats {
     totalClients: number;
@@ -69,6 +71,10 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
     
     // Use the centralized subscription hook
     const { subscriptionStatus, loadingSubscription } = useSubscriptionStatus();
+    
+    // Background location disclosure state - CRITICAL for Google Play compliance
+    const [showBackgroundLocationDisclosure, setShowBackgroundLocationDisclosure] = useState(false);
+    const [hasCheckedConsent, setHasCheckedConsent] = useState(false);
     
 
     useEffect(() => {
@@ -898,6 +904,32 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                     </View>
                 </View>
             </Modal>
+
+            {/* Background Location Disclosure Modal - CRITICAL for Google Play compliance */}
+            {/* This modal MUST be shown before requesting BACKGROUND_LOCATION permission */}
+            <BackgroundLocationDisclosureModal
+                visible={showBackgroundLocationDisclosure}
+                userRole="broker"
+                onAccept={async () => {
+                    console.log('✅ BrokerHomeScreen: User accepted background location disclosure');
+                    // User consented - save consent
+                    await locationService.saveBackgroundLocationConsent(true);
+                    setShowBackgroundLocationDisclosure(false);
+                    
+                    // Note: We don't start tracking here - that happens when user explicitly starts tracking
+                    // This disclosure is just for consent, per Google Play requirements
+                    console.log('✅ BrokerHomeScreen: Background location consent saved');
+                }}
+                onDecline={async () => {
+                    console.log('❌ BrokerHomeScreen: User declined background location disclosure');
+                    // User declined - save consent status
+                    await locationService.saveBackgroundLocationConsent(false);
+                    setShowBackgroundLocationDisclosure(false);
+                    
+                    // User can still use the app, but background location won't be available
+                    console.log('ℹ️ BrokerHomeScreen: Background location consent declined - app will use foreground-only tracking');
+                }}
+            />
         </SafeAreaView>
     );
 };

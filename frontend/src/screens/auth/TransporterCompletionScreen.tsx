@@ -22,6 +22,7 @@ import { API_ENDPOINTS } from '../../constants/api';
 import { fonts, spacing } from '../../constants';
 import colors from '../../constants/colors';
 import { useSubscriptionStatus } from '../../hooks/useSubscriptionStatus';
+import subscriptionService from '../../services/subscriptionService';
 
 // Vehicle types removed as they're not used in this component
 
@@ -175,67 +176,66 @@ export default function TransporterCompletionScreen() {
             if (data.transporter.status === 'approved') {
               clearTimeout(timeout);
               
-              // Check subscription status before navigating to dashboard
-              console.log('Subscription status check:', { subscriptionStatus, subscriptionLoading });
-              if (subscriptionStatus && !subscriptionLoading) {
-                console.log('Subscription details:', {
-                  hasActiveSubscription: subscriptionStatus.hasActiveSubscription,
-                  isTrialActive: subscriptionStatus.isTrialActive,
-                  subscriptionStatus: subscriptionStatus.subscriptionStatus,
-                  needsTrialActivation: subscriptionStatus.needsTrialActivation
-                });
-                
-                // Priority 1: User has active subscription or trial - go directly to dashboard
-                if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
-                  console.log('✅ User has active subscription/trial, navigating to dashboard');
-                  clearTimeout(timeout);
+              // Auto-activate 90-day trial for approved transporters
+              console.log('✅ Company transporter is approved - auto-activating 90-day trial');
+              (async () => {
+                try {
+                  const activateResult = await subscriptionService.activateTrial('transporter');
+                  
+                  if (activateResult.success) {
+                    console.log('✅ Trial activated successfully for transporter, navigating to dashboard');
+                    navigation.reset({
+                      index: 0,
+                      routes: [
+                        { name: 'TransporterTabs', params: { transporterType: transporterType } },
+                      ],
+                    } as any);
+                  } else {
+                    console.error('❌ Failed to activate trial:', activateResult.message);
+                    // Fallback: Check subscription status and navigate
+                    if (subscriptionStatus && !subscriptionLoading) {
+                      if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
+                        console.log('✅ Fallback: User has active subscription/trial, navigating to dashboard');
+                        navigation.reset({
+                          index: 0,
+                          routes: [
+                            { name: 'TransporterTabs', params: { transporterType: transporterType } },
+                          ],
+                        } as any);
+                      } else {
+                        console.log('⚠️ Fallback: No active subscription, showing dashboard');
+                        navigation.reset({
+                          index: 0,
+                          routes: [
+                            { name: 'TransporterTabs', params: { transporterType: transporterType } },
+                          ],
+                        } as any);
+                      }
+                    } else {
+                      // Retry subscription check
+                      const freshStatus = await subscriptionService.getSubscriptionStatus();
+                      if (freshStatus.hasActiveSubscription || freshStatus.isTrialActive) {
+                        navigation.reset({
+                          index: 0,
+                          routes: [
+                            { name: 'TransporterTabs', params: { transporterType: transporterType } },
+                          ],
+                        } as any);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.error('Error auto-activating trial:', error);
+                  // Navigate to dashboard even if trial activation fails
                   navigation.reset({
                     index: 0,
                     routes: [
                       { name: 'TransporterTabs', params: { transporterType: transporterType } },
                     ],
                   } as any);
-                  return;
-                } 
-                
-                // Priority 2: Subscription expired - go to expired screen
-                else if (subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
-                  console.log('⚠️ User subscription expired, navigating to expired screen');
-                  clearTimeout(timeout);
-                  // Map transporterType to correct userType for expired screen
-                  const userTypeForExpired = transporterType === 'company' ? 'company' : 'individual';
-                  navigation.reset({
-                    index: 0,
-                    routes: [
-                      { name: 'SubscriptionExpiredScreen', params: { 
-                        userType: userTypeForExpired,
-                        userId: 'current_user',
-                        expiredDate: subscriptionStatus.subscriptionExpiryDate || new Date().toISOString()
-                      } },
-                    ],
-                  } as any);
-                  return;
-                } 
-                
-                // Priority 3: No subscription or needs trial activation
-                // NOTE: If admin creates subscriptions, users don't activate trials themselves
-                // Just redirect to dashboard - admin will create subscription when ready
-                else {
-                  console.log('ℹ️ User needs subscription - admin will create it. Navigating to dashboard.');
-                  clearTimeout(timeout);
-                  navigation.reset({
-                    index: 0,
-                    routes: [
-                      { name: 'TransporterTabs', params: { transporterType: transporterType } },
-                    ],
-                  } as any);
-                  return;
                 }
-              } else {
-                // Subscription status not loaded yet, wait for it
-                console.log('⏳ Subscription status not loaded yet, waiting...');
-                return;
-              }
+              })();
+              return;
             } else if (['pending', 'under_review'].includes(data.transporter.status)) {
               clearTimeout(timeout);
               navigation.reset({

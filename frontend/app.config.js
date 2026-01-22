@@ -141,10 +141,6 @@ module.exports = {
         }
       ]
     },
-    web: {
-      bundler: "metro",
-      favicon: "./assets/images/favicon.png"
-    },
     plugins: [
       [
         "expo-splash-screen",
@@ -165,7 +161,6 @@ module.exports = {
       "expo-asset",
       "expo-font",
       "expo-maps",
-      "expo-web-browser",
       // Custom plugin for large screen and edge-to-edge support
       "./plugins/withAndroidLargeScreenSupport.js"
     ],

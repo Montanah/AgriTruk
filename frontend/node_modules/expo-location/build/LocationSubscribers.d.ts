@@ -1,9 +1,9 @@
-import { LocationCallback, LocationErrorCallback, LocationHeadingCallback } from './Location.types';
+import { LocationCallback, LocationHeadingCallback } from './Location.types';
 type EventObject = {
     watchId: number;
     [key: string]: any;
 };
-declare class Subscriber<CallbackType extends LocationCallback | LocationHeadingCallback | LocationErrorCallback> {
+declare class Subscriber<CallbackType extends LocationCallback | LocationHeadingCallback> {
     private eventName;
     private eventDataField;
     private callbacks;
@@ -15,12 +15,6 @@ declare class Subscriber<CallbackType extends LocationCallback | LocationHeading
      */
     registerCallback(callback: CallbackType): number;
     /**
-     * Registers given callback under and existing id. This can be used to
-     * create a subscriber for the error event on the same id as the location
-     * event is subscribed to.
-     */
-    registerCallbackForId(watchId: number, callback: CallbackType): number;
-    /**
      * Unregisters a callback with given id and revokes the subscription if possible.
      */
     unregisterCallback(id: number): void;
@@ -28,7 +22,6 @@ declare class Subscriber<CallbackType extends LocationCallback | LocationHeading
 }
 export declare const LocationSubscriber: Subscriber<LocationCallback>;
 export declare const HeadingSubscriber: Subscriber<LocationHeadingCallback>;
-export declare const LocationErrorSubscriber: Subscriber<LocationErrorCallback>;
 /**
  * @private Necessary for some unit tests.
  */

@@ -1,0 +1,29 @@
+TRUKAPP AAB for Google Play Store
+=================================
+
+File: TRUKapp-20260108_154952.aab
+Size: 60M
+Date: Thu Jan  8 15:49:52 EAT 2026
+
+Usage:
+- This is an Android App Bundle (AAB) file
+- Upload this file to Google Play Console for store submission
+- AAB is the preferred format for Google Play Store
+- Contains optimized APKs for different device configurations
+
+Notes:
+- This is a production build for Google Play Store
+- Contains all latest features and fixes
+- Ready for store submission
+
+Build Environment:
+- Node.js: v20.19.4
+- Build Date: Thu Jan  8 15:49:52 EAT 2026
+- Build Type: Local Build
+
+Google Play Console Upload:
+1. Go to Google Play Console
+2. Select your app
+3. Go to Production > Create new release
+4. Upload this AAB file
+5. Complete the release process

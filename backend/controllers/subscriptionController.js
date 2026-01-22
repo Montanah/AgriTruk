@@ -230,8 +230,18 @@ exports.createSubscriber = async (req, res) => {
 
     const startDate = new Date(Date.now());
     const endDate = new Date(startDate); // Create a new Date object
-    endDate.setMonth(endDate.getMonth() + plan.duration);
-    // endDate.setDate(endDate.getDate() + plan.duration); // Add days, not months
+    
+    // Handle trial plans differently: duration in days instead of months
+    if (plan.price === 0) {
+      // Trial plan: duration is in days
+      const trialDays = plan.duration || 90;
+      console.log(`📅 Creating trial subscriber with ${trialDays} days`);
+      endDate.setDate(endDate.getDate() + trialDays);
+    } else {
+      // Paid plan: duration is in months
+      endDate.setMonth(endDate.getMonth() + plan.duration);
+    }
+    
     const isActive = true;
     const paymentStatus = 'pending';
     const transactionId = null;
