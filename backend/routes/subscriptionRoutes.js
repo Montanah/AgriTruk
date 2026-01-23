@@ -663,10 +663,10 @@ router.post('/cancel', authenticateToken, requireRole(['transporter', 'broker', 
  *           schema:
  *             type: object
  *             required:
- *               - id
+ *               - userId
  *               - cancellationReason
  *             properties:
- *               id:
+ *               userId:
  *                 type: string
  *               cancellationReason:
  *                 type: string
