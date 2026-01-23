@@ -56,9 +56,8 @@ function formatPhoneNumberAuth(phone) {
 }
 exports.registerUser = async (req, res) => {
   const { name, phone, email, role, location, userType, languagePreference, profilePhotoUrl, preferredVerificationMethod } = req.body;
-  console.log('Registering user:', req.user);
+ 
   const uid = req.user.uid;
-  // const email = req.user.email;
 
   if (!["shipper", "transporter", "admin", "user", "broker", "business", "job_seeker"].includes(role)) {
     return res.status(400).json({ message: "Invalid role" });
@@ -132,7 +131,7 @@ exports.registerUser = async (req, res) => {
           smsMessage,
           formattedPhone
         );
-        console.log('Verification SMS sent successfully');
+        
       } catch (smsError) {
         console.error('Failed to send verification SMS:', smsError);
         // Don't fail the registration if SMS fails, just log it
@@ -166,9 +165,6 @@ exports.verifyEmailCode = async (req, res) => {
   const uid = req.user.uid;
   const ipAddress = req.ip || 'unknown';
 
-  console.log('Verifying code for user:', uid);
-  console.log('Verification code:', code);
-
   try {
     const userData = await User.get(uid);
     const userRef = admin.firestore().collection("users").doc(uid);
@@ -178,9 +174,6 @@ exports.verifyEmailCode = async (req, res) => {
     }
 
     const now = admin.firestore.Timestamp.now();
-
-    console.log('stored code:', userData.emailVerificationCode);
-    console.log('current code:', code);
 
     if (userData.emailVerificationCode !== code) {
       return res.status(400).json({ message: "Invalid verification code" });
@@ -238,9 +231,6 @@ exports.verifyPhoneCode = async (req, res) => {
     }
 
     const now = admin.firestore.Timestamp.now();
-
-    console.log('stored code:', userData.phoneVerificationCode);
-    console.log('current code:', code);
 
     if (userData.phoneVerificationCode !== code) {
       return res.status(400).json({ message: "Invalid verification code" });
@@ -454,7 +444,7 @@ exports.forgotPassword = async (req, res) => {
       try {
         user = await admin.auth().getUserByEmail(email);
       } catch (error) {
-        console.log('User not found by email:', error.message);
+        
         // User doesn't exist, user will remain null
         user = null;
       }
@@ -581,8 +571,6 @@ exports.resetPassword = async (req, res) => {
   try {
     const { newPassword, userId } = req.body;
 
-    console.log(newPassword, userId);
-
     if (!newPassword || !userId) {
       return res.status(400).json({
         code: 'ERR_INVALID_INPUT',
@@ -591,7 +579,7 @@ exports.resetPassword = async (req, res) => {
     }
 
     const user = await User.get(userId);
-    console.log(user);
+    
     if (!user || !user.resetToken) {
       return res.status(400).json({
         code: 'ERR_INVALID_REQUEST',
@@ -618,7 +606,7 @@ exports.resetPassword = async (req, res) => {
     })
 
     const userData = await User.get(userId);
-    console.log(userData);
+ 
     await sendEmail({
       to: userData.email,
       subject: "Password Reset Confirmation",
@@ -722,7 +710,6 @@ exports.verifyToken = async (req, res) => {
 exports.deleteAccount = async (req, res) => {
   try {
     const { uid } = req.params;
-    console.log(req.params);
 
     // Delete user from Firebase Auth
     await admin.auth().deleteUser(uid);
@@ -822,8 +809,6 @@ exports.resendCode = async (req, res) => {
 
     await logActivity(uid, 'code_resend', req);
 
-    console.log("Verification code resent successfully to:", email);
-
     res.status(200).json({ message: "Verification code resent successfully" });
   } catch (error) {
     console.error("Resend code error:", error);
@@ -862,7 +847,6 @@ exports.resendPhoneCode = async (req, res) => {
         smsMessage,
         formattedPhone
       );
-      console.log('Verification SMS sent successfully');
     } catch (smsError) {
       console.error('Failed to send verification SMS:', smsError);
       // Don't fail the registration if SMS fails, just log it
@@ -1193,12 +1177,8 @@ exports.restoreAccount = async (req, res) => {
 
 exports.processPendingDeletions = async () => {
   const now = Date.now();
- // console.log(now);
 
-  // const snapshot = await User.where('deleteScheduledFor', '<=', now).get();
-  // console.log(`Found ${snapshot.size} pending deletions`);
   const users = await User.getUsersSheduledForDeletion();
- // console.log(`Found ${users.length} pending deletions`);
 
   for (const doc of users) {
     const uid = doc.id;
@@ -1222,7 +1202,6 @@ exports.processPendingDeletions = async () => {
       // 📘 Delete sensitive subcollections
       //check user role
       const userRole = users.role;
-     // console.log("User role:", userRole);
 
       if (userRole === "driver") {
         await Driver.delete(uid);
@@ -1244,8 +1223,6 @@ exports.processPendingDeletions = async () => {
         message: "Your account has been permanently deleted after 30 days.",
         userId: uid,
       });
-
-      console.log(`Deleted and anonymized user ${uid}`);
 
     } catch (err) {
       console.error("Cron deletion error:", err);

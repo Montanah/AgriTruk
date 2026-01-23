@@ -13,7 +13,6 @@ const CompanyDocumentExpiryService = {
    */
   async checkAllDocuments() {
     try {
-      console.log('Starting document expiry check...');
       
       // Check driver documents
       await this.checkDriverDocuments();
@@ -21,7 +20,6 @@ const CompanyDocumentExpiryService = {
       // Check vehicle documents
       await this.checkVehicleDocuments();
       
-      console.log('Document expiry check completed');
     } catch (error) {
       console.error('Error checking documents:', error);
       throw error;
@@ -195,7 +193,6 @@ const CompanyDocumentExpiryService = {
         sentAt: new Date(),
       });
 
-      console.log(`Expired document notification sent for driver ${driver.driverId}`);
     } catch (error) {
       console.error('Error sending driver document expired notification:', error);
     }

@@ -28,7 +28,7 @@ exports.createTransporter = async (req, res) => {
       refrigerated,
       transporterType = 'individual' 
     } = req.body;
-    console.log("humidy and refrigerated", humidityControl, refrigerated);
+    
     if (!vehicleType || !vehicleRegistration || !vehicleColor || !vehicleMake || !vehicleModel || !vehicleCapacity || !transporterType) {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
@@ -56,9 +56,6 @@ exports.createTransporter = async (req, res) => {
     const driverName = userData?.name;
     const phoneNumber = userData?.phone;
     
-    console.log('receive files', req.files);
-    console.log('User data:', driverName);
-    
     // Handle multiple file uploads dynamically
     let licenseUrl = null;
     let insuranceUrl = null;
@@ -70,7 +67,6 @@ exports.createTransporter = async (req, res) => {
     if (req.files) {
       const uploadTasks = req.files.map(async file => {
         const fieldName = file.fieldname;
-        // console.log(`Processing file: ${fieldName}, path: ${file.path}`); 
 
         switch (fieldName) {
           case 'dlFile':
@@ -109,7 +105,6 @@ exports.createTransporter = async (req, res) => {
             }
             break;
           default:
-            console.log(`Ignoring unexpected field: ${fieldName}`);
             fs.unlinkSync(file.path); // Clean up unexpected files
         }
       });
@@ -152,7 +147,6 @@ exports.createTransporter = async (req, res) => {
       notificationPreferences: { method: 'both' },
     };
     
-    console.log('Transporter data:', transporterData); // Debug
     const transporter = await Transporter.create(transporterData);
 
     await logActivity(req.user.uid, 'create_transporter', req);
@@ -255,7 +249,7 @@ exports.updateTransporter = async (req, res) => {
 };
 
 exports.getAllTransporters = async (req, res) => {
-  console.log('Fetching all transporters');
+  
   try {
     const transporters = await Transporter.getAll();
     await logAdminActivity(req.user.uid, 'get_all_transporters', req);

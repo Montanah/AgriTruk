@@ -65,7 +65,7 @@ const RecruiterSubscribers = {
         createdAt: subscriber.createdAt.toDate(),
         updatedAt: subscriber.updatedAt.toDate(),
       };
-      console.log('Recruiter subscriber created successfully:', response);
+     
       return response;
     } catch (error) {
       console.error('Recruiter subscription creation error:', error);
@@ -156,8 +156,6 @@ const RecruiterSubscribers = {
         const expired = allDocs.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
           .filter(sub => new Date(sub.endDate) < now);
-
-        console.log('Number of expired subscriptions:', expired.length);
         return expired;
 
     } catch (error) {

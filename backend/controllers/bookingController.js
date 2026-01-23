@@ -233,9 +233,6 @@ exports.createBooking = async (req, res) => {
     
     // const actualDistance = calculateDistance(fromLocation, toLocation);
     
-   console.log("fromLocation:", fromLocation);
-   console.log("toLocation:", toLocation);
-  console.log("google_key:", google_key);
     const { actualDistance, estimatedDurationMinutes, formattedDuration, routePolyline, success } = await calculateRoadDistanceAndDuration(
       fromLocation,
       toLocation,
@@ -357,8 +354,7 @@ exports.createBooking = async (req, res) => {
       status: "New Bookings Alert",
       message: 'New Booking has been created',
     });
-    // console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
-
+    
     // Compute final unique readableId using createdAt and bookingId as seed
     const createdAtDate = booking.createdAt?.toDate ? booking.createdAt.toDate() : new Date();
     const computedReadableId = generateReadableId(bookingType, bookingMode, !!consolidated, createdAtDate, booking.bookingId);
@@ -1056,26 +1052,20 @@ exports.acceptBooking = async (req, res) => {
             totalTrips: driverData.totalTrips || 0,
             acceptingBooking: driverData.availability || false
           };
-          console.log('✅ Driver found:', {
-            id: transporterId,
-            name: transporter.name,
-            phone: transporter.phone,
-            rating: transporter.rating
-          });
+    
         }
       } else {
         // For transporters, get from transporters collection
         transporter = await Transporter.get(transporterId);
-        console.log('✅ Transporter found:', {
-          id: transporterId,
-          name: transporter?.name,
-          phone: transporter?.phone,
-          rating: transporter?.rating,
-          status: transporter?.status
-        });
       }
     } catch (error) {
-      console.log('❌ Transporter/Driver not found, continuing without details:', error.message);
+
+      error.message = `Error getting transporter/driver details: ${error.message}`;
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error getting transporter/driver details'
+      });
     }
 
     // Get vehicle details - handle both individual transporters and company drivers
@@ -1099,19 +1089,14 @@ exports.acceptBooking = async (req, res) => {
         
         if (isCompanyDriver) {
           // Company driver - get vehicle from companies/{companyId}/vehicles/{vehicleId}
-          console.log('✅ Company driver detected, getting vehicle from company collection');
+    
           const vehicleSnapshot = await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).get();
           if (vehicleSnapshot.exists) {
             vehicle = vehicleSnapshot.data();
-            console.log('✅ Company vehicle found:', {
-              make: vehicle.vehicleMake,
-              model: vehicle.vehicleModel,
-              registration: vehicle.vehicleRegistration
-            });
           }
         } else {
           // Individual transporter - vehicle data is already in transporter document
-          console.log('✅ Individual transporter detected, vehicle data should be in transporter document');
+        
           // For individual transporters, vehicle data is embedded in the transporter document
           // Extract it from the transporter data
           if (transporter) {
@@ -1124,15 +1109,15 @@ exports.acceptBooking = async (req, res) => {
               vehicleColor: transporter.vehicleColor,
               vehicleCapacity: transporter.vehicleCapacity
             };
-            console.log('✅ Extracted vehicle from transporter:', {
-              make: vehicle.vehicleMake,
-              model: vehicle.vehicleModel,
-              registration: vehicle.vehicleRegistration
-            });
           }
         }
       } catch (error) {
-        console.log('Error determining transporter type, continuing without vehicle details:', error.message);
+        error.message = `Error getting vehicle details: ${error.message}`;
+        console.error(error);
+        return res.status(500).json({
+          success: false,
+          message: 'Error getting vehicle details'
+        });
       }
     }
 
@@ -1159,15 +1144,6 @@ exports.acceptBooking = async (req, res) => {
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
-
-    console.log('💾 Saving booking updates:', {
-      bookingId,
-      transporterName: updates.transporterName,
-      transporterPhone: updates.transporterPhone,
-      transporterRating: updates.transporterRating,
-      vehicleMake: updates.vehicleMake,
-      vehicleRegistration: updates.vehicleRegistration
-    });
 
     await Booking.update(bookingId, updates);
     
@@ -2082,7 +2058,7 @@ exports.cancelBooking = async (req, res) => {
 exports.startBooking = async (req, res) => {
   try {
     const userId = req.user.uid;
-    console.log('u', userId);
+  
     const { bookingId, companyId } = req.params;
 
     if (!bookingId) {
@@ -2196,9 +2172,6 @@ exports.completeBooking = async (req, res) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    // const update = await Company.updateTrips(companyId);
-
-    // console.log("Update", update);
 
     //flag
     if (!company.registrationProvided && company.completedTripsCount + 1 >= 5) {

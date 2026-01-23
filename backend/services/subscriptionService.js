@@ -120,7 +120,6 @@ const SubscriptionService = {
       // Count current drivers for this company
       const drivers = await Driver.getByCompanyId(companyId);
       const currentDriverCount = drivers ? drivers.length : 0;
-      console.log('Current driver count:', currentDriverCount);
 
       if (currentDriverCount >= maxDrivers) {
         return {
@@ -364,7 +363,7 @@ const SubscriptionService = {
    */
   async sendExpiryNotification(subscription) {
     // TODO: Implement email/SMS notification
-    console.log(`Subscription expired for user ${subscription.userId}`);
+    
     await NotificationService.sendExpiryNotification(subscription);
   },
 
@@ -373,7 +372,7 @@ const SubscriptionService = {
    */
   async sendExpiringNotification(subscription, daysRemaining) {
     // TODO: Implement email/SMS notification
-    console.log(`Subscription expiring soon for user ${subscription.userId}`);
+   
     await NotificationService.sendExpiringNotification(subscription, daysRemaining);
   },
   

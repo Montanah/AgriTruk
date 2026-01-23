@@ -346,7 +346,7 @@ const RecruiterAuthController = {
   async getAllRecruiters(req, res) {
     try {
       const recruiters = await User.getRecruiters();
-      console.log(recruiters);
+      
       await logAdminActivity(req.user.uid, 'get_all_shippers', req);
       res.status(200).json({
         success: true,

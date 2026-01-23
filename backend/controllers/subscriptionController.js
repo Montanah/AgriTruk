@@ -118,14 +118,14 @@ exports.paymentCallback = async (req, res) => {
         if (plan.price === 0) {
           // Trial plan
           const trialDays = plan.trialDays || plan.duration || 90;
-          console.log(`✅ Payment callback: Trial plan with ${trialDays} days`);
+          
           endDate.setDate(endDate.getDate() + trialDays);
         } else {
           // Paid plan: duration handling
           // If duration is in months (typically 1, 3, 12), multiply by 30
           // If duration is already in days (> 12), use directly
           const durationInDays = plan.duration > 12 ? plan.duration : plan.duration * 30;
-          console.log(`✅ Payment callback: Paid plan with ${durationInDays} days (duration: ${plan.duration})`);
+          
           endDate.setDate(endDate.getDate() + durationInDays);
         }
         
@@ -254,14 +254,14 @@ exports.createSubscriber = async (req, res) => {
     if (plan.price === 0) {
       // Trial plan: use trialDays if available, otherwise use duration as days
       const trialDays = plan.trialDays || plan.duration || 90;
-      console.log(`🔧 Creating trial subscriber with ${trialDays} days (plan.duration: ${plan.duration}, plan.trialDays: ${plan.trialDays})`);
+      
       endDate.setDate(endDate.getDate() + trialDays);
     } else {
       // Paid plan: duration is typically in months, need to convert
       // If duration is already in days (which it should be), add directly
       // If it's in months, multiply by 30
       const durationInDays = plan.duration > 12 ? plan.duration : plan.duration * 30; // Heuristic: if > 12, assume days
-      console.log(`🔧 Creating paid subscriber with ${durationInDays} days (plan.duration: ${plan.duration})`);
+      
       endDate.setDate(endDate.getDate() + durationInDays);
     }
     const isActive = true;
@@ -269,7 +269,6 @@ exports.createSubscriber = async (req, res) => {
     const transactionId = null;
     const autoRenew = req.body.autoRenew || false;
     const subData = { userId, planId, startDate, endDate, isActive, autoRenew, paymentStatus, transactionId, status: 'active' };
-    console.log(subData);
     const subscriber = await Subscribers.create(subData);
     await logActivity(userId, 'create_subscriber', req);
     // await logAdminActivity(req.user.uid, 'create_subscriber', req);
@@ -295,7 +294,6 @@ exports.createSubscriber = async (req, res) => {
 exports.getAllSubscribers = async (req, res) => {
   try {
     const subscribers = await Subscribers.getAll();
-    console.log(subscribers);
 
     let activeCount = 0;
     let trialCount = 0;
@@ -361,7 +359,7 @@ exports.getAllSubscribers = async (req, res) => {
 exports.getSubscriber = async (req, res) => {
   try {
     const subscriberId = req.params.id || req.query.subscriberId;
-    console.log(subscriberId);
+    
     const subscriber = await Subscribers.get(subscriberId);
     await logAdminActivity(req.user.uid, 'get_subscriber', req);
     res.status(200).json({ success: true, message: 'Subscriber retrieved', data: formatTimestamps(subscriber) });
@@ -514,15 +512,6 @@ exports.getSubcriberStatus = async (req, res) => {
     }
     
     const currentTime = Date.now();
-    
-    console.log('Subscriber status check:', {
-      userId,
-      subscriberId: subscriber.id,
-      endDateMillis,
-      currentTime,
-      isActive: subscriber.isActive,
-      isTrial
-    });
     
     // Check if subscription is active (both flag and date validation)
     const isActive = subscriber.isActive && endDateMillis > currentTime;
@@ -928,7 +917,7 @@ exports.reactivateSubscription = async (req, res) => {
   try {
     const { paymentMethod, phoneNumber, addTrialDays } = req.body;
     const userId = req.body.userId;
-    console.log("me", userId);
+
     // Get user and their expired subscription
     const user = await Users.get(userId);
 

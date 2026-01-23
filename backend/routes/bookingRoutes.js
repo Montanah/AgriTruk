@@ -207,7 +207,7 @@ const validateBookingAccess = require('../middlewares/validateBookingAccess');
  *         description: Internal server error
  */
 router.get('/requests', (req, res, next) => {
-  console.log('🚨 BOOKING ROUTES /requests HIT - URL:', req.originalUrl, 'User:', req.user?.uid);
+ 
   next();
 }, authenticateToken, requireRole(['transporter', 'business', 'driver']), validateBookingAccess, bookingController.getAllAvailableBookings);
 

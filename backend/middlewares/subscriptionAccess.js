@@ -3,10 +3,9 @@ const RecruiterSubscriptionService = require('../services/RecruiterSubscriptionS
 const subscriptionAccess = async (req, res, next) => {
   try {
     const userId = req.user.uid; 
-    console.log('User ID:', userId);
+   
     const userRole = req.user.role;
-    console.log('User Role:', userRole);
-
+   
     // Skip middleware for admin users
     if (userRole === 'admin') {
       req.subscription = { unrestricted: true };
@@ -91,10 +90,9 @@ const subscriptionAccess = async (req, res, next) => {
 const recruiterAccess = async (req, res, next) => {
   try {
     const userId = req.user.uid; 
-    console.log('User ID:', userId);
+    
     const userRole = req.user.role;
-    console.log('User Role:', userRole);
-
+    
     // Skip middleware for admin users
     if (userRole === 'admin') {
       req.subscription = { unrestricted: true };
@@ -104,7 +102,6 @@ const recruiterAccess = async (req, res, next) => {
     
     // Get subscription status using your service
     const subscriptionStatus = await RecruiterSubscriptionService.getSubscriptionStatus(userId);
-    // console.log(subscriptionStatus);
     
     if (!subscriptionStatus.hasSubscription) {
       return res.status(403).json({

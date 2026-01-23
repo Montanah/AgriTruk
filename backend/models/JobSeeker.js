@@ -229,7 +229,7 @@ const JobSeeker = {
 
     for (const field in files) {
       if (!validDocumentTypes.includes(field)) {
-        console.log(`Ignoring unexpected field: ${field}`);
+       
         continue;
       }
       const file = files[field][0]; // assuming multer array
@@ -366,9 +366,9 @@ const JobSeeker = {
 
   async getJobSeekerById(jobSeekerId) {
     try {
-      console.log('Fetching job seeker with ID:', jobSeekerId);
+     
       const jobSeekerSnap = await db.collection('job_seekers').doc(jobSeekerId).get();
-      console.log(jobSeekerSnap);
+     
       if (!jobSeekerSnap.exists()) {
         return null;
       }

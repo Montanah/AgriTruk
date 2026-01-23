@@ -30,7 +30,7 @@ const logActivity = async (uid, event, req) => {
 const logAdminActivity = async (adminId, event, req, target = null) => {
   try {
     const metadata = req.metadata || getRequestMetadata(req);
-    console.log("Admin activity log called for admin:", adminId);
+   
     await AdminActivityLog.log(adminId, {
       action: event,
       target, 
@@ -38,7 +38,7 @@ const logAdminActivity = async (adminId, event, req, target = null) => {
       ip: metadata.ipAddress,
       timestamp: metadata.timestamp
     });
-    console.log("Admin activity logged successfully");
+    
   } catch (error) {
     console.warn('Admin activity log error:', error);
     throw error; // Re-throw if you want calling code to handle it

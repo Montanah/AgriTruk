@@ -59,9 +59,6 @@ const jobSeekerController = {
       if (files.length > 0) {
         const uploadTasks = files.map(async file => {
           const fieldName = file.fieldname;
-
-          console.log(`Processing file: ${fieldName}, path: ${file.path}`);
-
           const uploadedUrl = await uploadImage(file.path);
           fs.unlinkSync(file.path); // clean temp file
 
@@ -82,7 +79,7 @@ const jobSeekerController = {
               gslUrl = uploadedUrl;
               break;
             default:
-              console.log(`Ignoring unexpected field: ${fieldName}`);
+              return(message = "Invalid field name");
           }
         });
 
@@ -96,7 +93,6 @@ const jobSeekerController = {
         gslLicence: gslUrl
       };
 
-      console.log("Job Seeker data:", documents.drivingLicense);
       const jobSeeker = await JobSeeker.create({
         userId,
         name,
@@ -286,7 +282,9 @@ const jobSeekerController = {
               changedFields.push('ID Document');
               break;
             default:
-              console.log(`Ignoring unexpected field: ${fieldName}`);
+              // Ignore other fields
+              console.log(`Ignored field: ${fieldName}`);
+              break;
           }
         }
 
@@ -736,7 +734,6 @@ const jobSeekerController = {
 
   async getApprovedJobSeekers(req, res) {
     try {
-      console.log('Fetching approved job seekers...');
       const jobSeekers = await JobSeeker.getApprovedJobSeekers();
       
       res.status(200).json({ 

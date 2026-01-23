@@ -47,8 +47,7 @@ function exportData(data, fieldsConfig, format, res, filename, reportOptions = {
     };
 
     doc.addPage();
-    console.log('Starting PDF generation for', filename);
-
+    
     // Header
     addHeader(doc, options);
 

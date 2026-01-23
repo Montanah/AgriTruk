@@ -7,28 +7,21 @@ const fs = require('fs');
 // Create a new vehicle for a company
 const createVehicle = async (req, res) => {
   try {
-    console.log('🚗 ===== VEHICLE CREATION REQUEST =====');
-    console.log('🚗 Request body:', req.body);
-    console.log('🚗 Request files:', req.files?.length || 0);
-    console.log('🚗 User ID:', req.user.uid);
     
     const userId = req.user.uid;
     const companyId = req.body.companyId;
     
-    console.log('🚗 Company ID from request:', companyId);
-
     // Verify the user owns the company
     const companyDoc = await db.collection('companies').doc(companyId).get();
     if (!companyDoc.exists) {
-      console.log('🚗 Company not found:', companyId);
+      
       return res.status(404).json({ message: 'Company not found' });
     }
 
     const companyData = companyDoc.data();
-    console.log('🚗 Company data:', companyData);
     
     if (companyData.transporterId !== userId) {
-      console.log('🚗 Unauthorized: user', userId, 'does not own company', companyId);
+      
       return res.status(403).json({ message: 'Unauthorized to add vehicles to this company' });
     }
 
@@ -54,18 +47,14 @@ const createVehicle = async (req, res) => {
       updatedAt: new Date(),
     };
     
-    console.log('🚗 Prepared vehicle data:', vehicleData);
-
     // Handle file uploads using the same working pattern as individual transporters
     let vehicleImagesUrl = [];
     let insuranceUrl = null;
     
     if (req.files && req.files.length > 0) {
-      console.log('🚗 Processing vehicle files:', req.files.length);
       
       const uploadTasks = req.files.map(async file => {
         const fieldName = file.fieldname;
-        console.log(`🚗 Processing file: ${fieldName}, path: ${file.path}`);
         
         try {
           const publicId = await uploadImage(file.path);
@@ -73,11 +62,11 @@ const createVehicle = async (req, res) => {
             switch (fieldName) {
               case 'vehicleImages':
                 vehicleImagesUrl.push(publicId);
-                console.log(`🚗 Added vehicle image: ${publicId}`);
+                
                 break;
               case 'insurance':
                 insuranceUrl = publicId;
-                console.log(`🚗 Added insurance: ${publicId}`);
+  
                 break;
               default:
                 console.log(`🚗 Ignoring unexpected field: ${fieldName}`);
@@ -104,10 +93,6 @@ const createVehicle = async (req, res) => {
         vehicleData.insuranceUrl = insuranceUrl;
       }
       
-      console.log('🚗 File upload completed:', {
-        vehicleImages: vehicleImagesUrl.length,
-        insurance: !!insuranceUrl
-      });
     }
 
     // Create vehicle document
@@ -141,8 +126,6 @@ const createVehicle = async (req, res) => {
         vehicle: { id: vehicleRef.id, ...vehicleData }
       }
     });
-    
-    console.log('🚗 ===== VEHICLE CREATION COMPLETED =====');
 
   } catch (error) {
     console.error('Error creating vehicle:', error);

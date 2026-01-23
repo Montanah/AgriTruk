@@ -370,7 +370,7 @@ const RecruiterSubscriptionService = {
   async checkAndUpdateExpiredSubscriptions() {
     try {
       const expiredSubscriptions = await RecruiterSubscribers.getExpiredSubscriptions();
-      console.log(`Number of expired subscriptions: ${expiredSubscriptions.length}`);
+    
       for (const subscription of expiredSubscriptions) {
         await RecruiterSubscribers.update(subscription.subscriberId, {
           isActive: false,
@@ -394,13 +394,11 @@ const RecruiterSubscriptionService = {
    */
   async sendExpiryNotification(subscription) {
     // TODO: Implement email/SMS notification
-    console.log(`Recruiter subscription expired for user ${subscription.userId}`);
     await NotificationService.sendExpiryNotification(subscription);
   },
 
   async sendExpiringNotification(subscription, daysRemaining) {
     // TODO: Implement email/SMS notification
-    console.log(`Recruiter subscription expiring soon for user ${subscription.userId}`);
     await NotificationService.sendExpiringNotification(subscription, daysRemaining);
   },
 };

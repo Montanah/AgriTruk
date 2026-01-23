@@ -10,8 +10,7 @@ const Subscribers = {
       if (!userId || !planId || !startDate) {
         throw new Error('userId, planId, startDate are required');
       }
-      //   console.log('Subscriber Data:', subscriberData);
-
+     
       // Generate a new document ID
       const subscriberId = db.collection('subscribers').doc().id;
       if (!subscriberId) {
@@ -67,7 +66,7 @@ const Subscribers = {
         createdAt: subscriber.createdAt.toDate(),
         updatedAt: subscriber.updatedAt.toDate(),
       };
-      console.log('Subscriber created successfully:', response);
+     
       return response;
     } catch (error) {
       console.error('Subscription creation error:', error);

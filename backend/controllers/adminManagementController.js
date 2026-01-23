@@ -103,8 +103,7 @@ const AdminManagementController = {
 
       //check permissions
       const allValidPermissions = Object.values(Permission);
-      // console.log(allValidPermissions);
-      // console.log(permissions);
+    
       let finalPermissions = [];
 
       // Process permissions array
@@ -309,7 +308,6 @@ const AdminManagementController = {
   async updateAdmin(req, res) {
     try {
       const adminId = req.params.adminId;
-      console.log(adminId);
 
       const updates = req.body;
 
@@ -399,7 +397,6 @@ const AdminManagementController = {
   // Get current admin profile
   async getProfile(req, res) {
     try {
-      console.log(req.user.user_id);
       const adminData = await Admin.getByUserId(req.user.user_id);
 
       res.json({
@@ -474,7 +471,6 @@ const AdminManagementController = {
 
   async uploadImage(req, res) {
     try {
-      console.log('Uploading image...');
       const userId = req.user.uid;
 
       if (!userId) {
@@ -489,8 +485,6 @@ const AdminManagementController = {
 
       const adminId = adminData.adminId;
 
-      console.log('Admin ID:', adminId);
-
       let profilePhotoUrl = '';
 
       // Upload image if provided
@@ -502,14 +496,14 @@ const AdminManagementController = {
         fs.unlinkSync(req.file.path);
       }
 
-      console.log('Profile photo URL:', profilePhotoUrl);
-
       const result = profilePhotoUrl;
 
       //save the image url to the admin document
       const updatedAdmin = await Admin.update(adminId, { avatar: result });
 
-      console.log('Updated admin:', updatedAdmin);
+      if (!updatedAdmin) {
+        return res.status(404).json({ success: false, message: 'Admin not found' });
+      }
 
       res.json({ success: true, message: 'Image uploaded successfully', data: result });
     } catch (error) {

@@ -70,8 +70,7 @@ function initializeSocket(server) {
         }
 
         socket.join(chatId);
-        console.log(`User ${socket.userId} joined chat ${chatId}`);
-        
+       
         // Notify others that user is online in this chat
         socket.to(chatId).emit('user_joined_chat', {
           userId: socket.userId,
@@ -153,7 +152,7 @@ function initializeSocket(server) {
             fileName,
             fileType || type || 'text'
           );
-          console.log(`[Socket.send_message] Message saved successfully: ${messageData.messageId}`);
+          
         } catch (error) {
           console.error(`[Socket.send_message] Error saving message:`, error);
           if (callback) callback({ success: false, error: error.message || 'Failed to save message' });
@@ -403,7 +402,7 @@ function initializeSocket(server) {
 
     // Disconnect
     socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.userId}`);
+           
       activeUsers.delete(socket.userId);
       
       // Clear typing indicators

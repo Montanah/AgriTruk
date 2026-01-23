@@ -36,9 +36,6 @@ class AlertService {
       // Send notifications based on alert severity
       await this.sendNotifications(alert);
       
-      // Log the alert
-      console.log(`Alert triggered: ${alert.type} - ${alert.severity}`);
-      
       return alert;
     } catch (error) {
       console.error('Error triggering alert:', error);
@@ -222,7 +219,6 @@ class AlertService {
         vehicleRegistration: transporter.vehicleRegistration
       }
     });
-    console.log(alert);
 
     return alert;
   }
@@ -253,7 +249,6 @@ class AlertService {
     const startTime = Date.now();
 
     try {
-      console.log('Checking system alerts...');
       
       // Check for GPS offline vehicles
     //   await this.checkGpsStatus();

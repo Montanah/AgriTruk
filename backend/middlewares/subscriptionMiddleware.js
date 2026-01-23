@@ -8,9 +8,9 @@ const subscriptionMiddleware = {
    */
   async requireActiveSubscription(req, res, next) {
     try {
-      console.log('🚀 SUBSCRIPTION MIDDLEWARE HIT!');
+     
       const userId = req.user.uid || req.body.userId;
-      console.log('User ID:', userId);
+      
       
       if (!userId) {
         return res.status(401).json({
@@ -20,8 +20,6 @@ const subscriptionMiddleware = {
       }
 
       const userRole = req.user.role;
-      console.log('User Role:', userRole);
-
 
       // Skip middleware for admin users
       if (userRole === 'admin') {
@@ -65,7 +63,6 @@ const subscriptionMiddleware = {
       }
 
       const userRole = req.user.role;
-      console.log('User Role:', userRole);
 
 
       // Skip middleware for admin users
@@ -136,7 +133,6 @@ const subscriptionMiddleware = {
 
       const validation = await SubscriptionService.canAddVehicle(companyId);
       
-      console.log(validation);
       if (!validation.allowed) {
         return res.status(403).json({
           success: false,

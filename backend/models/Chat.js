@@ -74,9 +74,7 @@ const Chat = {
         deletedAt: null,
       };
       
-      console.log(`[Chat.sendMessage] Saving message to chat ${chatId}, messageId: ${messageRef.id}`);
       await messageRef.set(messageData);
-      console.log(`[Chat.sendMessage] Message saved successfully: ${messageRef.id}`);
       
       await db.collection('chats').doc(chatId).update({ 
         updatedAt: admin.firestore.Timestamp.now() 

@@ -61,7 +61,7 @@ async function validateBookingAccess(req, res, next) {
           vehicle = { id: companyVehicleDoc.id, ...companyVehicleDoc.data() };
         }
       } catch (subcollectionError) {
-        console.log('Could not fetch vehicle from company subcollection:', subcollectionError.message);
+        console.error('Could not fetch vehicle from company subcollection:', subcollectionError.message);
       }
     }
     
@@ -71,7 +71,6 @@ async function validateBookingAccess(req, res, next) {
         message: 'Assigned vehicle not found.',
       });
     }
-    console.log('🚗 Vehicle found:', vehicle);
 
     // For company vehicles, status might be 'active' instead of 'approved'
     const isVehicleApproved = vehicle.status === 'approved' || vehicle.status === 'active';

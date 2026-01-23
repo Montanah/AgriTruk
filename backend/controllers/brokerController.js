@@ -28,11 +28,11 @@ exports.createBroker = async (req, res) => {
     if (existingBroker) {
       // If broker exists but wants to update their document, allow it
       if (req.file) {
-        console.log('Updating existing broker document:', req.file.originalname, req.file.mimetype, req.file.path);
+        
         try {
           const idImage = await uploadImage(req.file.path);
           if (idImage) {
-            console.log('New idImage uploaded successfully:', idImage);
+           
             fs.unlinkSync(req.file.path);
             
             // Update the existing broker's document and reset status to pending
@@ -96,14 +96,12 @@ exports.createBroker = async (req, res) => {
         });
       }
     }
-    // console.log("idImage", req.file);
+    
     let idImage = null; 
         if (req.file) {
-          console.log('Processing  file:', req.file.originalname, req.file.mimetype, req.file.path); // Debug file
           try {
             idImage = await uploadImage(req.file.path);
             if (idImage) {
-              console.log('idImage uploaded successfully:', idImage);
               fs.unlinkSync(req.file.path); 
             } else {
               console.error('Failed to upload logo, continuing without idImage');
@@ -113,7 +111,7 @@ exports.createBroker = async (req, res) => {
             return res.status(500).json({ message: 'Failed to upload idImage' });
           }
         } else {
-          console.log('No idImage file received');
+          console.error('No idImage file received');
         }
     
     const brokerData = {
@@ -297,11 +295,10 @@ exports.addClient = async (req, res) => {
 
 exports.getClients = async (req, res) => {
   try {
-    console.log('searching');
     const userId = req.user.uid;
-    console.log('User ID:', userId);
+    
     const broker = await Broker.getByUserId(userId);
-    console.log('Broker:', broker.id);
+    
     const brokerId = broker.id;
     if (!brokerId) {
       return res.status(400).json({ success: false, message: 'Broker ID is required' });
@@ -394,7 +391,7 @@ exports.consolidateRequests = async (req, res) => {
 
       // Verify all requests exist and are not already consolidated
     const requests = await Request.getRequestByIds(requestIds);
-    // console.log(requests);
+
     if (requests.length !== requestIds.length) {
       return res.status(404).json({
         success: false,
@@ -475,18 +472,16 @@ exports.getRequestsByClient = async (req, res) => {
 
 exports.getAllBrokerRequests = async (req, res) => {
   try {
-    console.log('getAllBrokerRequests called for user:', req.user.uid);
     // Get broker by user ID
     const broker = await Broker.getByUserId(req.user.uid);
-    console.log('getAllBrokerRequests broker found:', broker ? broker.id : 'null');
+   
     if (!broker) {
-      console.log('getAllBrokerRequests: No broker found, returning 404');
       return res.status(404).json({ success: false, message: 'Error retrieving broker: Broker not found' });
     }
 
     // Get all clients for this broker
     const clients = await Client.getClients(broker.id);
-    console.log('getAllBrokerRequests clients found:', clients.length);
+    
     const clientIds = clients.map(client => client.id);
 
     // Get all requests for all clients
@@ -505,7 +500,6 @@ exports.getAllBrokerRequests = async (req, res) => {
       allRequests.push(...requestsWithClient);
     }
 
-    console.log('getAllBrokerRequests: Returning', allRequests.length, 'requests');
     await logActivity(req.user.uid, 'get_all_broker_requests', req);
     const notificationData = {
       userId: req.user.uid,
@@ -531,18 +525,15 @@ exports.getAllBrokerRequests = async (req, res) => {
 
 exports.getClientsWithRequests = async (req, res) => {
   try {
-    console.log('getClientsWithRequests called for user:', req.user.uid);
     // Get broker by user ID
     const broker = await Broker.getByUserId(req.user.uid);
-    console.log('getClientsWithRequests broker found:', broker ? broker.id : 'null');
+  
     if (!broker) {
-      console.log('getClientsWithRequests: No broker found, returning 404');
       return res.status(404).json({ success: false, message: 'Error retrieving broker: Broker not found' });
     }
 
     // Get all clients for this broker
     const clients = await Client.getClients(broker.id);
-    console.log('getClientsWithRequests clients found:', clients.length);
     
     // Get requests for each client and add request statistics
     const clientsWithRequests = await Promise.all(
@@ -576,7 +567,6 @@ exports.getClientsWithRequests = async (req, res) => {
       })
     );
 
-    console.log('getClientsWithRequests: Returning', clientsWithRequests.length, 'clients');
     await logActivity(req.user.uid, 'get_clients_with_requests', req);
     const notificationData = {
       userId: req.user.uid,
@@ -993,14 +983,11 @@ exports.uploadDocuments = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Broker not found' });
     }
 
-    // console.log("idImage", req.file);
     let idImage = null; 
         if (req.file) {
-          console.log('Processing  file:', req.file.originalname, req.file.mimetype, req.file.path); // Debug file
           try {
             idImage = await uploadImage(req.file.path);
             if (idImage) {
-              console.log('idImage uploaded successfully:', idImage);
               fs.unlinkSync(req.file.path); 
             } else {
               console.error('Failed to upload logo, continuing without idImage');
@@ -1010,7 +997,7 @@ exports.uploadDocuments = async (req, res) => {
             return res.status(500).json({ message: 'Failed to upload idImage' });
           }
         } else {
-          console.log('No idImage file received');
+          return res.status(400).json({ message: 'No idImage provided' });
         }
     const documents = {
       brokerIdUrl: idImage,
@@ -1018,7 +1005,6 @@ exports.uploadDocuments = async (req, res) => {
     };
 
     const updated = await Broker.update(broker.brokerId, documents);
-    console.log("updated", updated);
 
     await logActivity(req.user.uid, 'update_broker_documents', req);
 

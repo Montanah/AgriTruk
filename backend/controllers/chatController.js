@@ -165,7 +165,6 @@ exports.sendMessage = async (req, res) => {
       fileType = file.mimetype.split('/')[0]; // 'image', 'video', 'application', etc.
     }
 
-    console.log(`[ChatController.sendMessage] Saving message to chat ${chatId} from user ${senderId}`);
     let messageData;
     try {
       messageData = await Chat.sendMessage(
@@ -177,7 +176,6 @@ exports.sendMessage = async (req, res) => {
         fileName, 
         fileType
       );
-      console.log(`[ChatController.sendMessage] Message saved successfully: ${messageData.messageId}`);
     } catch (error) {
       console.error(`[ChatController.sendMessage] Error saving message:`, error);
       return res.status(500).json({ 

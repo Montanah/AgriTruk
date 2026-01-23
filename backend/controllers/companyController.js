@@ -35,7 +35,6 @@ exports.createCompany = async (req, res) => {
   try {
     const userId = req.user.uid;
     const { name, registration, contact } = req.body;
-    console.log("details", name, registration, contact);
 
     if (!name || !contact) {
       return res.status(400).json({ message: 'Missing required fields' });
@@ -50,7 +49,7 @@ exports.createCompany = async (req, res) => {
     }
 
     const existingCompanyByName = await Company.getByName(name);
-    console.log("Existing company by name:", existingCompanyByName);
+
     if (existingCompanyByName) {
       return res.status(400).json({ message: 'Company with the same name already exists' });
     }
@@ -93,7 +92,6 @@ exports.createCompany = async (req, res) => {
     
     // Company owners are NOT transporters - they are fleet managers
     // No transporter record needed for company owners
-    console.log('Company created successfully - no transporter record needed for company owners');
     
     await logActivity(req.user.uid, 'create_company', req);
 
@@ -210,10 +208,10 @@ exports.updateCompany = async (req, res) => {
 exports.approveCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
-    console.log("Approve Company", companyId);
+    
     // Check if the company exists
     const company = await Company.get(companyId);
-    console.log("Company", company);
+   
     if (!company) {
       return res.status(404).json({ message: 'Company not found' });
     }
@@ -222,11 +220,7 @@ exports.approveCompany = async (req, res) => {
     
     //create a onboarding trial
     const subscriber = await SubscriptionService.startSubscription(company.transporterId, "GovVkOXOqNB3wRyFdK5o", null);
-  ""
-    //console.log("Updated Company", updatedCompany);
-
-    //console.log("Subscriber", subscriber);
-
+    
     const email = company.companyEmail;
 
     const user = await User.get(company.transporterId);
@@ -236,8 +230,6 @@ exports.approveCompany = async (req, res) => {
       subject: 'Company Status',
       text: 'Your company has been approved, proceed to add Drivers and Vehicles.',
       html: getBrokerTemplate(user, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')  
-      //html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
-      // html: `<p>Your Company has been approved</p>`
     });
 
     await logAdminActivity(req.user.uid, 'approve_company', req);
@@ -346,12 +338,11 @@ exports.deleteCompany = async (req, res) => {
 exports.getCompaniesByTransporter = async (req, res) => {
   try {
     const { transporterId } = req.params;
-    console.log('🔍 Looking for companies with transporterId:', transporterId);
+    
     const companies = await Company.getByTransporter(transporterId);
-    console.log('🔍 Found companies:', companies.length, companies.map(c => ({ id: c.id, name: c.companyName || c.name })));
-
+   
     if (companies.length === 0) {
-      console.log('🔍 No companies found for transporterId:', transporterId);
+     
       return res.status(404).json({ message: 'Company not found' });
     }
 
@@ -448,8 +439,7 @@ exports.createVehicle = async (req, res) => {
     if (existingVehicle) {
       return res.status(400).json({ message: 'Vehicle with the same registration number already exists' });
     }
-   // console.log("existingVehicle", existingVehicle);
-
+  
     // check format of registration number
     
     if (!req.files) {
@@ -470,8 +460,7 @@ exports.createVehicle = async (req, res) => {
 
     if (req.files) {
       const uploadTasks = req.files.map(async file => {
-        const fieldName = file.fieldname;
-        //console.log(`Processing file: ${fieldName}, path: ${file.path}`); 
+        const fieldName = file.fieldname; 
 
         switch (fieldName) {
           case 'insurance':
@@ -489,7 +478,7 @@ exports.createVehicle = async (req, res) => {
             }
             break;
           default:
-            console.log(`Ignoring unexpected field: ${fieldName}`);
+           
             fs.unlinkSync(file.path); // Clean up unexpected files
         }
       });
@@ -517,7 +506,6 @@ exports.createVehicle = async (req, res) => {
       status: req.body.status,
     };
 
-    console.log(vehicleData);
     const vehicle = await Vehicle.create(companyId, vehicleData);
 
     await logActivity(req.user.uid, 'create_vehicle', req);
@@ -700,11 +688,9 @@ exports.createDriver = async (req, res) => {
 
     // Check for existing driver
     const existingDriver = await Driver.getByEmail(companyId, req.body.email);
-    console.log("company", companyId);
-    console.log("email", req.body.email);
-    console.log('Existing driver:', existingDriver);
+    
     if (existingDriver && existingDriver.email) {
-      console.log('Blocking creation due to existing driver');
+      
       return res.status(400).json({
         success: false,
         message: 'Driver with this email already exists',
@@ -714,16 +700,12 @@ exports.createDriver = async (req, res) => {
     // Check for existing driver
     const existingDriver2 = await Driver.getByPhone(companyId, req.body.phone);
     if (existingDriver2 && existingDriver2.phone) {
-      console.log('Blocking creation due to existing driver');
+      
       return res.status(400).json({
         success: false,
         message: 'Driver with this phone number already exists',
       });
     }
-
-    console.log('Creating driver...');
-    console.log('Request body:', req.body);
-    console.log('Request files structure:', req.files);
 
     const status = 'active';
 
@@ -765,7 +747,7 @@ exports.createDriver = async (req, res) => {
           case 'idDoc':
             const idPublicId = await uploadImage(file.path, file.mimetype.startsWith('application/') ? 'raw' : 'image');
             if (idPublicId) {
-              console.log('Uploaded ID publicId:', idPublicId);
+             
               idUrl = idPublicId;
               fs.unlinkSync(file.path);
             } else {
@@ -773,17 +755,16 @@ exports.createDriver = async (req, res) => {
             }
             break;
           default:
-            console.log(`Ignoring unexpected field: ${file.fieldname}`);
+           
             fs.unlinkSync(file.path); // Clean up unexpected files
         }
       }
     } else {
-      console.log('No files received in request');
+      return res.status(400).json({
+        success: false,
+        message: 'No files uploaded',
+      });
     }
-
-    console.log('License URL:', licenseUrl);
-    console.log('Profile Image URL:', profileImageUrl);
-    console.log('ID URL:', idUrl);
 
     const driverData = {
       name,
@@ -973,8 +954,6 @@ exports.approveCompanyDriver = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Invalid company for driver' });
     }
 
-    console.log('Driver Data:', driver);
-
     // check if approved already
     if (driver.status === 'approved') {
       return res.status(400).json({ success: false, message: 'Driver is already approved' });
@@ -989,10 +968,10 @@ exports.approveCompanyDriver = async (req, res) => {
     try {
       try {
         userRecord = await admin.auth().getUserByEmail(driver.email);
-       // console.log('User already exists, skipping creation...');
+     
       } catch (error) {
         if (error.code === 'auth/user-not-found') {
-          //console.log('User not found, creating a new user...');
+      
           userRecord = await admin.auth().createUser({
             email: driver.email,
             phoneNumber: driver.phone.startsWith('+') ? driver.phone : `+${driver.phone}`,
@@ -1001,22 +980,20 @@ exports.approveCompanyDriver = async (req, res) => {
             emailVerified: false,
             disabled: false,
           });
-          //console.log('User created successfully:', userRecord.uid);
+         
         } else {
           console.error('Error checking user existence:', error);
           return res.status(500).json({ success: false, message: 'Error checking user existence' });
         }
       }
-      //console.log('User Record:', userRecord);
 
       // Update Firebase ID if user creation was successful
       const userId = userRecord ? userRecord.uid : null;
-      //console.log('User ID:', userId);  
+       
       if (userId) {
-       // console.log('Attempting to update Firebase ID with userId:', userId);
+      
         try {
           await Driver.updateFirebaseId(companyId, driverId, userId);
-          //console.log('Firebase ID updated successfully for driver:', driverId);
         } catch (updateError) {
           console.error('Error updating Firebase ID:', updateError);
           return res.status(500).json({ success: false, message: 'Error updating Firebase ID' });
@@ -1040,7 +1017,6 @@ exports.approveCompanyDriver = async (req, res) => {
       return res.status(500).json({ success: false, message: 'Error creating or updating user' });
     }
 
-    //console.log('Driver approved successfully');
     // Send welcome email outside the inner try-catch
     const email = driver.email;
     const name = driver.name;
@@ -1059,7 +1035,7 @@ exports.approveCompanyDriver = async (req, res) => {
           <p>Please change your password after first login.</p>
         `,
       });
-      //console.log('Welcome email sent to:', email);
+      
     } catch (emailError) {
       console.error('Error sending welcome email:', emailError);
       // Continue without failing the request, as email is non-critical
@@ -1100,7 +1076,6 @@ exports.updateVehicleAssignment = async (req, res) => {
   try {
     const { companyId, vehicleId } = req.params;
     const { action, driverId, availability } = req.body;
-    console.log("action", action, driverId, availability);
 
     // Validate required parameters
     if (!companyId || !vehicleId) {
@@ -1225,11 +1200,7 @@ exports.updateVehicleProfile = async (req, res) => {
 };
 
 exports.uploadLogo = async (req, res) => {
-  try {
-    console.log('🔥 uploadLogo called for companyId:', req.params.companyId);
-    console.log('🔥 req.files:', req.files);
-    console.log('🔥 req.file:', req.file);
-    
+  try { 
     const companyId = req.params.companyId;
     // check if company exists
     const company = await Company.get(companyId);
@@ -1244,7 +1215,6 @@ exports.uploadLogo = async (req, res) => {
     
     // Handle single file upload (req.file) or multiple files (req.files)
     const files = req.files ? Object.values(req.files) : (req.file ? [req.file] : []);
-    console.log('🔥 Processing files:', files.length);
     
     if (files.length === 0) {
       return res.status(400).json({
@@ -1254,17 +1224,17 @@ exports.uploadLogo = async (req, res) => {
     }
     
     const uploadTasks = files.map(async file => { 
-      console.log('🔥 Processing file:', file.fieldname, file.originalname);
+      
       const fieldName = file.fieldname; 
       const publicId = await uploadImage(file.path); 
       if (publicId) { 
-        console.log('🔥 Upload successful:', publicId);
+       
         switch (fieldName) { 
           case 'logo': 
             updateData.companyLogo = publicId; 
             break; 
           default: 
-            console.log(`Unknown field name: ${fieldName}`); 
+            console.error('🔥 Invalid field name:', fieldName);
             break;
         } 
       } else {
@@ -1297,7 +1267,6 @@ exports.uploadLogo = async (req, res) => {
     });
 
     await Company.update(companyId, updateData);
-    console.log('🔥 Company updated successfully with:', updateData);
 
     res.status(200).json({
       success: true,
@@ -1364,7 +1333,7 @@ exports.uploadDriverDocuments = async (req, res) => {
             changedFields.push('photo');
             break;
           default:
-            console.log(`Unknown field name: ${fieldName}`);
+            console.error('🔥 Invalid field name:', fieldName);
             break;
         }
       }
@@ -1401,8 +1370,6 @@ exports.uploadDriverDocuments = async (req, res) => {
 exports.uploadVehicleDocuments = async (req, res) => {
   try {
     const { companyId, vehicleId } = req.params;
-    console.log(req.files);
-    console.log(req.params);
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No files uploaded" });
     }
@@ -1445,7 +1412,7 @@ exports.uploadVehicleDocuments = async (req, res) => {
             sensitiveDocsChanged = true; 
             changedFields.push('insurance'); break;
           default:
-            console.log(`Unknown field name: ${fieldName}`);
+            console.error('🔥 Invalid field name:', fieldName);
             break;
         }
       }

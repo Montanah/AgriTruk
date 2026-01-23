@@ -6,8 +6,7 @@ const requireRole = (allowedRoles) => {
   return async (req, res, next) => {
     try {
       const uid = req.user?.uid || req.admin.adminId;
-      console.log("UID:", uid);
-      // console.log("Checking user role for UID:", uid);
+      
       if (!uid) return res.status(401).json({ message: "User not authenticated" });
 
       let userRole;
@@ -18,12 +17,10 @@ const requireRole = (allowedRoles) => {
       if (userDoc.exists) {
         userData = userDoc.data();
         userRole = userData?.role;
-        console.log("User found in users collection, role:", userRole);
+        
       } else {
-        console.log("User not found in users collection, checking drivers/admins/transporters...");
         // If not found in users, check admins
         const adminData = await Admin.getByUserId(uid);
-        // console.log("Admin:", adminData);
         
         if (adminData) {
           userData = adminData;
@@ -38,7 +35,7 @@ const requireRole = (allowedRoles) => {
           if (!driverQuery.empty) {
             userData = driverQuery.docs[0].data();
             userRole = "driver"; // Company-recruited drivers have driver role
-            console.log("Driver found in drivers collection");
+           
           } else {
             // Check if user is a company transporter
             const companyQuery = await admin.firestore().collection("companies")
@@ -60,7 +57,7 @@ const requireRole = (allowedRoles) => {
                 userData = transporterQuery.docs[0].data();
                 userRole = "transporter"; // Individual transporters have transporter role
               } else {
-                console.log("User not found in any collection");
+               
                 return res.status(404).json({ message: "User profile not found" });
               }
             }
@@ -83,11 +80,6 @@ const requireRole = (allowedRoles) => {
       if (allowedRoles.includes('transporter') && !allowedRoles.includes('driver')) {
         expandedAllowedRoles.push('driver');
       }
-
-      // Check if the user's role is in the list of allowed roles
-      console.log("User role:", userRole);
-      console.log("Allowed roles:", allowedRoles);
-      console.log("Expanded allowed roles:", expandedAllowedRoles);
 
       if (!expandedAllowedRoles.includes(userRole)) {
         return res.status(403).json({

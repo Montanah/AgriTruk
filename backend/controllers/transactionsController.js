@@ -91,9 +91,9 @@ exports.getAllTransactions = async (req, res) => {
 exports.getTransactionById = async (req, res) => {
     try {
         const paymentId = req.params.id;
-        console.log(paymentId);
+       
         const payment = await Payment.get(paymentId);
-        console.log(payment);
+       
         if (payment) {
             const user = await Users.get(payment.payerId);
             payment.user = formatTimestamps(user);

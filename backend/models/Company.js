@@ -30,7 +30,7 @@ const Company = {
 
   async get(companyId) {
     const doc = await db.collection('companies').doc(companyId).get();
-    if (!doc.exists) return console.log('Company not found');
+    if (!doc.exists) return {message: 'Company not found'};
     return { id: doc.id, ...doc.data() };
   },
 
@@ -75,11 +75,11 @@ const Company = {
   },
 
   async getByTransporter(transporterId) {
-    console.log('🔍 Company.getByTransporter called with transporterId:', transporterId);
+    
     const snapshot = await db.collection('companies').where('transporterId', '==', transporterId).get();
-    console.log('🔍 Firestore query result - empty:', snapshot.empty, 'size:', snapshot.size);
+   
     const companies = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    console.log('🔍 Mapped companies:', companies.length, companies.map(c => ({ id: c.id, transporterId: c.transporterId, name: c.companyName || c.name })));
+    
     return companies;
   },
 

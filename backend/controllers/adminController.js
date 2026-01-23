@@ -107,8 +107,6 @@ exports.getAllBookings = async (req, res) => {
 
 exports.searchUsers = async (req, res) => {
   try {
-    console.log('Searching for users...');
-    console.log(req.query);
     const { query } = req.query;
     const limit = parseInt(req.query.limit) || 20;
     
@@ -205,8 +203,6 @@ exports.generatePDFReport = async (req, res) => {
   try {
     const { entity, startDate, endDate } = req.query;
     let data = [];
-
-    console.log(entity, startDate, endDate);
 
     const query = db.collection(entity || 'bookings')
       .where('createdAt', '>=', startDate ? new Date(startDate) : new Date(0))
@@ -503,8 +499,6 @@ exports.generateReports = async (req, res) => {
   try {
     const { type, format, ids } = req.body;
 
-    console.log(type, format, ids);
-
     if (!type || !['csv', 'pdf'].includes(format)) {
       return res.status(400).json({ success: false, message: 'Invalid report type or format' });
     }
@@ -550,11 +544,6 @@ exports.generateReports = async (req, res) => {
       // Handle other types (bookings, brokers) as needed
       return res.status(400).json({ success: false, message: 'Unsupported report type' });
     }
-
-    console.log("Fetched data:", data);
-    console.log("Field config:", fieldsConfig);
-    console.log("Filename:", filename);
-    console.log("Format:", format);
 
     if (!data.length) {
       return res.status(404).json({ success: false, message: 'No records found for the provided IDs' });
@@ -773,7 +762,6 @@ exports.reviewCompany = async (req, res) => {
   try {
     const companyId = req.params.companyId;
     const { action, reason, insuranceExpiryDate, driverLicenseExpiryDate, idExpiryDate, driverId, vehicleId, goodConductCertExpiryDate, goodsServiceLicenseExpiryDate } = req.body;
-    console.log(`Reviewing company ${companyId} with action ${action} and vehicleId ${vehicleId} and driverId ${driverId}`);
 
     // 1. Check if transporter exists
     const company = await Company.get(companyId);

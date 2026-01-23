@@ -11,7 +11,7 @@ cloudinary.config({
 });
 
 const uploadImage = async (filePath) => {
-  console.log(`Attempting to upload ${filePath}`); // Debug start
+  
   const options = {
     use_filename: true,
     unique_filename: false,
@@ -24,9 +24,8 @@ const uploadImage = async (filePath) => {
       throw new Error(`Invalid file path: ${filePath}`);
     }
 
-    console.log('Uploading to Cloudinary with options:', options); // Debug options
     const result = await cloudinary.uploader.upload(filePath, options);
-    console.log(`Uploaded to Cloudinary (${result.resource_type}):`, result.secure_url);
+   
     return result.secure_url;
   } catch (error) {
     console.error(`Cloudinary upload error (${result.resource_type}):`, error.message, error.stack); // Detailed error

@@ -34,7 +34,7 @@ const Payment = {
     return doc.data();
   },
   async update(paymentId, updates) {
-    console.log('Updating payment:', paymentId, updates);
+   
     const updated = { ...updates, updatedAt: admin.firestore.Timestamp.now() };
     await db.collection('payments').doc(paymentId).update(updated);
     return updated;

@@ -3,8 +3,6 @@ const db = admin.firestore();
 
 async function fixTrialDuration() {
   try {
-    console.log('🔧 Fixing trial duration for existing subscribers...');
-    
     const userId = '77aA8yBjstWmMjYDZMTHLDf3JbL2';
     
     // Get the subscriber

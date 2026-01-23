@@ -74,7 +74,6 @@ const NotificationService = {
         sentAt: new Date(),
       });
 
-      console.log(`Expiry notification sent to user ${subscription.userId}`);
     } catch (error) {
       console.error('Error sending expiry notification:', error);
       throw error;

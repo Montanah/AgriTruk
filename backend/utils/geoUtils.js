@@ -91,19 +91,10 @@ async function calculateRoadDistanceAndDuration(fromLocation, toLocation, vehicl
         ? route.legs[0].duration_in_traffic.value / 60
         : route.legs[0].duration.value / 60; // Seconds to minutes
 
-      // Debug logging for distance calculation
-      console.log('Google Maps Distance Calculation:');
-      console.log('From:', fromLocation.address, `(${fromLat}, ${fromLng})`);
-      console.log('To:', toLocation.address, `(${toLat}, ${toLng})`);
-      console.log('Google Maps distance:', distanceKm, 'km');
-      console.log('Route summary:', route.summary);
-
       // Validate distance reasonableness using haversine as reference
       const haversineDist = haversineDistance(fromLat, fromLng, toLat, toLng);
       const distanceRatio = distanceKm / haversineDist;
-      console.log('Haversine distance:', haversineDist, 'km');
-      console.log('Distance ratio (road/straight):', distanceRatio.toFixed(2));
-
+    
       // If the road distance is more than 2x the straight-line distance, it might be an error
       let finalDistance = distanceKm;
       if (distanceRatio > 2.0) {

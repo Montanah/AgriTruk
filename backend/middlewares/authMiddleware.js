@@ -1,14 +1,6 @@
 const admin = require("../config/firebase");
 
 const authenticateToken = async (req, res, next) => {
-  console.log('🔐 AUTH MIDDLEWARE - Request received');
-  console.log('🔐 Method:', req.method);
-  console.log('🔐 URL:', req.url);
-  console.log('🔐 Headers present:', {
-    'authorization': !!req.headers["authorization"],
-    'content-type': req.headers["content-type"],
-    'content-length': req.headers["content-length"]
-  });
   
   const authHeader = req.headers["authorization"];
 
@@ -39,7 +31,7 @@ const authenticateToken = async (req, res, next) => {
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
     req.user = decodedToken;
-    // console.log('Token verified successfully:', decodedToken);
+   
     next();
   } catch (err) {
     console.error('Token verification error:', err);

@@ -43,28 +43,21 @@ const uploadDriverDocuments = async (files) => {
 
 const createDriver = async (req, res) => {
   try {
-    console.log('🚗 ===== DRIVER CREATION REQUEST =====');
-    console.log('🚗 Request body:', req.body);
-    console.log('🚗 Request files:', req.files?.length || 0);
-    console.log('🚗 User ID:', req.user.uid);
     
     const userId = req.user.uid;
     const companyId = req.body.companyId;
     
-    console.log('🚗 Company ID from request:', companyId);
-
     // Verify the user owns the company
     const companyDoc = await db.collection('companies').doc(companyId).get();
     if (!companyDoc.exists) {
-      console.log('🚗 Company not found:', companyId);
+      
       return res.status(404).json({ message: 'Company not found' });
     }
 
     const companyData = companyDoc.data();
-    console.log('🚗 Company data:', companyData);
     
     if (companyData.transporterId !== userId) {
-      console.log('🚗 Unauthorized: user', userId, 'does not own company', companyId);
+      
       return res.status(403).json({ message: 'Unauthorized to add drivers to this company' });
     }
 
@@ -109,7 +102,7 @@ const createDriver = async (req, res) => {
     // If no job seeker found, create new Firebase user
     if (!userIdFromJobSeeker) {
       defaultPassword = Math.random().toString(36).slice(-8) + '123'; // 8 random chars + 123
-      console.log('🚀 Creating Firebase user...', defaultPassword);
+      
       let phoneNumber = req.body.phone;
       if (phoneNumber && !phoneNumber.startsWith('+')) {
         phoneNumber = phoneNumber.startsWith('0') ? '+254' + phoneNumber.substring(1) : '+254' + phoneNumber;
@@ -123,7 +116,7 @@ const createDriver = async (req, res) => {
           displayName: `${req.body.firstName} ${req.body.lastName}`,
           emailVerified: false,
         });
-        console.log('Firebase user created:', firebaseUser.uid);
+        
         await db.collection('users').doc(firebaseUser.uid).set({
           email: req.body.email,
           phone: phoneNumber,
@@ -175,15 +168,11 @@ const createDriver = async (req, res) => {
       driverData.idExpiryDate = oneYearFromNow.toISOString();
     }
     
-    console.log('🚗 Prepared driver data:', driverData);
-
     // Handle file uploads using the same working pattern as vehicle creation
     if (req.files && req.files.length > 0) {
-      console.log('🚗 Processing driver files:', req.files.length);
       
       const uploadTasks = req.files.map(async file => {
         const fieldName = file.fieldname;
-        console.log(`🚗 Processing driver file: ${fieldName}, path: ${file.path}`);
         
         try {
           const publicId = await uploadImage(file.path);
@@ -191,18 +180,15 @@ const createDriver = async (req, res) => {
             switch (fieldName) {
               case 'profileImage':
                 driverData.profileImage = publicId;
-                console.log(`🚗 Added profile image: ${publicId}`);
                 break;
               case 'driverLicense':
                 driverData.driverLicenseUrl = publicId;
-                console.log(`🚗 Added driver license: ${publicId}`);
                 break;
               case 'idDocument':
                 driverData.idDocumentUrl = publicId;
-                console.log(`🚗 Added ID document: ${publicId}`);
                 break;
               default:
-                console.log(`🚗 Ignoring unexpected field: ${fieldName}`);
+                console.error(`🚗 Unknown field name: ${fieldName}`);
             }
             fs.unlinkSync(file.path);
           } else {
@@ -217,12 +203,7 @@ const createDriver = async (req, res) => {
       });
       
       await Promise.all(uploadTasks);
-      
-      console.log('🚗 Driver file upload completed:', {
-        profileImage: !!driverData.profileImage,
-        driverLicense: !!driverData.driverLicenseUrl,
-        idDocument: !!driverData.idDocumentUrl
-      });
+    
     }
 
     // Create driver document
@@ -283,8 +264,6 @@ const createDriver = async (req, res) => {
       }
     });
     
-    console.log('🚗 ===== DRIVER CREATION COMPLETED =====');
-
   } catch (error) {
     console.error('Error creating driver:', error);
     res.status(500).json({ message: 'Failed to create driver' });
@@ -638,7 +617,6 @@ const activateDriver = async (req, res) => {
             `
           });
 
-          console.log('✅ Activation credentials sent to:', recipientEmail);
         } catch (firebaseError) {
           console.error('Error getting Firebase user:', firebaseError);
           // Fallback: send email without password reset link
@@ -658,8 +636,6 @@ const activateDriver = async (req, res) => {
             subject,
             html
           });
-
-          console.log('✅ Activation notification sent to:', recipientEmail);
         }
       } catch (emailError) {
         console.error('Error sending activation email:', emailError);
@@ -799,28 +775,21 @@ const verifyDriver = async (req, res) => {
 const getDriverProfile = async (req, res) => {
   try {
     const { uid } = req.user;
-    console.log('🔍 getDriverProfile - Looking for driver with userId:', uid);
-
+    
     // Use EXACT same query as checkIfDriver which works successfully
     const driverQuery = db.collection('drivers').where('userId', '==', uid).limit(1);
     const driverSnapshot = await driverQuery.get();
 
-    console.log('🔍 Driver query result - empty:', driverSnapshot.empty, 'size:', driverSnapshot.size);
-
-    if (driverSnapshot.empty) {
-      console.log('⚠️ Driver not found via userId query - trying alternative lookup');
-      
+    if (driverSnapshot.empty) { 
       // Alternative: Try to find by driverId if user document has it
       try {
         const userDoc = await db.collection('users').doc(uid).get();
         if (userDoc.exists) {
           const userData = userDoc.data();
-          console.log('🔍 User document found, checking for driverId:', userData.driverId);
           
           if (userData.driverId) {
             const driverDocById = await db.collection('drivers').doc(userData.driverId).get();
             if (driverDocById.exists) {
-              console.log('✅ Found driver by driverId from user document');
               const driverData = driverDocById.data();
               return await buildDriverProfileResponse(driverDocById.id, driverData, res);
             }
@@ -831,7 +800,6 @@ const getDriverProfile = async (req, res) => {
       }
       
       // Final fallback: Try to get any driver with this userId (case-insensitive, different field names)
-      console.log('⚠️ Trying final fallback - checking all possible fields');
       try {
         const allDriversQuery = await db.collection('drivers').get();
         let foundDriver = null;
@@ -840,7 +808,6 @@ const getDriverProfile = async (req, res) => {
           const data = doc.data();
           if (data.userId === uid || data.user_id === uid || String(data.userId) === String(uid)) {
             foundDriver = { id: doc.id, ...data };
-            console.log('✅ Found driver in fallback search:', doc.id);
             break;
           }
         }
@@ -862,9 +829,6 @@ const getDriverProfile = async (req, res) => {
     const driverDoc = driverSnapshot.docs[0];
     const driverData = driverDoc.data();
     const driverId = driverDoc.id;
-    
-    console.log('✅ Driver found via userId query:', driverId);
-
     
     return await buildDriverProfileResponse(driverId, driverData, res);
   } catch (error) {
@@ -916,7 +880,7 @@ const buildDriverProfileResponse = async (driverId, driverData, res) => {
             };
           }
         } catch (subcollectionError) {
-          console.log('Could not fetch from company vehicles subcollection:', subcollectionError.message);
+          console.error('Error in subcollection lookup:', subcollectionError);
         }
       }
       
@@ -939,8 +903,6 @@ const buildDriverProfileResponse = async (driverId, driverData, res) => {
         };
       }
     }
-
-    console.log('✅ Returning driver profile for:', driverId);
 
     return res.status(200).json({
       success: true,
@@ -1008,9 +970,6 @@ const updateDriverProfile = async (req, res) => {
     const { uid } = req.user;
     const { firstName, lastName, phone, email, profileImage } = req.body;
 
-    console.log('📝 Updating driver profile for userId:', uid);
-    console.log('📝 Update data:', { firstName, lastName, phone, email, profileImage: !!profileImage });
-
     // Find driver by userId
     const driverQuery = db.collection('drivers').where('userId', '==', uid).limit(1);
     const driverSnapshot = await driverQuery.get();
@@ -1026,9 +985,6 @@ const updateDriverProfile = async (req, res) => {
     const driverDoc = driverSnapshot.docs[0];
     const driverId = driverDoc.id;
     const driverData = driverDoc.data();
-
-    console.log('✅ Found driver:', driverId);
-
     // Prepare update data (only include provided fields)
     const updateData = {
       updatedAt: admin.firestore.Timestamp.now()
@@ -1073,14 +1029,13 @@ const updateDriverProfile = async (req, res) => {
     if (Object.keys(userUpdateData).length > 0) {
       userUpdateData.updatedAt = admin.firestore.Timestamp.now();
       await db.collection('users').doc(uid).update(userUpdateData);
-      console.log('✅ Users collection also updated');
+      
+      
     }
 
     // Get updated driver data
     const updatedDriverDoc = await db.collection('drivers').doc(driverId).get();
     const updatedDriverData = { id: driverId, ...updatedDriverDoc.data() };
-
-    console.log('✅ Driver profile updated successfully');
 
     res.status(200).json({
       success: true,
@@ -1182,10 +1137,6 @@ const acceptBooking = async (req, res) => {
     const { bookingId, companyId } = req.params;
     const userId = req.user.uid;
 
-    console.log('🚗 Accepting booking:', bookingId);
-    console.log('🚗 Company ID:', companyId);
-    console.log('🚗 User ID:', userId);
-
     // Get company details
     const company = await Company.get(companyId);
     if (!company) {
@@ -1205,7 +1156,6 @@ const acceptBooking = async (req, res) => {
 
     // Check if overlimit and no registration
     // 🚫 Block if over limit and no registration
-    console.log('🚗 Trips count:', company.completedTripsCount);
     if (!company.registrationProvided && company.completedTripsCount >= 5) {
       return res.status(403).json({
         success: false,
@@ -1225,7 +1175,6 @@ const acceptBooking = async (req, res) => {
     const driverId = driverData.driverId;
 
     const vehicleId = driverData.assignedVehicleId;
-    console.log('🚗 Vehicle ID:', vehicleId);
 
     if (driverData.companyId !== companyId) {
       return res.status(403).json({
@@ -1263,14 +1212,9 @@ const acceptBooking = async (req, res) => {
     let driver = null;
     try {
       driver = await Driver.get(driverId);
-      console.log('✅ Driver found:', {
-        id: driverId,
-        name: `${driver.firstName} ${driver.lastName}`,
-        phone: driver.phone,
-        status: driver.status
-      });
+      
     } catch (error) {
-      console.log('❌ Driver not found, continuing without driver details:', error.message);
+      console.error('Driver not found, continuing without driver details:', error.message);
     }
 
     if (!driver) {
@@ -1287,35 +1231,27 @@ const acceptBooking = async (req, res) => {
         // Check if this is a company driver by looking for the driver in companies collection
         let isCompanyDriver = false;
         let companyIdFromDriver = companyId || driver.companyId; // Use provided companyId or driver's companyId
-        console.log('🚗 Company ID from driver:', companyIdFromDriver);
         
         if (companyIdFromDriver) {
           const driverSnapshot  = await Driver.get(driverId);
           
           if (driverSnapshot) {
             isCompanyDriver = true;
-            console.log('✅ Company driver detected, getting vehicle from company collection');
             
             const vehicleSnapshot = await db.collection('vehicles').doc(vehicleId).get();
             if (vehicleSnapshot.exists) {
               vehicle = vehicleSnapshot.data();
-              console.log('✅ Vehicle found:', vehicle);
-              console.log('✅ Company vehicle found:', {
-                make: vehicle.make,
-                model: vehicle.type,
-                registration: vehicle.vehicleRegistration
-              });
             }
           }
         }
 
         if (!isCompanyDriver && driver.assignedVehicleId) {
           // Individual driver - vehicle data might be in assignedVehicleDetails
-          console.log('✅ Individual driver detected, using assigned vehicle details');
+         
           vehicle = driver.assignedVehicleDetails || {};
         }
       } catch (error) {
-        console.log('Error determining driver type or fetching vehicle details:', error.message);
+        console.error('Error determining driver type or fetching vehicle details:', error.message);
       }
     }
 
@@ -1340,14 +1276,6 @@ const acceptBooking = async (req, res) => {
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
-
-    console.log('💾 Saving booking updates:', {
-      bookingId,
-      driverName: updates.driverName,
-      driverPhone: updates.driverPhone,
-      vehicleMake: updates.vehicleMake,
-      vehicleRegistration: updates.vehicleRegistration
-    });
 
     await Booking.update(bookingId, updates);
 
