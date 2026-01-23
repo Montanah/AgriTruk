@@ -1,5 +1,6 @@
 const admin = require('../config/firebase');
 const db = admin.firestore();
+const SubscriptionPlans = require('./SubscriptionsPlans');
 
 const Subscribers = {
 

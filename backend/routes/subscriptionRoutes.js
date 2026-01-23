@@ -648,4 +648,79 @@ router.post('/change-plan', authenticateToken, requireRole(['transporter', 'brok
  */
 router.post('/cancel', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.cancelPlan);
 
+/**
+ * @swagger
+ * /api/subscriptions/admin/cancel:
+ *   post:
+ *     tags: [Admin Actions]
+ *     summary: Cancel subscription
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id
+ *               - cancellationReason
+ *             properties:
+ *               id:
+ *                 type: string
+ *               cancellationReason:
+ *                 type: string
+ *                 description: Reason for cancellation
+ *     responses:
+ *       200:
+ *         description: Subscription canceled
+ *       401:
+ *         description: User not authenticated
+ *       403:
+ *         description: Access denied
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/admin/cancel', authenticateToken, requireRole(['admin']), authorize(['manage_subscriptions', 'super_admin']), subscriptionController.AdminCancelSubscription); //requireRole('admin']), subscriptionController.cancelPlan);
+
+/**
+ * @swagger
+ * /api/subscriptions/admin/reactivate:
+ *   post:
+ *     tags: [Admin Actions]
+ *     summary: Reactivate subscription
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: string
+ *               paymentMethod:
+ *                 type: string
+ *                 description: Payment method
+ *               phoneNumber:
+ *                 type: string 
+ *                 description: Phone number
+ *               addTrialDays:
+ *                 type: number
+ *                 description: Number of days to add to the trial period
+ *     responses:
+ *       200:
+ *         description: Subscription canceled
+ *       401:
+ *         description: User not authenticated
+ *       403:
+ *         description: Access denied
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/admin/reactivate', authenticateToken, requireRole(['admin']), authorize(['manage_subscriptions', 'super_admin']), subscriptionController.reactivateSubscription); //requireRole('admin']), subscriptionController.cancelPlan);
+
 module.exports = router;

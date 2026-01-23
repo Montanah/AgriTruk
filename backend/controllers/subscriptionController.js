@@ -211,6 +211,7 @@ exports.createSubscriber = async (req, res) => {
   try {
     const userId = req.body.userId || req.user.uid;
     // check user exists
+
     const user = await Users.get(userId);
     if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid user' });
@@ -565,6 +566,7 @@ async function checkTrialEligibility(userId) {
   }
 }
 
+
 async function hasUsedTrial(userId) {
   try {
     const subscriber = await Subscribers.getByUserId(userId);
@@ -864,6 +866,218 @@ exports.cancelPlan = async (req, res) => {
 
   } catch (error) {
     console.error('Error cancelling subscription:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
+exports.AdminCancelSubscription = async (req, res) => {
+  try {
+    const { userId, cancellationReason } = req.body;
+    const subscriber = await Subscribers.getByUserId(userId);
+    if (!subscriber) {
+      return res.status(404).json({ success: false, message: 'Subscriber not found' });
+    }
+    const result = await cancelSubscription(subscriber, cancellationReason);
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error cancelling subscription:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+}
+
+exports.reactivateSubscription = async (req, res) => {
+  try {
+    const { paymentMethod, phoneNumber, addTrialDays } = req.body;
+    const userId = req.body.userId;
+    console.log("me", userId);
+    // Get user and their expired subscription
+    const user = await Users.get(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Get the most recent subscription (even if expired)
+    const allSubscriptions = await Subscribers.getAllByUserId(userId);
+    const expiredSubscription = allSubscriptions
+      .sort((a, b) => b.endDate - a.endDate)[0];
+
+    if (!expiredSubscription) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No subscription found to reactivate' 
+      });
+    }
+
+    // Get the plan details
+    const plan = await SubscriptionPlans.getSubscriptionPlan(expiredSubscription.planId);
+    if (!plan || !plan.isActive) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'The subscription plan is no longer available' 
+      });
+    }
+
+    const isTrial = plan.price === 0;
+    const UsedTrial = await Subscribers.hasUsedTrial(userId);
+
+    // **SCENARIO 1: Adding trial days to expired subscription**
+    if (addTrialDays && typeof addTrialDays === 'number') {
+      // Only allow adding trial days if user hasn't used trial before
+      if (UsedTrial && !isTrial) {
+        return res.status(400).json({
+          success: false,
+          message: 'Trial period already used. Please purchase a subscription.'
+        });
+      }
+
+      // Admin can add trial days to any subscription
+      const newStartDate = new Date();
+      const newEndDate = new Date();
+      newEndDate.setDate(newEndDate.getDate() + addTrialDays);
+
+      await Subscribers.update(expiredSubscription.id, {
+        startDate: newStartDate,
+        endDate: newEndDate,
+        isActive: true,
+        status: 'active',
+        paymentStatus: 'trial_extension',
+        reactivatedAt: new Date()
+      });
+
+      await logActivity(userId, 'subscription_trial_extension', req, {
+        planId: plan.id,
+        trialDays: addTrialDays
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Subscription reactivated with ${addTrialDays} trial days`,
+        data: {
+          startDate: newStartDate,
+          endDate: newEndDate,
+          plan: formatTimestamps(plan)
+        }
+      });
+    }
+
+    // **SCENARIO 2: Reactivating a trial (not allowed - must upgrade)**
+    if (isTrial) {
+      return res.status(400).json({
+        success: false,
+        message: 'Trial period has expired. Please purchase a subscription to continue.',
+        requiresPayment: true,
+        availablePlans: await SubscriptionPlans.getAllSubscriptionPlans()
+          .then(plans => plans.filter(p => p.isActive && p.price > 0))
+      });
+    }
+
+    // **SCENARIO 3: Reactivating a paid subscription (requires payment)**
+    if (plan.price > 0) {
+      if (!paymentMethod) {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment method required to reactivate subscription',
+          requiresPayment: true,
+          plan: formatTimestamps(plan)
+        });
+      }
+
+      // Calculate new subscription period
+      const newStartDate = new Date();
+      const newEndDate = new Date(newStartDate);
+      
+      if (plan.duration === 'monthly') {
+        newEndDate.setMonth(newEndDate.getMonth() + 1);
+      } else if (plan.duration === 'quarterly') {
+        newEndDate.setMonth(newEndDate.getMonth() + 3);
+      } else if (plan.duration === 'annual') {
+        newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+      } else {
+        // Fallback for numeric duration in days
+        newEndDate.setDate(newEndDate.getDate() + (plan.duration || 30));
+      }
+
+      // Process payment
+      const reference = `REACTIVATE_${userId}_${plan.id}_${Date.now()}`;
+      let paymentResult;
+
+      if (paymentMethod === "mpesa") {
+        paymentResult = await processMpesaPayment({
+          phone: phoneNumber,
+          amount: plan.price,
+          accountRef: reference,
+          description: `Reactivate subscription: ${plan.name}`
+        });
+      } else if (paymentMethod === "card") {
+        paymentResult = await processCardPayment({
+          amount: plan.price,
+          currency: plan.currency || "KES",
+          reference,
+          description: `Reactivate subscription: ${plan.name}`
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid payment method'
+        });
+      }
+
+      // Create payment record
+      const paymentRecord = await Payment.create({
+        payerId: userId,
+        payeeId: "TRUK",
+        amount: plan.price,
+        phone: phoneNumber || null,
+        currency: plan.currency || 'KES',
+        method: paymentMethod,
+        requestId: paymentResult.data.CheckoutRequestID,
+        planId: plan.id,
+        status: "pending",
+        type: "reactivation"
+      });
+
+      // Update subscription (pending payment confirmation)
+      await Subscribers.update(expiredSubscription.id, {
+        startDate: admin.firestore.Timestamp.fromDate(newStartDate),
+        endDate: admin.firestore.Timestamp.fromDate(newEndDate),
+        isActive: false, // Will be activated after payment confirmation
+        status: 'pending_payment',
+        paymentStatus: 'pending',
+        paymentId: paymentRecord.id,
+        transactionId: reference,
+        reactivatedAt: admin.firestore.Timestamp.now()
+      });
+
+      await logActivity(userId, 'subscription_reactivation_initiated', req, {
+        planId: plan.id,
+        amount: plan.price,
+        paymentMethod
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Payment initiated. Subscription will be reactivated upon payment confirmation.',
+        data: {
+          payment: formatTimestamps(paymentRecord),
+          gatewayResponse: paymentResult.data,
+          newStartDate,
+          newEndDate,
+          plan: formatTimestamps(plan)
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Error reactivating subscription:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
