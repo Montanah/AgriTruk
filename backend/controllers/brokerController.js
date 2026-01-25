@@ -905,6 +905,23 @@ exports.reviewBroker = async (req, res) => {
       await Broker.update(brokerId, updateData);
       await logAdminActivity(adminId, 'approve_broker', req);
 
+      // Auto-activate trial subscription for broker if eligible
+      try {
+        const RecruiterPlans = require('../models/RecruiterPlans');
+        const RecruiterSubscribers = require('../models/RecruiterSubscribers');
+        const RecruiterSubscriptionService = require('../services/RecruiterSubscriptionService');
+        // Check if broker's user has used a trial
+        const hasUsedTrial = await RecruiterSubscribers.hasUsedTrial(user.id);
+        if (!hasUsedTrial) {
+          const trialPlan = await RecruiterPlans.getTrialPlan();
+          if (trialPlan && trialPlan.id) {
+            await RecruiterSubscriptionService.startSubscription(user.id, trialPlan.id);
+          }
+        }
+      } catch (trialErr) {
+        console.error('Error auto-activating broker trial:', trialErr);
+      }
+
       await sendEmail({
         to: user.email,
         subject: 'Broker Account Approved',

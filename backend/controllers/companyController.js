@@ -964,8 +964,9 @@ exports.approveCompanyDriver = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Driver is already approved' });
     }
 
+
     await Driver.approve(driverId);
-    const pass =  generateRandomPassword(); 
+    const pass = generateRandomPassword();
     const signInLink = generateSignInLink(driver.email);
 
     // Create a Firebase Auth Account
@@ -973,10 +974,8 @@ exports.approveCompanyDriver = async (req, res) => {
     try {
       try {
         userRecord = await admin.auth().getUserByEmail(driver.email);
-       // console.log('User already exists, skipping creation...');
       } catch (error) {
         if (error.code === 'auth/user-not-found') {
-          //console.log('User not found, creating a new user...');
           userRecord = await admin.auth().createUser({
             email: driver.email,
             phoneNumber: driver.phone.startsWith('+') ? driver.phone : `+${driver.phone}`,
@@ -985,22 +984,17 @@ exports.approveCompanyDriver = async (req, res) => {
             emailVerified: false,
             disabled: false,
           });
-          //console.log('User created successfully:', userRecord.uid);
         } else {
           console.error('Error checking user existence:', error);
           return res.status(500).json({ success: false, message: 'Error checking user existence' });
         }
       }
-      //console.log('User Record:', userRecord);
 
       // Update Firebase ID if user creation was successful
       const userId = userRecord ? userRecord.uid : null;
-      //console.log('User ID:', userId);  
       if (userId) {
-       // console.log('Attempting to update Firebase ID with userId:', userId);
         try {
           await Driver.updateFirebaseId(companyId, driverId, userId);
-          //console.log('Firebase ID updated successfully for driver:', driverId);
         } catch (updateError) {
           console.error('Error updating Firebase ID:', updateError);
           return res.status(500).json({ success: false, message: 'Error updating Firebase ID' });
@@ -1010,6 +1004,36 @@ exports.approveCompanyDriver = async (req, res) => {
         return res.status(500).json({ success: false, message: 'No valid user ID available' });
       }
 
+      // --- AUTO-ACTIVATE TRIAL SUBSCRIPTION LOGIC ---
+      const Subscribers = require('../models/Subscribers');
+      const SubscriptionPlans = require('../models/SubscriptionsPlans');
+      // Only create a trial if the driver has not used one before
+      const hasUsedTrial = await Subscribers.hasUsedTrial(userId);
+      if (!hasUsedTrial) {
+        const trialPlan = await SubscriptionPlans.getTrialPlan();
+        if (trialPlan) {
+          const startDate = new Date();
+          const endDate = new Date(startDate);
+          const trialDays = trialPlan.trialDays || trialPlan.duration || 90;
+          endDate.setDate(endDate.getDate() + trialDays);
+          await Subscribers.create({
+            userId,
+            planId: trialPlan.id || trialPlan.planId,
+            startDate,
+            endDate,
+            isActive: true,
+            autoRenew: false,
+            paymentStatus: 'trial',
+            transactionId: null,
+            status: 'active',
+          });
+          console.log(`Trial subscription auto-activated for driver ${userId}`);
+        } else {
+          console.warn('No trial plan found for auto-activation.');
+        }
+      }
+      // --- END AUTO-ACTIVATION LOGIC ---
+
       await Notification.create({
         type: "Driver Approved",
         message: `A new driver has been approved. Driver ID: ${driverId}`,
@@ -1017,7 +1041,7 @@ exports.approveCompanyDriver = async (req, res) => {
         userType: "company",
       });
 
-      await logAdminActivity(req.user.uid, 'approve_driver', req, driverId); 
+      await logAdminActivity(req.user.uid, 'approve_driver', req, driverId);
 
     } catch (error) {
       console.error('Error creating/updating user:', error);
