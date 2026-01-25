@@ -247,37 +247,18 @@ exports.createSubscriber = async (req, res) => {
 
     const startDate = new Date(Date.now());
     const endDate = new Date(startDate); // Create a new Date object
-    
-<<<<<<< HEAD
-    // Handle trial plans differently: duration in days instead of months
-    if (plan.price === 0) {
-      // Trial plan: duration is in days
-      const trialDays = plan.duration || 90;
-      console.log(`📅 Creating trial subscriber with ${trialDays} days`);
-      endDate.setDate(endDate.getDate() + trialDays);
-    } else {
-      // Paid plan: duration is in months
-      endDate.setMonth(endDate.getMonth() + plan.duration);
-    }
-    
-=======
-    // CRITICAL FIX: Handle trial vs paid plan duration correctly
-    // For trial plans (price === 0): duration should be in days (typically 90 days)
-    // For paid plans (price > 0): duration should be in days as well (converted from months)
+    // Robust handling for trial and paid plan durations
     if (plan.price === 0) {
       // Trial plan: use trialDays if available, otherwise use duration as days
       const trialDays = plan.trialDays || plan.duration || 90;
-      
       endDate.setDate(endDate.getDate() + trialDays);
     } else {
       // Paid plan: duration is typically in months, need to convert
       // If duration is already in days (which it should be), add directly
       // If it's in months, multiply by 30
-      const durationInDays = plan.duration > 12 ? plan.duration : plan.duration * 30; // Heuristic: if > 12, assume days
-      
+      const durationInDays = plan.duration > 12 ? plan.duration : plan.duration * 30;
       endDate.setDate(endDate.getDate() + durationInDays);
     }
->>>>>>> 70694673adb33ed44dd36a0de685b246533d43ff
     const isActive = true;
     const paymentStatus = 'pending';
     const transactionId = null;
