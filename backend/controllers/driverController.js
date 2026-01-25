@@ -9,6 +9,8 @@ const Notification = require('../models/Notification');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const Action = require('../models/Action');
 const Company = require('../models/Company');
+const { uploadImage } = require('../utils/upload');
+const fs = require('fs');
 
 
 // Utility function to upload driver documents
@@ -39,193 +41,23 @@ const uploadDriverDocuments = async (files) => {
   return uploadResults;
 };
 
-// Create a new driver for a company
-// const createDriver = async (req, res) => {
-//   try {
-//     const userId = req.user.uid;
-//     const companyId = req.body.companyId;
-   
-//     // Verify the user owns the company
-//     const companyDoc = await db.collection('companies').doc(companyId).get();
-//     if (!companyDoc.exists) {
-//       return res.status(404).json({ message: 'Company not found' });
-//     }
-
-//     const companyData = companyDoc.data();
-//     if (companyData.transporterId !== userId) {
-//       return res.status(403).json({ message: 'Unauthorized to add drivers to this company' });
-//     }
-
-//     // Check if driver with same email or phone already exists
-//     const existingDriverQuery = await db.collection('drivers')
-//       .where('companyId', '==', companyId)
-//       .where('email', '==', req.body.email)
-//       .get();
-
-//     if (!existingDriverQuery.empty) {
-//       return res.status(400).json({ message: 'Driver with this email already exists' });
-//     }
-
-//     const existingPhoneQuery = await db.collection('drivers')
-//       .where('companyId', '==', companyId)
-//       .where('phone', '==', req.body.phone)
-//       .get();
-
-//     if (!existingPhoneQuery.empty) {
-//       return res.status(400).json({ message: 'Driver with this phone number already exists' });
-//     }
-
-//     // Generate default password (driver can change this later)
-//     const defaultPassword = Math.random().toString(36).slice(-8) + '123'; // 8 random chars + 123
-
-//     // Create Firebase Auth user for the driver using Admin SDK
-//     let firebaseUser;
-//     try {
-//       // Format phone number to international format if not already
-//       let phoneNumber = req.body.phone;
-//       if (phoneNumber && !phoneNumber.startsWith('+')) {
-//         // Assume Kenyan number if no country code
-//         phoneNumber = phoneNumber.startsWith('0') ? 
-//           '+254' + phoneNumber.substring(1) : 
-//           '+254' + phoneNumber;
-//       }
-
-//       firebaseUser = await admin.auth().createUser({
-//         email: req.body.email,
-//         phoneNumber: phoneNumber,
-//         password: defaultPassword,
-//         displayName: `${req.body.firstName} ${req.body.lastName}`,
-//         emailVerified: false,
-//         // Note: Phone verification will be handled separately if needed
-//       });
-//       console.log('Firebase user created:', firebaseUser.uid);
-//     } catch (authError) {
-//       console.error('Error creating Firebase user:', authError);
-//       if (authError.code === 'auth/email-already-exists') {
-//         return res.status(400).json({ message: 'A user with this email already exists. Please use a different email address.' });
-//       }
-//       if (authError.code === 'auth/phone-number-already-exists') {
-//         return res.status(400).json({ message: 'A user with this phone number already exists. Please use a different phone number.' });
-//       }
-//       return res.status(400).json({ message: 'Failed to create driver account: ' + authError.message });
-//     }
-
-//     // Prepare driver data (filter out undefined values)
-//     const driverData = {
-//       companyId,
-//       userId: firebaseUser.uid,
-//       firstName: req.body.firstName,
-//       lastName: req.body.lastName,
-//       email: req.body.email,
-//       phone: req.body.phone,
-//       driverLicense: req.body.driverLicenseNumber || req.body.driverLicense || 'DL-' + Date.now(),
-//       idNumber: req.body.idNumber || 'ID-' + Date.now(),
-//       status: 'pending',
-//       assignedVehicleId: null,
-//       isDefaultPassword: true,
-//       createdAt: new Date(),
-//       updatedAt: new Date(),
-//     };
-
-//     // Only add optional fields if they have values
-//     if (req.body.driverLicenseExpiryDate) {
-//       driverData.driverLicenseExpiryDate = req.body.driverLicenseExpiryDate;
-//     }
-//     if (req.body.idExpiryDate) {
-//       driverData.idExpiryDate = req.body.idExpiryDate;
-//     }
-
-//     // Handle file uploads
-//     if (req.files && req.files.length > 0) {
-//       try {
-//         const uploadResults = await uploadDriverDocuments(req.files);
-        
-//         if (uploadResults.profileImage) {
-//           driverData.profileImage = uploadResults.profileImage[0];
-//         }
-//         if (uploadResults.driverLicense) {
-//           driverData.driverLicenseUrl = uploadResults.driverLicense[0];
-//         }
-//         if (uploadResults.idDocument) {
-//           driverData.idDocumentUrl = uploadResults.idDocument[0];
-//         }
-//       } catch (uploadError) {
-//         console.error('Error uploading driver documents:', uploadError);
-//         return res.status(500).json({ message: 'Failed to upload driver documents' });
-//       }
-//     }
-
-//     // Create driver document
-//     const driverRef = db.collection('drivers').doc();
-//     await driverRef.set(driverData);
-
-//     // Create action for admin review
-//     await db.collection('actions').add({
-//       type: 'driver_review',
-//       entityId: driverRef.id,
-//       priority: 'medium',
-//       metadata: {
-//         companyName: companyData.companyName,
-//         driverName: `${driverData.firstName} ${driverData.lastName}`,
-//         driverLicense: driverData.driverLicense
-//       },
-//       message: `New driver recruited by ${companyData.companyName}. Driver ID: ${driverRef.id}`,
-//       createdAt: new Date(),
-//     });
-
-//     // Send notification to admin
-//     await sendEmail({
-//         to: "support@trukafrica.com",
-//         subject: 'New Driver Recruited for Review',
-//         html: adminNotification(`Company ${companyData.companyName} has recruited a new driver (${driverData.firstName} ${driverData.lastName}) for review.`),
-//       });
-
-//     // Send welcome email with login credentials
-//     try {
-//       const { sendDriverWelcomeEmail } = require('../utils/sendMailTemplate');
-//       await sendDriverWelcomeEmail({
-//         email: driverData.email,
-//         phone: driverData.phone,
-//         firstName: driverData.firstName,
-//         lastName: driverData.lastName,
-//         companyName: companyData.companyName,
-//         defaultPassword,
-//         loginUrl: process.env.FRONTEND_URL || 'https://your-app.com'
-//       });
-//     } catch (emailError) {
-//       console.error('Error sending welcome email:', emailError);
-//       // Don't fail the driver creation if email fails
-//     }
-
-//     res.status(201).json({
-//       message: 'Driver created successfully',
-//       driver: { 
-//         id: driverRef.id, 
-//         ...driverData,
-//         defaultPassword // Include for company admin reference
-//       }
-//     });
-
-//   } catch (error) {
-//     console.error('Error creating driver:', error);
-//     res.status(500).json({ message: 'Failed to create driver' });
-//   }
-// };
-
-// Create a new driver for a company
 const createDriver = async (req, res) => {
   try {
+    
     const userId = req.user.uid;
     const companyId = req.body.companyId;
-
+    
     // Verify the user owns the company
     const companyDoc = await db.collection('companies').doc(companyId).get();
     if (!companyDoc.exists) {
+      
       return res.status(404).json({ message: 'Company not found' });
     }
 
     const companyData = companyDoc.data();
+    
     if (companyData.transporterId !== userId) {
+      
       return res.status(403).json({ message: 'Unauthorized to add drivers to this company' });
     }
 
@@ -270,7 +102,7 @@ const createDriver = async (req, res) => {
     // If no job seeker found, create new Firebase user
     if (!userIdFromJobSeeker) {
       defaultPassword = Math.random().toString(36).slice(-8) + '123'; // 8 random chars + 123
-      console.log('🚀 Creating Firebase user...', defaultPassword);
+      
       let phoneNumber = req.body.phone;
       if (phoneNumber && !phoneNumber.startsWith('+')) {
         phoneNumber = phoneNumber.startsWith('0') ? '+254' + phoneNumber.substring(1) : '+254' + phoneNumber;
@@ -284,7 +116,7 @@ const createDriver = async (req, res) => {
           displayName: `${req.body.firstName} ${req.body.lastName}`,
           emailVerified: false,
         });
-        console.log('Firebase user created:', firebaseUser.uid);
+        
         await db.collection('users').doc(firebaseUser.uid).set({
           email: req.body.email,
           phone: phoneNumber,
@@ -317,25 +149,61 @@ const createDriver = async (req, res) => {
       updatedAt: new Date(),
     };
 
-    // Handle optional fields
+    // Handle optional fields with proper defaults
     if (req.body.driverLicenseExpiryDate) {
       driverData.driverLicenseExpiryDate = req.body.driverLicenseExpiryDate;
+    } else {
+      // Set default expiry to 1 year from now
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      driverData.driverLicenseExpiryDate = oneYearFromNow.toISOString();
     }
+    
     if (req.body.idExpiryDate) {
       driverData.idExpiryDate = req.body.idExpiryDate;
+    } else {
+      // Set default expiry to 1 year from now
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      driverData.idExpiryDate = oneYearFromNow.toISOString();
     }
-
-    // Handle file uploads
+    
+    // Handle file uploads using the same working pattern as vehicle creation
     if (req.files && req.files.length > 0) {
-      try {
-        const uploadResults = await uploadDriverDocuments(req.files);
-        if (uploadResults.profileImage) driverData.profileImage = uploadResults.profileImage[0];
-        if (uploadResults.driverLicense) driverData.driverLicenseUrl = uploadResults.driverLicense[0];
-        if (uploadResults.idDocument) driverData.idDocumentUrl = uploadResults.idDocument[0];
-      } catch (uploadError) {
-        console.error('Error uploading driver documents:', uploadError);
-        return res.status(500).json({ message: 'Failed to upload driver documents' });
-      }
+      
+      const uploadTasks = req.files.map(async file => {
+        const fieldName = file.fieldname;
+        
+        try {
+          const publicId = await uploadImage(file.path);
+          if (publicId) {
+            switch (fieldName) {
+              case 'profileImage':
+                driverData.profileImage = publicId;
+                break;
+              case 'driverLicense':
+                driverData.driverLicenseUrl = publicId;
+                break;
+              case 'idDocument':
+                driverData.idDocumentUrl = publicId;
+                break;
+              default:
+                console.error(`🚗 Unknown field name: ${fieldName}`);
+            }
+            fs.unlinkSync(file.path);
+          } else {
+            console.error(`🚗 Failed to upload ${fieldName}`);
+            fs.unlinkSync(file.path);
+          }
+        } catch (uploadError) {
+          console.error(`🚗 Error uploading ${fieldName}:`, uploadError);
+          fs.unlinkSync(file.path);
+          throw new Error(`Failed to upload ${fieldName}`);
+        }
+      });
+      
+      await Promise.all(uploadTasks);
+    
     }
 
     // Create driver document
@@ -389,10 +257,13 @@ const createDriver = async (req, res) => {
     }
 
     res.status(201).json({
+      success: true,
       message: 'Driver created successfully',
-      driver: { id: driverRef.id, ...driverData, defaultPassword }
+      data: {
+        driver: { id: driverRef.id, ...driverData, defaultPassword }
+      }
     });
-
+    
   } catch (error) {
     console.error('Error creating driver:', error);
     res.status(500).json({ message: 'Failed to create driver' });
@@ -680,6 +551,7 @@ const activateDriver = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.uid;
+    const { emailType = 'driver', companyEmail, sendCredentials = true } = req.body;
 
     const driverDoc = await db.collection('drivers').doc(id).get();
     if (!driverDoc.exists) {
@@ -698,13 +570,109 @@ const activateDriver = async (req, res) => {
       return res.status(400).json({ message: 'Driver must be approved before activation' });
     }
 
-    // Update driver status
+    // Determine recipient email based on emailType
+    let recipientEmail = driverData.email;
+    if (emailType === 'company' && companyEmail) {
+      recipientEmail = companyEmail.trim();
+    }
+
+    // Send credentials email if requested
+    if (sendCredentials && driverData.userId) {
+      try {
+        // Retrieve the Firebase Auth user to get email for credentials
+        let defaultPassword = 'Contact your company for credentials';
+        
+        // Check if we need to send temporary password
+        // Since Firebase Admin SDK doesn't allow reading passwords, we'll generate a reset
+        try {
+          const firebaseAuthUser = await admin.auth().getUser(driverData.userId);
+          const userEmail = firebaseAuthUser.email || driverData.email;
+          
+          // Create password reset link for the driver
+          const passwordResetLink = await admin.auth().generatePasswordResetLink(userEmail);
+          
+          // Send activation email with credentials and password reset link
+          const { sendDriverWelcomeMail } = require('../utils/sendMailTemplate');
+          const { subject, html } = sendDriverWelcomeMail({
+            email: driverData.email,
+            phone: driverData.phone,
+            firstName: driverData.firstName,
+            lastName: driverData.lastName,
+            companyName: companyDoc.data().companyName,
+            defaultPassword: 'You can set your password using the link below',
+            loginUrl: process.env.FRONTEND_URL || 'https://agritruk.app',
+            passwordResetLink: passwordResetLink
+          }, defaultPassword);
+
+          await sendEmail({
+            to: recipientEmail,
+            subject: subject + ' - Set Your Password',
+            html: html + `
+              <div style="margin-top: 20px; padding: 15px; background-color: #fff3cd; border-radius: 5px;">
+                <p style="margin: 0; color: #856404;"><strong>Set Your Password:</strong></p>
+                <a href="${passwordResetLink}" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background-color: #0F2B04; color: white; text-decoration: none; border-radius: 5px;">
+                  Click here to set your password
+                </a>
+              </div>
+            `
+          });
+
+        } catch (firebaseError) {
+          console.error('Error getting Firebase user:', firebaseError);
+          // Fallback: send email without password reset link
+          const { sendDriverWelcomeMail } = require('../utils/sendMailTemplate');
+          const { subject, html } = sendDriverWelcomeMail({
+            email: driverData.email,
+            phone: driverData.phone,
+            firstName: driverData.firstName,
+            lastName: driverData.lastName,
+            companyName: companyDoc.data().companyName,
+            defaultPassword: 'Please contact your company for login credentials',
+            loginUrl: process.env.FRONTEND_URL || 'https://agritruk.app'
+          }, defaultPassword);
+
+          await sendEmail({
+            to: recipientEmail,
+            subject,
+            html
+          });
+        }
+      } catch (emailError) {
+        console.error('Error sending activation email:', emailError);
+        // Don't fail activation if email fails
+      }
+    }
+
+    // Update driver status to active
     await db.collection('drivers').doc(id).update({
       status: 'active',
+      activatedAt: new Date(),
       updatedAt: new Date()
     });
 
-    res.json({ message: 'Driver activated successfully' });
+    // Update user document to mark as verified and active
+    if (driverData.userId) {
+      await db.collection('users').doc(driverData.userId).update({
+        role: 'driver',
+        emailVerified: true,
+        phoneVerified: true,
+        isVerified: true,
+        status: 'active',
+        updatedAt: new Date()
+      });
+    }
+
+    res.json({ 
+      success: true,
+      message: 'Driver activated successfully. Login credentials have been sent to the specified email.',
+      data: {
+        driver: {
+          id,
+          status: 'active',
+          email: recipientEmail
+        }
+      }
+    });
 
   } catch (error) {
     console.error('Error activating driver:', error);
@@ -807,12 +775,51 @@ const verifyDriver = async (req, res) => {
 const getDriverProfile = async (req, res) => {
   try {
     const { uid } = req.user;
-
-    // Find driver by userId
-    const driverQuery = db.collection('drivers').where('userId', '==', uid);
+    
+    // Use EXACT same query as checkIfDriver which works successfully
+    const driverQuery = db.collection('drivers').where('userId', '==', uid).limit(1);
     const driverSnapshot = await driverQuery.get();
 
-    if (driverSnapshot.empty) {
+    if (driverSnapshot.empty) { 
+      // Alternative: Try to find by driverId if user document has it
+      try {
+        const userDoc = await db.collection('users').doc(uid).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          
+          if (userData.driverId) {
+            const driverDocById = await db.collection('drivers').doc(userData.driverId).get();
+            if (driverDocById.exists) {
+              const driverData = driverDocById.data();
+              return await buildDriverProfileResponse(driverDocById.id, driverData, res);
+            }
+          }
+        }
+      } catch (altError) {
+        console.error('Error in alternative lookup:', altError);
+      }
+      
+      // Final fallback: Try to get any driver with this userId (case-insensitive, different field names)
+      try {
+        const allDriversQuery = await db.collection('drivers').get();
+        let foundDriver = null;
+        
+        for (const doc of allDriversQuery.docs) {
+          const data = doc.data();
+          if (data.userId === uid || data.user_id === uid || String(data.userId) === String(uid)) {
+            foundDriver = { id: doc.id, ...data };
+            break;
+          }
+        }
+        
+        if (foundDriver) {
+          return await buildDriverProfileResponse(foundDriver.id, foundDriver, res);
+        }
+      } catch (fallbackError) {
+        console.error('Error in fallback search:', fallbackError);
+      }
+      
+      console.error('❌ Driver not found after all attempts for userId:', uid);
       return res.status(404).json({
         success: false,
         message: 'Driver not found'
@@ -822,16 +829,64 @@ const getDriverProfile = async (req, res) => {
     const driverDoc = driverSnapshot.docs[0];
     const driverData = driverDoc.data();
     const driverId = driverDoc.id;
+    
+    return await buildDriverProfileResponse(driverId, driverData, res);
+  } catch (error) {
+    console.error('❌ Error fetching driver profile:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
 
-    // Get assigned vehicle if exists
+// Helper function to build driver profile response
+const buildDriverProfileResponse = async (driverId, driverData, res) => {
+  try {
+    // Get assigned vehicle if exists - check multiple locations
     let assignedVehicle = null;
     if (driverData.assignedVehicleId) {
+      // First try main vehicles collection
       const vehicleDoc = await db.collection('vehicles').doc(driverData.assignedVehicleId).get();
       if (vehicleDoc.exists) {
+        const vehicleData = vehicleDoc.data();
+        // Capacity is already stored in tons (frontend provides it in tons)
         assignedVehicle = {
           id: vehicleDoc.id,
-          ...vehicleDoc.data()
+          ...vehicleData,
+          capacity: vehicleData.capacity || vehicleData.capacityKg || vehicleData.vehicleCapacity || 0,
+          registration: vehicleData.registration || vehicleData.vehicleRegistration || vehicleData.reg || null,
         };
+      } else if (driverData.companyId) {
+        // Try company vehicles subcollection
+        try {
+          const companyVehicleDoc = await db.collection('companies').doc(driverData.companyId)
+            .collection('vehicles').doc(driverData.assignedVehicleId).get();
+          if (companyVehicleDoc.exists) {
+            const vehicleData = companyVehicleDoc.data();
+            // Capacity is already stored in tons (frontend provides it in tons)
+            assignedVehicle = {
+              id: companyVehicleDoc.id,
+              make: vehicleData.vehicleMake || vehicleData.make,
+              model: vehicleData.vehicleModel || vehicleData.model,
+              registration: vehicleData.vehicleRegistration || vehicleData.reg || vehicleData.registration || null,
+              type: vehicleData.vehicleType || vehicleData.type,
+              capacity: vehicleData.vehicleCapacity || vehicleData.capacityKg || vehicleData.capacity || 0,
+              ...vehicleData,
+              // Ensure registration is always included
+              registration: vehicleData.vehicleRegistration || vehicleData.reg || vehicleData.registration || null,
+            };
+          }
+        } catch (subcollectionError) {
+          console.error('Error in subcollection lookup:', subcollectionError);
+        }
+      }
+      
+      // Use assignedVehicleDetails if available and no vehicle found
+      if (!assignedVehicle && driverData.assignedVehicleDetails) {
+        assignedVehicle = driverData.assignedVehicleDetails;
       }
     }
 
@@ -840,15 +895,16 @@ const getDriverProfile = async (req, res) => {
     if (driverData.companyId) {
       const companyDoc = await db.collection('companies').doc(driverData.companyId).get();
       if (companyDoc.exists) {
+        const companyData = companyDoc.data();
         company = {
           id: companyDoc.id,
-          name: companyDoc.data().companyName,
-          contact: companyDoc.data().companyContact
+          name: companyData.companyName || companyData.name || 'Unknown Company',
+          contact: companyData.companyContact || companyData.contact || null
         };
       }
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       driver: {
         id: driverId,
@@ -858,10 +914,140 @@ const getDriverProfile = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching driver profile:', error);
+    console.error('Error building driver profile response:', error);
+    throw error;
+  }
+};
+
+// Check if a user is a driver (public endpoint for routing purposes)
+const checkIfDriver = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    // Find driver by userId in drivers collection
+    const driverQuery = db.collection('drivers').where('userId', '==', userId).limit(1);
+    const driverSnapshot = await driverQuery.get();
+
+    if (driverSnapshot.empty) {
+      return res.status(200).json({
+        success: false,
+        isDriver: false,
+        message: 'User is not a driver'
+      });
+    }
+
+    const driverDoc = driverSnapshot.docs[0];
+    const driverData = driverDoc.data();
+
+    res.status(200).json({
+      success: true,
+      isDriver: true,
+      driverType: 'company',
+      driver: {
+        id: driverDoc.id,
+        ...driverData
+      }
+    });
+  } catch (error) {
+    console.error('Error checking if user is driver:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+};
+
+// Update driver profile (for drivers to update their own profile)
+const updateDriverProfile = async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const { firstName, lastName, phone, email, profileImage } = req.body;
+
+    // Find driver by userId
+    const driverQuery = db.collection('drivers').where('userId', '==', uid).limit(1);
+    const driverSnapshot = await driverQuery.get();
+
+    if (driverSnapshot.empty) {
+      console.error('❌ Driver not found for userId:', uid);
+      return res.status(404).json({
+        success: false,
+        message: 'Driver profile not found'
+      });
+    }
+
+    const driverDoc = driverSnapshot.docs[0];
+    const driverId = driverDoc.id;
+    const driverData = driverDoc.data();
+    // Prepare update data (only include provided fields)
+    const updateData = {
+      updatedAt: admin.firestore.Timestamp.now()
+    };
+
+    if (firstName !== undefined) {
+      updateData.firstName = firstName;
+    }
+    if (lastName !== undefined) {
+      updateData.lastName = lastName;
+    }
+    if (phone !== undefined) {
+      updateData.phone = phone;
+    }
+    if (email !== undefined) {
+      updateData.email = email;
+    }
+    if (profileImage !== undefined && profileImage) {
+      updateData.profileImage = profileImage;
+    }
+
+    // Update driver document
+    await db.collection('drivers').doc(driverId).update(updateData);
+
+    // Also update users collection if name/phone/email changed
+    const userUpdateData = {};
+    if (firstName !== undefined || lastName !== undefined) {
+      userUpdateData.name = `${firstName || driverData.firstName} ${lastName || driverData.lastName}`.trim();
+    }
+    if (phone !== undefined) {
+      userUpdateData.phone = phone;
+      userUpdateData.phone_clean = phone.replace(/\D/g, '');
+    }
+    if (email !== undefined) {
+      userUpdateData.email = email;
+      userUpdateData.email_lower = email.toLowerCase();
+    }
+    if (profileImage !== undefined && profileImage) {
+      userUpdateData.profilePhotoUrl = profileImage;
+    }
+
+    if (Object.keys(userUpdateData).length > 0) {
+      userUpdateData.updatedAt = admin.firestore.Timestamp.now();
+      await db.collection('users').doc(uid).update(userUpdateData);
+      
+      
+    }
+
+    // Get updated driver data
+    const updatedDriverDoc = await db.collection('drivers').doc(driverId).get();
+    const updatedDriverData = { id: driverId, ...updatedDriverDoc.data() };
+
+    res.status(200).json({
+      success: true,
+      message: 'Driver profile updated successfully',
+      driver: updatedDriverData
+    });
+  } catch (error) {
+    console.error('❌ Error updating driver profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update driver profile',
+      error: error.message
     });
   }
 };
@@ -876,7 +1062,25 @@ const toggleDriverAvailability = async (req, res) => {
       return res.status(400).json({ message: 'Availability must be true or false' });
     }
 
-    // Find the driver in the companies collection
+    // Try to find driver in main drivers collection first (preferred)
+    const mainDriverQuery = db.collection('drivers').where('userId', '==', driverId).limit(1);
+    const mainDriverSnapshot = await mainDriverQuery.get();
+
+    if (!mainDriverSnapshot.empty) {
+      // Driver found in main drivers collection
+      const driverRef = mainDriverSnapshot.docs[0].ref;
+      await driverRef.update({
+        availability: availability,
+        updatedAt: admin.firestore.Timestamp.now()
+      });
+
+      return res.status(200).json({
+        message: `Availability ${availability ? 'enabled' : 'disabled'} successfully`,
+        availability: availability
+      });
+    }
+
+    // Fallback: Find the driver in the companies subcollection
     const companiesSnapshot = await db.collection('companies').get();
     let driverFound = false;
     let companyId = null;
@@ -900,7 +1104,7 @@ const toggleDriverAvailability = async (req, res) => {
       return res.status(404).json({ message: 'Driver not found' });
     }
 
-    // Update driver availability
+    // Update driver availability in company subcollection
     const driverDoc = await db.collection('companies')
       .doc(companyId)
       .collection('drivers')
@@ -933,9 +1137,32 @@ const acceptBooking = async (req, res) => {
     const { bookingId, companyId } = req.params;
     const userId = req.user.uid;
 
-    console.log('🚗 Accepting booking:', bookingId);
-    console.log('🚗 Company ID:', companyId);
-    console.log('🚗 User ID:', userId);
+    // Get company details
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+    }
+
+    // Check if company is approved
+    if (company.status === 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Company is not approved yet'
+      });
+    }
+
+    // Check if overlimit and no registration
+    // 🚫 Block if over limit and no registration
+    if (!company.registrationProvided && company.completedTripsCount >= 5) {
+      return res.status(403).json({
+        success: false,
+        message: 'Company registration required to continue creating trips',
+        code: 'REGISTRATION_REQUIRED',
+      });
+    }
 
     const driverData = await Driver.getDriverIdByUserId(userId);
     if (!driverData) {
@@ -948,7 +1175,6 @@ const acceptBooking = async (req, res) => {
     const driverId = driverData.driverId;
 
     const vehicleId = driverData.assignedVehicleId;
-    console.log('🚗 Vehicle ID:', vehicleId);
 
     if (driverData.companyId !== companyId) {
       return res.status(403).json({
@@ -986,14 +1212,9 @@ const acceptBooking = async (req, res) => {
     let driver = null;
     try {
       driver = await Driver.get(driverId);
-      console.log('✅ Driver found:', {
-        id: driverId,
-        name: `${driver.firstName} ${driver.lastName}`,
-        phone: driver.phone,
-        status: driver.status
-      });
+      
     } catch (error) {
-      console.log('❌ Driver not found, continuing without driver details:', error.message);
+      console.error('Driver not found, continuing without driver details:', error.message);
     }
 
     if (!driver) {
@@ -1010,35 +1231,27 @@ const acceptBooking = async (req, res) => {
         // Check if this is a company driver by looking for the driver in companies collection
         let isCompanyDriver = false;
         let companyIdFromDriver = companyId || driver.companyId; // Use provided companyId or driver's companyId
-        console.log('🚗 Company ID from driver:', companyIdFromDriver);
         
         if (companyIdFromDriver) {
           const driverSnapshot  = await Driver.get(driverId);
           
           if (driverSnapshot) {
             isCompanyDriver = true;
-            console.log('✅ Company driver detected, getting vehicle from company collection');
             
             const vehicleSnapshot = await db.collection('vehicles').doc(vehicleId).get();
             if (vehicleSnapshot.exists) {
               vehicle = vehicleSnapshot.data();
-              console.log('✅ Vehicle found:', vehicle);
-              console.log('✅ Company vehicle found:', {
-                make: vehicle.make,
-                model: vehicle.type,
-                registration: vehicle.vehicleRegistration
-              });
             }
           }
         }
 
         if (!isCompanyDriver && driver.assignedVehicleId) {
           // Individual driver - vehicle data might be in assignedVehicleDetails
-          console.log('✅ Individual driver detected, using assigned vehicle details');
+         
           vehicle = driver.assignedVehicleDetails || {};
         }
       } catch (error) {
-        console.log('Error determining driver type or fetching vehicle details:', error.message);
+        console.error('Error determining driver type or fetching vehicle details:', error.message);
       }
     }
 
@@ -1058,18 +1271,11 @@ const acceptBooking = async (req, res) => {
       vehicleType: vehicle?.vehicleType || vehicle?.type || (driver.assignedVehicleDetails?.type || null),
       vehicleRegistration: vehicle?.vehicleRegistration || vehicle?.reg || (driver.assignedVehicleDetails?.registration || null),
       vehicleColor: vehicle?.vehicleColor || vehicle?.color || (driver.assignedVehicleDetails?.color || null),
-      vehicleCapacity: vehicle?.vehicleCapacity || vehicle?.capacity || (driver.assignedVehicleDetails?.capacityKg || null),
+      // Capacity is already stored in tons (frontend provides it in tons)
+      vehicleCapacity: vehicle?.vehicleCapacity || vehicle?.capacity || (driver.assignedVehicleDetails?.capacityKg || driver.assignedVehicleDetails?.capacity || 0),
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
-
-    console.log('💾 Saving booking updates:', {
-      bookingId,
-      driverName: updates.driverName,
-      driverPhone: updates.driverPhone,
-      vehicleMake: updates.vehicleMake,
-      vehicleRegistration: updates.vehicleRegistration
-    });
 
     await Booking.update(bookingId, updates);
 
@@ -1236,6 +1442,8 @@ module.exports = {
   deactivateDriver,
   verifyDriver,
   getDriverProfile,
+  checkIfDriver,
+  updateDriverProfile,
   toggleDriverAvailability,
   acceptBooking,
   updateLocation

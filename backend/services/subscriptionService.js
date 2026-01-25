@@ -4,6 +4,7 @@ const Company = require('../models/Company');
 const Driver = require('../models/Driver');
 const Vehicle = require('../models/Vehicle');
 const Payment = require('../models/Payment');
+const NotificationService = require('./notificationService');
 
 const SubscriptionService = {
   
@@ -38,7 +39,7 @@ const SubscriptionService = {
         endDate.setDate(endDate.getDate() + (plan.trialDays || 14));
       } else {
         endDate = new Date(startDate);
-        endDate.setMonth(endDate.getMonth() + 1);
+        endDate.setMonth(endDate.getMonth() + plan.duration);
       }
 
       // For paid plans, verify payment
@@ -119,7 +120,6 @@ const SubscriptionService = {
       // Count current drivers for this company
       const drivers = await Driver.getByCompanyId(companyId);
       const currentDriverCount = drivers ? drivers.length : 0;
-      console.log('Current driver count:', currentDriverCount);
 
       if (currentDriverCount >= maxDrivers) {
         return {
@@ -157,7 +157,7 @@ const SubscriptionService = {
       }
 
       const plan = await SubscriptionPlans.getSubscriptionPlan(subscription.planId);
-      const maxVehicles = plan.features.maxVehicles;
+      const maxVehicles = plan.maxVehicles;
 
       if (SubscriptionPlans.isUnlimited(maxVehicles)) {
         return { allowed: true };
@@ -363,7 +363,17 @@ const SubscriptionService = {
    */
   async sendExpiryNotification(subscription) {
     // TODO: Implement email/SMS notification
-    console.log(`Subscription expired for user ${subscription.userId}`);
+    
+    await NotificationService.sendExpiryNotification(subscription);
+  },
+
+  /**
+   * Send expiring soon notification
+   */
+  async sendExpiringNotification(subscription, daysRemaining) {
+    // TODO: Implement email/SMS notification
+   
+    await NotificationService.sendExpiringNotification(subscription, daysRemaining);
   },
   
 };

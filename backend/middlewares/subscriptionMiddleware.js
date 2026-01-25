@@ -8,13 +8,22 @@ const subscriptionMiddleware = {
    */
   async requireActiveSubscription(req, res, next) {
     try {
-      const userId = req.user?.userId || req.body.userId;
+     
+      const userId = req.user.uid || req.body.userId;
+      
       
       if (!userId) {
         return res.status(401).json({
           success: false,
           message: 'User authentication required',
         });
+      }
+
+      const userRole = req.user.role;
+
+      // Skip middleware for admin users
+      if (userRole === 'admin') {
+        return next();
       }
 
       const status = await SubscriptionService.getSubscriptionStatus(userId);
@@ -44,15 +53,28 @@ const subscriptionMiddleware = {
    */
   async validateDriverAddition(req, res, next) {
     try {
-      const { companyId } = req.body;
+      const userId = req.user.uid || req.body.userId;
       
-      if (!companyId) {
-        return res.status(400).json({
+      if (!userId) {
+        return res.status(401).json({
           success: false,
-          message: 'companyId is required',
+          message: 'User authentication required',
         });
       }
 
+      const userRole = req.user.role;
+
+
+      // Skip middleware for admin users
+      if (userRole === 'admin') {
+        return next();
+      }
+
+      // const { companyId } = req.body;
+      const companyData = await Company.getByTransporter(userId);
+    
+      const companyId =  companyData[0].companyId;
+      
       const validation = await SubscriptionService.canAddDriver(companyId);
       
       if (!validation.allowed) {
@@ -81,7 +103,26 @@ const subscriptionMiddleware = {
    */
   async validateVehicleAddition(req, res, next) {
     try {
-      const { companyId } = req.body;
+      const userId = req.user.uid || req.body.userId;
+      
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'User authentication required',
+        });
+      }
+
+      const userRole = req.user.role;
+      
+      // Skip middleware for admin users
+      if (userRole === 'admin') {
+        return next();
+      }
+
+      // const { companyId } = req.body;
+      const companyData = await Company.getByTransporter(userId);
+  
+      const companyId =  companyData[0].companyId;
       
       if (!companyId) {
         return res.status(400).json({

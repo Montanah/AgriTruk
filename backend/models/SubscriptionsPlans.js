@@ -4,7 +4,7 @@ const db = admin.firestore();
 const SubscriptionPlans = {
     async createSubscriptionPlan(planData) {
         const planId = db.collection('subscriptionPlans').doc().id;
-        //console.log("planId", planId);
+       
         const plan =  {
             planId,
             name: planData.name,

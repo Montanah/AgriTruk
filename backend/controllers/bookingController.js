@@ -4,7 +4,7 @@ const { scheduleRecurringBookings } = require('../services/bookingService');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const Action = require('../models/Action');
-const { logActivity } = require('../utils/activityLogger');
+const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const { formatTimestamps } = require('../utils/formatData');
 const geolib = require('geolib');
 const Transporter = require('../models/Transporter');
@@ -14,24 +14,43 @@ const User = require('../models/User');
 const calculateTransportCost = require('../utils/calculateCost');
 const { driverId } = require('../schemas/DriverSchema');
 const Driver = require('../models/Driver');
+const Broker = require('../models/Broker');
+const Client = require('../models/Client');
+const Company = require('../models/Company');
 require('dotenv').config();
 
 const google_key = process.env.GOOGLE_MAPS_API_KEY;
 
-// Generate readable ID for display purposes
-const generateReadableId = (bookingType, bookingMode, isConsolidated = false) => {
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const day = now.getDate().toString().padStart(2, '0');
-  const hour = now.getHours().toString().padStart(2, '0');
-  const minute = now.getMinutes().toString().padStart(2, '0');
-  
-  const type = bookingType === 'Agri' ? 'AGR' : 'CRG';
-  const mode = isConsolidated ? 'CONS' : (bookingMode === 'instant' ? 'INST' : 'BOOK');
-  
-  return `${year}${month}${day}-${hour}${minute}-${type}-${mode}`;
+// Generate readable ID (unique) aligned with mobile: YYMMDD-HHMMSS-TYPE-[BIC]SUF
+const generateReadableId = (bookingType, bookingMode, isConsolidated = false, timestamp = new Date(), seed = '') => {
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  // CRITICAL: Convert to UTC+3 timezone explicitly (Kenya time)
+  // Firestore timestamps are in UTC, so we need to add 3 hours to get UTC+3
+  const utcPlus3 = new Date(date.getTime() + (3 * 60 * 60 * 1000)); // Add 3 hours
+  const year = utcPlus3.getUTCFullYear().toString().slice(-2);
+  const month = (utcPlus3.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = utcPlus3.getUTCDate().toString().padStart(2, '0');
+  const hour = utcPlus3.getUTCHours().toString().padStart(2, '0');
+  const minute = utcPlus3.getUTCMinutes().toString().padStart(2, '0');
+  const second = utcPlus3.getUTCSeconds().toString().padStart(2, '0');
+  const type = bookingType === 'Agri' ? 'AGR' : 'CAR';
+  const letter = isConsolidated ? 'C' : (bookingMode === 'instant' ? 'I' : 'B');
+  const suffix = computeShortToken(seed || `${date.getTime()}-${Math.random()}`);
+  return `${year}${month}${day}-${hour}${minute}${second}-${type}-${letter}${suffix}`;
 };
+
+function computeShortToken(seed) {
+  try {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    return (hash >>> 0).toString(36).toUpperCase().slice(-3).padStart(3, '0');
+  } catch {
+    return Math.random().toString(36).toUpperCase().slice(2, 5);
+  }
+}
 
 exports.createBooking = async (req, res) => {
   try {
@@ -61,7 +80,8 @@ exports.createBooking = async (req, res) => {
       fuelSurchargePct = 0, 
       waitMinutes = 0, 
       nightSurcharge = false,
-      vehicleType = 'truck', 
+      vehicleType = 'truck',
+      readableId, // Accept readableId from frontend if provided
     } = req.body;
 
     // Extract location variables separately to allow reassignment
@@ -213,9 +233,6 @@ exports.createBooking = async (req, res) => {
     
     // const actualDistance = calculateDistance(fromLocation, toLocation);
     
-   console.log("fromLocation:", fromLocation);
-   console.log("toLocation:", toLocation);
-  console.log("google_key:", google_key);
     const { actualDistance, estimatedDurationMinutes, formattedDuration, routePolyline, success } = await calculateRoadDistanceAndDuration(
       fromLocation,
       toLocation,
@@ -254,14 +271,18 @@ exports.createBooking = async (req, res) => {
       nightSurcharge: !!nightSurcharge,
       vehicleType: vehicleType || 'truck',
     };
-    const { cost, transporterPayment, costBreakdown, paymentBreakdown } = calculateTransportCost(bookingDataForCost);
+    const { cost, transporterPayment, costBreakdown, paymentBreakdown, estimatedCostRange } = calculateTransportCost(bookingDataForCost);
     
-    // Prepare booking data
+    // Prepare booking data (readableId will be generated after booking is created)
     const bookingData = {
       requestId,
+      readableId: null, // Will be generated after booking creation using createdAt and bookingId
       bookingType,
       bookingMode,
       userId: user,
+      // Persist broker attribution if provided (enables broker-scoped fetches)
+      brokerData: req.body.brokerData || null,
+      clientId: (req.body.brokerData && req.body.brokerData.clientId) || req.body.clientId || null,
       weightKg,
       createdAt: Timestamp.now(), // Explicitly set createdAt
       productType,
@@ -288,6 +309,7 @@ exports.createBooking = async (req, res) => {
       transporterPayment,
       costBreakdown,
       paymentBreakdown,
+      estimatedCostRange,
       volumetricWeight,
       lengthCm: lengthCm || 0,
       widthCm: widthCm || 0,
@@ -332,10 +354,19 @@ exports.createBooking = async (req, res) => {
       status: "New Bookings Alert",
       message: 'New Booking has been created',
     });
-    // console.log(`New ${bookingType}TRUK Booking: ${booking.bookingId}`);
-
-    // Generate readable ID for display
-    const readableId = generateReadableId(bookingType, bookingMode);
+    
+    // Compute final unique readableId using createdAt and bookingId as seed
+    const createdAtDate = booking.createdAt?.toDate ? booking.createdAt.toDate() : new Date();
+    const computedReadableId = generateReadableId(bookingType, bookingMode, !!consolidated, createdAtDate, booking.bookingId);
+    if (!booking.readableId || booking.readableId !== computedReadableId) {
+      try {
+        await Booking.update(booking.bookingId, { readableId: computedReadableId });
+        booking.readableId = computedReadableId;
+      } catch (e) {
+        console.warn('Failed to persist readableId:', e?.message);
+      }
+    }
+    const bookingReadableId = booking.readableId;
     
     if (bookingMode === 'instant') {
       const matchedTransporter = await MatchingService.matchBooking(booking.bookingId);
@@ -343,7 +374,7 @@ exports.createBooking = async (req, res) => {
         success: true,
         message: `${bookingType}TRUK booking created successfully`,
         booking: formatTimestamps(booking),
-        readableId: readableId,
+        readableId: bookingReadableId,
         matchedTransporter
       });
     } else {
@@ -352,7 +383,7 @@ exports.createBooking = async (req, res) => {
         success: true,
         message: `${bookingType}TRUK booking created successfully`,
         booking: formatTimestamps(booking),
-        readableId: readableId,
+        readableId: bookingReadableId,
       });
     }
   } catch (error) {
@@ -396,13 +427,112 @@ exports.getAllBookings = async (req, res) => {
   }
 };
 
+// Broker-scoped bookings: includes broker's own and their clients' bookings
+exports.getBrokerScopedBookings = async (req, res) => {
+  try {
+    const brokerUid = req.user?.uid;
+    if (!brokerUid) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // Find broker record via userId
+    const broker = await Broker.getByUserId(brokerUid);
+    if (!broker) {
+      return res.status(404).json({ success: false, message: 'Broker not found' });
+    }
+
+    // Fetch broker's clients to obtain clientIds for scoping
+    const clients = await Client.getClients(broker.id);
+    const clientIds = (clients || []).map(c => c.id);
+
+    const bookings = await Booking.getBrokerScoped(brokerUid, clientIds);
+    return res.status(200).json({
+      success: true,
+      message: 'Broker scoped bookings retrieved successfully',
+      bookings: formatTimestamps(bookings),
+      count: bookings.length,
+    });
+  } catch (error) {
+    console.error('getBrokerScopedBookings error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch broker scoped bookings' });
+  }
+};
+
 exports.updateBooking = async (req, res) => {
   try {
-    const { bookingId } = req.params;
-    const updates = req.body;
-    if (!bookingId || !updates) {
-      return res.status(400).json({ message: 'Booking ID and updates are required' });
+    // Get bookingId from params (preferred) or body (fallback for compatibility)
+    const bookingId = req.params.bookingId || req.body.bookingId;
+    let updates = req.body;
+    
+    if (!bookingId) {
+      return res.status(400).json({ message: 'bookingId is required' });
     }
+    
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'Updates are required' });
+    }
+    
+    // Remove bookingId from updates if it was in body (params take precedence)
+    delete updates.bookingId;
+    
+    // Convert ISO string timestamps to Firestore Timestamps if needed
+    if (updates.cancelledAt && typeof updates.cancelledAt === 'string') {
+      updates.cancelledAt = admin.firestore.Timestamp.fromDate(new Date(updates.cancelledAt));
+    }
+    if (updates.startedAt && typeof updates.startedAt === 'string') {
+      updates.startedAt = admin.firestore.Timestamp.fromDate(new Date(updates.startedAt));
+    }
+    if (updates.acceptedAt && typeof updates.acceptedAt === 'string') {
+      updates.acceptedAt = admin.firestore.Timestamp.fromDate(new Date(updates.acceptedAt));
+    }
+    if (updates.completedAt && typeof updates.completedAt === 'string') {
+      updates.completedAt = admin.firestore.Timestamp.fromDate(new Date(updates.completedAt));
+    }
+
+    // If status is being set to 'pending', clear transporter and vehicle assignments to make booking available again
+    // Preserve cancellationReason and cancelledAt if they're being set (for cancelling jobs)
+    if (updates.status === 'pending') {
+      const preservedFields = {
+        cancellationReason: updates.cancellationReason,
+        cancelledAt: updates.cancelledAt,
+      };
+      updates = {
+        ...updates,
+        transporterId: null,
+        acceptedAt: null,
+        vehicleId: null,
+        vehicleMake: null,
+        vehicleModel: null,
+        vehicleRegistration: null,
+        transporterName: null,
+        transporterPhone: null,
+        transporterPhoto: null,
+        startedAt: null, // Clear started timestamp
+        // Restore preserved fields if they were provided
+        ...(preservedFields.cancellationReason !== undefined && { cancellationReason: preservedFields.cancellationReason }),
+        ...(preservedFields.cancelledAt !== undefined && { cancelledAt: preservedFields.cancelledAt }),
+      };
+    }
+
+    // If status is being set to 'started', ensure startedAt timestamp is set
+    if (updates.status === 'started' && !updates.startedAt) {
+      updates.startedAt = admin.firestore.Timestamp.now();
+    }
+
+    // Update statusHistory with the new status
+    if (updates.status) {
+      const booking = await Booking.get(bookingId);
+      if (booking) {
+        const statusHistory = booking.statusHistory || [];
+        statusHistory.push({
+          status: updates.status,
+          timestamp: admin.firestore.Timestamp.now(),
+          reason: updates.cancellationReason || null
+        });
+        updates.statusHistory = statusHistory;
+      }
+    }
+
     const updatedBooking = await Booking.update(bookingId, updates);
     if (!updatedBooking) {
       return res.status(404).json({ message: 'Booking not found' });
@@ -857,120 +987,6 @@ exports.calculateStatusCounts = (fleet) => {
   return counts;
 };
 
-exports.updateBooking = async (req, res) => {
-  try {
-    const { bookingId, waitMinutes, status, cancellationReason } = req.body;
-
-    if (!bookingId) {
-      return res.status(400).json({ message: 'bookingId is required' });
-    }
-
-    const bookingDoc = await Booking.get(bookingId);
-
-    if (!bookingDoc.exists) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
-
-    const bookingData = bookingDoc.data();
-    const updates = {};
-
-    // Update wait time and recalculate waitTimeFee
-    if (waitMinutes !== undefined) {
-      if (isNaN(waitMinutes) || waitMinutes < 0) {
-        return res.status(400).json({ message: 'Invalid waitMinutes: must be a non-negative number' });
-      }
-      updates.waitMinutes = waitMinutes;
-      updates.waitTimeFee = waitMinutes * 30; // KES 30/min
-      updates.costBreakdown = {
-        ...bookingData.costBreakdown,
-        waitTimeFee: waitMinutes * 30,
-      };
-
-      // Recalculate total cost if needed
-      const costCalculationData = {
-        actualDistance: bookingData.actualDistance,
-        weightKg: bookingData.weightKg,
-        lengthCm: bookingData.lengthCm,
-        widthCm: bookingData.widthCm,
-        heightCm: bookingData.heightCm,
-        urgencyLevel: bookingData.urgencyLevel,
-        perishable: bookingData.perishable,
-        needsRefrigeration: bookingData.needsRefrigeration,
-        humidityControl: bookingData.humidyControl, 
-        insured: bookingData.insured,
-        value: bookingData.value,
-        tolls: bookingData.tolls,
-        priority: bookingData.priority,
-        fuelSurchargePct: bookingData.fuelSurchargePct,
-        waitMinutes,
-        nightSurcharge: bookingData.nightSurcharge,
-      };
-      const { cost, costBreakdown } = calculateTransportCost(costCalculationData);
-      
-      updates.cost = cost;
-      updates.costBreakdown = costBreakdown;
-    }
-
-    // Update status and statusHistory
-    if (status) {
-      const validStatuses = ['pending', 'accepted', 'started', 'completed', 'cancelled'];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({ message: 'Invalid status' });
-      }
-      updates.status = status;
-      updates.statusHistory = [
-        ...bookingData.statusHistory,
-        {
-          status,
-          timestamp: admin.firestore.Timestamp.now(),
-          reason: status === 'cancelled' ? cancellationReason || null : null,
-        },
-      ];
-      if (status === 'accepted') updates.acceptedAt = admin.firestore.Timestamp.now();
-      if (status === 'started') updates.startedAt = admin.firestore.Timestamp.now();
-      if (status === 'completed') updates.completedAt = admin.firestore.Timestamp.now();
-      if (status === 'cancelled') {
-        updates.cancelledAt = admin.firestore.Timestamp.now();
-        updates.cancellationReason = cancellationReason || null;
-      }
-    }
-
-    // Update updatedAt timestamp
-    updates.updatedAt = admin.firestore.Timestamp.now();
-
-    // Apply updates
-  // await bookingRef.update(updates);
-    await Booking.update(bookingId, updates);
-
-    // Log activity
-    await logActivity(req.user.uid, 'update_booking', req);
-
-    await Action.create({
-      type: "booking_update",
-      entityId: bookingId,
-      priority: "low",
-      metadata: {
-        bookingId: bookingId,
-        userId: req.user.uid
-      },
-      status: "Booking Updated",
-      message: 'Booking updated successfully',
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: 'Booking updated successfully',
-      booking: { ...bookingData, ...updates },
-    });
-  } catch (error) {
-    console.error('Update booking error:', error);
-    return res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Failed to update booking',
-    });
-  }
-};
-
 // Accept a booking request
 exports.acceptBooking = async (req, res) => {
   try {
@@ -1011,19 +1027,45 @@ exports.acceptBooking = async (req, res) => {
       });
     }
 
-    // Get transporter details first
+    // Get transporter/driver details first
     let transporter = null;
+    const userRole = req.user?.role;
+    
     try {
-      transporter = await Transporter.get(transporterId);
-      console.log('✅ Transporter found:', {
-        id: transporterId,
-        name: transporter?.name,
-        phone: transporter?.phone,
-        rating: transporter?.rating,
-        status: transporter?.status
-      });
+      if (userRole === 'driver') {
+        // For drivers, get from drivers collection
+        const driverSnapshot = await admin.firestore().collection('drivers')
+          .where('userId', '==', transporterId)
+          .limit(1)
+          .get();
+        
+        if (!driverSnapshot.empty) {
+          const driverData = driverSnapshot.docs[0].data();
+          transporter = {
+            name: `${driverData.firstName || ''} ${driverData.lastName || ''}`.trim(),
+            displayName: `${driverData.firstName || ''} ${driverData.lastName || ''}`.trim(),
+            phone: driverData.phone,
+            phoneNumber: driverData.phone,
+            rating: driverData.rating || 0,
+            status: driverData.status || 'active',
+            driverProfileImage: driverData.profileImage,
+            totalTrips: driverData.totalTrips || 0,
+            acceptingBooking: driverData.availability || false
+          };
+    
+        }
+      } else {
+        // For transporters, get from transporters collection
+        transporter = await Transporter.get(transporterId);
+      }
     } catch (error) {
-      console.log('❌ Transporter not found, continuing without transporter details:', error.message);
+
+      error.message = `Error getting transporter/driver details: ${error.message}`;
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: 'Error getting transporter/driver details'
+      });
     }
 
     // Get vehicle details - handle both individual transporters and company drivers
@@ -1047,24 +1089,35 @@ exports.acceptBooking = async (req, res) => {
         
         if (isCompanyDriver) {
           // Company driver - get vehicle from companies/{companyId}/vehicles/{vehicleId}
-          console.log('✅ Company driver detected, getting vehicle from company collection');
+    
           const vehicleSnapshot = await db.collection('companies').doc(companyId).collection('vehicles').doc(vehicleId).get();
           if (vehicleSnapshot.exists) {
             vehicle = vehicleSnapshot.data();
-            console.log('✅ Company vehicle found:', {
-              make: vehicle.vehicleMake,
-              model: vehicle.vehicleModel,
-              registration: vehicle.vehicleRegistration
-            });
           }
         } else {
           // Individual transporter - vehicle data is already in transporter document
-          console.log('✅ Individual transporter detected, vehicle data should be in transporter document');
+        
           // For individual transporters, vehicle data is embedded in the transporter document
-          // We'll extract it from the transporter data below
+          // Extract it from the transporter data
+          if (transporter) {
+            vehicle = {
+              vehicleMake: transporter.vehicleMake,
+              vehicleModel: transporter.vehicleModel,
+              vehicleYear: transporter.vehicleYear,
+              vehicleType: transporter.vehicleType,
+              vehicleRegistration: transporter.vehicleRegistration,
+              vehicleColor: transporter.vehicleColor,
+              vehicleCapacity: transporter.vehicleCapacity
+            };
+          }
         }
       } catch (error) {
-        console.log('Error determining transporter type, continuing without vehicle details:', error.message);
+        error.message = `Error getting vehicle details: ${error.message}`;
+        console.error(error);
+        return res.status(500).json({
+          success: false,
+          message: 'Error getting vehicle details'
+        });
       }
     }
 
@@ -1091,15 +1144,6 @@ exports.acceptBooking = async (req, res) => {
       acceptedAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now()
     };
-
-    console.log('💾 Saving booking updates:', {
-      bookingId,
-      transporterName: updates.transporterName,
-      transporterPhone: updates.transporterPhone,
-      transporterRating: updates.transporterRating,
-      vehicleMake: updates.vehicleMake,
-      vehicleRegistration: updates.vehicleRegistration
-    });
 
     await Booking.update(bookingId, updates);
     
@@ -1371,6 +1415,564 @@ exports.getDriverRouteLoads = async (req, res) => {
   }
 };
 
+// Get accepted bookings for transporter/driver
+exports.getAcceptedBookings = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const userRole = req.user.role;
+    
+    // For drivers, transporterId is the userId
+    // For transporters, check if they're in transporters or companies collection
+    let transporterId = userId;
+    
+    if (userRole === 'driver') {
+      // Driver's userId is their transporterId for bookings
+      transporterId = userId;
+    } else if (userRole === 'transporter') {
+      // Check if transporter is individual or company
+      const Transporter = require('../models/Transporter');
+      const transporter = await Transporter.get(userId);
+      if (transporter) {
+        transporterId = transporter.transporterId || userId;
+      } else {
+        // Check companies collection
+        const companyQuery = await admin.firestore().collection('companies')
+          .where('transporterId', '==', userId)
+          .limit(1)
+          .get();
+        if (!companyQuery.empty) {
+          transporterId = userId;
+        }
+      }
+    }
+    
+    // Get accepted bookings for this transporter/driver
+    const bookings = await Booking.getBookingsForTransporter(transporterId);
+    
+    // Filter to only accepted/in-progress bookings
+    const acceptedBookings = bookings.filter(b => 
+      ['accepted', 'in_progress', 'started', 'picked-up'].includes(b.status)
+    );
+    
+    // Enrich bookings with customer details and vehicle info
+    const enrichedBookings = await Promise.all(acceptedBookings.map(async (booking) => {
+      const enriched = { ...booking };
+      
+      // Fetch customer details from users collection using userId
+      if (booking.userId) {
+        try {
+          const userDoc = await admin.firestore().collection('users').doc(booking.userId).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            enriched.client = {
+              id: userDoc.id,
+              name: userData.name || userData.displayName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown Customer',
+              email: userData.email || null,
+              phone: userData.phone || userData.phoneNumber || null,
+              rating: userData.rating || 0,
+              completedOrders: userData.completedOrders || 0
+            };
+            // Also add legacy fields for compatibility
+            enriched.customerName = enriched.client.name;
+            enriched.customerEmail = enriched.client.email;
+            enriched.customerPhone = enriched.client.phone;
+          }
+        } catch (userError) {
+          console.error('Error fetching customer details:', userError);
+          // Set default customer if fetch fails
+          enriched.client = {
+            name: 'Unknown Customer',
+            email: null,
+            phone: null
+          };
+        }
+      }
+      
+      // For drivers, get vehicle details from driver profile
+      if (userRole === 'driver' && transporterId) {
+        try {
+          const driverQuery = await admin.firestore().collection('drivers')
+            .where('userId', '==', transporterId)
+            .limit(1)
+            .get();
+          
+          if (!driverQuery.empty) {
+            const driverData = driverQuery.docs[0].data();
+            if (driverData.assignedVehicleId) {
+              // Try to get vehicle from main vehicles collection
+              const vehicleDoc = await admin.firestore().collection('vehicles')
+                .doc(driverData.assignedVehicleId)
+                .get();
+              
+              if (vehicleDoc.exists) {
+                const vehicleData = vehicleDoc.data();
+                enriched.vehicle = {
+                  id: vehicleDoc.id,
+                  make: vehicleData.make,
+                  model: vehicleData.model,
+                  year: vehicleData.year,
+                  registration: vehicleData.registration || vehicleData.vehicleRegistration,
+                  type: vehicleData.type || vehicleData.vehicleType,
+                  capacity: vehicleData.capacity || vehicleData.vehicleCapacity || vehicleData.capacityKg || 0,
+                  color: vehicleData.color || vehicleData.vehicleColor
+                };
+              } else if (driverData.companyId) {
+                // Try company vehicles subcollection
+                const companyVehicleDoc = await admin.firestore()
+                  .collection('companies')
+                  .doc(driverData.companyId)
+                  .collection('vehicles')
+                  .doc(driverData.assignedVehicleId)
+                  .get();
+                
+                if (companyVehicleDoc.exists) {
+                  const vehicleData = companyVehicleDoc.data();
+                  enriched.vehicle = {
+                    id: companyVehicleDoc.id,
+                    make: vehicleData.make || vehicleData.vehicleMake,
+                    model: vehicleData.model || vehicleData.vehicleModel,
+                    year: vehicleData.year || vehicleData.vehicleYear,
+                    registration: vehicleData.vehicleRegistration || vehicleData.reg || vehicleData.registration,
+                    type: vehicleData.vehicleType || vehicleData.type,
+                    capacity: vehicleData.vehicleCapacity || vehicleData.capacityKg || vehicleData.capacity || 0,
+                    color: vehicleData.vehicleColor || vehicleData.color
+                  };
+                }
+              }
+              
+              // Use assignedVehicleDetails as fallback
+              if (!enriched.vehicle && driverData.assignedVehicleDetails) {
+                enriched.vehicle = driverData.assignedVehicleDetails;
+              }
+            }
+          }
+        } catch (vehicleError) {
+          console.error('Error fetching vehicle details:', vehicleError);
+        }
+      }
+      
+      // Ensure readableId is included (use bookingId if readableId doesn't exist)
+      if (!enriched.readableId && enriched.bookingId) {
+        // Generate readableId from booking data if missing - MUST use createdAt, not current time!
+        const bookingDate = enriched.createdAt?.toDate ? enriched.createdAt.toDate() : (enriched.createdAt ? new Date(enriched.createdAt) : null);
+        if (bookingDate) {
+          enriched.readableId = generateReadableId(
+            enriched.bookingType || 'Agri',
+            enriched.bookingMode || 'booking',
+            enriched.consolidated || false,
+            bookingDate, // CRITICAL: Pass createdAt timestamp (not current time!)
+            enriched.bookingId // Pass bookingId as seed for uniqueness
+          );
+        }
+      }
+      
+      // Ensure costBreakdown is included and properly formatted
+      if (enriched.costBreakdown) {
+        enriched.pricing = {
+          basePrice: enriched.costBreakdown.baseFare || 0,
+          distanceCost: enriched.costBreakdown.distanceCost || 0,
+          weightCost: enriched.costBreakdown.weightCost || 0,
+          urgencySurcharge: enriched.costBreakdown.urgencySurcharge || 0,
+          perishableSurcharge: enriched.costBreakdown.perishableSurcharge || 0,
+          refrigerationSurcharge: enriched.costBreakdown.refrigerationSurcharge || 0,
+          humiditySurcharge: enriched.costBreakdown.humiditySurcharge || 0,
+          insuranceFee: enriched.costBreakdown.insuranceFee || 0,
+          priorityFee: enriched.costBreakdown.priorityFee || 0,
+          waitTimeFee: enriched.costBreakdown.waitTimeFee || 0,
+          tollFee: enriched.costBreakdown.tollFee || 0,
+          nightSurcharge: enriched.costBreakdown.nightSurcharge || 0,
+          fuelSurcharge: enriched.costBreakdown.fuelSurcharge || 0,
+          subtotal: enriched.costBreakdown.subtotal || enriched.cost || 0,
+          total: enriched.costBreakdown.total || enriched.cost || 0
+        };
+      }
+      
+      // Ensure weight is displayed properly (use weightKg)
+      if (enriched.weightKg && !enriched.weight) {
+        enriched.weight = `${enriched.weightKg} kg`;
+      }
+      
+      // Ensure estimatedValue or paymentAmount is set from cost
+      if (enriched.cost && !enriched.estimatedValue && !enriched.paymentAmount) {
+        enriched.estimatedValue = enriched.cost;
+        enriched.paymentAmount = enriched.cost;
+      }
+      
+      return enriched;
+    }));
+    
+    await logActivity(userId, 'get_accepted_bookings', req);
+    res.status(200).json({
+      success: true,
+      message: 'Accepted bookings retrieved successfully',
+      jobs: formatTimestamps(enrichedBookings),
+      bookings: formatTimestamps(enrichedBookings) // Support both keys
+    });
+  } catch (err) {
+    console.error('Get accepted bookings error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch accepted bookings' 
+    });
+  }
+};
+
+// Get active trip for driver
+exports.getDriverActiveTrip = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const userRole = req.user.role;
+    
+    let transporterId = userId;
+    
+    if (userRole === 'driver') {
+      transporterId = userId;
+    }
+    
+    // Get active booking (accepted, in_progress, started)
+    const activeBooking = await Booking.getByTransporterId(transporterId);
+    
+    if (!activeBooking) {
+      return res.status(200).json({
+        success: true,
+        trip: null,
+        message: 'No active trip'
+      });
+    }
+    
+    await logActivity(userId, 'get_driver_active_trip', req);
+    res.status(200).json({
+      success: true,
+      trip: formatTimestamps(activeBooking),
+      message: 'Active trip retrieved successfully'
+    });
+  } catch (err) {
+    console.error('Get driver active trip error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch active trip' 
+    });
+  }
+};
+
+// Get available bookings (alias for getAllAvailableBookings for consistency)
+exports.getAvailable = async (req, res) => {
+  try {
+    const availableBookings = await Booking.getAllAvailable();
+    
+    // Ensure all bookings have readableId for consistent display
+    const bookingsWithReadableId = availableBookings.map(booking => {
+      if (!booking.readableId && booking.createdAt) {
+        // Generate readableId if missing (for backward compatibility)
+        booking.readableId = generateReadableId(
+          booking.bookingType || 'Agri',
+          booking.bookingMode || 'booking',
+          booking.consolidated || false,
+          booking.createdAt,
+          booking.id || booking.bookingId || ''
+        );
+      }
+      return booking;
+    });
+    
+    await logActivity(req.user.uid, 'get_available_bookings', req);
+    res.status(200).json({
+      success: true,
+      message: 'Available bookings retrieved successfully',
+      availableBookings: formatTimestamps(bookingsWithReadableId), // Match expected frontend format
+      jobs: formatTimestamps(bookingsWithReadableId),
+      bookings: formatTimestamps(bookingsWithReadableId) // Support both keys
+    });
+  } catch (err) {
+    console.error('Get available bookings error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch available bookings' 
+    });
+  }
+};
+
+/**
+ * Estimate booking cost, distance, and duration without creating a booking
+ * Used by frontend to show estimates before confirmation
+ */
+exports.estimateBooking = async (req, res) => {
+  try {
+    const {
+      fromLocation,
+      toLocation,
+      weightKg = 0,
+      lengthCm = 0,
+      widthCm = 0,
+      heightCm = 0,
+      urgencyLevel = 'Low',
+      perishable = false,
+      needsRefrigeration = false,
+      humidityControl = false,
+      specialCargo = [],
+      bulkiness = false,
+      insured = false,
+      value = 0,
+      tolls = 0,
+      priority = false,
+      fuelSurchargePct = 0,
+      waitMinutes = 0,
+      nightSurcharge = false,
+      vehicleType = 'truck',
+    } = req.body;
+
+    // Validate required fields
+    if (!fromLocation || !toLocation) {
+      return res.status(400).json({
+        success: false,
+        message: 'fromLocation and toLocation are required'
+      });
+    }
+
+    // Extract location data
+    let fromLoc, toLoc;
+    if (typeof fromLocation === 'string') {
+      fromLoc = { address: fromLocation };
+    } else if (fromLocation.address) {
+      fromLoc = {
+        address: fromLocation.address,
+        latitude: fromLocation.latitude,
+        longitude: fromLocation.longitude
+      };
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid fromLocation format'
+      });
+    }
+
+    if (typeof toLocation === 'string') {
+      toLoc = { address: toLocation };
+    } else if (toLocation.address) {
+      toLoc = {
+        address: toLocation.address,
+        latitude: toLocation.latitude,
+        longitude: toLocation.longitude
+      };
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid toLocation format'
+      });
+    }
+
+    // Validate coordinates if provided
+    if (fromLoc.latitude && fromLoc.longitude && toLoc.latitude && toLoc.longitude) {
+      // Calculate distance and duration using Google Maps API
+      const { actualDistance, estimatedDurationMinutes, formattedDuration, success } = 
+        await calculateRoadDistanceAndDuration(
+          fromLoc,
+          toLoc,
+          vehicleType || 'truck',
+          google_key,
+          weightKg || 0
+        );
+
+      if (!success) {
+        console.warn('Using fallback distance calculation due to API error');
+        // Fallback to haversine distance if Google Maps fails
+        const fallbackDistance = calculateDistance(fromLoc, toLoc);
+        const fallbackDurationMinutes = Math.round((fallbackDistance / 60) * 60); // Assume 60 km/h average
+        
+        // Calculate base transport cost with fallback distance
+        const bookingDataForCost = {
+          actualDistance: fallbackDistance,
+          weightKg: weightKg || 0,
+          lengthCm: lengthCm || 0,
+          widthCm: widthCm || 0,
+          heightCm: heightCm || 0,
+          urgencyLevel: urgencyLevel || 'Low',
+          perishable: !!perishable,
+          needsRefrigeration: !!needsRefrigeration,
+          humidityControl: !!humidityControl,
+          specialCargo: specialCargo || [],
+          bulkiness: !!bulkiness,
+          insured: !!insured,
+          value: value || 0,
+          tolls: tolls || 0,
+          priority: !!priority,
+          fuelSurchargePct: fuelSurchargePct || 0,
+          waitMinutes: waitMinutes || 0,
+          nightSurcharge: !!nightSurcharge,
+          vehicleType: vehicleType || 'truck',
+        };
+        
+        const { cost: baseCost } = calculateTransportCost(bookingDataForCost);
+        
+        // Calculate realistic cost range for fallback scenario
+        // Use same logic as above but with fallback distance
+        const distanceVariation = 0.03; // ±3% for route variations
+        const waitTimeBuffer = waitMinutes ? 0 : 10;
+        const tollBuffer = tolls || 150;
+        
+        const minDistance = fallbackDistance * (1 - distanceVariation);
+        const minBookingData = {
+          ...bookingDataForCost,
+          actualDistance: minDistance,
+          waitMinutes: waitMinutes || 0,
+        };
+        const { cost: minCost } = calculateTransportCost(minBookingData);
+        
+        const maxDistance = fallbackDistance * (1 + distanceVariation);
+        const maxBookingData = {
+          ...bookingDataForCost,
+          actualDistance: maxDistance,
+          waitMinutes: waitMinutes + waitTimeBuffer,
+          tolls: tolls + tollBuffer,
+        };
+        const { cost: maxCost } = calculateTransportCost(maxBookingData);
+        
+        const adjustedMinCost = Math.max(minCost, baseCost * 0.97);
+        const adjustedMaxCost = Math.min(maxCost, baseCost * 1.08);
+        
+        // Format duration
+        const hours = Math.floor(fallbackDurationMinutes / 60);
+        const minutes = fallbackDurationMinutes % 60;
+        const formattedDuration = hours > 0 
+          ? `${hours}h ${minutes}m` 
+          : `${minutes}m`;
+
+        // Return estimate with realistic cost range (fallback scenario)
+        // Include both costRange and estimatedCostRange (Mumbua Mutuku's format) for consistency
+        const minCostRounded = Math.round(adjustedMinCost);
+        const maxCostRounded = Math.round(adjustedMaxCost);
+        const baseCostRounded = Math.round(baseCost);
+        
+        return res.status(200).json({
+          success: true,
+          estimatedDistance: `${fallbackDistance.toFixed(2)} km`,
+          estimatedDuration: formattedDuration,
+          estimatedCost: baseCostRounded,
+          baseEstimate: baseCostRounded,
+          minCost: minCostRounded,
+          maxCost: maxCostRounded,
+          costRange: {
+            min: minCostRounded,
+            max: maxCostRounded
+          },
+          // Mumbua Mutuku's format for consistency with frontend
+          estimatedCostRange: {
+            min: minCostRounded,
+            max: maxCostRounded,
+            display: `KES ${minCostRounded.toLocaleString('en-US')} - ${maxCostRounded.toLocaleString('en-US')}`
+          }
+        });
+      }
+
+      // Calculate base transport cost with actual distance
+      const bookingDataForCost = {
+        actualDistance,
+        weightKg: weightKg || 0,
+        lengthCm: lengthCm || 0,
+        widthCm: widthCm || 0,
+        heightCm: heightCm || 0,
+        urgencyLevel: urgencyLevel || 'Low',
+        perishable: !!perishable,
+        needsRefrigeration: !!needsRefrigeration,
+        humidityControl: !!humidityControl,
+        specialCargo: specialCargo || [],
+        bulkiness: !!bulkiness,
+        insured: !!insured,
+        value: value || 0,
+        tolls: tolls || 0,
+        priority: !!priority,
+        fuelSurchargePct: fuelSurchargePct || 0,
+        waitMinutes: waitMinutes || 0,
+        nightSurcharge: !!nightSurcharge,
+        vehicleType: vehicleType || 'truck',
+      };
+      
+      const { cost: baseCost, costBreakdown } = calculateTransportCost(bookingDataForCost);
+      
+      // Calculate realistic cost range based on variable factors
+      // Factors that could realistically vary:
+      // 1. Distance: Route variations (±2-3%)
+      // 2. Wait time: Unknown at estimate time (could be 0-15 minutes)
+      // 3. Tolls: Route-dependent variations
+      // 4. Fuel surcharge: Minor fluctuations
+      
+      const distanceVariation = 0.03; // ±3% for route variations
+      
+      // Calculate minimum cost (optimistic scenario)
+      // - Slightly lower distance (3% less for optimal route)
+      // - No wait time if not specified
+      // - Same other factors
+      const minDistance = actualDistance * (1 - distanceVariation);
+      const minBookingData = {
+        ...bookingDataForCost,
+        actualDistance: minDistance,
+        waitMinutes: waitMinutes || 0, // Use specified wait time, or 0
+      };
+      const { cost: minCost } = calculateTransportCost(minBookingData);
+      
+      // Calculate maximum cost (conservative scenario)
+      // - Slightly higher distance (3% more for alternate routes)
+      // - Add wait time buffer (5-10 minutes)
+      // - Account for potential toll variations (add 100-200 KES buffer)
+      const maxDistance = actualDistance * (1 + distanceVariation);
+      const waitTimeBuffer = waitMinutes ? 0 : 10; // Add 10 min buffer if not specified
+      const tollBuffer = tolls || 150; // Small buffer for potential toll variations
+      const maxBookingData = {
+        ...bookingDataForCost,
+        actualDistance: maxDistance,
+        waitMinutes: waitMinutes + waitTimeBuffer,
+        tolls: tolls + tollBuffer,
+      };
+      const { cost: maxCost } = calculateTransportCost(maxBookingData);
+      
+      // Ensure range is reasonable (min shouldn't be too low, max shouldn't be too high)
+      // Keep range within ±5% of base cost minimum
+      const adjustedMinCost = Math.max(minCost, baseCost * 0.97); // At least 3% below base
+      const adjustedMaxCost = Math.min(maxCost, baseCost * 1.08); // At most 8% above base
+      
+      // Return estimate with realistic cost range
+      // Include both costRange and estimatedCostRange (Mumbua Mutuku's format) for consistency
+      const minCostRounded = Math.round(adjustedMinCost);
+      const maxCostRounded = Math.round(adjustedMaxCost);
+      const baseCostRounded = Math.round(baseCost);
+      
+      return res.status(200).json({
+        success: true,
+        estimatedDistance: `${actualDistance.toFixed(2)} km`,
+        estimatedDuration: formattedDuration,
+        estimatedCost: baseCostRounded,
+        baseEstimate: baseCostRounded,
+        minCost: minCostRounded,
+        maxCost: maxCostRounded,
+        costRange: {
+          min: minCostRounded,
+          max: maxCostRounded
+        },
+        // Mumbua Mutuku's format for consistency with frontend
+        estimatedCostRange: {
+          min: minCostRounded,
+          max: maxCostRounded,
+          display: `KES ${minCostRounded.toLocaleString('en-US')} - ${maxCostRounded.toLocaleString('en-US')}`
+        },
+        costBreakdown: costBreakdown
+      });
+    } else {
+      // No coordinates provided - return error or use fallback
+      return res.status(400).json({
+        success: false,
+        message: 'Location coordinates (latitude, longitude) are required for accurate estimates'
+      });
+    }
+  } catch (error) {
+    console.error('Error estimating booking:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to calculate booking estimate',
+      error: error.message
+    });
+  }
+};
+
 exports.acceptDriverRouteLoad = async (req, res) => {
   try {
     const userId = req.user.uid;
@@ -1416,6 +2018,186 @@ exports.acceptDriverRouteLoad = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to accept load: ' + error.message
+    });
+  }
+};
+
+exports.cancelBooking = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const bookingId = req.params.bookingId;
+    const { reason } = req.body;
+
+    const booking = await Booking.get(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ message: 'Booking is not available for cancellation' });
+    }
+
+    await Booking.cancel(bookingId, reason, userId);
+    await logAdminActivity(userId, 'cancel_booking', req);
+
+    res.status(200).json({
+      success: true,
+      message: 'Booking cancelled successfully'
+    });
+
+  } catch (error) {
+    console.error('Error cancelling booking:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cancel booking: ' + error.message
+    });
+
+  }
+};
+
+exports.startBooking = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+  
+    const { bookingId, companyId } = req.params;
+
+    if (!bookingId) {
+      return res.status(400).json({ message: 'Booking ID is required' });
+    }
+
+    if (!companyId) {
+      return res.status(400).json({ message: 'Company ID is required' });
+    }
+
+    // Get company details
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company not found'
+      });
+    }
+
+    // Check if company is approved
+    if (company.status === 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Company is not approved yet'
+      });
+    }
+
+    // Check if overlimit and no registration
+    if (!company.registrationProvided && company.completedTripsCount >= 5) {
+      return res.status(403).json({
+        success: false,
+        message: 'Company registration required to continue creating trips',
+        code: 'REGISTRATION_REQUIRED',
+      });
+    }
+
+    const booking = await Booking.get(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if (booking.status !== 'accepted') {
+      return res.status(400).json({ message: 'Booking is not available for start' });
+    }
+
+    const transporter = await Company.get(companyId);
+    if (!transporter) {
+      return res.status(404).json({ message: 'Transporter not found' });
+    }
+
+    if (transporter.registrationRequired && !transporter.registrationProvided) {
+      return res.status(400).json({ message: 'Transporter registration is required' });
+    }
+
+    const started = await Booking.startBooking(bookingId);
+
+    if (!started) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    await logActivity(req.user.uid, 'start_booking', req);
+
+    await Notification.create({
+      type: "Start AgriTRUK Booking",
+      message: `You started one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    });
+
+    res.status(200).json({
+      message: "AgriTRUK booking started successfully",
+      booking: started
+    });
+  } catch (error) {
+    console.error("Start agri booking error:", error);
+    res.status(500).json({
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to start agriTRUK booking"
+    });
+  }
+};
+
+exports.completeBooking = async (req, res) => {
+  try {
+    const { bookingId, companyId } = req.params;
+
+    if (!bookingId) {
+      return res.status(400).json({ message: 'Booking ID is required' });
+    }
+
+    if (!companyId) {
+      return res.status(400).json({ message: 'Company ID is required' });
+    }
+
+    const booking = await Booking.get(bookingId);
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    if(booking.status !== 'in_progress') {
+      return res.status(400).json({ message: 'Booking is not available for complete' });
+    }
+    const company = await Company.get(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+    
+    const completed = await Booking.completeBooking(bookingId);
+
+    if (!completed) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+
+    //flag
+    if (!company.registrationProvided && company.completedTripsCount + 1 >= 5) {
+      await Company.update(company.id, {
+        registrationRequired: true,
+      });
+    }
+
+    await logActivity(req.user.uid, 'complete_booking', req);
+
+    await Notification.create({
+      type: "Complete AgriTRUK Booking",
+      message: `You completed one booking. Booking ID: ${bookingId}`,
+      userId: req.user.uid,
+      userType: "user",
+    })
+
+    res.status(200).json({
+      message: "AgriTRUK booking completed successfully",
+      booking: completed
+    });
+  } catch (error) {
+    console.error("Complete agri booking error:", error);
+    res.status(500).json({
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to complete agriTRUK booking"
     });
   }
 };

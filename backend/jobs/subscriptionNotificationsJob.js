@@ -15,9 +15,9 @@ const subscriptionNotificationsJob = cron.schedule('0 9 * * *', async () => {
 
 // Optional: Run more frequently for testing (every 10 minutes)
 // const testJob = cron.schedule('*/1 * * * *', async () => {
-//   console.log('🧪 Test run...');
+
 //   const results = await notificationCronService.runSubscriptionNotifications();
-//   console.log('✅ Completed cron run', results);
+
 // });
 
 module.exports = {

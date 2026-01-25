@@ -21,14 +21,13 @@ class MatchingService {
         .get();
   
       if (activeSubscribersSnapshot.empty) {
-        console.log('No active subscribers found');
+       
         return [];
       }
   
       // Extract userIds
       const activeUserIds = activeSubscribersSnapshot.docs.map(doc => doc.data().userId);
-      console.log('Active subscriber userIds:', activeUserIds);
-  
+      
       // Handle Firestore "in" limitation (max 10 items per query)
       let activeTransporters = [];
       const chunkSize = 10;
@@ -49,7 +48,6 @@ class MatchingService {
         );
       }
   
-      console.log('Active subscribed transporters (online only):', activeTransporters.length);
       return activeTransporters;
   
     } catch (error) {
@@ -60,8 +58,7 @@ class MatchingService {
 
   static async matchBooking(bookingId) {
     const booking = await Booking.get(bookingId);
-    // console.log('Matching booking:', booking);
-
+    
     if (booking.status !== 'pending') return null;
 
     const activeTransporters = await MatchingService.getActiveSubscribedTransporters();
@@ -74,8 +71,7 @@ class MatchingService {
 
       const lastLocation = transporter.lastKnownLocation;
       const fromLocation = booking.fromLocation || booking.pickUpLocation;
-      console.log('lastLocation', lastLocation, 'fromLocation', fromLocation);
-
+     
       if (lastLocation && fromLocation) {
         const distance = calculateDistance(lastLocation, fromLocation);
         if (distance > 50) continue;
@@ -160,7 +156,7 @@ class MatchingService {
     
     // If transporter is offline (not accepting bookings), return empty array
     if (!transporter.acceptingBooking) {
-      console.log(`Transporter ${transporterId} is offline - not returning available bookings`);
+      
       return [];
     }
     

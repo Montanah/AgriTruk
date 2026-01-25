@@ -13,6 +13,7 @@ const { formatTimestamps } = require('../utils/formatData');
 const { logActivity, logAdminActivity } = require('../utils/activityLogger');
 const Notification = require('../models/Notification');
 const Company = require('../models/Company');
+const { updateStatus } = require('../models/Payment');
 const cloudinary = require('cloudinary').v2;
 const db = admin.firestore();
 
@@ -58,9 +59,6 @@ const jobSeekerController = {
       if (files.length > 0) {
         const uploadTasks = files.map(async file => {
           const fieldName = file.fieldname;
-
-          console.log(`Processing file: ${fieldName}, path: ${file.path}`);
-
           const uploadedUrl = await uploadImage(file.path);
           fs.unlinkSync(file.path); // clean temp file
 
@@ -81,7 +79,7 @@ const jobSeekerController = {
               gslUrl = uploadedUrl;
               break;
             default:
-              console.log(`Ignoring unexpected field: ${fieldName}`);
+              return(message = "Invalid field name");
           }
         });
 
@@ -95,12 +93,12 @@ const jobSeekerController = {
         gslLicence: gslUrl
       };
 
-      console.log("Job Seeker data:", documents.drivingLicense);
       const jobSeeker = await JobSeeker.create({
         userId,
         name,
         email,
         phone,
+        secondaryPhone: jobSeekerData.secondaryPhone || null,
         ...jobSeekerData,
         address,
         experience,
@@ -109,6 +107,13 @@ const jobSeekerController = {
       });
 
       await logActivity(uid, "Job Seeker Application", "Submitted");
+
+      await sendEmail({
+        to: "support@trukafrica.com",
+        subject: 'New Job Seeker Needs Review',
+        html: adminNotification('Job Seeker Needs Review', `A new job seeker needs review. Job Seeker Id: ${jobSeeker.id} Name: ${jobSeeker.name}`),
+      });
+
 
       await Action.create({
         type: 'jobSeekerApplication',
@@ -222,34 +227,6 @@ const jobSeekerController = {
     }
   },
 
-  // PATCH /api/job-seekers/{jobSeekerId}/upload - Upload documents (multipart/form-data)
-  // async uploadDocuments(req, res) {
-  //   try {
-  //     const userId = req.user.uid;
-  //     const jobseeker = await JobSeeker.getByUserId(userId);
-  //     if (!jobseeker) {
-  //       return res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job seeker not found" } });
-  //     }
-  //     const jobSeekerId  = jobseeker.id;
-  //     if (!req.files || Object.keys(req.files).length === 0) {
-  //       return res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "No files uploaded" } });
-  //     }
-  //     const uploadedFiles = await JobSeeker.uploadDocuments(jobSeekerId, req.files);
-  //     res.status(200).json({
-  //       success: true,
-  //       uploadedFiles
-  //     });
-  //   } catch (error) {
-  //     console.error("Error uploading documents:", error);
-  //     res.status(400).json({
-  //       success: false,
-  //       error: {
-  //         code: "BAD_REQUEST",
-  //         message: error.message
-  //       }
-  //     });
-  //   }
-  // },
   async uploadDocuments(req, res) {
     try {
       const userId = req.user.uid;
@@ -305,7 +282,9 @@ const jobSeekerController = {
               changedFields.push('ID Document');
               break;
             default:
-              console.log(`Ignoring unexpected field: ${fieldName}`);
+              // Ignore other fields
+              console.log(`Ignored field: ${fieldName}`);
+              break;
           }
         }
 
@@ -387,6 +366,27 @@ const jobSeekerController = {
       const { status, adminNotes } = req.body;
       const adminId = req.user.id; // Assuming auth middleware provides req.user
       const updatedJobSeeker = await JobSeeker.updateApplicationStatus(jobSeekerId, status, adminNotes, adminId);
+      res.status(200).json({
+        success: true,
+        application: updatedJobSeeker
+      });
+    } catch (error) {
+      console.error("Error updating status:", error);
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "BAD_REQUEST",
+          message: error.message
+        }
+      });
+    }
+  },
+
+  async updateStatus(req, res) {
+    try {
+      const { jobSeekerId } = req.params;
+      const { status } = req.body;
+      const updatedJobSeeker = await JobSeeker.updateStatus(jobSeekerId, status);
       res.status(200).json({
         success: true,
         application: updatedJobSeeker
@@ -494,10 +494,10 @@ const jobSeekerController = {
 
   async deleteJobSeeker(req, res) {
     try {
-      const { id } = req.params;
+      const id  = req.params.jobSeekerId;
       const result = await JobSeeker.delete(id);
-
-      await logAdminActivity(req.user.id, "Job Seeker", "Deleted");
+      
+      await logAdminActivity(req.user.uid, "Job Seeker", req, {id: id});
 
       res.status(200).json({
         success: true,
@@ -633,28 +633,36 @@ const jobSeekerController = {
 
       const docType = documentActions[action];
       if (docType) {
-        if (!expiryDate) {
+        if (docType !== 'idDoc' && !expiryDate) {
           return res.status(400).json({ message: `${docType} expiryDate is required` });
         }
+
+        const docUpdate = {
+          ...jobSeeker.documents[docType],
+          status: 'approved',
+          verifiedBy: req.user.uid,
+          verifiedAt: admin.firestore.Timestamp.now(),
+        };
+
+        if (expiryDate) {
+          docUpdate.expiryDate = admin.firestore.Timestamp.fromDate(new Date(expiryDate));
+        }
+
         updates = {
           documents: {
             ...jobSeeker.documents,
-            [docType]: {
-              ...jobSeeker.documents[docType],
-              status: 'approved',
-              verifiedBy: req.user.uid,
-              verifiedAt: admin.firestore.Timestamp.now(),
-              expiryDate: admin.firestore.Timestamp.fromDate(new Date(expiryDate)),
-            },
+            [docType]: docUpdate,
           },
           updatedAt: admin.firestore.Timestamp.now(),
         };
+
         await JobSeeker.update(jobSeekerId, updates);
 
         // Check if all critical documents are approved
-        const allApproved = ['idDoc', 'drivingLicense', 'goodConductCert', 'goodsServiceLicense'].every(
+        const allApproved = ['idDoc', 'drivingLicense', 'goodConductCert'].every(
           doc => updates.documents[doc]?.status === 'approved'
         );
+        
         if (allApproved) {
           updates = {
             ...updates,
@@ -737,7 +745,28 @@ const jobSeekerController = {
       res.status(500).json({ message: 'Failed to fetch approved job seekers' });
     }
   },
+ 
+  async getApprovedDrivers(req, res) {
+  try {
+    const allJobSeekers = await JobSeeker.getApprovedJobSeekers();
 
+    // If subscription info is attached
+    let limitedJobSeekers = allJobSeekers;
+    if (req.subscription && req.subscription.limits?.visibleDrivers) {
+      const limit = req.subscription.limits.visibleDrivers;
+      limitedJobSeekers = allJobSeekers.slice(0, limit);
+    }
+
+    res.status(200).json({
+      success: true,
+      jobSeekers: formatTimestamps(limitedJobSeekers),
+      subscription: req.subscription
+    });
+  } catch (error) {
+    console.error('Error fetching approved job seekers:', error);
+    res.status(500).json({ message: 'Failed to fetch approved job seekers' });
+  }
+},
   
 async browseJobSeekers (req, res) {
   try {
@@ -892,6 +921,61 @@ async getJobSeekerDocuments (req, res) {
     res.status(500).json({ message: 'Failed to fetch job seeker documents' });
   }
 },
+
+async getApprovedJobSeekersPreview(req, res) {
+  try {
+    // Fetch all approved job seekers
+    const approvedJobSeekers = await JobSeeker.getPreview();
+    if (!approvedJobSeekers || approvedJobSeekers.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No approved job seekers found',
+        code: 'NO_APPROVED_JOB_SEEKERS',
+      });
+    }
+
+    // Apply subscription limits if not admin
+    let limitedJobSeekers = approvedJobSeekers;
+    if (req.subscription && !req.subscription.unrestricted && req.subscription.visibleDrivers) {
+      limitedJobSeekers = approvedJobSeekers.slice(0, req.subscription.visibleDrivers);
+    }
+
+    // Format timestamps and add detailsLink
+    const formattedJobSeekers = formatTimestamps(limitedJobSeekers).map((jobSeeker) => ({
+      jobSeekerId: jobSeeker.jobSeekerId,
+      userId: jobSeeker.userId,
+      firstName: jobSeeker.firstName,
+      dateOfBirth: jobSeeker.dateOfBirth,
+      gender: jobSeeker.gender,
+      age: jobSeeker.age,
+      address: jobSeeker.address,
+      religion: jobSeeker.religion,
+      profilePhoto: jobSeeker.profilePhoto,
+      experience: jobSeeker.experience,
+      detailsLink: `/api/recruiter/${jobSeeker.jobSeekerId}/details`,
+    }));
+
+    res.status(200).json({
+      success: true,
+      jobSeekers: formattedJobSeekers,
+      subscription: req.subscription
+        ? {
+            plan: req.subscription.plan?.name,
+            contactsRemaining: req.subscription.contactsRemaining,
+            daysRemaining: req.subscription.daysRemaining,
+            visibleDrivers: req.subscription.visibleDrivers,
+          }
+        : null,
+    });
+  } catch (error) {
+    console.error('Error fetching approved job seekers preview:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      code: 'INTERNAL_ERROR',
+    });
+  }
+}
 
 };
 

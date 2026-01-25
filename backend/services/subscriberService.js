@@ -23,7 +23,6 @@ class NotificationCronService {
   // Main cron job method
   async runSubscriptionNotifications() {
     try {
-      console.log('🚀 Starting subscription notification cron job...');
       
       const now = new Date();
       const tasks = [
@@ -37,7 +36,6 @@ class NotificationCronService {
 
       const results = await Promise.allSettled(tasks);
       
-      console.log('✅ Subscription notification cron job completed');
       return this.formatResults(results);
       
     } catch (error) {
@@ -112,7 +110,6 @@ class NotificationCronService {
   async checkExpiredSubscriptions() {
     const notificationsSent = [];
     const expiredSubscriptions = await Subscribers.getExpiredSubscriptions();
-    console.log(" expiredSubscriptions", expiredSubscriptions);
     
     for (const subscriber of expiredSubscriptions) {
       if (!subscriber.notifications?.subscriptionExpired) {
@@ -282,8 +279,6 @@ class NotificationCronService {
           formattedPhone
         );
       }
-
-      console.log(`📧 Notification sent to user ${user.id}: ${subject}`);
     } catch (error) {
       console.error(`❌ Failed to send notification to user ${user.id}:`, error);
     }

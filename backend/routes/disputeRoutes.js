@@ -1,3 +1,5 @@
+
+
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/authMiddleware');
@@ -19,7 +21,54 @@ const { authorize } = require("../middlewares/adminAuth");
  *   - name: Disputes
  *     description: Dispute management endpoints
  */
-
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Dispute:
+ *       type: object
+ *       properties:
+ *         disputeId:
+ *           type: string
+ *         bookingId:
+ *           type: string
+ *         transporterId:
+ *           type: string
+ *         reason:
+ *           type: string
+ *         status:
+ *           type: string
+ *         priority:
+ *           type: string
+ *         comments:
+ *           type: array
+ *           items:
+ *             type: string
+ *         evidence:
+ *           type: array
+ *           items:
+ *             type: string
+ *         resolution:
+ *           type: string
+ *         amountRefunded:
+ *           type: number
+ *         openedAt:
+ *           type: string
+ *           format: date-time
+ *         openedBy:
+ *           type: string
+ *         resolvedAt:
+ *           type: string
+ *           format: date-time
+ *         resolvedBy:
+ *           type: string
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
 /**
  * @swagger
  * /api/disputes:
@@ -45,9 +94,6 @@ const { authorize } = require("../middlewares/adminAuth");
  *               transporterId:
  *                 type: string
  *                 description: The ID of the transporter involved
- *               userId:
- *                 type: string
- *                 description: The ID of the user involved
  *               reason:
  *                 type: string
  *                 description: The reason for the dispute
@@ -79,7 +125,7 @@ const { authorize } = require("../middlewares/adminAuth");
  *       500:
  *         description: Internal server error
  */
-router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin']), createDispute);
+router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business']), createDispute);
 
 //router.get('/test', getActiveSubscribedTransporters)
 
@@ -107,7 +153,7 @@ router.post('/', authenticateToken, requireRole(['user', 'transporter', 'admin']
  *       500:
  *         description: Internal server error
  */
-router.get('/:disputeId', authenticateToken, requireRole(['user', 'transporter', 'admin']), getDispute);
+router.get('/:disputeId', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business']), getDispute);
 
 /**
  * @swagger
@@ -164,7 +210,7 @@ router.get('/:disputeId', authenticateToken, requireRole(['user', 'transporter',
  *       500:
  *         description: Internal server error
  */
-router.put('/:disputeId', authenticateToken, requireRole(['user', 'transporter', 'admin']), updateDispute);
+router.put('/:disputeId', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business']), updateDispute);
 
 /**
  * @swagger
@@ -188,7 +234,7 @@ router.put('/:disputeId', authenticateToken, requireRole(['user', 'transporter',
  *       500:
  *         description: Internal server error
  */
-router.get('/booking/:bookingId', authenticateToken, requireRole(['user', 'transporter', 'admin']), getDisputesByBookingId);
+router.get('/booking/:bookingId', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business']), getDisputesByBookingId);
 
 /**
  * @swagger
@@ -212,7 +258,7 @@ router.get('/booking/:bookingId', authenticateToken, requireRole(['user', 'trans
  *       500:
  *         description: Internal server error
  */
-router.get('/openedBy/:openedBy', authenticateToken, requireRole(['user', 'transporter', 'admin']), getDisputesByOpenedBy);
+router.get('/openedBy/:openedBy', authenticateToken, requireRole(['user', 'transporter', 'admin', 'shipper', 'business', 'broker']), getDisputesByOpenedBy);
 
 /**
  * @swagger

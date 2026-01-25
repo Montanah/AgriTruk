@@ -6,6 +6,7 @@ const { requireRole } = require('../middlewares/requireRole');
 const { authorize } = require('../middlewares/adminAuth');
 const bookingController = require('../controllers/bookingController');
 const driverController = require('../controllers/driverController');
+const validateBookingAccess = require('../middlewares/validateBookingAccess');
 
 /**
  * @swagger
@@ -206,9 +207,82 @@ const driverController = require('../controllers/driverController');
  *         description: Internal server error
  */
 router.get('/requests', (req, res, next) => {
-  console.log('🚨 BOOKING ROUTES /requests HIT - URL:', req.originalUrl, 'User:', req.user?.uid);
+ 
   next();
-}, authenticateToken, requireRole(['transporter', 'business']), bookingController.getAllAvailableBookings);
+}, authenticateToken, requireRole(['transporter', 'business', 'driver']), validateBookingAccess, bookingController.getAllAvailableBookings);
+
+/**
+ * @swagger
+ * /api/bookings/available:
+ *   get:
+ *     summary: Get available bookings
+ *     description: Returns a list of available bookings (alias for /requests)
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of available bookings
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/available', authenticateToken, requireRole(['driver', 'transporter', 'business']), validateBookingAccess,bookingController.getAvailable);
+
+/**
+ * @swagger
+ * /api/bookings/transporter/accepted:
+ *   get:
+ *     summary: Get accepted bookings for transporter/driver
+ *     description: Returns bookings accepted by the transporter or driver
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Accepted bookings retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/transporter/accepted', authenticateToken, requireRole(['driver', 'transporter']), validateBookingAccess, bookingController.getAcceptedBookings);
+
+/**
+ * @swagger
+ * /api/bookings/driver/accepted:
+ *   get:
+ *     summary: Get accepted bookings for driver (alias)
+ *     description: Returns bookings accepted by the driver
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Accepted bookings retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/driver/accepted', authenticateToken, requireRole(['driver', 'transporter']), validateBookingAccess, bookingController.getAcceptedBookings);
+
+/**
+ * @swagger
+ * /api/bookings/driver/active-trip:
+ *   get:
+ *     summary: Get active trip for driver
+ *     description: Returns the current active trip for a driver
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Active trip retrieved successfully
+ *       404:
+ *         description: No active trip found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/driver/active-trip', authenticateToken, requireRole(['driver', 'transporter']), validateBookingAccess, bookingController.getDriverActiveTrip);
+
+// Broker scoped bookings (minimal, additive; does not affect existing flows)
+router.get('/broker/scoped', authenticateToken, requireRole(['broker']), bookingController.getBrokerScopedBookings);
 
 /**
  * @swagger
@@ -225,7 +299,7 @@ router.get('/requests', (req, res, next) => {
  *       500:
  *         description: Internal server error
  */
-router.get('/transporters/route-loads', authenticateToken, requireRole('transporter'), bookingController.getTransporterRouteLoads);
+router.get('/transporters/route-loads', authenticateToken, requireRole(['driver', 'transporter']), validateBookingAccess, bookingController.getTransporterRouteLoads);
 
 /**
  * @swagger
@@ -242,7 +316,7 @@ router.get('/transporters/route-loads', authenticateToken, requireRole('transpor
  *       500:
  *         description: Internal server error
  */
-router.get('/companies/route-loads', authenticateToken, requireRole('driver'), bookingController.getDriverRouteLoads);
+router.get('/companies/route-loads', authenticateToken, requireRole('driver'), validateBookingAccess, bookingController.getDriverRouteLoads);
 
 /**
  * @swagger
@@ -262,7 +336,7 @@ router.get('/companies/route-loads', authenticateToken, requireRole('driver'), b
  *       500:
  *         description: Internal server error
  */
-router.get('/fleet', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker', 'admin']), bookingController.getFleetStatus);
+router.get('/fleet', authenticateToken, requireRole(['transporter', 'broker', 'admin']), bookingController.getFleetStatus);
 
 /**
  * @swagger
@@ -300,8 +374,8 @@ router.get('/fleet', authenticateToken, requireRole(['transporter', 'shipper', '
  */
 router
   .route('/')
-  .get(authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getAllBookings)
-  .post(authenticateToken, requireRole(['shipper', 'business', 'broker']), bookingController.createBooking);
+  .get(authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), validateBookingAccess, bookingController.getAllBookings)
+  .post(authenticateToken, requireRole(['shipper', 'business', 'broker', 'admin']), bookingController.createBooking);
 
 /**
  * @swagger
@@ -380,9 +454,37 @@ router
  *       500:
  *         description: Internal server error
  */
+/**
+ * @swagger
+ * /api/bookings/update/{bookingId}:
+ *   patch:
+ *     summary: Update a specific booking by ID (for drivers, transporters, etc.)
+ *     description: Allows drivers and other roles to update booking status (start, cancel, complete)
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking
+ *     responses:
+ *       200:
+ *         description: Booking updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+// CRITICAL: This route MUST be defined BEFORE /:bookingId to ensure correct route matching
+// Express matches routes in order, so specific routes must come before generic ones
+router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'broker', 'shipper', 'transporter', 'business', 'driver']), bookingController.updateBooking);
+
 router
   .route('/:bookingId')
-  .get(authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingById)
+  .get(authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker', 'admin']), validateBookingAccess, bookingController.getBookingById)
   .patch(authenticateToken, requireRole(['shipper', 'business', 'broker']), bookingController.updateBooking)
   .delete(authenticateToken, requireRole('admin'), authorize(['manage_bookings', 'super_admin']), bookingController.deleteBooking);
 
@@ -419,7 +521,8 @@ router
 router.get(
   '/shipper/:userId',
   authenticateToken,
-  requireRole(['transporter', 'shipper', 'business', 'broker']),
+  requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']),
+  validateBookingAccess,
   bookingController.getBookingsByUserId
 );
 
@@ -449,38 +552,8 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.get('/transporter/:transporterId', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingsByTransporterId);
+router.get('/transporter/:transporterId', authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), bookingController.getBookingsByTransporterId);
 
-/**
- * @swagger
- * /api/bookings/update/{bookingId}:
- *   patch:
- *     summary: Update a specific booking by ID
- *     tags: [Bookings]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: bookingId
- *         required: true
- *         schema:
- *           type: string
- *         description: The ID of the booking
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Booking'
- *     responses:
- *       200:
- *         description: Booking updated successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden
- */
-router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'broker', 'shipper', 'transporter', 'business']), authorize(['manage_bookings', 'super_admin']), bookingController.updateBooking);
 
 /**
  * @swagger
@@ -525,7 +598,7 @@ router.patch('/update/:bookingId', authenticateToken, requireRole(['admin', 'bro
  *       409:
  *         description: Booking already accepted
  */
-router.post('/:bookingId/accept', authenticateToken, requireRole('transporter'), bookingController.acceptBooking);
+router.post('/:bookingId/accept', authenticateToken, requireRole(['driver', 'transporter']), validateBookingAccess, bookingController.acceptBooking);
 
 /**
  * @swagger
@@ -568,7 +641,7 @@ router.post('/:bookingId/accept', authenticateToken, requireRole('transporter'),
  *       404:
  *         description: Booking not found
  */
-router.post('/:bookingId/reject', authenticateToken, requireRole('transporter'), bookingController.rejectBooking);
+router.post('/:bookingId/reject', authenticateToken, requireRole(['driver', 'transporter']), validateBookingAccess, bookingController.rejectBooking);
 
 /**
  * @swagger
@@ -620,7 +693,7 @@ router.get('/client/:userId', authenticateToken, requireRole(['shipper', 'busine
  *       404:
  *         description: Booking not found
  */
-router.get('/:bookingId/status', authenticateToken, requireRole(['transporter', 'shipper', 'business', 'broker']), bookingController.getBookingStatus);
+router.get('/:bookingId/status', authenticateToken, requireRole(['driver', 'transporter', 'shipper', 'business', 'broker']), validateBookingAccess, bookingController.getBookingStatus);
 
 /**
  * @swagger
@@ -654,7 +727,164 @@ router.get('/:bookingId/status', authenticateToken, requireRole(['transporter', 
  *       404:
  *         description: Booking not found
  */
-router.patch('/:companyId/accept/:bookingId', authenticateToken, requireRole([ 'transporter', 'driver']), driverController.acceptBooking);
+router.patch('/:companyId/accept/:bookingId', authenticateToken, requireRole([ 'transporter', 'driver']), validateBookingAccess, driverController.acceptBooking);
 
+/**
+ * @swagger
+ * /api/bookings/estimate:
+ *   post:
+ *     summary: Get booking cost, distance, and duration estimate
+ *     description: Calculate estimated cost, distance, and duration for a booking without creating it
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fromLocation
+ *               - toLocation
+ *             properties:
+ *               fromLocation:
+ *                 type: object
+ *                 properties:
+ *                   address:
+ *                     type: string
+ *                   latitude:
+ *                     type: number
+ *                   longitude:
+ *                     type: number
+ *               toLocation:
+ *                 type: object
+ *                 properties:
+ *                   address:
+ *                     type: string
+ *                   latitude:
+ *                     type: number
+ *                   longitude:
+ *                     type: number
+ *               weightKg:
+ *                 type: number
+ *               urgencyLevel:
+ *                 type: string
+ *                 enum: [Low, Medium, High]
+ *               perishable:
+ *                 type: boolean
+ *               needsRefrigeration:
+ *                 type: boolean
+ *               humidityControl:
+ *                 type: boolean
+ *               specialCargo:
+ *                 type: array
+ *               bulkiness:
+ *                 type: boolean
+ *               insured:
+ *                 type: boolean
+ *               value:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Estimate calculated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 estimatedDistance:
+ *                   type: string
+ *                 estimatedDuration:
+ *                   type: string
+ *                 estimatedCost:
+ *                   type: number
+ *                 minCost:
+ *                   type: number
+ *                 maxCost:
+ *                   type: number
+ *                 costRange:
+ *                   type: object
+ *                   properties:
+ *                     min:
+ *                       type: number
+ *                     max:
+ *                       type: number
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/estimate', authenticateToken, bookingController.estimateBooking);
+
+/** 
+ * @swagger
+ * /api/bookings/{companyId}/start/{bookingId}:
+ *   patch:
+ *     summary: Start a booking for a specific company
+ *     description: Allows a transporter to start a booking for a specific company
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking to start
+ *     responses:
+ *       200:
+ *         description: Booking started successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+*/
+router.patch('/:companyId/start/:bookingId', authenticateToken, requireRole([ 'transporter', 'driver']), validateBookingAccess, bookingController.startBooking);
+
+/**
+ * @swagger
+ * /api/bookings/{companyId}/complete/{bookingId}:
+ *   patch:
+ *     summary: Complete a booking for a specific company
+ *     description: Allows a transporter to complete a booking for a specific company
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the booking to complete
+ *     responses:
+ *       200:
+ *         description: Booking completed successfully
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Booking not found
+ */
+router.patch('/:companyId/complete/:bookingId', authenticateToken, requireRole([ 'transporter', 'driver']), validateBookingAccess, bookingController.completeBooking);
 
 module.exports = router;

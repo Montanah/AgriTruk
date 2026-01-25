@@ -51,7 +51,6 @@ async function scheduleRecurringBookings(baseBookingId, recurrenceData) {
 
     await batch.commit();
     
-    console.log(`Created ${dates.length} recurring bookings for base booking ${baseBookingId}`);
     return childBookings;
 
   } catch (error) {

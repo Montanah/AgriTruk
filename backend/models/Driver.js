@@ -57,14 +57,13 @@ const Driver = {
     return {
       id: doc.id,
       ...data,
-      idExpiryDate: data.idExpiryDate ? data.idExpiryDate.toDate().toISOString() : null,
-      driverLicenseExpiryDate: data.driverLicenseExpiryDate ? data.driverLicenseExpiryDate.toDate().toISOString() : null,
-      createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
-      updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null,
-      lastActiveAt: data.lastActiveAt ? data.lastActiveAt.toDate().toISOString() : null,
-      acceptedAt: data.acceptedLoads?.map(load => load.acceptedAt ? load.acceptedAt.toDate().toISOString() : null) || null,
-      pickUpDate: data.acceptedLoads?.map(load => load.pickUpDate ? load.pickUpDate.toDate().toISOString() : null) || null,
     };
+  },
+
+  async getbyUserId(userId) {
+    const snapshot = await db.collection('drivers').where('userId', '==', userId).limit(1).get();
+    if (snapshot.empty) return null;
+    return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
   },
 
   async update(driverId, updates) {
@@ -93,14 +92,7 @@ const Driver = {
       return {
         id: doc.id,
         ...data,
-        idExpiryDate: data.idExpiryDate ? data.idExpiryDate.toDate().toISOString() : null,
-        driverLicenseExpiryDate: data.driverLicenseExpiryDate ? data.driverLicenseExpiryDate.toDate().toISOString() : null,
-        createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
-        updatedAt: data.updatedAt ? data.updatedAt.toDate().toISOString() : null,
-        lastActiveAt: data.lastActiveAt ? data.lastActiveAt.toDate().toISOString() : null,
-        acceptedAt: data.acceptedLoads?.map(load => load.acceptedAt ? load.acceptedAt.toDate().toISOString() : null) || null,
-        pickUpDate: data.acceptedLoads?.map(load => load.pickUpDate ? load.pickUpDate.toDate().toISOString() : null) || null,
-      };
+       };
     });
   },
 
@@ -256,12 +248,6 @@ const Driver = {
     return { success: true, driverId, bookingId };
   },
 
-  // Existing get method
-  async get(driverId) {
-    const driverSnap = await db.collection('drivers').doc(driverId).get();
-    return driverSnap.exists ? { id: driverSnap.id, ...driverSnap.data() } : null;
-  },
-
   async getDriverIdByUserId(userId) {
     const driverSnap = await db.collection('drivers').where('userId', '==', userId).limit(1).get();
     return driverSnap.docs[0]?.data() || null;
@@ -284,6 +270,25 @@ const Driver = {
       .where(expiryField, '<=', targetDate)
       .get();
     return snapshot.docs.map(doc => ({ driverId: doc.id, ...doc.data() }));
+  },
+
+  isDriverLicenseExpired(driverData) {
+    if (!driverData.driverLicenseExpiryDate) return true; 
+
+    const expiryTimestamp = driverData.driverLicenseExpiryDate;
+    const now = admin.firestore.Timestamp.now();
+
+    return expiryTimestamp.toMillis() < now.toMillis();
+  },
+
+  isDocumentExpired(driverData, field) {
+    const expiry = driverData[field];
+    if (!expiry) return true;
+    return expiry.toMillis() < admin.firestore.Timestamp.now().toMillis();
+  },
+
+   async assignDriver(driverId, vehicleId, vehicleDetails) {
+    await db.collection('drivers').doc(driverId).update({ assignedVehicleId: vehicleId, assignedVehicleDetails: vehicleDetails});
   },
 
 };

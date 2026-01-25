@@ -1,7 +1,8 @@
 const admin = require('../config/firebase');
 const db = admin.firestore();
-const { uploadVehicleDocuments } = require('./transporterController');
+const { uploadImage } = require('../utils/upload');
 const { adminNotification } = require('../utils/sendMailTemplate');
+const fs = require('fs');
 
 // Create a new vehicle for a company
 const createVehicle = async (req, res) => {
@@ -9,15 +10,18 @@ const createVehicle = async (req, res) => {
     
     const userId = req.user.uid;
     const companyId = req.body.companyId;
-
+    
     // Verify the user owns the company
     const companyDoc = await db.collection('companies').doc(companyId).get();
     if (!companyDoc.exists) {
+      
       return res.status(404).json({ message: 'Company not found' });
     }
 
     const companyData = companyDoc.data();
+    
     if (companyData.transporterId !== userId) {
+      
       return res.status(403).json({ message: 'Unauthorized to add vehicles to this company' });
     }
 
@@ -42,40 +46,53 @@ const createVehicle = async (req, res) => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-
-    // Handle file uploads - check for both multipart files and URL fields
+    
+    // Handle file uploads using the same working pattern as individual transporters
+    let vehicleImagesUrl = [];
+    let insuranceUrl = null;
     
     if (req.files && req.files.length > 0) {
-      // Handle multipart form data (original approach)
-      try {
-        const uploadResults = await uploadVehicleDocuments(req.files, 'vehicles');
+      
+      const uploadTasks = req.files.map(async file => {
+        const fieldName = file.fieldname;
         
-        if (uploadResults.vehicleImages && uploadResults.vehicleImages.length > 0) {
-          vehicleData.vehicleImagesUrl = uploadResults.vehicleImages;
-        }
-        if (uploadResults.insurance && uploadResults.insurance.length > 0) {
-          vehicleData.insuranceUrl = uploadResults.insurance[0];
-        }
-      } catch (uploadError) {
-        console.error('Error uploading vehicle documents:', uploadError);
-        return res.status(500).json({ message: 'Failed to upload vehicle documents' });
-      }
-    } else if (req.body.insuranceUrl || req.body.vehicleImageUrls) {
-      // Handle pre-uploaded file URLs (new approach)
-      if (req.body.insuranceUrl) {
-        vehicleData.insuranceUrl = req.body.insuranceUrl;
-      }
-      if (req.body.vehicleImageUrls) {
         try {
-          // Handle both string (from FormData) and array (from JSON) formats
-          const imageUrls = typeof req.body.vehicleImageUrls === 'string'
-            ? JSON.parse(req.body.vehicleImageUrls)
-            : req.body.vehicleImageUrls;
-          vehicleData.vehicleImagesUrl = imageUrls;
-        } catch (parseError) {
-          console.error('Error parsing vehicle image URLs:', parseError);
+          const publicId = await uploadImage(file.path);
+          if (publicId) {
+            switch (fieldName) {
+              case 'vehicleImages':
+                vehicleImagesUrl.push(publicId);
+                
+                break;
+              case 'insurance':
+                insuranceUrl = publicId;
+  
+                break;
+              default:
+                console.log(`🚗 Ignoring unexpected field: ${fieldName}`);
+            }
+            fs.unlinkSync(file.path);
+          } else {
+            console.error(`🚗 Failed to upload ${fieldName}`);
+            fs.unlinkSync(file.path);
+          }
+        } catch (uploadError) {
+          console.error(`🚗 Error uploading ${fieldName}:`, uploadError);
+          fs.unlinkSync(file.path);
+          throw new Error(`Failed to upload ${fieldName}`);
         }
+      });
+      
+      await Promise.all(uploadTasks);
+      
+      // Add uploaded files to vehicle data
+      if (vehicleImagesUrl.length > 0) {
+        vehicleData.vehicleImagesUrl = vehicleImagesUrl;
       }
+      if (insuranceUrl) {
+        vehicleData.insuranceUrl = insuranceUrl;
+      }
+      
     }
 
     // Create vehicle document
@@ -103,8 +120,11 @@ const createVehicle = async (req, res) => {
     });
 
     res.status(201).json({
+      success: true,
       message: 'Vehicle created successfully',
-      vehicle: { id: vehicleRef.id, ...vehicleData }
+      data: {
+        vehicle: { id: vehicleRef.id, ...vehicleData }
+      }
     });
 
   } catch (error) {

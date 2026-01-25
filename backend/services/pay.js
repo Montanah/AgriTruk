@@ -18,7 +18,6 @@ let stripeKey = null;
 try {
   if (process.env.STRIPE_SECRET_KEY) {
     stripeKey = new Stripe(process.env.STRIPE_SECRET_KEY);
-    console.log('✅ Stripe initialized successfully');
   } else {
     console.warn('⚠️ STRIPE_SECRET_KEY not found - Stripe functionality disabled');
   }
@@ -122,9 +121,6 @@ export async function processMpesaPayment({ phone, amount, accountRef }) {
 //       });
         
         
-      
-//       console.log("Payment successfully processed:", paymentResponse.paymentId);
-       
 //       // Get updated records
 //       const updatedPayment = await Payment.get(paymentResponse.paymentId);
 //       const updatedSubscriber = await Subscribers.get(subscriber.id);
@@ -146,8 +142,6 @@ export async function processMpesaPayment({ phone, amount, accountRef }) {
 //           updatedSubscriber, 
 //           plan
 //         );
-
-//         console.log("Receipt generated:", receipt.filePath);
         
 //         // Send email with receipt
 //         if (updatedPayment.email) {
@@ -161,9 +155,7 @@ export async function processMpesaPayment({ phone, amount, accountRef }) {
 //             )
 //           }
 //           );
-//           if (emailSent) {
-//             console.log("Receipt email sent to:", updatedPayment.email);
-            
+//           if (emailSent) { 
 //             // Update payment with receipt info
 //             await Payment.update(paymentResponse.paymentId, {
 //               receiptUrl: receipt.url,
@@ -171,28 +163,25 @@ export async function processMpesaPayment({ phone, amount, accountRef }) {
 //               receiptSentAt: new Date()
 //             });
 //           } else {
-//             console.log("Failed to send receipt email");
+//             console.error("Failed to send receipt email");
 //           }
 //           } else {
-//           console.log("No email address for subscriber, skipping email");
+//           console.error("No email address for subscriber, skipping email");
 //         }
 //       } catch (pdfError) {
 //         console.error("Error generating PDF receipt:", pdfError);
 //         // Don't fail the whole process if PDF generation fails
 //       }
 //     } else {
-//       console.log("Updating payment:", paymentResponse.paymentId, {
-//         status: "failed",
-//         failureReason: stk.ResultDesc,
-//       });
 //       if (paymentResponse.status !== 'failed') {
 //         await Payment.update(paymentResponse.paymentId, {
 //           status: "failed",
 //           failureReason: stk.ResultDesc,
 //         });
-//         console.log("Payment marked as failed:", paymentResponse.paymentId);
+
+
 //       } else {
-//         console.log("Payment already marked as failed, skipping update:", paymentResponse.paymentId);
+//         console.error("Payment already marked as failed, skipping update:", paymentResponse.paymentId);
 //       }
 //     }
 
@@ -271,16 +260,13 @@ export async function mpesaCallback(req, res) {
 
   try {
     const stk = req.body.Body.stkCallback;
-    console.log('Callback received:', stk);
-
+   
     const paymentResponse = await Payment.getByRequestID(stk.CheckoutRequestID);
     if (!paymentResponse) throw new Error('Payment record not found');
-    console.log('Callback pending paymentId:', paymentResponse.paymentId);
-
+    
     if (!paymentResponse.payerId) throw new Error('Payer ID not found');
     const subscriber = await Subscribers.getByUserId(paymentResponse.payerId);
     if (!subscriber) throw new Error('Subscriber record not found');
-    console.log('Callback pending subscriber:', subscriber.id);
 
     const processPayment = async (status, meta = {}) => {
       const updateData = {
@@ -360,13 +346,12 @@ export async function mpesaCallback(req, res) {
             });
             await fs.unlink(filePath); // Clean up
           } else {
-            console.log('No email address or receipt URL, skipping email');
+            console.warn('No email address or receipt URL, skipping email');
           }
         } else {
           console.error('Failed to upload receipt to Cloudinary');
         }
       }
-      console.log(`Payment ${status} processed:`, paymentResponse.paymentId);
     };
 
     if (stk.ResultCode === 0) {

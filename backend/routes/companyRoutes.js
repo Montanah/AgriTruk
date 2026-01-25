@@ -15,17 +15,14 @@ const {
   rejectCompany,
   deleteCompany,
   getCompaniesByTransporter,
-  getCompaniesByStatus,
-  getCompaniesByTransporterAndStatus,
-  getAllForTransporter
+  updateVehicleAssignment,
 } = require('../controllers/companyController');
 const { authorize } = require("../middlewares/adminAuth");
-const { validateCompanyCreation, validateCompanyUpdate } = require('../middlewares/validationMiddleware');
-const CompanyController = require("../controllers/companyController");
+const { validateCompanyUpdate } = require('../middlewares/validationMiddleware');
 const adminController = require("../controllers/adminController");
 const jobSeekerController = require('../controllers/jobSeekerController');
-const vehicleController = require('../controllers/vehicleController');
 const driverController = require('../controllers/driverController');
+const { requireActiveSubscription, validateDriverAddition, validateVehicleAddition } = require('../middlewares/subscriptionMiddleware');
 
 /**
  * @swagger
@@ -51,7 +48,6 @@ const driverController = require('../controllers/driverController');
  *             type: object
  *             required:
  *               - name
- *               - registration
  *               - contact
  *             properties:
  *               name:
@@ -301,7 +297,7 @@ router.post('/:companyId/test', (req, res) => {
 
 // Company fleet management endpoints
 console.log('🚗 REGISTERING VEHICLE CREATION ROUTE: POST /:companyId/vehicles');
-router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny, (req, res, next) => {
+router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'), uploadAny,(req, res, next) => {
   console.log('🚗 ===== VEHICLE CREATION ROUTE HIT! =====');
   console.log('🚗 Timestamp:', new Date().toISOString());
   console.log('🚗 Company ID from params:', req.params.companyId);
@@ -322,7 +318,10 @@ router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'
   });
   console.log('🚗 ===== END ROUTE DEBUG =====');
   next();
-}, authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').createVehicle);
+}, 
+ requireActiveSubscription,
+ validateVehicleAddition,
+ require('../controllers/vehicleController').createVehicle);
 
 /**
  * @swagger
@@ -492,6 +491,8 @@ router.post('/:companyId/vehicles', authenticateToken, requireRole('transporter'
 router.post(
   '/:companyId/drivers',
   authenticateToken,
+  requireActiveSubscription,
+  validateDriverAddition,
   requireRole('transporter'),
   uploadAny,
   require('../controllers/driverController').createDriver
@@ -521,13 +522,13 @@ router.post(
  *       500:
  *         description: Internal server error
  */
-router.get('/:companyId/vehicles', authenticateToken, requireRole('transporter'), require('../controllers/vehicleController').getVehicles);
+router.get('/:companyId/vehicles', authenticateToken, requireRole('transporter'), requireActiveSubscription, require('../controllers/vehicleController').getVehicles);
 
 // Update vehicle route
-router.put('/:companyId/vehicles/:vehicleId', authenticateToken, requireRole('transporter'), uploadAny, require('../controllers/vehicleController').updateVehicle);
+router.put('/:companyId/vehicles/:vehicleId', authenticateToken, requireRole('transporter'), requireActiveSubscription, uploadAny, require('../controllers/vehicleController').updateVehicle);
 
 // Update vehicle insurance route
-router.put('/:companyId/vehicles/:vehicleId/insurance', authenticateToken, requireRole('transporter'), require('../controllers/vehicleController').updateVehicleInsurance);
+router.put('/:companyId/vehicles/:vehicleId/insurance', authenticateToken, requireRole('transporter'),  requireActiveSubscription, require('../controllers/vehicleController').updateVehicleInsurance);
 
 /** 
  * @swagger
@@ -553,7 +554,7 @@ router.put('/:companyId/vehicles/:vehicleId/insurance', authenticateToken, requi
  *       500:
  *         description: Internal server error
 */
-router.get('/:companyId/drivers', authenticateToken, requireRole('transporter'), require('../controllers/driverController').getDrivers);
+router.get('/:companyId/drivers', authenticateToken, requireRole('transporter'), requireActiveSubscription, require('../controllers/driverController').getDrivers);
 
 /** 
  * @swagger
@@ -923,7 +924,7 @@ router.delete('/:companyId', authenticateToken, requireRole('admin'), authorize(
  *         description: Internal server error
  */
 // TODO: Implement this function in companyController
-// router.patch('/:companyId/vehicleStatus/:vehicleId', authenticateToken, requireRole('transporter'), updateVehicleAssignment);
+router.patch('/:companyId/vehicleStatus/:vehicleId', authenticateToken, requireRole('transporter'), updateVehicleAssignment);
 
 /**
  * @swagger
@@ -1156,7 +1157,7 @@ router.patch('/:companyId/upload', authenticateToken, requireRole('transporter')
  *       500:
  *         description: Internal server error
  */
-router.get('/:companyId/job-seekers', authenticateToken, requireRole('transporter'), jobSeekerController.browseJobSeekers);
+router.get('/:companyId/job-seekers', authenticateToken, requireRole('transporter'), requireActiveSubscription, jobSeekerController.browseJobSeekers);
 
 // Access job seeker documents
 /**
@@ -1190,7 +1191,7 @@ router.get('/:companyId/job-seekers', authenticateToken, requireRole('transporte
  *       500:
  *         description: Internal server error
  */
-router.get('/:companyId/job-seekers/:jobSeekerId/documents', authenticateToken, requireRole('transporter'), jobSeekerController.getJobSeekerDocuments);
+router.get('/:companyId/job-seekers/:jobSeekerId/documents', authenticateToken, requireRole('transporter'), requireActiveSubscription, jobSeekerController.getJobSeekerDocuments);
 
 /**
  * @swagger
@@ -1229,6 +1230,29 @@ router.get('/:companyId/job-seekers/:jobSeekerId/documents', authenticateToken, 
  *       500:
  *         description: Internal server error
  */
-router.patch('/:companyId/updateRoute', authenticateToken, requireRole('driver'), driverController.updateLocation);
+router.patch('/:companyId/updateRoute', authenticateToken, requireRole('driver'), requireActiveSubscription, driverController.updateLocation);
+
+/**
+ * @swagger
+ * /api/companies/{companyId}/registration-status:
+ *   get:
+ *     summary: Get registration status of a company
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: companyId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the company
+ *     responses:
+ *       200:
+ *         description: Registration status retrieved successfully
+ *       500:
+ *         description: Internal server errorS
+ */
+router.get(':companyId/registration-status', authenticateToken, requireRole('transporter'), requireActiveSubscription, require('../controllers/companyController').getRegistrationStatus);
 
 module.exports = router;  

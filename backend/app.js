@@ -6,6 +6,7 @@ const { subscriptionNotificationsJob } = require('./jobs/subscriptionNotificatio
 const cronService = require('./services/cronService');
 const { documentExpiryJob } = require('./jobs/documentExpiryJob');
 const { systemAlertsJob, documentExpiryJobAlert } = require('./jobs/systemAlertsJob');
+const { companyDocumentExpiryJob } = require('./jobs/companyDocumentExpiryJob');
 
 const transporterRoutes = require('./routes/transportRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -31,14 +32,28 @@ const alertRoutes = require('./routes/alertRoutes');
 const trafficRoutes = require('./routes/trafficRoutes');
 const jobSeekerRoutes = require('./routes/jobSeekerRoutes');
 const subscriberRoutes = require('./routes/companySubscriptionRoutes');
+const recruiterRoutes = require('./routes/recruiterRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 const { swaggerUi, specs } = require('./config/swagger');
 const requestMetadata = require('./middlewares/requestMetadata');
 const healthMonitor = require('./utils/healthMonitor');
-// const { testJob } = require('./jobs/companyDocumentExpiryJob');
+const CronScheduler = require('./jobs/cronScheduler');
+const { initializeSocket } = require('./services/chatSocket');
 
-//app.use(helmet());
+// const { testJob } = require('./jobs/companyDocumentExpiryJob');
+// Create HTTP server - must be created before Socket.IO initialization
+const server = require('http').createServer(app);
+
+// Initialize Socket.IO on the HTTP server
+const io = initializeSocket(server);
+app.set('io', io);
+
+// Attach server to app object so it can be exported
+app.server = server;
+
+app.use(helmet());
 app.set('trust proxy', 1);
 app.use(cors());
 // Global request logger - BEFORE body parsers
@@ -111,7 +126,8 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/traffic', trafficRoutes);
 app.use('/api/job-seekers', jobSeekerRoutes);
 app.use('/api/subscriber', subscriberRoutes);
-
+app.use('/api/recruiter', recruiterRoutes);
+app.use('/api/upload', uploadRoutes);
 // Health and test endpoints
 app.get('/api/health', (req, res) => {
     res.status(200).json({
@@ -158,6 +174,9 @@ documentExpiryJob.start();
 console.log('✅ Document expiry cron job started');
 
 // testJob.start();
+// companyDocumentExpiryJob.start();
+CronScheduler.init();
+console.log('✅ Company document expiry cron job started');
 // console.log('✅ Test cron job started');
 
 // Graceful shutdown

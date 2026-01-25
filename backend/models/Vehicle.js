@@ -21,6 +21,7 @@ const Vehicle = {
       specialCargo: vehicleData.specialCargo || false,
       features: vehicleData.features || [],
       insurance: vehicleData.insurance || null,
+      insuranceApproved: vehicleData.insuranceApproved || false,
       insuranceExpiry: vehicleData.insuranceExpiry || null,
       photos: vehicleData.photos || [],
       assignedDriverId: vehicleData.assignedDriverId || null,
@@ -55,9 +56,9 @@ const Vehicle = {
   },
 
   async assignDriver(vehicleId, driverId) {
-    console.log(`Assigning driver ${driverId} to vehicle ${vehicleId}`);
+    
     await db.collection('vehicles').doc(vehicleId).update({ assignedDriverId: driverId });
-    console.log(`Driver ${driverId} assigned to vehicle ${vehicleId}`);
+    
   },
 
   async unassignDriver(vehicleId) {

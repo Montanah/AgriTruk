@@ -5,6 +5,7 @@ const { requireRole } = require('../middlewares/requireRole');
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const multer = require("multer");
 const { authorize } = require('../middlewares/adminAuth');
+const { requireActiveSubscription } = require('../middlewares/subscriptionMiddleware');
 
 
 const upload = multer({ dest: 'uploads/' }); 
@@ -360,6 +361,28 @@ router.get('/approved', authenticateToken, requireRole(['transporter', 'admin'])
 
 /**
  * @swagger
+ * /api/job-seekers/drivers:
+ *   get:
+ *     summary: Get all approved job seekers
+ *     tags: [Companies]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of approved job seekers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/JobSeeker'
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/drivers', authenticateToken, requireRole('transporter'), requireActiveSubscription, jobSeekerController.getApprovedJobSeekers);
+
+/**
+ * @swagger
  * /api/job-seekers/{jobSeekerId}:
  *   put:
  *     summary: Update job seeker
@@ -603,7 +626,7 @@ router.get('/:jobSeekerId/documents', authenticateToken, requireRole(['job_seeke
  *       500:
  *         description: Internal server error
  */
-router.patch('/:jobSeekerId/status', authenticateToken, requireRole('admin'), authorize(['manage-job-seekers', 'super_admin']), jobSeekerController.updateApplicationStatus);
+router.patch('/:jobSeekerId/status', authenticateToken, requireRole(['job_seeker', 'transporter', 'admin']), requireRole('admin'), authorize(['manage-job-seekers', 'super_admin']), jobSeekerController.updateStatus);
 
 /**
  * @swagger
@@ -649,6 +672,7 @@ router.get('/:jobSeekerId/status', authenticateToken, requireRole(['job_seeker',
  *         description: Internal server error
  */
 router.get('/', authenticateToken, requireRole('admin'), authorize(['view-job-seekers', 'manage-job-seekers', 'super_admin']), jobSeekerController.getAllJobSeekers);
+
 
 // @route   GET /api/job-seekers/schema
 
@@ -813,6 +837,5 @@ router.get('/:jobSeekerId/email', authenticateToken, requireRole(['transporter',
  *         description: Internal server error
  */
 router.patch('/:jobSeekerId/review', authenticateToken, requireRole('admin'), authorize(['manage_job_seekers', 'super_admin']), jobSeekerController.reviewJobSeeker);
-
 
 module.exports = router;

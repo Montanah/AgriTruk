@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/adminManagementController');
-const {getAllBookings, getPermissions, getAllUsers, searchUsers, exportToCSV, generatePDFReport, generateReports, getAllShippers, getAllActions, markAsResolved, getPendingActions } = require('../controllers/adminController');
+const {getAllBookings, getPermissions, getAllUsers, searchUsers, getAllDeletedUsers, exportToCSV, generatePDFReport, generateReports, getAllShippers, getAllActions, markAsResolved, getPendingActions, banUser, unbanUser } = require('../controllers/adminController');
 const authController = require("../controllers/authController");
 const {
   authorize,
@@ -17,7 +17,7 @@ const brokerController = require('../controllers/brokerController');
 const AnalyticsController = require('../controllers/analyticsController');
 const { authenticateToken } = require('../middlewares/authMiddleware');
 const multer = require("multer");
-const { get } = require('../models/Transporter');
+const bookingController = require('../controllers/bookingController');
 
 const upload = multer({ dest: "uploads/" }); 
 
@@ -532,6 +532,22 @@ router.get('/brokers', authenticateToken, requireRole('admin'), authorize(['view
  *         description: Server error
  */
 router.get('/permissions', authenticateToken, requireRole('admin'), authorize(['super_admin']), getPermissions);
+
+/**
+ * @swagger
+ * /api/admin/deleted-users:
+ *   get:
+ *     summary: Get a list of deleted users (Super Admin & Manage Users only)
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of deleted users
+ *       500:
+ *         description: Server error
+ */
+router.get('/deleted-users', authenticateToken, requireRole('admin'), authorize(['super_admin', 'manage_users']), getAllDeletedUsers);
 
 /**
  * @swagger
@@ -1196,5 +1212,146 @@ router.patch('/actions/:actionId/resolve', authenticateToken, requireRole('admin
  */
 // router.patch('/:adminId', requireSuperAdmin, AdminController.deleteAdmin);
 router.delete('/delete/:adminId', requireSuperAdmin, AdminController.hardDelete);
+
+/**
+ * @swagger
+ * /api/admin/{userId}/ban:
+ *   patch:
+ *     summary: Ban a user
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User banned
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:userId/ban', authenticateToken, requireRole('admin'), authorize(['ban_users', 'super_admin']), banUser);
+
+/**
+ * @swagger
+ * /api/admin/{userId}/unban:
+ *   patch:
+ *     summary: Unban a user
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User unbanned
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:userId/unban', authenticateToken, requireRole('admin'), authorize(['ban_users', 'super_admin']), unbanUser);
+
+/**
+ * @swagger
+ * /api/admin/{bookingId}/cancel:
+ *   patch:
+ *     summary: Cancel a booking
+ *     tags: [Admin Actions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: bookingId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: The type of cancellation
+ *     responses:
+ *       200:
+ *         description: Booking canceled
+ *       500:
+ *         description: Server error
+ */
+router.patch('/:bookingId/cancel', authenticateToken, requireRole('admin'), authorize(['cancel_bookings', 'super_admin']), bookingController.cancelBooking);
+
+/**
+ * @swagger
+ * /api/admin/{userId}/details:
+ *   get:
+ *     summary: Get user details (including bookings and disputes)
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the user to fetch
+ *     responses:
+ *       200:
+ *         description: User details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *                 bookings:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Booking'
+ *                 disputes:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Dispute'
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:userId/details', authenticateToken, requireRole('admin'), authorize(['view_users', 'super_admin']), authController.getUserDetails);
+
+/**
+ * @swagger
+ * /api/admin/disputes/{disputeId}:
+ *   get:
+ *     summary: Get a dispute by ID
+ *     description: Retrieves details of a specific dispute.
+ *     tags: [Admin Views]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: disputeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the dispute to retrieve
+ *     responses:
+ *       200:
+ *         description: Dispute retrieved successfully
+ *       404:
+ *         description: Dispute not found
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/disputes/:disputeId', authenticateToken, requireRole(['admin']), authorize(['view_disputes', 'manage_disputes', 'super_admin']), disputeController.getDisputeAdmin);
 
 module.exports = router;

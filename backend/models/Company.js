@@ -8,7 +8,7 @@ const Company = {
       companyId,
       transporterId: data.transporterId,
       companyName: data.name,
-      companyRegistration: data.registration,
+      companyRegistration: data.registration || '',
       companyEmail: data.email,
       companyContact: data.contact || '',
       companyAddress: data.address || '',
@@ -16,6 +16,10 @@ const Company = {
       rating: data.rating || 0,
       status: data.status || 'pending',
       rejectionReason: data.rejectionReason || null,
+      //trips
+      completedTripsCount: data.completedTripsCount || 0,
+      registrationRequired: data.registrationRequired || false,
+      registrationProvided: data.registrationProvided || false,
       createdAt: admin.firestore.Timestamp.now(),
       updatedAt: admin.firestore.Timestamp.now(),
 
@@ -26,7 +30,7 @@ const Company = {
 
   async get(companyId) {
     const doc = await db.collection('companies').doc(companyId).get();
-    if (!doc.exists) return console.log('Company not found');
+    if (!doc.exists) return {message: 'Company not found'};
     return { id: doc.id, ...doc.data() };
   },
 
@@ -71,11 +75,11 @@ const Company = {
   },
 
   async getByTransporter(transporterId) {
-    console.log('🔍 Company.getByTransporter called with transporterId:', transporterId);
+    
     const snapshot = await db.collection('companies').where('transporterId', '==', transporterId).get();
-    console.log('🔍 Firestore query result - empty:', snapshot.empty, 'size:', snapshot.size);
+   
     const companies = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    console.log('🔍 Mapped companies:', companies.length, companies.map(c => ({ id: c.id, transporterId: c.transporterId, name: c.companyName || c.name })));
+    
     return companies;
   },
 
@@ -87,6 +91,12 @@ const Company = {
   async getByStatus(status) {
     const snapshot = await db.collection('companies').where('status', '==', status).get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  },
+
+  async updateTrips(companyId) {
+     await db.collection('companies').doc(companyId).update({
+          completedTripsCount: admin.firestore.FieldValue.increment(1)
+        });
   },
 };
 

@@ -6,8 +6,7 @@ const requireRole = (allowedRoles) => {
   return async (req, res, next) => {
     try {
       const uid = req.user?.uid || req.admin.adminId;
-      console.log("UID:", uid);
-      // console.log("Checking user role for UID:", uid);
+      
       if (!uid) return res.status(401).json({ message: "User not authenticated" });
 
       let userRole;
@@ -18,53 +17,74 @@ const requireRole = (allowedRoles) => {
       if (userDoc.exists) {
         userData = userDoc.data();
         userRole = userData?.role;
+        
       } else {
         // If not found in users, check admins
         const adminData = await Admin.getByUserId(uid);
-        // console.log("Admin:", adminData);
         
         if (adminData) {
           userData = adminData;
           userRole = adminData.role;
         } else {
-          // Check if user is a company transporter
-          const companyQuery = await admin.firestore().collection("companies")
-            .where("transporterId", "==", uid)
+          // Check if user is a driver (company-recruited driver)
+          const driverQuery = await admin.firestore().collection("drivers")
+            .where("userId", "==", uid)
             .limit(1)
             .get();
           
-          if (!companyQuery.empty) {
-            userData = companyQuery.docs[0].data();
-            userRole = "transporter"; // Company transporters have transporter role
+          if (!driverQuery.empty) {
+            userData = driverQuery.docs[0].data();
+            userRole = "driver"; // Company-recruited drivers have driver role
+           
           } else {
-            // Check if user is an individual transporter
-            const transporterQuery = await admin.firestore().collection("transporters")
-              .where("userId", "==", uid)
+            // Check if user is a company transporter
+            const companyQuery = await admin.firestore().collection("companies")
+              .where("transporterId", "==", uid)
               .limit(1)
               .get();
             
-            if (!transporterQuery.empty) {
-              userData = transporterQuery.docs[0].data();
-              userRole = "transporter"; // Individual transporters have transporter role
+            if (!companyQuery.empty) {
+              userData = companyQuery.docs[0].data();
+              userRole = "transporter"; // Company transporters have transporter role
             } else {
-              return res.status(404).json({ message: "User profile not found" });
+              // Check if user is an individual transporter
+              const transporterQuery = await admin.firestore().collection("transporters")
+                .where("userId", "==", uid)
+                .limit(1)
+                .get();
+              
+              if (!transporterQuery.empty) {
+                userData = transporterQuery.docs[0].data();
+                userRole = "transporter"; // Individual transporters have transporter role
+              } else {
+               
+                return res.status(404).json({ message: "User profile not found" });
+              }
             }
           }
         }
+      }
+
+      if (!userRole) {
+        console.error("ERROR: userRole is undefined after all lookups!");
+        return res.status(500).json({ message: "Could not determine user role" });
       }
 
       if (!Array.isArray(allowedRoles)) {
         allowedRoles = [allowedRoles];  
       }
 
-      // Check if the user's role is in the list of allowed roles
-      console.log("User role:", userRole);
-      console.log("Allowed roles:", allowedRoles);
+      // Automatically allow 'driver' role when 'transporter' is allowed
+      // Drivers work like transporters for job-related operations
+      let expandedAllowedRoles = [...allowedRoles];
+      if (allowedRoles.includes('transporter') && !allowedRoles.includes('driver')) {
+        expandedAllowedRoles.push('driver');
+      }
 
-      if (!allowedRoles.includes(userRole)) {
+      if (!expandedAllowedRoles.includes(userRole)) {
         return res.status(403).json({
           code: "UNAUTHORIZED_ROLE",
-          message: "Insufficient permissions",
+          message: `Insufficient permissions. User role: ${userRole}, Allowed roles: ${allowedRoles.join(', ')}`,
         });
       }
       req.user = req.user || {};
@@ -92,27 +112,38 @@ const requireAuth = (allowedRoles, requiredPermission = null) => {
         userData = userDoc.data();
         userRole = userData.role || "user";
       } else {
-        // Check if user is a company transporter
-        const companyQuery = await admin.firestore().collection("companies")
-          .where("transporterId", "==", uid)
+        // Check if user is a driver (company-recruited driver)
+        const driverQuery = await admin.firestore().collection("drivers")
+          .where("userId", "==", uid)
           .limit(1)
           .get();
         
-        if (!companyQuery.empty) {
-          userData = companyQuery.docs[0].data();
-          userRole = "transporter";
+        if (!driverQuery.empty) {
+          userData = driverQuery.docs[0].data();
+          userRole = "driver";
         } else {
-          // Check if user is an individual transporter
-          const transporterQuery = await admin.firestore().collection("transporters")
-            .where("userId", "==", uid)
+          // Check if user is a company transporter
+          const companyQuery = await admin.firestore().collection("companies")
+            .where("transporterId", "==", uid)
             .limit(1)
             .get();
           
-          if (!transporterQuery.empty) {
-            userData = transporterQuery.docs[0].data();
+          if (!companyQuery.empty) {
+            userData = companyQuery.docs[0].data();
             userRole = "transporter";
           } else {
-            return res.status(404).json({ message: "User profile not found" });
+            // Check if user is an individual transporter
+            const transporterQuery = await admin.firestore().collection("transporters")
+              .where("userId", "==", uid)
+              .limit(1)
+              .get();
+            
+            if (!transporterQuery.empty) {
+              userData = transporterQuery.docs[0].data();
+              userRole = "transporter";
+            } else {
+              return res.status(404).json({ message: "User profile not found" });
+            }
           }
         }
       }
@@ -122,10 +153,16 @@ const requireAuth = (allowedRoles, requiredPermission = null) => {
         allowedRoles = [allowedRoles];
       }
 
-      if (!allowedRoles.includes(userRole)) {
+      // Automatically allow 'driver' role when 'transporter' is allowed
+      let expandedAllowedRoles = [...allowedRoles];
+      if (allowedRoles.includes('transporter') && !allowedRoles.includes('driver')) {
+        expandedAllowedRoles.push('driver');
+      }
+
+      if (!expandedAllowedRoles.includes(userRole)) {
         return res.status(403).json({
           code: "UNAUTHORIZED_ROLE",
-          message: "Insufficient role permissions",
+          message: `Insufficient role permissions. User role: ${userRole}, Allowed roles: ${allowedRoles.join(', ')}`,
         });
       }
 

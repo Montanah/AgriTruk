@@ -31,53 +31,53 @@ async function computeMetrics(startDate, endDate) {
   const completedBookingsAllTime = allTimeBookings.docs.filter(doc => doc.data().status === "completed").length;
   const bookingCompletionRateAllTime = totalBookingsAllTime > 0 ? (completedBookingsAllTime / totalBookingsAllTime) : 0;
 
-  // ---- Cargo Bookings ----
-  const cargoBookingsSnapshot = await db
-    .collection("cargoBookings")
-    .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(startDate))
-    .where("createdAt", "<=", admin.firestore.Timestamp.fromDate(endDate))
-    .get();
+  // // ---- Cargo Bookings ----
+  // const cargoBookingsSnapshot = await db
+  //   .collection("cargoBookings")
+  //   .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(startDate))
+  //   .where("createdAt", "<=", admin.firestore.Timestamp.fromDate(endDate))
+  //   .get();
 
-  const totalCargoBookings = cargoBookingsSnapshot.size;
-  const completedCargo = cargoBookingsSnapshot.docs.filter(doc => doc.data().status === "completed").length;
-  const cargoCompletionRate = totalCargoBookings > 0 ? (completedCargo / totalCargoBookings) : 0;
+  // const totalCargoBookings = cargoBookingsSnapshot.size;
+  // const completedCargo = cargoBookingsSnapshot.docs.filter(doc => doc.data().status === "completed").length;
+  // const cargoCompletionRate = totalCargoBookings > 0 ? (completedCargo / totalCargoBookings) : 0;
 
-  const allTimeCargoBookings = await db.collection("cargoBookings").get();
-  const totalCargoBookingsAllTime = allTimeCargoBookings.size;
-  const completedCargoAllTime = allTimeCargoBookings.docs.filter(doc => doc.data().status === "completed").length;
-  const cargoCompletionRateAllTime = totalCargoBookingsAllTime > 0 ? (completedCargoAllTime / totalCargoBookingsAllTime) : 0;
+  // const allTimeCargoBookings = await db.collection("cargoBookings").get();
+  // const totalCargoBookingsAllTime = allTimeCargoBookings.size;
+  // const completedCargoAllTime = allTimeCargoBookings.docs.filter(doc => doc.data().status === "completed").length;
+  // const cargoCompletionRateAllTime = totalCargoBookingsAllTime > 0 ? (completedCargoAllTime / totalCargoBookingsAllTime) : 0;
 
-  // ---- Agri Bookings ----
-  const agriBookingsSnapshot = await db
-    .collection("agriBookings")
-    .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(startDate))
-    .where("createdAt", "<=", admin.firestore.Timestamp.fromDate(endDate))
-    .get();
+  // // ---- Agri Bookings ----
+  // const agriBookingsSnapshot = await db
+  //   .collection("agriBookings")
+  //   .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(startDate))
+  //   .where("createdAt", "<=", admin.firestore.Timestamp.fromDate(endDate))
+  //   .get();
 
-  const totalAgriBookings = agriBookingsSnapshot.size;
-  const completedAgri = agriBookingsSnapshot.docs.filter(doc => doc.data().status === "completed").length;
-  const agriCompletionRate = totalAgriBookings > 0 ? (completedAgri / totalAgriBookings) : 0;
+  // const totalAgriBookings = agriBookingsSnapshot.size;
+  // const completedAgri = agriBookingsSnapshot.docs.filter(doc => doc.data().status === "completed").length;
+  // const agriCompletionRate = totalAgriBookings > 0 ? (completedAgri / totalAgriBookings) : 0;
 
-  // ---- Avg Completion Time ----
-  const allCompleted = [
-    ...cargoBookingsSnapshot.docs.filter(doc => doc.data().status === "completed"),
-    ...agriBookingsSnapshot.docs.filter(doc => doc.data().status === "completed"),
-  ];
-  let avgCompletionTime = 0;
-  if (allCompleted.length > 0) {
-    const totalTime = allCompleted.reduce((sum, doc) => {
-      const data = doc.data();
-      if (data.completedAt && data.createdAt) {
-        const duration = data.completedAt.toDate() - data.createdAt.toDate();
-        return sum + duration;
-      }
-      return sum;
-    }, 0);
-    avgCompletionTime = totalTime / allCompleted.length / (1000 * 60 * 60); // in hours
-  }
+  // // ---- Avg Completion Time ----
+  // const allCompleted = [
+  //   ...cargoBookingsSnapshot.docs.filter(doc => doc.data().status === "completed"),
+  //   ...agriBookingsSnapshot.docs.filter(doc => doc.data().status === "completed"),
+  // ];
+  // let avgCompletionTime = 0;
+  // if (allCompleted.length > 0) {
+  //   const totalTime = allCompleted.reduce((sum, doc) => {
+  //     const data = doc.data();
+  //     if (data.completedAt && data.createdAt) {
+  //       const duration = data.completedAt.toDate() - data.createdAt.toDate();
+  //       return sum + duration;
+  //     }
+  //     return sum;
+  //   }, 0);
+  //   avgCompletionTime = totalTime / allCompleted.length / (1000 * 60 * 60); // in hours
+  // }
   
-  const allTimeAgriBookings = await db.collection("agriBookings").get();
-  const totalAgriBookingsAllTime = allTimeAgriBookings.size;
+  // const allTimeAgriBookings = await db.collection("agriBookings").get();
+  // const totalAgriBookingsAllTime = allTimeAgriBookings.size;
   
   // ---- Transporters ----
   const transportersSnapshot = await db.collection("transporters").where("status", "==", "approved").get();
@@ -158,7 +158,7 @@ async function computeMetrics(startDate, endDate) {
     failedPayments,
     totalUsers,
     activeTransporters,
-    activeBookings: totalCargoBookings + totalAgriBookings,
+    activeBookings: totalBookings,
     totalSubscribers,
     activeSubscribers,
     newUsers,

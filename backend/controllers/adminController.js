@@ -107,8 +107,6 @@ exports.getAllBookings = async (req, res) => {
 
 exports.searchUsers = async (req, res) => {
   try {
-    console.log('Searching for users...');
-    console.log(req.query);
     const { query } = req.query;
     const limit = parseInt(req.query.limit) || 20;
     
@@ -205,8 +203,6 @@ exports.generatePDFReport = async (req, res) => {
   try {
     const { entity, startDate, endDate } = req.query;
     let data = [];
-
-    console.log(entity, startDate, endDate);
 
     const query = db.collection(entity || 'bookings')
       .where('createdAt', '>=', startDate ? new Date(startDate) : new Date(0))
@@ -503,8 +499,6 @@ exports.generateReports = async (req, res) => {
   try {
     const { type, format, ids } = req.body;
 
-    console.log(type, format, ids);
-
     if (!type || !['csv', 'pdf'].includes(format)) {
       return res.status(400).json({ success: false, message: 'Invalid report type or format' });
     }
@@ -550,11 +544,6 @@ exports.generateReports = async (req, res) => {
       // Handle other types (bookings, brokers) as needed
       return res.status(400).json({ success: false, message: 'Unsupported report type' });
     }
-
-    console.log("Fetched data:", data);
-    console.log("Field config:", fieldsConfig);
-    console.log("Filename:", filename);
-    console.log("Format:", format);
 
     if (!data.length) {
       return res.status(404).json({ success: false, message: 'No records found for the provided IDs' });
@@ -773,7 +762,6 @@ exports.reviewCompany = async (req, res) => {
   try {
     const companyId = req.params.companyId;
     const { action, reason, insuranceExpiryDate, driverLicenseExpiryDate, idExpiryDate, driverId, vehicleId, goodConductCertExpiryDate, goodsServiceLicenseExpiryDate } = req.body;
-    console.log(`Reviewing company ${companyId} with action ${action} and vehicleId ${vehicleId} and driverId ${driverId}`);
 
     // 1. Check if transporter exists
     const company = await Company.get(companyId);
@@ -797,7 +785,7 @@ exports.reviewCompany = async (req, res) => {
       }
       updates = {
         driverLicenseExpiryDate,
-        driverLicenseapproved: true,
+        driverLicenseApproved: true,
         status: 'approved',
         updatedAt: admin.firestore.Timestamp.now(),
       };
@@ -830,7 +818,7 @@ exports.reviewCompany = async (req, res) => {
       }
       updates = {
         insuranceExpiryDate: admin.firestore.Timestamp.fromDate(new Date(insuranceExpiryDate)),
-        insuranceapproved: true,
+        insuranceApproved: true,
         status: 'approved',
         updatedAt: admin.firestore.Timestamp.now(),
       };
@@ -860,12 +848,12 @@ exports.reviewCompany = async (req, res) => {
       if (idExpiryDate) {
         updates = {
           idExpiryDate,
-          idapproved: true
+          idApproved: true
         };
         await Driver.update(driverId, updates);
       }
       updates = {
-        idapproved: true,
+        idApproved: true,
         updatedAt: admin.firestore.Timestamp.now(),
       };
       await Driver.update(driverId, updates);
@@ -895,7 +883,7 @@ exports.reviewCompany = async (req, res) => {
         return res.status(400).json({ message: 'goodConductCertExpiryDate is required' });
       }
       updates = {
-        goodConductapproved: true,
+        goodConductApproved: true,
         goodConductCertExpiryDate,
         updatedAt: admin.firestore.Timestamp.now(),
       };
@@ -1057,3 +1045,38 @@ exports.markAsResolved = async (req, res) => {
   }
 };
 
+exports.banUser = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    await User.banUser(userId);
+    await admin.auth().updateUser(userId, { disabled: true });
+    await logAdminActivity(req.user.uid, 'ban_user', req, { type: 'user', id: userId });
+    res.status(200).json({ message: 'User banned' });
+  } catch (error) {
+    console.error('Error banning user:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.unbanUser = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    await User.unbanUser(userId);
+    await admin.auth().updateUser(userId, { disabled: false });
+    await logAdminActivity(req.user.uid, 'unban_user', req, { type: 'user', id: userId });
+    res.status(200).json({ message: 'User unbanned' });
+  } catch (error) {
+    console.error('Error unbanning user:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+exports.getAllDeletedUsers = async (req, res) => {
+  try {
+    const deletedUsers = await User.getDeletedUsers();
+    res.status(200).json({ deletedUsers });
+  } catch (error) {
+    console.error('Error getting deleted users:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};

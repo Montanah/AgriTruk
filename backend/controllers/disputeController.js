@@ -7,13 +7,14 @@ const Booking = require('../models/Booking');
 const { formatTimestamps } = require('../utils/formatData');
 const Action = require('../models/Action');
 const sendEmail = require('../utils/sendEmail');
+const Driver = require('../models/Driver');
+const { adminNotification } = require('../utils/sendMailTemplate');
 
 exports.createDispute = async (req, res) => {
   try {
     const {
       bookingId,
       transporterId,
-      userId,
       reason,
       status,
       priority,
@@ -27,33 +28,33 @@ exports.createDispute = async (req, res) => {
       });
     }
 
-    // Try Agri or Cargo booking
-    let booking = null;
-    try {
-      booking = await Booking.get(bookingId);
-    } catch (err) {
-      console.error('Error fetching booking:', err);
+    const booking = await Booking.get(bookingId).catch(() => null);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    // Try transporter or driver
+    let transporterSnap = null;
+    let driverSnap = null;
+
+    try { transporterSnap = await Transporter.get(transporterId); } catch {}
+    try { driverSnap = await Driver.getDriverIdByUserId(transporterId); } catch {}
+
+    if (!transporterSnap && !driverSnap) {
+      return res.status(404).json({ message: 'Transporter or driver not found' });
     }
 
-    if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
-    }
+    const userId = req.user.uid;
 
-    const transporterSnap = await Transporter.get(transporterId);
-    if (!transporterSnap) {
-      return res.status(404).json({ message: 'Transporter not found' });
-    }
+    const userSnap = await User.get(userId).catch(() => null);
+    if (!userSnap) return res.status(404).json({ message: 'User not found' });
 
-    const userSnap = await User.get(userId);
-    if (!userSnap) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const transporterType = transporterSnap ? 'transporter' : 'driver';
 
     const disputeData = {
       bookingId,
       openedBy: req.user.uid,
       transporterId,
-      userId: userId,
+      transporterType,
+      userId,
       reason,
       status: status || 'open',
       priority: priority || 'medium',
@@ -62,6 +63,7 @@ exports.createDispute = async (req, res) => {
     };
 
     const dispute = await Dispute.create(disputeData);
+
     await logActivity(req.user.uid, 'create_dispute', req);
 
     await Notification.create({
@@ -77,22 +79,25 @@ exports.createDispute = async (req, res) => {
       priority: "high",
       metadata: {
         userId: req.user.uid,
-        transporterId: transporterId,
-        bookingId: bookingId,
+        transporterId,
+        bookingId,
       },
       status: 'open',
-      message: `Dispute created successfully.. Dispute ID: ${dispute.disputeId}`,
+      message: `Dispute created successfully. Dispute ID: ${dispute.disputeId}`,
     });
 
     await sendEmail({
-        to: "support@trukafrica.com",
-        subject: 'Dispute Created',
-        html: adminNotification(
-          "Dispute Created",
-          `A new dispute has been created. Dispute ID: ${dispute.disputeId}`),
-      });
+      to: "support@trukafrica.com",
+      subject: 'Dispute Created',
+      html: adminNotification(
+        "Dispute Created",
+        `A new dispute has been created. Dispute ID: ${dispute.disputeId}`,
+        "Check Disputes"
+      ),
+    });
 
     res.status(201).json({ message: 'Dispute created successfully', dispute });
+
   } catch (err) {
     console.error('Create dispute error:', err);
     res.status(500).json({ message: 'Failed to create dispute' });
@@ -102,9 +107,23 @@ exports.createDispute = async (req, res) => {
 exports.getDispute = async (req, res) => {
   try {
     const { disputeId } = req.params;
+    const userId = req.user.uid;
     const dispute = await Dispute.get(disputeId);
     if (!dispute) {
       return res.status(404).json({ message: 'Dispute not found' });
+    }
+
+    // Security: Users can only access their own disputes unless they're admin
+    // Check if user is admin or if they opened the dispute or are the transporter
+    const userRole = req.user.role || (await User.get(userId).catch(() => null))?.role;
+    const isAdmin = userRole === 'admin';
+    const isOpener = dispute.openedBy === userId;
+    const isTransporter = dispute.transporterId === userId;
+    
+    if (!isAdmin && !isOpener && !isTransporter) {
+      return res.status(403).json({ 
+        message: 'Access denied. You can only view disputes you are involved in.' 
+      });
     }
 
     // Fetch the user who opened the dispute
@@ -115,17 +134,33 @@ exports.getDispute = async (req, res) => {
       dispute.openedBy = { error: 'User not found', id: dispute.openedBy };
     }
 
-    // Fetch the transporter (if any)
+    // Fetch the transporter (if any) - try driver first if transporterType is 'driver'
     if (dispute.transporterId) {
       try {
-        const transporter = await Transporter.get(dispute.transporterId);
-        dispute.transporter = transporter;
+        if (dispute.transporterType === 'driver') {
+          const driver = await Driver.get(dispute.transporterId);
+          dispute.transporter = driver;
+        } else {
+          const transporter = await Transporter.get(dispute.transporterId);
+          dispute.transporter = transporter;
+        }
       } catch (err) {
-        dispute.transporter = { error: 'Transporter not found', id: dispute.transporterId };
+        // If one fails, try the other
+        try {
+          if (dispute.transporterType === 'driver') {
+            const transporter = await Transporter.get(dispute.transporterId);
+            dispute.transporter = transporter;
+          } else {
+            const driver = await Driver.get(dispute.transporterId);
+            dispute.transporter = driver;
+          }
+        } catch (err2) {
+          dispute.transporter = { error: 'Transporter/Driver not found', id: dispute.transporterId };
+        }
       }
     }
 
-    await logAdminActivity(req.user.uid, 'get_dispute', req);
+    await logActivity(userId, 'get_dispute', req);
 
     res.status(200).json(dispute);
   } catch (err) {
@@ -134,17 +169,46 @@ exports.getDispute = async (req, res) => {
   }
 };
 
-
 exports.updateDispute = async (req, res) => {
   try {
     const { disputeId } = req.params;
+    const userId = req.user.uid;
     const updates = req.body;
+    
     if (!updates || Object.keys(updates).length === 0) {
       return res.status(400).json({ message: 'No updates provided' });
     }
+    
+    // Get the dispute first to check permissions
+    const dispute = await Dispute.get(disputeId);
+    if (!dispute) {
+      return res.status(404).json({ message: 'Dispute not found' });
+    }
+    
+    // Security: Only admin, opener, or transporter can update
+    const userRole = req.user.role || (await User.get(userId).catch(() => null))?.role;
+    const isAdmin = userRole === 'admin';
+    const isOpener = dispute.openedBy === userId;
+    const isTransporter = dispute.transporterId === userId;
+    
+    if (!isAdmin && !isOpener && !isTransporter) {
+      return res.status(403).json({ 
+        message: 'Access denied. You can only update disputes you are involved in.' 
+      });
+    }
+    
+    // Prevent non-admins from changing certain fields
+    if (!isAdmin) {
+      delete updates.status; // Only admin can change status
+      delete updates.resolution; // Only admin can resolve
+      delete updates.amountRefunded; // Only admin can set refunds
+      delete updates.resolvedBy; // Only admin can set resolver
+      delete updates.resolvedAt; // Only admin can set resolution date
+    }
+    
     const updatedDispute = await Dispute.update(disputeId, updates);
 
-    await logAdminActivity(req.user.uid, 'update_dispute', req);
+    await logActivity(userId, 'update_dispute', req);
    
     res.status(200).json({ message: 'Dispute updated successfully', dispute: updatedDispute });
   } catch (err) {
@@ -185,9 +249,38 @@ exports.resolveDispute = async (req, res) => {
 exports.getDisputesByBookingId = async (req, res) => {
   try {
     const { bookingId } = req.params;
+    const userId = req.user.uid;
+    
+    // Verify user has access to this booking
+    try {
+      const booking = await Booking.get(bookingId);
+      if (!booking) {
+        return res.status(404).json({ message: 'Booking not found' });
+      }
+      
+      // Check if user is involved in the booking (client, transporter, driver, or admin)
+      const userRole = req.user.role || (await User.get(userId).catch(() => null))?.role;
+      const isAdmin = userRole === 'admin';
+      const isClient = booking.clientId === userId || booking.userId === userId || booking.shipperId === userId;
+      const isTransporter = booking.transporterId === userId;
+      const isDriver = booking.driverId === userId || booking.assignedDriverId === userId;
+      
+      if (!isAdmin && !isClient && !isTransporter && !isDriver) {
+        return res.status(403).json({ 
+          message: 'Access denied. You can only view disputes for bookings you are involved in.' 
+        });
+      }
+    } catch (err) {
+      // If booking check fails, still allow admin to proceed
+      const userRole = req.user.role || (await User.get(userId).catch(() => null))?.role;
+      if (userRole !== 'admin') {
+        return res.status(403).json({ message: 'Access denied. Booking verification failed.' });
+      }
+    }
+    
     const disputes = await Dispute.getByBookingId(bookingId);
 
-    await logAdminActivity(req.user.uid, 'get_disputes_by_booking_id', req);
+    await logActivity(userId, 'get_disputes_by_booking_id', req);
     res.status(200).json(disputes);
   } catch (err) {
     console.error('Get disputes by booking ID error:', err);
@@ -211,9 +304,22 @@ exports.getDisputesByStatus = async (req, res) => {
 exports.getDisputesByOpenedBy = async (req, res) => {
   try {
     const { openedBy } = req.params;
+    const userId = req.user.uid;
+    
+    // Security: Users can only access their own disputes unless they're admin
+    // Check if user is admin or if openedBy matches the authenticated user
+    const userRole = req.user.role || (await User.get(userId).catch(() => null))?.role;
+    const isAdmin = userRole === 'admin';
+    
+    if (!isAdmin && openedBy !== userId) {
+      return res.status(403).json({ 
+        message: 'Access denied. You can only view your own disputes.' 
+      });
+    }
+    
     const disputes = await Dispute.getByOpenedBy(openedBy);
 
-    await logAdminActivity(req.user.uid, 'get_disputes_by_opened_by', req);
+    await logActivity(userId, 'get_disputes_by_opened_by', req);
     res.status(200).json(disputes);
   } catch (err) {
     console.error('Get disputes by openedBy error:', err);
@@ -236,7 +342,6 @@ exports.deleteDispute = async (req, res) => {
     }
   }
 };
-
 
 exports.getAllDisputes = async (req, res) => {
   try {
@@ -274,3 +379,84 @@ exports.getAllDisputes = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch disputes' });
   }
 };
+
+exports.getDisputeAdmin = async (req, res) => {
+  try {
+    const { disputeId } = req.params;
+    const userId = req.user.uid;
+    const dispute = await Dispute.get(disputeId);
+
+    if (!dispute) {
+      return res.status(404).json({ message: 'Dispute not found' });
+    }
+
+    // Security: Only admins or participants can view the dispute
+    const userRecord = await User.get(userId).catch(() => null);
+    const userRole = req.user.role || userRecord?.role;
+    const isAdmin = userRole === 'admin';
+    const isOpener = dispute.openedBy === userId;
+    const isTransporter = dispute.transporterId === userId;
+
+    if (!isAdmin && !isOpener && !isTransporter) {
+      return res.status(403).json({
+        message: 'Access denied. You can only view disputes you are involved in.',
+      });
+    }
+
+    let user = null;
+    let transporter = null;
+    let driver = null;
+
+    // Fetch the user who opened the dispute
+    try {
+      user = await User.get(dispute.openedBy);
+      dispute.openedBy = user;
+    } catch (err) {
+      dispute.openedBy = { error: 'User not found', id: dispute.openedBy };
+    }
+
+    // Fetch the transporter/driver
+    if (dispute.transporterId) {
+      try {
+        if (dispute.transporterType === 'driver') {
+          driver = await Driver.get(dispute.transporterId);
+          dispute.transporter = driver;
+        } else {
+          transporter = await Transporter.get(dispute.transporterId);
+          dispute.transporter = transporter;
+        }
+      } catch (err) {
+        try {
+          // Fallback: try alternate lookup
+          if (dispute.transporterType === 'driver') {
+            transporter = await Transporter.get(dispute.transporterId);
+            dispute.transporter = transporter;
+          } else {
+            driver = await Driver.getDriverIdByUserId(dispute.transporterId);
+            dispute.transporter = driver;
+          }
+        } catch (err2) {
+          dispute.transporter = { error: 'Transporter/Driver not found', id: dispute.transporterId };
+        }
+      }
+    }
+
+    await logAdminActivity(userId, 'get_dispute', req);
+
+    res.status(200).json({
+      message: 'Dispute fetched successfully',
+      dispute: formatTimestamps(dispute),
+      user: user ? formatTimestamps(user) : null,
+      transporter: transporter
+        ? formatTimestamps(transporter)
+        : driver
+        ? formatTimestamps(driver)
+        : null,
+    });
+  } catch (err) {
+    console.error('Get dispute error:', err);
+    res.status(500).json({ message: 'Failed to fetch dispute' });
+  }
+};
+
+

@@ -89,6 +89,7 @@ const JobSeeker = {
         name: userData.name || '',
         email: userData.email || '',
         phone: userData.phone || '',
+        secondaryPhone: data.secondaryPhone || null,
         userId: data.userId,
         dateOfBirth: data.dateOfBirth,
         gender: data.gender,
@@ -228,7 +229,7 @@ const JobSeeker = {
 
     for (const field in files) {
       if (!validDocumentTypes.includes(field)) {
-        console.log(`Ignoring unexpected field: ${field}`);
+       
         continue;
       }
       const file = files[field][0]; // assuming multer array
@@ -362,6 +363,85 @@ const JobSeeker = {
     const jobSeekers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return jobSeekers;
   },
+
+  async getJobSeekerById(jobSeekerId) {
+    try {
+     
+      const jobSeekerSnap = await db.collection('job_seekers').doc(jobSeekerId).get();
+     
+      if (!jobSeekerSnap.exists()) {
+        return null;
+      }
+
+      const data = jobSeekerSnap.data();
+      return {
+        jobSeekerId: jobSeekerSnap.id,
+        userId: data.userId || '',
+        firstName: data.firstName || '',
+        dateOfBirth: data.dateOfBirth || null, // Firestore Timestamp
+        gender: data.gender || '',
+        age: data.age || 0,
+        address: {
+          street: data.address?.street || '',
+          city: data.address?.city || '',
+          county: data.address?.county || '',
+          country: data.address?.country || ''
+        },
+        religion: data.religion || null,
+        profilePhoto: data.profilePhoto || null,
+        experience: {
+          experienceYears: data.experience?.experienceYears || 0,
+          startDate: data.experience?.startDate || null, // Firestore Timestamp
+          vehicleClassesExperience: data.experience?.vehicleClassesExperience || [],
+          experienceDescription: data.experience?.experienceDescription || null,
+          specializations: data.experience?.specializations || []
+        }
+      };
+    } catch (error) {
+      console.error(`Error fetching job seeker ${jobSeekerId}:`, error);
+      throw new Error('Failed to fetch job seeker details');
+    }
+  },
+  
+  async getPreview()
+  {
+    try {
+      const querySnapshot = await db.collection('job_seekers').where('status', '==', 'approved').get();
+      
+      const jobSeekers = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        jobSeekers.push({
+          jobSeekerId: doc.id,
+          userId: data.userId || '',
+          firstName: data.firstName || '',
+          dateOfBirth: data.dateOfBirth || null,
+          gender: data.gender || '',
+          age: data.age || 0,
+          address: {
+            street: data.address?.street || '',
+            city: data.address?.city || '',
+            county: data.address?.county || '',
+            country: data.address?.country || '',
+          },
+          religion: data.religion || null,
+          profilePhoto: data.profilePhoto || null,
+          experience: {
+            experienceYears: data.experience?.experienceYears || 0,
+            startDate: data.experience?.startDate || null,
+            vehicleClassesExperience: data.experience?.vehicleClassesExperience || [],
+            experienceDescription: data.experience?.experienceDescription || null,
+            specializations: data.experience?.specializations || [],
+          },
+        });
+      });
+      return jobSeekers;
+    } catch (error) {
+      console.error('Error fetching approved job seekers:', error);
+      throw new Error('Failed to fetch approved job seekers');
+    }
+  },
+
   // Get schema for reference
   getSchema() {
     return JobSeekerSchema;

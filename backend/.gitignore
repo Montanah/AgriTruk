@@ -86,3 +86,4 @@ utils/createSuperAdmin.js
 utils/testtemplate.js
 uploads
 mine
+config/seedrecruiter.js
