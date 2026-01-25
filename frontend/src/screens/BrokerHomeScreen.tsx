@@ -594,7 +594,7 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
                             onPress={() => navigation?.navigate?.('SubscriptionManagement', { userType: 'broker' })}
                         >
                             <Text style={styles.manageButtonText}>
-                                {subscriptionStatus?.needsTrialActivation ? 'Activate Trial' : 'Manage'}
+                                Manage
                             </Text>
                         </TouchableOpacity>
                     </View>

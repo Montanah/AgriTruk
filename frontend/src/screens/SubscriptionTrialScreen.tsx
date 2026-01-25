@@ -120,120 +120,9 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
         setIsCardValid(isValid);
     };
 
-    const handleCardSubmit = async (cardData: CardData) => {
-        if (!isCardValid) {
-            Alert.alert('Invalid Card', 'Please fix the card errors before proceeding.');
-            return;
-        }
 
-        await activateTrial('stripe', {
-            cardNumber: cardData.number,
-            expiryDate: cardData.expiry,
-            cvv: cardData.cvv,
-            cardholderName: cardData.cardholderName,
-        });
-    };
+    // Manual trial activation logic removed. Trial state is now backend-driven only.
 
-    const handleMpesaActivate = async () => {
-        if (!mpesaPhone.trim() || mpesaPhone.trim().length < 10) {
-            Alert.alert('Phone Required', 'Please enter a valid M-PESA phone number.');
-            return;
-        }
-
-        await activateTrial('mpesa', { phoneNumber: mpesaPhone });
-    };
-
-    const activateTrial = async (paymentMethod: 'mpesa' | 'stripe', paymentData?: any) => {
-        setActivatingTrial(true);
-        try {
-            let result;
-            
-            // If this is for renewal (purchasing paid plan), use createSubscription instead
-            if (isForRenewal) {
-                if (!selectedPlan) {
-                    Alert.alert('Select a Plan', 'Please select a subscription plan to continue.');
-                    setActivatingTrial(false);
-                    return;
-                }
-                
-                // Create paid subscription
-                result = await subscriptionService.createSubscription(
-                    selectedPlan.planId || selectedPlan.id,
-                    paymentMethod
-                );
-            } else {
-                // Trial activation (shouldn't happen since admin creates trials, but keep for edge cases)
-                if (userType === 'company') {
-                    const auth = getAuth();
-                    const user = auth.currentUser;
-                    if (!user) throw new Error('User not authenticated');
-                    
-                    try {
-                        const subscriptionStatus = await subscriptionService.startCompanyFleetTrial(user.uid);
-                        result = { success: true, data: subscriptionStatus, existingSubscription: false };
-                    } catch (error) {
-                        console.error('Company fleet trial failed, trying regular trial:', error);
-                        result = await subscriptionService.activateTrial('transporter');
-                    }
-                } else {
-                    result = await subscriptionService.activateTrial(userType as 'individual' | 'broker');
-                }
-            }
-
-            if (result.success) {
-                if (result.existingSubscription) {
-                    // Existing subscription - navigate immediately
-                    navigateToDashboard();
-                } else {
-                    try {
-                        const auth = getAuth();
-                        const user = auth.currentUser;
-                        if (user) {
-                            await NotificationHelper.sendSubscriptionNotification('activated', {
-                                userId: user.uid,
-                                role: userType,
-                                subscriptionType: 'trial',
-                                trialDuration
-                            });
-                        }
-                    } catch (notificationError) {
-                        console.warn('Failed to send trial activation notification:', notificationError);
-                    }
-
-                    // Show success state with manual navigation button as fallback
-                    setShowSuccessState(true);
-                    
-                    // Try automatic navigation first
-                    setTimeout(() => {
-                        try {
-                            navigateToDashboard();
-                        } catch (navError) {
-                            console.warn('Automatic navigation failed, user can use manual button:', navError);
-                            // Keep success state visible so user can use manual button
-                        }
-                    }, 1500); // Small delay to show success message
-                }
-            } else {
-                Alert.alert(
-                    'Error', 
-                    result.message || (isForRenewal ? 'Failed to subscribe. Please try again.' : 'Failed to activate trial. Please try again.')
-                );
-            }
-        } catch (error) {
-            console.error(isForRenewal ? 'Subscription purchase error:' : 'Trial activation error:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-            Alert.alert(
-                isForRenewal ? 'Subscription Failed' : 'Activation Failed',
-                `${isForRenewal ? 'Failed to subscribe' : 'Failed to activate trial'}: ${errorMessage}\n\nPlease check your internet connection and try again.`,
-                [
-                    { text: 'Retry', onPress: () => activateTrial(paymentMethod, paymentData) },
-                    { text: 'Cancel', style: 'cancel' }
-                ]
-            );
-        } finally {
-            setActivatingTrial(false);
-        }
-    };
 
     const navigateToDashboard = () => {
         try {
@@ -279,13 +168,8 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
         }
     };
 
-    const canActivate = () => {
-        if (!selectedPaymentMethod) return false;
-        if (selectedPaymentMethod === 'mpesa') {
-            return mpesaPhone.trim().length >= 10;
-        }
-        return isCardValid;
-    };
+
+    // No manual activation. All trial state is backend-driven.
 
     return (
         <SafeAreaView style={styles.container}>
@@ -301,7 +185,7 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>
-                        {isForRenewal ? 'Subscribe to Plan' : 'Activate Your Trial'}
+                        {isForRenewal ? 'Subscribe to Plan' : 'Trial Status'}
                     </Text>
                     <View style={styles.headerSpacer} />
                 </View>
@@ -323,146 +207,14 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                         <Text style={styles.welcomeTitle}>
                             {isForRenewal 
                                 ? 'Choose Your Subscription Plan' 
-                                : `Start Your ${trialDuration}-Day Free Trial`}
+                                : `Your Free Trial Status`}
                         </Text>
                         <Text style={styles.welcomeSubtitle}>
                             {isForRenewal
                                 ? 'Select a plan and complete your payment to continue using all premium features.'
-                                : 'Get full access to all premium features. No payment required - just verify your payment method.'}
+                                : `You have ${trialDuration} days remaining in your free trial. All trial status is managed by our system.`}
                         </Text>
                     </View>
-
-                    {/* Payment Method Selection */}
-                    {!selectedPaymentMethod && (
-                        <View style={styles.paymentMethodSection}>
-                            <Text style={styles.sectionTitle}>Choose Payment Method</Text>
-                            <Text style={styles.sectionSubtitle}>
-                                {isForRenewal
-                                    ? 'Select your preferred payment method to complete your subscription purchase.'
-                                    : "We'll verify your payment method with a $1 test charge that will be immediately refunded."}
-                            </Text>
-                            
-                            <View style={styles.paymentMethodGrid}>
-                                <TouchableOpacity
-                                    style={styles.paymentMethodCard}
-                                    onPress={() => setSelectedPaymentMethod('mpesa')}
-                                >
-                                    <MaterialCommunityIcons
-                                        name="cellphone"
-                                        size={32}
-                                        color={colors.primary}
-                                    />
-                                    <Text style={styles.paymentMethodLabel}>M-PESA</Text>
-                                    <Text style={styles.paymentMethodHint}>Mobile Money</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={styles.paymentMethodCard}
-                                    onPress={() => setSelectedPaymentMethod('stripe')}
-                                >
-                                    <MaterialCommunityIcons
-                                        name="credit-card"
-                                        size={32}
-                                        color={colors.primary}
-                                    />
-                                    <Text style={styles.paymentMethodLabel}>Card</Text>
-                                    <Text style={styles.paymentMethodHint}>Credit/Debit</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
-
-                    {/* M-PESA Form */}
-                    {selectedPaymentMethod === 'mpesa' && (
-                        <View style={styles.formSection}>
-                            <TouchableOpacity
-                                style={styles.backToSelection}
-                                onPress={() => setSelectedPaymentMethod(null)}
-                            >
-                                <MaterialCommunityIcons name="arrow-left" size={20} color={colors.primary} />
-                                <Text style={styles.backToSelectionText}>Change Payment Method</Text>
-                            </TouchableOpacity>
-
-                            <View style={styles.formCard}>
-                                <MaterialCommunityIcons
-                                    name="cellphone"
-                                    size={32}
-                                    color={colors.primary}
-                                    style={styles.formIcon}
-                                />
-                                <Text style={styles.formTitle}>M-PESA Phone Number</Text>
-                                <Text style={styles.formDescription}>
-                                    Enter the phone number registered with your M-PESA account
-                                </Text>
-
-                                <TextInput
-                                    style={styles.input}
-                                    value={mpesaPhone}
-                                    onChangeText={setMpesaPhone}
-                                    placeholder="254 700 000 000"
-                                    keyboardType="phone-pad"
-                                    maxLength={12}
-                                    autoFocus
-                                />
-
-                                <TouchableOpacity
-                                    style={[
-                                        styles.activateButton,
-                                        (!mpesaPhone.trim() || mpesaPhone.trim().length < 10) && styles.activateButtonDisabled
-                                    ]}
-                                    onPress={handleMpesaActivate}
-                                    disabled={activatingTrial || !mpesaPhone.trim() || mpesaPhone.trim().length < 10}
-                                >
-                                    {activatingTrial ? (
-                                        <ActivityIndicator size="small" color={colors.white} />
-                                    ) : (
-                                        <>
-                                            <MaterialCommunityIcons name="check" size={20} color={colors.white} />
-                                            <Text style={styles.activateButtonText}>
-                                                {isForRenewal ? 'Subscribe Now' : 'Activate Trial'}
-                                            </Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
-
-                    {/* Card Form */}
-                    {selectedPaymentMethod === 'stripe' && (
-                        <View style={styles.formSection}>
-                            <TouchableOpacity
-                                style={styles.backToSelection}
-                                onPress={() => setSelectedPaymentMethod(null)}
-                            >
-                                <MaterialCommunityIcons name="arrow-left" size={20} color={colors.primary} />
-                                <Text style={styles.backToSelectionText}>Change Payment Method</Text>
-                            </TouchableOpacity>
-
-                            <View style={styles.formCard}>
-                                <MaterialCommunityIcons
-                                    name="credit-card"
-                                    size={32}
-                                    color={colors.primary}
-                                    style={styles.formIcon}
-                                />
-                                <Text style={styles.formTitle}>Card Details</Text>
-                                <Text style={styles.formDescription}>
-                                    Enter your card information to verify your payment method. Card type will be detected automatically.
-                                </Text>
-
-                                <View style={styles.smartFormContainer}>
-                                    <SmartPaymentForm
-                                        onSubmit={handleCardSubmit}
-                                        onValidationChange={handleCardValidationChange}
-                                        submitButtonText={isForRenewal ? 'Subscribe Now' : 'Activate Trial'}
-                                        showCardPreview={true}
-                                        disabled={activatingTrial}
-                                    />
-                                </View>
-                            </View>
-                        </View>
-                    )}
 
                     {/* Benefits Section */}
                     <View style={styles.benefitsSection}>
@@ -481,10 +233,6 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                                     <View style={styles.benefitItem}>
                                         <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
                                         <Text style={styles.benefitText}>Cancel anytime before trial ends</Text>
-                                    </View>
-                                    <View style={styles.benefitItem}>
-                                        <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-                                        <Text style={styles.benefitText}>$1 test charge will be refunded immediately</Text>
                                     </View>
                                 </>
                             )}
@@ -506,40 +254,6 @@ const SubscriptionTrialScreen: React.FC<SubscriptionTrialScreenProps> = ({ route
                             )}
                         </View>
                     </View>
-
-                    {/* Success State with Manual Navigation Button (Fallback) */}
-                    {showSuccessState && (
-                        <View style={styles.successSection}>
-                            <View style={styles.successCard}>
-                                <MaterialCommunityIcons 
-                                    name="check-circle" 
-                                    size={64} 
-                                    color={colors.success} 
-                                    style={styles.successIcon}
-                                />
-                                <Text style={styles.successTitle}>
-                                    {isForRenewal ? 'Subscription Activated! 🎉' : 'Trial Activated! 🎉'}
-                                </Text>
-                                <Text style={styles.successMessage}>
-                                    {isForRenewal
-                                        ? 'Your subscription has been activated! You can now access all premium features.'
-                                        : `Your ${trialDuration}-day free trial has been activated! No payment was charged. You can now access all premium features.`}
-                                </Text>
-                                <Text style={styles.successHint}>
-                                    {isForRenewal 
-                                        ? 'You should be redirected automatically. If not, use the button below.'
-                                        : 'You should be redirected automatically. If not, use the button below.'}
-                                </Text>
-                                <TouchableOpacity
-                                    style={styles.goToDashboardButton}
-                                    onPress={navigateToDashboard}
-                                >
-                                    <MaterialCommunityIcons name="home" size={20} color={colors.white} />
-                                    <Text style={styles.goToDashboardButtonText}>Go to Dashboard</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
                 </ScrollView>
             </FormKeyboardWrapper>
         </SafeAreaView>

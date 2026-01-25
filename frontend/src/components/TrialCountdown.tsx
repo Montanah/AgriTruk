@@ -46,7 +46,7 @@ const TrialCountdown: React.FC<TrialCountdownProps> = ({ trialExpiryDate, onUpgr
   return (
     <View style={[styles.container, isExpiringSoon && styles.expiringSoon]}>
       <Text style={[styles.title, isExpiringSoon && styles.expiringText]}>
-        {timeLeft.days > 0 ? 'Trial Remaining' : 'Trial Expired'}
+        {timeLeft.days > 0 ? 'Trial Remaining (backend-managed)' : 'Trial Expired'}
       </Text>
       
       {timeLeft.days > 0 ? (
@@ -78,7 +78,7 @@ const TrialCountdown: React.FC<TrialCountdownProps> = ({ trialExpiryDate, onUpgr
         </View>
       ) : (
         <Text style={[styles.expiredText, isExpiringSoon && styles.expiringText]}>
-          Your trial has expired. Please upgrade to continue.
+          Your trial has expired. All trial status is managed by our system. Please upgrade to continue.
         </Text>
       )}
 

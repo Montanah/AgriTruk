@@ -241,6 +241,7 @@ const checkTransporterProfileComplete = (transporterData: any) => {
 const checkSubscriptionStatus = async (userId: string, userType: 'transporter' | 'broker') => {
   try {
     // Use the subscription service which handles auth tokens properly
+    // All trial state is backend-driven. No manual trial activation.
     const subscriptionService = require('./src/services/subscriptionService').default;
     const status = await subscriptionService.getSubscriptionStatus();
     
@@ -325,7 +326,7 @@ export default function App() {
     }
 
     // Set up interval to check subscription status periodically
-    // This ensures navigation updates when subscription status changes (e.g., after trial activation)
+    // This ensures navigation updates when subscription status changes (e.g., after backend-driven trial state changes)
     const subscriptionCheckInterval = setInterval(async () => {
       try {
         if (role === 'transporter' || role === 'broker') {

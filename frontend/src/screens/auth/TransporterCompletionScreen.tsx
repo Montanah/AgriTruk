@@ -31,20 +31,24 @@ function isTransporterProfileComplete(transporter: any) {
   
   console.log('Checking company profile completeness for:', transporter);
   
-  // Required fields for a completed company profile
-  // NOTE: Registration is optional initially - will be required after 5 completed trips
-  const requiredFields = [
-    'name', // Company name
-    'contact', // Company contact
-    'status',
-  ];
+  // Check company name (backend returns as companyName, form sends as name)
+  const companyName = transporter.name || transporter.companyName;
+  if (!companyName || typeof companyName !== 'string' || companyName.length === 0) {
+    console.log(`Missing or empty field: name/companyName = ${companyName}`);
+    return false;
+  }
   
-  // Check basic required fields (registration is optional)
-  for (const field of requiredFields) {
-    if (!transporter[field] || typeof transporter[field] !== 'string' || transporter[field].length === 0) {
-      console.log(`Missing or empty field: ${field} = ${transporter[field]}`);
-      return false;
-    }
+  // Check contact
+  const contact = transporter.contact || transporter.companyContact;
+  if (!contact || typeof contact !== 'string' || contact.length === 0) {
+    console.log(`Missing or empty field: contact = ${contact}`);
+    return false;
+  }
+  
+  // Check status
+  if (!transporter.status || typeof transporter.status !== 'string' || transporter.status.length === 0) {
+    console.log(`Missing or empty field: status = ${transporter.status}`);
+    return false;
   }
   
   // Check for company logo (flexible field names)
@@ -455,33 +459,17 @@ export default function TransporterCompletionScreen() {
 
       // Company submission only
       {
-        // Company submission - create FormData for multipart/form-data request
-        // TEMPORARY WORKAROUND: Use transporter API format for company creation
-        const formData = new FormData();
-        
-        // Company-specific fields (using correct backend field names)
-        formData.append('name', companyName);
-        // Registration is optional - only append if provided
-        if (companyReg && companyReg.trim()) {
-          formData.append('registration', companyReg.trim());
-        }
-        formData.append('contact', companyContact);
-        formData.append('address', companyAddress || '');
-        
-        // Add logo file (backend expects 'logo' field name)
-        if (profilePhoto && profilePhoto.uri) {
-        const fileType = profilePhoto.type === 'image' ? 'image/jpeg' : (profilePhoto.type || 'image/jpeg');
-        
-        // Create a file-like object that multer can process
-        const fileObj = {
-          uri: profilePhoto.uri,
-          type: fileType,
-          name: 'company-logo.jpg',
-          fileName: 'company-logo.jpg',
-          fileType: fileType,
+        // Try JSON-first approach as FormData often fails with React Native Expo
+        // Company submission with fallback to FormData
+        const simpleData = {
+          name: companyName,
+          contact: companyContact,
+          address: companyAddress || '',
         };
         
-        formData.append('logo', fileObj as any);
+        // Add registration only if provided
+        if (companyReg && companyReg.trim()) {
+          simpleData.registration = companyReg.trim();
         }
         
         // Validate required fields before sending
@@ -498,45 +486,27 @@ export default function TransporterCompletionScreen() {
         
         const token = await user.getIdToken();
         
-        // Try FormData first, then JSON fallback
+        // Use JSON first (more reliable than FormData in Expo)
         try {
           // Add timeout to the request
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
           
-          let res;
-          let formDataSuccess = false;
-          
-          try {
-            res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                // Don't set Content-Type - let fetch set it with boundary for FormData
-              },
-              body: formData,
-              signal: controller.signal,
-            });
-            
-            if (res.ok) {
-              formDataSuccess = true;
-            } else {
-              throw new Error(`FormData request failed with status: ${res.status}`);
-            }
-          } catch (fetchError) {
-            // Continue to JSON fallback
-          }
+          // Create company with JSON - this is more reliable
+          const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(simpleData),
+            signal: controller.signal,
+          });
           
           clearTimeout(timeoutId);
           
-          // If FormData failed, try JSON fallback
-          if (!formDataSuccess) {
-            console.log('FormData request failed, trying JSON fallback...');
-            throw new Error('FormData request failed, trying JSON fallback');
-          }
-          
-          if (!res || !res.ok) {
-            const errorText = await res?.text() || 'Unknown error';
+          if (!res.ok) {
+            const errorText = await res.text();
             console.error('Company creation error response:', errorText);
             
             let errorMessage = 'Company creation failed. Please try again.';
@@ -549,30 +519,68 @@ export default function TransporterCompletionScreen() {
                 errorMessage = errorData.errors.map((err: any) => err.msg || err.message).join(', ');
               }
             } catch (parseError) {
-              console.error('Failed to parse error response:', parseError);
-              errorMessage = `Server error (${res?.status || 'unknown'}): ${errorText}`;
+              errorMessage = `Server error (${res.status}): ${errorText}`;
             }
             
             throw new Error(errorMessage);
           }
           
-          // Check if response has content before parsing JSON
+          // Parse successful company response
+          const responseText = await res.text();
           let companyData;
-          const responseText = await res?.text();
+          
           if (responseText && responseText.trim()) {
             try {
               companyData = JSON.parse(responseText);
-              console.log('Company created successfully with FormData:', companyData);
+              console.log('Company created successfully with JSON:', companyData);
             } catch (parseError) {
-              console.error('Failed to parse JSON response:', parseError);
-              // If JSON parsing fails but status is OK, assume success
-              console.log('Response is not JSON but status is OK, proceeding...');
+              console.log('Response OK but not JSON, proceeding...');
               companyData = { success: true };
             }
           } else {
-            // Empty response but status is OK, assume success
-            console.log('Empty response but status is OK, proceeding...');
+            console.log('Empty response but status OK, proceeding...');
             companyData = { success: true };
+          }
+          
+          // Upload logo separately if available (FormData just for files)
+          if (profilePhoto && profilePhoto.uri) {
+            console.log('Uploading company logo separately...');
+            try {
+              const logoFormData = new FormData();
+              
+              // Correct file object structure for React Native FormData
+              const photoFile = {
+                uri: profilePhoto.uri,
+                name: 'company-logo.jpg',
+                type: 'image/jpeg',
+              };
+              
+              logoFormData.append('logo', photoFile as any);
+              
+              const companyId = companyData?.id || companyData?.companyId;
+              if (companyId) {
+                const logoRes = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyId}/upload`, {
+                  method: 'PATCH',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    // Let fetch set Content-Type for FormData
+                  },
+                  body: logoFormData,
+                  signal: AbortSignal.timeout(15000)
+                });
+                
+                if (logoRes.ok) {
+                  console.log('Logo uploaded successfully');
+                } else {
+                  console.warn('Logo upload failed, but company was created successfully');
+                }
+              } else {
+                console.warn('No company ID returned, skipping logo upload');
+              }
+            } catch (logoError) {
+              console.warn('Logo upload error (non-critical):', logoError);
+              // Don't throw - company was created, logo upload is secondary
+            }
           }
           
           // Transporter record is now created automatically in the backend

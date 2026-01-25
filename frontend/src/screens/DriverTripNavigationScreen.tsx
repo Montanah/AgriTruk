@@ -14,7 +14,21 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { getAuth } from 'firebase/auth';
 import * as Location from 'expo-location';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+let MapView, Marker, Polyline, PROVIDER_GOOGLE;
+try {
+  ({ default: MapView, Marker, Polyline, PROVIDER_GOOGLE } = require('react-native-maps'));
+} catch (e) {
+  MapView = ({ children, ...props }: any) => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' }}>
+      <Text style={{ fontSize: 18, color: '#666', textAlign: 'center', paddingHorizontal: 20 }}>
+        Maps are not available in Expo Go. Please build the app locally.
+      </Text>
+    </View>
+  );
+  Marker = () => null;
+  Polyline = () => null;
+  PROVIDER_GOOGLE = null;
+}
 import colors from '../constants/colors';
 import fonts from '../constants/fonts';
 import spacing from '../constants/spacing';

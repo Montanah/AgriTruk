@@ -12,7 +12,21 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+let MapView, Marker, Polyline, PROVIDER_GOOGLE;
+try {
+  ({ default: MapView, Marker, Polyline, PROVIDER_GOOGLE } = require('react-native-maps'));
+} catch (e) {
+  MapView = ({ children, ...props }: any) => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' }}>
+      <Text style={{ fontSize: 18, color: '#666', textAlign: 'center', paddingHorizontal: 20 }}>
+        Maps are not available in Expo Go. Please build the app locally.
+      </Text>
+    </View>
+  );
+  Marker = () => null;
+  Polyline = () => null;
+  PROVIDER_GOOGLE = null;
+}
 import * as Location from 'expo-location';
 import colors from '../constants/colors';
 import spacing from '../constants/spacing';
