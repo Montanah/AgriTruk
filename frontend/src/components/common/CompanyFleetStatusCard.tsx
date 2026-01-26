@@ -38,36 +38,33 @@ export default function CompanyFleetStatusCard({
   };
 
   const getStatusText = () => {
-    if (subscriptionStatus.freeTrialActive && subscriptionStatus.freeTrialDaysRemaining > 0) {
-      return `Free Trial (${subscriptionStatus.freeTrialDaysRemaining} days remaining)`;
+    if (subscriptionStatus.freeTrialActive) {
+      return `Free Trial (${subscriptionStatus.freeTrialDaysRemaining} days left)`;
     }
     if (subscriptionStatus.hasActiveSubscription) {
       return subscriptionStatus.currentPlan?.name || 'Active Plan';
-    }
-    if (subscriptionStatus.needsTrialActivation) {
-      return 'No active trial. Please contact support or wait for admin activation.';
     }
     return 'No Active Plan';
   };
 
   const getDriverLimitText = () => {
-    if (subscriptionStatus.freeTrialActive && subscriptionStatus.driverLimit) {
-      return `${subscriptionStatus.driverLimit} drivers (Trial)`;
+    if (subscriptionStatus.freeTrialActive) {
+      return '3 drivers (Trial)';
     }
     if (subscriptionStatus.driverLimit === -1) {
       return 'Unlimited drivers';
     }
-    return `${subscriptionStatus.driverLimit || 0} drivers`;
+    return `${subscriptionStatus.driverLimit} drivers`;
   };
 
   const getVehicleLimitText = () => {
-    if (subscriptionStatus.freeTrialActive && subscriptionStatus.vehicleLimit) {
-      return `${subscriptionStatus.vehicleLimit} vehicles (Trial)`;
+    if (subscriptionStatus.freeTrialActive) {
+      return '3 vehicles (Trial)';
     }
     if (subscriptionStatus.vehicleLimit === -1) {
       return 'Unlimited vehicles';
     }
-    return `${subscriptionStatus.vehicleLimit || 0} vehicles`;
+    return `${subscriptionStatus.vehicleLimit} vehicles`;
   };
 
   const canAddDriver = subscriptionStatus.canAddDriver || false;
@@ -167,8 +164,17 @@ export default function CompanyFleetStatusCard({
 
       {/* Action Buttons */}
       <View style={styles.actionsContainer}>
-        {/* Only show subscribe if user has no active trial or subscription */}
-        {!subscriptionStatus.freeTrialActive && !subscriptionStatus.hasActiveSubscription && !subscriptionStatus.needsTrialActivation && (
+        {subscriptionStatus.freeTrialActive && (
+          <TouchableOpacity 
+            style={styles.upgradeButton}
+            onPress={handleUpgrade}
+          >
+            <MaterialCommunityIcons name="arrow-up" size={20} color={colors.white} />
+            <Text style={styles.upgradeButtonText}>Upgrade Now</Text>
+          </TouchableOpacity>
+        )}
+        
+        {!subscriptionStatus.hasActiveSubscription && !subscriptionStatus.freeTrialActive && (
           <TouchableOpacity 
             style={styles.subscribeButton}
             onPress={handleUpgrade}
@@ -177,6 +183,7 @@ export default function CompanyFleetStatusCard({
             <Text style={styles.subscribeButtonText}>Subscribe</Text>
           </TouchableOpacity>
         )}
+
         <TouchableOpacity 
           style={styles.manageButton}
           onPress={() => navigation.navigate('SubscriptionManagement' as never)}

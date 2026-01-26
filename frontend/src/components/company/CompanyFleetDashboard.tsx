@@ -41,7 +41,20 @@ export default function CompanyFleetDashboard({ userId }: CompanyFleetDashboardP
     }
   };
 
-  // Manual trial activation removed. Trial state is now backend-driven only.
+  const handleStartTrial = async () => {
+    try {
+      const status = await subscriptionService.startCompanyFleetTrial(userId);
+      setSubscriptionStatus(status);
+      Alert.alert(
+        'Free Trial Started',
+        'Your 90-day free trial has begun! You can now add up to 3 drivers and 3 vehicles.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error starting trial:', error);
+      Alert.alert('Error', 'Failed to start free trial');
+    }
+  };
 
   const handleUpgrade = () => {
     navigation.navigate('CompanyFleetPlans' as never);
@@ -145,14 +158,15 @@ export default function CompanyFleetDashboard({ userId }: CompanyFleetDashboardP
         </View>
       </View>
 
-      {/* Trial Information (backend-driven only) */}
+      {/* Trial Information */}
       {subscriptionStatus.freeTrialActive && (
         <View style={styles.trialInfoContainer}>
           <MaterialCommunityIcons name="gift" size={32} color={colors.warning} />
           <View style={styles.trialInfoText}>
             <Text style={styles.trialTitle}>Free Trial Active</Text>
             <Text style={styles.trialDescription}>
-              {subscriptionStatus.freeTrialDaysRemaining} days remaining. All trial status is managed by our system.
+              {subscriptionStatus.freeTrialDaysRemaining} days remaining. 
+              Upgrade anytime to unlock more features and higher limits.
             </Text>
           </View>
         </View>

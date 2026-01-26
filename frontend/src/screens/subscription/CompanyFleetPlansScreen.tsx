@@ -217,7 +217,7 @@ export default function CompanyFleetPlansScreen() {
         {/* Free Trial Info */}
         <View style={styles.trialInfoCard}>
           <MaterialCommunityIcons name="gift" size={32} color={colors.primary} />
-          <Text style={styles.trialTitle}>30-Day Free Trial</Text>
+          <Text style={styles.trialTitle}>90-Day Free Trial</Text>
           <Text style={styles.trialDescription}>
             Start with up to 3 vehicles and 3 drivers. All plans include unlimited access to the Driver Job Board.
           </Text>

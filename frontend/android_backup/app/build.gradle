@@ -88,6 +88,16 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace 'com.truk.trukapp'
+    
+    // Suppress C++ deprecation warnings for @react-native-picker/picker compatibility
+    // The picker library uses deprecated ContextContainer::Shared API
+    // TODO: Remove this once picker is updated to support RN 0.83+
+    externalNativeBuild {
+        cmake {
+            version "3.22.1"
+        }
+    }
+    
     defaultConfig {
         applicationId 'com.truk.trukapp'
         minSdkVersion rootProject.ext.minSdkVersion
@@ -117,6 +127,14 @@ android {
             crunchPngs (findProperty('android.enablePngCrunchInReleaseBuilds')?.toBoolean() ?: true)
         }
     }
+    
+    // C++ compiler flags to suppress deprecation warnings from picker library
+    // The @react-native-picker/picker uses deprecated ContextContainer::Shared API
+    // which causes build failures in RN 0.83+. This suppresses the errors.
+    tasks.withType(com.android.build.gradle.tasks.NdkBuild) {
+        it.ndkBuild.environment('APP_CFLAGS', '-Wno-deprecated-declarations')
+        it.ndkBuild.environment('APP_CXXFLAGS', '-Wno-deprecated-declarations')
+    }
     packagingOptions {
         jniLibs {
             useLegacyPackaging (findProperty('expo.useLegacyPackaging')?.toBoolean() ?: false)
@@ -124,6 +142,16 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+    
+    // Suppress C++ deprecation warnings for picker/gesture-handler compatibility with RN 0.83+
+    // The -Wno-deprecated-declarations flag allows deprecated code to compile without errors
+    // This is temporary until dependencies are updated
+    externalNativeBuild {
+        cmake {
+            cppFlags "-Wno-deprecated-declarations"
+            cFlags "-Wno-deprecated-declarations"
+        }
     }
 }
 
