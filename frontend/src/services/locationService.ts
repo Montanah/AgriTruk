@@ -24,8 +24,21 @@ class LocationService {
    */
   async hasBackgroundLocationConsent(): Promise<boolean> {
     try {
-      const consent = await AsyncStorage.getItem(BACKGROUND_LOCATION_CONSENT_KEY);
-      return consent === 'true';
+      const consentRaw = await AsyncStorage.getItem(BACKGROUND_LOCATION_CONSENT_KEY);
+      
+      // Handle both old format (string 'true'/'false') and new format (JSON object)
+      if (!consentRaw) {
+        return false;
+      }
+      
+      try {
+        // Try parsing as JSON (new format)
+        const consentData = JSON.parse(consentRaw);
+        return consentData.consented === true;
+      } catch (parseError) {
+        // Fall back to string format (old format for backward compatibility)
+        return consentRaw === 'true';
+      }
     } catch (error: any) {
       console.error('Error checking background location consent:', error);
       // On physical devices, AsyncStorage might fail due to permissions or storage issues
@@ -37,10 +50,24 @@ class LocationService {
 
   /**
    * Save user consent for background location disclosure
+   * Stores consent status with timestamp and app version for compliance verification
    */
   async saveBackgroundLocationConsent(consented: boolean): Promise<void> {
     try {
-      await AsyncStorage.setItem(BACKGROUND_LOCATION_CONSENT_KEY, consented ? 'true' : 'false');
+      // Store consent as JSON object with metadata for Play Store review/compliance verification
+      const consentData = {
+        consented,
+        timestamp: new Date().toISOString(),
+        version: '1.0.3', // App version from app.config.js
+        platform: Platform.OS,
+      };
+      await AsyncStorage.setItem(BACKGROUND_LOCATION_CONSENT_KEY, JSON.stringify(consentData));
+      
+      // Log consent event for analytics/verification
+      console.log(
+        `✅ LOCATION_SERVICE: Background location consent ${consented ? 'ACCEPTED' : 'DECLINED'}`,
+        `at ${new Date().toISOString()}`
+      );
     } catch (error: any) {
       console.error('Error saving background location consent:', error);
       // On physical devices, AsyncStorage might fail due to permissions or storage issues

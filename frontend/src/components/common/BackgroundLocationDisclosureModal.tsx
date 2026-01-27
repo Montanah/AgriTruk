@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   BackHandler,
+  Linking,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import colors from '../../constants/colors';
@@ -124,12 +125,13 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
   }, [visible]);
 
   const handlePrivacyPolicyPress = () => {
-    // Privacy policy navigation is disabled when modal is shown before NavigationContainer
-    // This is expected behavior - the modal must be shown before any screens render
-    // Users can still accept/decline the disclosure without viewing privacy policy
-    console.log('BackgroundLocationDisclosureModal: Privacy policy link clicked - navigation not available yet (this is OK)');
-    // In a production app, you might want to show an alert with privacy policy URL
-    // For now, we'll just log it - the disclosure is still valid without navigation
+    // Open privacy policy in external browser
+    const privacyPolicyUrl = 'https://trukafrica.com/privacy';
+    Linking.openURL(privacyPolicyUrl).catch((err) => {
+      console.warn('Failed to open privacy policy URL:', err);
+      // Fallback: silently fail - disclosure is still valid without opening URL
+    });
+    console.log('📋 BACKGROUND_LOCATION_DISCLOSURE_MODAL: Privacy policy link opened');
   };
 
   return (
@@ -285,6 +287,7 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
             onPress={() => {
               console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User ACCEPTED background location disclosure');
               console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Consent saved - can now request BACKGROUND_LOCATION permission');
+              console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Role:', userRole || 'unknown', '| Transporter type:', transporterType || 'N/A');
               onAccept();
             }}
             activeOpacity={0.8}
@@ -305,6 +308,7 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
             onPress={() => {
               console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User DECLINED background location disclosure');
               console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: App will use foreground-only location tracking');
+              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Role:', userRole || 'unknown', '| Transporter type:', transporterType || 'N/A');
               onDecline();
             }}
             activeOpacity={0.7}

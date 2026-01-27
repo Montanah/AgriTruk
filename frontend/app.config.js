@@ -7,7 +7,7 @@ module.exports = {
     icon: './assets/images/icon.png',
     scheme: 'trukapp',
     userInterfaceStyle: 'automatic',
-    newArchEnabled: true,
+    newArchEnabled: false,
     ios: {
       bundleIdentifier: 'com.truk.trukapp',
       buildNumber: '6',
@@ -100,6 +100,9 @@ module.exports = {
         backgroundColor: '#ffffff',
       },
       edgeToEdgeEnabled: true,
+      // Use JavaScriptCore (JSC) engine instead of Hermes for compatibility
+      // Hermes causes libhermestooling.so missing error on APK startup
+      jsEngine: 'jsc',
       // HERMES DISABLED: The Hermes compiler binary (linux64-bin/hermesc) fails on EAS cloud builds
       // Issue: https://github.com/facebook/react-native/issues/xxxxx
       // Workaround: Use default JavaScriptCore engine instead for cloud builds
@@ -114,9 +117,7 @@ module.exports = {
         },
       },
       permissions: [
-        'ACCESS_FINE_LOCATION',
-        'ACCESS_COARSE_LOCATION',
-        'ACCESS_BACKGROUND_LOCATION',
+        'android.permission.ACCESS_BACKGROUND_LOCATION',
         'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.ACCESS_FINE_LOCATION',
         'android.permission.CAMERA',
