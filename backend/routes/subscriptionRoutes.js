@@ -648,4 +648,127 @@ router.post('/change-plan', authenticateToken, requireRole(['transporter', 'brok
  */
 router.post('/cancel', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.cancelPlan);
 
+/**
+ * @swagger
+ * /api/subscriptions/trial/validate-eligibility:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Validate if user is eligible for trial subscription
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               planId:
+ *                 type: string
+ *                 description: Optional trial plan ID to validate
+ *     responses:
+ *       200:
+ *         description: Eligibility validation result
+ *       400:
+ *         description: User not eligible (already has subscription or used trial)
+ *       401:
+ *         description: User not authenticated
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/trial/validate-eligibility', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.validateTrialEligibility);
+
+/**
+ * @swagger
+ * /api/subscriptions/trial/activate-payment-method:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Register payment method for trial activation
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - paymentMethod
+ *               - paymentDetails
+ *             properties:
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [mpesa, stripe]
+ *               paymentDetails:
+ *                 type: object
+ *                 description: Payment details (phoneNumber for M-PESA, tokenId for Stripe)
+ *     responses:
+ *       200:
+ *         description: Payment method registered
+ *       400:
+ *         description: Invalid payment method
+ *       401:
+ *         description: User not authenticated
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/trial/activate-payment-method', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.activatePaymentMethod);
+
+/**
+ * @swagger
+ * /api/subscriptions/trial/activate:
+ *   post:
+ *     tags: [Subscriptions]
+ *     summary: Activate trial subscription
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               planId:
+ *                 type: string
+ *                 description: Trial plan ID (optional, uses default if not provided)
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [mpesa, stripe]
+ *               paymentData:
+ *                 type: object
+ *                 description: Payment data (phoneNumber for M-PESA, tokenId for Stripe)
+ *               isForRenewal:
+ *                 type: boolean
+ *                 description: Skip eligibility check for renewals
+ *     responses:
+ *       201:
+ *         description: Trial subscription activated
+ *       400:
+ *         description: Payment failed or eligibility check failed
+ *       401:
+ *         description: User not authenticated
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/trial/activate', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.activateTrial);
+
+/**
+ * @swagger
+ * /api/subscriptions/trial/status:
+ *   get:
+ *     tags: [Subscriptions]
+ *     summary: Get current trial subscription status
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Trial status information
+ *       401:
+ *         description: User not authenticated
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/trial/status', authenticateToken, requireRole(['transporter', 'broker', 'business', 'admin']), subscriptionController.getTrialStatus);
+
 module.exports = router;
