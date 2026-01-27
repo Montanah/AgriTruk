@@ -1363,3 +1363,354 @@ exports.validateVehicleLimit = async function(req, res) {
     });
   }
 };
+
+/**
+ * POST /api/subscriptions/trial/validate-eligibility
+ * Validate if user is eligible for trial subscription
+ * Body: { planId (optional) }
+ */
+exports.validateTrialEligibility = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { planId } = req.body;
+
+    // Get user
+    const user = await Users.get(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check if user already has active subscription
+    const activeSubscription = await Subscribers.getByUserId(userId);
+    if (activeSubscription) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already has an active subscription',
+        eligible: false,
+        reason: 'active_subscription'
+      });
+    }
+
+    // Get all past subscriptions to check if trial was used
+    const allSubscriptions = await Subscribers.getAllByUserId(userId);
+    const usedTrialBefore = allSubscriptions.some(sub => {
+      const plan = SubscriptionPlans.getSubscriptionPlan(sub.planId);
+      return plan && plan.price === 0; // Trial plan has price = 0
+    });
+
+    if (usedTrialBefore) {
+      return res.status(400).json({
+        success: false,
+        message: 'User has already used trial subscription',
+        eligible: false,
+        reason: 'trial_already_used'
+      });
+    }
+
+    // If planId provided, verify it's a trial plan
+    let trialPlan = null;
+    if (planId) {
+      const plan = await SubscriptionPlans.getSubscriptionPlan(planId);
+      if (!plan) {
+        return res.status(404).json({ success: false, message: 'Plan not found' });
+      }
+      if (plan.price !== 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Specified plan is not a trial plan',
+          eligible: false,
+          reason: 'not_trial_plan'
+        });
+      }
+      trialPlan = plan;
+    } else {
+      // Get default trial plan
+      trialPlan = await SubscriptionPlans.getTrialPlan();
+    }
+
+    if (!trialPlan) {
+      return res.status(404).json({
+        success: false,
+        message: 'No trial plan available',
+        eligible: false,
+        reason: 'no_trial_plan'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      eligible: true,
+      message: 'User is eligible for trial subscription',
+      data: {
+        userId,
+        eligible: true,
+        reason: 'eligible_for_trial',
+        trialPlan: formatTimestamps(trialPlan),
+        trialDuration: `${trialPlan.trialDays || 90} days`,
+        trialCost: '$1 (immediately refunded)'
+      }
+    });
+  } catch (error) {
+    console.error('Error validating trial eligibility:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+};
+
+/**
+ * POST /api/subscriptions/trial/activate-payment-method
+ * Register a payment method for trial activation
+ * Body: { paymentMethod ('mpesa'|'stripe'), paymentDetails {...} }
+ */
+exports.activatePaymentMethod = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { paymentMethod, paymentDetails } = req.body;
+
+    if (!['mpesa', 'stripe'].includes(paymentMethod)) {
+      return res.status(400).json({ success: false, message: 'Invalid payment method' });
+    }
+
+    // Get user
+    const user = await Users.get(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Store payment method temporarily (in user's pending trial data)
+    // This will be used when trial is activated
+    const paymentMethodData = {
+      method: paymentMethod,
+      details: paymentDetails,
+      registeredAt: new Date().toISOString(),
+      status: 'pending_trial_activation'
+    };
+
+    // Store in temporary cache (AsyncStorage-like storage)
+    // For now, we'll use Firestore with a TTL concept
+    const paymentMethodRef = db.collection('pendingTrialPayments').doc(userId);
+    await paymentMethodRef.set(paymentMethodData, { merge: true });
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment method registered',
+      data: {
+        userId,
+        paymentMethod,
+        status: 'registered',
+        expiresIn: '24 hours'
+      }
+    });
+  } catch (error) {
+    console.error('Error registering payment method:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+};
+
+/**
+ * POST /api/subscriptions/trial/activate
+ * Activate trial subscription with payment method
+ * Body: { planId (optional), paymentMethod ('mpesa'|'stripe'), paymentData {...} }
+ */
+exports.activateTrial = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { planId, paymentMethod, paymentData, isForRenewal } = req.body;
+
+    // Validate eligibility (skip for renewals)
+    if (!isForRenewal) {
+      const activeSubscription = await Subscribers.getByUserId(userId);
+      if (activeSubscription) {
+        return res.status(400).json({
+          success: false,
+          message: 'User already has active subscription',
+          trialActivated: false
+        });
+      }
+    }
+
+    // Get trial plan
+    let trialPlan;
+    if (planId) {
+      trialPlan = await SubscriptionPlans.getSubscriptionPlan(planId);
+      if (!trialPlan || trialPlan.price !== 0) {
+        return res.status(400).json({ success: false, message: 'Invalid trial plan' });
+      }
+    } else {
+      trialPlan = await SubscriptionPlans.getTrialPlan();
+    }
+
+    if (!trialPlan) {
+      return res.status(404).json({ success: false, message: 'No trial plan found' });
+    }
+
+    // Process payment (verification charge)
+    let transactionId = null;
+    let paymentStatus = 'completed';
+
+    if (paymentData && paymentMethod) {
+      try {
+        let paymentResult;
+        if (paymentMethod === 'mpesa') {
+          paymentResult = await processMpesaPayment({
+            phoneNumber: paymentData.phoneNumber,
+            amount: 1, // $1 verification charge
+            userId,
+            description: 'Trial Subscription Verification'
+          });
+        } else if (paymentMethod === 'stripe') {
+          paymentResult = await processCardPayment({
+            tokenId: paymentData.tokenId,
+            amount: 1, // $1 verification charge
+            email: paymentData.email,
+            userId,
+            description: 'Trial Subscription Verification'
+          });
+        }
+
+        if (paymentResult && paymentResult.success) {
+          transactionId = paymentResult.transactionId || paymentResult.reference;
+          paymentStatus = 'completed';
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: 'Payment processing failed',
+            trialActivated: false,
+            error: paymentResult?.message
+          });
+        }
+      } catch (paymentError) {
+        console.error('Payment error:', paymentError);
+        return res.status(400).json({
+          success: false,
+          message: 'Payment processing failed',
+          trialActivated: false,
+          error: paymentError.message
+        });
+      }
+    }
+
+    // Calculate trial dates
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    const trialDays = trialPlan.trialDays || 90;
+    endDate.setDate(endDate.getDate() + trialDays);
+
+    // Create subscriber
+    const subscriberData = {
+      userId,
+      planId: trialPlan.planId || trialPlan.id,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      isActive: true,
+      autoRenew: true,
+      paymentStatus,
+      transactionId,
+      status: 'active',
+      isTrial: true
+    };
+
+    const subscriber = await Subscribers.create(subscriberData);
+
+    // Clean up pending payment method
+    try {
+      await db.collection('pendingTrialPayments').doc(userId).delete();
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    // Log activity
+    await logActivity(userId, 'activate_trial_subscription', req);
+
+    res.status(201).json({
+      success: true,
+      message: 'Trial subscription activated successfully',
+      trialActivated: true,
+      data: {
+        subscriber: formatTimestamps(subscriber),
+        trialDetails: {
+          duration: `${trialDays} days`,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          cost: '$1 (immediately refunded)',
+          autoRenewal: true,
+          renewalPrice: trialPlan.price || 'Please check subscription settings'
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error activating trial:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message, trialActivated: false });
+  }
+};
+
+/**
+ * GET /api/subscriptions/trial/status
+ * Get current trial subscription status for user
+ */
+exports.getTrialStatus = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+
+    // Get user's current subscription
+    const subscription = await Subscribers.getByUserId(userId);
+
+    if (!subscription) {
+      return res.status(200).json({
+        success: true,
+        hasTrialActive: false,
+        message: 'No active subscription',
+        data: {
+          status: 'no_subscription',
+          eligible: true // User is eligible to start trial
+        }
+      });
+    }
+
+    // Get plan details
+    const plan = await SubscriptionPlans.getSubscriptionPlan(subscription.planId);
+
+    // Check if current subscription is a trial
+    const isTrial = plan && plan.price === 0;
+
+    if (!isTrial) {
+      return res.status(200).json({
+        success: true,
+        hasTrialActive: false,
+        message: 'User has paid subscription, not trial',
+        data: {
+          status: 'paid_subscription',
+          eligible: false // Used trial before or has paid subscription
+        }
+      });
+    }
+
+    // Calculate remaining days
+    const endDate = new Date(subscription.endDate.toDate ? subscription.endDate.toDate() : subscription.endDate);
+    const now = new Date();
+    const remainingMs = endDate.getTime() - now.getTime();
+    const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+    const isExpired = remainingMs <= 0;
+
+    res.status(200).json({
+      success: true,
+      hasTrialActive: !isExpired && isTrial,
+      message: isTrial ? `Trial ${isExpired ? 'expired' : 'active'}` : 'No trial active',
+      data: {
+        status: isTrial ? (isExpired ? 'expired' : 'active') : 'no_trial',
+        subscription: formatTimestamps(subscription),
+        trialDetails: isTrial ? {
+          startDate: new Date(subscription.startDate.toDate ? subscription.startDate.toDate() : subscription.startDate).toISOString(),
+          endDate: endDate.toISOString(),
+          remainingDays: isExpired ? 0 : remainingDays,
+          isExpired,
+          daysUsed: Math.floor(-remainingDays),
+          autoRenewal: subscription.autoRenew,
+          plan: formatTimestamps(plan)
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('Error getting trial status:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+};
