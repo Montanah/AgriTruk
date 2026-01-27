@@ -14,7 +14,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Alert
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FormKeyboardWrapper from '../../components/common/FormKeyboardWrapper';
@@ -28,42 +28,46 @@ import { useSubscriptionStatus } from '../../hooks/useSubscriptionStatus';
 // Helper to check if company transporter profile is truly complete
 function isTransporterProfileComplete(transporter: any) {
   if (!transporter) return false;
-  
+
   console.log('Checking company profile completeness for:', transporter);
-  
+
   // Check company name (backend returns as companyName, form sends as name)
   const companyName = transporter.name || transporter.companyName;
   if (!companyName || typeof companyName !== 'string' || companyName.length === 0) {
     console.log(`Missing or empty field: name/companyName = ${companyName}`);
     return false;
   }
-  
+
   // Check contact
   const contact = transporter.contact || transporter.companyContact;
   if (!contact || typeof contact !== 'string' || contact.length === 0) {
     console.log(`Missing or empty field: contact = ${contact}`);
     return false;
   }
-  
+
   // Check status
-  if (!transporter.status || typeof transporter.status !== 'string' || transporter.status.length === 0) {
+  if (
+    !transporter.status ||
+    typeof transporter.status !== 'string' ||
+    transporter.status.length === 0
+  ) {
     console.log(`Missing or empty field: status = ${transporter.status}`);
     return false;
   }
-  
+
   // Check for company logo (flexible field names)
   const hasLogo = transporter.companyLogo || transporter.logo || transporter.profilePhoto;
   if (!hasLogo) {
     console.log('Missing company logo');
     return false;
   }
-  
+
   // Status must be at least 'pending', 'under_review', or 'approved'
   if (!['pending', 'under_review', 'approved'].includes(transporter.status)) {
     console.log(`Invalid status: ${transporter.status}`);
     return false;
   }
-  
+
   console.log('Company profile is complete!');
   return true;
 }
@@ -74,10 +78,10 @@ export default function TransporterCompletionScreen() {
   const [checkingProfile, setCheckingProfile] = useState(true);
   const [profileCheckError, setProfileCheckError] = useState('');
   const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
-  
+
   // This screen is only for company transporters
   // Individual transporters are disabled - companies only
-  
+
   // Add a check to ensure this is only for company transporters
   React.useEffect(() => {
     // If somehow an individual transporter reaches this screen, redirect them
@@ -88,19 +92,18 @@ export default function TransporterCompletionScreen() {
         [
           {
             text: 'Contact Support',
-            onPress: () => navigation.navigate('ContactCustomer')
+            onPress: () => navigation.navigate('ContactCustomer'),
           },
           {
             text: 'Go Back',
-            onPress: () => navigation.goBack()
-          }
-        ]
+            onPress: () => navigation.goBack(),
+          },
+        ],
       );
     }
   }, [transporterType, navigation]);
 
   const runProfileCheck = React.useCallback(() => {
-    
     setCheckingProfile(true);
     setProfileCheckError('');
     let didTimeout = false;
@@ -120,18 +123,19 @@ export default function TransporterCompletionScreen() {
           return;
         }
         const token = await user.getIdToken();
-        let res, data = null;
+        let res,
+          data = null;
         let transporterType = 'company';
-        
+
         // Only check for company transporters - individual transporters are disabled
         try {
           const companyRes = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
             headers: {
-              'Authorization': `Bearer ${token}`,
+              Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
           });
-          
+
           if (companyRes.ok) {
             const companyData = await companyRes.json();
             if (companyData && companyData.length > 0) {
@@ -154,7 +158,7 @@ export default function TransporterCompletionScreen() {
             try {
               const errData = await companyRes.json();
               if (errData && errData.message) errMsg = errData.message;
-            } catch { }
+            } catch {}
             clearTimeout(timeout);
             setCheckingProfile(false);
             setProfileCheckError(errMsg + ` (HTTP ${companyRes.status})`);
@@ -168,7 +172,8 @@ export default function TransporterCompletionScreen() {
         }
         // Decide navigation based on profile completeness and status
         if (
-          res && res.ok &&
+          res &&
+          res.ok &&
           data &&
           typeof data.transporter === 'object' &&
           data.transporter !== null &&
@@ -178,17 +183,20 @@ export default function TransporterCompletionScreen() {
           if (isTransporterProfileComplete(data.transporter)) {
             if (data.transporter.status === 'approved') {
               clearTimeout(timeout);
-              
+
               // Check subscription status before navigating to dashboard
-              console.log('Subscription status check:', { subscriptionStatus, subscriptionLoading });
+              console.log('Subscription status check:', {
+                subscriptionStatus,
+                subscriptionLoading,
+              });
               if (subscriptionStatus && !subscriptionLoading) {
                 console.log('Subscription details:', {
                   hasActiveSubscription: subscriptionStatus.hasActiveSubscription,
                   isTrialActive: subscriptionStatus.isTrialActive,
                   subscriptionStatus: subscriptionStatus.subscriptionStatus,
-                  needsTrialActivation: subscriptionStatus.needsTrialActivation
+                  needsTrialActivation: subscriptionStatus.needsTrialActivation,
                 });
-                
+
                 // Priority 1: User has active subscription or trial - go directly to dashboard
                 if (subscriptionStatus.hasActiveSubscription || subscriptionStatus.isTrialActive) {
                   console.log('✅ User has active subscription/trial, navigating to dashboard');
@@ -200,32 +208,42 @@ export default function TransporterCompletionScreen() {
                     ],
                   } as any);
                   return;
-                } 
-                
+                }
+
                 // Priority 2: Subscription expired - go to expired screen
-                else if (subscriptionStatus.subscriptionStatus === 'expired' || subscriptionStatus.subscriptionStatus === 'inactive') {
+                else if (
+                  subscriptionStatus.subscriptionStatus === 'expired' ||
+                  subscriptionStatus.subscriptionStatus === 'inactive'
+                ) {
                   console.log('⚠️ User subscription expired, navigating to expired screen');
                   clearTimeout(timeout);
                   // Map transporterType to correct userType for expired screen
-                  const userTypeForExpired = transporterType === 'company' ? 'company' : 'individual';
+                  const userTypeForExpired =
+                    transporterType === 'company' ? 'company' : 'individual';
                   navigation.reset({
                     index: 0,
                     routes: [
-                      { name: 'SubscriptionExpiredScreen', params: { 
-                        userType: userTypeForExpired,
-                        userId: 'current_user',
-                        expiredDate: subscriptionStatus.subscriptionExpiryDate || new Date().toISOString()
-                      } },
+                      {
+                        name: 'SubscriptionExpiredScreen',
+                        params: {
+                          userType: userTypeForExpired,
+                          userId: 'current_user',
+                          expiredDate:
+                            subscriptionStatus.subscriptionExpiryDate || new Date().toISOString(),
+                        },
+                      },
                     ],
                   } as any);
                   return;
-                } 
-                
+                }
+
                 // Priority 3: No subscription or needs trial activation
                 // NOTE: If admin creates subscriptions, users don't activate trials themselves
                 // Just redirect to dashboard - admin will create subscription when ready
                 else {
-                  console.log('ℹ️ User needs subscription - admin will create it. Navigating to dashboard.');
+                  console.log(
+                    'ℹ️ User needs subscription - admin will create it. Navigating to dashboard.',
+                  );
                   clearTimeout(timeout);
                   navigation.reset({
                     index: 0,
@@ -245,7 +263,10 @@ export default function TransporterCompletionScreen() {
               navigation.reset({
                 index: 0,
                 routes: [
-                  { name: 'TransporterProcessingScreen', params: { transporterType: transporterType } },
+                  {
+                    name: 'TransporterProcessingScreen',
+                    params: { transporterType: transporterType },
+                  },
                 ],
               } as any);
               return;
@@ -256,7 +277,9 @@ export default function TransporterCompletionScreen() {
       } catch (err) {
         clearTimeout(timeout);
         setCheckingProfile(false);
-        setProfileCheckError('Unexpected error: ' + (err && (err as any).message ? (err as any).message : String(err)));
+        setProfileCheckError(
+          'Unexpected error: ' + (err && (err as any).message ? (err as any).message : String(err)),
+        );
       }
       if (!didTimeout) {
         clearTimeout(timeout);
@@ -289,7 +312,7 @@ export default function TransporterCompletionScreen() {
     return () => clearTimeout(fallbackTimer);
   }, [checkingProfile, subscriptionStatus, subscriptionLoading]);
   // Individual transporter form is disabled - companies only
-  
+
   const [profilePhoto, setProfilePhoto] = useState<any>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -314,7 +337,7 @@ export default function TransporterCompletionScreen() {
             const token = await user.getIdToken();
             const res = await fetch(`${API_ENDPOINTS.AUTH}/users/${user.uid}`, {
               headers: {
-                'Authorization': `Bearer ${token}`,
+                Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json',
               },
             });
@@ -328,7 +351,7 @@ export default function TransporterCompletionScreen() {
               if (!companyContact) setCompanyContact(user.phoneNumber || '');
             }
           }
-        } catch { }
+        } catch {}
       })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -341,15 +364,11 @@ export default function TransporterCompletionScreen() {
   // Individual transporter photo handlers are disabled - companies only
 
   const handleProfilePhoto = async () => {
-    Alert.alert(
-      'Select Profile Photo',
-      'Choose how you want to add your profile photo',
-      [
-        { text: 'Take Photo', onPress: () => handleProfilePhotoCamera() },
-        { text: 'Choose from Gallery', onPress: () => handleProfilePhotoGallery() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    Alert.alert('Select Profile Photo', 'Choose how you want to add your profile photo', [
+      { text: 'Take Photo', onPress: () => handleProfilePhotoCamera() },
+      { text: 'Choose from Gallery', onPress: () => handleProfilePhotoGallery() },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const handleProfilePhotoCamera = async () => {
@@ -359,7 +378,7 @@ export default function TransporterCompletionScreen() {
         quality: 0.8,
         aspect: [1, 1], // Square aspect ratio for profile photos
       });
-      
+
       if (result && !result.canceled && result.assets && result.assets.length > 0) {
         setProfilePhoto(result.assets[0]);
         setError('');
@@ -377,7 +396,7 @@ export default function TransporterCompletionScreen() {
         quality: 0.8,
         aspect: [1, 1], // Square aspect ratio for profile photos
       });
-      
+
       if (result && !result.canceled && result.assets && result.assets.length > 0) {
         setProfilePhoto(result.assets[0]);
         setError('');
@@ -393,19 +412,19 @@ export default function TransporterCompletionScreen() {
   const validatePhone = (phone: string): boolean => {
     if (!phone) return false;
     const cleanPhone = phone.replace(/\s/g, '');
-    
+
     // Handle international format (+254...)
     if (cleanPhone.startsWith('+254')) {
       const withoutCountryCode = cleanPhone.slice(4); // Remove +254
       return /^[0-9]{9}$/.test(withoutCountryCode);
     }
-    
+
     // Handle local format (07... or 01...)
     if (cleanPhone.startsWith('0')) {
       const withoutLeadingZero = cleanPhone.slice(1);
       return /^[0-9]{9}$/.test(withoutLeadingZero);
     }
-    
+
     // Handle format without leading 0 (7... or 1...)
     return /^[0-9]{9}$/.test(cleanPhone);
   };
@@ -417,12 +436,7 @@ export default function TransporterCompletionScreen() {
       // Registration is optional initially - will be required after 5 trips
       registrationProvided: !!companyReg,
       profilePhoto: !!profilePhoto,
-      allValid: !!(
-        companyName &&
-        companyContact &&
-        validatePhone(companyContact) &&
-        profilePhoto
-      )
+      allValid: !!(companyName && companyContact && validatePhone(companyContact) && profilePhoto),
     };
   };
 
@@ -432,7 +446,6 @@ export default function TransporterCompletionScreen() {
   };
 
   // Individual transporter form is disabled - companies only
-
 
   // Individual transporter document handlers are disabled - companies only
 
@@ -445,10 +458,19 @@ export default function TransporterCompletionScreen() {
 
     // Validation for company transporters only
     // NOTE: Registration number is optional initially - will be required after 5 completed trips
-    if (!companyName) { setError('Please enter the company name.'); return false; }
-    if (!companyContact) { setError('Please enter the company contact number.'); return false; }
-    if (!profilePhoto) { setError('Please upload a company logo.'); return false; }
-    
+    if (!companyName) {
+      setError('Please enter the company name.');
+      return false;
+    }
+    if (!companyContact) {
+      setError('Please enter the company contact number.');
+      return false;
+    }
+    if (!profilePhoto) {
+      setError('Please upload a company logo.');
+      return false;
+    }
+
     // Registration is optional - user can skip and provide later
     // Backend will track completed trips and require it after 5 trips
 
@@ -466,69 +488,69 @@ export default function TransporterCompletionScreen() {
           contact: companyContact,
           address: companyAddress || '',
         };
-        
+
         // Add registration only if provided
         if (companyReg && companyReg.trim()) {
           simpleData.registration = companyReg.trim();
         }
-        
+
         // Validate required fields before sending
         // Registration is optional - will be required after 5 trips
         if (!companyName || !companyContact) {
           const missingFields = [];
           if (!companyName) missingFields.push('Company Name');
           if (!companyContact) missingFields.push('Contact');
-          
+
           throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
         }
-        
-        
-        
+
         const token = await user.getIdToken();
-        
+
         // Use JSON first (more reliable than FormData in Expo)
         try {
           // Add timeout to the request
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-          
+
           // Create company with JSON - this is more reliable
           const res = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${token}`,
+              Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(simpleData),
             signal: controller.signal,
           });
-          
+
           clearTimeout(timeoutId);
-          
+
           if (!res.ok) {
             const errorText = await res.text();
             console.error('Company creation error response:', errorText);
-            
+
             let errorMessage = 'Company creation failed. Please try again.';
-            
+
             try {
               const errorData = JSON.parse(errorText);
               if (errorData.message) {
                 errorMessage = errorData.message;
               } else if (errorData.errors && Array.isArray(errorData.errors)) {
-                errorMessage = errorData.errors.map((err: any) => err.msg || err.message).join(', ');
+                errorMessage = errorData.errors
+                  .map((err: any) => err.msg || err.message)
+                  .join(', ');
               }
             } catch (parseError) {
               errorMessage = `Server error (${res.status}): ${errorText}`;
             }
-            
+
             throw new Error(errorMessage);
           }
-          
+
           // Parse successful company response
           const responseText = await res.text();
           let companyData;
-          
+
           if (responseText && responseText.trim()) {
             try {
               companyData = JSON.parse(responseText);
@@ -541,34 +563,34 @@ export default function TransporterCompletionScreen() {
             console.log('Empty response but status OK, proceeding...');
             companyData = { success: true };
           }
-          
+
           // Upload logo separately if available (FormData just for files)
           if (profilePhoto && profilePhoto.uri) {
             console.log('Uploading company logo separately...');
             try {
               const logoFormData = new FormData();
-              
+
               // Correct file object structure for React Native FormData
               const photoFile = {
                 uri: profilePhoto.uri,
                 name: 'company-logo.jpg',
                 type: 'image/jpeg',
               };
-              
+
               logoFormData.append('logo', photoFile as any);
-              
+
               const companyId = companyData?.id || companyData?.companyId;
               if (companyId) {
                 const logoRes = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyId}/upload`, {
                   method: 'PATCH',
                   headers: {
-                    'Authorization': `Bearer ${token}`,
+                    Authorization: `Bearer ${token}`,
                     // Let fetch set Content-Type for FormData
                   },
                   body: logoFormData,
-                  signal: AbortSignal.timeout(15000)
+                  signal: AbortSignal.timeout(15000),
                 });
-                
+
                 if (logoRes.ok) {
                   console.log('Logo uploaded successfully');
                 } else {
@@ -582,10 +604,10 @@ export default function TransporterCompletionScreen() {
               // Don't throw - company was created, logo upload is secondary
             }
           }
-          
+
           // Transporter record is now created automatically in the backend
           // No need to update transporter separately
-          
+
           // Send company profile submission notification
           try {
             const { NotificationHelper } = await import('../../services/notificationHelper');
@@ -594,10 +616,13 @@ export default function TransporterCompletionScreen() {
               role: 'transporter',
               transporterType,
               companyName: companyName || 'N/A',
-              companyReg: companyReg || 'N/A'
+              companyReg: companyReg || 'N/A',
             });
           } catch (notificationError) {
-            console.warn('Failed to send company profile submission notification:', notificationError);
+            console.warn(
+              'Failed to send company profile submission notification:',
+              notificationError,
+            );
           }
 
           // Company created and transporter updated; navigate to processing screen
@@ -605,18 +630,18 @@ export default function TransporterCompletionScreen() {
           return true;
         } catch (error: any) {
           console.error('Company creation error:', error);
-          
+
           // Check if this is a network error that might be temporary
-          const isNetworkError = error.message && (
-            error.message.includes('Network request failed') ||
-            error.message.includes('fetch') ||
-            error.message.includes('timeout') ||
-            error.name === 'AbortError'
-          );
-          
+          const isNetworkError =
+            error.message &&
+            (error.message.includes('Network request failed') ||
+              error.message.includes('fetch') ||
+              error.message.includes('timeout') ||
+              error.name === 'AbortError');
+
           if (isNetworkError) {
             console.log('Network error detected, attempting retry with simplified request...');
-            
+
             try {
               // Try a simpler JSON request without files first
               const simpleData = {
@@ -625,23 +650,23 @@ export default function TransporterCompletionScreen() {
                 contact: companyContact,
                 address: companyAddress || '',
               };
-              
+
               console.log('Attempting simplified company creation...');
               const retryRes = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
                 method: 'POST',
                 headers: {
-                  'Authorization': `Bearer ${token}`,
+                  Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(simpleData),
                 // Add timeout to prevent hanging
-                signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(10000),
               });
-              
+
               if (retryRes.ok) {
                 const companyData = await retryRes.json();
                 console.log('Company created successfully with retry:', companyData);
-                
+
                 // Try to upload logo separately if we have one
                 if (profilePhoto && profilePhoto.uri) {
                   console.log('Attempting to upload logo separately...');
@@ -652,16 +677,19 @@ export default function TransporterCompletionScreen() {
                       type: profilePhoto.type || 'image/jpeg',
                       name: 'company-logo.jpg',
                     } as any);
-                    
-                    const logoRes = await fetch(`${API_ENDPOINTS.COMPANIES}/${companyData.companyId || companyData.id}/upload`, {
-                      method: 'PATCH',
-                      headers: {
-                        'Authorization': `Bearer ${token}`,
+
+                    const logoRes = await fetch(
+                      `${API_ENDPOINTS.COMPANIES}/${companyData.companyId || companyData.id}/upload`,
+                      {
+                        method: 'PATCH',
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: logoFormData,
+                        signal: AbortSignal.timeout(15000),
                       },
-                      body: logoFormData,
-                      signal: AbortSignal.timeout(15000)
-                    });
-                    
+                    );
+
                     if (logoRes.ok) {
                       console.log('Logo uploaded successfully');
                     } else {
@@ -671,7 +699,7 @@ export default function TransporterCompletionScreen() {
                     console.warn('Logo upload failed:', logoError);
                   }
                 }
-                
+
                 // Send notification
                 try {
                   const { NotificationHelper } = await import('../../services/notificationHelper');
@@ -680,7 +708,7 @@ export default function TransporterCompletionScreen() {
                     role: 'transporter',
                     transporterType,
                     companyName: companyName || 'N/A',
-                    companyReg: companyReg || 'N/A'
+                    companyReg: companyReg || 'N/A',
                   });
                 } catch (notificationError) {
                   console.warn('Failed to send notification:', notificationError);
@@ -692,20 +720,21 @@ export default function TransporterCompletionScreen() {
               } else {
                 const errorText = await retryRes.text();
                 console.error('Retry request failed:', retryRes.status, errorText);
-                
+
                 // If it's a 500 error, the company might have been created anyway
                 if (retryRes.status === 500) {
                   console.log('500 error - company may have been created, proceeding...');
-                  
+
                   // Send notification
                   try {
-                    const { NotificationHelper } = await import('../../services/notificationHelper');
+                    const { NotificationHelper } =
+                      await import('../../services/notificationHelper');
                     await NotificationHelper.sendProfileNotification('submitted', {
                       userId: user.uid,
                       role: 'transporter',
                       transporterType,
                       companyName: companyName || 'N/A',
-                      companyReg: companyReg || 'N/A'
+                      companyReg: companyReg || 'N/A',
                     });
                   } catch (notificationError) {
                     console.warn('Failed to send notification:', notificationError);
@@ -715,7 +744,7 @@ export default function TransporterCompletionScreen() {
                   navigation.navigate('TransporterProcessingScreen', { transporterType } as any);
                   return true;
                 }
-                
+
                 throw new Error(`Retry request failed: ${retryRes.status} - ${errorText}`);
               }
             } catch (retryError) {
@@ -723,17 +752,19 @@ export default function TransporterCompletionScreen() {
               // Continue with original error handling
             }
           }
-          
+
           let errorMsg = 'Failed to create company. Please try again.';
-          
+
           // Set appropriate error message based on error type
           if (error.name === 'AbortError') {
             errorMsg = 'Request timed out. Please check your internet connection and try again.';
           } else if (error.message) {
             if (error.message.includes('Network request failed')) {
-              errorMsg = 'Network connectivity issue. Please check your internet connection and try again.';
+              errorMsg =
+                'Network connectivity issue. Please check your internet connection and try again.';
             } else if (error.message.includes('404')) {
-              errorMsg = 'Company creation service is temporarily unavailable. Please try again later or contact support.';
+              errorMsg =
+                'Company creation service is temporarily unavailable. Please try again later or contact support.';
             } else if (error.message.includes('400')) {
               errorMsg = 'Please check your company information and try again.';
             } else if (error.message.includes('409')) {
@@ -748,7 +779,7 @@ export default function TransporterCompletionScreen() {
               errorMsg = `Failed to create company: ${error.message}`;
             }
           }
-          
+
           // Set the error message
           setError(errorMsg);
           return false;
@@ -756,17 +787,19 @@ export default function TransporterCompletionScreen() {
       }
     } catch (e: any) {
       console.error('General submission error:', e);
-      
+
       let errorMsg = 'An unexpected error occurred. Please try again.';
-      
+
       if (e.name === 'AbortError') {
         errorMsg = 'Request timed out. Please check your connection and try again.';
       } else if (e.message && e.message.includes('All retry attempts failed')) {
-        errorMsg = 'Unable to connect to server after multiple attempts. Please check your internet connection and try again.';
+        errorMsg =
+          'Unable to connect to server after multiple attempts. Please check your internet connection and try again.';
       } else if (e.message && e.message.includes('Unable to connect to server')) {
         errorMsg = 'Server is not responding. Please check your internet connection and try again.';
       } else if (e.message && e.message.includes('Network request failed')) {
-        errorMsg = 'Network connection failed. Please check your internet connection and try again.';
+        errorMsg =
+          'Network connection failed. Please check your internet connection and try again.';
       } else if (e.message && e.message.includes('timeout')) {
         errorMsg = 'Request timed out. Please check your connection and try again.';
       } else if (e.message && e.message.includes('fetch')) {
@@ -774,7 +807,7 @@ export default function TransporterCompletionScreen() {
       } else if (e.message) {
         errorMsg = `Error: ${e.message}`;
       }
-      
+
       setError(errorMsg);
       return false;
     }
@@ -799,7 +832,7 @@ export default function TransporterCompletionScreen() {
         companyAddress,
         hasLogo: !!(profilePhoto && profilePhoto.uri),
         isDraft: true,
-        savedAt: new Date().toISOString()
+        savedAt: new Date().toISOString(),
       };
 
       // Save draft to localStorage
@@ -808,7 +841,7 @@ export default function TransporterCompletionScreen() {
 
       console.log('✅ Draft saved successfully');
       setDraftSaved(true);
-      
+
       // Show success message for 3 seconds
       setTimeout(() => {
         setDraftSaved(false);
@@ -832,17 +865,17 @@ export default function TransporterCompletionScreen() {
 
       const draftKey = `transporter_draft_${user.uid}`;
       const draftData = await AsyncStorage.getItem(draftKey);
-      
+
       if (draftData) {
         const parsedDraft = JSON.parse(draftData);
         console.log('📄 Loading draft data:', parsedDraft);
-        
+
         // Only restore company data (individual transporters are disabled)
         setCompanyName(parsedDraft.companyName || '');
         setCompanyReg(parsedDraft.companyReg || '');
         setCompanyContact(parsedDraft.companyContact || '');
         setCompanyAddress(parsedDraft.companyAddress || '');
-        
+
         // Note: Files cannot be restored from draft - user will need to re-upload them
         console.log('✅ Draft data loaded successfully');
       }
@@ -871,7 +904,13 @@ export default function TransporterCompletionScreen() {
       <View style={styles.statusCheckerContainer}>
         <Text style={[styles.statusCheckerText, { color: colors.error }]}>{profileCheckError}</Text>
         <TouchableOpacity
-          style={{ marginTop: 18, backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 22 }}
+          style={{
+            marginTop: 18,
+            backgroundColor: colors.primary,
+            borderRadius: 8,
+            paddingVertical: 10,
+            paddingHorizontal: 22,
+          }}
           onPress={runProfileCheck}
         >
           <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Retry</Text>
@@ -881,10 +920,7 @@ export default function TransporterCompletionScreen() {
   }
 
   return (
-    <FormKeyboardWrapper 
-      contentContainerStyle={styles.container} 
-      keyboardVerticalOffset={0}
-    >
+    <FormKeyboardWrapper contentContainerStyle={styles.container} keyboardVerticalOffset={0}>
       {/* Modern Header */}
       <View style={styles.modernHeader}>
         <View style={styles.headerIconContainer}>
@@ -893,7 +929,8 @@ export default function TransporterCompletionScreen() {
         <View style={styles.headerTextContainer}>
           <Text style={styles.modernHeaderTitle}>Complete Your Company Profile</Text>
           <Text style={styles.modernHeaderSubtitle}>
-            Set up your company transporter account to start managing your fleet and recruiting drivers
+            Set up your company transporter account to start managing your fleet and recruiting
+            drivers
           </Text>
         </View>
       </View>
@@ -902,85 +939,158 @@ export default function TransporterCompletionScreen() {
 
       {/* COMPANY FORM - Only company transporters supported */}
       <Text style={styles.sectionTitle}>Company Details</Text>
-          <View style={[styles.card, { backgroundColor: colors.background, borderRadius: 18, padding: spacing.lg, marginBottom: spacing.md, shadowColor: colors.black, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-              <Ionicons name="business-outline" size={22} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.label}>Company Name</Text>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter company name as registered (e.g. Acme Transporters Ltd.)"
-              placeholderTextColor={colors.text.light}
-              value={companyName}
-              onChangeText={setCompanyName}
-            />
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-              <MaterialCommunityIcons name="file-document-outline" size={22} color={colors.secondary} style={{ marginRight: 8 }} />
-              <Text style={styles.label}>Company/Business Registration Number (Optional)</Text>
-            </View>
-            <View style={{ marginBottom: 8 }}>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter registration number (e.g. CPR/2023/123456) - Optional"
-                placeholderTextColor={colors.text.light}
-                value={companyReg}
-                onChangeText={setCompanyReg}
-              />
-              <Text style={{ fontSize: 12, color: colors.text.light, marginTop: 4, fontStyle: 'italic' }}>
-                You can skip this now. Registration will be required after 5 completed trips.
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-              <Ionicons name="call-outline" size={22} color={colors.tertiary} style={{ marginRight: 8 }} />
-              <Text style={styles.label}>Contact Number</Text>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter company contact (e.g. 0712345678 or 0112345678)"
-              placeholderTextColor={colors.text.light}
-              value={companyContact}
-              onChangeText={setCompanyContact}
-              keyboardType="phone-pad"
-            />
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-              <MaterialCommunityIcons name="map-marker-outline" size={22} color={colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.label}>Company Address (Optional)</Text>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter company address (optional)"
-              placeholderTextColor={colors.text.light}
-              value={companyAddress}
-              onChangeText={setCompanyAddress}
-              multiline
-              numberOfLines={2}
-            />
-          </View>
-          <View style={{ height: 1, backgroundColor: colors.text.light + '33', marginVertical: spacing.md, width: '100%' }} />
-          <Text style={styles.sectionTitle}>Profile Photo/Company Logo</Text>
-          <TouchableOpacity style={styles.photoPicker} onPress={handleProfilePhoto}>
-            {profilePhoto ? (
-              <Image source={{ uri: profilePhoto.uri }} style={styles.profilePhoto} />
-            ) : (
-              <Ionicons name="business-outline" size={80} color={colors.text.light} />
-            )}
-            <Text style={styles.photoPickerText}>Upload Company Logo</Text>
-          </TouchableOpacity>
-          <View style={[styles.card, { marginTop: 10, backgroundColor: colors.background, borderRadius: 18, padding: spacing.lg, borderWidth: 1, borderColor: colors.text.light + '22' }]}>
-            <Text style={styles.label}>Fleet & Driver Management</Text>
-            <Text style={{ color: colors.text.secondary, fontSize: 15, marginBottom: 6 }}>
-              As a company, you can manage your fleet, recruit drivers, and access qualified professionals. Your drivers will handle job bookings and instant requests on behalf of your company.
-            </Text>
-            <View style={{ backgroundColor: colors.white, borderRadius: 8, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: colors.text.light }}>
-              <Ionicons name="people-outline" size={32} color={colors.primary} />
-              <Text style={{ color: colors.text.secondary, fontSize: 14, marginTop: 4, textAlign: 'center' }}>
-                Manage your fleet, recruit drivers, and access job seeker marketplace.
-              </Text>
-            </View>
-          </View>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: colors.background,
+            borderRadius: 18,
+            padding: spacing.lg,
+            marginBottom: spacing.md,
+            shadowColor: colors.black,
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 2,
+          },
+        ]}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+          <Ionicons
+            name="business-outline"
+            size={22}
+            color={colors.primary}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.label}>Company Name</Text>
+        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter company name as registered (e.g. Acme Transporters Ltd.)"
+          placeholderTextColor={colors.text.light}
+          value={companyName}
+          onChangeText={setCompanyName}
+        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+          <MaterialCommunityIcons
+            name="file-document-outline"
+            size={22}
+            color={colors.secondary}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.label}>Company/Business Registration Number (Optional)</Text>
+        </View>
+        <View style={{ marginBottom: 8 }}>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter registration number (e.g. CPR/2023/123456) - Optional"
+            placeholderTextColor={colors.text.light}
+            value={companyReg}
+            onChangeText={setCompanyReg}
+          />
+          <Text
+            style={{ fontSize: 12, color: colors.text.light, marginTop: 4, fontStyle: 'italic' }}
+          >
+            You can skip this now. Registration will be required after 5 completed trips.
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+          <Ionicons
+            name="call-outline"
+            size={22}
+            color={colors.tertiary}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.label}>Contact Number</Text>
+        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter company contact (e.g. 0712345678 or 0112345678)"
+          placeholderTextColor={colors.text.light}
+          value={companyContact}
+          onChangeText={setCompanyContact}
+          keyboardType="phone-pad"
+        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
+          <MaterialCommunityIcons
+            name="map-marker-outline"
+            size={22}
+            color={colors.primary}
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.label}>Company Address (Optional)</Text>
+        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter company address (optional)"
+          placeholderTextColor={colors.text.light}
+          value={companyAddress}
+          onChangeText={setCompanyAddress}
+          multiline
+          numberOfLines={2}
+        />
+      </View>
+      <View
+        style={{
+          height: 1,
+          backgroundColor: colors.text.light + '33',
+          marginVertical: spacing.md,
+          width: '100%',
+        }}
+      />
+      <Text style={styles.sectionTitle}>Profile Photo/Company Logo</Text>
+      <TouchableOpacity style={styles.photoPicker} onPress={handleProfilePhoto}>
+        {profilePhoto ? (
+          <Image source={{ uri: profilePhoto.uri }} style={styles.profilePhoto} />
+        ) : (
+          <Ionicons name="business-outline" size={80} color={colors.text.light} />
+        )}
+        <Text style={styles.photoPickerText}>Upload Company Logo</Text>
+      </TouchableOpacity>
+      <View
+        style={[
+          styles.card,
+          {
+            marginTop: 10,
+            backgroundColor: colors.background,
+            borderRadius: 18,
+            padding: spacing.lg,
+            borderWidth: 1,
+            borderColor: colors.text.light + '22',
+          },
+        ]}
+      >
+        <Text style={styles.label}>Fleet & Driver Management</Text>
+        <Text style={{ color: colors.text.secondary, fontSize: 15, marginBottom: 6 }}>
+          As a company, you can manage your fleet, recruit drivers, and access qualified
+          professionals. Your drivers will handle job bookings and instant requests on behalf of
+          your company.
+        </Text>
+        <View
+          style={{
+            backgroundColor: colors.white,
+            borderRadius: 8,
+            padding: 12,
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: colors.text.light,
+          }}
+        >
+          <Ionicons name="people-outline" size={32} color={colors.primary} />
+          <Text
+            style={{
+              color: colors.text.secondary,
+              fontSize: 14,
+              marginTop: 4,
+              textAlign: 'center',
+            }}
+          >
+            Manage your fleet, recruit drivers, and access job seeker marketplace.
+          </Text>
+        </View>
+      </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      
+
       {/* Draft Saved Success Message */}
       {draftSaved && (
         <View style={styles.draftSuccessContainer}>
@@ -988,7 +1098,7 @@ export default function TransporterCompletionScreen() {
           <Text style={styles.draftSuccessText}>Draft saved successfully!</Text>
         </View>
       )}
-      
+
       {/* Validation Summary */}
       {!isValid() && (
         <View style={styles.validationSummary}>
@@ -1007,7 +1117,10 @@ export default function TransporterCompletionScreen() {
         <View style={styles.actionButtonsContainer}>
           {/* Save as Draft Button */}
           <TouchableOpacity
-            style={[styles.draftBtn, { backgroundColor: colors.background, borderColor: colors.primary }]}
+            style={[
+              styles.draftBtn,
+              { backgroundColor: colors.background, borderColor: colors.primary },
+            ]}
             onPress={async () => {
               if (savingDraft) return;
               await handleSaveDraft();
@@ -1018,7 +1131,11 @@ export default function TransporterCompletionScreen() {
               <ActivityIndicator color={colors.primary} size="small" />
             ) : (
               <>
-                <MaterialCommunityIcons name="content-save-outline" size={18} color={colors.primary} />
+                <MaterialCommunityIcons
+                  name="content-save-outline"
+                  size={18}
+                  color={colors.primary}
+                />
                 <Text style={[styles.draftBtnText, { color: colors.primary }]}>Save as Draft</Text>
               </>
             )}
@@ -1026,7 +1143,10 @@ export default function TransporterCompletionScreen() {
 
           {/* Submit Profile Button */}
           <TouchableOpacity
-            style={[styles.submitBtn, { backgroundColor: isValid() ? colors.primary : colors.text.light }]}
+            style={[
+              styles.submitBtn,
+              { backgroundColor: isValid() ? colors.primary : colors.text.light },
+            ]}
             onPress={async () => {
               if (uploading || !isValid()) return;
 
@@ -1044,7 +1164,11 @@ export default function TransporterCompletionScreen() {
             }}
             disabled={!isValid() || uploading}
           >
-            {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Profile</Text>}
+            {uploading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.submitBtnText}>Submit Profile</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -1724,7 +1848,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.1,
   },
-  
+
   // Job Seeker specific styles
   formContainer: {
     flex: 1,
@@ -1880,7 +2004,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: colors.warning,
   },
-  
+
   // Modal styles
   modalContainer: {
     flex: 1,

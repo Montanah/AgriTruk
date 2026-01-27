@@ -7,6 +7,9 @@ module.exports = {
     icon: './assets/images/icon.png',
     scheme: 'trukapp',
     userInterfaceStyle: 'automatic',
+    // CRITICAL: Disable New Architecture - causes Hermes binary failures on EAS cloud builds
+    // Hermes compiler (hermesc) fails on Linux-based EAS build servers
+    // Solution: Use standard React Native engine for production builds
     newArchEnabled: false,
     ios: {
       bundleIdentifier: 'com.truk.trukapp',
@@ -107,6 +110,8 @@ module.exports = {
       // Issue: https://github.com/facebook/react-native/issues/xxxxx
       // Workaround: Use default JavaScriptCore engine instead for cloud builds
       // jsEngine: "hermes",  // ❌ DISABLED - causes EAS build failure with hermesc binary
+      // CRITICAL: Disable Hermes compilation explicitly to prevent Gradle build failure
+      hermesEnabled: false,
       // Large screen support - remove resizability restrictions
       resizeableActivity: true,
       // Support multiple screen sizes and densities for large screen devices

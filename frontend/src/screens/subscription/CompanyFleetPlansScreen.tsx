@@ -112,16 +112,16 @@ export default function CompanyFleetPlansScreen() {
       // 2. Process payment
       // 3. Update company subscription status
       // 4. Navigate to success screen or company dashboard
-      
+
       Alert.alert(
         'Subscription Started',
-        `You have successfully subscribed to the ${FLEET_PLANS.find(p => p.id === selectedPlan)?.name} plan. You can now add drivers according to your plan limits.`,
+        `You have successfully subscribed to the ${FLEET_PLANS.find((p) => p.id === selectedPlan)?.name} plan. You can now add drivers according to your plan limits.`,
         [
           {
             text: 'OK',
             onPress: () => navigation.goBack(),
           },
-        ]
+        ],
       );
     } catch (error) {
       Alert.alert('Error', 'Failed to process subscription. Please try again.');
@@ -151,7 +151,7 @@ export default function CompanyFleetPlansScreen() {
             <Text style={styles.popularBadgeText}>POPULAR</Text>
           </View>
         )}
-        
+
         {plan.enterprise && (
           <View style={styles.enterpriseBadge}>
             <Text style={styles.enterpriseBadgeText}>ENTERPRISE</Text>
@@ -165,18 +165,16 @@ export default function CompanyFleetPlansScreen() {
             <Text style={styles.price}>{plan.price.toLocaleString()}</Text>
             <Text style={styles.period}>/{plan.period}</Text>
           </View>
-          {plan.savings && (
-            <Text style={styles.savingsText}>{plan.savings}</Text>
-          )}
+          {plan.savings && <Text style={styles.savingsText}>{plan.savings}</Text>}
         </View>
 
         <View style={styles.featuresContainer}>
           {plan.features.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
-              <MaterialCommunityIcons 
-                name="check" 
-                size={16} 
-                color={colors.success} 
+              <MaterialCommunityIcons
+                name="check"
+                size={16}
+                color={colors.success}
                 style={styles.featureIcon}
               />
               <Text style={styles.featureText}>{feature}</Text>
@@ -203,10 +201,7 @@ export default function CompanyFleetPlansScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <MaterialCommunityIcons name="arrow-left" size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Choose Your Fleet Plan</Text>
@@ -219,21 +214,21 @@ export default function CompanyFleetPlansScreen() {
           <MaterialCommunityIcons name="gift" size={32} color={colors.primary} />
           <Text style={styles.trialTitle}>90-Day Free Trial</Text>
           <Text style={styles.trialDescription}>
-            Start with up to 3 vehicles and 3 drivers. All plans include unlimited access to the Driver Job Board.
+            Start with up to 3 vehicles and 3 drivers. All plans include unlimited access to the
+            Driver Job Board.
           </Text>
         </View>
 
         {/* Plans */}
-        <View style={styles.plansContainer}>
-          {FLEET_PLANS.map(renderPlanCard)}
-        </View>
+        <View style={styles.plansContainer}>{FLEET_PLANS.map(renderPlanCard)}</View>
 
         {/* Driver Job Board Info */}
         <View style={styles.jobBoardInfo}>
           <MaterialCommunityIcons name="account-group" size={24} color={colors.primary} />
           <Text style={styles.jobBoardTitle}>Driver Job Board Access</Text>
           <Text style={styles.jobBoardDescription}>
-            All plans include unlimited access to browse and recruit from our pool of verified drivers.
+            All plans include unlimited access to browse and recruit from our pool of verified
+            drivers.
           </Text>
         </View>
       </ScrollView>
@@ -241,10 +236,7 @@ export default function CompanyFleetPlansScreen() {
       {/* Subscribe Button */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
-          style={[
-            styles.subscribeButton,
-            !selectedPlan && styles.subscribeButtonDisabled,
-          ]}
+          style={[styles.subscribeButton, !selectedPlan && styles.subscribeButtonDisabled]}
           onPress={handleSubscribe}
           disabled={!selectedPlan || loading}
         >
@@ -252,7 +244,9 @@ export default function CompanyFleetPlansScreen() {
             <ActivityIndicator color={colors.white} />
           ) : (
             <Text style={styles.subscribeButtonText}>
-              {selectedPlan ? `Choose ${FLEET_PLANS.find(p => p.id === selectedPlan)?.name}` : 'Select a Plan'}
+              {selectedPlan
+                ? `Choose ${FLEET_PLANS.find((p) => p.id === selectedPlan)?.name}`
+                : 'Select a Plan'}
             </Text>
           )}
         </TouchableOpacity>
@@ -486,4 +480,3 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-

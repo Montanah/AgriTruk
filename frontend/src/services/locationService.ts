@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { API_ENDPOINTS } from '../constants/api';
 
 interface LocationUpdate {
@@ -25,12 +26,12 @@ class LocationService {
   async hasBackgroundLocationConsent(): Promise<boolean> {
     try {
       const consentRaw = await AsyncStorage.getItem(BACKGROUND_LOCATION_CONSENT_KEY);
-      
+
       // Handle both old format (string 'true'/'false') and new format (JSON object)
       if (!consentRaw) {
         return false;
       }
-      
+
       try {
         // Try parsing as JSON (new format)
         const consentData = JSON.parse(consentRaw);
@@ -62,18 +63,20 @@ class LocationService {
         platform: Platform.OS,
       };
       await AsyncStorage.setItem(BACKGROUND_LOCATION_CONSENT_KEY, JSON.stringify(consentData));
-      
+
       // Log consent event for analytics/verification
       console.log(
         `✅ LOCATION_SERVICE: Background location consent ${consented ? 'ACCEPTED' : 'DECLINED'}`,
-        `at ${new Date().toISOString()}`
+        `at ${new Date().toISOString()}`,
       );
     } catch (error: any) {
       console.error('Error saving background location consent:', error);
       // On physical devices, AsyncStorage might fail due to permissions or storage issues
       // Log but don't throw - the app should continue even if consent can't be saved
       // The disclosure will be shown again next time, which is acceptable
-      console.warn('Could not save background location consent - will show disclosure again next time');
+      console.warn(
+        'Could not save background location consent - will show disclosure again next time',
+      );
     }
   }
 
@@ -110,12 +113,14 @@ class LocationService {
 
   /**
    * Start automatic location tracking for transporters
-   * 
+   *
    * IMPORTANT: This method now requires explicit user consent for background location
    * per Google Play Store's Prominent Disclosure requirement. Call hasBackgroundLocationConsent()
    * first and show BackgroundLocationDisclosureModal if consent hasn't been given.
    */
-  async startLocationTracking(hasConsent: boolean = false): Promise<{ success: boolean; needsConsent: boolean }> {
+  async startLocationTracking(
+    hasConsent: boolean = false,
+  ): Promise<{ success: boolean; needsConsent: boolean }> {
     try {
       // Starting location tracking
 
@@ -128,8 +133,8 @@ class LocationService {
 
       // Check if background location consent has been given
       // This is required by Google Play Store before requesting BACKGROUND_LOCATION permission
-      const hasConsentValue = hasConsent || await this.hasBackgroundLocationConsent();
-      
+      const hasConsentValue = hasConsent || (await this.hasBackgroundLocationConsent());
+
       if (!hasConsentValue) {
         // Consent not given - return needsConsent flag
         // The calling component should show BackgroundLocationDisclosureModal
@@ -140,15 +145,21 @@ class LocationService {
       // CRITICAL: This is where we request BACKGROUND_LOCATION permission
       // The prominent disclosure MUST have been shown before reaching this point
       console.log('📢 LOCATION_SERVICE: Requesting BACKGROUND_LOCATION permission');
-      console.log('📢 LOCATION_SERVICE: User has already seen and accepted the prominent disclosure');
-      console.log('📢 LOCATION_SERVICE: This request happens AFTER prominent disclosure (Google Play requirement)');
-      
+      console.log(
+        '📢 LOCATION_SERVICE: User has already seen and accepted the prominent disclosure',
+      );
+      console.log(
+        '📢 LOCATION_SERVICE: This request happens AFTER prominent disclosure (Google Play requirement)',
+      );
+
       try {
         const backgroundStatus = await Location.requestBackgroundPermissionsAsync();
         console.log('📢 LOCATION_SERVICE: Background permission status:', backgroundStatus.status);
-        
+
         if (backgroundStatus.status !== 'granted') {
-          console.warn('⚠️ LOCATION_SERVICE: Background location permission denied - tracking may be limited');
+          console.warn(
+            '⚠️ LOCATION_SERVICE: Background location permission denied - tracking may be limited',
+          );
           // Continue with foreground tracking only
         } else {
           console.log('✅ LOCATION_SERVICE: Background location permission GRANTED');

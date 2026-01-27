@@ -23,10 +23,10 @@ interface BackgroundLocationDisclosureModalProps {
 
 /**
  * Prominent Disclosure Modal for Background Location Permission
- * 
+ *
  * This component meets Google Play Store's Prominent Disclosure and Consent Requirement
  * for apps that access BACKGROUND_LOCATION permission.
- * 
+ *
  * Requirements met:
  * - Shown BEFORE requesting background location permission
  * - Clear explanation of why background location is needed
@@ -44,7 +44,7 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
   // Use a ref to track if navigation is available
   const navigationRef = React.useRef<any>(null);
   const [navigationAvailable, setNavigationAvailable] = React.useState(false);
-  
+
   React.useEffect(() => {
     // Try to get navigation in useEffect (safer than in render)
     try {
@@ -77,36 +77,42 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
   const trackingType = isDriver ? 'delivery' : 'vehicle';
   const trackingContext = isDriver ? ' during active trips' : '';
   const sharingContext = isDriver ? 'your company and ' : '';
-  const trackingTarget = isDriver 
-    ? 'of your deliveries' 
-    : isCompanyTransporter 
-    ? 'of your fleet vehicles' 
-    : 'of your vehicle';
+  const trackingTarget = isDriver
+    ? 'of your deliveries'
+    : isCompanyTransporter
+      ? 'of your fleet vehicles'
+      : 'of your vehicle';
   const activityContext = isDriver ? "you're making deliveries" : "you're transporting goods";
-  const realTimeTrackingText = isDriver 
-    ? 'Your company and clients can see your location in real-time during active deliveries' 
-    : isCompanyTransporter 
-    ? 'You and your clients can track all fleet vehicles in real-time during active trips' 
-    : "Clients can see your vehicle's location in real-time during active trips";
-  const dataCollectionContext = isDriver ? "you're actively making deliveries" : "you're actively transporting goods";
+  const realTimeTrackingText = isDriver
+    ? 'Your company and clients can see your location in real-time during active deliveries'
+    : isCompanyTransporter
+      ? 'You and your clients can track all fleet vehicles in real-time during active trips'
+      : "Clients can see your vehicle's location in real-time during active trips";
+  const dataCollectionContext = isDriver
+    ? "you're actively making deliveries"
+    : "you're actively transporting goods";
   const dataUsageContext = isDriver ? 'delivery' : 'vehicle';
-  const dataSharingContext = isDriver 
-    ? 'your company and ' 
-    : isCompanyTransporter 
-    ? 'your company and ' 
-    : '';
-  const bookingContext = isDriver 
-    ? ' assigned to you' 
-    : isCompanyTransporter 
-    ? ' with your company' 
-    : ' with you';
+  const dataSharingContext = isDriver
+    ? 'your company and '
+    : isCompanyTransporter
+      ? 'your company and '
+      : '';
+  const bookingContext = isDriver
+    ? ' assigned to you'
+    : isCompanyTransporter
+      ? ' with your company'
+      : ' with you';
 
   // Log when modal is shown - CRITICAL for Google Play compliance verification
   useEffect(() => {
     if (visible) {
       console.log('📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: Modal is now VISIBLE');
-      console.log('📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: This is the Prominent Disclosure required by Google Play Store');
-      console.log('📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: Modal shown BEFORE requesting BACKGROUND_LOCATION permission');
+      console.log(
+        '📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: This is the Prominent Disclosure required by Google Play Store',
+      );
+      console.log(
+        '📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: Modal shown BEFORE requesting BACKGROUND_LOCATION permission',
+      );
     }
   }, [visible]);
 
@@ -116,7 +122,9 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
       const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
         // Prevent closing modal with back button - user must make a choice
         // This ensures compliance with Google Play requirements
-        console.log('📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: Back button pressed - blocking dismissal');
+        console.log(
+          '📢 BACKGROUND_LOCATION_DISCLOSURE_MODAL: Back button pressed - blocking dismissal',
+        );
         return true;
       });
 
@@ -146,10 +154,7 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
       }}
     >
       <View style={styles.container}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-        >
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           {/* Header */}
           <View style={styles.header}>
             <MaterialCommunityIcons
@@ -172,7 +177,10 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
                 style={styles.disclosureIcon}
               />
               <Text style={styles.prominentDisclosureText}>
-                <Text style={styles.boldText}>TRUKapp collects location data</Text> to enable real-time {trackingType} tracking even when the app is closed or not in use{trackingContext}, and shares this data with {sharingContext}clients for active bookings.
+                <Text style={styles.boldText}>TRUKapp collects location data</Text> to enable
+                real-time {trackingType} tracking even when the app is closed or not in use
+                {trackingContext}, and shares this data with {sharingContext}clients for active
+                bookings.
               </Text>
             </View>
 
@@ -185,27 +193,17 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
             <View style={styles.benefitsList}>
               <View style={styles.benefitItem}>
                 <View style={styles.benefitIconContainer}>
-                  <MaterialCommunityIcons
-                    name="check-circle"
-                    size={22}
-                    color={colors.success}
-                  />
+                  <MaterialCommunityIcons name="check-circle" size={22} color={colors.success} />
                 </View>
                 <View style={styles.benefitText}>
                   <Text style={styles.benefitTitle}>Real-Time Tracking</Text>
-                  <Text style={styles.benefitDescription}>
-                    {realTimeTrackingText}
-                  </Text>
+                  <Text style={styles.benefitDescription}>{realTimeTrackingText}</Text>
                 </View>
               </View>
 
               <View style={styles.benefitItem}>
                 <View style={styles.benefitIconContainer}>
-                  <MaterialCommunityIcons
-                    name="check-circle"
-                    size={22}
-                    color={colors.success}
-                  />
+                  <MaterialCommunityIcons name="check-circle" size={22} color={colors.success} />
                 </View>
                 <View style={styles.benefitText}>
                   <Text style={styles.benefitTitle}>Accurate Delivery Updates</Text>
@@ -217,11 +215,7 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
 
               <View style={styles.benefitItem}>
                 <View style={styles.benefitIconContainer}>
-                  <MaterialCommunityIcons
-                    name="check-circle"
-                    size={22}
-                    color={colors.success}
-                  />
+                  <MaterialCommunityIcons name="check-circle" size={22} color={colors.success} />
                 </View>
                 <View style={styles.benefitText}>
                   <Text style={styles.benefitTitle}>Safety & Security</Text>
@@ -242,11 +236,20 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
               <View style={styles.noteContent}>
                 <Text style={styles.noteTitle}>How Your Location Data is Used</Text>
                 <Text style={styles.noteText}>
-                  <Text style={styles.boldText}>Data Collection:</Text> TRUKapp collects your precise location data in the background when {dataCollectionContext}.{'\n\n'}
-                  <Text style={styles.boldText}>Data Usage:</Text> Your location is used to enable real-time {dataUsageContext} tracking, provide accurate delivery ETAs, and ensure safety during active trips.{'\n\n'}
-                  <Text style={styles.boldText}>Data Sharing:</Text> Your location data is shared with {dataSharingContext}clients who have active bookings{bookingContext}, so they can track their shipments in real-time.{'\n\n'}
-                  <Text style={styles.boldText}>Data Storage:</Text> Your location data is encrypted and securely stored. Location updates are sent every 10 seconds or when you move 100 meters.{'\n\n'}
-                  <Text style={styles.boldText}>Your Control:</Text> You can stop location tracking at any time from the app settings. Location is only tracked when {dataCollectionContext}.
+                  <Text style={styles.boldText}>Data Collection:</Text> TRUKapp collects your
+                  precise location data in the background when {dataCollectionContext}.{'\n\n'}
+                  <Text style={styles.boldText}>Data Usage:</Text> Your location is used to enable
+                  real-time {dataUsageContext} tracking, provide accurate delivery ETAs, and ensure
+                  safety during active trips.{'\n\n'}
+                  <Text style={styles.boldText}>Data Sharing:</Text> Your location data is shared
+                  with {dataSharingContext}clients who have active bookings{bookingContext}, so they
+                  can track their shipments in real-time.{'\n\n'}
+                  <Text style={styles.boldText}>Data Storage:</Text> Your location data is encrypted
+                  and securely stored. Location updates are sent every 10 seconds or when you move
+                  100 meters.{'\n\n'}
+                  <Text style={styles.boldText}>Your Control:</Text> You can stop location tracking
+                  at any time from the app settings. Location is only tracked when{' '}
+                  {dataCollectionContext}.
                 </Text>
               </View>
             </View>
@@ -254,12 +257,12 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
             <View style={styles.dataUsage}>
               <Text style={styles.dataUsageTitle}>Data Usage</Text>
               <Text style={styles.dataUsageText}>
-                Background location tracking uses minimal battery and data. Location updates
-                are sent every 10 seconds or when you move 100 meters, whichever comes first.
+                Background location tracking uses minimal battery and data. Location updates are
+                sent every 10 seconds or when you move 100 meters, whichever comes first.
               </Text>
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.privacyNote}
               onPress={handlePrivacyPolicyPress}
               activeOpacity={0.7}
@@ -272,8 +275,7 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
               />
               <Text style={styles.privacyNoteText}>
                 For more information about how we collect, use, and protect your location data,
-                please review our{' '}
-                <Text style={styles.privacyLink}>Privacy Policy</Text>.
+                please review our <Text style={styles.privacyLink}>Privacy Policy</Text>.
               </Text>
             </TouchableOpacity>
           </View>
@@ -285,19 +287,24 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
           <TouchableOpacity
             style={styles.acceptButton}
             onPress={() => {
-              console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User ACCEPTED background location disclosure');
-              console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Consent saved - can now request BACKGROUND_LOCATION permission');
-              console.log('✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Role:', userRole || 'unknown', '| Transporter type:', transporterType || 'N/A');
+              console.log(
+                '✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User ACCEPTED background location disclosure',
+              );
+              console.log(
+                '✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Consent saved - can now request BACKGROUND_LOCATION permission',
+              );
+              console.log(
+                '✅ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Role:',
+                userRole || 'unknown',
+                '| Transporter type:',
+                transporterType || 'N/A',
+              );
               onAccept();
             }}
             activeOpacity={0.8}
           >
             <View style={styles.acceptButtonContent}>
-              <MaterialCommunityIcons
-                name="check-circle"
-                size={22}
-                color="#fff"
-              />
+              <MaterialCommunityIcons name="check-circle" size={22} color="#fff" />
               <Text style={styles.acceptButtonText}>Allow Background Location</Text>
             </View>
           </TouchableOpacity>
@@ -306,9 +313,18 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
           <TouchableOpacity
             style={styles.declineButton}
             onPress={() => {
-              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User DECLINED background location disclosure');
-              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: App will use foreground-only location tracking');
-              console.log('❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Role:', userRole || 'unknown', '| Transporter type:', transporterType || 'N/A');
+              console.log(
+                '❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: User DECLINED background location disclosure',
+              );
+              console.log(
+                '❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: App will use foreground-only location tracking',
+              );
+              console.log(
+                '❌ BACKGROUND_LOCATION_DISCLOSURE_MODAL: Role:',
+                userRole || 'unknown',
+                '| Transporter type:',
+                transporterType || 'N/A',
+              );
               onDecline();
             }}
             activeOpacity={0.7}
@@ -320,8 +336,8 @@ const BackgroundLocationDisclosureModal: React.FC<BackgroundLocationDisclosureMo
         {/* Footer Note */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            By tapping "Allow Background Location", you consent to TRUKapp accessing your
-            location in the background as described above.
+            By tapping "Allow Background Location", you consent to TRUKapp accessing your location
+            in the background as described above.
           </Text>
         </View>
       </View>
@@ -587,4 +603,3 @@ const styles = StyleSheet.create({
 });
 
 export default BackgroundLocationDisclosureModal;
-

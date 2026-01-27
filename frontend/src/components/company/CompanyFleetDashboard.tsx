@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import CompanyFleetStatusCard from '../common/CompanyFleetStatusCard';
@@ -48,7 +41,7 @@ export default function CompanyFleetDashboard({ userId }: CompanyFleetDashboardP
       Alert.alert(
         'Free Trial Started',
         'Your 90-day free trial has begun! You can now add up to 3 drivers and 3 vehicles.',
-        [{ text: 'OK' }]
+        [{ text: 'OK' }],
       );
     } catch (error) {
       console.error('Error starting trial:', error);
@@ -88,59 +81,60 @@ export default function CompanyFleetDashboard({ userId }: CompanyFleetDashboardP
       </View>
 
       {/* Subscription Status Card */}
-      <CompanyFleetStatusCard 
-        subscriptionStatus={subscriptionStatus}
-        onUpgrade={handleUpgrade}
-      />
+      <CompanyFleetStatusCard subscriptionStatus={subscriptionStatus} onUpgrade={handleUpgrade} />
 
       {/* Quick Actions */}
       <View style={styles.quickActionsContainer}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
-        
+
         <View style={styles.actionsGrid}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.actionButton,
-              !subscriptionStatus.canAddDriver && styles.actionButtonDisabled
+              !subscriptionStatus.canAddDriver && styles.actionButtonDisabled,
             ]}
             onPress={() => navigation.navigate('DriverManagement' as never)}
             disabled={!subscriptionStatus.canAddDriver}
           >
-            <MaterialCommunityIcons 
-              name="account-plus" 
-              size={24} 
-              color={subscriptionStatus.canAddDriver ? colors.primary : colors.text.light} 
+            <MaterialCommunityIcons
+              name="account-plus"
+              size={24}
+              color={subscriptionStatus.canAddDriver ? colors.primary : colors.text.light}
             />
-            <Text style={[
-              styles.actionButtonText,
-              !subscriptionStatus.canAddDriver && styles.actionButtonTextDisabled
-            ]}>
+            <Text
+              style={[
+                styles.actionButtonText,
+                !subscriptionStatus.canAddDriver && styles.actionButtonTextDisabled,
+              ]}
+            >
               Add Driver
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.actionButton,
-              !subscriptionStatus.canAddVehicle && styles.actionButtonDisabled
+              !subscriptionStatus.canAddVehicle && styles.actionButtonDisabled,
             ]}
             onPress={() => navigation.navigate('VehicleManagement' as never)}
             disabled={!subscriptionStatus.canAddVehicle}
           >
-            <MaterialCommunityIcons 
-              name="truck-plus" 
-              size={24} 
-              color={subscriptionStatus.canAddVehicle ? colors.primary : colors.text.light} 
+            <MaterialCommunityIcons
+              name="truck-plus"
+              size={24}
+              color={subscriptionStatus.canAddVehicle ? colors.primary : colors.text.light}
             />
-            <Text style={[
-              styles.actionButtonText,
-              !subscriptionStatus.canAddVehicle && styles.actionButtonTextDisabled
-            ]}>
+            <Text
+              style={[
+                styles.actionButtonText,
+                !subscriptionStatus.canAddVehicle && styles.actionButtonTextDisabled,
+              ]}
+            >
               Add Vehicle
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('DriverJobBoard' as never)}
           >
@@ -148,7 +142,7 @@ export default function CompanyFleetDashboard({ userId }: CompanyFleetDashboardP
             <Text style={styles.actionButtonText}>Browse Drivers</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('FleetAnalytics' as never)}
           >
@@ -165,8 +159,8 @@ export default function CompanyFleetDashboard({ userId }: CompanyFleetDashboardP
           <View style={styles.trialInfoText}>
             <Text style={styles.trialTitle}>Free Trial Active</Text>
             <Text style={styles.trialDescription}>
-              {subscriptionStatus.freeTrialDaysRemaining} days remaining. 
-              Upgrade anytime to unlock more features and higher limits.
+              {subscriptionStatus.freeTrialDaysRemaining} days remaining. Upgrade anytime to unlock
+              more features and higher limits.
             </Text>
           </View>
         </View>
@@ -178,7 +172,8 @@ export default function CompanyFleetDashboard({ userId }: CompanyFleetDashboardP
         <View style={styles.jobBoardInfoText}>
           <Text style={styles.jobBoardTitle}>Driver Job Board Access</Text>
           <Text style={styles.jobBoardDescription}>
-            All plans include unlimited access to browse and recruit from our pool of verified drivers.
+            All plans include unlimited access to browse and recruit from our pool of verified
+            drivers.
           </Text>
         </View>
       </View>
@@ -330,4 +325,3 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
-

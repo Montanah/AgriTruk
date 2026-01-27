@@ -11,14 +11,10 @@ def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 react {
     entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", projectRoot, "android", "absolute"].execute(null, rootDir).text.trim())
     reactNativeDir = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
-    // HERMES DISABLED: Hermesc binary fails on EAS Linux builds - use default JSC instead
-    // The linux64-bin/hermesc path doesn't work correctly in cloud build environment
-    // hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
+    hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
     codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
 
-    // HERMES DISABLED: Disable Hermes bundle compression to avoid linux64-bin/hermesc binary failure
-    enableBundleCompression = false  // Force disable to prevent Hermes usage
-    
+    enableBundleCompression = (findProperty('android.enableBundleCompression') ?: false).toBoolean()
     // Use Expo CLI to bundle the app, this ensures the Metro config
     // works correctly with Expo projects.
     cliFile = new File(["node", "--print", "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })"].execute(null, rootDir).text.trim())
@@ -133,12 +129,6 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
-    }
-    externalNativeBuild {
-        cmake {
-            path file('CMakeLists.txt')
-            version "3.22.1"
-        }
     }
 }
 
