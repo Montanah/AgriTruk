@@ -95,8 +95,8 @@ frontend/adaptive-icon_*.png
 frontend/app-icon_*.png
 
 # Build outputs
-frontend/android/
-frontend/ios/
+# Note: frontend/android/ and frontend/ios/ MUST be committed for EAS cloud builds
+# Removing from gitignore to allow EAS to access native build files (gradlew, etc)
 build-outputs/
 
 # Logs
