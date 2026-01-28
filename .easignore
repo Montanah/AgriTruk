@@ -1,0 +1,100 @@
+# EAS Build ignore file - similar to .gitignore but for build uploads
+# This reduces upload size from 216MB to ~15-20MB
+
+# Dependencies - will be reinstalled on build server
+node_modules/
+*/node_modules/
+.pnp
+.pnp.js
+
+# Build artifacts and cache
+build/
+dist/
+.expo/
+.expo-shared/
+.cache/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.eslintcache
+.prettierignore
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Platform-specific
+android_backup/
+ios_backup/
+.gradle/
+gradle-wrapper.jar
+*.keystore
+*.jks
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# OS files
+Thumbs.db
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Documentation and assets not needed for build
+docs/
+*.md
+README.md
+CHANGELOG.md
+LICENSE
+.github/
+.husky/
+
+# Screenshots and media (keep only if necessary)
+google-play-assets/
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Test files and coverage
+__tests__/
+__mocks__/
+coverage/
+.nyc_output/
+jest.config.js
+test-results/
+
+# Environment files (use EAS secrets instead)
+.env
+.env.local
+.env.*.local
+
+# Build scripts output
+scripts/output/
+build-logs/
+
+# Extra/backup files
+*.backup
+*.bak
+android_backup/
+ios_backup/
+
+# Analytics and telemetry
+.expo-activity-monitor
