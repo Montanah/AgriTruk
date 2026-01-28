@@ -1,5 +1,8 @@
 # EAS Build ignore file - similar to .gitignore but for build uploads
-# This reduces upload size from 216MB to ~15-20MB
+# This reduces upload size from 211MB to ~15-20MB
+
+# Backend folder (not needed for frontend build)
+backend/
 
 # Dependencies - will be reinstalled on build server
 node_modules/
