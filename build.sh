@@ -40,9 +40,9 @@ run_build() {
 
 print_menu() {
     echo "\nSelect which builds to run:"
-    echo "  1) Android APK (production-apk)"
-    echo "  2) Android AAB (production)"
-    echo "  3) iOS IPA (appstore)"
+    echo "  1) Android APK (preview profile)"
+    echo "  2) Android AAB (production profile)"
+    echo "  3) iOS IPA (appstore profile)"
     echo "  4) All of the above"
     echo "  q) Quit"
     echo "You can choose multiple by separating with commas, e.g. 1,3"
@@ -105,7 +105,7 @@ confirm
 RC=0
 
 if [ "$BUILD_APK" -eq 1 ]; then
-    run_build android production-apk "Android APK" || RC=$?
+    run_build android preview "Android APK" || RC=$?
     if [ "$RC" -ne 0 ]; then
         echo "Stopping due to failure in Android APK build." | tee -a "$LOG_DIR/build_all.log"
         exit $RC
