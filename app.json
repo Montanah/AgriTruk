@@ -27,10 +27,6 @@
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
-        "backgroundColor": "#ffffff"
-      },
       "package": "com.truk.trukapp",
       "versionCode": 6,
       "config": {
