@@ -1,0 +1,5 @@
+Starting interactive production build helper: Wed Jan 28 14:45:34 EAT 2026
+\n===== BUILD: Android APK (android / profile=production-apk) =====
+Command: npx eas build -p android --profile production-apk 
+Build failed: Android APK (exit 1). See /home/clintmadeit/Projects/TRUKAPP/build-logs/Android_APK.log
+Stopping due to failure in Android APK build.
