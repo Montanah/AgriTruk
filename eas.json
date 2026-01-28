@@ -6,6 +6,9 @@
   "build": {
     "development": {
       "distribution": "internal",
+      "node": {
+        "version": "20.18.3"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -23,6 +26,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "node": {
+        "version": "20.18.3"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -41,6 +47,9 @@
       }
     },
     "production": {
+      "node": {
+        "version": "20.18.3"
+      },
       "android": {
         "buildType": "app-bundle",
         "gradleCommand": ":app:bundleRelease"
@@ -62,6 +71,9 @@
     },
     "testing": {
       "distribution": "internal",
+      "node": {
+        "version": "20.18.3"
+      },
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
@@ -83,6 +95,9 @@
     },
     "tester": {
       "distribution": "internal",
+      "node": {
+        "version": "20.18.3"
+      },
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
@@ -103,6 +118,9 @@
       }
     },
     "production-apk": {
+      "node": {
+        "version": "20.18.3"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -118,6 +136,9 @@
       }
     },
     "appstore": {
+      "node": {
+        "version": "20.18.3"
+      },
       "ios": {
         "buildConfiguration": "Release",
         "distribution": "store"
