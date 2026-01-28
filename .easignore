@@ -44,8 +44,6 @@ android.backup.local/
 ios.backup.local/
 android_backup/
 ios_backup/
-.gradle/
-gradle-wrapper.jar
 *.keystore
 *.jks
 
