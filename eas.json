@@ -6,7 +6,7 @@
   "build": {
     "development": {
       "distribution": "internal",
-      "node": "20.18.3",
+      "node": "20.19.4",
       "android": {
         "buildType": "apk"
       },
@@ -24,7 +24,7 @@
     },
     "preview": {
       "distribution": "internal",
-      "node": "20.18.3",
+      "node": "20.19.4",
       "android": {
         "buildType": "apk"
       },
@@ -43,7 +43,7 @@
       }
     },
     "production": {
-      "node": "20.18.3",
+      "node": "20.19.4",
       "android": {
         "buildType": "app-bundle",
         "gradleCommand": ":app:bundleRelease"
@@ -65,7 +65,7 @@
     },
     "testing": {
       "distribution": "internal",
-      "node": "20.18.3",
+      "node": "20.19.4",
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
@@ -87,7 +87,7 @@
     },
     "tester": {
       "distribution": "internal",
-      "node": "20.18.3",
+      "node": "20.19.4",
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
@@ -108,7 +108,7 @@
       }
     },
     "production-apk": {
-      "node": "20.18.3",
+      "node": "20.19.4",
       "android": {
         "buildType": "apk"
       },
@@ -124,7 +124,7 @@
       }
     },
     "appstore": {
-      "node": "20.18.3",
+      "node": "20.19.4",
       "ios": {
         "buildConfiguration": "Release",
         "distribution": "store"
