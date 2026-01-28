@@ -36,6 +36,13 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
     useEffect(() => {
         if (visible) {
+                // Debug: log stack trace when spinner becomes visible to locate the caller
+                try {
+                    // eslint-disable-next-line no-console
+                    console.log('LoadingSpinner mounted - stack trace:', new Error().stack);
+                } catch (e) {
+                    // ignore
+                }
             // Fade in
             Animated.timing(opacityValue, {
                 toValue: 1,
