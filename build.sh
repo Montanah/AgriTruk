@@ -1,123 +1,129 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-##############################################################################
-#                                                                            #
-#  TRUKAPP Build Script - Robust Multi-Platform Build Management           #
-#                                                                            #
-#  Supports:                                                                #
-#  - Local builds (APK, IPA)                                               #
-#  - Cloud builds via EAS (APK, AAB, IPA)                                  #
-#  - Preview and Production environments                                    #
-#  - Comprehensive version & configuration validation                      #
-#                                                                            #
-##############################################################################
+# Interactive EAS build helper (root build.sh)
+# Prompts which artifacts to build and runs them sequentially.
+# Logs are saved to ./build-logs/
 
-set -e  # Exit on error
+ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+LOG_DIR="$ROOT_DIR/build-logs"
+mkdir -p "$LOG_DIR"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+EAS_CMD=${EAS_CLI:-npx eas}
+NON_INTERACTIVE_FLAG=""
+if [ "${EAS_NONINTERACTIVE:-0}" = "1" ]; then
+    NON_INTERACTIVE_FLAG="--non-interactive"
+fi
 
-# Configuration
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PROJECT_ROOT="$SCRIPT_DIR"
-FRONTEND_DIR="$PROJECT_ROOT"
-ANDROID_DIR="$FRONTEND_DIR/android"
-IOS_DIR="$FRONTEND_DIR/ios"
-BUILD_LOGS_DIR="$PROJECT_ROOT/.build-logs"
+echo "Starting interactive production build helper: $(date)" | tee "$LOG_DIR/build_all.log"
 
-# Minimum versions required
-MIN_NODE_VERSION="18.0.0"
-MIN_NPM_VERSION="9.0.0"
-MIN_EXPO_VERSION="51.0.0"
+run_build() {
+    local platform=$1
+    local profile=$2
+    local label=$3
+    local out_log="$LOG_DIR/${label// /_}.log"
 
-# Create build logs directory
-mkdir -p "$BUILD_LOGS_DIR"
+    echo "\n===== BUILD: $label ($platform / profile=$profile) =====" | tee -a "$LOG_DIR/build_all.log"
+    echo "Command: $EAS_CMD build -p $platform --profile $profile $NON_INTERACTIVE_FLAG" | tee -a "$LOG_DIR/build_all.log"
 
-##############################################################################
-# UTILITY FUNCTIONS
-##############################################################################
-
-print_header() {
-    echo -e "\n${BLUE}========================================${NC}"
-    echo -e "${BLUE}$1${NC}"
-    echo -e "${BLUE}========================================${NC}\n"
-}
-
-print_success() {
-    echo -e "${GREEN}✅ $1${NC}"
-}
-
-print_error() {
-    echo -e "${RED}❌ $1${NC}"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
-}
-
-print_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
-}
-
-# Compare versions - returns 0 (success/true) if condition is met
-version_gt() {
-    # Returns true if $1 > $2
-    test "$(printf '%s\n' "$1" "$2" | sort -V | head -n 1)" != "$1"
-}
-
-version_gte() {
-    # Returns true if $1 >= $2
-    # Check if $1 == $2 OR if $1 > $2
-    test "$(printf '%s\n' "$1" "$2" | sort -V | head -n 1)" = "$2"
-}
-
-##############################################################################
-# VERSION & CONFIGURATION CHECKS
-##############################################################################
-
-check_node_version() {
-    print_info "Checking Node.js version..."
-    
-    if ! command -v node &> /dev/null; then
-        print_error "Node.js is not installed"
-        return 1
+    # Run build and tee output
+    $EAS_CMD build -p "$platform" --profile "$profile" $NON_INTERACTIVE_FLAG 2>&1 | tee "$out_log"
+    local rc=${PIPESTATUS[0]:-0}
+    if [ "$rc" -ne 0 ]; then
+        echo "Build failed: $label (exit $rc). See $out_log" | tee -a "$LOG_DIR/build_all.log"
+        return $rc
     fi
-    
-    NODE_VERSION=$(node --version | cut -d 'v' -f 2)
-    
-    if version_gte "$NODE_VERSION" "$MIN_NODE_VERSION"; then
-        print_success "Node.js $NODE_VERSION (required: >= $MIN_NODE_VERSION)"
-        return 0
-    else
-        print_error "Node.js $NODE_VERSION (required: >= $MIN_NODE_VERSION)"
-        return 1
-    fi
+
+    echo "Build finished: $label. Log: $out_log" | tee -a "$LOG_DIR/build_all.log"
+    return 0
 }
 
-check_npm_version() {
-    print_info "Checking npm version..."
-    
-    if ! command -v npm &> /dev/null; then
-        print_error "npm is not installed"
-        return 1
-    fi
-    
-    NPM_VERSION=$(npm --version)
-    
-    if version_gte "$NPM_VERSION" "$MIN_NPM_VERSION"; then
-        print_success "npm $NPM_VERSION (required: >= $MIN_NPM_VERSION)"
-        return 0
-    else
-        print_error "npm $NPM_VERSION (required: >= $MIN_NPM_VERSION)"
-        return 1
-    fi
+print_menu() {
+    echo "\nSelect which builds to run:"
+    echo "  1) Android APK (production-apk)"
+    echo "  2) Android AAB (production)"
+    echo "  3) iOS IPA (appstore)"
+    echo "  4) All of the above"
+    echo "  q) Quit"
+    echo "You can choose multiple by separating with commas, e.g. 1,3"
 }
 
-check_expo_version() {
+read_choices() {
+    read -r -p $'Enter choice (default: 4 for All): ' CHOICE
+    CHOICE=${CHOICE:-4}
+    # Normalize: remove spaces
+    CHOICE=$(echo "$CHOICE" | tr -d '[:space:]')
+    # Support comma separated
+    IFS=',' read -r -a SEL <<< "$CHOICE"
+    BUILD_APK=0
+    BUILD_AAB=0
+    BUILD_IPA=0
+    for c in "${SEL[@]}"; do
+        case "$c" in
+            1) BUILD_APK=1 ;;
+            2) BUILD_AAB=1 ;;
+            3) BUILD_IPA=1 ;;
+            4) BUILD_APK=1; BUILD_AAB=1; BUILD_IPA=1 ;;
+            q|Q) echo "Aborted by user."; exit 0 ;;
+            *) echo "Ignoring unknown choice: $c" ;;
+        esac
+    done
+}
+
+confirm() {
+    echo "\nSelected builds:"
+    $BUILD_APK && echo " - Android APK"
+    $BUILD_AAB && echo " - Android AAB"
+    $BUILD_IPA && echo " - iOS IPA"
+    read -r -p $'Proceed? (y/N): ' yn
+    case "$yn" in
+        [Yy]*) return 0 ;;
+        *) echo "Aborted."; exit 0 ;;
+    esac
+}
+
+# Check eas is available (npx will still work)
+if ! command -v ${EAS_CLI:-eas} >/dev/null 2>&1; then
+    echo "Note: 'eas' not found in PATH; npx will be used to invoke EAS if available." | tee -a "$LOG_DIR/build_all.log"
+fi
+
+# Check EAS login
+if ! $EAS_CMD whoami >/dev/null 2>&1; then
+    echo "You are not logged into EAS (or 'whoami' failed). The build may prompt for login." | tee -a "$LOG_DIR/build_all.log"
+fi
+
+print_menu
+read_choices
+confirm
+
+RC=0
+
+if [ "$BUILD_APK" -eq 1 ]; then
+    run_build android production-apk "Android APK" || RC=$?
+    if [ "$RC" -ne 0 ]; then
+        echo "Stopping due to failure in Android APK build." | tee -a "$LOG_DIR/build_all.log"
+        exit $RC
+    fi
+fi
+
+if [ "$BUILD_AAB" -eq 1 ]; then
+    run_build android production "Android AAB (App Bundle)" || RC=$?
+    if [ "$RC" -ne 0 ]; then
+        echo "Stopping due to failure in Android AAB build." | tee -a "$LOG_DIR/build_all.log"
+        exit $RC
+    fi
+fi
+
+if [ "$BUILD_IPA" -eq 1 ]; then
+    run_build ios appstore "iOS IPA (App Store)" || RC=$?
+    if [ "$RC" -ne 0 ]; then
+        echo "iOS build failed. You may need to login to Apple/Configure credentials." | tee -a "$LOG_DIR/build_all.log"
+        exit $RC
+    fi
+fi
+
+echo "All selected builds completed successfully at $(date)" | tee -a "$LOG_DIR/build_all.log"
+exit 0
     print_info "Checking Expo CLI version..."
     
     if ! command -v expo &> /dev/null; then
