@@ -141,18 +141,7 @@ module.exports = {
         }
       ]
     },
-    plugins: [
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "Allow TRUKapp to use your location to show your position on the map and calculate routes."
-        }
-      ],
-      "expo-document-picker",
-      "expo-asset",
-      "expo-font",
-      "expo-maps"
-    ],
+    plugins: [],
     experiments: {
       typedRoutes: true
     },
