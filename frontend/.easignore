@@ -1,39 +1,36 @@
-# EAS Build ignore file - reduces upload from 211MB to ~15MB
-# Excludes unnecessary files and backend folder
+# EAS Build ignore file - optimizes upload size
+# This file is critical for EAS Build performance
+# node_modules: ~700MB - MUST BE EXCLUDED (EAS reinstalls)
 
 # ============================================================================
-# PARENT DIRECTORY EXCLUSIONS
-# ============================================================================
-# Exclude parent directories (root project files not needed for frontend build)
-../backend/
-../.git/
-../node_modules/
-../.env
-../.env.local
-../.easignore
-../.gitignore
-../*.md
-../*.txt
-../*.sh
-../docs/
-../.github/
-
-# ============================================================================
-# FRONTEND DIRECTORIES TO EXCLUDE
+# CRITICAL EXCLUSIONS - Must be ignored
 # ============================================================================
 
-# Dependencies - will be reinstalled on build server
-node_modules/
+# Dependencies (ALWAYS excluded by EAS, but be explicit)
+node_modules
 .pnp
 .pnp.js
 
-# Build artifacts and cache
-build/
-dist/
-.expo/
-.expo-shared/
-.cache/
+# Native build directories (generated during EAS build)
+android/build
+android/.gradle
+ios/build
+android_backup
+
+# Expo and build cache
+.expo
+.expo-shared
+.cache
 .parcel-cache
+dist
+build
+
+# Parent directory exclusions
+../backend
+../.git
+../node_modules
+../.gradle
+../docs
 
 # IDE and editor files
 .vscode/
