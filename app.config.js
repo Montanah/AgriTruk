@@ -143,26 +143,15 @@ module.exports = {
     },
     plugins: [
       [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
-      "expo-document-picker",
-      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow TRUKapp to use your location to show your position on the map and calculate routes."
         }
       ],
+      "expo-document-picker",
       "expo-asset",
       "expo-font",
-      "expo-maps",
-      // Custom plugin for large screen and edge-to-edge support
-      "./plugins/withAndroidLargeScreenSupport.js"
+      "expo-maps"
     ],
     experiments: {
       typedRoutes: true
