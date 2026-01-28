@@ -1,0 +1,7 @@
+PROJECT_ROOT=/home/clintmadeit/Projects/TRUKAPP
+BUILD_MODE=production
+PLATFORM=android
+BUILD_TYPE=apk
+EAS_PROFILE=production
+LEGACY_PEER_DEPS=true
+TARGET_SIZE_MB=50
