@@ -1,0 +1,39 @@
+{
+  "files.exclude": {
+    "**/node_modules": true,
+    "frontend/node_modules": true,
+    "backend/node_modules": true,
+    ".expo": true,
+    "frontend/.expo": true,
+    "**/.DS_Store": true,
+    "**/*.log": true,
+    "build-outputs": true,
+    "frontend/android": true,
+    "frontend/ios": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "frontend/node_modules": true,
+    "backend/node_modules": true,
+    ".expo": true,
+    "frontend/.expo": true,
+    "build-outputs": true,
+    "frontend/android": true,
+    "frontend/ios": true
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "cmake.sourceDirectory": "/home/clintmadeit/Projects/TRUKAPP/frontend/android_backup/app",
+  "java.compile.nullAnalysis.mode": "automatic"
+}

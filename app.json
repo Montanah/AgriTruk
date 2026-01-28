@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "TRUKapp",
+    "slug": "TRUKapp",
+    "version": "1.0.3",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "trukapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "bundleIdentifier": "com.truk.trukapp",
+      "buildNumber": "6",
+      "supportsTablet": true,
+      "icon": "./assets/images/ios-icon-1024.png",
+      "deploymentTarget": "14.0",
+      "config": {
+        "googleMapsApiKey": "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.truk.trukapp",
+      "versionCode": 6,
+      "config": {
+        "googleMapsApiKey": "AIzaSyCXdOCFJZUxcJMDn7Alip-JfIgOrHpT_Q4"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to access your location."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with other users."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d65f9c44-f3b5-4a94-a28c-4f8e9b1a2c3d"
+      }
+    }
+  }
+}

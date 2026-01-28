@@ -1,12 +1,12 @@
-# EAS Build ignore file - similar to .gitignore but for build uploads
-# This reduces upload size from 211MB to ~15-20MB
+# EAS Build ignore file - excludes unnecessary files to minimize upload size
 
-# Backend folder (not needed for frontend build)
-backend/
+# Documentation
+docs/
+*.md
+*.txt
 
 # Dependencies - will be reinstalled on build server
 node_modules/
-*/node_modules/
 .pnp
 .pnp.js
 
@@ -39,7 +39,9 @@ lerna-debug.log*
 .gitignore
 .gitattributes
 
-# Platform-specific
+# Platform-specific backups
+android.backup.local/
+ios.backup.local/
 android_backup/
 ios_backup/
 .gradle/
@@ -47,7 +49,14 @@ gradle-wrapper.jar
 *.keystore
 *.jks
 
-# Temporary files
+# Temporary and build files
+.build-logs/
+*.aab
+*.ipa
+*.apk
+build-test.log
+setup-cicd.sh
+setup-emulator-performance.sh
 tmp/
 temp/
 .tmp/
