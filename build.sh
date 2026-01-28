@@ -72,9 +72,15 @@ read_choices() {
 
 confirm() {
     echo "\nSelected builds:"
-    $BUILD_APK && echo " - Android APK"
-    $BUILD_AAB && echo " - Android AAB"
-    $BUILD_IPA && echo " - iOS IPA"
+    if [ "${BUILD_APK:-0}" -eq 1 ]; then
+        echo " - Android APK"
+    fi
+    if [ "${BUILD_AAB:-0}" -eq 1 ]; then
+        echo " - Android AAB"
+    fi
+    if [ "${BUILD_IPA:-0}" -eq 1 ]; then
+        echo " - iOS IPA"
+    fi
     read -r -p $'Proceed? (y/N): ' yn
     case "$yn" in
         [Yy]*) return 0 ;;
