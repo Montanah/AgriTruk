@@ -1,6 +1,6 @@
 {
   "name": "trukapp",
-  "main": "index.js",
+  "main": "../node_modules/expo/AppEntry.js",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
@@ -79,8 +79,7 @@
     "react-redux": "^9.2.0",
     "sharp": "^0.34.3",
     "socket.io-client": "^4.8.1",
-    "use-latest-callback": "^0.3.2",
-    "whatwg-url": "^16.0.0"
+    "use-latest-callback": "^0.3.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -90,12 +89,12 @@
     "axios": "^1.10.0",
     "babel-plugin-module-resolver": "^5.0.2",
     "babel-plugin-transform-remove-console": "^6.9.4",
-    "eas-cli": "^16.31.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~7.1.2",
     "prettier": "^3.6.1",
     "react-native-dotenv": "^3.4.11",
-    "typescript": "~5.3.3"
+    "typescript": "~5.3.3",
+    "eas-cli": "^16.31.0"
   },
   "private": true
 }
