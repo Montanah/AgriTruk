@@ -9,4 +9,12 @@ config.resolver.assetExts.push("png", "jpg", "jpeg", "gif", "svg");
 // Ensure proper asset resolution
 config.resolver.platforms = ["ios", "android", "native", "web"];
 
+// Add URL polyfill to resolver
+config.resolver.resolverMainFields = ["react-native", "browser", "main"];
+
+// Configure resolver to look for assets from project root
+config.resolver.alias = {
+  "./assets": path.resolve(__dirname, "assets"),
+};
+
 module.exports = config;

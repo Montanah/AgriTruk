@@ -140,7 +140,12 @@ module.exports = {
         },
       ],
     },
-    plugins: [],
+    plugins: [
+      "@react-native-community/datetimepicker",
+      "expo-asset",
+      "expo-font",
+      "expo-web-browser",
+    ],
     experiments: {
       typedRoutes: true,
     },

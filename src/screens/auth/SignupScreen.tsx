@@ -27,6 +27,7 @@ import {
 import LoadingSpinner from "../../components/common/LoadingSpinner";
 import PasswordStrengthIndicator from "../../components/common/PasswordStrengthIndicator";
 import { auth } from "../../firebaseConfig";
+import { NotificationHelper } from "../../services/notificationHelper";
 
 import { useSafeGoogleAuth } from "../../hooks/useSafeGoogleAuth";
 
@@ -323,8 +324,6 @@ const SignupScreen = () => {
 
         // Send welcome notification
         try {
-          const { NotificationHelper } =
-            await import("../../services/notificationHelper");
           await NotificationHelper.sendAuthNotification("signup", {
             userId: userCredential.user.uid,
             role: role || "shipper",
