@@ -1,89 +1,100 @@
-const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
+const sharp = require("sharp");
+const fs = require("fs");
+const path = require("path");
 
 // Output directory for Google Play assets
-const outputDir = path.join(__dirname, '../google-play-assets');
-const phoneScreenshotsDir = path.join(outputDir, 'screenshots/phone');
-const tabletScreenshotsDir = path.join(__dirname, '../google-play-assets/screenshots/tablet');
+const outputDir = path.join(__dirname, "../google-play-assets");
+const phoneScreenshotsDir = path.join(outputDir, "screenshots/phone");
+const tabletScreenshotsDir = path.join(
+  __dirname,
+  "../google-play-assets/screenshots/tablet",
+);
 
 // Ensure directories exist
-[outputDir, phoneScreenshotsDir, tabletScreenshotsDir].forEach(dir => {
+[outputDir, phoneScreenshotsDir, tabletScreenshotsDir].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 });
 
 // Input TRUK logo path
-const inputLogo = path.join(__dirname, '../assets/images/TRUK Logo.png');
+const inputLogo = path.join(__dirname, "../assets/images/truk-logo.png");
 
 // Colors for TRUK branding
 const trukColors = {
-  primary: '#0F2B04',      // Dark green
-  secondary: '#27AE60',    // Green
-  accent: '#FF8C00',       // Orange
-  white: '#FFFFFF',
-  background: '#F5F5F5',
+  primary: "#0F2B04", // Dark green
+  secondary: "#27AE60", // Green
+  accent: "#FF8C00", // Orange
+  white: "#FFFFFF",
+  background: "#F5F5F5",
 };
 
 async function generateAppIcon() {
-  console.log('📱 Generating App Icon (512x512px)...');
-  
+  console.log("📱 Generating App Icon (512x512px)...");
+
   try {
     const logoBuffer = await sharp(inputLogo).png().toBuffer();
     const logoSize = 400; // Logo size within 512px icon
     const padding = 56; // Padding around logo
-    
+
     // Create icon with white background
     await sharp({
       create: {
         width: 512,
         height: 512,
         channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 1 }
-      }
+        background: { r: 255, g: 255, b: 255, alpha: 1 },
+      },
     })
-    .composite([{
-      input: await sharp(logoBuffer)
-        .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-        .png()
-        .toBuffer(),
-      left: padding,
-      top: padding
-    }])
-    .png()
-    .toFile(path.join(outputDir, 'app-icon-512x512.png'));
-    
-    console.log('✅ App icon created: app-icon-512x512.png');
+      .composite([
+        {
+          input: await sharp(logoBuffer)
+            .resize(logoSize, logoSize, {
+              fit: "contain",
+              background: { r: 0, g: 0, b: 0, alpha: 0 },
+            })
+            .png()
+            .toBuffer(),
+          left: padding,
+          top: padding,
+        },
+      ])
+      .png()
+      .toFile(path.join(outputDir, "app-icon-512x512.png"));
+
+    console.log("✅ App icon created: app-icon-512x512.png");
   } catch (error) {
-    console.error('❌ Error generating app icon:', error);
+    console.error("❌ Error generating app icon:", error);
   }
 }
 
 async function generateFeatureGraphic() {
-  console.log('🎨 Generating Feature Graphic (1024x500px)...');
-  
+  console.log("🎨 Generating Feature Graphic (1024x500px)...");
+
   try {
     const logoBuffer = await sharp(inputLogo).png().toBuffer();
-    
+
     // Create feature graphic with gradient background
     const featureGraphic = sharp({
       create: {
         width: 1024,
         height: 500,
         channels: 4,
-        background: { r: 15, g: 43, b: 4, alpha: 1 } // Dark green background
-      }
+        background: { r: 15, g: 43, b: 4, alpha: 1 }, // Dark green background
+      },
     });
-    
+
     // Resize logo for feature graphic
     const logoWidth = 300;
     const logoHeight = 300;
     const resizedLogo = await sharp(logoBuffer)
-      .resize(logoWidth, logoHeight, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .resize(logoWidth, logoHeight, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
       .png()
       .toBuffer();
-    
+
     // Create gradient overlay
     const gradientSvg = `
       <svg width="1024" height="500">
@@ -97,62 +108,62 @@ async function generateFeatureGraphic() {
         <rect width="1024" height="500" fill="url(#grad)" />
       </svg>
     `;
-    
+
     await featureGraphic
       .composite([
         {
           input: Buffer.from(gradientSvg),
-          blend: 'over'
+          blend: "over",
         },
         {
           input: resizedLogo,
           left: 362, // Center horizontally: (1024 - 300) / 2
-          top: 100   // Center vertically: (500 - 300) / 2
-        }
+          top: 100, // Center vertically: (500 - 300) / 2
+        },
       ])
       .png()
-      .toFile(path.join(outputDir, 'feature-graphic-1024x500.png'));
-    
-    console.log('✅ Feature graphic created: feature-graphic-1024x500.png');
+      .toFile(path.join(outputDir, "feature-graphic-1024x500.png"));
+
+    console.log("✅ Feature graphic created: feature-graphic-1024x500.png");
   } catch (error) {
-    console.error('❌ Error generating feature graphic:', error);
+    console.error("❌ Error generating feature graphic:", error);
   }
 }
 
 async function generateScreenshotPlaceholders() {
-  console.log('📸 Creating screenshot placeholders...');
-  
+  console.log("📸 Creating screenshot placeholders...");
+
   // Google Play screenshot requirements
   const screenshotSpecs = {
     phone: {
       portrait: [
-        { width: 1080, height: 1920, name: 'phone-portrait-1.png' },
-        { width: 1080, height: 1920, name: 'phone-portrait-2.png' },
-        { width: 1080, height: 1920, name: 'phone-portrait-3.png' },
-        { width: 1080, height: 1920, name: 'phone-portrait-4.png' },
-        { width: 1080, height: 1920, name: 'phone-portrait-5.png' },
+        { width: 1080, height: 1920, name: "phone-portrait-1.png" },
+        { width: 1080, height: 1920, name: "phone-portrait-2.png" },
+        { width: 1080, height: 1920, name: "phone-portrait-3.png" },
+        { width: 1080, height: 1920, name: "phone-portrait-4.png" },
+        { width: 1080, height: 1920, name: "phone-portrait-5.png" },
       ],
       landscape: [
-        { width: 1920, height: 1080, name: 'phone-landscape-1.png' },
-        { width: 1920, height: 1080, name: 'phone-landscape-2.png' },
-      ]
+        { width: 1920, height: 1080, name: "phone-landscape-1.png" },
+        { width: 1920, height: 1080, name: "phone-landscape-2.png" },
+      ],
     },
     tablet: {
       portrait: [
-        { width: 1200, height: 1920, name: 'tablet-portrait-1.png' },
-        { width: 1200, height: 1920, name: 'tablet-portrait-2.png' },
-        { width: 1200, height: 1920, name: 'tablet-portrait-3.png' },
+        { width: 1200, height: 1920, name: "tablet-portrait-1.png" },
+        { width: 1200, height: 1920, name: "tablet-portrait-2.png" },
+        { width: 1200, height: 1920, name: "tablet-portrait-3.png" },
       ],
       landscape: [
-        { width: 1920, height: 1200, name: 'tablet-landscape-1.png' },
-        { width: 1920, height: 1200, name: 'tablet-landscape-2.png' },
-      ]
-    }
+        { width: 1920, height: 1200, name: "tablet-landscape-1.png" },
+        { width: 1920, height: 1200, name: "tablet-landscape-2.png" },
+      ],
+    },
   };
-  
+
   try {
     const logoBuffer = await sharp(inputLogo).png().toBuffer();
-    
+
     // Generate phone screenshots
     for (const spec of screenshotSpecs.phone.portrait) {
       await createScreenshotPlaceholder(
@@ -160,20 +171,20 @@ async function generateScreenshotPlaceholders() {
         spec.width,
         spec.height,
         path.join(phoneScreenshotsDir, spec.name),
-        'portrait'
+        "portrait",
       );
     }
-    
+
     for (const spec of screenshotSpecs.phone.landscape) {
       await createScreenshotPlaceholder(
         logoBuffer,
         spec.width,
         spec.height,
         path.join(phoneScreenshotsDir, spec.name),
-        'landscape'
+        "landscape",
       );
     }
-    
+
     // Generate tablet screenshots
     for (const spec of screenshotSpecs.tablet.portrait) {
       await createScreenshotPlaceholder(
@@ -181,51 +192,57 @@ async function generateScreenshotPlaceholders() {
         spec.width,
         spec.height,
         path.join(tabletScreenshotsDir, spec.name),
-        'portrait'
+        "portrait",
       );
     }
-    
+
     for (const spec of screenshotSpecs.tablet.landscape) {
       await createScreenshotPlaceholder(
         logoBuffer,
         spec.width,
         spec.height,
         path.join(tabletScreenshotsDir, spec.name),
-        'landscape'
+        "landscape",
       );
     }
-    
-    console.log('✅ Screenshot placeholders created');
+
+    console.log("✅ Screenshot placeholders created");
   } catch (error) {
-    console.error('❌ Error generating screenshots:', error);
+    console.error("❌ Error generating screenshots:", error);
   }
 }
 
-async function createScreenshotPlaceholder(logoBuffer, width, height, outputPath, orientation) {
+async function createScreenshotPlaceholder(
+  logoBuffer,
+  width,
+  height,
+  outputPath,
+  orientation,
+) {
   const logoSize = Math.min(width, height) * 0.3;
-  
+
   await sharp({
     create: {
       width,
       height,
       channels: 4,
-      background: { r: 245, g: 245, b: 245, alpha: 1 } // Light gray background
-    }
-  })
-  .composite([
-    {
-      input: await sharp(logoBuffer)
-        .resize(Math.floor(logoSize), Math.floor(logoSize), { 
-          fit: 'contain', 
-          background: { r: 0, g: 0, b: 0, alpha: 0 } 
-        })
-        .png()
-        .toBuffer(),
-      left: Math.floor((width - logoSize) / 2),
-      top: Math.floor((height - logoSize) / 2)
+      background: { r: 245, g: 245, b: 245, alpha: 1 }, // Light gray background
     },
-    {
-      input: Buffer.from(`
+  })
+    .composite([
+      {
+        input: await sharp(logoBuffer)
+          .resize(Math.floor(logoSize), Math.floor(logoSize), {
+            fit: "contain",
+            background: { r: 0, g: 0, b: 0, alpha: 0 },
+          })
+          .png()
+          .toBuffer(),
+        left: Math.floor((width - logoSize) / 2),
+        top: Math.floor((height - logoSize) / 2),
+      },
+      {
+        input: Buffer.from(`
         <svg width="${width}" height="${height}">
           <text x="50%" y="${height * 0.7}" 
                 font-family="Arial, sans-serif" 
@@ -250,11 +267,11 @@ async function createScreenshotPlaceholder(logoBuffer, width, height, outputPath
           </text>
         </svg>
       `),
-      blend: 'over'
-    }
-  ])
-  .png()
-  .toFile(outputPath);
+        blend: "over",
+      },
+    ])
+    .png()
+    .toFile(outputPath);
 }
 
 async function createReadme() {
@@ -370,33 +387,34 @@ google-play-assets/
 - Recommended: All assets including tablet screenshots for better visibility
 `;
 
-  fs.writeFileSync(path.join(outputDir, 'README.md'), readmeContent);
-  console.log('✅ README.md created');
+  fs.writeFileSync(path.join(outputDir, "README.md"), readmeContent);
+  console.log("✅ README.md created");
 }
 
 async function main() {
-  console.log('🚀 Generating Google Play Store Assets...\n');
-  
+  console.log("🚀 Generating Google Play Store Assets...\n");
+
   // Check if logo exists
   if (!fs.existsSync(inputLogo)) {
     console.error(`❌ Logo not found: ${inputLogo}`);
-    console.error('Please ensure TRUK Logo.png exists in assets/images/');
+    console.error("Please ensure truk-logo.png exists in assets/images/");
     process.exit(1);
   }
-  
+
   await generateAppIcon();
   await generateFeatureGraphic();
   await generateScreenshotPlaceholders();
   await createReadme();
-  
-  console.log('\n✅ All Google Play Store assets generated successfully!');
+
+  console.log("\n✅ All Google Play Store assets generated successfully!");
   console.log(`📁 Assets location: ${outputDir}`);
-  console.log('\n📝 Next steps:');
-  console.log('1. Replace screenshot placeholders with actual app screenshots');
-  console.log('2. Review all assets for quality');
-  console.log('3. Upload to Google Play Console');
-  console.log('\n📖 See README.md in the google-play-assets folder for detailed instructions');
+  console.log("\n📝 Next steps:");
+  console.log("1. Replace screenshot placeholders with actual app screenshots");
+  console.log("2. Review all assets for quality");
+  console.log("3. Upload to Google Play Console");
+  console.log(
+    "\n📖 See README.md in the google-play-assets folder for detailed instructions",
+  );
 }
 
 main().catch(console.error);
-

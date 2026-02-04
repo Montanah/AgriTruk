@@ -197,7 +197,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     <View style={styles.container}>
       {logo && (
         <Animated.Image
-          source={require("../../../assets/images/TRUK Logo.png")}
+          source={require("../../../assets/images/truk-logo.png")}
           style={[
             styles.logo,
             {

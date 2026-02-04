@@ -20,7 +20,8 @@
     "build:prod:all": "npm run build:android:aab && npm run build:ios:appstore",
     "build:prod:full": "bash ./build.sh",
     "setup": "npm install && npx pod-install --silent || true",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/metro-runtime": "~3.2.3",
@@ -93,6 +94,7 @@
     "eas-cli": "^16.31.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~7.1.2",
+    "patch-package": "^8.0.1",
     "prettier": "^3.6.1",
     "react-native-dotenv": "^3.4.11",
     "typescript": "~5.3.3"

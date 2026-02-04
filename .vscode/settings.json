@@ -36,5 +36,6 @@
   "java.configuration.updateBuildConfiguration": "interactive",
   "cmake.sourceDirectory": "/home/clintmadeit/Projects/TRUKAPP/frontend/android_backup/app",
   "java.compile.nullAnalysis.mode": "automatic",
-  "svn.ignoreMissingSvnWarning": true
+  "svn.ignoreMissingSvnWarning": true,
+  "kiroAgent.configureMCP": "Disabled"
 }
