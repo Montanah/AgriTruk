@@ -10,7 +10,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.truk.trukapp",
-      buildNumber: "6",
+      buildNumber: "7",
       supportsTablet: true,
       icon: "./assets/images/ios-icon-1024.png",
       // Updated to iOS 14.0 to support iOS 26 SDK (was 13.4)
@@ -96,7 +96,7 @@ module.exports = {
     },
     android: {
       package: "com.truk.trukapp",
-      versionCode: 5,
+      versionCode: 6,
       icon: "./assets/images/android-icon-512.png",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon-foreground.png",
