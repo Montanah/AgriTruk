@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Dimensions, StyleSheet, Text, View } from "react-native";
 import { fonts, spacing } from "../../constants";
 import colors from "../../constants/colors";
+import { Images } from "../../assets";
 
 const { width, height } = Dimensions.get("window");
 
@@ -197,7 +198,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     <View style={styles.container}>
       {logo && (
         <Animated.Image
-          source={require("../../../assets/images/truk-logo.png")}
+          source={Images.trukLogo}
           style={[
             styles.logo,
             {

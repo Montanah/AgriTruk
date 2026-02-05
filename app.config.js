@@ -96,7 +96,7 @@ module.exports = {
     },
     android: {
       package: "com.truk.trukapp",
-      versionCode: 6,
+      versionCode: 7,
       icon: "./assets/images/android-icon-512.png",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon-foreground.png",

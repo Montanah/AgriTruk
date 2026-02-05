@@ -13,8 +13,10 @@ config.resolver.platforms = ["ios", "android", "native", "web"];
 config.resolver.resolverMainFields = ["react-native", "browser", "main"];
 
 // Configure resolver to look for assets from project root
+// This helps with EAS build asset resolution
 config.resolver.alias = {
   "./assets": path.resolve(__dirname, "assets"),
+  "../../assets": path.resolve(__dirname, "assets"),
 };
 
 module.exports = config;

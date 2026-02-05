@@ -21,6 +21,7 @@ import Button from "../components/common/Button";
 import Spacer from "../components/common/Spacer";
 import { colors, fonts, spacing } from "../constants";
 import { useResponsive } from "../hooks/useResponsive";
+import { Images } from "../assets";
 
 const features = [
   {
@@ -201,7 +202,7 @@ const WelcomeScreen = () => {
           <View style={styles.logoBgWrap}>
             <View style={styles.logoBg} />
             <Animated.Image
-              source={require("../../assets/images/truk-logo.png")}
+              source={Images.trukLogo}
               style={[
                 styles.logo,
                 { transform: [{ translateX: logoTranslate }] },

@@ -1,5 +1,6 @@
 // Centralized asset exports
 // This file provides a single source of truth for all app assets
+// Using relative paths that work in both dev and EAS build environments
 
 export const Images = {
   // Logo assets

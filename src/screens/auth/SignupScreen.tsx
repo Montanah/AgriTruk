@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import FormKeyboardWrapper from "../../components/common/FormKeyboardWrapper";
 import { fonts, spacing } from "../../constants";
 import colors from "../../constants/colors";
+import { Images } from "../../assets";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -475,10 +476,7 @@ const SignupScreen = () => {
             {/* Header Section */}
             <View style={styles.headerSection}>
               <View style={styles.logoContainer}>
-                <Image
-                  source={require("../../../assets/images/truk-logo.png")}
-                  style={styles.logo}
-                />
+                <Image source={Images.trukLogo} style={styles.logo} />
               </View>
               <Text style={styles.welcomeText}>
                 {isCorrection ? "Correct Your Details" : "Welcome to TRUK"}

@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Images } from "../../assets";
 import { colors, fonts, spacing } from "../../constants";
 
 const { width } = Dimensions.get("window");
@@ -189,7 +190,7 @@ const SignupSelectionScreen = () => {
             <View style={styles.logoBgWrap}>
               <View style={styles.logoBg} />
               <Animated.Image
-                source={require("../../../assets/images/truk-logo.png")}
+                source={Images.trukLogo}
                 style={[
                   styles.logo,
                   { transform: [{ translateX: logoTranslate }] },
