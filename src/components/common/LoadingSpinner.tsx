@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Dimensions, StyleSheet, Text, View } from "react-native";
 import { fonts, spacing } from "../../constants";
 import colors from "../../constants/colors";
-import { Images } from "../../assets";
+import { Images } from "../../../assets";
 
 const { width, height } = Dimensions.get("window");
 

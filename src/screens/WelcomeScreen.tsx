@@ -21,7 +21,7 @@ import Button from "../components/common/Button";
 import Spacer from "../components/common/Spacer";
 import { colors, fonts, spacing } from "../constants";
 import { useResponsive } from "../hooks/useResponsive";
-import { Images } from "../assets";
+import { Images } from "../../assets";
 
 const features = [
   {

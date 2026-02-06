@@ -17,7 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import FormKeyboardWrapper from "../../components/common/FormKeyboardWrapper";
 import { fonts, spacing } from "../../constants";
 import colors from "../../constants/colors";
-import { Images } from "../../assets";
+import { Images } from "../../../assets";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {

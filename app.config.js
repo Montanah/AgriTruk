@@ -5,12 +5,17 @@ module.exports = {
     version: "1.0.3",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
+    splash: {
+      image: "./assets/images/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff",
+    },
     scheme: "trukapp",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.truk.trukapp",
-      buildNumber: "7",
+      buildNumber: "8",
       supportsTablet: true,
       icon: "./assets/images/ios-icon-1024.png",
       // Updated to iOS 14.0 to support iOS 26 SDK (was 13.4)
@@ -96,7 +101,7 @@ module.exports = {
     },
     android: {
       package: "com.truk.trukapp",
-      versionCode: 7,
+      versionCode: 8,
       icon: "./assets/images/android-icon-512.png",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon-foreground.png",

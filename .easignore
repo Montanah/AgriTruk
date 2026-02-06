@@ -77,11 +77,12 @@ LICENSE
 .husky/
 
 # Screenshots and media (keep only if necessary)
+# NOTE: Do NOT exclude assets/ folder - it contains required app images
 google-play-assets/
-*.png
-*.jpg
-*.jpeg
-*.gif
+docs/*.png
+docs/*.jpg
+docs/*.jpeg
+docs/*.gif
 
 # Test files and coverage
 __tests__/

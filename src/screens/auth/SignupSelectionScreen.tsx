@@ -18,7 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Images } from "../../assets";
+import { Images } from "../../../assets";
 import { colors, fonts, spacing } from "../../constants";
 
 const { width } = Dimensions.get("window");
