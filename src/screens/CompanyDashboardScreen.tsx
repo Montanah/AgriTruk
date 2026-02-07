@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,22 +8,24 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import colors from '../constants/colors';
-import fonts from '../constants/fonts';
-import { API_ENDPOINTS } from '../constants/api';
-import EnhancedSubscriptionStatusCard from '../components/common/EnhancedSubscriptionStatusCard';
-import { useSubscriptionStatus } from '../hooks/useSubscriptionStatus';
-import { COMPANY_FLEET_PLANS } from '../constants/subscriptionPlans';
-import subscriptionService, { SubscriptionStatus } from '../services/subscriptionService';
-import companyFleetValidationService from '../services/companyFleetValidationService';
-import { apiRequest } from '../utils/api';
-import { useResponsive } from '../hooks/useResponsive';
-import BackgroundLocationDisclosureModal from '../components/common/BackgroundLocationDisclosureModal';
-import locationService from '../services/locationService';
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import colors from "../constants/colors";
+import fonts from "../constants/fonts";
+import { API_ENDPOINTS } from "../constants/api";
+import UnifiedSubscriptionCard from "../components/common/UnifiedSubscriptionCard";
+import { useSubscriptionStatus } from "../hooks/useSubscriptionStatus";
+import { COMPANY_FLEET_PLANS } from "../constants/subscriptionPlans";
+import subscriptionService, {
+  SubscriptionStatus,
+} from "../services/subscriptionService";
+import companyFleetValidationService from "../services/companyFleetValidationService";
+import { apiRequest } from "../utils/api";
+import { useResponsive } from "../hooks/useResponsive";
+import BackgroundLocationDisclosureModal from "../components/common/BackgroundLocationDisclosureModal";
+import locationService from "../services/locationService";
 
 interface FleetStats {
   totalVehicles: number;
@@ -40,7 +42,11 @@ interface FleetStats {
 
 interface RecentActivity {
   id: string;
-  type: 'job_completed' | 'driver_assigned' | 'vehicle_added' | 'driver_recruited';
+  type:
+    | "job_completed"
+    | "driver_assigned"
+    | "vehicle_added"
+    | "driver_recruited";
   message: string;
   timestamp: string;
   driverName?: string;
@@ -50,7 +56,12 @@ interface RecentActivity {
 const CompanyDashboardScreen = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { isTablet, maxContentWidth, width: screenWidth, isLandscape } = useResponsive();
+  const {
+    isTablet,
+    maxContentWidth,
+    width: screenWidth,
+    isLandscape,
+  } = useResponsive();
   const [stats, setStats] = useState<FleetStats>({
     totalVehicles: 0,
     activeVehicles: 0,
@@ -67,39 +78,50 @@ const CompanyDashboardScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Company profile state
   const [companyProfile, setCompanyProfile] = useState<any>(null);
   const [loadingCompanyProfile, setLoadingCompanyProfile] = useState(false);
-  
+
   // Subscription state
   const [featureAccess, setFeatureAccess] = useState<any>(null);
-  
+
   // Use the subscription hook for better subscription management
-  const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus();
-  
+  const { subscriptionStatus, loading: subscriptionLoading } =
+    useSubscriptionStatus();
+
   // Background location disclosure state - CRITICAL for Google Play compliance
-  const [showBackgroundLocationDisclosure, setShowBackgroundLocationDisclosure] = useState(false);
+  const [
+    showBackgroundLocationDisclosure,
+    setShowBackgroundLocationDisclosure,
+  ] = useState(false);
   const [hasCheckedConsent, setHasCheckedConsent] = useState(false);
 
   // Check background location consent on mount - CRITICAL for Google Play compliance
   useEffect(() => {
     const checkBackgroundLocationConsent = async () => {
       try {
-        console.log('🔍 CompanyDashboardScreen: Checking background location consent...');
+        console.log(
+          "🔍 CompanyDashboardScreen: Checking background location consent...",
+        );
         const hasConsent = await locationService.hasBackgroundLocationConsent();
-        console.log('🔍 CompanyDashboardScreen: Background location consent status:', hasConsent);
-        
+        console.log(
+          "🔍 CompanyDashboardScreen: Background location consent status:",
+          hasConsent,
+        );
+
         // If consent hasn't been given, show the prominent disclosure modal
         // This ensures Google Play reviewers will see it immediately
         if (!hasConsent) {
-          console.log('📢 CompanyDashboardScreen: No consent found - showing prominent disclosure modal');
+          console.log(
+            "📢 CompanyDashboardScreen: No consent found - showing prominent disclosure modal",
+          );
           setShowBackgroundLocationDisclosure(true);
         }
-        
+
         setHasCheckedConsent(true);
       } catch (error) {
-        console.error('Error checking background location consent:', error);
+        console.error("Error checking background location consent:", error);
         // On error, show the disclosure to be safe (better to show it than miss it)
         setShowBackgroundLocationDisclosure(true);
         setHasCheckedConsent(true);
@@ -112,11 +134,26 @@ const CompanyDashboardScreen = () => {
   const validateFeatureAccess = async () => {
     if (subscriptionStatus) {
       const access = {
-        jobSeekers: companyFleetValidationService.validateJobSeekersAccess(subscriptionStatus),
-        analytics: companyFleetValidationService.validateAdvancedAnalyticsAccess(subscriptionStatus),
-        routeOptimization: companyFleetValidationService.validateRouteOptimizationAccess(subscriptionStatus),
-        accountManager: companyFleetValidationService.validateAccountManagerAccess(subscriptionStatus),
-        customIntegrations: companyFleetValidationService.validateCustomIntegrationsAccess(subscriptionStatus),
+        jobSeekers:
+          companyFleetValidationService.validateJobSeekersAccess(
+            subscriptionStatus,
+          ),
+        analytics:
+          companyFleetValidationService.validateAdvancedAnalyticsAccess(
+            subscriptionStatus,
+          ),
+        routeOptimization:
+          companyFleetValidationService.validateRouteOptimizationAccess(
+            subscriptionStatus,
+          ),
+        accountManager:
+          companyFleetValidationService.validateAccountManagerAccess(
+            subscriptionStatus,
+          ),
+        customIntegrations:
+          companyFleetValidationService.validateCustomIntegrationsAccess(
+            subscriptionStatus,
+          ),
       };
       setFeatureAccess(access);
     }
@@ -124,45 +161,52 @@ const CompanyDashboardScreen = () => {
 
   const fetchCompanyProfile = async (): Promise<any | null> => {
     if (loadingCompanyProfile) {
-      console.log('🏢 Company profile already loading, skipping...');
+      console.log("🏢 Company profile already loading, skipping...");
       return companyProfile; // Return existing profile if already loading
     }
 
     try {
       setLoadingCompanyProfile(true);
-      const { getAuth } = require('firebase/auth');
+      const { getAuth } = require("firebase/auth");
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) {
-        console.error('🏢 No authenticated user');
+        console.error("🏢 No authenticated user");
         return null;
       }
 
-      console.log('🏢 Fetching company profile for user:', user.uid);
+      console.log("🏢 Fetching company profile for user:", user.uid);
       const token = await user.getIdToken();
-      const response = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        `${API_ENDPOINTS.COMPANIES}/transporter/${user.uid}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
-        console.log('🏢 Company profile loaded:', data);
+        console.log("🏢 Company profile loaded:", data);
         const profile = data[0] || data;
-        console.log('🏢 Setting company profile:', profile);
-        console.log('🏢 Company ID:', profile?.id || profile?.companyId);
+        console.log("🏢 Setting company profile:", profile);
+        console.log("🏢 Company ID:", profile?.id || profile?.companyId);
         setCompanyProfile(profile);
         return profile; // Return the profile data directly
       } else {
-        console.error('🏢 Failed to load company profile:', response.status, response.statusText);
+        console.error(
+          "🏢 Failed to load company profile:",
+          response.status,
+          response.statusText,
+        );
         const errorText = await response.text();
-        console.error('🏢 Error response:', errorText);
+        console.error("🏢 Error response:", errorText);
         return null;
       }
     } catch (error) {
-      console.error('Error fetching company profile:', error);
+      console.error("Error fetching company profile:", error);
       return null;
     } finally {
       setLoadingCompanyProfile(false);
@@ -172,7 +216,7 @@ const CompanyDashboardScreen = () => {
   const fetchDashboardData = async () => {
     try {
       setError(null);
-      const { getAuth } = require('firebase/auth');
+      const { getAuth } = require("firebase/auth");
       const auth = getAuth();
       const user = auth.currentUser;
       if (!user) return;
@@ -180,11 +224,11 @@ const CompanyDashboardScreen = () => {
       // Ensure company profile is loaded first - get it directly from the function
       let currentProfile = companyProfile;
       if (!currentProfile?.id && !currentProfile?.companyId) {
-        console.log('🏢 Company profile not loaded, fetching...');
+        console.log("🏢 Company profile not loaded, fetching...");
         currentProfile = await fetchCompanyProfile();
         if (!currentProfile) {
-          console.error('🏢 Failed to load company profile');
-          setError('Unable to load company profile. Please try again.');
+          console.error("🏢 Failed to load company profile");
+          setError("Unable to load company profile. Please try again.");
           setLoading(false);
           return;
         }
@@ -193,35 +237,45 @@ const CompanyDashboardScreen = () => {
       // Use the profile we just fetched or the existing one
       const companyId = currentProfile?.id || currentProfile?.companyId;
       if (!companyId) {
-        console.error('🏢 Company ID not available');
-        setError('Company ID not available. Please try again.');
+        console.error("🏢 Company ID not available");
+        setError("Company ID not available. Please try again.");
         setLoading(false);
         return;
       }
 
-      console.log('🏢 Fetching dashboard data for company:', companyId);
+      console.log("🏢 Fetching dashboard data for company:", companyId);
 
       // Use company-specific endpoints - handle 404s gracefully (expected for empty data)
-      const [vehiclesData, driversData, jobsData, activityData] = await Promise.all([
-        apiRequest(`/companies/${companyId}/vehicles`).catch((err: any) => {
-          // 404 is expected for empty resources - return empty array
-          if (err?.status === 404 || err?.isNotFound) {
+      const [vehiclesData, driversData, jobsData, activityData] =
+        await Promise.all([
+          apiRequest(`/companies/${companyId}/vehicles`).catch((err: any) => {
+            // 404 is expected for empty resources - return empty array
+            if (err?.status === 404 || err?.isNotFound) {
+              return { vehicles: [] };
+            }
+            console.error("Error fetching vehicles:", err);
             return { vehicles: [] };
-          }
-          console.error('Error fetching vehicles:', err);
-          return { vehicles: [] };
-        }),
-        apiRequest(`/companies/${companyId}/drivers`).catch((err: any) => {
-          // 404 is expected for empty resources - return empty array
-          if (err?.status === 404 || err?.isNotFound) {
+          }),
+          apiRequest(`/companies/${companyId}/drivers`).catch((err: any) => {
+            // 404 is expected for empty resources - return empty array
+            if (err?.status === 404 || err?.isNotFound) {
+              return { drivers: [] };
+            }
+            console.error("Error fetching drivers:", err);
             return { drivers: [] };
-          }
-          console.error('Error fetching drivers:', err);
-          return { drivers: [] };
-        }),
-        apiRequest(`/bookings/company-stats`).catch((err: any) => {
-          // 404 is expected for empty resources - return default stats
-          if (err?.status === 404 || err?.isNotFound) {
+          }),
+          apiRequest(`/bookings/company-stats`).catch((err: any) => {
+            // 404 is expected for empty resources - return default stats
+            if (err?.status === 404 || err?.isNotFound) {
+              return {
+                totalJobs: 0,
+                completedJobs: 0,
+                pendingJobs: 0,
+                totalEarnings: 0,
+                thisMonthEarnings: 0,
+              };
+            }
+            console.error("Error fetching company stats:", err);
             return {
               totalJobs: 0,
               completedJobs: 0,
@@ -229,31 +283,26 @@ const CompanyDashboardScreen = () => {
               totalEarnings: 0,
               thisMonthEarnings: 0,
             };
-          }
-          console.error('Error fetching company stats:', err);
-          return {
-            totalJobs: 0,
-            completedJobs: 0,
-            pendingJobs: 0,
-            totalEarnings: 0,
-            thisMonthEarnings: 0,
-          };
-        }),
-        apiRequest(`/companies/${companyId}/recent-activity`).catch((err: any) => {
-          // 404 is expected for empty resources - return empty array
-          if (err?.status === 404 || err?.isNotFound) {
-            return { activities: [] };
-          }
-          console.error('Error fetching recent activity:', err);
-          return { activities: [] };
-        }),
-      ]);
+          }),
+          apiRequest(`/companies/${companyId}/recent-activity`).catch(
+            (err: any) => {
+              // 404 is expected for empty resources - return empty array
+              if (err?.status === 404 || err?.isNotFound) {
+                return { activities: [] };
+              }
+              console.error("Error fetching recent activity:", err);
+              return { activities: [] };
+            },
+          ),
+        ]);
 
       // Process vehicles data
       const vehicles = vehiclesData.vehicles || [];
       const allVehicles = vehicles;
-      const approvedVehicles = vehicles.filter((v: any) => v.status === 'approved');
-      setStats(prev => ({
+      const approvedVehicles = vehicles.filter(
+        (v: any) => v.status === "approved",
+      );
+      setStats((prev) => ({
         ...prev,
         totalVehicles: allVehicles.length,
         activeVehicles: approvedVehicles.length,
@@ -261,15 +310,15 @@ const CompanyDashboardScreen = () => {
 
       // Process drivers data
       const drivers = driversData.drivers || [];
-      setStats(prev => ({
+      setStats((prev) => ({
         ...prev,
         totalDrivers: drivers.length,
-        activeDrivers: drivers.filter((d: any) => d.status === 'active').length,
+        activeDrivers: drivers.filter((d: any) => d.status === "active").length,
         assignedDrivers: drivers.filter((d: any) => d.assignedVehicleId).length,
       }));
 
       // Process jobs data
-      setStats(prev => ({
+      setStats((prev) => ({
         ...prev,
         totalJobs: jobsData.totalJobs || 0,
         completedJobs: jobsData.completedJobs || 0,
@@ -280,10 +329,9 @@ const CompanyDashboardScreen = () => {
 
       // Process recent activity
       setRecentActivity(activityData.activities || []);
-
     } catch (err: any) {
-      console.error('Error fetching dashboard data:', err);
-      setError(err.message || 'Failed to load dashboard data');
+      console.error("Error fetching dashboard data:", err);
+      setError(err.message || "Failed to load dashboard data");
     } finally {
       setLoading(false);
     }
@@ -301,14 +349,18 @@ const CompanyDashboardScreen = () => {
       await fetchCompanyProfile();
       await fetchDashboardData();
     };
-    
+
     initializeData();
   }, []);
 
   // Refetch dashboard data when company profile is loaded
   useEffect(() => {
     // Only refetch if profile is loaded and we're not already loading
-    if ((companyProfile?.id || companyProfile?.companyId) && !loading && !refreshing) {
+    if (
+      (companyProfile?.id || companyProfile?.companyId) &&
+      !loading &&
+      !refreshing
+    ) {
       // Use a small delay to avoid race conditions
       const timeoutId = setTimeout(() => {
         fetchDashboardData();
@@ -328,22 +380,22 @@ const CompanyDashboardScreen = () => {
       if (isLandscape) {
         // Landscape tablets: more columns
         if (columns === 4) {
-          return '18%'; // 5 columns in landscape
+          return "18%"; // 5 columns in landscape
         } else if (columns === 3) {
-          return '23%'; // 4 columns in landscape
+          return "23%"; // 4 columns in landscape
         }
       } else {
         // Portrait tablets
         if (columns === 4) {
-          return '23%'; // 4 columns in portrait
+          return "23%"; // 4 columns in portrait
         } else if (columns === 3) {
-          return '31%'; // 3 columns in portrait
+          return "31%"; // 3 columns in portrait
         }
       }
-      return '48%'; // fallback
+      return "48%"; // fallback
     }
     // Phones: 2 columns (48% each)
-    return '48%';
+    return "48%";
   };
 
   // Number of columns for stats grid - adjust for landscape
@@ -353,7 +405,13 @@ const CompanyDashboardScreen = () => {
   // Create styles early so they're available for loading state
   const styles = getStyles(isTablet, maxContentWidth, isLandscape);
 
-  const renderStatCard = (title: string, value: string | number, icon: string, color: string, onPress?: () => void) => {
+  const renderStatCard = (
+    title: string,
+    value: string | number,
+    icon: string,
+    color: string,
+    onPress?: () => void,
+  ) => {
     const cardWidth = getCardWidth(statsColumns);
     return (
       <TouchableOpacity
@@ -362,7 +420,11 @@ const CompanyDashboardScreen = () => {
         disabled={!onPress}
       >
         <View style={styles.statHeader}>
-          <MaterialCommunityIcons name={icon} size={isTablet ? 28 : 24} color={color} />
+          <MaterialCommunityIcons
+            name={icon}
+            size={isTablet ? 28 : 24}
+            color={color}
+          />
           <Text style={styles.statValue}>{value}</Text>
         </View>
         <Text style={styles.statTitle}>{title}</Text>
@@ -375,10 +437,13 @@ const CompanyDashboardScreen = () => {
       <View style={styles.activityIcon}>
         <MaterialCommunityIcons
           name={
-            activity.type === 'job_completed' ? 'check-circle' :
-            activity.type === 'driver_assigned' ? 'account-plus' :
-            activity.type === 'vehicle_added' ? 'truck-plus' :
-            'account-group'
+            activity.type === "job_completed"
+              ? "check-circle"
+              : activity.type === "driver_assigned"
+                ? "account-plus"
+                : activity.type === "vehicle_added"
+                  ? "truck-plus"
+                  : "account-group"
           }
           size={20}
           color={colors.primary}
@@ -405,12 +470,20 @@ const CompanyDashboardScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Fleet Dashboard</Text>
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={onRefresh}
+        <Text
+          style={styles.headerTitle}
+          numberOfLines={1}
+          adjustsFontSizeToFit={true}
+          minimumFontScale={0.8}
         >
-          <MaterialCommunityIcons name="refresh" size={24} color={colors.white} />
+          Fleet Dashboard
+        </Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+          <MaterialCommunityIcons
+            name="refresh"
+            size={24}
+            color={colors.white}
+          />
         </TouchableOpacity>
       </View>
 
@@ -419,7 +492,11 @@ const CompanyDashboardScreen = () => {
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: 100 + insets.bottom },
-          isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }
+          isTablet && {
+            maxWidth: maxContentWidth,
+            alignSelf: "center",
+            width: "100%",
+          },
         ]}
         refreshControl={
           <RefreshControl
@@ -432,19 +509,28 @@ const CompanyDashboardScreen = () => {
       >
         {/* Subscription Status - Read Only */}
         <View style={styles.section}>
-          <EnhancedSubscriptionStatusCard
-            subscriptionStatus={subscriptionStatus || {
-              hasActiveSubscription: true,
-              isTrialActive: false,
-              currentPlan: COMPANY_FLEET_PLANS.find(plan => plan.id === 'fleet_growing') || COMPANY_FLEET_PLANS[1],
-              daysRemaining: 15,
-              subscriptionStatus: 'active'
-            }}
-            onManagePress={undefined}
-            onRenewPress={undefined}
-            onUpgradePress={undefined}
-            showUpgradeOptions={false}
-            animated={true}
+          <UnifiedSubscriptionCard
+            subscriptionStatus={
+              subscriptionStatus || {
+                hasActiveSubscription: true,
+                isTrialActive: false,
+                currentPlan:
+                  COMPANY_FLEET_PLANS.find(
+                    (plan) => plan.id === "fleet_growing",
+                  ) || COMPANY_FLEET_PLANS[1],
+                daysRemaining: 15,
+                subscriptionStatus: "active",
+              }
+            }
+            userType="company"
+            onManagePress={() =>
+              navigation.navigate("SubscriptionManagement", {
+                userType: "company",
+              })
+            }
+            onUpgradePress={() =>
+              navigation.navigate("CompanyFleetPlans" as never)
+            }
           />
         </View>
 
@@ -453,30 +539,31 @@ const CompanyDashboardScreen = () => {
           <Text style={styles.sectionTitle}>Fleet Overview</Text>
           <View style={[styles.statsGrid, { gap: 12 }]}>
             {renderStatCard(
-              'Total Vehicles',
+              "Total Vehicles",
               stats.totalVehicles,
-              'truck',
+              "truck",
               colors.primary,
-              () => navigation.navigate('Fleet', { screen: 'VehicleManagement' })
+              () =>
+                navigation.navigate("Fleet", { screen: "VehicleManagement" }),
             )}
             {renderStatCard(
-              'Active Vehicles',
+              "Active Vehicles",
               stats.activeVehicles,
-              'truck-check',
-              colors.success
+              "truck-check",
+              colors.success,
             )}
             {renderStatCard(
-              'Total Drivers',
+              "Total Drivers",
               stats.totalDrivers,
-              'account-group',
+              "account-group",
               colors.warning,
-              () => navigation.navigate('DriverManagement')
+              () => navigation.navigate("DriverManagement"),
             )}
             {renderStatCard(
-              'Active Drivers',
+              "Active Drivers",
               stats.activeDrivers,
-              'account-check',
-              colors.success
+              "account-check",
+              colors.success,
             )}
           </View>
         </View>
@@ -486,28 +573,28 @@ const CompanyDashboardScreen = () => {
           <Text style={styles.sectionTitle}>Job Performance</Text>
           <View style={[styles.statsGrid, { gap: 12 }]}>
             {renderStatCard(
-              'Total Jobs',
+              "Total Jobs",
               stats.totalJobs,
-              'briefcase',
-              colors.primary
+              "briefcase",
+              colors.primary,
             )}
             {renderStatCard(
-              'Completed',
+              "Completed",
               stats.completedJobs,
-              'check-circle',
-              colors.success
+              "check-circle",
+              colors.success,
             )}
             {renderStatCard(
-              'Pending',
+              "Pending",
               stats.pendingJobs,
-              'clock',
-              colors.warning
+              "clock",
+              colors.warning,
             )}
             {renderStatCard(
-              'This Month',
+              "This Month",
               `KES ${stats.thisMonthEarnings.toLocaleString()}`,
-              'cash-multiple',
-              colors.success
+              "cash-multiple",
+              colors.success,
             )}
           </View>
         </View>
@@ -517,87 +604,125 @@ const CompanyDashboardScreen = () => {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={[styles.actionsGrid, { gap: 12 }]}>
             <TouchableOpacity
-              style={[styles.actionButton, { width: getCardWidth(actionsColumns) }]}
+              style={[
+                styles.actionButton,
+                { width: getCardWidth(actionsColumns) },
+              ]}
               onPress={() => {
                 // Navigate to Fleet tab and then to VehicleManagement screen
-                navigation.navigate('Fleet', { 
-                  screen: 'VehicleManagement'
+                navigation.navigate("Fleet", {
+                  screen: "VehicleManagement",
                 });
               }}
             >
-              <MaterialCommunityIcons name="truck-plus" size={isTablet ? 36 : 32} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="truck-plus"
+                size={isTablet ? 36 : 32}
+                color={colors.primary}
+              />
               <Text style={styles.actionText}>Add Vehicle</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionButton, { width: getCardWidth(actionsColumns) }]}
+              style={[
+                styles.actionButton,
+                { width: getCardWidth(actionsColumns) },
+              ]}
               onPress={() => {
                 // Navigate to Fleet tab and then to DriverManagement screen
-                navigation.navigate('Fleet', { 
-                  screen: 'DriverManagement'
+                navigation.navigate("Fleet", {
+                  screen: "DriverManagement",
                 });
               }}
             >
-              <MaterialCommunityIcons name="account-plus" size={isTablet ? 36 : 32} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="account-plus"
+                size={isTablet ? 36 : 32}
+                color={colors.primary}
+              />
               <Text style={styles.actionText}>Recruit Driver</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionButton, { width: getCardWidth(actionsColumns) }]}
+              style={[
+                styles.actionButton,
+                { width: getCardWidth(actionsColumns) },
+              ]}
               onPress={() => {
                 // Navigate to Fleet tab and then to FleetAnalytics screen
-                navigation.navigate('Fleet', { 
-                  screen: 'FleetAnalytics'
+                navigation.navigate("Fleet", {
+                  screen: "FleetAnalytics",
                 });
               }}
             >
-              <MaterialCommunityIcons name="chart-line" size={isTablet ? 36 : 32} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="chart-line"
+                size={isTablet ? 36 : 32}
+                color={colors.primary}
+              />
               <Text style={styles.actionText}>Analytics</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.actionButton,
                 { width: getCardWidth(actionsColumns) },
-                (!featureAccess?.jobSeekers?.hasAccess) && styles.actionButtonDisabled
+                !featureAccess?.jobSeekers?.hasAccess &&
+                  styles.actionButtonDisabled,
               ]}
               onPress={() => {
                 if (featureAccess?.jobSeekers?.hasAccess) {
-                  navigation.navigate('JobSeekersMarketplace');
+                  navigation.navigate("JobSeekersMarketplace");
                 } else {
                   Alert.alert(
-                    'Feature Not Available',
-                    featureAccess?.jobSeekers?.reason || 'Job Seekers Marketplace is not available in your current plan.',
+                    "Feature Not Available",
+                    featureAccess?.jobSeekers?.reason ||
+                      "Job Seekers Marketplace is not available in your current plan.",
                     [
-                      { text: 'Cancel', style: 'cancel' },
-                      { 
-                        text: 'Upgrade Plan', 
-                        onPress: () => navigation.navigate('CompanyFleetPlans' as never)
-                      }
-                    ]
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Upgrade Plan",
+                        onPress: () =>
+                          navigation.navigate("CompanyFleetPlans" as never),
+                      },
+                    ],
                   );
                 }
               }}
             >
-              <MaterialCommunityIcons 
-                name="account-search" 
-                size={isTablet ? 36 : 32} 
-                color={featureAccess?.jobSeekers?.hasAccess ? colors.primary : colors.text.secondary} 
+              <MaterialCommunityIcons
+                name="account-search"
+                size={isTablet ? 36 : 32}
+                color={
+                  featureAccess?.jobSeekers?.hasAccess
+                    ? colors.primary
+                    : colors.text.secondary
+                }
               />
-              <Text style={[
-                styles.actionText,
-                (!featureAccess?.jobSeekers?.hasAccess) && styles.actionTextDisabled
-              ]}>
+              <Text
+                style={[
+                  styles.actionText,
+                  !featureAccess?.jobSeekers?.hasAccess &&
+                    styles.actionTextDisabled,
+                ]}
+              >
                 Browse Job Seekers
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionButton, { width: getCardWidth(actionsColumns) }]}
+              style={[
+                styles.actionButton,
+                { width: getCardWidth(actionsColumns) },
+              ]}
               onPress={() => {
                 // Navigate to Fleet tab and then to FleetReports screen
-                navigation.navigate('Fleet', { 
-                  screen: 'FleetReports'
+                navigation.navigate("Fleet", {
+                  screen: "FleetReports",
                 });
               }}
             >
-              <MaterialCommunityIcons name="file-document" size={isTablet ? 36 : 32} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="file-document"
+                size={isTablet ? 36 : 32}
+                color={colors.primary}
+              />
               <Text style={styles.actionText}>Reports</Text>
             </TouchableOpacity>
           </View>
@@ -608,7 +733,11 @@ const CompanyDashboardScreen = () => {
           <Text style={styles.sectionTitle}>Recent Activity</Text>
           {recentActivity.length === 0 ? (
             <View style={styles.emptyActivity}>
-              <MaterialCommunityIcons name="clock-outline" size={48} color={colors.text.secondary} />
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={48}
+                color={colors.text.secondary}
+              />
               <Text style={styles.emptyText}>No recent activity</Text>
             </View>
           ) : (
@@ -620,9 +749,16 @@ const CompanyDashboardScreen = () => {
 
         {error && (
           <View style={styles.errorContainer}>
-            <MaterialCommunityIcons name="alert-circle" size={48} color={colors.error} />
+            <MaterialCommunityIcons
+              name="alert-circle"
+              size={48}
+              color={colors.error}
+            />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchDashboardData}>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={fetchDashboardData}
+            >
               <Text style={styles.retryText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -635,221 +771,234 @@ const CompanyDashboardScreen = () => {
         userRole="company"
         transporterType="company"
         onAccept={async () => {
-          console.log('✅ CompanyDashboardScreen: User accepted background location disclosure');
+          console.log(
+            "✅ CompanyDashboardScreen: User accepted background location disclosure",
+          );
           // User consented - save consent
           await locationService.saveBackgroundLocationConsent(true);
           setShowBackgroundLocationDisclosure(false);
-          
+
           // Note: We don't start tracking here - that happens when user explicitly starts tracking
           // This disclosure is just for consent, per Google Play requirements
-          console.log('✅ CompanyDashboardScreen: Background location consent saved');
+          console.log(
+            "✅ CompanyDashboardScreen: Background location consent saved",
+          );
         }}
         onDecline={async () => {
-          console.log('❌ CompanyDashboardScreen: User declined background location disclosure');
+          console.log(
+            "❌ CompanyDashboardScreen: User declined background location disclosure",
+          );
           // User declined - save consent status
           await locationService.saveBackgroundLocationConsent(false);
           setShowBackgroundLocationDisclosure(false);
-          
+
           // User can still use the app, but background location won't be available
-          console.log('ℹ️ CompanyDashboardScreen: Background location consent declined - app will use foreground-only tracking');
+          console.log(
+            "ℹ️ CompanyDashboardScreen: Background location consent declined - app will use foreground-only tracking",
+          );
         }}
       />
     </View>
   );
 };
 
-const getStyles = (isTablet: boolean, maxContentWidth: number, isLandscape: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    backgroundColor: colors.primary,
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: isTablet ? 40 : 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: fonts.family.bold,
-    color: colors.white,
-    flex: 1,
-    marginRight: 8,
-  },
-  refreshButton: {
-    padding: 8,
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: isTablet ? (isLandscape ? 24 : 32) : 20,
-  },
-  section: {
-    marginBottom: isTablet ? 32 : 24,
-  },
-  sectionTitle: {
-    fontSize: isTablet ? 20 : 18,
-    fontFamily: fonts.family.bold,
-    color: colors.text.primary,
-    marginBottom: isTablet ? 20 : 16,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: isTablet && isLandscape ? 'space-between' : 'flex-start',
-  },
-  statCard: {
-    backgroundColor: colors.white,
-    padding: isTablet ? 20 : 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: isTablet ? 28 : 24,
-    fontFamily: fonts.family.bold,
-    color: colors.text.primary,
-  },
-  statTitle: {
-    fontSize: isTablet ? 15 : 14,
-    fontFamily: fonts.family.medium,
-    color: colors.text.secondary,
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: isTablet && isLandscape ? 'space-between' : 'flex-start',
-  },
-  actionButton: {
-    backgroundColor: colors.white,
-    padding: isTablet ? 20 : 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  actionButtonDisabled: {
-    backgroundColor: colors.background.light,
-    opacity: 0.6,
-  },
-  actionText: {
-    fontSize: isTablet ? 15 : 14,
-    fontFamily: fonts.family.medium,
-    color: colors.text.primary,
-    marginTop: isTablet ? 10 : 8,
-  },
-  actionTextDisabled: {
-    color: colors.text.secondary,
-  },
-  activityList: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityMessage: {
-    fontSize: 14,
-    fontFamily: fonts.family.medium,
-    color: colors.text.primary,
-    marginBottom: 4,
-  },
-  activityTime: {
-    fontSize: 12,
-    fontFamily: fonts.family.regular,
-    color: colors.text.secondary,
-  },
-  emptyActivity: {
-    alignItems: 'center',
-    padding: 32,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontFamily: fonts.family.medium,
-    color: colors.text.secondary,
-    marginTop: 12,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: fonts.family.medium,
-    color: colors.text.secondary,
-    marginTop: 16,
-  },
-  errorContainer: {
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  errorText: {
-    fontSize: 16,
-    fontFamily: fonts.family.medium,
-    color: colors.error,
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryText: {
-    fontSize: 16,
-    fontFamily: fonts.family.bold,
-    color: colors.white,
-  },
-});
+const getStyles = (
+  isTablet: boolean,
+  maxContentWidth: number,
+  isLandscape: boolean,
+) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      backgroundColor: colors.primary,
+      paddingTop: 50,
+      paddingBottom: 20,
+      paddingHorizontal: isTablet ? 40 : 20,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    headerTitle: {
+      fontSize: 18,
+      fontFamily: fonts.family.bold,
+      color: colors.white,
+      flex: 1,
+      marginRight: 8,
+    },
+    refreshButton: {
+      padding: 8,
+    },
+    content: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: isTablet ? (isLandscape ? 24 : 32) : 20,
+    },
+    section: {
+      marginBottom: isTablet ? 32 : 24,
+    },
+    sectionTitle: {
+      fontSize: isTablet ? 20 : 18,
+      fontFamily: fonts.family.bold,
+      color: colors.text.primary,
+      marginBottom: isTablet ? 20 : 16,
+    },
+    statsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: isTablet && isLandscape ? "space-between" : "flex-start",
+    },
+    statCard: {
+      backgroundColor: colors.white,
+      padding: isTablet ? 20 : 16,
+      borderRadius: 12,
+      marginBottom: 12,
+      borderLeftWidth: 4,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    statHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 8,
+    },
+    statValue: {
+      fontSize: isTablet ? 28 : 24,
+      fontFamily: fonts.family.bold,
+      color: colors.text.primary,
+    },
+    statTitle: {
+      fontSize: isTablet ? 15 : 14,
+      fontFamily: fonts.family.medium,
+      color: colors.text.secondary,
+    },
+    actionsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: isTablet && isLandscape ? "space-between" : "flex-start",
+    },
+    actionButton: {
+      backgroundColor: colors.white,
+      padding: isTablet ? 20 : 16,
+      borderRadius: 12,
+      alignItems: "center",
+      marginBottom: 12,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    actionButtonDisabled: {
+      backgroundColor: colors.background.light,
+      opacity: 0.6,
+    },
+    actionText: {
+      fontSize: isTablet ? 15 : 14,
+      fontFamily: fonts.family.medium,
+      color: colors.text.primary,
+      marginTop: isTablet ? 10 : 8,
+    },
+    actionTextDisabled: {
+      color: colors.text.secondary,
+    },
+    activityList: {
+      backgroundColor: colors.white,
+      borderRadius: 12,
+      padding: 16,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    activityItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    activityIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primaryLight,
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 12,
+    },
+    activityContent: {
+      flex: 1,
+    },
+    activityMessage: {
+      fontSize: 14,
+      fontFamily: fonts.family.medium,
+      color: colors.text.primary,
+      marginBottom: 4,
+    },
+    activityTime: {
+      fontSize: 12,
+      fontFamily: fonts.family.regular,
+      color: colors.text.secondary,
+    },
+    emptyActivity: {
+      alignItems: "center",
+      padding: 32,
+      backgroundColor: colors.white,
+      borderRadius: 12,
+    },
+    emptyText: {
+      fontSize: 16,
+      fontFamily: fonts.family.medium,
+      color: colors.text.secondary,
+      marginTop: 12,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: colors.background,
+    },
+    loadingText: {
+      fontSize: 16,
+      fontFamily: fonts.family.medium,
+      color: colors.text.secondary,
+      marginTop: 16,
+    },
+    errorContainer: {
+      alignItems: "center",
+      padding: 20,
+      backgroundColor: colors.white,
+      borderRadius: 12,
+      marginTop: 16,
+    },
+    errorText: {
+      fontSize: 16,
+      fontFamily: fonts.family.medium,
+      color: colors.error,
+      textAlign: "center",
+      marginTop: 16,
+      marginBottom: 20,
+    },
+    retryButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 8,
+    },
+    retryText: {
+      fontSize: 16,
+      fontFamily: fonts.family.bold,
+      color: colors.white,
+    },
+  });
 
 export default CompanyDashboardScreen;

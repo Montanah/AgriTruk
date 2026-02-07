@@ -11,12 +11,18 @@ show_help() {
     echo "Usage: $0 [OPTION]"
     echo ""
     echo "Options:"
-    echo "  apk        Build Android APK (preview)"
-    echo "  aab        Build Android App Bundle (production)"
-    echo "  ios        Build iOS IPA (production)"
-    echo "  all        Build all platforms"
+    echo "  apk        Build Android APK (preview/testing)"
+    echo "  aab        Build Android App Bundle (Google Play Store)"
+    echo "  ios        Build iOS IPA (Apple App Store)"
+    echo "  all        Build all platforms (APK + AAB + IPA)"
     echo "  local      Build APK locally (requires Android SDK)"
     echo "  help       Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 apk     # Build APK for testing"
+    echo "  $0 aab     # Build AAB for Play Store submission"
+    echo "  $0 ios     # Build IPA for App Store submission"
+    echo "  $0 all     # Build everything"
     echo ""
 }
 
@@ -67,12 +73,15 @@ build_local() {
 case "${1:-help}" in
     apk)
         build_apk
+        echo "🎉 Build script completed!"
         ;;
     aab)
         build_aab
+        echo "🎉 Build script completed!"
         ;;
     ios)
         build_ios
+        echo "🎉 Build script completed!"
         ;;
     all)
         echo "🌍 Building all platforms..."
@@ -80,11 +89,13 @@ case "${1:-help}" in
         build_aab
         build_ios
         echo "✅ All builds completed!"
+        echo "🎉 Build script completed!"
         ;;
     local)
         build_local
+        echo "🎉 Build script completed!"
         ;;
-    help|--help|-h)
+    help|--help|-h|"")
         show_help
         ;;
     *)
@@ -94,5 +105,3 @@ case "${1:-help}" in
         exit 1
         ;;
 esac
-
-echo "🎉 Build script completed!"
