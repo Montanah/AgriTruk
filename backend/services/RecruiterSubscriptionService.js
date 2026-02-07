@@ -31,7 +31,18 @@ const RecruiterSubscriptionService = {
       // Calculate dates
       const startDate = new Date();
       const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + plan.duration);
+      
+      // CRITICAL FIX: Handle trial vs paid plan duration correctly
+      if (plan.price === 0) {
+        // Trial plan: use trialDays if available, otherwise default to 90
+        const trialDays = plan.trialDays || 90;
+        console.log(`🔧 Creating broker trial subscriber with ${trialDays} days (plan.trialDays: ${plan.trialDays})`);
+        endDate.setDate(endDate.getDate() + trialDays);
+      } else {
+        // Paid plan: duration should be in days
+        console.log(`🔧 Creating broker paid subscriber with ${plan.duration} days`);
+        endDate.setDate(endDate.getDate() + plan.duration);
+      }
 
       // For paid plans, verify payment
       let paymentStatus = 'pending';
