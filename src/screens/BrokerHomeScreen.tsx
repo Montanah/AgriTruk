@@ -690,11 +690,12 @@ const BrokerHomeScreen = ({ navigation, route }: any) => {
           />
         </View>
 
-        {/* Subscription Status */}
+        {/* Subscription Status - Compact & Chill */}
         {subscriptionStatus && (
           <UnifiedSubscriptionCard
             subscriptionStatus={subscriptionStatus}
             userType="broker"
+            compact={true}
             onManagePress={() =>
               navigation?.navigate?.("SubscriptionManagement", {
                 userType: "broker",
@@ -1225,25 +1226,25 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     right: spacing.lg,
-    // Raise above bottom tab bar so it's fully visible and tappable
-    bottom: spacing.xxl * 2,
+    bottom: 80, // Position above bottom tab bar (typically 60-70px) with extra clearance
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primary,
-    elevation: 12,
-    zIndex: 100,
+    elevation: 8,
+    zIndex: 1000,
     shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   content: {
     flex: 1,
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl * 4, // Add extra bottom padding to avoid navigation tabs
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: 120, // Extra bottom padding to avoid FAB and bottom tabs
   },
   sectionTitle: {
     fontSize: fonts.size.lg,
@@ -1378,7 +1379,7 @@ const styles = StyleSheet.create({
 
   // Clients Section
   clientsSection: {
-    marginBottom: spacing.xxl * 2,
+    marginBottom: spacing.lg,
   },
   clientItem: {
     flexDirection: "row",

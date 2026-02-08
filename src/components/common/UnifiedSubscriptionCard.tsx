@@ -150,12 +150,12 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
 
   const getStatusMessage = () => {
     if (details.daysRemaining === 0) {
-      return details.isTrial ? "Trial has expired" : "Subscription expired";
+      return details.isTrial ? "Trial ended" : "Subscription ended";
     }
     if (details.isExpiringSoon) {
-      return `⚠️ ${details.isTrial ? "Trial" : "Subscription"} expires in ${details.daysRemaining} ${details.daysRemaining === 1 ? "day" : "days"}`;
+      return `${details.daysRemaining} ${details.daysRemaining === 1 ? "day" : "days"} left`;
     }
-    return `${details.isTrial ? "Trial" : "Subscription"} ends in ${details.daysRemaining} ${details.daysRemaining === 1 ? "day" : "days"}`;
+    return `${details.daysRemaining} ${details.daysRemaining === 1 ? "day" : "days"} remaining`;
   };
 
   const renderActionButton = () => {
@@ -221,12 +221,12 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
           <View
             style={[
               styles.compactIcon,
-              { backgroundColor: details.statusColor + "20" },
+              { backgroundColor: details.statusColor + "15" },
             ]}
           >
             <MaterialCommunityIcons
               name={details.icon}
-              size={20}
+              size={18}
               color={details.statusColor}
             />
           </View>
@@ -238,10 +238,15 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
               {details.statusText}
             </Text>
           </View>
-          <Text style={styles.compactDays}>{details.daysRemaining}d</Text>
+          <View style={styles.compactDaysContainer}>
+            <Text style={[styles.compactDays, { color: details.statusColor }]}>
+              {details.daysRemaining}
+            </Text>
+            <Text style={styles.compactDaysLabel}>days</Text>
+          </View>
         </View>
 
-        {/* Simplified Progress Bar */}
+        {/* Minimal Progress Bar */}
         <View style={styles.compactProgressContainer}>
           <View style={styles.compactProgressBar}>
             <Animated.View
@@ -252,12 +257,27 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
                     inputRange: [0, 1],
                     outputRange: ["0%", "100%"],
                   }),
-                  backgroundColor: details.statusColor,
+                  backgroundColor: details.statusColor + "80",
                 },
               ]}
             />
           </View>
-          <Text style={styles.compactProgressText}>{getStatusMessage()}</Text>
+          <View style={styles.compactProgressFooter}>
+            <Text style={styles.compactProgressText}>{getStatusMessage()}</Text>
+            {onManagePress && (
+              <TouchableOpacity
+                style={styles.compactManageButton}
+                onPress={onManagePress}
+              >
+                <MaterialCommunityIcons
+                  name="cog-outline"
+                  size={14}
+                  color={colors.primary}
+                />
+                <Text style={styles.compactManageText}>Manage</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -547,17 +567,14 @@ const styles = StyleSheet.create({
     color: colors.white,
     marginLeft: spacing.xs,
   },
-  // Compact styles
+  // Compact styles - More subtle and chill
   compactContainer: {
     backgroundColor: colors.white,
     borderRadius: 12,
     padding: spacing.md,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    marginVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.background,
+    marginVertical: spacing.xs,
   },
   compactHeader: {
     flexDirection: "row",
@@ -565,9 +582,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   compactIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     marginRight: spacing.sm,
@@ -576,39 +593,66 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   compactPlanName: {
-    fontSize: fonts.size.md,
-    fontFamily: fonts.family.bold,
+    fontSize: fonts.size.sm,
+    fontFamily: fonts.family.semibold,
     color: colors.text.primary,
     marginBottom: 2,
   },
   compactStatus: {
-    fontSize: fonts.size.sm,
-    fontFamily: fonts.family.medium,
+    fontSize: fonts.size.xs,
+    fontFamily: fonts.family.regular,
+  },
+  compactDaysContainer: {
+    alignItems: "flex-end",
   },
   compactDays: {
-    fontSize: fonts.size.lg,
+    fontSize: fonts.size.xl,
     fontFamily: fonts.family.bold,
-    color: colors.text.primary,
+    lineHeight: fonts.size.xl * 1.2,
+  },
+  compactDaysLabel: {
+    fontSize: fonts.size.xs,
+    fontFamily: fonts.family.regular,
+    color: colors.text.light,
   },
   compactProgressContainer: {
     marginTop: spacing.xs,
   },
   compactProgressBar: {
-    height: 6,
+    height: 3,
     backgroundColor: colors.background,
-    borderRadius: 3,
+    borderRadius: 1.5,
     overflow: "hidden",
     marginBottom: spacing.xs,
   },
   compactProgressFill: {
     height: "100%",
-    borderRadius: 3,
+    borderRadius: 1.5,
+  },
+  compactProgressFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   compactProgressText: {
     fontSize: fonts.size.xs,
     fontFamily: fonts.family.regular,
-    color: colors.text.secondary,
-    textAlign: "center",
+    color: colors.text.light,
+    flex: 1,
+  },
+  compactManageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    backgroundColor: colors.primary + "10",
+    gap: 4,
+  },
+  compactManageText: {
+    fontSize: fonts.size.xs,
+    fontFamily: fonts.family.semibold,
+    color: colors.primary,
   },
 });
 
