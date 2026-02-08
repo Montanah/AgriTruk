@@ -7,20 +7,57 @@
 
 const admin = require('firebase-admin');
 
-// Initialize Firebase Admin (uses environment variables on Render)
+// Initialize Firebase Admin (same way as backend/config/firebase.js)
 if (!admin.apps.length) {
   try {
-    // Try to initialize with environment variables (Render setup)
+    let serviceAccount;
+    
+    // Try to parse service account from environment variable
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      console.log('✅ Using FIREBASE_SERVICE_ACCOUNT_KEY');
+    } else {
+      // Fallback to individual environment variables
+      serviceAccount = {
+        type: "service_account",
+        project_id: process.env.FIREBASE_PROJECT_ID || "agritruk-d543b",
+        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+        private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n') || "",
+        client_email: process.env.FIREBASE_CLIENT_EMAIL || "",
+        client_id: process.env.FIREBASE_CLIENT_ID || "",
+        auth_uri: "https://accounts.google.com/o/oauth2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.FIREBASE_CLIENT_EMAIL}`
+      };
+      
+      // Validate required fields
+      if (!serviceAccount.private_key || !serviceAccount.client_email || !serviceAccount.project_id) {
+        console.error('❌ Missing required Firebase configuration fields:');
+        console.error('   FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? '✅ SET' : '❌ MISSING');
+        console.error('   FIREBASE_PRIVATE_KEY:', process.env.FIREBASE_PRIVATE_KEY ? '✅ SET' : '❌ MISSING');
+        console.error('   FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? '✅ SET' : '❌ MISSING');
+        throw new Error('Firebase configuration incomplete');
+      }
+      console.log('✅ Using individual Firebase environment variables');
+    }
+    
+    // Initialize with service account
     admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-      projectId: process.env.FIREBASE_PROJECT_ID || process.env.PROJECT_ID
+      credential: admin.credential.cert(serviceAccount),
     });
-    console.log('✅ Firebase initialized with application default credentials');
+    console.log('✅ Firebase Admin initialized successfully');
+    
   } catch (error) {
     console.error('❌ Failed to initialize Firebase:', error.message);
     console.log('\n📋 Please ensure Firebase credentials are configured on Render:');
-    console.log('   - GOOGLE_APPLICATION_CREDENTIALS environment variable');
-    console.log('   - OR service account JSON in environment');
+    console.log('   Option 1: Set FIREBASE_SERVICE_ACCOUNT_KEY (full JSON)');
+    console.log('   Option 2: Set individual variables:');
+    console.log('     - FIREBASE_PROJECT_ID');
+    console.log('     - FIREBASE_PRIVATE_KEY');
+    console.log('     - FIREBASE_CLIENT_EMAIL');
+    console.log('     - FIREBASE_PRIVATE_KEY_ID');
+    console.log('     - FIREBASE_CLIENT_ID');
     process.exit(1);
   }
 }
