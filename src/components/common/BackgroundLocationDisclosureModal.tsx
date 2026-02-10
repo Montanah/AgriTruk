@@ -182,6 +182,8 @@ const BackgroundLocationDisclosureModal: React.FC<
           {/* Main Content */}
           <View style={styles.content}>
             {/* Prominent Disclosure Statement - Google Play Required Format */}
+            {/* CRITICAL: This text MUST match Google's exact required format */}
+            {/* Format: "[App] collects location data to enable [feature], [feature], & [feature] even when the app is closed or not in use." */}
             <View style={styles.prominentDisclosureBox}>
               <MaterialCommunityIcons
                 name="alert-circle"
@@ -194,18 +196,12 @@ const BackgroundLocationDisclosureModal: React.FC<
                   IMPORTANT: Location Data Collection{"\n\n"}
                 </Text>
                 <Text style={styles.boldText}>
-                  TRUKapp collects location data
-                </Text>{" "}
-                to enable real-time {trackingType} tracking{" "}
-                <Text style={styles.boldText}>
-                  even when the app is closed or not in use
+                  TRUKapp collects location data to enable real-time tracking,
+                  delivery updates, & route optimization{" "}
                 </Text>
-                {trackingContext}, and shares this data with {sharingContext}
-                clients for active bookings.{"\n\n"}
                 <Text style={styles.boldText}>
-                  This data is collected in the background
-                </Text>{" "}
-                to provide continuous tracking during active trips.
+                  even when the app is closed or not in use.
+                </Text>
               </Text>
             </View>
 

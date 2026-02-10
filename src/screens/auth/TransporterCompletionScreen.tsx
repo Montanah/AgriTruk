@@ -636,8 +636,115 @@ export default function TransporterCompletionScreen() {
 
           // If FormData failed, try JSON fallback
           if (!formDataSuccess) {
-            console.log("FormData request failed, trying JSON fallback...");
-            throw new Error("FormData request failed, trying JSON fallback");
+            console.log(
+              "⚠️ FormData request failed, attempting JSON fallback...",
+            );
+
+            // Try JSON fallback without throwing error
+            try {
+              const jsonData = {
+                name: companyName,
+                registration:
+                  companyReg && companyReg.trim()
+                    ? companyReg.trim()
+                    : undefined,
+                contact: companyContact,
+                address: companyAddress || "",
+              };
+
+              console.log("Attempting JSON company creation:", jsonData);
+              const jsonRes = await fetch(`${API_ENDPOINTS.COMPANIES}`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(jsonData),
+                signal: controller.signal,
+              });
+
+              clearTimeout(timeoutId);
+
+              if (jsonRes.ok) {
+                const companyData = await jsonRes.json();
+                console.log(
+                  "✅ Company created successfully with JSON:",
+                  companyData,
+                );
+
+                // Try to upload logo separately if we have one
+                if (profilePhoto && profilePhoto.uri) {
+                  console.log("Attempting to upload logo separately...");
+                  try {
+                    const logoFormData = new FormData();
+                    logoFormData.append("logo", {
+                      uri: profilePhoto.uri,
+                      type: profilePhoto.type || "image/jpeg",
+                      name: "company-logo.jpg",
+                    } as any);
+
+                    const logoRes = await fetch(
+                      `${API_ENDPOINTS.COMPANIES}/${companyData.companyId || companyData.id}/logo`,
+                      {
+                        method: "PATCH",
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: logoFormData,
+                      },
+                    );
+
+                    if (logoRes.ok) {
+                      console.log("✅ Logo uploaded successfully");
+                    } else {
+                      console.warn(
+                        "⚠️ Logo upload failed, but company was created",
+                      );
+                    }
+                  } catch (logoError) {
+                    console.warn("⚠️ Logo upload error:", logoError);
+                  }
+                }
+
+                // Send notification
+                try {
+                  await NotificationHelper.sendProfileNotification(
+                    "submitted",
+                    {
+                      userId: user.uid,
+                      role: "transporter",
+                      transporterType,
+                      companyName: companyName || "N/A",
+                      companyReg: companyReg || "N/A",
+                    },
+                  );
+                } catch (notificationError) {
+                  console.warn(
+                    "Failed to send notification:",
+                    notificationError,
+                  );
+                }
+
+                // Navigate to processing screen
+                navigation.navigate("TransporterProcessingScreen", {
+                  transporterType,
+                } as any);
+                return true;
+              } else {
+                const errorText = await jsonRes.text();
+                console.error(
+                  "JSON request also failed:",
+                  jsonRes.status,
+                  errorText,
+                );
+                throw new Error(
+                  `Failed to create company: ${jsonRes.status} - ${errorText}`,
+                );
+              }
+            } catch (jsonError) {
+              console.error("JSON fallback also failed:", jsonError);
+              throw jsonError;
+            }
           }
 
           if (!res || !res.ok) {

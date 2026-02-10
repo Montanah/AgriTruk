@@ -15,7 +15,7 @@ module.exports = {
     newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.truk.trukapp",
-      buildNumber: "8",
+      buildNumber: "9",
       supportsTablet: true,
       icon: "./assets/images/ios-icon-1024.png",
       // Updated to iOS 14.0 to support iOS 26 SDK (was 13.4)
@@ -101,7 +101,7 @@ module.exports = {
     },
     android: {
       package: "com.truk.trukapp",
-      versionCode: 8,
+      versionCode: 9,
       icon: "./assets/images/android-icon-512.png",
       adaptiveIcon: {
         foregroundImage: "./assets/images/adaptive-icon-foreground.png",
@@ -123,8 +123,13 @@ module.exports = {
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
@@ -150,6 +155,7 @@ module.exports = {
       "expo-asset",
       "expo-font",
       "expo-web-browser",
+      "./plugins/withAndroidLocationPermissions",
     ],
     experiments: {
       typedRoutes: true,

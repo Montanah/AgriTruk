@@ -61,6 +61,8 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
     let icon = "alert-circle";
 
     // PRIORITY 1: Active trial subscription (already activated and running)
+    // This takes precedence over everything else
+    // If isTrialActive is true, the trial is ALREADY RUNNING
     if (subscriptionStatus.isTrialActive) {
       planName = "Free Trial";
       statusText = "Trial Active";
@@ -96,7 +98,10 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
       gradientColors = ["#F44336", "#E53935"];
       icon = "alert-circle";
     }
-    // PRIORITY 4: Trial available but not yet activated (only show if NOT already active)
+    // PRIORITY 4: Trial available but not yet activated
+    // CRITICAL FIX: Only show "Activate Trial" if trial is NOT already active
+    // This fixes the issue where backend returns both isTrialActive=true AND needsTrialActivation=true
+    // The condition !subscriptionStatus.isTrialActive ensures we never show "Activate Trial" for an active trial
     else if (
       subscriptionStatus.needsTrialActivation &&
       !subscriptionStatus.isTrialActive
@@ -169,7 +174,13 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
   };
 
   const renderActionButton = () => {
-    if (subscriptionStatus.needsTrialActivation && onActivateTrialPress) {
+    // CRITICAL FIX: Only show "Activate Trial" button if trial is NOT already active
+    // This prevents showing "Activate Trial" when the trial is already running
+    if (
+      subscriptionStatus.needsTrialActivation &&
+      !subscriptionStatus.isTrialActive &&
+      onActivateTrialPress
+    ) {
       return (
         <TouchableOpacity
           style={[
