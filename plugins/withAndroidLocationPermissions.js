@@ -14,8 +14,8 @@ const { withAndroidManifest } = require("@expo/config-plugins");
  * - Must have valid use case for background location
  */
 const withAndroidLocationPermissions = (config) => {
-  return withAndroidManifest(config, async (config) => {
-    const androidManifest = config.modResults;
+  return withAndroidManifest(config, (modConfig) => {
+    const androidManifest = modConfig.modResults;
     const { manifest } = androidManifest;
 
     // Ensure uses-permission declarations exist
@@ -67,7 +67,7 @@ const withAndroidLocationPermissions = (config) => {
 
     // Add foreground service declaration for location tracking
     if (!manifest.application || !manifest.application[0]) {
-      return config;
+      return modConfig;
     }
 
     const application = manifest.application[0];
@@ -138,7 +138,7 @@ const withAndroidLocationPermissions = (config) => {
       console.log("✅ Added location usage metadata for Google Play");
     }
 
-    return config;
+    return modConfig;
   });
 };
 
