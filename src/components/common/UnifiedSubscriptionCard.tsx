@@ -60,6 +60,7 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
     let gradientColors = [colors.error, colors.error + "CC"];
     let icon = "alert-circle";
 
+    // PRIORITY 1: Active trial subscription (already activated and running)
     if (subscriptionStatus.isTrialActive) {
       planName = "Free Trial";
       statusText = "Trial Active";
@@ -69,7 +70,9 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
       statusColor = colors.success;
       gradientColors = ["#4CAF50", "#66BB6A"];
       icon = "star-circle";
-    } else if (
+    }
+    // PRIORITY 2: Active paid subscription
+    else if (
       subscriptionStatus.hasActiveSubscription &&
       subscriptionStatus.currentPlan
     ) {
@@ -81,7 +84,9 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
       statusColor = colors.primary;
       gradientColors = [colors.primary, colors.primaryDark];
       icon = "shield-check";
-    } else if (subscriptionStatus.subscriptionStatus === "expired") {
+    }
+    // PRIORITY 3: Expired subscription
+    else if (subscriptionStatus.subscriptionStatus === "expired") {
       planName = "Expired";
       statusText = "Expired";
       daysRemaining = 0;
@@ -90,7 +95,12 @@ const UnifiedSubscriptionCard: React.FC<UnifiedSubscriptionCardProps> = ({
       statusColor = colors.error;
       gradientColors = ["#F44336", "#E53935"];
       icon = "alert-circle";
-    } else if (subscriptionStatus.needsTrialActivation) {
+    }
+    // PRIORITY 4: Trial available but not yet activated (only show if NOT already active)
+    else if (
+      subscriptionStatus.needsTrialActivation &&
+      !subscriptionStatus.isTrialActive
+    ) {
       planName = "Trial Available";
       statusText = "Activate Now";
       daysRemaining = 90;
