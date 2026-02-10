@@ -1,22 +1,23 @@
-const Company = require('../models/Company');
-const { logActivity, logAdminActivity } = require('../utils/activityLogger');
+const Company = require("../models/Company");
+const { logActivity, logAdminActivity } = require("../utils/activityLogger");
 const sendEmail = require("../utils/sendEmail");
-const Notification = require('../models/Notification');
-const Transporter = require('../models/Transporter');
-const Vehicle = require('../models/Vehicle');
-const Driver = require('../models/Driver');
-const fs = require('fs');
-const { uploadImage } = require('../utils/upload');
+const Notification = require("../models/Notification");
+const Transporter = require("../models/Transporter");
+const Vehicle = require("../models/Vehicle");
+const Driver = require("../models/Driver");
+const fs = require("fs");
+const { uploadImage } = require("../utils/upload");
 const admin = require("../config/firebase");
 const User = require("../models/User");
-const { formatTimestamps } = require('../utils/formatData');
-const Action = require('../models/Action');
-const { uploadDocuments } = require('./transporterController');
-const { adminNotification } = require('../utils/sendMailTemplate');
+const { formatTimestamps } = require("../utils/formatData");
+const Action = require("../models/Action");
+const { uploadDocuments } = require("./transporterController");
+const { adminNotification } = require("../utils/sendMailTemplate");
 
 exports.generateRandomPassword = () => {
   const length = 10;
-  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  const charset =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
   let password = "";
   for (let i = 0; i < length; i++) {
     password += charset.charAt(Math.floor(Math.random() * charset.length));
@@ -25,7 +26,7 @@ exports.generateRandomPassword = () => {
 };
 
 const generateSignInLink = (email) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://trukap.com';
+  const frontendUrl = process.env.FRONTEND_URL || "https://trukap.com";
   return `${frontendUrl}/auth/signin?email=${encodeURIComponent(email)}`;
 };
 
@@ -35,61 +36,76 @@ exports.createCompany = async (req, res) => {
     const { name, registration, contact } = req.body;
     console.log("details", name, registration, contact);
 
-    if (!name || !registration || !contact) {
-      return res.status(400).json({ message: 'Missing required fields' });
+    // Registration is optional initially - will be required after 5 completed trips
+    if (!name || !contact) {
+      return res.status(400).json({
+        message: "Missing required fields: name and contact are required",
+      });
     }
 
-    // Check if company already exists
-    const existingCompanyByRegistration = await Company.getByRegistration(registration);
-    console.log("Existing company by registration:", existingCompanyByRegistration);
-    if (existingCompanyByRegistration) {
-      return res.status(400).json({ message: 'Company with the same registration number already exists' });
+    // Check if company already exists by registration (only if registration provided)
+    if (registration && registration.trim()) {
+      const existingCompanyByRegistration =
+        await Company.getByRegistration(registration);
+      console.log(
+        "Existing company by registration:",
+        existingCompanyByRegistration,
+      );
+      if (existingCompanyByRegistration) {
+        return res.status(400).json({
+          message: "Company with the same registration number already exists",
+        });
+      }
     }
 
     const existingCompanyByName = await Company.getByName(name);
     console.log("Existing company by name:", existingCompanyByName);
     if (existingCompanyByName) {
-      return res.status(400).json({ message: 'Company with the same name already exists' });
+      return res
+        .status(400)
+        .json({ message: "Company with the same name already exists" });
     }
 
     let logoUrl = null;
 
-
     if (req.files && req.files.length > 0) {
       // Find the logo file
-      const logoFile = req.files.find(file => file.fieldname === 'logo');
+      const logoFile = req.files.find((file) => file.fieldname === "logo");
       if (logoFile) {
         try {
           logoUrl = await uploadImage(logoFile.path);
           if (logoUrl) {
-            fs.unlinkSync(logoFile.path); 
+            fs.unlinkSync(logoFile.path);
           }
         } catch (uploadError) {
-          return res.status(500).json({ message: 'Failed to upload logo' });
+          return res.status(500).json({ message: "Failed to upload logo" });
         }
       }
     }
 
-    const userData = await User.get(userId); 
+    const userData = await User.get(userId);
 
     const companyData = {
       name,
-      registration,
+      registration:
+        registration && registration.trim() ? registration.trim() : null, // Optional - can be null
       contact,
       email: userData.email,
       transporterId: req.user.uid,
-      status: 'pending',
-      logo: logoUrl, 
+      status: "pending",
+      logo: logoUrl,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
     const company = await Company.create(companyData);
-    
+
     // Company owners are NOT transporters - they are fleet managers
     // No transporter record needed for company owners
-    console.log('Company created successfully - no transporter record needed for company owners');
-    
-    await logActivity(req.user.uid, 'create_company', req);
+    console.log(
+      "Company created successfully - no transporter record needed for company owners",
+    );
+
+    await logActivity(req.user.uid, "create_company", req);
 
     await Notification.create({
       type: "Create Company",
@@ -99,39 +115,42 @@ exports.createCompany = async (req, res) => {
     });
 
     await Action.create({
-      type: 'company_review',
+      type: "company_review",
       entityId: company.id,
-      priority: 'high',
+      priority: "high",
       metadata: {
         name: company.companyName,
-        registration: company.companyRegistration
+        registration: company.companyRegistration,
       },
       message: `A new company has been created. Company ID: ${company.id}`,
     });
 
     await sendEmail({
-        to: "support@trukafrica.com",
-        subject: 'New Company Needs Review',
-        html: adminNotification('Company Needs Review', `A new company needs review. Company Name: ${company.companyName}`),
-      });
+      to: "support@trukafrica.com",
+      subject: "New Company Needs Review",
+      html: adminNotification(
+        "Company Needs Review",
+        `A new company needs review. Company Name: ${company.companyName}`,
+      ),
+    });
 
-    res.status(201).json({ 
-      message: 'Company created successfully', 
-      data: formatTimestamps(company) 
+    res.status(201).json({
+      message: "Company created successfully",
+      data: formatTimestamps(company),
     });
   } catch (err) {
-    console.error('Create company error:', err);
+    console.error("Create company error:", err);
 
     // Clean up files if upload failed and files exist
     if (req.files && req.files.length > 0) {
-      req.files.forEach(file => {
+      req.files.forEach((file) => {
         if (fs.existsSync(file.path)) {
           fs.unlinkSync(file.path);
         }
       });
     }
 
-    res.status(500).json({ message: 'Failed to create company' });
+    res.status(500).json({ message: "Failed to create company" });
   }
 };
 
@@ -140,14 +159,14 @@ exports.getCompany = async (req, res) => {
     const { companyId } = req.params;
     const company = await Company.get(companyId);
 
-    if (!company) return res.status(404).json({ message: 'Company not found' });
-    
+    if (!company) return res.status(404).json({ message: "Company not found" });
+
     const vehicles = await Vehicle.getAll(companyId);
-    
+
     const drivers = await Driver.getAll(companyId);
 
-    await logActivity(req.user.uid, 'get_company', req);
-    
+    await logActivity(req.user.uid, "get_company", req);
+
     const responseData = {
       company,
       vehicles,
@@ -156,14 +175,14 @@ exports.getCompany = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Company retrieved successfully',
+      message: "Company retrieved successfully",
       company: formatTimestamps(company),
       vehicles: formatTimestamps(vehicles),
       drivers: formatTimestamps(drivers),
     });
   } catch (err) {
-    console.error('Get company error:', err);
-    res.status(500).json({ message: 'Failed to fetch company' });
+    console.error("Get company error:", err);
+    res.status(500).json({ message: "Failed to fetch company" });
   }
 };
 
@@ -173,16 +192,18 @@ exports.updateCompany = async (req, res) => {
     const updates = req.body;
 
     if (!updates || Object.keys(updates).length === 0) {
-      return res.status(400).json({ message: 'No updates provided' });
+      return res.status(400).json({ message: "No updates provided" });
     }
 
     const company = await Company.get(companyId);
-    if (company.transporterId !== req.user.uid && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Unauthorized to update this company' });
+    if (company.transporterId !== req.user.uid && req.user.role !== "admin") {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to update this company" });
     }
 
     const updatedCompany = await Company.update(companyId, updates);
-    await logActivity(req.user.uid, 'update_company', req);
+    await logActivity(req.user.uid, "update_company", req);
 
     await Notification.create({
       type: "Update Company",
@@ -190,13 +211,16 @@ exports.updateCompany = async (req, res) => {
       userId: req.user.uid,
       userType: "business",
     });
-    res.status(200).json({ message: 'Company updated successfully', company: updatedCompany });
+    res.status(200).json({
+      message: "Company updated successfully",
+      company: updatedCompany,
+    });
   } catch (err) {
-    console.error('Update company error:', err);
-    if (err.message === 'Company not found') {
+    console.error("Update company error:", err);
+    if (err.message === "Company not found") {
       res.status(404).json({ message: err.message });
     } else {
-      res.status(500).json({ message: 'Failed to update company' });
+      res.status(500).json({ message: "Failed to update company" });
     }
   }
 };
@@ -209,36 +233,39 @@ exports.approveCompany = async (req, res) => {
     const company = await Company.get(companyId);
     console.log("Company", company);
     if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
+      return res.status(404).json({ message: "Company not found" });
     }
 
     const updatedCompany = await Company.approve(companyId);
-    
+
     const email = company.companyEmail;
     console.log("Email", email);
     await sendEmail({
       to: email,
-      subject: 'Company Status',
-      text: 'Your company has been approved, proceed to add Drivers and Vehicles.',
+      subject: "Company Status",
+      text: "Your company has been approved, proceed to add Drivers and Vehicles.",
       //html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
-      html: `<p>Your Company has been approved</p>`
+      html: `<p>Your Company has been approved</p>`,
     });
 
-    await logAdminActivity(req.user.uid, 'approve_company', req);
+    await logAdminActivity(req.user.uid, "approve_company", req);
 
     await Notification.create({
       type: "Approved Company",
       message: `Your company was approved. Company ID: ${companyId}`,
       userId: company.transporterId,
       userType: "user",
-    })
-    res.status(200).json({ message: 'Company approved successfully', company: updatedCompany });
+    });
+    res.status(200).json({
+      message: "Company approved successfully",
+      company: updatedCompany,
+    });
   } catch (err) {
-    console.error('Approve company error:', err);
-    if (err.message === 'Company not found') {
+    console.error("Approve company error:", err);
+    if (err.message === "Company not found") {
       res.status(404).json({ message: err.message });
     } else {
-      res.status(500).json({ message: 'Failed to approve company' });
+      res.status(500).json({ message: "Failed to approve company" });
     }
   }
 };
@@ -249,13 +276,13 @@ exports.rejectCompany = async (req, res) => {
     const { reason } = req.body;
 
     if (!reason) {
-      return res.status(400).json({ message: 'Rejection reason is required' });
+      return res.status(400).json({ message: "Rejection reason is required" });
     }
 
     // Check if the company exists
     const company = await Company.get(companyId);
     if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
+      return res.status(404).json({ message: "Company not found" });
     }
 
     const updatedCompany = await Company.reject(companyId, reason);
@@ -264,27 +291,30 @@ exports.rejectCompany = async (req, res) => {
 
     await sendEmail({
       to: email,
-      subject: 'Company Approval Status',
+      subject: "Company Approval Status",
       text: `Your company has been rejected because of: ${reason}`,
       //   html: getMFATemplate(verificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
-      html: `<p>Your company has been rejected because of: <strong>${reason}</strong></p>`
+      html: `<p>Your company has been rejected because of: <strong>${reason}</strong></p>`,
     });
 
-    await logAdminActivity(req.user.uid, 'reject_company', req);
+    await logAdminActivity(req.user.uid, "reject_company", req);
 
     await Notification.create({
       type: "Rejected Company",
       message: `Your company was rejected. Company ID: ${companyId}`,
       userId: company.transporterId,
       userType: "user",
-    })
-    res.status(200).json({ message: 'Company rejected successfully', company: updatedCompany });
+    });
+    res.status(200).json({
+      message: "Company rejected successfully",
+      company: updatedCompany,
+    });
   } catch (err) {
-    console.error('Reject company error:', err);
-    if (err.message === 'Company not found') {
+    console.error("Reject company error:", err);
+    if (err.message === "Company not found") {
       res.status(404).json({ message: err.message });
     } else {
-      res.status(500).json({ message: 'Failed to reject company' });
+      res.status(500).json({ message: "Failed to reject company" });
     }
   }
 };
@@ -292,22 +322,23 @@ exports.rejectCompany = async (req, res) => {
 exports.getAllCompanies = async (req, res) => {
   try {
     const companies = await Company.getAll();
-    
+
     for (const company of companies) {
       const driver = await Driver.getByCompanyId(company.companyId);
       const vehicle = await Vehicle.getByCompanyId(company.companyId);
       company.driver = driver;
       company.vehicle = vehicle;
-      company.fleet =vehicle.length;
+      company.fleet = vehicle.length;
       company.drivers = driver.length;
     }
-    await logAdminActivity(req.user.uid, 'get_all_companies', req);
+    await logAdminActivity(req.user.uid, "get_all_companies", req);
     res.status(200).json({
-      message: 'Companies fetched successfully',
-      companies: formatTimestamps(companies)});
+      message: "Companies fetched successfully",
+      companies: formatTimestamps(companies),
+    });
   } catch (err) {
-    console.error('Get all companies error:', err);
-    res.status(500).json({ message: 'Failed to fetch companies' });
+    console.error("Get all companies error:", err);
+    res.status(500).json({ message: "Failed to fetch companies" });
   }
 };
 
@@ -315,14 +346,14 @@ exports.deleteCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
     await Company.delete(companyId);
-    await logAdminActivity(req.user.uid, 'delete_company', req);
-    res.status(200).json({ message: 'Company deleted successfully' });
+    await logAdminActivity(req.user.uid, "delete_company", req);
+    res.status(200).json({ message: "Company deleted successfully" });
   } catch (err) {
-    console.error('Delete company error:', err);
-    if (err.message === 'Company not found') {
+    console.error("Delete company error:", err);
+    if (err.message === "Company not found") {
       res.status(404).json({ message: err.message });
     } else {
-      res.status(500).json({ message: 'Failed to delete company' });
+      res.status(500).json({ message: "Failed to delete company" });
     }
   }
 };
@@ -330,20 +361,26 @@ exports.deleteCompany = async (req, res) => {
 exports.getCompaniesByTransporter = async (req, res) => {
   try {
     const { transporterId } = req.params;
-    console.log('🔍 Looking for companies with transporterId:', transporterId);
+    console.log("🔍 Looking for companies with transporterId:", transporterId);
     const companies = await Company.getByTransporter(transporterId);
-    console.log('🔍 Found companies:', companies.length, companies.map(c => ({ id: c.id, name: c.companyName || c.name })));
+    console.log(
+      "🔍 Found companies:",
+      companies.length,
+      companies.map((c) => ({ id: c.id, name: c.companyName || c.name })),
+    );
 
     if (companies.length === 0) {
-      console.log('🔍 No companies found for transporterId:', transporterId);
-      return res.status(404).json({ message: 'Company not found' });
+      console.log("🔍 No companies found for transporterId:", transporterId);
+      return res.status(404).json({ message: "Company not found" });
     }
 
     // await logAdminActivity(req.user.uid, 'get_companies_by_transporter', req);
     res.status(200).json(companies);
   } catch (err) {
-    console.error('Get companies by transporter error:', err);
-    res.status(500).json({ message: 'Failed to fetch companies for transporter' });
+    console.error("Get companies by transporter error:", err);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch companies for transporter" });
   }
 };
 
@@ -352,26 +389,35 @@ exports.getCompaniesByStatus = async (req, res) => {
     const { status } = req.params;
     const companies = await Company.getByStatus(status);
 
-    await logAdminActivity(req.user.uid, 'get_companies_by_status', req);
+    await logAdminActivity(req.user.uid, "get_companies_by_status", req);
 
     res.status(200).json(companies);
   } catch (err) {
-    console.error('Get companies by status error:', err);
-    res.status(500).json({ message: 'Failed to fetch companies by status' });
+    console.error("Get companies by status error:", err);
+    res.status(500).json({ message: "Failed to fetch companies by status" });
   }
 };
 
 exports.getCompaniesByTransporterAndStatus = async (req, res) => {
   try {
     const { transporterId, status } = req.params;
-    const companies = await Company.getByTransporterAndStatus(transporterId, status);
+    const companies = await Company.getByTransporterAndStatus(
+      transporterId,
+      status,
+    );
 
-    await logAdminActivity(req.user.uid, 'get_companies_by_transporter_and_status', req);
+    await logAdminActivity(
+      req.user.uid,
+      "get_companies_by_transporter_and_status",
+      req,
+    );
 
     res.status(200).json(companies);
   } catch (err) {
-    console.error('Get companies by transporter and status error:', err);
-    res.status(500).json({ message: 'Failed to fetch companies for transporter and status' });
+    console.error("Get companies by transporter and status error:", err);
+    res.status(500).json({
+      message: "Failed to fetch companies for transporter and status",
+    });
   }
 };
 
@@ -380,11 +426,17 @@ exports.getAllForTransporter = async (req, res) => {
     const { transporterId } = req.params;
     const companies = await Company.getByTransporter(transporterId);
 
-    await logAdminActivity(req.user.uid, 'get_all_companies_for_transporter', req);
+    await logAdminActivity(
+      req.user.uid,
+      "get_all_companies_for_transporter",
+      req,
+    );
     res.status(200).json(companies);
   } catch (err) {
-    console.error('Get all companies for transporter error:', err);
-    res.status(500).json({ message: 'Failed to fetch companies for transporter' });
+    console.error("Get all companies for transporter error:", err);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch companies for transporter" });
   }
 };
 
@@ -393,11 +445,11 @@ exports.searchCompany = async (req, res) => {
     const { page = 1, limit = 10, status, search } = req.query;
     const result = await Company.search({ page, limit, status, search });
 
-    await logAdminActivity(req.user.uid, 'search_companies', req);
+    await logAdminActivity(req.user.uid, "search_companies", req);
     res.status(200).json(result);
   } catch (err) {
-    console.error('Search companies error:', err);
-    res.status(500).json({ message: 'Failed to fetch companies' });
+    console.error("Search companies error:", err);
+    res.status(500).json({ message: "Failed to fetch companies" });
   }
 };
 
@@ -405,39 +457,45 @@ exports.searchCompany = async (req, res) => {
 exports.createVehicle = async (req, res) => {
   try {
     const companyId = req.params.companyId;
-    
+
     //validate companyId
-    if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {
-      return res.status(400).json({ message: 'Invalid company ID' });
+    if (
+      !companyId ||
+      typeof companyId !== "string" ||
+      companyId.trim() === ""
+    ) {
+      return res.status(400).json({ message: "Invalid company ID" });
     }
     // Check if the company exists
     const company = await Company.get(companyId);
     if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
+      return res.status(404).json({ message: "Company not found" });
     }
 
     // Check if the company is approved
-    if (company.status !== 'approved') {
-      return res.status(403).json({ message: 'Company is not approved' });
+    if (company.status !== "approved") {
+      return res.status(403).json({ message: "Company is not approved" });
     }
 
     const reg = req.body.reg;
 
-    if (!reg || typeof reg !== 'string' || reg.trim() === '') {
-      return res.status(400).json({ message: 'Invalid registration number' });
+    if (!reg || typeof reg !== "string" || reg.trim() === "") {
+      return res.status(400).json({ message: "Invalid registration number" });
     }
-   
+
     // check registration number
     const existingVehicle = await Vehicle.getByRegistration(companyId, reg);
     if (existingVehicle) {
-      return res.status(400).json({ message: 'Vehicle with the same registration number already exists' });
+      return res.status(400).json({
+        message: "Vehicle with the same registration number already exists",
+      });
     }
-   // console.log("existingVehicle", existingVehicle);
+    // console.log("existingVehicle", existingVehicle);
 
     // check format of registration number
-    
+
     if (!req.files) {
-      return res.status(400).json({ message: 'No files uploaded' });
+      return res.status(400).json({ message: "No files uploaded" });
     }
 
     const plate = reg.trim().toUpperCase();
@@ -445,7 +503,9 @@ exports.createVehicle = async (req, res) => {
     const regex = /^K?[A-Z]{2} ?\d{3}[A-Z]$/;
 
     if (!(plate.length === 7 || plate.length === 8) || !regex.test(plate)) {
-      return res.status(400).json({ message: 'Invalid vehicle registration number' });
+      return res
+        .status(400)
+        .json({ message: "Invalid vehicle registration number" });
     }
 
     // Handle multiple file uploads dynamically
@@ -453,19 +513,19 @@ exports.createVehicle = async (req, res) => {
     let vehicleImagesUrl = [];
 
     if (req.files) {
-      const uploadTasks = req.files.map(async file => {
+      const uploadTasks = req.files.map(async (file) => {
         const fieldName = file.fieldname;
-        //console.log(`Processing file: ${fieldName}, path: ${file.path}`); 
+        //console.log(`Processing file: ${fieldName}, path: ${file.path}`);
 
         switch (fieldName) {
-          case 'insurance':
+          case "insurance":
             const insurancePublicId = await uploadImage(file.path);
             if (insurancePublicId) {
               insuranceUrl = insurancePublicId;
               fs.unlinkSync(file.path);
             }
             break;
-          case 'photos':
+          case "photos":
             const vehiclePublicId = await uploadImage(file.path);
             if (vehiclePublicId) {
               vehicleImagesUrl.push(vehiclePublicId);
@@ -480,7 +540,6 @@ exports.createVehicle = async (req, res) => {
 
       await Promise.all(uploadTasks); // Wait for all uploads to complete
     }
-
 
     const vehicleData = {
       type: req.body.type,
@@ -504,7 +563,7 @@ exports.createVehicle = async (req, res) => {
     console.log(vehicleData);
     const vehicle = await Vehicle.create(companyId, vehicleData);
 
-    await logActivity(req.user.uid, 'create_vehicle', req);
+    await logActivity(req.user.uid, "create_vehicle", req);
 
     await Notification.create({
       type: "Vehicle Created",
@@ -514,19 +573,19 @@ exports.createVehicle = async (req, res) => {
     });
 
     await Action.create({
-      type: 'company_review',
+      type: "company_review",
       entityId: companyId,
-      priority: 'high',
+      priority: "high",
       metadata: {
         name: vehicle.id,
-        type: 'vehicle',
+        type: "vehicle",
       },
       message: `A new Vehicle has been created. Company ID: ${companyId}`,
-    })
+    });
 
     res.status(201).json({
       success: true,
-      message: 'Vehicle created successfully',
+      message: "Vehicle created successfully",
       data: formatTimestamps(vehicle),
     });
   } catch (error) {
@@ -542,7 +601,7 @@ exports.getVehicle = async (req, res) => {
     const companyId = req.params.companyId;
     const vehicle = await Vehicle.get(companyId, req.params.vehicleId);
 
-    await logActivity(req.user.uid, 'get_vehicle', req);
+    await logActivity(req.user.uid, "get_vehicle", req);
 
     await Notification.create({
       type: "Vehicle Retrieved",
@@ -552,7 +611,7 @@ exports.getVehicle = async (req, res) => {
     });
     res.status(200).json({
       success: true,
-      message: 'Vehicle retrieved successfully',
+      message: "Vehicle retrieved successfully",
       data: vehicle,
     });
   } catch (error) {
@@ -568,7 +627,7 @@ exports.getAllVehicles = async (req, res) => {
     const companyId = req.params.companyId;
     const vehicles = await Vehicle.getAll(companyId);
 
-    await logActivity(req.user.uid, 'get_all_vehicles', req);
+    await logActivity(req.user.uid, "get_all_vehicles", req);
 
     await Notification.create({
       type: "Vehicles Retrieved",
@@ -579,7 +638,7 @@ exports.getAllVehicles = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Vehicles retrieved successfully',
+      message: "Vehicles retrieved successfully",
       data: vehicles,
     });
   } catch (error) {
@@ -610,7 +669,7 @@ exports.updateVehicle = async (req, res) => {
     };
     const vehicle = await Vehicle.update(companyId, vehicleId, vehicleData);
 
-    await logActivity(req.user.uid, 'update_vehicle', req);
+    await logActivity(req.user.uid, "update_vehicle", req);
 
     await Notification.create({
       type: "Vehicle Updated",
@@ -621,7 +680,7 @@ exports.updateVehicle = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Vehicle updated successfully',
+      message: "Vehicle updated successfully",
       data: vehicle,
     });
   } catch (error) {
@@ -639,7 +698,7 @@ exports.updateAvailability = async (req, res) => {
     const availability = req.body.availability;
     await Vehicle.updateAvailability(vehicleId, availability);
 
-    await logActivity(req.user.uid, 'update_availability', req);
+    await logActivity(req.user.uid, "update_availability", req);
 
     await Notification.create({
       type: "Vehicle Availability Updated",
@@ -650,7 +709,7 @@ exports.updateAvailability = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Vehicle availability updated successfully',
+      message: "Vehicle availability updated successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -670,15 +729,15 @@ exports.createDriver = async (req, res) => {
     if (!company) {
       return res.status(404).json({
         success: false,
-        message: 'Company not found',
+        message: "Company not found",
       });
     }
 
     // check is company is approved
-    if (company.status === 'pending') {
+    if (company.status === "pending") {
       return res.status(400).json({
         success: false,
-        message: 'Company is not approved yet',
+        message: "Company is not approved yet",
       });
     }
 
@@ -686,37 +745,37 @@ exports.createDriver = async (req, res) => {
     const existingDriver = await Driver.getByEmail(companyId, req.body.email);
     console.log("company", companyId);
     console.log("email", req.body.email);
-    console.log('Existing driver:', existingDriver);
+    console.log("Existing driver:", existingDriver);
     if (existingDriver && existingDriver.email) {
-      console.log('Blocking creation due to existing driver');
+      console.log("Blocking creation due to existing driver");
       return res.status(400).json({
         success: false,
-        message: 'Driver with this email already exists',
+        message: "Driver with this email already exists",
       });
     }
 
     // Check for existing driver
     const existingDriver2 = await Driver.getByPhone(companyId, req.body.phone);
     if (existingDriver2 && existingDriver2.phone) {
-      console.log('Blocking creation due to existing driver');
+      console.log("Blocking creation due to existing driver");
       return res.status(400).json({
         success: false,
-        message: 'Driver with this phone number already exists',
+        message: "Driver with this phone number already exists",
       });
     }
 
-    console.log('Creating driver...');
-    console.log('Request body:', req.body);
-    console.log('Request files structure:', req.files);
+    console.log("Creating driver...");
+    console.log("Request body:", req.body);
+    console.log("Request files structure:", req.files);
 
-    const status = 'active';
+    const status = "active";
 
     // Validate required fields
     const { name, email, phone } = req.body;
     if (!name || !email || !phone || !status) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: name, email, phone, or status',
+        message: "Missing required fields: name, email, phone, or status",
       });
     }
 
@@ -728,32 +787,41 @@ exports.createDriver = async (req, res) => {
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         switch (file.fieldname) {
-          case 'license':
-            const licensePublicId = await uploadImage(file.path, file.mimetype.startsWith('application/') ? 'raw' : 'image');
+          case "license":
+            const licensePublicId = await uploadImage(
+              file.path,
+              file.mimetype.startsWith("application/") ? "raw" : "image",
+            );
             if (licensePublicId) {
               licenseUrl = licensePublicId;
               fs.unlinkSync(file.path);
             } else {
-              console.error('Failed to upload license image');
+              console.error("Failed to upload license image");
             }
             break;
-          case 'photo':
-            const photoPublicId = await uploadImage(file.path, file.mimetype.startsWith('application/') ? 'raw' : 'image');
+          case "photo":
+            const photoPublicId = await uploadImage(
+              file.path,
+              file.mimetype.startsWith("application/") ? "raw" : "image",
+            );
             if (photoPublicId) {
               profileImageUrl = photoPublicId;
               fs.unlinkSync(file.path);
             } else {
-              console.error('Failed to upload profile image');
+              console.error("Failed to upload profile image");
             }
             break;
-          case 'idDoc':
-            const idPublicId = await uploadImage(file.path, file.mimetype.startsWith('application/') ? 'raw' : 'image');
+          case "idDoc":
+            const idPublicId = await uploadImage(
+              file.path,
+              file.mimetype.startsWith("application/") ? "raw" : "image",
+            );
             if (idPublicId) {
-              console.log('Uploaded ID publicId:', idPublicId);
+              console.log("Uploaded ID publicId:", idPublicId);
               idUrl = idPublicId;
               fs.unlinkSync(file.path);
             } else {
-              console.error('Failed to upload ID image');
+              console.error("Failed to upload ID image");
             }
             break;
           default:
@@ -762,12 +830,12 @@ exports.createDriver = async (req, res) => {
         }
       }
     } else {
-      console.log('No files received in request');
+      console.log("No files received in request");
     }
 
-    console.log('License URL:', licenseUrl);
-    console.log('Profile Image URL:', profileImageUrl);
-    console.log('ID URL:', idUrl);
+    console.log("License URL:", licenseUrl);
+    console.log("Profile Image URL:", profileImageUrl);
+    console.log("ID URL:", idUrl);
 
     const driverData = {
       name,
@@ -788,23 +856,23 @@ exports.createDriver = async (req, res) => {
     });
 
     await Action.create({
-      type: 'company_review',
+      type: "company_review",
       entityId: companyId,
-      priority: 'high',
+      priority: "high",
       metadata: {
         name: driver.name,
-        driver: 'driver',
+        driver: "driver",
       },
       message: `A new driver ${driver.driverId} has been created for Company ID: ${company.id}`,
-    })
+    });
 
     res.status(201).json({
       success: true,
-      message: 'Driver created successfully',
+      message: "Driver created successfully",
       data: formatTimestamps(driver),
     });
   } catch (error) {
-    console.error('Error creating driver:', error);
+    console.error("Error creating driver:", error);
 
     // Clean up any uploaded files in case of error
     if (req.files) {
@@ -828,7 +896,7 @@ exports.getDriver = async (req, res) => {
     const driver = await Driver.get(companyId, req.params.driverId);
     res.status(200).json({
       success: true,
-      message: 'Driver retrieved successfully',
+      message: "Driver retrieved successfully",
       data: driver,
     });
   } catch (error) {
@@ -846,7 +914,7 @@ exports.updateDriverProfile = async (req, res) => {
     const driver = await Driver.update(companyId, driverId, req.body);
     res.status(200).json({
       success: true,
-      message: 'Driver updated successfully',
+      message: "Driver updated successfully",
       data: driver,
     });
   } catch (error) {
@@ -855,7 +923,7 @@ exports.updateDriverProfile = async (req, res) => {
       message: `Error updating driver: ${error.message}`,
     });
   }
-}
+};
 
 exports.getAllDrivers = async (req, res) => {
   try {
@@ -863,7 +931,7 @@ exports.getAllDrivers = async (req, res) => {
     const drivers = await Driver.getAll(companyId);
     res.status(200).json({
       success: true,
-      message: 'Drivers retrieved successfully',
+      message: "Drivers retrieved successfully",
       data: drivers,
     });
   } catch (error) {
@@ -881,7 +949,7 @@ exports.updateDriversAvailability = async (req, res) => {
     const availability = req.body.availability;
     await Driver.updateAvailability(driverId, availability);
 
-    await logActivity(req.user.uid, 'update_availability', req);
+    await logActivity(req.user.uid, "update_availability", req);
 
     await Notification.create({
       type: "Driver Availability Updated",
@@ -892,7 +960,7 @@ exports.updateDriversAvailability = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Driver availability updated successfully',
+      message: "Driver availability updated successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -909,7 +977,7 @@ exports.approveVehicle = async (req, res) => {
     await Vehicle.approve(companyId, vehicleId);
     res.status(200).json({
       success: true,
-      message: 'Vehicle approved successfully',
+      message: "Vehicle approved successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -926,7 +994,7 @@ exports.rejectVehicle = async (req, res) => {
     await Vehicle.reject(companyId, vehicleId);
     res.status(200).json({
       success: true,
-      message: 'Vehicle rejected successfully',
+      message: "Vehicle rejected successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -944,26 +1012,33 @@ exports.approveCompanyDriver = async (req, res) => {
     //See if companyId and driverId are valid
     const company = await Company.get(companyId);
     if (!company) {
-      return res.status(404).json({ success: false, message: 'Company not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Company not found" });
     }
 
     // Get driver Data
     const driver = await Driver.get(driverId);
     if (!driver) {
-      return res.status(404).json({ success: false, message: 'Driver not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Driver not found" });
     }
 
     if (driver.companyId !== companyId) {
-      return res.status(403).json({ success: false, message: 'Invalid company for driver' });
+      return res
+        .status(403)
+        .json({ success: false, message: "Invalid company for driver" });
     }
 
-    console.log('Driver Data:', driver);
+    console.log("Driver Data:", driver);
 
     // check if approved already
-    if (driver.status === 'approved') {
-      return res.status(400).json({ success: false, message: 'Driver is already approved' });
+    if (driver.status === "approved") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Driver is already approved" });
     }
-
 
     await Driver.approve(driverId);
     const pass = generateRandomPassword();
@@ -975,18 +1050,22 @@ exports.approveCompanyDriver = async (req, res) => {
       try {
         userRecord = await admin.auth().getUserByEmail(driver.email);
       } catch (error) {
-        if (error.code === 'auth/user-not-found') {
+        if (error.code === "auth/user-not-found") {
           userRecord = await admin.auth().createUser({
             email: driver.email,
-            phoneNumber: driver.phone.startsWith('+') ? driver.phone : `+${driver.phone}`,
+            phoneNumber: driver.phone.startsWith("+")
+              ? driver.phone
+              : `+${driver.phone}`,
             displayName: driver.name,
             password: pass,
             emailVerified: false,
             disabled: false,
           });
         } else {
-          console.error('Error checking user existence:', error);
-          return res.status(500).json({ success: false, message: 'Error checking user existence' });
+          console.error("Error checking user existence:", error);
+          return res
+            .status(500)
+            .json({ success: false, message: "Error checking user existence" });
         }
       }
 
@@ -996,17 +1075,21 @@ exports.approveCompanyDriver = async (req, res) => {
         try {
           await Driver.updateFirebaseId(companyId, driverId, userId);
         } catch (updateError) {
-          console.error('Error updating Firebase ID:', updateError);
-          return res.status(500).json({ success: false, message: 'Error updating Firebase ID' });
+          console.error("Error updating Firebase ID:", updateError);
+          return res
+            .status(500)
+            .json({ success: false, message: "Error updating Firebase ID" });
         }
       } else {
-        console.error('No valid userId available for update');
-        return res.status(500).json({ success: false, message: 'No valid user ID available' });
+        console.error("No valid userId available for update");
+        return res
+          .status(500)
+          .json({ success: false, message: "No valid user ID available" });
       }
 
       // --- AUTO-ACTIVATE TRIAL SUBSCRIPTION LOGIC ---
-      const Subscribers = require('../models/Subscribers');
-      const SubscriptionPlans = require('../models/SubscriptionsPlans');
+      const Subscribers = require("../models/Subscribers");
+      const SubscriptionPlans = require("../models/SubscriptionsPlans");
       // Only create a trial if the driver has not used one before
       const hasUsedTrial = await Subscribers.hasUsedTrial(userId);
       if (!hasUsedTrial) {
@@ -1023,13 +1106,13 @@ exports.approveCompanyDriver = async (req, res) => {
             endDate,
             isActive: true,
             autoRenew: false,
-            paymentStatus: 'trial',
+            paymentStatus: "trial",
             transactionId: null,
-            status: 'active',
+            status: "active",
           });
           console.log(`Trial subscription auto-activated for driver ${userId}`);
         } else {
-          console.warn('No trial plan found for auto-activation.');
+          console.warn("No trial plan found for auto-activation.");
         }
       }
       // --- END AUTO-ACTIVATION LOGIC ---
@@ -1041,11 +1124,12 @@ exports.approveCompanyDriver = async (req, res) => {
         userType: "company",
       });
 
-      await logAdminActivity(req.user.uid, 'approve_driver', req, driverId);
-
+      await logAdminActivity(req.user.uid, "approve_driver", req, driverId);
     } catch (error) {
-      console.error('Error creating/updating user:', error);
-      return res.status(500).json({ success: false, message: 'Error creating or updating user' });
+      console.error("Error creating/updating user:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Error creating or updating user" });
     }
 
     //console.log('Driver approved successfully');
@@ -1058,8 +1142,7 @@ exports.approveCompanyDriver = async (req, res) => {
         to: email,
         subject: `${name} Welcome to TrukApp`,
         text: `Your account has been created. Username: ${email} Password: ${pass}`,
-        html:
-          `<h2>Welcome to TrukApp!</h2>
+        html: `<h2>Welcome to TrukApp!</h2>
           <p>Your driver account has been approved.</p>
           <p><strong>Email:</strong> ${driver.email}</p>
           <p><strong>Temporary Password:</strong> ${pass}</p>
@@ -1069,16 +1152,16 @@ exports.approveCompanyDriver = async (req, res) => {
       });
       //console.log('Welcome email sent to:', email);
     } catch (emailError) {
-      console.error('Error sending welcome email:', emailError);
+      console.error("Error sending welcome email:", emailError);
       // Continue without failing the request, as email is non-critical
     }
 
     res.status(200).json({
       success: true,
-      message: 'Driver approved successfully',
+      message: "Driver approved successfully",
     });
   } catch (error) {
-    console.error('Error approving driver:', error);
+    console.error("Error approving driver:", error);
 
     res.status(500).json({
       success: false,
@@ -1094,7 +1177,7 @@ exports.rejectCompanyDriver = async (req, res) => {
     await Driver.reject(companyId, driverId);
     res.status(200).json({
       success: true,
-      message: 'Driver rejected successfully',
+      message: "Driver rejected successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -1112,7 +1195,10 @@ exports.updateVehicleAssignment = async (req, res) => {
 
     // Validate required parameters
     if (!companyId || !vehicleId) {
-      return res.status(400).json({ success: false, message: 'Company ID and Vehicle ID are required' });
+      return res.status(400).json({
+        success: false,
+        message: "Company ID and Vehicle ID are required",
+      });
     }
 
     // Check if company exists
@@ -1120,77 +1206,82 @@ exports.updateVehicleAssignment = async (req, res) => {
     if (!company) {
       return res.status(404).json({
         success: false,
-        message: 'Company not found',
+        message: "Company not found",
       });
     }
 
     // Check if company is approved
-    if (company.status === 'pending') {
+    if (company.status === "pending") {
       return res.status(400).json({
         success: false,
-        message: 'Company is not approved yet',
+        message: "Company is not approved yet",
       });
     }
 
     // Check if vehicle exists
-    const vehicle = await Vehicle.get(vehicleId); 
+    const vehicle = await Vehicle.get(vehicleId);
     if (!vehicle) {
       return res.status(404).json({
         success: false,
-        message: 'Vehicle not found',
+        message: "Vehicle not found",
       });
     }
 
     // Check if vehicle is approved
-    if (vehicle.status === 'pending') {
+    if (vehicle.status === "pending") {
       return res.status(400).json({
         success: false,
-        message: 'Vehicle is not approved yet',
+        message: "Vehicle is not approved yet",
       });
     }
 
     // Handle actions
     switch (action) {
-      case 'assign':
+      case "assign":
         // Check if driver exists
         const driver = await Driver.get(driverId); // Include companyId
         if (!driver) {
           return res.status(404).json({
             success: false,
-            message: 'Driver not found',
+            message: "Driver not found",
           });
         }
 
         // Check if driver is approved
-        if (driver.status === 'pending') {
+        if (driver.status === "pending") {
           return res.status(400).json({
             success: false,
-            message: 'Driver is not approved yet',
+            message: "Driver is not approved yet",
           });
         }
 
         await Vehicle.assignDriver(vehicleId, driverId);
         await Driver.assignDriver(driverId, vehicleId, vehicle);
         break;
-      case 'unassign':
+      case "unassign":
         await Vehicle.unassignDriver(vehicleId); // Include companyId
         break;
-      case 'update-availability':
+      case "update-availability":
         if (availability === undefined) {
-          return res.status(400).json({ success: false, message: 'Availability is required for update-availability action' });
+          return res.status(400).json({
+            success: false,
+            message: "Availability is required for update-availability action",
+          });
         }
-        await Vehicle.updateAvailability( vehicleId, availability);
+        await Vehicle.updateAvailability(vehicleId, availability);
         break;
       default:
-        return res.status(400).json({ success: false, message: 'Invalid action' });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid action" });
     }
 
     res.status(200).json({
       success: true,
-      message: 'Vehicle assignment updated successfully',
+      message: "Vehicle assignment updated successfully",
     });
   } catch (error) {
-    console.error('Error updating vehicle assignment:', error);
+    console.error("Error updating vehicle assignment:", error);
     res.status(500).json({
       success: false,
       message: `Error updating vehicle assignment: ${error.message}`,
@@ -1207,7 +1298,7 @@ exports.updateVehicleProfile = async (req, res) => {
     if (!company) {
       return res.status(404).json({
         success: false,
-        message: 'Company not found',
+        message: "Company not found",
       });
     }
 
@@ -1216,104 +1307,106 @@ exports.updateVehicleProfile = async (req, res) => {
     if (!vehicle) {
       return res.status(404).json({
         success: false,
-        message: 'Vehicle not found',
+        message: "Vehicle not found",
       });
     }
 
-    const veh= await Vehicle.update(companyId, vehicleId, req.body);
+    const veh = await Vehicle.update(companyId, vehicleId, req.body);
 
     res.status(200).json({
       success: true,
-      message: 'Vehicle profile updated successfully',
+      message: "Vehicle profile updated successfully",
       veh,
     });
-  } catch (error) {
-    
-  }
+  } catch (error) {}
 };
 
 exports.uploadLogo = async (req, res) => {
   try {
-    console.log('🔥 uploadLogo called for companyId:', req.params.companyId);
-    console.log('🔥 req.files:', req.files);
-    console.log('🔥 req.file:', req.file);
-    
+    console.log("🔥 uploadLogo called for companyId:", req.params.companyId);
+    console.log("🔥 req.files:", req.files);
+    console.log("🔥 req.file:", req.file);
+
     const companyId = req.params.companyId;
     // check if company exists
     const company = await Company.get(companyId);
     if (!company) {
       return res.status(404).json({
         success: false,
-        message: 'Company not found',
+        message: "Company not found",
       });
     }
-    
-    let updateData = {}; 
-    
+
+    let updateData = {};
+
     // Handle single file upload (req.file) or multiple files (req.files)
-    const files = req.files ? Object.values(req.files) : (req.file ? [req.file] : []);
-    console.log('🔥 Processing files:', files.length);
-    
+    const files = req.files
+      ? Object.values(req.files)
+      : req.file
+        ? [req.file]
+        : [];
+    console.log("🔥 Processing files:", files.length);
+
     if (files.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No files uploaded',
+        message: "No files uploaded",
       });
     }
-    
-    const uploadTasks = files.map(async file => { 
-      console.log('🔥 Processing file:', file.fieldname, file.originalname);
-      const fieldName = file.fieldname; 
-      const publicId = await uploadImage(file.path); 
-      if (publicId) { 
-        console.log('🔥 Upload successful:', publicId);
-        switch (fieldName) { 
-          case 'logo': 
-            updateData.companyLogo = publicId; 
-            break; 
-          default: 
-            console.log(`Unknown field name: ${fieldName}`); 
+
+    const uploadTasks = files.map(async (file) => {
+      console.log("🔥 Processing file:", file.fieldname, file.originalname);
+      const fieldName = file.fieldname;
+      const publicId = await uploadImage(file.path);
+      if (publicId) {
+        console.log("🔥 Upload successful:", publicId);
+        switch (fieldName) {
+          case "logo":
+            updateData.companyLogo = publicId;
             break;
-        } 
+          default:
+            console.log(`Unknown field name: ${fieldName}`);
+            break;
+        }
       } else {
-        console.error('🔥 Upload failed for file:', file.originalname);
+        console.error("🔥 Upload failed for file:", file.originalname);
       }
-      
+
       // Clean up temp file
       try {
         fs.unlinkSync(file.path);
       } catch (cleanupError) {
-        console.error('🔥 Error cleaning up file:', cleanupError);
+        console.error("🔥 Error cleaning up file:", cleanupError);
       }
     });
-      
-    await Promise.all(uploadTasks); 
-    
+
+    await Promise.all(uploadTasks);
+
     if (Object.keys(updateData).length === 0) {
       return res.status(500).json({
         success: false,
-        message: 'Failed to upload any files',
+        message: "Failed to upload any files",
       });
     }
-      
-    await Action.create({ 
-      type: 'company_review', 
-      entityId: companyId, 
-      priority: 'high', 
-      metadata: { ...updateData }, 
-      message: `${company.companyName} has updated their logo.`, 
+
+    await Action.create({
+      type: "company_review",
+      entityId: companyId,
+      priority: "high",
+      metadata: { ...updateData },
+      message: `${company.companyName} has updated their logo.`,
     });
 
     await Company.update(companyId, updateData);
-    console.log('🔥 Company updated successfully with:', updateData);
+    console.log("🔥 Company updated successfully with:", updateData);
 
     res.status(200).json({
       success: true,
-      message: 'Logo uploaded successfully',
-      data: updateData
+      message: "Logo uploaded successfully",
+      data: updateData,
     });
   } catch (error) {
-    console.error('🔥 uploadLogo error:', error);
+    console.error("🔥 uploadLogo error:", error);
     res.status(500).json({
       success: false,
       message: `Error uploading logo: ${error.message}`,
@@ -1323,7 +1416,7 @@ exports.uploadLogo = async (req, res) => {
 
 exports.uploadDriverDocuments = async (req, res) => {
   try {
-    const {companyId, driverId }= req.params;
+    const { companyId, driverId } = req.params;
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: "No files uploaded" });
@@ -1333,43 +1426,43 @@ exports.uploadDriverDocuments = async (req, res) => {
 
     if (!company) {
       return res.status(404).json({ message: "Company not found" });
-    };
+    }
 
     const driver = await Driver.get(companyId, driverId);
 
     if (!driver) {
       return res.status(404).json({ message: "Driver not found" });
-    };
+    }
 
     let updateData = {};
 
     // Track if sensitive docs changed
     let sensitiveDocsChanged = false;
 
-    let changedFields = []
+    let changedFields = [];
 
-    const uploadTasks = Object.values(req.files).map(async file => {
+    const uploadTasks = Object.values(req.files).map(async (file) => {
       const fieldName = file.fieldname;
       const publicId = await uploadImage(file.path);
 
       if (publicId) {
         switch (fieldName) {
-          case 'license':
+          case "license":
             updateData.license = publicId;
             updateData.driverLicenseapproved = false;
-            updateData.status = 'renewal';
+            updateData.status = "renewal";
             sensitiveDocsChanged = true;
-            changedFields.push('license');
+            changedFields.push("license");
             break;
-          case 'idDoc':
+          case "idDoc":
             updateData.idDoc = publicId;
             updateData.idapproved = false;
             sensitiveDocsChanged = true;
-            changedFields.push('idDoc');
+            changedFields.push("idDoc");
             break;
-          case 'photo':
+          case "photo":
             updateData.photo = publicId;
-            changedFields.push('photo');
+            changedFields.push("photo");
             break;
           default:
             console.log(`Unknown field name: ${fieldName}`);
@@ -1378,19 +1471,19 @@ exports.uploadDriverDocuments = async (req, res) => {
       }
       fs.unlinkSync(file.path);
     });
-    
+
     await Promise.all(uploadTasks);
-    
+
     await Action.create({
-      type: 'company_review',
+      type: "company_review",
       entityId: companyId,
-      priority: 'high',
+      priority: "high",
       metadata: {
-        ...updateData
+        ...updateData,
       },
-      message: `${company.companyName} has ${sensitiveDocsChanged ? 'sensitive' : 'non-sensitive'} documents that need to be approved.`,
+      message: `${company.companyName} has ${sensitiveDocsChanged ? "sensitive" : "non-sensitive"} documents that need to be approved.`,
     });
-    
+
     await Driver.update(companyId, driverId, updateData);
 
     res.status(200).json({
@@ -1419,39 +1512,39 @@ exports.uploadVehicleDocuments = async (req, res) => {
 
     if (!company) {
       return res.status(404).json({ message: "Company not found" });
-    };
+    }
 
     const vehicle = await Vehicle.get(companyId, vehicleId);
-  
 
     if (!vehicle) {
       return res.status(404).json({ message: "Vehicle not found" });
-    };
+    }
 
     let updateData = {};
 
     // Track if sensitive docs changed
     let sensitiveDocsChanged = false;
 
-    let changedFields = []
+    let changedFields = [];
 
-    const uploadTasks = Object.values(req.files).map(async file => {
+    const uploadTasks = Object.values(req.files).map(async (file) => {
       const fieldName = file.fieldname;
       const publicId = await uploadImage(file.path);
 
       if (publicId) {
         switch (fieldName) {
-          case 'photos':
+          case "photos":
             existingVehicleImages.push(publicId);
             updateData.photos = existingVehicleImages;
-            changedFields.push('photos');
+            changedFields.push("photos");
             break;
-          case 'insurance': 
-            updateData.insurance = publicId; 
-            updateData.insuranceapproved = false; 
-            updateData.status = 'renewal'; 
-            sensitiveDocsChanged = true; 
-            changedFields.push('insurance'); break;
+          case "insurance":
+            updateData.insurance = publicId;
+            updateData.insuranceapproved = false;
+            updateData.status = "renewal";
+            sensitiveDocsChanged = true;
+            changedFields.push("insurance");
+            break;
           default:
             console.log(`Unknown field name: ${fieldName}`);
             break;
@@ -1459,19 +1552,19 @@ exports.uploadVehicleDocuments = async (req, res) => {
       }
       fs.unlinkSync(file.path);
     });
-    
+
     await Promise.all(uploadTasks);
-    
+
     await Action.create({
-      type: 'company_review',
+      type: "company_review",
       entityId: companyId,
-      priority: 'high',
+      priority: "high",
       metadata: {
-        ...updateData
+        ...updateData,
       },
-      message: `${company.companyName} has ${sensitiveDocsChanged ? 'sensitive' : 'non-sensitive'} documents that need to be approved.`,
+      message: `${company.companyName} has ${sensitiveDocsChanged ? "sensitive" : "non-sensitive"} documents that need to be approved.`,
     });
-    
+
     await Vehicle.update(companyId, vehicleId, updateData);
 
     res.status(200).json({
@@ -1495,47 +1588,59 @@ exports.reviewDriver = async (req, res) => {
     // 1. Check if driver exists
     const driver = await Driver.get(driverId);
     if (!driver) {
-      return res.status(404).json({ message: 'Driver not found' });
+      return res.status(404).json({ message: "Driver not found" });
     }
 
     const company = await Company.get(companyId);
     if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
+      return res.status(404).json({ message: "Company not found" });
     }
 
     if (driver.companyId !== companyId) {
-      return res.status(400).json({ message: 'Driver does not belong to this company' });
+      return res
+        .status(400)
+        .json({ message: "Driver does not belong to this company" });
     }
 
     // 2. Check if already fully approved or rejected
-    const isFullyApproved = driver.status === 'approved';
-    if (isFullyApproved && ['approve-id', 'approve-dl', 'approve-goodconduct', 'approve-gsl'].includes(action)) {
-      return res.status(400).json({ message: 'Driver already fully approved' });
+    const isFullyApproved = driver.status === "approved";
+    if (
+      isFullyApproved &&
+      [
+        "approve-id",
+        "approve-dl",
+        "approve-goodconduct",
+        "approve-gsl",
+      ].includes(action)
+    ) {
+      return res.status(400).json({ message: "Driver already fully approved" });
     }
-    if (driver.status === 'rejected' && action === 'reject') {
-      return res.status(400).json({ message: 'Driver already rejected' });
+    if (driver.status === "rejected" && action === "reject") {
+      return res.status(400).json({ message: "Driver already rejected" });
     }
 
     let updates = {};
 
     // Handle individual document approvals
     const documentActions = {
-      'approve-id': 'idDocumentUrl',
-      'approve-dl': 'driverLicenseUrl',
-      'approve-goodconduct': 'goodConductCertUrl',
-      'approve-gsl': 'goodsServiceLicenseUrl'
+      "approve-id": "idDocumentUrl",
+      "approve-dl": "driverLicenseUrl",
+      "approve-goodconduct": "goodConductCertUrl",
+      "approve-gsl": "goodsServiceLicenseUrl",
     };
 
     const docType = documentActions[action];
     if (docType) {
       if (!expiryDate) {
-        return res.status(400).json({ message: `${action.split('-')[1]} expiryDate is required` });
+        return res
+          .status(400)
+          .json({ message: `${action.split("-")[1]} expiryDate is required` });
       }
       const expiryFieldMap = {
-        'approve-id': 'idExpiryDate',
-        'approve-dl': 'driverLicenseExpiryDate',
-        'approve-goodconduct': 'goodConductCertExpiryDate',
-        'approve-gsl': 'goodsServiceLicenseExpiryDate'
+        "approve-id": "idExpiryDate",
+        "approve-dl": "driverLicenseExpiryDate",
+        "approve-goodconduct": "goodConductCertExpiryDate",
+        "approve-gsl": "goodsServiceLicenseExpiryDate",
       };
       const expiryField = expiryFieldMap[action];
 
@@ -1544,10 +1649,12 @@ exports.reviewDriver = async (req, res) => {
           ...driver.documents,
           [docType]: {
             ...(driver.documents?.[docType] || {}),
-            status: 'approved',
+            status: "approved",
             verifiedBy: req.user.uid,
             verifiedAt: admin.firestore.Timestamp.now(),
-            expiryDate: admin.firestore.Timestamp.fromDate(new Date(expiryDate)),
+            expiryDate: admin.firestore.Timestamp.fromDate(
+              new Date(expiryDate),
+            ),
           },
         },
         [expiryField]: admin.firestore.Timestamp.fromDate(new Date(expiryDate)), // Update expiry field
@@ -1557,14 +1664,20 @@ exports.reviewDriver = async (req, res) => {
       await Driver.update(driverId, updates);
 
       // Check if all critical documents are approved
-      const requiredDocs = ['idDocumentUrl', 'driverLicenseUrl', 'insuranceUrl', 'goodConductCertUrl', 'goodsServiceLicenseUrl'];
-      const allApproved = requiredDocs.every(doc =>
-        updates.documents?.[doc]?.status === 'approved'
+      const requiredDocs = [
+        "idDocumentUrl",
+        "driverLicenseUrl",
+        "insuranceUrl",
+        "goodConductCertUrl",
+        "goodsServiceLicenseUrl",
+      ];
+      const allApproved = requiredDocs.every(
+        (doc) => updates.documents?.[doc]?.status === "approved",
       );
       if (allApproved) {
         updates = {
           ...updates,
-          status: 'approved',
+          status: "approved",
           approvedAt: admin.firestore.Timestamp.now(),
           approvedBy: req.user.uid,
         };
@@ -1572,24 +1685,33 @@ exports.reviewDriver = async (req, res) => {
 
         await sendEmail({
           to: company.companyEmail,
-          subject: 'Driver Account Approved',
+          subject: "Driver Account Approved",
           html: `<p>Your driver account has been approved. Thank you for using our services.</p><p>Best regards,<br>${process.env.APP_NAME}</p>`,
-          text: 'Your driver account has been approved. Welcome to our platform!',
+          text: "Your driver account has been approved. Welcome to our platform!",
         });
 
         const formattedPhone = formatPhoneNumber(company.companyPhone);
-        await smsService.sendSMS('TRUK LTD', 'Your driver account has been approved. Welcome aboard!', formattedPhone);
+        await smsService.sendSMS(
+          "TRUK LTD",
+          "Your driver account has been approved. Welcome aboard!",
+          formattedPhone,
+        );
 
-        await logAdminActivity(req.user.uid, 'approve_driver', req, { type: 'driver', id: driverId });
+        await logAdminActivity(req.user.uid, "approve_driver", req, {
+          type: "driver",
+          id: driverId,
+        });
       }
-      return res.status(200).json({ message: `${action.split('-')[1]} approved`, updates });
+      return res
+        .status(200)
+        .json({ message: `${action.split("-")[1]} approved`, updates });
     }
 
     // Handle rejection
-    if (action === 'reject') {
+    if (action === "reject") {
       updates = {
-        status: 'rejected',
-        rejectionReason: reason || 'Not specified',
+        status: "rejected",
+        rejectionReason: reason || "Not specified",
         updatedAt: admin.firestore.Timestamp.now(),
       };
 
@@ -1597,23 +1719,139 @@ exports.reviewDriver = async (req, res) => {
 
       await sendEmail({
         to: company.companyEmail,
-        subject: 'Driver Account Rejected',
-        html: `<p>Your driver account has been rejected. Reason: ${reason || 'Not specified'}</p>`,
-        text: `Your driver account has been rejected. Reason: ${reason || 'Not specified'}`,
+        subject: "Driver Account Rejected",
+        html: `<p>Your driver account has been rejected. Reason: ${reason || "Not specified"}</p>`,
+        text: `Your driver account has been rejected. Reason: ${reason || "Not specified"}`,
       });
 
       const formattedPhone = formatPhoneNumber(company.companyPhone);
-      await smsService.sendSMS('TRUK LTD', `Your driver account has been rejected. Reason: ${reason || 'Not specified'}.`, formattedPhone);
+      await smsService.sendSMS(
+        "TRUK LTD",
+        `Your driver account has been rejected. Reason: ${reason || "Not specified"}.`,
+        formattedPhone,
+      );
 
-      await logAdminActivity(req.user.uid, 'reject_driver', req, { type: 'driver', id: driverId });
+      await logAdminActivity(req.user.uid, "reject_driver", req, {
+        type: "driver",
+        id: driverId,
+      });
 
-      return res.status(200).json({ message: 'Driver rejected', updates });
+      return res.status(200).json({ message: "Driver rejected", updates });
     }
 
-    return res.status(400).json({ message: 'Invalid action, must be approve-id, approve-dl, approve-insurance, approve-goodconduct, approve-gsl, or reject' });
+    return res.status(400).json({
+      message:
+        "Invalid action, must be approve-id, approve-dl, approve-insurance, approve-goodconduct, approve-gsl, or reject",
+    });
   } catch (error) {
-    console.error('Review driver error:', error);
-    res.status(500).json({ message: 'Failed to review driver' });
+    console.error("Review driver error:", error);
+    res.status(500).json({ message: "Failed to review driver" });
   }
 };
 
+/**
+ * Check if company needs registration after completing trips
+ * Registration is required after 5 completed trips
+ * @param {string} companyId - Company ID
+ * @returns {Promise<{needsRegistration: boolean, completedTrips: number}>}
+ */
+exports.checkRegistrationRequirement = async (companyId) => {
+  try {
+    const company = await Company.get(companyId);
+
+    if (!company) {
+      return {
+        needsRegistration: false,
+        completedTrips: 0,
+        error: "Company not found",
+      };
+    }
+
+    // If registration already provided, no need to check
+    if (company.registration && company.registration.trim()) {
+      return {
+        needsRegistration: false,
+        completedTrips: 0,
+        hasRegistration: true,
+      };
+    }
+
+    // Count completed trips for this company
+    // This includes trips from all drivers associated with the company
+    const Booking = require("../models/Booking");
+    const completedBookings = await Booking.getByCompanyAndStatus(
+      companyId,
+      "completed",
+    );
+    const completedTrips = completedBookings ? completedBookings.length : 0;
+
+    console.log(
+      `📊 Company ${companyId} has ${completedTrips} completed trips`,
+    );
+
+    // Registration required after 5 trips
+    const needsRegistration = completedTrips >= 5;
+
+    if (needsRegistration) {
+      console.log(
+        `⚠️ Company ${companyId} needs to provide registration (${completedTrips} trips completed)`,
+      );
+    }
+
+    return { needsRegistration, completedTrips };
+  } catch (error) {
+    console.error("Error checking registration requirement:", error);
+    return {
+      needsRegistration: false,
+      completedTrips: 0,
+      error: error.message,
+    };
+  }
+};
+
+/**
+ * Enforce registration requirement when booking is completed
+ * Call this after a booking is marked as completed
+ * @param {string} bookingId - Booking ID
+ * @param {string} companyId - Company ID
+ */
+exports.enforceRegistrationAfterTrip = async (bookingId, companyId) => {
+  try {
+    if (!companyId) {
+      console.log("No company ID provided, skipping registration check");
+      return;
+    }
+
+    const result = await exports.checkRegistrationRequirement(companyId);
+
+    if (result.needsRegistration) {
+      // Send notification to company to provide registration
+      const Notification = require("../models/Notification");
+      await Notification.create({
+        type: "registration_required",
+        message: `Your company has completed ${result.completedTrips} trips. Please provide your company registration number to continue accepting bookings.`,
+        userId: companyId,
+        userType: "transporter",
+        priority: "high",
+        metadata: {
+          completedTrips: result.completedTrips,
+          bookingId: bookingId,
+        },
+      });
+
+      // Update company status to require registration
+      await Company.update(companyId, {
+        requiresRegistration: true,
+        registrationRequiredAt: new Date(),
+        completedTripsCount: result.completedTrips,
+      });
+
+      console.log(
+        `✅ Registration requirement enforced for company ${companyId}`,
+      );
+    }
+  } catch (error) {
+    console.error("Error enforcing registration requirement:", error);
+    // Don't throw - this is a background check, shouldn't block booking completion
+  }
+};
