@@ -55,12 +55,6 @@ import { auth, db } from "./src/firebaseConfig";
 import BackgroundLocationDisclosureModal from "./src/components/common/BackgroundLocationDisclosureModal";
 import locationService from "./src/services/locationService";
 import subscriptionService from "./src/services/subscriptionService";
-import NotificationManager from "./src/components/Notification/NotificationManager";
-import { ConsolidationProvider } from "./src/context/ConsolidationContext";
-import fonts from "./src/constants/fonts";
-import { auth, db } from "./src/firebaseConfig";
-import BackgroundLocationDisclosureModal from "./src/components/common/BackgroundLocationDisclosureModal";
-import locationService from "./src/services/locationService";
 
 const Stack = createStackNavigator();
 
