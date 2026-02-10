@@ -1,6 +1,6 @@
-import * as Location from 'expo-location';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_ENDPOINTS } from '../constants/api';
+import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_ENDPOINTS } from "../constants/api";
 
 interface LocationUpdate {
   latitude: number;
@@ -8,7 +8,7 @@ interface LocationUpdate {
   timestamp: number;
 }
 
-const BACKGROUND_LOCATION_CONSENT_KEY = '@trukapp:background_location_consent';
+const BACKGROUND_LOCATION_CONSENT_KEY = "@trukapp:background_location_consent";
 
 class LocationService {
   private watchId: Location.LocationSubscription | null = null;
@@ -24,10 +24,12 @@ class LocationService {
    */
   async hasBackgroundLocationConsent(): Promise<boolean> {
     try {
-      const consent = await AsyncStorage.getItem(BACKGROUND_LOCATION_CONSENT_KEY);
-      return consent === 'true';
+      const consent = await AsyncStorage.getItem(
+        BACKGROUND_LOCATION_CONSENT_KEY,
+      );
+      return consent === "true";
     } catch (error: any) {
-      console.error('Error checking background location consent:', error);
+      console.error("Error checking background location consent:", error);
       // On physical devices, AsyncStorage might fail due to permissions or storage issues
       // Return false to show disclosure (safer default)
       // Don't throw - let the app continue
@@ -36,17 +38,67 @@ class LocationService {
   }
 
   /**
+   * Check if background location permission is actually granted in system settings
+   * This is different from consent - consent is user agreeing to disclosure, permission is system-level
+   */
+  async hasBackgroundLocationPermission(): Promise<boolean> {
+    try {
+      const { status } = await Location.getBackgroundPermissionsAsync();
+      return status === "granted";
+    } catch (error: any) {
+      console.error("Error checking background location permission:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if we should show the background location disclosure
+   * Show disclosure if:
+   * 1. User hasn't consented yet, OR
+   * 2. User consented but permission not granted (they might have denied in settings)
+   *
+   * This ensures Google Play reviewers always see the disclosure on fresh installs
+   */
+  async shouldShowBackgroundLocationDisclosure(): Promise<boolean> {
+    try {
+      const hasConsent = await this.hasBackgroundLocationConsent();
+      const hasPermission = await this.hasBackgroundLocationPermission();
+
+      // Show disclosure if no consent OR if consent given but permission not granted
+      // This handles cases where user accepted disclosure but denied system permission
+      const shouldShow = !hasConsent || !hasPermission;
+
+      console.log("📢 shouldShowBackgroundLocationDisclosure:", {
+        hasConsent,
+        hasPermission,
+        shouldShow,
+      });
+
+      return shouldShow;
+    } catch (error: any) {
+      console.error("Error checking if should show disclosure:", error);
+      // On error, show disclosure to be safe (Google Play compliance)
+      return true;
+    }
+  }
+
+  /**
    * Save user consent for background location disclosure
    */
   async saveBackgroundLocationConsent(consented: boolean): Promise<void> {
     try {
-      await AsyncStorage.setItem(BACKGROUND_LOCATION_CONSENT_KEY, consented ? 'true' : 'false');
+      await AsyncStorage.setItem(
+        BACKGROUND_LOCATION_CONSENT_KEY,
+        consented ? "true" : "false",
+      );
     } catch (error: any) {
-      console.error('Error saving background location consent:', error);
+      console.error("Error saving background location consent:", error);
       // On physical devices, AsyncStorage might fail due to permissions or storage issues
       // Log but don't throw - the app should continue even if consent can't be saved
       // The disclosure will be shown again next time, which is acceptable
-      console.warn('Could not save background location consent - will show disclosure again next time');
+      console.warn(
+        "Could not save background location consent - will show disclosure again next time",
+      );
     }
   }
 
@@ -58,8 +110,8 @@ class LocationService {
     try {
       // Request foreground permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.error('Foreground location permission denied');
+      if (status !== "granted") {
+        console.error("Foreground location permission denied");
         return false;
       }
 
@@ -76,33 +128,39 @@ class LocationService {
       this.isTracking = true;
       return true;
     } catch (error) {
-      console.error('Failed to start foreground-only location tracking:', error);
+      console.error(
+        "Failed to start foreground-only location tracking:",
+        error,
+      );
       return false;
     }
   }
 
   /**
    * Start automatic location tracking for transporters
-   * 
+   *
    * IMPORTANT: This method now requires explicit user consent for background location
    * per Google Play Store's Prominent Disclosure requirement. Call hasBackgroundLocationConsent()
    * first and show BackgroundLocationDisclosureModal if consent hasn't been given.
    */
-  async startLocationTracking(hasConsent: boolean = false): Promise<{ success: boolean; needsConsent: boolean }> {
+  async startLocationTracking(
+    hasConsent: boolean = false,
+  ): Promise<{ success: boolean; needsConsent: boolean }> {
     try {
       // Starting location tracking
 
       // Request foreground permissions first
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.error('Location permission denied');
+      if (status !== "granted") {
+        console.error("Location permission denied");
         return { success: false, needsConsent: false };
       }
 
       // Check if background location consent has been given
       // This is required by Google Play Store before requesting BACKGROUND_LOCATION permission
-      const hasConsentValue = hasConsent || await this.hasBackgroundLocationConsent();
-      
+      const hasConsentValue =
+        hasConsent || (await this.hasBackgroundLocationConsent());
+
       if (!hasConsentValue) {
         // Consent not given - return needsConsent flag
         // The calling component should show BackgroundLocationDisclosureModal
@@ -112,22 +170,39 @@ class LocationService {
       // Consent has been given - safe to request background permissions
       // CRITICAL: This is where we request BACKGROUND_LOCATION permission
       // The prominent disclosure MUST have been shown before reaching this point
-      console.log('📢 LOCATION_SERVICE: Requesting BACKGROUND_LOCATION permission');
-      console.log('📢 LOCATION_SERVICE: User has already seen and accepted the prominent disclosure');
-      console.log('📢 LOCATION_SERVICE: This request happens AFTER prominent disclosure (Google Play requirement)');
-      
+      console.log(
+        "📢 LOCATION_SERVICE: Requesting BACKGROUND_LOCATION permission",
+      );
+      console.log(
+        "📢 LOCATION_SERVICE: User has already seen and accepted the prominent disclosure",
+      );
+      console.log(
+        "📢 LOCATION_SERVICE: This request happens AFTER prominent disclosure (Google Play requirement)",
+      );
+
       try {
-        const backgroundStatus = await Location.requestBackgroundPermissionsAsync();
-        console.log('📢 LOCATION_SERVICE: Background permission status:', backgroundStatus.status);
-        
-        if (backgroundStatus.status !== 'granted') {
-          console.warn('⚠️ LOCATION_SERVICE: Background location permission denied - tracking may be limited');
+        const backgroundStatus =
+          await Location.requestBackgroundPermissionsAsync();
+        console.log(
+          "📢 LOCATION_SERVICE: Background permission status:",
+          backgroundStatus.status,
+        );
+
+        if (backgroundStatus.status !== "granted") {
+          console.warn(
+            "⚠️ LOCATION_SERVICE: Background location permission denied - tracking may be limited",
+          );
           // Continue with foreground tracking only
         } else {
-          console.log('✅ LOCATION_SERVICE: Background location permission GRANTED');
+          console.log(
+            "✅ LOCATION_SERVICE: Background location permission GRANTED",
+          );
         }
       } catch (error) {
-        console.warn('⚠️ LOCATION_SERVICE: Background location permission request failed:', error);
+        console.warn(
+          "⚠️ LOCATION_SERVICE: Background location permission request failed:",
+          error,
+        );
         // Continue with foreground tracking only
       }
 
@@ -144,7 +219,7 @@ class LocationService {
       this.isTracking = true;
       return { success: true, needsConsent: false };
     } catch (error) {
-      console.error('Failed to start location tracking:', error);
+      console.error("Failed to start location tracking:", error);
       return { success: false, needsConsent: false };
     }
   }
@@ -160,7 +235,7 @@ class LocationService {
       }
       this.isTracking = false;
     } catch (error) {
-      console.error('Error stopping location tracking:', error);
+      console.error("Error stopping location tracking:", error);
     }
   }
 
@@ -170,8 +245,8 @@ class LocationService {
   async getCurrentLocation(): Promise<LocationUpdate | null> {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        throw new Error('Location permission denied');
+      if (status !== "granted") {
+        throw new Error("Location permission denied");
       }
 
       const location = await Location.getCurrentPositionAsync({
@@ -184,7 +259,7 @@ class LocationService {
         timestamp: Date.now(),
       };
     } catch (error) {
-      console.error('Error getting current location:', error);
+      console.error("Error getting current location:", error);
       return null;
     }
   }
@@ -192,7 +267,9 @@ class LocationService {
   /**
    * Set callback for location updates
    */
-  setLocationUpdateCallback(callback: (location: LocationUpdate) => void): void {
+  setLocationUpdateCallback(
+    callback: (location: LocationUpdate) => void,
+  ): void {
     this.onLocationUpdateCallback = callback;
   }
 
@@ -206,7 +283,10 @@ class LocationService {
   /**
    * Update location tracking settings
    */
-  updateSettings(settings: { updateInterval?: number; minDistanceInterval?: number }): void {
+  updateSettings(settings: {
+    updateInterval?: number;
+    minDistanceInterval?: number;
+  }): void {
     if (settings.updateInterval) {
       this.updateInterval = settings.updateInterval;
     }
@@ -218,7 +298,9 @@ class LocationService {
   /**
    * Handle location updates from the device
    */
-  private async handleLocationUpdate(location: Location.LocationObject): Promise<void> {
+  private async handleLocationUpdate(
+    location: Location.LocationObject,
+  ): Promise<void> {
     const now = Date.now();
 
     // Throttle updates to prevent excessive API calls
@@ -244,7 +326,9 @@ class LocationService {
   /**
    * Update transporter location on the backend
    */
-  private async updateTransporterLocation(location: LocationUpdate): Promise<void> {
+  private async updateTransporterLocation(
+    location: LocationUpdate,
+  ): Promise<void> {
     try {
       const token = await this.getAuthToken();
 
@@ -255,14 +339,17 @@ class LocationService {
 
       // Sending location update to backend
 
-      const response = await fetch(API_ENDPOINTS.TRANSPORTERS + '/update-location', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+      const response = await fetch(
+        API_ENDPOINTS.TRANSPORTERS + "/update-location",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(requestData),
         },
-        body: JSON.stringify(requestData),
-      });
+      );
 
       // Processing location update response
 
@@ -282,17 +369,17 @@ class LocationService {
    */
   private async getAuthToken(): Promise<string> {
     try {
-      const { getAuth } = require('firebase/auth');
+      const { getAuth } = require("firebase/auth");
       const auth = getAuth();
       const user = auth.currentUser;
 
       if (!user) {
-        throw new Error('User not authenticated');
+        throw new Error("User not authenticated");
       }
 
       return await user.getIdToken();
     } catch (error) {
-      console.error('Error getting auth token:', error);
+      console.error("Error getting auth token:", error);
       throw error;
     }
   }
@@ -300,7 +387,12 @@ class LocationService {
   /**
    * Calculate distance between two points
    */
-  static calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  static calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     const R = 6371; // Radius of the Earth in kilometers
     const dLat = this.toRadians(lat2 - lat1);
     const dLon = this.toRadians(lon2 - lon1);

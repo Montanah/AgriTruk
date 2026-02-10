@@ -544,25 +544,28 @@ export default function App() {
                   data.transporterType,
                 );
 
-                let hasConsent = false;
+                // CRITICAL: Check if we should show disclosure
+                // This checks BOTH consent AND actual permission status
+                // Ensures Google Play reviewers always see disclosure on fresh installs
+                let shouldShowDisclosure = false;
                 try {
-                  hasConsent =
-                    await locationService.hasBackgroundLocationConsent();
+                  shouldShowDisclosure =
+                    await locationService.shouldShowBackgroundLocationDisclosure();
                   console.log(
-                    "📢 App.tsx: Background location consent check result:",
-                    hasConsent,
+                    "📢 App.tsx: Should show background location disclosure:",
+                    shouldShowDisclosure,
                   );
                 } catch (consentError: any) {
                   console.warn(
-                    "App.tsx: Error checking background location consent:",
+                    "App.tsx: Error checking if should show disclosure:",
                     consentError,
                   );
-                  hasConsent = false; // Default to false on error - must show disclosure
+                  shouldShowDisclosure = true; // Default to true on error - must show disclosure for Google Play compliance
                 }
 
-                if (!hasConsent) {
+                if (shouldShowDisclosure) {
                   console.log(
-                    "📢 App.tsx: No consent found - will show global prominent disclosure BEFORE navigation",
+                    "📢 App.tsx: Will show global prominent disclosure BEFORE navigation",
                   );
                   console.log(
                     "📢 App.tsx: This disclosure MUST be shown before any permission requests (Google Play requirement)",
@@ -600,7 +603,7 @@ export default function App() {
                   );
                 } else {
                   console.log(
-                    "📢 App.tsx: User has already consented to background location disclosure",
+                    "📢 App.tsx: User has already consented AND granted permission - no need to show disclosure",
                   );
                 }
                 setHasCheckedGlobalConsent(true);
