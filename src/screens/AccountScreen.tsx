@@ -1,9 +1,9 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image-picker';
-import { signOut } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import React, { useEffect, useState, useCallback } from 'react';
+import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
+import { signOut } from "firebase/auth";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,15 +17,15 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import colors from '../constants/colors';
-import fonts from '../constants/fonts';
-import spacing from '../constants/spacing';
-import { auth, db } from '../firebaseConfig';
-import { apiRequest, uploadFile } from '../utils/api';
-import { useCustomAlert } from '../hooks/useCustomAlert';
-import DeleteAccountModal from '../components/common/DeleteAccountModal';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import colors from "../constants/colors";
+import fonts from "../constants/fonts";
+import spacing from "../constants/spacing";
+import { auth, db } from "../firebaseConfig";
+import { apiRequest, uploadFile } from "../utils/api";
+import { useCustomAlert } from "../hooks/useCustomAlert";
+import DeleteAccountModal from "../components/common/DeleteAccountModal";
 
 interface ShipperProfileData {
   name: string;
@@ -43,7 +43,7 @@ interface ShipperProfileData {
       push: boolean;
       sms: boolean;
     };
-    preferredVerificationMethod: 'email' | 'phone';
+    preferredVerificationMethod: "email" | "phone";
   };
 }
 
@@ -57,15 +57,15 @@ const AccountScreen = () => {
   const [profile, setProfile] = useState<ShipperProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<ShipperProfileData>>({});
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [changePwd, setChangePwd] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showConflictModal, setShowConflictModal] = useState(false);
-  const [complaintText, setComplaintText] = useState('');
+  const [complaintText, setComplaintText] = useState("");
   const [verifyingPhone, setVerifyingPhone] = useState(false);
   const [showPrimaryContactModal, setShowPrimaryContactModal] = useState(false);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
@@ -75,25 +75,25 @@ const AccountScreen = () => {
 
   // Determine primary contact method based on verification status
   const getPrimaryContactMethod = () => {
-    if (!profile) return 'phone';
+    if (!profile) return "phone";
 
     // If phone is verified but email isn't, phone should be primary
     if (profile.phoneVerified && !profile.emailVerified) {
-      return 'phone';
+      return "phone";
     }
 
     // If email is verified but phone isn't, email should be primary
     if (profile.emailVerified && !profile.phoneVerified) {
-      return 'email';
+      return "email";
     }
 
     // If both are verified, use user preference
     if (profile.phoneVerified && profile.emailVerified) {
-      return profile.preferences?.preferredVerificationMethod || 'phone';
+      return profile.preferences?.preferredVerificationMethod || "phone";
     }
 
     // If neither is verified, default to phone (what was used during signup)
-    return 'phone';
+    return "phone";
   };
 
   const primaryContactMethod = getPrimaryContactMethod();
@@ -102,110 +102,131 @@ const AccountScreen = () => {
   const isGeneratedPhone = (value?: string) => {
     if (!value) return false;
     // Check for patterns like +254000... or placeholder phones
-    return /^\+2540{4,}/.test(value.trim()) || value.includes('0000000');
+    return /^\+2540{4,}/.test(value.trim()) || value.includes("0000000");
   };
-  
+
   const isGeneratedEmail = (value?: string) => {
     if (!value) return false;
     // Check for patterns like @trukapp.generated, @generated, or userXXX@
     return /@trukapp\.generated$|@generated($|\.)|^user\d+@/i.test(value);
   };
 
-  const handleChangePrimaryContact = async (newMethod: 'email' | 'phone') => {
+  const handleChangePrimaryContact = async (newMethod: "email" | "phone") => {
     if (!user?.uid || !profile) return;
 
     try {
       setLoading(true);
-      await updateDoc(doc(db, 'users', user.uid), {
-        'preferences.preferredVerificationMethod': newMethod,
+      await updateDoc(doc(db, "users", user.uid), {
+        "preferences.preferredVerificationMethod": newMethod,
         updatedAt: new Date().toISOString(),
       });
 
       // Update local state
-      setProfile(prev => prev ? {
-        ...prev,
-        preferences: {
-          ...prev.preferences,
-          preferredVerificationMethod: newMethod
-        }
-      } : null);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              preferences: {
+                ...prev.preferences,
+                preferredVerificationMethod: newMethod,
+              },
+            }
+          : null,
+      );
 
       setShowPrimaryContactModal(false);
-      Alert.alert('Success', `Primary contact method changed to ${newMethod === 'email' ? 'Email' : 'Phone'}`);
+      Alert.alert(
+        "Success",
+        `Primary contact method changed to ${newMethod === "email" ? "Email" : "Phone"}`,
+      );
     } catch (e: any) {
-      setError(e.message || 'Failed to update primary contact method.');
+      setError(e.message || "Failed to update primary contact method.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleNotificationToggle = async (setting: 'email' | 'push' | 'sms') => {
+  const handleNotificationToggle = async (
+    setting: "email" | "push" | "sms",
+  ) => {
     if (!user?.uid || !profile) return;
 
     try {
       setLoading(true);
       const newValue = !profile.preferences.notificationSettings[setting];
-      
-      await updateDoc(doc(db, 'users', user.uid), {
+
+      await updateDoc(doc(db, "users", user.uid), {
         [`preferences.notificationSettings.${setting}`]: newValue,
         updatedAt: new Date().toISOString(),
       });
 
       // Update local state
-      setProfile(prev => prev ? {
-        ...prev,
-        preferences: {
-          ...prev.preferences,
-          notificationSettings: {
-            ...prev.preferences.notificationSettings,
-            [setting]: newValue
-          }
-        }
-      } : null);
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              preferences: {
+                ...prev.preferences,
+                notificationSettings: {
+                  ...prev.preferences.notificationSettings,
+                  [setting]: newValue,
+                },
+              },
+            }
+          : null,
+      );
 
-      Alert.alert('Success', `${setting.charAt(0).toUpperCase() + setting.slice(1)} notifications ${newValue ? 'enabled' : 'disabled'}`);
+      Alert.alert(
+        "Success",
+        `${setting.charAt(0).toUpperCase() + setting.slice(1)} notifications ${newValue ? "enabled" : "disabled"}`,
+      );
     } catch (e: any) {
-      setError(e.message || `Failed to update ${setting} notification setting.`);
+      setError(
+        e.message || `Failed to update ${setting} notification setting.`,
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const loadProfile = useCallback(async () => {
-    console.log('loadProfile called, user:', user?.uid ? 'exists' : 'null');
-    
+    console.log("loadProfile called, user:", user?.uid ? "exists" : "null");
+
     if (!user?.uid) {
-      console.log('No user UID, clearing profile and loading state');
+      console.log("No user UID, clearing profile and loading state");
       setLoading(false);
       setProfile(null);
-      setError('');
+      setError("");
       return;
     }
 
     try {
-      console.log('Starting profile load for user:', user.uid);
+      console.log("Starting profile load for user:", user.uid);
       setLoading(true);
-      setError('');
-      
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      console.log('User document exists:', userDoc.exists());
+      setError("");
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      console.log("User document exists:", userDoc.exists());
 
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        console.log('User data loaded:', Object.keys(userData));
+        console.log("User data loaded:", Object.keys(userData));
 
         // Get the actual user creation date from Firebase Auth metadata
-        const userCreationDate = user.metadata?.creationTime || userData.createdAt || new Date().toISOString();
+        const userCreationDate =
+          user.metadata?.creationTime ||
+          userData.createdAt ||
+          new Date().toISOString();
 
         const profileData: ShipperProfileData = {
-          name: userData.name || '',
-          email: userData.email || user.email || '',
-          phone: userData.phone || '',
-          address: userData.address || '',
+          name: userData.name || "",
+          email: userData.email || user.email || "",
+          phone: userData.phone || "",
+          address: userData.address || "",
           profilePhotoUrl: userData.profilePhotoUrl,
           emailVerified: userData.emailVerified || false,
           phoneVerified: userData.phoneVerified || false,
-          role: userData.role || 'shipper',
+          role: userData.role || "shipper",
           createdAt: userCreationDate,
           preferences: {
             notificationSettings: {
@@ -213,25 +234,26 @@ const AccountScreen = () => {
               push: userData.preferences?.notificationSettings?.push ?? true,
               sms: userData.preferences?.notificationSettings?.sms ?? false,
             },
-            preferredVerificationMethod: userData.preferences?.preferredVerificationMethod || 'email',
+            preferredVerificationMethod:
+              userData.preferences?.preferredVerificationMethod || "email",
           },
         };
 
-        console.log('Profile data created successfully');
+        console.log("Profile data created successfully");
         setProfile(profileData);
         setEditData(profileData);
       } else {
-        console.log('User document does not exist, creating default profile');
+        console.log("User document does not exist, creating default profile");
         // Create a default profile if document doesn't exist
         const defaultProfile: ShipperProfileData = {
-          name: user.displayName || '',
-          email: user.email || '',
-          phone: '',
-          address: '',
-          profilePhotoUrl: user.photoURL || '',
+          name: user.displayName || "",
+          email: user.email || "",
+          phone: "",
+          address: "",
+          profilePhotoUrl: user.photoURL || "",
           emailVerified: user.emailVerified || false,
           phoneVerified: false,
-          role: 'shipper',
+          role: "shipper",
           createdAt: user.metadata?.creationTime || new Date().toISOString(),
           preferences: {
             notificationSettings: {
@@ -239,15 +261,15 @@ const AccountScreen = () => {
               push: true,
               sms: false,
             },
-            preferredVerificationMethod: 'email',
+            preferredVerificationMethod: "email",
           },
         };
         setProfile(defaultProfile);
         setEditData(defaultProfile);
       }
     } catch (e: any) {
-      console.error('Profile loading error:', e);
-      setError(e.message || 'Failed to load profile.');
+      console.error("Profile loading error:", e);
+      setError(e.message || "Failed to load profile.");
     } finally {
       setLoading(false);
     }
@@ -275,43 +297,39 @@ const AccountScreen = () => {
         phone: editData.phone,
         email: editData.email,
       };
-      
+
       // Include profilePhotoUrl if available (from previously uploaded photo)
       if (editData.profilePhotoUrl) {
         updatePayload.profilePhotoUrl = editData.profilePhotoUrl;
       }
-      
-      await apiRequest('/auth/update', {
-        method: 'PUT',
+
+      await apiRequest("/auth/update", {
+        method: "PUT",
         body: JSON.stringify(updatePayload),
       });
 
-      setProfile(prev => prev ? { ...prev, ...editData } : null);
+      setProfile((prev) => (prev ? { ...prev, ...editData } : null));
       setEditing(false);
-      Alert.alert('Success', 'Profile updated successfully');
+      Alert.alert("Success", "Profile updated successfully");
     } catch (e: any) {
-      setError(e.message || 'Failed to update profile.');
+      setError(e.message || "Failed to update profile.");
     } finally {
       setLoading(false);
     }
   };
 
   const showPhotoOptions = () => {
-    Alert.alert(
-      'Select Photo',
-      'Choose how you want to add a profile photo',
-      [
-        { text: 'Camera', onPress: handlePhotoCamera },
-        { text: 'Gallery', onPress: handlePhotoPick },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    Alert.alert("Select Photo", "Choose how you want to add a profile photo", [
+      { text: "Camera", onPress: handlePhotoCamera },
+      { text: "Gallery", onPress: handlePhotoPick },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const handlePhotoCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      setError('Permission to access camera is required!');
+    if (status !== "granted") {
+      setError("Permission to access camera is required!");
       return;
     }
 
@@ -328,8 +346,8 @@ const AccountScreen = () => {
 
   const handlePhotoPick = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      setError('Permission to access media library is required!');
+    if (status !== "granted") {
+      setError("Permission to access media library is required!");
       return;
     }
 
@@ -345,29 +363,34 @@ const AccountScreen = () => {
   };
 
   const uploadProfilePhoto = async (uri: string) => {
-    setEditData(prev => ({ ...prev, profilePhotoUrl: uri }));
+    setEditData((prev) => ({ ...prev, profilePhotoUrl: uri }));
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       if (user?.uid) {
         // Use backend upload API for profile photo
-        const uploadedUrl = await uploadFile(uri, 'profile');
+        const uploadedUrl = await uploadFile(uri, "profile");
 
         // Update Firestore with uploaded URL
-        await updateDoc(doc(db, 'users', user.uid), {
+        await updateDoc(doc(db, "users", user.uid), {
           profilePhotoUrl: uploadedUrl,
           updatedAt: new Date().toISOString(),
         });
-        
-        setProfile(prev => prev ? { ...prev, profilePhotoUrl: uploadedUrl } : null);
-        setEditData(prev => ({ ...prev, profilePhotoUrl: uploadedUrl }));
-        Alert.alert('Success', 'Profile photo updated successfully');
+
+        setProfile((prev) =>
+          prev ? { ...prev, profilePhotoUrl: uploadedUrl } : null,
+        );
+        setEditData((prev) => ({ ...prev, profilePhotoUrl: uploadedUrl }));
+        Alert.alert("Success", "Profile photo updated successfully");
       }
     } catch (e: any) {
-      setError(e.message || 'Failed to update profile photo.');
+      setError(e.message || "Failed to update profile photo.");
       // Revert the local state
-      setEditData(prev => ({ ...prev, profilePhotoUrl: profile?.profilePhotoUrl || '' }));
+      setEditData((prev) => ({
+        ...prev,
+        profilePhotoUrl: profile?.profilePhotoUrl || "",
+      }));
     } finally {
       setLoading(false);
     }
@@ -376,52 +399,63 @@ const AccountScreen = () => {
   const handleVerifyEmail = async () => {
     const emailToVerify = profile?.email || editData.email || user?.email;
     if (!emailToVerify) {
-      Alert.alert('Error', 'No email address found. Please add an email address in your profile.');
+      Alert.alert(
+        "Error",
+        "No email address found. Please add an email address in your profile.",
+      );
       return;
     }
-    
+
     // Check if email is generated
     if (isGeneratedEmail(emailToVerify)) {
-      Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Update Now', onPress: () => setEditing(true) }
-      ]);
+      Alert.alert(
+        "Update Email",
+        "This email is system-generated. Please update it to your actual email before verification.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Update Now", onPress: () => setEditing(true) },
+        ],
+      );
       return;
     }
-    
+
     if (profile?.emailVerified) {
-      Alert.alert('Already Verified', 'Your email is already verified. You can use it to log in.');
+      Alert.alert(
+        "Already Verified",
+        "Your email is already verified. You can use it to log in.",
+      );
       return;
     }
     try {
       setVerifyingEmail(true);
 
       // Use backend API for email verification - same pattern as EmailVerificationScreen
-      await apiRequest('/auth', {
-        method: 'POST',
+      await apiRequest("/auth", {
+        method: "POST",
         body: JSON.stringify({
-          action: 'resend-email-code',
-          email: emailToVerify
+          action: "resend-email-code",
+          email: emailToVerify,
         }),
       });
 
       Alert.alert(
-        'Verification Email Sent',
-        'Please check your email for the verification code. You can then use your email to log in.',
+        "Verification Email Sent",
+        "Please check your email for the verification code. You can then use your email to log in.",
         [
-          { text: 'OK' },
+          { text: "OK" },
           {
-            text: 'Go to Verification',
-            onPress: () => navigation?.navigate?.('EmailVerification')
-          }
-        ]
+            text: "Go to Verification",
+            onPress: () => navigation?.navigate?.("EmailVerification"),
+          },
+        ],
       );
     } catch (e: any) {
-      console.error('Email verification error:', e);
+      console.error("Email verification error:", e);
       Alert.alert(
-        'Verification Failed',
-        e.message || 'Unable to send verification email. Please check your internet connection and try again later.',
-        [{ text: 'OK' }]
+        "Verification Failed",
+        e.message ||
+          "Unable to send verification email. Please check your internet connection and try again later.",
+        [{ text: "OK" }],
       );
     } finally {
       setVerifyingEmail(false);
@@ -431,52 +465,63 @@ const AccountScreen = () => {
   const handleVerifyPhone = async () => {
     const phoneToVerify = profile?.phone || editData.phone;
     if (!phoneToVerify) {
-      Alert.alert('Error', 'No phone number found. Please add a phone number in your profile.');
+      Alert.alert(
+        "Error",
+        "No phone number found. Please add a phone number in your profile.",
+      );
       return;
     }
-    
+
     // Check if phone is generated
     if (isGeneratedPhone(phoneToVerify)) {
-      Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Update Now', onPress: () => setEditing(true) }
-      ]);
+      Alert.alert(
+        "Update Phone",
+        "This phone number is system-generated. Please update it to your actual phone number before verification.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Update Now", onPress: () => setEditing(true) },
+        ],
+      );
       return;
     }
-    
+
     if (profile?.phoneVerified) {
-      Alert.alert('Already Verified', 'Your phone is already verified. You can use it to log in.');
+      Alert.alert(
+        "Already Verified",
+        "Your phone is already verified. You can use it to log in.",
+      );
       return;
     }
     try {
       setVerifyingPhone(true);
 
       // Use backend API for phone verification - same pattern as auth flow
-      await apiRequest('/auth', {
-        method: 'POST',
+      await apiRequest("/auth", {
+        method: "POST",
         body: JSON.stringify({
-          action: 'resend-phone-code',
-          phoneNumber: phoneToVerify
+          action: "resend-phone-code",
+          phoneNumber: phoneToVerify,
         }),
       });
 
       Alert.alert(
-        'Verification SMS Sent',
-        'Please check your phone for the verification code. You can then use your phone to log in.',
+        "Verification SMS Sent",
+        "Please check your phone for the verification code. You can then use your phone to log in.",
         [
-          { text: 'OK' },
+          { text: "OK" },
           {
-            text: 'Go to Verification',
-            onPress: () => navigation?.navigate?.('PhoneOTPScreen')
-          }
-        ]
+            text: "Go to Verification",
+            onPress: () => navigation?.navigate?.("PhoneOTPScreen"),
+          },
+        ],
       );
     } catch (e: any) {
-      console.error('Phone verification error:', e);
+      console.error("Phone verification error:", e);
       Alert.alert(
-        'Verification Failed',
-        e.message || 'Unable to send verification SMS. Please check your internet connection and try again later.',
-        [{ text: 'OK' }]
+        "Verification Failed",
+        e.message ||
+          "Unable to send verification SMS. Please check your internet connection and try again later.",
+        [{ text: "OK" }],
       );
     } finally {
       setVerifyingPhone(false);
@@ -484,31 +529,27 @@ const AccountScreen = () => {
   };
 
   const handleLogout = () => {
-    showAlert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-              // After sign out, App.tsx auth listener will render the Welcome flow.
-            } catch (error) {
-              console.error('Logout error:', error);
-              showAlert('Logout Error', 'Failed to logout. Please try again.');
-            }
-          },
+    showAlert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth);
+            // After sign out, App.tsx auth listener will render the Welcome flow.
+          } catch (error) {
+            console.error("Logout error:", error);
+            showAlert("Logout Error", "Failed to logout. Please try again.");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleDeleteAccount = async (reason: string) => {
     if (!user?.uid) {
-      showAlert('Error', 'User not authenticated.');
+      showAlert("Error", "User not authenticated.");
       return;
     }
 
@@ -516,11 +557,14 @@ const AccountScreen = () => {
     try {
       // Get auth token
       const token = await user.getIdToken();
-      
+
       // Get user email
-      const email = user.email || profile?.email || '';
+      const email = user.email || profile?.email || "";
       if (!email) {
-        showAlert('Error', 'Email address not found. Please ensure your account has an email.');
+        showAlert(
+          "Error",
+          "Email address not found. Please ensure your account has an email.",
+        );
         setDeletingAccount(false);
         return;
       }
@@ -531,7 +575,7 @@ const AccountScreen = () => {
       // Build URL with required parameters
       const deleteAccountUrl = `https://trukafrica.com/delete-account?token=${encodeURIComponent(token)}&uid=${encodeURIComponent(user.uid)}&email=${encodeURIComponent(email)}&ts=${timestamp}`;
 
-      console.log('Redirecting to delete account page:', deleteAccountUrl);
+      console.log("Redirecting to delete account page:", deleteAccountUrl);
 
       // Close modal first
       setShowDeleteAccountModal(false);
@@ -543,15 +587,16 @@ const AccountScreen = () => {
         await Linking.openURL(deleteAccountUrl);
       } else {
         showAlert(
-          'Error',
-          'Unable to open delete account page. Please try again or contact support.'
+          "Error",
+          "Unable to open delete account page. Please try again or contact support.",
         );
       }
     } catch (error: any) {
-      console.error('Delete account error:', error);
+      console.error("Delete account error:", error);
       showAlert(
-        'Delete Account Failed',
-        error.message || 'Failed to open delete account page. Please try again or contact support.'
+        "Delete Account Failed",
+        error.message ||
+          "Failed to open delete account page. Please try again or contact support.",
       );
       setDeletingAccount(false);
     }
@@ -559,21 +604,24 @@ const AccountScreen = () => {
 
   const handleSubmitComplaint = async () => {
     if (!user?.uid || !complaintText.trim()) {
-      Alert.alert('Error', 'Please enter a complaint message.');
+      Alert.alert("Error", "Please enter a complaint message.");
       return;
     }
 
     try {
       setLoading(true);
-      await updateDoc(doc(db, 'users', user.uid), {
+      await updateDoc(doc(db, "users", user.uid), {
         complaint: complaintText,
         complaintSubmittedAt: new Date().toISOString(),
       });
-      Alert.alert('Complaint Submitted', 'Your complaint has been submitted for admin mediation.');
+      Alert.alert(
+        "Complaint Submitted",
+        "Your complaint has been submitted for admin mediation.",
+      );
       setShowConflictModal(false);
-      setComplaintText('');
+      setComplaintText("");
     } catch (e: any) {
-      setError(e.message || 'Failed to submit complaint.');
+      setError(e.message || "Failed to submit complaint.");
     } finally {
       setLoading(false);
     }
@@ -588,15 +636,16 @@ const AccountScreen = () => {
     );
   }
 
-
   if (!profile) {
     return (
       <SafeAreaView style={styles.errorContainer}>
-        <MaterialCommunityIcons name="account-alert" size={64} color={colors.error} />
+        <MaterialCommunityIcons
+          name="account-alert"
+          size={64}
+          color={colors.error}
+        />
         <Text style={styles.errorText}>Failed to load profile</Text>
-        {error && (
-          <Text style={styles.errorDetailText}>{error}</Text>
-        )}
+        {error && <Text style={styles.errorDetailText}>{error}</Text>}
         <TouchableOpacity style={styles.retryButton} onPress={loadProfile}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
@@ -605,12 +654,19 @@ const AccountScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.8}>Account</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text
+            style={styles.headerTitle}
+            numberOfLines={1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.8}
+          >
+            Account
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <TouchableOpacity
               style={styles.editButton}
               onPress={() => setEditing(!editing)}
@@ -621,9 +677,24 @@ const AccountScreen = () => {
                 color={editing ? colors.error : colors.white}
               />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout} style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <MaterialCommunityIcons name="logout" size={20} color={colors.white} />
-              <Text style={{ color: colors.white, marginLeft: 6, fontWeight: 'bold' }}>Logout</Text>
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={{ flexDirection: "row", alignItems: "center" }}
+            >
+              <MaterialCommunityIcons
+                name="logout"
+                size={20}
+                color={colors.white}
+              />
+              <Text
+                style={{
+                  color: colors.white,
+                  marginLeft: 6,
+                  fontWeight: "bold",
+                }}
+              >
+                Logout
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -646,25 +717,41 @@ const AccountScreen = () => {
               disabled={!editing}
             >
               {profile?.profilePhotoUrl ? (
-                <Image source={{ uri: profile.profilePhotoUrl }} style={styles.profilePhoto} />
+                <Image
+                  source={{ uri: profile.profilePhotoUrl }}
+                  style={styles.profilePhoto}
+                />
               ) : (
                 <View style={styles.photoPlaceholder}>
-                  <MaterialCommunityIcons name="camera" size={32} color={colors.text.light} />
-                  {editing && <Text style={styles.photoPlaceholderText}>Tap to add photo</Text>}
+                  <MaterialCommunityIcons
+                    name="camera"
+                    size={32}
+                    color={colors.text.light}
+                  />
+                  {editing && (
+                    <Text style={styles.photoPlaceholderText}>
+                      Tap to add photo
+                    </Text>
+                  )}
                 </View>
               )}
             </TouchableOpacity>
           </View>
 
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{profile?.name || 'Your Name'}</Text>
-            <Text style={styles.profileRole}>{profile?.role || 'Shipper'}</Text>
+            <Text style={styles.profileName}>
+              {profile?.name || "Your Name"}
+            </Text>
+            <Text style={styles.profileRole}>{profile?.role || "Shipper"}</Text>
             <Text style={styles.clientSince}>
-              Client since {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              }) : 'Recently'}
+              Client since{" "}
+              {profile?.createdAt
+                ? new Date(profile.createdAt).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
+                : "Recently"}
             </Text>
           </View>
         </View>
@@ -674,26 +761,65 @@ const AccountScreen = () => {
           <Text style={styles.sectionTitle}>Verification Status</Text>
 
           {/* Note about generated contacts */}
-          {((profile?.email && isGeneratedEmail(profile.email)) || (profile?.phone && isGeneratedPhone(profile.phone))) && (
-            <View style={{ backgroundColor: colors.warningLight || '#FFF3CD', padding: 12, borderRadius: 8, marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
-                <Ionicons name="information-circle" size={18} color={colors.warning || '#FFC107'} style={{ marginRight: 8, marginTop: 2 }} />
+          {((profile?.email && isGeneratedEmail(profile.email)) ||
+            (profile?.phone && isGeneratedPhone(profile.phone))) && (
+            <View
+              style={{
+                backgroundColor: colors.warningLight || "#FFF3CD",
+                padding: 12,
+                borderRadius: 8,
+                marginBottom: 16,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  marginBottom: 8,
+                }}
+              >
+                <Ionicons
+                  name="information-circle"
+                  size={18}
+                  color={colors.warning || "#FFC107"}
+                  style={{ marginRight: 8, marginTop: 2 }}
+                />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.warning || '#FFC107', fontWeight: '600', fontSize: 14, marginBottom: 4 }}>
+                  <Text
+                    style={{
+                      color: colors.warning || "#FFC107",
+                      fontWeight: "600",
+                      fontSize: 14,
+                      marginBottom: 4,
+                    }}
+                  >
                     Update Your Contact Information
                   </Text>
-                  <Text style={{ color: colors.text.secondary, fontSize: 12, lineHeight: 18 }}>
-                    {isGeneratedEmail(profile?.email) && isGeneratedPhone(profile?.phone)
+                  <Text
+                    style={{
+                      color: colors.text.secondary,
+                      fontSize: 12,
+                      lineHeight: 18,
+                    }}
+                  >
+                    {isGeneratedEmail(profile?.email) &&
+                    isGeneratedPhone(profile?.phone)
                       ? "Both your email and phone were auto-generated during signup. Please update them with your correct information before verifying."
                       : isGeneratedEmail(profile?.email)
-                      ? "Your email was auto-generated during signup. Please update it to your actual email address before verifying."
-                      : "Your phone number was auto-generated during signup. Please update it to your actual phone number before verifying."}
+                        ? "Your email was auto-generated during signup. Please update it to your actual email address before verifying."
+                        : "Your phone number was auto-generated during signup. Please update it to your actual phone number before verifying."}
                   </Text>
                   <TouchableOpacity
                     onPress={() => setEditing(true)}
                     style={{ marginTop: 8 }}
                   >
-                    <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '600' }}>
+                    <Text
+                      style={{
+                        color: colors.primary,
+                        fontSize: 12,
+                        fontWeight: "600",
+                      }}
+                    >
                       Update Contact Info →
                     </Text>
                   </TouchableOpacity>
@@ -705,7 +831,8 @@ const AccountScreen = () => {
           {/* Show preferred verification method */}
           <View style={styles.preferredMethod}>
             <Text style={styles.preferredMethodText}>
-              Primary Contact: {primaryContactMethod === 'phone' ? 'Phone' : 'Email'}
+              Primary Contact:{" "}
+              {primaryContactMethod === "phone" ? "Phone" : "Email"}
             </Text>
           </View>
 
@@ -717,12 +844,16 @@ const AccountScreen = () => {
                 color={profile.emailVerified ? colors.success : colors.warning}
               />
               <Text style={styles.verificationLabel}>Email</Text>
-              <View style={[
-                styles.verificationBadge,
-                profile.emailVerified ? styles.verifiedBadge : styles.unverifiedBadge
-              ]}>
+              <View
+                style={[
+                  styles.verificationBadge,
+                  profile.emailVerified
+                    ? styles.verifiedBadge
+                    : styles.unverifiedBadge,
+                ]}
+              >
                 <Text style={styles.verificationBadgeText}>
-                  {profile.emailVerified ? 'Verified' : 'Unverified'}
+                  {profile.emailVerified ? "Verified" : "Unverified"}
                 </Text>
               </View>
             </View>
@@ -734,12 +865,16 @@ const AccountScreen = () => {
                 color={profile.phoneVerified ? colors.success : colors.warning}
               />
               <Text style={styles.verificationLabel}>Phone</Text>
-              <View style={[
-                styles.verificationBadge,
-                profile.phoneVerified ? styles.verifiedBadge : styles.unverifiedBadge
-              ]}>
+              <View
+                style={[
+                  styles.verificationBadge,
+                  profile.phoneVerified
+                    ? styles.verifiedBadge
+                    : styles.unverifiedBadge,
+                ]}
+              >
                 <Text style={styles.verificationBadgeText}>
-                  {profile.phoneVerified ? 'Verified' : 'Unverified'}
+                  {profile.phoneVerified ? "Verified" : "Unverified"}
                 </Text>
               </View>
             </View>
@@ -748,13 +883,23 @@ const AccountScreen = () => {
           {/* Show verification buttons only for unverified methods */}
           {!profile.emailVerified && (
             <TouchableOpacity
-              style={[styles.verifyButton, isGeneratedEmail(profile.email) && { backgroundColor: colors.background, opacity: 0.6 }]}
+              style={[
+                styles.verifyButton,
+                isGeneratedEmail(profile.email) && {
+                  backgroundColor: colors.background,
+                  opacity: 0.6,
+                },
+              ]}
               onPress={() => {
                 if (isGeneratedEmail(profile.email)) {
-                  Alert.alert('Update Email', 'This email is system-generated. Please update it to your actual email before verification.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Update Now', onPress: () => setEditing(true) }
-                  ]);
+                  Alert.alert(
+                    "Update Email",
+                    "This email is system-generated. Please update it to your actual email before verification.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Update Now", onPress: () => setEditing(true) },
+                    ],
+                  );
                   return;
                 }
                 handleVerifyEmail();
@@ -764,7 +909,14 @@ const AccountScreen = () => {
               {verifyingEmail ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <Text style={[styles.verifyButtonText, isGeneratedEmail(profile.email) && { color: colors.text.light }]}>
+                <Text
+                  style={[
+                    styles.verifyButtonText,
+                    isGeneratedEmail(profile.email) && {
+                      color: colors.text.light,
+                    },
+                  ]}
+                >
                   Verify Email
                 </Text>
               )}
@@ -773,13 +925,23 @@ const AccountScreen = () => {
 
           {!profile.phoneVerified && (
             <TouchableOpacity
-              style={[styles.verifyButton, isGeneratedPhone(profile.phone) && { backgroundColor: colors.background, opacity: 0.6 }]}
+              style={[
+                styles.verifyButton,
+                isGeneratedPhone(profile.phone) && {
+                  backgroundColor: colors.background,
+                  opacity: 0.6,
+                },
+              ]}
               onPress={() => {
                 if (isGeneratedPhone(profile.phone)) {
-                  Alert.alert('Update Phone', 'This phone number is system-generated. Please update it to your actual phone number before verification.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Update Now', onPress: () => setEditing(true) }
-                  ]);
+                  Alert.alert(
+                    "Update Phone",
+                    "This phone number is system-generated. Please update it to your actual phone number before verification.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Update Now", onPress: () => setEditing(true) },
+                    ],
+                  );
                   return;
                 }
                 handleVerifyPhone();
@@ -789,7 +951,14 @@ const AccountScreen = () => {
               {verifyingPhone ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <Text style={[styles.verifyButtonText, isGeneratedPhone(profile.phone) && { color: colors.text.light }]}>
+                <Text
+                  style={[
+                    styles.verifyButtonText,
+                    isGeneratedPhone(profile.phone) && {
+                      color: colors.text.light,
+                    },
+                  ]}
+                >
                   Verify Phone
                 </Text>
               )}
@@ -799,8 +968,14 @@ const AccountScreen = () => {
           {/* Show message if both are verified */}
           {profile.emailVerified && profile.phoneVerified && (
             <View style={styles.allVerified}>
-              <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} />
-              <Text style={styles.allVerifiedText}>All contact methods verified!</Text>
+              <MaterialCommunityIcons
+                name="check-circle"
+                size={20}
+                color={colors.success}
+              />
+              <Text style={styles.allVerifiedText}>
+                All contact methods verified!
+              </Text>
             </View>
           )}
 
@@ -810,8 +985,14 @@ const AccountScreen = () => {
               style={styles.changePrimaryButton}
               onPress={() => setShowPrimaryContactModal(true)}
             >
-              <MaterialCommunityIcons name="swap-horizontal" size={20} color={colors.primary} />
-              <Text style={styles.changePrimaryButtonText}>Change Primary Contact</Text>
+              <MaterialCommunityIcons
+                name="swap-horizontal"
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.changePrimaryButtonText}>
+                Change Primary Contact
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -822,13 +1003,19 @@ const AccountScreen = () => {
             <Text style={styles.sectionTitle}>Profile Details</Text>
 
             <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="account" size={20} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="account"
+                size={20}
+                color={colors.primary}
+              />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Full Name</Text>
                 <TextInput
                   style={styles.editInput}
                   value={editData.name}
-                  onChangeText={(text) => setEditData(prev => ({ ...prev, name: text }))}
+                  onChangeText={(text) =>
+                    setEditData((prev) => ({ ...prev, name: text }))
+                  }
                   placeholder="Enter your full name"
                   placeholderTextColor={colors.text.light}
                 />
@@ -836,24 +1023,34 @@ const AccountScreen = () => {
             </View>
 
             <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="email" size={20} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="email"
+                size={20}
+                color={colors.primary}
+              />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Email Address</Text>
                 <TextInput
                   style={styles.editInput}
                   value={editData.email}
-                  onChangeText={(text) => setEditData(prev => ({ ...prev, email: text }))}
+                  onChangeText={(text) =>
+                    setEditData((prev) => ({ ...prev, email: text }))
+                  }
                   placeholder="Enter your email"
                   placeholderTextColor={colors.text.light}
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
                 <View style={styles.verificationStatus}>
-                  <Text style={[
-                    styles.verificationText,
-                    editData.emailVerified ? styles.verifiedText : styles.unverifiedText
-                  ]}>
-                    {editData.emailVerified ? '✓ Verified' : '✗ Unverified'}
+                  <Text
+                    style={[
+                      styles.verificationText,
+                      editData.emailVerified
+                        ? styles.verifiedText
+                        : styles.unverifiedText,
+                    ]}
+                  >
+                    {editData.emailVerified ? "✓ Verified" : "✗ Unverified"}
                   </Text>
                   {!editData.emailVerified && (
                     <TouchableOpacity
@@ -864,7 +1061,9 @@ const AccountScreen = () => {
                       {verifyingEmail ? (
                         <ActivityIndicator size="small" color={colors.white} />
                       ) : (
-                        <Text style={styles.verifyButtonText}>Verify Email</Text>
+                        <Text style={styles.verifyButtonText}>
+                          Verify Email
+                        </Text>
                       )}
                     </TouchableOpacity>
                   )}
@@ -873,23 +1072,33 @@ const AccountScreen = () => {
             </View>
 
             <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="phone" size={20} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="phone"
+                size={20}
+                color={colors.primary}
+              />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Phone Number</Text>
                 <TextInput
                   style={styles.editInput}
                   value={editData.phone}
-                  onChangeText={(text) => setEditData(prev => ({ ...prev, phone: text }))}
+                  onChangeText={(text) =>
+                    setEditData((prev) => ({ ...prev, phone: text }))
+                  }
                   placeholder="Enter your phone number"
                   placeholderTextColor={colors.text.light}
                   keyboardType="phone-pad"
                 />
                 <View style={styles.verificationStatus}>
-                  <Text style={[
-                    styles.verificationText,
-                    editData.phoneVerified ? styles.verifiedText : styles.unverifiedText
-                  ]}>
-                    {editData.phoneVerified ? '✓ Verified' : '✗ Unverified'}
+                  <Text
+                    style={[
+                      styles.verificationText,
+                      editData.phoneVerified
+                        ? styles.verifiedText
+                        : styles.unverifiedText,
+                    ]}
+                  >
+                    {editData.phoneVerified ? "✓ Verified" : "✗ Unverified"}
                   </Text>
                   {!editData.phoneVerified && (
                     <TouchableOpacity
@@ -900,7 +1109,9 @@ const AccountScreen = () => {
                       {verifyingPhone ? (
                         <ActivityIndicator size="small" color={colors.white} />
                       ) : (
-                        <Text style={styles.verifyButtonText}>Verify Phone</Text>
+                        <Text style={styles.verifyButtonText}>
+                          Verify Phone
+                        </Text>
                       )}
                     </TouchableOpacity>
                   )}
@@ -909,13 +1120,19 @@ const AccountScreen = () => {
             </View>
 
             <View style={styles.detailRow}>
-              <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="map-marker"
+                size={20}
+                color={colors.primary}
+              />
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Address</Text>
                 <TextInput
                   style={styles.editInput}
                   value={editData.address}
-                  onChangeText={(text) => setEditData(prev => ({ ...prev, address: text }))}
+                  onChangeText={(text) =>
+                    setEditData((prev) => ({ ...prev, address: text }))
+                  }
                   placeholder="Enter your address"
                   placeholderTextColor={colors.text.light}
                 />
@@ -928,76 +1145,130 @@ const AccountScreen = () => {
         <View style={styles.preferencesSection}>
           <Text style={styles.sectionTitle}>Notification Preferences</Text>
 
-          <TouchableOpacity 
-            style={[styles.preferenceRow, loading && styles.preferenceRowDisabled]}
-            onPress={() => handleNotificationToggle('email')}
+          <TouchableOpacity
+            style={[
+              styles.preferenceRow,
+              loading && styles.preferenceRowDisabled,
+            ]}
+            onPress={() => handleNotificationToggle("email")}
             disabled={loading}
           >
             <View style={styles.preferenceInfo}>
-              <MaterialCommunityIcons name="email-outline" size={20} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="email-outline"
+                size={20}
+                color={colors.primary}
+              />
               <Text style={styles.preferenceLabel}>Email Notifications</Text>
             </View>
-            <View style={[
-              styles.preferenceToggle,
-              profile.preferences.notificationSettings.email && styles.preferenceActive
-            ]}>
+            <View
+              style={[
+                styles.preferenceToggle,
+                profile.preferences.notificationSettings.email &&
+                  styles.preferenceActive,
+              ]}
+            >
               {loading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <MaterialCommunityIcons
-                  name={profile.preferences.notificationSettings.email ? "check" : "close"}
+                  name={
+                    profile.preferences.notificationSettings.email
+                      ? "check"
+                      : "close"
+                  }
                   size={16}
-                  color={profile.preferences.notificationSettings.email ? colors.success : colors.error}
+                  color={
+                    profile.preferences.notificationSettings.email
+                      ? colors.success
+                      : colors.error
+                  }
                 />
               )}
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.preferenceRow, loading && styles.preferenceRowDisabled]}
-            onPress={() => handleNotificationToggle('push')}
+          <TouchableOpacity
+            style={[
+              styles.preferenceRow,
+              loading && styles.preferenceRowDisabled,
+            ]}
+            onPress={() => handleNotificationToggle("push")}
             disabled={loading}
           >
             <View style={styles.preferenceInfo}>
-              <MaterialCommunityIcons name="bell-outline" size={20} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="bell-outline"
+                size={20}
+                color={colors.primary}
+              />
               <Text style={styles.preferenceLabel}>Push Notifications</Text>
             </View>
-            <View style={[
-              styles.preferenceToggle,
-              profile.preferences.notificationSettings.push && styles.preferenceActive
-            ]}>
+            <View
+              style={[
+                styles.preferenceToggle,
+                profile.preferences.notificationSettings.push &&
+                  styles.preferenceActive,
+              ]}
+            >
               {loading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <MaterialCommunityIcons
-                  name={profile.preferences.notificationSettings.push ? "check" : "close"}
+                  name={
+                    profile.preferences.notificationSettings.push
+                      ? "check"
+                      : "close"
+                  }
                   size={16}
-                  color={profile.preferences.notificationSettings.push ? colors.success : colors.error}
+                  color={
+                    profile.preferences.notificationSettings.push
+                      ? colors.success
+                      : colors.error
+                  }
                 />
               )}
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.preferenceRow, loading && styles.preferenceRowDisabled]}
-            onPress={() => handleNotificationToggle('sms')}
+          <TouchableOpacity
+            style={[
+              styles.preferenceRow,
+              loading && styles.preferenceRowDisabled,
+            ]}
+            onPress={() => handleNotificationToggle("sms")}
             disabled={loading}
           >
             <View style={styles.preferenceInfo}>
-              <MaterialCommunityIcons name="message-text-outline" size={20} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="message-text-outline"
+                size={20}
+                color={colors.primary}
+              />
               <Text style={styles.preferenceLabel}>SMS Notifications</Text>
             </View>
-            <View style={[
-              styles.preferenceToggle,
-              profile.preferences.notificationSettings.sms && styles.preferenceActive
-            ]}>
+            <View
+              style={[
+                styles.preferenceToggle,
+                profile.preferences.notificationSettings.sms &&
+                  styles.preferenceActive,
+              ]}
+            >
               {loading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <MaterialCommunityIcons
-                  name={profile.preferences.notificationSettings.sms ? "check" : "close"}
+                  name={
+                    profile.preferences.notificationSettings.sms
+                      ? "check"
+                      : "close"
+                  }
                   size={16}
-                  color={profile.preferences.notificationSettings.sms ? colors.success : colors.error}
+                  color={
+                    profile.preferences.notificationSettings.sms
+                      ? colors.success
+                      : colors.error
+                  }
                 />
               )}
             </View>
@@ -1008,39 +1279,64 @@ const AccountScreen = () => {
         <View style={styles.actionButtonsContainer}>
           <TouchableOpacity
             style={styles.primaryActionButton}
-            onPress={() => navigation?.navigate?.('ServiceRequest')}
+            onPress={() => navigation?.navigate?.("ServiceRequest")}
           >
-            <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
-            <Text style={styles.primaryActionButtonText}>New Transport Request</Text>
+            <MaterialCommunityIcons
+              name="plus"
+              size={24}
+              color={colors.white}
+            />
+            <Text style={styles.primaryActionButtonText}>
+              New Transport Request
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryActionButton}
             onPress={() => {
               // Navigate to Activity tab
-              navigation?.navigate?.('Activity');
+              navigation?.navigate?.("Activity");
             }}
           >
-            <MaterialCommunityIcons name="format-list-bulleted" size={24} color={colors.primary} />
-            <Text style={styles.secondaryActionButtonText}>View My Bookings</Text>
+            <MaterialCommunityIcons
+              name="format-list-bulleted"
+              size={24}
+              color={colors.primary}
+            />
+            <Text style={styles.secondaryActionButtonText}>
+              View My Bookings
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.utilityButton}
             onPress={() => {
               try {
-                if (navigation && typeof navigation.navigate === 'function') {
-                  navigation.navigate('ChangePasswordScreen' as never);
+                if (navigation && typeof navigation.navigate === "function") {
+                  navigation.navigate("ChangePasswordScreen" as never);
                 } else {
-                  Alert.alert('Navigation Error', 'Unable to navigate to Change Password screen. Please try again.');
+                  Alert.alert(
+                    "Navigation Error",
+                    "Unable to navigate to Change Password screen. Please try again.",
+                  );
                 }
               } catch (error) {
-                console.error('Error navigating to ChangePasswordScreen:', error);
-                Alert.alert('Navigation Error', 'Unable to navigate to Change Password screen. Please try again.');
+                console.error(
+                  "Error navigating to ChangePasswordScreen:",
+                  error,
+                );
+                Alert.alert(
+                  "Navigation Error",
+                  "Unable to navigate to Change Password screen. Please try again.",
+                );
               }
             }}
           >
-            <MaterialCommunityIcons name="lock" size={24} color={colors.primary} />
+            <MaterialCommunityIcons
+              name="lock"
+              size={24}
+              color={colors.primary}
+            />
             <Text style={styles.utilityButtonText}>Change Password</Text>
           </TouchableOpacity>
 
@@ -1048,7 +1344,11 @@ const AccountScreen = () => {
             style={styles.deleteAccountButton}
             onPress={() => setShowDeleteAccountModal(true)}
           >
-            <MaterialCommunityIcons name="delete-outline" size={24} color={colors.error} />
+            <MaterialCommunityIcons
+              name="delete-outline"
+              size={24}
+              color={colors.error}
+            />
             <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
           </TouchableOpacity>
 
@@ -1066,10 +1366,14 @@ const AccountScreen = () => {
               {loading ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <MaterialCommunityIcons name="content-save" size={20} color={colors.white} />
+                <MaterialCommunityIcons
+                  name="content-save"
+                  size={20}
+                  color={colors.white}
+                />
               )}
               <Text style={styles.saveButtonText}>
-                {loading ? 'Saving...' : 'Save Changes'}
+                {loading ? "Saving..." : "Save Changes"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1077,7 +1381,11 @@ const AccountScreen = () => {
 
         {error ? (
           <View style={styles.errorContainer}>
-            <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+            <MaterialCommunityIcons
+              name="alert-circle"
+              size={20}
+              color={colors.error}
+            />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
@@ -1086,22 +1394,30 @@ const AccountScreen = () => {
         <View style={styles.conflictSection}>
           <Text style={styles.sectionTitle}>Conflict Resolution</Text>
           <Text style={styles.sectionDescription}>
-            Submit a complaint for admin mediation. You will be contacted via email and in-app.
+            Submit a complaint for admin mediation. You will be contacted via
+            email and in-app.
           </Text>
 
           <TouchableOpacity
             style={styles.complaintButton}
             onPress={() => {
-              console.log('Navigating to DisputeList...');
+              console.log("Navigating to DisputeList...");
               try {
-                (navigation as any).navigate('DisputeList');
+                (navigation as any).navigate("DisputeList");
               } catch (error) {
-                console.error('Navigation error:', error);
-                Alert.alert('Error', 'Could not open disputes. Please try again.');
+                console.error("Navigation error:", error);
+                Alert.alert(
+                  "Error",
+                  "Could not open disputes. Please try again.",
+                );
               }
             }}
           >
-            <MaterialCommunityIcons name="alert-circle-outline" size={20} color={colors.white} />
+            <MaterialCommunityIcons
+              name="alert-circle-outline"
+              size={20}
+              color={colors.white}
+            />
             <Text style={styles.complaintButtonText}>View Disputes</Text>
           </TouchableOpacity>
         </View>
@@ -1146,11 +1462,16 @@ const AccountScreen = () => {
                 style={styles.modalConfirmButton}
                 onPress={() => {
                   // TODO: Implement password change
-                  Alert.alert('Info', 'Password change functionality will be implemented soon');
+                  Alert.alert(
+                    "Info",
+                    "Password change functionality will be implemented soon",
+                  );
                   setChangePwd(false);
                 }}
               >
-                <Text style={styles.modalConfirmButtonText}>Change Password</Text>
+                <Text style={styles.modalConfirmButtonText}>
+                  Change Password
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1169,13 +1490,17 @@ const AccountScreen = () => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Submit Complaint</Text>
               <TouchableOpacity onPress={() => setShowConflictModal(false)}>
-                <MaterialCommunityIcons name="close" size={24} color={colors.text.secondary} />
+                <MaterialCommunityIcons
+                  name="close"
+                  size={24}
+                  color={colors.text.secondary}
+                />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
               <Text style={styles.modalInput}>
-                Please describe the issue or conflict you are experiencing.
-                This will help us better understand and resolve the situation.
+                Please describe the issue or conflict you are experiencing. This
+                will help us better understand and resolve the situation.
               </Text>
               <TextInput
                 style={styles.complaintInput}
@@ -1202,7 +1527,9 @@ const AccountScreen = () => {
                 {loading ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
-                  <Text style={styles.modalConfirmButtonText}>Submit Complaint</Text>
+                  <Text style={styles.modalConfirmButtonText}>
+                    Submit Complaint
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1220,75 +1547,114 @@ const AccountScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Change Primary Contact Method</Text>
-              <TouchableOpacity onPress={() => setShowPrimaryContactModal(false)}>
-                <MaterialCommunityIcons name="close" size={24} color={colors.text.secondary} />
+              <Text style={styles.modalTitle}>
+                Change Primary Contact Method
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowPrimaryContactModal(false)}
+              >
+                <MaterialCommunityIcons
+                  name="close"
+                  size={24}
+                  color={colors.text.secondary}
+                />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
               <Text style={styles.modalDescription}>
-                Select your preferred contact method for verification and notifications.
+                Select your preferred contact method for verification and
+                notifications.
               </Text>
 
               <TouchableOpacity
                 style={[
                   styles.contactMethodOption,
-                  primaryContactMethod === 'email' && styles.contactMethodSelected
+                  primaryContactMethod === "email" &&
+                    styles.contactMethodSelected,
                 ]}
-                onPress={() => handleChangePrimaryContact('email')}
+                onPress={() => handleChangePrimaryContact("email")}
               >
                 <MaterialCommunityIcons
                   name="email"
                   size={24}
-                  color={primaryContactMethod === 'email' ? colors.white : colors.primary}
+                  color={
+                    primaryContactMethod === "email"
+                      ? colors.white
+                      : colors.primary
+                  }
                 />
                 <View style={styles.contactMethodInfo}>
-                  <Text style={[
-                    styles.contactMethodLabel,
-                    primaryContactMethod === 'email' && styles.contactMethodLabelSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.contactMethodLabel,
+                      primaryContactMethod === "email" &&
+                        styles.contactMethodLabelSelected,
+                    ]}
+                  >
                     Email
                   </Text>
-                  <Text style={[
-                    styles.contactMethodSubtext,
-                    primaryContactMethod === 'email' && styles.contactMethodSubtextSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.contactMethodSubtext,
+                      primaryContactMethod === "email" &&
+                        styles.contactMethodSubtextSelected,
+                    ]}
+                  >
                     {profile?.email}
                   </Text>
                 </View>
-                {primaryContactMethod === 'email' && (
-                  <MaterialCommunityIcons name="check-circle" size={24} color={colors.white} />
+                {primaryContactMethod === "email" && (
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={24}
+                    color={colors.white}
+                  />
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.contactMethodOption,
-                  primaryContactMethod === 'phone' && styles.contactMethodSelected
+                  primaryContactMethod === "phone" &&
+                    styles.contactMethodSelected,
                 ]}
-                onPress={() => handleChangePrimaryContact('phone')}
+                onPress={() => handleChangePrimaryContact("phone")}
               >
                 <MaterialCommunityIcons
                   name="phone"
                   size={24}
-                  color={primaryContactMethod === 'phone' ? colors.white : colors.primary}
+                  color={
+                    primaryContactMethod === "phone"
+                      ? colors.white
+                      : colors.primary
+                  }
                 />
                 <View style={styles.contactMethodInfo}>
-                  <Text style={[
-                    styles.contactMethodLabel,
-                    primaryContactMethod === 'phone' && styles.contactMethodLabelSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.contactMethodLabel,
+                      primaryContactMethod === "phone" &&
+                        styles.contactMethodLabelSelected,
+                    ]}
+                  >
                     Phone
                   </Text>
-                  <Text style={[
-                    styles.contactMethodSubtext,
-                    primaryContactMethod === 'phone' && styles.contactMethodSubtextSelected
-                  ]}>
+                  <Text
+                    style={[
+                      styles.contactMethodSubtext,
+                      primaryContactMethod === "phone" &&
+                        styles.contactMethodSubtextSelected,
+                    ]}
+                  >
                     {profile?.phone}
                   </Text>
                 </View>
-                {primaryContactMethod === 'phone' && (
-                  <MaterialCommunityIcons name="check-circle" size={24} color={colors.white} />
+                {primaryContactMethod === "phone" && (
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={24}
+                    color={colors.white}
+                  />
                 )}
               </TouchableOpacity>
             </View>
@@ -1323,20 +1689,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     marginTop: 0, // Ensure no top margin
     // Extend to top of screen
-    position: 'relative',
+    position: "relative",
     top: 0,
     minHeight: 80, // Ensure minimum height for header
   },
   headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingTop: 20, // Add padding to header content instead
   },
   headerTitle: {
     color: colors.white,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     flex: 1,
     marginRight: 8,
   },
@@ -1361,8 +1727,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   profilePhotoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.md,
   },
   profilePhoto: {
@@ -1375,12 +1741,12 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   profileImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 50,
   },
   editPhotoOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
     backgroundColor: colors.primary,
@@ -1394,7 +1760,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primaryDark,
     marginBottom: spacing.xs,
   },
@@ -1406,16 +1772,16 @@ const styles = StyleSheet.create({
 
   verificationText: {
     fontSize: fonts.size.sm,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   editActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: spacing.md,
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.primary,
     borderRadius: 10,
     paddingVertical: spacing.sm,
@@ -1430,9 +1796,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1442,7 +1808,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: colors.white,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: spacing.sm,
   },
   cancelButton: {
@@ -1452,7 +1818,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: colors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 15,
     marginLeft: spacing.xs,
   },
@@ -1469,27 +1835,27 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   statsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.sm,
   },
   statsTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primaryDark,
     marginLeft: spacing.sm,
   },
   statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginBottom: spacing.md,
   },
   statItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statNumber: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primaryDark,
     marginBottom: spacing.xs,
   },
@@ -1498,13 +1864,13 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: spacing.md,
   },
   ratingText: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.warning,
     marginLeft: spacing.xs,
   },
@@ -1524,13 +1890,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.sm,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primaryDark,
     marginLeft: spacing.sm,
   },
@@ -1539,7 +1905,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
@@ -1558,8 +1924,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: spacing.md,
   },
   preferencesCard: {
@@ -1577,13 +1943,13 @@ const styles = StyleSheet.create({
   },
   preferenceLabel: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primaryDark,
     marginBottom: spacing.xs,
   },
   preferenceChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.xs,
   },
   preferenceChip: {
@@ -1595,7 +1961,7 @@ const styles = StyleSheet.create({
   preferenceChipText: {
     fontSize: 14,
     color: colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   noPreferencesText: {
     fontSize: 14,
@@ -1605,9 +1971,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   notificationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.xs,
   },
   notificationLabel: {
@@ -1621,16 +1987,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.text.light,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   notificationActive: {
     backgroundColor: colors.success,
     borderColor: colors.success,
   },
   actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginTop: spacing.md,
     marginBottom: spacing.lg,
   },
@@ -1649,13 +2015,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   primaryActionButtonText: {
     color: colors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
     marginLeft: spacing.sm,
   },
@@ -1671,13 +2037,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   secondaryActionButtonText: {
     color: colors.primary,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
     marginLeft: spacing.sm,
   },
@@ -1693,36 +2059,36 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   utilityButtonText: {
     color: colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: 16,
     marginLeft: spacing.sm,
   },
   deleteAccountButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.error + '15',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.error + "15",
     borderRadius: 12,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     marginTop: spacing.sm,
     borderWidth: 1.5,
-    borderColor: colors.error + '30',
+    borderColor: colors.error + "30",
   },
   deleteAccountButtonText: {
     fontSize: fonts.size.md,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.error,
     marginLeft: spacing.sm,
   },
   logoutButton: {
-    backgroundColor: colors.error + '10',
+    backgroundColor: colors.error + "10",
     borderRadius: 16,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -1733,13 +2099,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   logoutButtonText: {
     color: colors.error,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
     marginLeft: spacing.sm,
   },
@@ -1754,8 +2120,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   conflictHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.sm,
   },
   sectionDesc: {
@@ -1768,71 +2134,71 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: spacing.sm,
   },
   complainText: {
     color: colors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
   },
   complaintSent: {
     color: colors.success,
     marginTop: spacing.sm,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   errorText: {
     color: colors.error,
     marginTop: spacing.sm,
-    textAlign: 'center',
-    fontWeight: '600',
+    textAlign: "center",
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: spacing.md,
   },
   loadingText: {
     marginTop: spacing.sm,
     color: colors.text.secondary,
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.18)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.18)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
     backgroundColor: colors.white,
     borderRadius: 24,
     padding: spacing.lg,
-    width: '90%',
+    width: "90%",
     shadowColor: colors.black,
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 8,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.md,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.text.primary,
     marginBottom: spacing.md,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalDescription: {
     fontSize: 16,
     color: colors.text.secondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: spacing.lg,
     lineHeight: 22,
   },
@@ -1840,20 +2206,20 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   modalBody: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   detailedStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
     marginBottom: spacing.md,
   },
   detailedStatItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   detailedStatNumber: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primaryDark,
     marginBottom: spacing.xs,
   },
@@ -1888,20 +2254,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   verificationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.xs,
   },
   verificationMethodTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primaryDark,
     marginLeft: spacing.sm,
   },
   verificationStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: spacing.xs,
   },
   verificationBadge: {
@@ -1918,59 +2284,59 @@ const styles = StyleSheet.create({
   verificationBadgeText: {
     fontSize: fonts.size.xs,
     color: colors.white,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   verifyButton: {
     backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: spacing.sm,
   },
   verifyButtonText: {
     color: colors.white,
     fontSize: fonts.size.md,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   editFieldWrapRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.sm,
-    width: '100%',
+    width: "100%",
   },
   editLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
   inputPwd: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: "#f3f4f6",
     borderRadius: 12,
     padding: spacing.md,
     fontSize: 16,
     borderWidth: 1,
     borderColor: colors.text.light,
-    width: '100%',
+    width: "100%",
     color: colors.text.primary,
     paddingRight: 40,
   },
   pwdEyeIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: spacing.md,
     top: spacing.md,
     zIndex: 10,
   },
   pwdEyeIconCenter: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'stretch',
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "stretch",
     paddingHorizontal: spacing.sm,
   },
   editActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
     gap: spacing.sm,
     marginTop: spacing.md,
   },
@@ -1984,7 +2350,7 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     color: colors.error,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
   },
   saveBtn: {
@@ -1995,7 +2361,7 @@ const styles = StyleSheet.create({
   },
   saveText: {
     color: colors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
   },
   editDivider: {
@@ -2013,15 +2379,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderRadius: 24,
     padding: spacing.lg,
-    width: '90%',
+    width: "90%",
     shadowColor: colors.black,
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 8,
   },
   photoSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.md,
     backgroundColor: colors.white,
     borderRadius: 24,
@@ -2039,24 +2405,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primary,
     marginRight: spacing.md,
-    position: 'relative',
+    position: "relative",
   },
   photoPlaceholder: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     borderRadius: 50,
     backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   photoPlaceholderText: {
     fontSize: 12,
     color: colors.text.light,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 4,
   },
   photoEditOverlay: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
     backgroundColor: colors.primary,
@@ -2086,12 +2452,12 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   verificationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: spacing.md,
   },
   verificationItem: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
   },
   verificationLabel: {
@@ -2112,8 +2478,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.md,
   },
   detailContent: {
@@ -2122,7 +2488,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
@@ -2152,17 +2518,17 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   preferenceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.md,
   },
   preferenceRowDisabled: {
     opacity: 0.6,
   },
   preferenceInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
 
   preferenceToggle: {
@@ -2172,15 +2538,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.text.light,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   preferenceActive: {
     backgroundColor: colors.success,
     borderColor: colors.success,
   },
   modalInput: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: "#f3f4f6",
     borderRadius: 12,
     padding: spacing.md,
     fontSize: 16,
@@ -2190,8 +2556,8 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
     gap: spacing.sm,
     marginTop: spacing.md,
   },
@@ -2205,7 +2571,7 @@ const styles = StyleSheet.create({
   },
   modalCancelButtonText: {
     color: colors.error,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
   },
   modalConfirmButton: {
@@ -2216,19 +2582,19 @@ const styles = StyleSheet.create({
   },
   modalConfirmButtonText: {
     color: colors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: spacing.md,
   },
   errorDetailText: {
     color: colors.text.light,
     marginTop: spacing.sm,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 14,
   },
   retryButton: {
@@ -2240,7 +2606,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: colors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
   },
   conflictSection: {
@@ -2255,13 +2621,13 @@ const styles = StyleSheet.create({
   },
   conflictHeaderText: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primaryDark,
     marginLeft: spacing.sm,
   },
   complaintButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.primary,
     borderRadius: 16,
     paddingVertical: spacing.md,
@@ -2274,7 +2640,7 @@ const styles = StyleSheet.create({
   },
   complaintButtonText: {
     color: colors.white,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
     marginLeft: spacing.sm,
   },
@@ -2286,21 +2652,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     minHeight: 100,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
     marginTop: spacing.sm,
     color: colors.text.primary,
   },
   verifiedText: {
     color: colors.success,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   unverifiedText: {
     color: colors.warning,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   profileSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.md,
     backgroundColor: colors.white,
     borderRadius: 24,
@@ -2318,7 +2684,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.primary,
     marginRight: spacing.md,
-    position: 'relative',
+    position: "relative",
   },
 
   clientSince: {
@@ -2331,18 +2697,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     marginBottom: spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   preferredMethodText: {
     fontSize: 14,
     color: colors.text.secondary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   allVerified: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: spacing.md,
-    backgroundColor: colors.success + '10',
+    backgroundColor: colors.success + "10",
     borderRadius: 10,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
@@ -2350,12 +2716,12 @@ const styles = StyleSheet.create({
   allVerifiedText: {
     fontSize: 14,
     color: colors.success,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: spacing.xs,
   },
   changePrimaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surface,
     borderRadius: 16,
     paddingVertical: spacing.md,
@@ -2370,13 +2736,13 @@ const styles = StyleSheet.create({
   },
   changePrimaryButtonText: {
     color: colors.primary,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
     marginLeft: spacing.sm,
   },
   contactMethodOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     borderRadius: 16,
@@ -2395,7 +2761,7 @@ const styles = StyleSheet.create({
   },
   contactMethodLabel: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.text.primary,
     marginBottom: spacing.xs,
   },
