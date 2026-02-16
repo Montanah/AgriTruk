@@ -2133,6 +2133,20 @@ exports.estimateBooking = async (req, res) => {
         const adjustedMinCost = Math.max(minCost, baseCost * 0.97);
         const adjustedMaxCost = Math.min(maxCost, baseCost * 1.08);
 
+        // Ensure minimum meaningful range spread (at least 50 KES difference)
+        // This is especially important for low-cost trips at or near the minimum (300 KES)
+        const MIN_RANGE_SPREAD = 50; // Minimum 50 KES difference between min and max
+        let finalMinCost = adjustedMinCost;
+        let finalMaxCost = adjustedMaxCost;
+        const currentSpread = finalMaxCost - finalMinCost;
+        
+        if (currentSpread < MIN_RANGE_SPREAD) {
+          // Expand the range symmetrically around the base cost
+          const additionalSpread = MIN_RANGE_SPREAD - currentSpread;
+          finalMinCost = Math.max(300, finalMinCost - (additionalSpread / 2)); // Don't go below absolute minimum
+          finalMaxCost = finalMaxCost + (additionalSpread / 2);
+        }
+
         // Format duration
         const hours = Math.floor(fallbackDurationMinutes / 60);
         const minutes = fallbackDurationMinutes % 60;
@@ -2141,8 +2155,8 @@ exports.estimateBooking = async (req, res) => {
 
         // Return estimate with realistic cost range (fallback scenario)
         // Include both costRange and estimatedCostRange (Mumbua Mutuku's format) for consistency
-        const minCostRounded = Math.round(adjustedMinCost);
-        const maxCostRounded = Math.round(adjustedMaxCost);
+        const minCostRounded = Math.round(finalMinCost);
+        const maxCostRounded = Math.round(finalMaxCost);
         const baseCostRounded = Math.round(baseCost);
 
         return res.status(200).json({
@@ -2230,8 +2244,20 @@ exports.estimateBooking = async (req, res) => {
 
       // Ensure range is reasonable (min shouldn't be too low, max shouldn't be too high)
       // Keep range within ±5% of base cost minimum
-      const adjustedMinCost = Math.max(minCost, baseCost * 0.97); // At least 3% below base
-      const adjustedMaxCost = Math.min(maxCost, baseCost * 1.08); // At most 8% above base
+      let adjustedMinCost = Math.max(minCost, baseCost * 0.97); // At least 3% below base
+      let adjustedMaxCost = Math.min(maxCost, baseCost * 1.08); // At most 8% above base
+
+      // Ensure minimum meaningful range spread (at least 50 KES difference)
+      // This is especially important for low-cost trips at or near the minimum (300 KES)
+      const MIN_RANGE_SPREAD = 50; // Minimum 50 KES difference between min and max
+      const currentSpread = adjustedMaxCost - adjustedMinCost;
+      
+      if (currentSpread < MIN_RANGE_SPREAD) {
+        // Expand the range symmetrically around the base cost
+        const additionalSpread = MIN_RANGE_SPREAD - currentSpread;
+        adjustedMinCost = Math.max(300, adjustedMinCost - (additionalSpread / 2)); // Don't go below absolute minimum
+        adjustedMaxCost = adjustedMaxCost + (additionalSpread / 2);
+      }
 
       // Return estimate with realistic cost range
       // Include both costRange and estimatedCostRange (Mumbua Mutuku's format) for consistency
