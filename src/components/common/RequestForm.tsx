@@ -848,548 +848,555 @@ const RequestForm: React.FC<RequestFormProps> = ({
         </View>
       )}
 
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollViewContent}
-          showsVerticalScrollIndicator={false}
+      {/* Conditionally render either the form or Find Transporters */}
+      {!showTransporters ? (
+        <KeyboardAvoidingView
+          style={styles.keyboardView}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          {/* Service Type Tabs */}
-          <View style={styles.tabContainer}>
-            {SERVICES.map((service) => (
-              <TouchableOpacity
-                key={service.key}
-                style={[
-                  styles.tab,
-                  activeTab === service.key && {
-                    backgroundColor: service.accent,
-                    borderColor: service.accent,
-                    borderWidth: 2,
-                    shadowColor: service.accent,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 4,
-                    elevation: 4,
-                  },
-                ]}
-                onPress={() => setActiveTab(service.key)}
-              >
-                <View style={styles.tabIcon}>
-                  {activeTab === service.key ? (
-                    // White icon for active tab
-                    service.key === "agriTRUK" ? (
-                      <FontAwesome5
-                        name="tractor"
-                        size={22}
-                        color={colors.white}
-                      />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name="truck"
-                        size={22}
-                        color={colors.white}
-                      />
-                    )
-                  ) : (
-                    // Colored icon for inactive tab
-                    service.icon
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    activeTab === service.key && {
-                      color: colors.white,
-                      fontWeight: "700",
-                      fontSize: fonts.size.md,
-                    },
-                  ]}
-                >
-                  {service.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Request Type Toggle */}
-          <View style={styles.requestTypeContainer}>
-            <TouchableOpacity
-              style={[
-                styles.requestTypeTab,
-                requestType === "booking" && {
-                  backgroundColor: accent + "15",
-                  borderColor: accent,
-                  borderWidth: 1,
-                },
-              ]}
-              onPress={() => setRequestType("booking")}
-            >
-              <MaterialCommunityIcons
-                name="calendar-clock"
-                size={18}
-                color={
-                  requestType === "booking" ? accent : colors.text.secondary
-                }
-              />
-              <Text
-                style={[
-                  styles.requestTypeText,
-                  requestType === "booking" && {
-                    color: accent,
-                    fontWeight: "600",
-                  },
-                ]}
-              >
-                Booking
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.requestTypeTab,
-                requestType === "instant" && {
-                  backgroundColor: accent + "15",
-                  borderColor: accent,
-                  borderWidth: 1,
-                },
-              ]}
-              onPress={() => setRequestType("instant")}
-            >
-              <MaterialCommunityIcons
-                name="lightning-bolt"
-                size={18}
-                color={
-                  requestType === "instant" ? accent : colors.text.secondary
-                }
-              />
-              <Text
-                style={[
-                  styles.requestTypeText,
-                  requestType === "instant" && {
-                    color: accent,
-                    fontWeight: "600",
-                  },
-                ]}
-              >
-                Instant
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Form Fields */}
-          <View style={styles.formCard}>
-            {/* Location Details Section - Enhanced */}
-            <View style={styles.fieldGroup}>
-              <View style={styles.locationSectionHeader}>
-                <View style={styles.labelContainer}>
-                  <MaterialCommunityIcons
-                    name="map-marker-path"
-                    size={18}
-                    color={accent}
-                  />
-                  <Text style={styles.fieldLabel}>Location Details *</Text>
-                </View>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Service Type Tabs */}
+            <View style={styles.tabContainer}>
+              {SERVICES.map((service) => (
                 <TouchableOpacity
+                  key={service.key}
                   style={[
-                    styles.locationButton,
-                    {
-                      backgroundColor: accent + "15",
-                      borderColor: accent + "30",
+                    styles.tab,
+                    activeTab === service.key && {
+                      backgroundColor: service.accent,
+                      borderColor: service.accent,
+                      borderWidth: 2,
+                      shadowColor: service.accent,
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 4,
+                      elevation: 4,
                     },
                   ]}
-                  onPress={getCurrentLocation}
-                  disabled={isGettingLocation}
+                  onPress={() => setActiveTab(service.key)}
                 >
-                  <MaterialCommunityIcons
-                    name={isGettingLocation ? "refresh" : "crosshairs-gps"}
-                    size={16}
-                    color={isGettingLocation ? colors.text.secondary : accent}
-                  />
-                  <Text
-                    style={[styles.locationButtonText, { color: accent }]}
-                    numberOfLines={1}
-                  >
-                    {isGettingLocation ? "Getting..." : "Use Current"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.locationCard}>
-                <CompactLocationSection
-                  pickupLocation={fromLocation}
-                  deliveryLocation={toLocation}
-                  onPickupLocationChange={setFromLocation}
-                  onDeliveryLocationChange={setToLocation}
-                  onPickupLocationSelected={(location) => {
-                    const exactAddress = location.address || fromLocation;
-                    setFromLocationCoords({
-                      latitude: location.latitude,
-                      longitude: location.longitude,
-                    });
-                    setFromLocationAddress(exactAddress);
-                    setFromLocation(exactAddress);
-                  }}
-                  onDeliveryLocationSelected={(location) => {
-                    const exactAddress = location.address || toLocation;
-                    setToLocationCoords({
-                      latitude: location.latitude,
-                      longitude: location.longitude,
-                    });
-                    setToLocationAddress(exactAddress);
-                    setToLocation(exactAddress);
-                  }}
-                  useCurrentLocation={true}
-                  showMap={true}
-                  onMapPress={() => {}}
-                  showTitle={false}
-                />
-                {fromLocation && fromLocationCoords && (
-                  <View style={styles.locationIndicator}>
-                    <MaterialCommunityIcons
-                      name="check-circle"
-                      size={14}
-                      color={colors.success}
-                    />
-                    <Text style={styles.locationIndicatorText}>
-                      GPS location set
-                    </Text>
+                  <View style={styles.tabIcon}>
+                    {activeTab === service.key ? (
+                      // White icon for active tab
+                      service.key === "agriTRUK" ? (
+                        <FontAwesome5
+                          name="tractor"
+                          size={22}
+                          color={colors.white}
+                        />
+                      ) : (
+                        <MaterialCommunityIcons
+                          name="truck"
+                          size={22}
+                          color={colors.white}
+                        />
+                      )
+                    ) : (
+                      // Colored icon for inactive tab
+                      service.icon
+                    )}
                   </View>
-                )}
-              </View>
-            </View>
-
-            {/* Product Details */}
-            <View style={styles.fieldGroup}>
-              <View style={styles.labelContainer}>
-                <MaterialCommunityIcons
-                  name="package-variant"
-                  size={16}
-                  color={colors.text.secondary}
-                />
-                <Text style={styles.fieldLabel}>Product Type *</Text>
-              </View>
-              <ProductTypeInput
-                value={productType}
-                onChangeText={setProductType}
-                onProductSelected={(product) => {
-                  setProductType(product);
-                  // Store the product for future suggestions
-                }}
-                placeholder="Enter product type (e.g., Maize, Electronics, Furniture)"
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Weight (kg) *</Text>
-              <TextInput
-                style={styles.input}
-                value={weight}
-                onChangeText={setWeight}
-                placeholder="Enter weight in kg"
-                placeholderTextColor={colors.text.light}
-                keyboardType="numeric"
-              />
-            </View>
-
-            {/* Bulk Option */}
-            <View style={styles.fieldGroup}>
-              <View style={styles.switchRow}>
-                <View style={styles.switchLabelContainer}>
-                  <Text style={styles.switchLabel}>Bulk Shipment</Text>
-                  <Text style={styles.switchSubtitle}>
-                    Multiple packages or large quantity
-                  </Text>
-                </View>
-                <Switch
-                  value={isBulk}
-                  onValueChange={setIsBulk}
-                  trackColor={{
-                    false: colors.text.light + "40",
-                    true: accent + "40",
-                  }}
-                  thumbColor={isBulk ? accent : colors.text.light}
-                />
-              </View>
-
-              {isBulk && (
-                <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Quantity/Units</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={bulkQuantity}
-                    onChangeText={setBulkQuantity}
-                    placeholder="e.g., 50 bags, 100 boxes, 25 pallets"
-                    placeholderTextColor={colors.text.light}
-                  />
-                </View>
-              )}
-            </View>
-
-            {/* Urgency Level - Dropdown */}
-            <View style={styles.fieldGroup}>
-              <View style={styles.labelContainer}>
-                <MaterialCommunityIcons
-                  name="clock-alert-outline"
-                  size={16}
-                  color={colors.text.secondary}
-                />
-                <Text style={styles.fieldLabel}>Urgency Level</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.dropdownInput}
-                onPress={() => setShowUrgencyDropdown(!showUrgencyDropdown)}
-              >
-                <View style={styles.dropdownContent}>
-                  {urgency && (
-                    <MaterialCommunityIcons
-                      name={
-                        URGENCY_LEVELS.find((u) => u.key === urgency)
-                          ?.icon as any
-                      }
-                      size={18}
-                      color={
-                        URGENCY_LEVELS.find((u) => u.key === urgency)?.color
-                      }
-                      style={styles.dropdownIcon}
-                    />
-                  )}
                   <Text
                     style={[
-                      styles.dropdownText,
-                      !urgency && { color: colors.text.light },
+                      styles.tabLabel,
+                      activeTab === service.key && {
+                        color: colors.white,
+                        fontWeight: "700",
+                        fontSize: fonts.size.md,
+                      },
                     ]}
                   >
-                    {urgency
-                      ? URGENCY_LEVELS.find((u) => u.key === urgency)?.label
-                      : "Select urgency level"}
+                    {service.label}
                   </Text>
-                </View>
-                <MaterialCommunityIcons
-                  name={showUrgencyDropdown ? "chevron-up" : "chevron-down"}
-                  size={20}
-                  color={colors.text.secondary}
-                />
-              </TouchableOpacity>
-              {showUrgencyDropdown && (
-                <View style={styles.dropdownOptions}>
-                  {URGENCY_LEVELS.map((level) => (
-                    <TouchableOpacity
-                      key={level.key}
-                      style={[
-                        styles.dropdownOption,
-                        urgency === level.key && styles.dropdownOptionSelected,
-                      ]}
-                      onPress={() => {
-                        setUrgency(level.key as "low" | "medium" | "high");
-                        setShowUrgencyDropdown(false);
-                      }}
-                    >
-                      <MaterialCommunityIcons
-                        name={level.icon as any}
-                        size={18}
-                        color={level.color}
-                      />
-                      <Text
-                        style={[
-                          styles.dropdownOptionText,
-                          urgency === level.key && {
-                            color: level.color,
-                            fontWeight: "600",
-                          },
-                        ]}
-                      >
-                        {level.label}
-                      </Text>
-                      {urgency === level.key && (
-                        <MaterialCommunityIcons
-                          name="check"
-                          size={18}
-                          color={level.color}
-                        />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+                </TouchableOpacity>
+              ))}
             </View>
 
-            {/* Pickup Date for Bookings */}
-            {requestType === "booking" && (
-              <View style={styles.fieldGroup}>
-                <View style={styles.labelContainer}>
-                  <MaterialCommunityIcons
-                    name="calendar-clock"
-                    size={16}
-                    color={colors.text.secondary}
-                  />
-                  <Text style={styles.fieldLabel}>Pickup Date & Time *</Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.input, styles.dateInput]}
-                  onPress={() => setShowDatePicker(true)}
+            {/* Request Type Toggle */}
+            <View style={styles.requestTypeContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.requestTypeTab,
+                  requestType === "booking" && {
+                    backgroundColor: accent + "15",
+                    borderColor: accent,
+                    borderWidth: 1,
+                  },
+                ]}
+                onPress={() => setRequestType("booking")}
+              >
+                <MaterialCommunityIcons
+                  name="calendar-clock"
+                  size={18}
+                  color={
+                    requestType === "booking" ? accent : colors.text.secondary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.requestTypeText,
+                    requestType === "booking" && {
+                      color: accent,
+                      fontWeight: "600",
+                    },
+                  ]}
                 >
-                  <View style={styles.dateInputContent}>
+                  Booking
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.requestTypeTab,
+                  requestType === "instant" && {
+                    backgroundColor: accent + "15",
+                    borderColor: accent,
+                    borderWidth: 1,
+                  },
+                ]}
+                onPress={() => setRequestType("instant")}
+              >
+                <MaterialCommunityIcons
+                  name="lightning-bolt"
+                  size={18}
+                  color={
+                    requestType === "instant" ? accent : colors.text.secondary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.requestTypeText,
+                    requestType === "instant" && {
+                      color: accent,
+                      fontWeight: "600",
+                    },
+                  ]}
+                >
+                  Instant
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Form Fields */}
+            <View style={styles.formCard}>
+              {/* Location Details Section - Enhanced */}
+              <View style={styles.fieldGroup}>
+                <View style={styles.locationSectionHeader}>
+                  <View style={styles.labelContainer}>
                     <MaterialCommunityIcons
-                      name="calendar"
+                      name="map-marker-path"
                       size={18}
                       color={accent}
                     />
-                    <Text style={styles.inputText}>
-                      {pickupDate.toLocaleString()}
+                    <Text style={styles.fieldLabel}>Location Details *</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.locationButton,
+                      {
+                        backgroundColor: accent + "15",
+                        borderColor: accent + "30",
+                      },
+                    ]}
+                    onPress={getCurrentLocation}
+                    disabled={isGettingLocation}
+                  >
+                    <MaterialCommunityIcons
+                      name={isGettingLocation ? "refresh" : "crosshairs-gps"}
+                      size={16}
+                      color={isGettingLocation ? colors.text.secondary : accent}
+                    />
+                    <Text
+                      style={[styles.locationButtonText, { color: accent }]}
+                      numberOfLines={1}
+                    >
+                      {isGettingLocation ? "Getting..." : "Use Current"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.locationCard}>
+                  <CompactLocationSection
+                    pickupLocation={fromLocation}
+                    deliveryLocation={toLocation}
+                    onPickupLocationChange={setFromLocation}
+                    onDeliveryLocationChange={setToLocation}
+                    onPickupLocationSelected={(location) => {
+                      const exactAddress = location.address || fromLocation;
+                      setFromLocationCoords({
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                      });
+                      setFromLocationAddress(exactAddress);
+                      setFromLocation(exactAddress);
+                    }}
+                    onDeliveryLocationSelected={(location) => {
+                      const exactAddress = location.address || toLocation;
+                      setToLocationCoords({
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                      });
+                      setToLocationAddress(exactAddress);
+                      setToLocation(exactAddress);
+                    }}
+                    useCurrentLocation={true}
+                    showMap={true}
+                    onMapPress={() => {}}
+                    showTitle={false}
+                  />
+                  {fromLocation && fromLocationCoords && (
+                    <View style={styles.locationIndicator}>
+                      <MaterialCommunityIcons
+                        name="check-circle"
+                        size={14}
+                        color={colors.success}
+                      />
+                      <Text style={styles.locationIndicatorText}>
+                        GPS location set
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Product Details */}
+              <View style={styles.fieldGroup}>
+                <View style={styles.labelContainer}>
+                  <MaterialCommunityIcons
+                    name="package-variant"
+                    size={16}
+                    color={colors.text.secondary}
+                  />
+                  <Text style={styles.fieldLabel}>Product Type *</Text>
+                </View>
+                <ProductTypeInput
+                  value={productType}
+                  onChangeText={setProductType}
+                  onProductSelected={(product) => {
+                    setProductType(product);
+                    // Store the product for future suggestions
+                  }}
+                  placeholder="Enter product type (e.g., Maize, Electronics, Furniture)"
+                />
+              </View>
+
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Weight (kg) *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={weight}
+                  onChangeText={setWeight}
+                  placeholder="Enter weight in kg"
+                  placeholderTextColor={colors.text.light}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              {/* Bulk Option */}
+              <View style={styles.fieldGroup}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchLabelContainer}>
+                    <Text style={styles.switchLabel}>Bulk Shipment</Text>
+                    <Text style={styles.switchSubtitle}>
+                      Multiple packages or large quantity
+                    </Text>
+                  </View>
+                  <Switch
+                    value={isBulk}
+                    onValueChange={setIsBulk}
+                    trackColor={{
+                      false: colors.text.light + "40",
+                      true: accent + "40",
+                    }}
+                    thumbColor={isBulk ? accent : colors.text.light}
+                  />
+                </View>
+
+                {isBulk && (
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>Quantity/Units</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={bulkQuantity}
+                      onChangeText={setBulkQuantity}
+                      placeholder="e.g., 50 bags, 100 boxes, 25 pallets"
+                      placeholderTextColor={colors.text.light}
+                    />
+                  </View>
+                )}
+              </View>
+
+              {/* Urgency Level - Dropdown */}
+              <View style={styles.fieldGroup}>
+                <View style={styles.labelContainer}>
+                  <MaterialCommunityIcons
+                    name="clock-alert-outline"
+                    size={16}
+                    color={colors.text.secondary}
+                  />
+                  <Text style={styles.fieldLabel}>Urgency Level</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.dropdownInput}
+                  onPress={() => setShowUrgencyDropdown(!showUrgencyDropdown)}
+                >
+                  <View style={styles.dropdownContent}>
+                    {urgency && (
+                      <MaterialCommunityIcons
+                        name={
+                          URGENCY_LEVELS.find((u) => u.key === urgency)
+                            ?.icon as any
+                        }
+                        size={18}
+                        color={
+                          URGENCY_LEVELS.find((u) => u.key === urgency)?.color
+                        }
+                        style={styles.dropdownIcon}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.dropdownText,
+                        !urgency && { color: colors.text.light },
+                      ]}
+                    >
+                      {urgency
+                        ? URGENCY_LEVELS.find((u) => u.key === urgency)?.label
+                        : "Select urgency level"}
                     </Text>
                   </View>
                   <MaterialCommunityIcons
-                    name="chevron-right"
+                    name={showUrgencyDropdown ? "chevron-up" : "chevron-down"}
                     size={20}
-                    color={colors.text.light}
+                    color={colors.text.secondary}
                   />
                 </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Recurring Request Section - Available for all user types */}
-            {renderRecurrenceSection()}
-
-            {/* Special Requirements Section */}
-            <View style={styles.fieldGroup}>
-              <View style={styles.sectionHeader}>
-                <MaterialCommunityIcons
-                  name={activeTab === "agriTRUK" ? "sprout" : "truck-delivery"}
-                  size={20}
-                  color={accent}
-                />
-                <Text style={styles.sectionTitle}>Special Requirements</Text>
-              </View>
-
-              {/* Perishable Options for Agri */}
-              {activeTab === "agriTRUK" && (
-                <>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchLabelContainer}>
-                      <Text style={styles.switchLabel}>Perishable Goods</Text>
-                      <Text style={styles.switchSubtitle}>
-                        Requires special handling
-                      </Text>
-                    </View>
-                    <Switch
-                      value={isPerishable}
-                      onValueChange={setIsPerishable}
-                      trackColor={{
-                        false: colors.text.light + "40",
-                        true: accent + "40",
-                      }}
-                      thumbColor={isPerishable ? accent : colors.text.light}
-                    />
-                  </View>
-
-                  {isPerishable && (
-                    <View style={styles.specsContainer}>
-                      {AGRI_PERISHABLES.map((spec) => (
-                        <TouchableOpacity
-                          key={spec.key}
+                {showUrgencyDropdown && (
+                  <View style={styles.dropdownOptions}>
+                    {URGENCY_LEVELS.map((level) => (
+                      <TouchableOpacity
+                        key={level.key}
+                        style={[
+                          styles.dropdownOption,
+                          urgency === level.key &&
+                            styles.dropdownOptionSelected,
+                        ]}
+                        onPress={() => {
+                          setUrgency(level.key as "low" | "medium" | "high");
+                          setShowUrgencyDropdown(false);
+                        }}
+                      >
+                        <MaterialCommunityIcons
+                          name={level.icon as any}
+                          size={18}
+                          color={level.color}
+                        />
+                        <Text
                           style={[
-                            styles.specChip,
-                            perishableSpecs.includes(spec.key) && {
-                              backgroundColor: accent + "20",
+                            styles.dropdownOptionText,
+                            urgency === level.key && {
+                              color: level.color,
+                              fontWeight: "600",
                             },
                           ]}
-                          onPress={() => {
-                            if (perishableSpecs.includes(spec.key)) {
-                              setPerishableSpecs(
-                                perishableSpecs.filter((s) => s !== spec.key),
-                              );
-                            } else {
-                              setPerishableSpecs([
-                                ...perishableSpecs,
-                                spec.key,
-                              ]);
-                            }
-                          }}
                         >
-                          <Text
+                          {level.label}
+                        </Text>
+                        {urgency === level.key && (
+                          <MaterialCommunityIcons
+                            name="check"
+                            size={18}
+                            color={level.color}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Pickup Date for Bookings */}
+              {requestType === "booking" && (
+                <View style={styles.fieldGroup}>
+                  <View style={styles.labelContainer}>
+                    <MaterialCommunityIcons
+                      name="calendar-clock"
+                      size={16}
+                      color={colors.text.secondary}
+                    />
+                    <Text style={styles.fieldLabel}>Pickup Date & Time *</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.input, styles.dateInput]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <View style={styles.dateInputContent}>
+                      <MaterialCommunityIcons
+                        name="calendar"
+                        size={18}
+                        color={accent}
+                      />
+                      <Text style={styles.inputText}>
+                        {pickupDate.toLocaleString()}
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={20}
+                      color={colors.text.light}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Recurring Request Section - Available for all user types */}
+              {renderRecurrenceSection()}
+
+              {/* Special Requirements Section */}
+              <View style={styles.fieldGroup}>
+                <View style={styles.sectionHeader}>
+                  <MaterialCommunityIcons
+                    name={
+                      activeTab === "agriTRUK" ? "sprout" : "truck-delivery"
+                    }
+                    size={20}
+                    color={accent}
+                  />
+                  <Text style={styles.sectionTitle}>Special Requirements</Text>
+                </View>
+
+                {/* Perishable Options for Agri */}
+                {activeTab === "agriTRUK" && (
+                  <>
+                    <View style={styles.switchRow}>
+                      <View style={styles.switchLabelContainer}>
+                        <Text style={styles.switchLabel}>Perishable Goods</Text>
+                        <Text style={styles.switchSubtitle}>
+                          Requires special handling
+                        </Text>
+                      </View>
+                      <Switch
+                        value={isPerishable}
+                        onValueChange={setIsPerishable}
+                        trackColor={{
+                          false: colors.text.light + "40",
+                          true: accent + "40",
+                        }}
+                        thumbColor={isPerishable ? accent : colors.text.light}
+                      />
+                    </View>
+
+                    {isPerishable && (
+                      <View style={styles.specsContainer}>
+                        {AGRI_PERISHABLES.map((spec) => (
+                          <TouchableOpacity
+                            key={spec.key}
                             style={[
-                              styles.specChipText,
+                              styles.specChip,
                               perishableSpecs.includes(spec.key) && {
-                                color: accent,
-                                fontWeight: "bold",
+                                backgroundColor: accent + "20",
                               },
                             ]}
+                            onPress={() => {
+                              if (perishableSpecs.includes(spec.key)) {
+                                setPerishableSpecs(
+                                  perishableSpecs.filter((s) => s !== spec.key),
+                                );
+                              } else {
+                                setPerishableSpecs([
+                                  ...perishableSpecs,
+                                  spec.key,
+                                ]);
+                              }
+                            }}
                           >
-                            {spec.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </>
-              )}
+                            <Text
+                              style={[
+                                styles.specChipText,
+                                perishableSpecs.includes(spec.key) && {
+                                  color: accent,
+                                  fontWeight: "bold",
+                                },
+                              ]}
+                            >
+                              {spec.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </>
+                )}
 
-              {/* Special Cargo Options for Cargo */}
-              {activeTab === "cargoTRUK" && (
-                <>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchLabelContainer}>
-                      <Text style={styles.switchLabel}>Special Cargo</Text>
-                      <Text style={styles.switchSubtitle}>
-                        Requires special handling
-                      </Text>
+                {/* Special Cargo Options for Cargo */}
+                {activeTab === "cargoTRUK" && (
+                  <>
+                    <View style={styles.switchRow}>
+                      <View style={styles.switchLabelContainer}>
+                        <Text style={styles.switchLabel}>Special Cargo</Text>
+                        <Text style={styles.switchSubtitle}>
+                          Requires special handling
+                        </Text>
+                      </View>
+                      <Switch
+                        value={isSpecialCargo}
+                        onValueChange={setIsSpecialCargo}
+                        trackColor={{
+                          false: colors.text.light + "40",
+                          true: accent + "40",
+                        }}
+                        thumbColor={isSpecialCargo ? accent : colors.text.light}
+                      />
                     </View>
-                    <Switch
-                      value={isSpecialCargo}
-                      onValueChange={setIsSpecialCargo}
-                      trackColor={{
-                        false: colors.text.light + "40",
-                        true: accent + "40",
-                      }}
-                      thumbColor={isSpecialCargo ? accent : colors.text.light}
-                    />
-                  </View>
 
-                  {isSpecialCargo && (
-                    <View style={styles.specsContainer}>
-                      {CARGO_SPECIALS.map((spec) => (
-                        <TouchableOpacity
-                          key={spec.key}
-                          style={[
-                            styles.specChip,
-                            specialCargoSpecs.includes(spec.key) && {
-                              backgroundColor: accent + "20",
-                            },
-                          ]}
-                          onPress={() => {
-                            if (specialCargoSpecs.includes(spec.key)) {
-                              setSpecialCargoSpecs(
-                                specialCargoSpecs.filter((s) => s !== spec.key),
-                              );
-                            } else {
-                              setSpecialCargoSpecs([
-                                ...specialCargoSpecs,
-                                spec.key,
-                              ]);
-                            }
-                          }}
-                        >
-                          <Text
+                    {isSpecialCargo && (
+                      <View style={styles.specsContainer}>
+                        {CARGO_SPECIALS.map((spec) => (
+                          <TouchableOpacity
+                            key={spec.key}
                             style={[
-                              styles.specChipText,
+                              styles.specChip,
                               specialCargoSpecs.includes(spec.key) && {
-                                color: accent,
-                                fontWeight: "bold",
+                                backgroundColor: accent + "20",
                               },
                             ]}
+                            onPress={() => {
+                              if (specialCargoSpecs.includes(spec.key)) {
+                                setSpecialCargoSpecs(
+                                  specialCargoSpecs.filter(
+                                    (s) => s !== spec.key,
+                                  ),
+                                );
+                              } else {
+                                setSpecialCargoSpecs([
+                                  ...specialCargoSpecs,
+                                  spec.key,
+                                ]);
+                              }
+                            }}
                           >
-                            {spec.label}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                </>
-              )}
+                            <Text
+                              style={[
+                                styles.specChipText,
+                                specialCargoSpecs.includes(spec.key) && {
+                                  color: accent,
+                                  fontWeight: "bold",
+                                },
+                              ]}
+                            >
+                              {spec.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </>
+                )}
 
-              {/* Insurance - Disabled for now, will be enabled when ready with insurance company */}
-              {/* <View style={styles.switchRow}>
+                {/* Insurance - Disabled for now, will be enabled when ready with insurance company */}
+                {/* <View style={styles.switchRow}>
                                 <View style={styles.switchLabelContainer}>
                                     <Text style={styles.switchLabel}>Insure Goods</Text>
                                     <Text style={styles.switchSubtitle}>Protect your shipment</Text>
@@ -1415,173 +1422,173 @@ const RequestForm: React.FC<RequestFormProps> = ({
                                     />
                                 </View>
                             )} */}
-            </View>
-
-            {/* Business/Broker Specific Options - Priority Delivery removed as redundant with urgency level */}
-
-            {/* Additional Notes */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Additional Notes</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={additional}
-                onChangeText={setAdditional}
-                placeholder="Any special instructions for the transporter..."
-                placeholderTextColor={colors.text.light}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-                maxLength={100}
-              />
-              <Text style={styles.charCount}>
-                {additional.length}/100 characters
-              </Text>
-            </View>
-
-            {/* Error Message */}
-            {formError ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{formError}</Text>
               </View>
-            ) : null}
 
-            {/* Action Buttons */}
-            <View style={styles.actionButtons}>
-              {(mode === "business" || mode === "broker") &&
-                requestType === "booking" && (
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.consolidateButton]}
-                    onPress={handleAddToConsolidation}
-                  >
-                    <MaterialCommunityIcons
-                      name="layers-plus"
-                      size={20}
-                      color={colors.white}
-                    />
-                    <Text style={styles.actionButtonText}>
-                      {justAdded ? "Added!" : "Add to Consolidation"}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+              {/* Business/Broker Specific Options - Priority Delivery removed as redundant with urgency level */}
 
-              <TouchableOpacity
-                style={[styles.actionButton, styles.submitButton]}
-                onPress={handleSubmit}
-              >
-                <MaterialCommunityIcons
-                  name="check-circle"
-                  size={20}
-                  color={colors.white}
+              {/* Additional Notes */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>Additional Notes</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={additional}
+                  onChangeText={setAdditional}
+                  placeholder="Any special instructions for the transporter..."
+                  placeholderTextColor={colors.text.light}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                  maxLength={100}
                 />
-                <Text style={styles.actionButtonText}>
-                  {requestType === "instant"
-                    ? "Find Transporters"
-                    : "Place Booking"}
+                <Text style={styles.charCount}>
+                  {additional.length}/100 characters
                 </Text>
-              </TouchableOpacity>
-            </View>
+              </View>
 
-            {/* Consolidation Management */}
-            {(mode === "business" || mode === "broker") &&
-              consolidations.length > 0 && (
-                <View style={styles.consolidationSection}>
-                  <View style={styles.consolidationHeader}>
-                    <Text style={styles.consolidationTitle}>
-                      Consolidation ({consolidations.length} requests)
-                    </Text>
-                    <TouchableOpacity onPress={clearConsolidations}>
-                      <Text style={styles.clearText}>Clear All</Text>
+              {/* Error Message */}
+              {formError ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{formError}</Text>
+                </View>
+              ) : null}
+
+              {/* Action Buttons */}
+              <View style={styles.actionButtons}>
+                {(mode === "business" || mode === "broker") &&
+                  requestType === "booking" && (
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.consolidateButton]}
+                      onPress={handleAddToConsolidation}
+                    >
+                      <MaterialCommunityIcons
+                        name="layers-plus"
+                        size={20}
+                        color={colors.white}
+                      />
+                      <Text style={styles.actionButtonText}>
+                        {justAdded ? "Added!" : "Add to Consolidation"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.submitButton]}
+                  onPress={handleSubmit}
+                >
+                  <MaterialCommunityIcons
+                    name="check-circle"
+                    size={20}
+                    color={colors.white}
+                  />
+                  <Text style={styles.actionButtonText}>
+                    {requestType === "instant"
+                      ? "Find Transporters"
+                      : "Place Booking"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Consolidation Management */}
+              {(mode === "business" || mode === "broker") &&
+                consolidations.length > 0 && (
+                  <View style={styles.consolidationSection}>
+                    <View style={styles.consolidationHeader}>
+                      <Text style={styles.consolidationTitle}>
+                        Consolidation ({consolidations.length} requests)
+                      </Text>
+                      <TouchableOpacity onPress={clearConsolidations}>
+                        <Text style={styles.clearText}>Clear All</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.consolidationList}>
+                      {consolidations.slice(0, 3).map((item, index) => {
+                        // Safely extract location strings (handle both strings and objects)
+                        const fromLoc =
+                          typeof item.fromLocation === "string"
+                            ? item.fromLocation
+                            : item.fromLocation?.address ||
+                              item.fromLocationAddress ||
+                              "Unknown";
+                        const toLoc =
+                          typeof item.toLocation === "string"
+                            ? item.toLocation
+                            : item.toLocation?.address ||
+                              item.toLocationAddress ||
+                              "Unknown";
+
+                        return (
+                          <View key={item.id} style={styles.consolidationItem}>
+                            <Text style={styles.consolidationItemText}>
+                              {fromLoc} → {toLoc} ({item.productType},{" "}
+                              {item.weight})
+                              {item.isRecurring && (
+                                <Text style={styles.recurringBadge}>
+                                  {" "}
+                                  🔄 Recurring
+                                </Text>
+                              )}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => removeConsolidation(item.id!)}
+                            >
+                              <Ionicons
+                                name="close-circle"
+                                size={20}
+                                color={colors.error}
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      })}
+                      {consolidations.length > 3 && (
+                        <Text style={styles.moreText}>
+                          +{consolidations.length - 3} more
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Proceed with Consolidation Button - Only show when there are items in consolidation */}
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.proceedButton]}
+                      onPress={() => {
+                        // Navigate to BookingConfirmation with all consolidation items
+                        // The current form data is not added - user must fill form and click "Add to Consolidation" first
+                        if (consolidations.length === 0) {
+                          Alert.alert(
+                            "No Items",
+                            "Please add items to consolidation first.",
+                          );
+                          return;
+                        }
+                        navigation.navigate("BookingConfirmation", {
+                          requests: consolidations,
+                          mode,
+                          selectedClient,
+                          isConsolidation: true,
+                        });
+                        // Clear consolidations after navigation
+                        clearConsolidations();
+                      }}
+                    >
+                      <MaterialCommunityIcons
+                        name="layers"
+                        size={20}
+                        color={colors.white}
+                      />
+                      <Text style={styles.actionButtonText}>
+                        Proceed with Consolidation ({consolidations.length}{" "}
+                        items)
+                      </Text>
                     </TouchableOpacity>
                   </View>
-
-                  <View style={styles.consolidationList}>
-                    {consolidations.slice(0, 3).map((item, index) => {
-                      // Safely extract location strings (handle both strings and objects)
-                      const fromLoc =
-                        typeof item.fromLocation === "string"
-                          ? item.fromLocation
-                          : item.fromLocation?.address ||
-                            item.fromLocationAddress ||
-                            "Unknown";
-                      const toLoc =
-                        typeof item.toLocation === "string"
-                          ? item.toLocation
-                          : item.toLocation?.address ||
-                            item.toLocationAddress ||
-                            "Unknown";
-
-                      return (
-                        <View key={item.id} style={styles.consolidationItem}>
-                          <Text style={styles.consolidationItemText}>
-                            {fromLoc} → {toLoc} ({item.productType},{" "}
-                            {item.weight})
-                            {item.isRecurring && (
-                              <Text style={styles.recurringBadge}>
-                                {" "}
-                                🔄 Recurring
-                              </Text>
-                            )}
-                          </Text>
-                          <TouchableOpacity
-                            onPress={() => removeConsolidation(item.id!)}
-                          >
-                            <Ionicons
-                              name="close-circle"
-                              size={20}
-                              color={colors.error}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
-                    {consolidations.length > 3 && (
-                      <Text style={styles.moreText}>
-                        +{consolidations.length - 3} more
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Proceed with Consolidation Button - Only show when there are items in consolidation */}
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.proceedButton]}
-                    onPress={() => {
-                      // Navigate to BookingConfirmation with all consolidation items
-                      // The current form data is not added - user must fill form and click "Add to Consolidation" first
-                      if (consolidations.length === 0) {
-                        Alert.alert(
-                          "No Items",
-                          "Please add items to consolidation first.",
-                        );
-                        return;
-                      }
-                      navigation.navigate("BookingConfirmation", {
-                        requests: consolidations,
-                        mode,
-                        selectedClient,
-                        isConsolidation: true,
-                      });
-                      // Clear consolidations after navigation
-                      clearConsolidations();
-                    }}
-                  >
-                    <MaterialCommunityIcons
-                      name="layers"
-                      size={20}
-                      color={colors.white}
-                    />
-                    <Text style={styles.actionButtonText}>
-                      Proceed with Consolidation ({consolidations.length} items)
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-          </View>
-          {/* Closing formCard */}
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* Find Transporters Component */}
-      {showTransporters && requestType === "instant" && (
+                )}
+            </View>
+            {/* Closing formCard */}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      ) : (
+        /* Find Transporters Component */
         <FindTransporters
           requests={
             consolidations.length > 0 ? consolidations : [getCurrentRequest()]
