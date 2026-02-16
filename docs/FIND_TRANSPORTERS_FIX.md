@@ -84,12 +84,40 @@ The backend endpoint `/api/transporters/available/list` already returns proper c
 ✅ **COMPLETE** - All fixes implemented and tested
 
 ### Changes Made:
+
+#### Backend Changes (on `backend` branch, merged to `main`):
 1. ✅ Fixed minimum cost in `backend/utils/calculateCost.js` (300 KES)
+   - Committed to `backend` branch
+   - Merged to `main` branch
+   - Ready for Render deployment
+
+#### Frontend Changes (on `main` branch):
 2. ✅ Enhanced `transporterDetailsService.findTransporterForJob()` to handle company drivers
 3. ✅ Updated `TransporterSelectionModal` to use `displayName`
 4. ✅ Updated `AssignedTransporterCard` to use `displayName`
 5. ✅ Fixed TypeScript interface compliance in `getTransporterDetails()`
 6. ✅ All diagnostics passing - no errors
+
+### Git Workflow:
+```bash
+# Backend changes
+git checkout backend
+# Made changes to backend/utils/calculateCost.js
+git commit -m "Fix: Restore minimum cost to 300 KES"
+
+# Frontend changes
+git checkout main
+# Made changes to frontend files
+git commit -m "Fix: Company driver display in Find Transporters"
+
+# Merge backend to main
+git merge backend -m "Merge backend: Restore minimum cost to 300 KES"
+```
+
+### Deployment:
+- Render pulls from `main` branch
+- Backend changes are now in `main` after merge
+- Ready to deploy to production
 
 ### Ready for Testing:
 - Build should complete successfully
