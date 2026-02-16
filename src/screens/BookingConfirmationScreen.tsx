@@ -1839,12 +1839,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 18,
     gap: 12,
+    flexWrap: "wrap",
   },
   label: {
     fontSize: fonts.size.md,
     color: colors.text.primary,
     fontWeight: "600",
-    marginRight: 8,
+    flexShrink: 0,
   },
   dateBtn: {
     flexDirection: "row",
@@ -1855,10 +1856,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.primary + "30",
+    flex: 1,
+    minWidth: 0,
   },
   dateText: {
     fontSize: fonts.size.md,
     color: colors.text.primary,
+    flex: 1,
+    flexShrink: 1,
   },
   postBtn: {
     flexDirection: "row",
