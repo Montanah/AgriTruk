@@ -17,27 +17,29 @@ function calculateTransportCost(bookingData) {
     priorityFee: 0,
   };
 
-   // Convert weight to tons
+  // Convert weight to tons
   const weightTons = weightKg / 1000;
 
   // Fixed rate per ton per km
   const RATE_PER_TON_KM = 4; // Ksh 4 per ton per km
 
   // Base cost
-  let cost = Math.max(actualDistance * weightTons * RATE_PER_TON_KM, 5000); // Minimum Ksh 5,000
+  let cost = Math.max(actualDistance * weightTons * RATE_PER_TON_KM, 300); // Minimum Ksh 300
   costBreakdown.baseCost = cost;
 
-   // Perishable surcharge (flat per km)
+  // Perishable surcharge (flat per km)
   if (perishable) {
     const PERISHABLE_RATE = 1.5; // Ksh 1.5/km per ton
-    costBreakdown.perishableSurcharge = distanceKm * weightTons * PERISHABLE_RATE;
+    costBreakdown.perishableSurcharge =
+      distanceKm * weightTons * PERISHABLE_RATE;
     cost += costBreakdown.perishableSurcharge;
   }
 
   // Refrigeration surcharge
   if (needsRefrigeration) {
     const REFRIGERATION_RATE = 2; // Ksh 2/km per ton
-    costBreakdown.refrigerationSurcharge = distanceKm * weightTons * REFRIGERATION_RATE;
+    costBreakdown.refrigerationSurcharge =
+      distanceKm * weightTons * REFRIGERATION_RATE;
     cost += costBreakdown.refrigerationSurcharge;
   }
 
@@ -60,8 +62,8 @@ function calculateTransportCost(bookingData) {
   let transporterPayment = cost; // Insurance is not paid to transporter
   const totalCost = cost + (costBreakdown.insuranceFee || 0);
 
-  const variationPct = 0.10; // ±10% range
-  const minVariationPct = 0.30; // ±30% range
+  const variationPct = 0.1; // ±10% range
+  const minVariationPct = 0.3; // ±30% range
   const minCost = Math.round(totalCost * (1 - minVariationPct));
   const maxCost = Math.round(totalCost * (1 + variationPct));
 
@@ -70,7 +72,7 @@ function calculateTransportCost(bookingData) {
     estimatedCostRange: {
       min: minCost,
       max: maxCost,
-      display: `Ksh ${minCost.toLocaleString()} - ${maxCost.toLocaleString()}`
+      display: `Ksh ${minCost.toLocaleString()} - ${maxCost.toLocaleString()}`,
     },
     baseEstimate: Math.round(totalCost),
     transporterPayment: Math.round(transporterPayment),
@@ -85,7 +87,7 @@ function calculateTransportCost(bookingData) {
       transporterReceives: Math.round(transporterPayment),
       companyReceives: costBreakdown.insuranceFee || 0,
       total: Math.round(totalCost),
-    }
+    },
   };
 }
 
