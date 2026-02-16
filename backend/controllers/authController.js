@@ -3,13 +3,19 @@ const User = require("../models/User");
 const ActivityLog = require("../models/ActivityLog");
 const generateOtp = require("../utils/generateOtp");
 const sendEmail = require("../utils/sendEmail");
-const { getMFATemplate, getResetPasswordTemplate, getSuccessTemplate, getRejectTemplate, getDeleteAccountTemplate } = require("../utils/sendMailTemplate");
+const {
+  getMFATemplate,
+  getResetPasswordTemplate,
+  getSuccessTemplate,
+  getRejectTemplate,
+  getDeleteAccountTemplate,
+} = require("../utils/sendMailTemplate");
 const getGeoLocation = require("../utils/locationHelper");
 const { logActivity, logAdminActivity } = require("../utils/activityLogger");
-const { uploadImage } = require('../utils/upload');
-const fs = require('fs');
-const Notification = require('../models/Notification');
-const SMSService = require('../utils/sendSms');
+const { uploadImage } = require("../utils/upload");
+const fs = require("fs");
+const Notification = require("../models/Notification");
+const SMSService = require("../utils/sendSms");
 const Booking = require("../models/Booking");
 const Dispute = require("../models/Dispute");
 const { formatTimestamps } = require("../utils/formatData");
@@ -19,20 +25,20 @@ const smsService = new SMSService(process.env.MOBILESASA_API_TOKEN);
 
 function formatPhoneNumber(phone) {
   // Remove all spaces or special characters
-  phone = phone.replace(/\D/g, '');
+  phone = phone.replace(/\D/g, "");
 
   // If starts with 0 and is 10 digits: 07XXXXXXXX → 2547XXXXXXXX
-  if (phone.startsWith('0') && phone.length === 10) {
+  if (phone.startsWith("0") && phone.length === 10) {
     return `254${phone.substring(1)}`;
   }
 
   // If starts with 2540 → fix to 2547XXXXXXXX
-  if (phone.startsWith('2540')) {
+  if (phone.startsWith("2540")) {
     return `254${phone.substring(4)}`;
   }
 
   // If starts with +254 → remove +
-  if (phone.startsWith('+254')) {
+  if (phone.startsWith("+254")) {
     return phone.substring(1);
   }
 
@@ -55,12 +61,32 @@ function formatPhoneNumberAuth(phone) {
   return cleaned;
 }
 exports.registerUser = async (req, res) => {
-  const { name, phone, email, role, location, userType, languagePreference, profilePhotoUrl, preferredVerificationMethod } = req.body;
-  console.log('Registering user:', req.user);
+  const {
+    name,
+    phone,
+    email,
+    role,
+    location,
+    userType,
+    languagePreference,
+    profilePhotoUrl,
+    preferredVerificationMethod,
+  } = req.body;
+  console.log("Registering user:", req.user);
   const uid = req.user.uid;
   // const email = req.user.email;
 
-  if (!["shipper", "transporter", "admin", "user", "broker", "business", "job_seeker"].includes(role)) {
+  if (
+    ![
+      "shipper",
+      "transporter",
+      "admin",
+      "user",
+      "broker",
+      "business",
+      "job_seeker",
+    ].includes(role)
+  ) {
     return res.status(400).json({ message: "Invalid role" });
   }
 
@@ -81,13 +107,17 @@ exports.registerUser = async (req, res) => {
     //check if phone is already registered
     const phoneQuery = await usersRef.where("phone", "==", phone).get();
     if (!phoneQuery.empty) {
-      return res.status(409).json({ message: "Phone number is already registered" });
+      return res
+        .status(409)
+        .json({ message: "Phone number is already registered" });
     }
 
     // Save to Firestore
     const emailVerificationCode = generateOtp();
     const phoneVerificationCode = generateOtp();
-    const verificationExpiry = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000));
+    const verificationExpiry = admin.firestore.Timestamp.fromDate(
+      new Date(Date.now() + 10 * 60 * 1000),
+    );
 
     // Create user in Firestore via model
     const user = await User.create({
@@ -107,18 +137,23 @@ exports.registerUser = async (req, res) => {
       isVerified: false,
       phoneVerificationExpires: verificationExpiry,
       verificationExpires: verificationExpiry,
-      preferredVerificationMethod
+      preferredVerificationMethod,
     });
 
-    // Send code to user 
+    // Send code to user
     let sendMethod = null;
 
     if (preferredVerificationMethod === "email") {
       await sendEmail({
         to: email,
-        subject: 'Your Truk Verification Code',
+        subject: "Your Truk Verification Code",
         text: `Your verification code is: ${emailVerificationCode}`,
-        html: getMFATemplate(emailVerificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
+        html: getMFATemplate(
+          emailVerificationCode,
+          null,
+          req.ip || "unknown",
+          req.headers["user-agent"] || "unknown",
+        ),
         // html: `<p>Your AgriTruk verification code is: <strong>${verificationCode}</strong></p>`
       });
       sendMethod = "email";
@@ -127,36 +162,34 @@ exports.registerUser = async (req, res) => {
       const formattedPhone = formatPhoneNumber(phone);
       try {
         const smsMessage = `Your Truk verification code is: ${phoneVerificationCode}`;
-        await smsService.sendSMS(
-          'TRUK LTD',
-          smsMessage,
-          formattedPhone
-        );
-        console.log('Verification SMS sent successfully');
+        await smsService.sendSMS("TRUK LTD", smsMessage, formattedPhone);
+        console.log("Verification SMS sent successfully");
       } catch (smsError) {
-        console.error('Failed to send verification SMS:', smsError);
+        console.error("Failed to send verification SMS:", smsError);
         // Don't fail the registration if SMS fails, just log it
       }
       sendMethod = "phone";
     } else {
-      return res.status(400).json({ message: "Invalid preferred verification method" });
+      return res
+        .status(400)
+        .json({ message: "Invalid preferred verification method" });
     }
 
-    await logActivity(uid, 'user_registration', req);
+    await logActivity(uid, "user_registration", req);
 
     await Notification.create({
       userId: uid,
-      type: 'Welcome to Truk',
-      message: 'Your account has been created successfully',
-      UserType: 'user',
+      type: "Welcome to Truk",
+      message: "Your account has been created successfully",
+      UserType: "user",
     });
 
     res.status(201).json({ message: "User profile created", user });
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error("Registration error:", error);
     res.status(400).json({
-      code: 'REGISTRATION_FAILED',
-      message: error.message || 'User registration failed'
+      code: "REGISTRATION_FAILED",
+      message: error.message || "User registration failed",
     });
   }
 };
@@ -164,10 +197,10 @@ exports.registerUser = async (req, res) => {
 exports.verifyEmailCode = async (req, res) => {
   const { code } = req.body;
   const uid = req.user.uid;
-  const ipAddress = req.ip || 'unknown';
+  const ipAddress = req.ip || "unknown";
 
-  console.log('Verifying code for user:', uid);
-  console.log('Verification code:', code);
+  console.log("Verifying code for user:", uid);
+  console.log("Verification code:", code);
 
   try {
     const userData = await User.get(uid);
@@ -179,8 +212,8 @@ exports.verifyEmailCode = async (req, res) => {
 
     const now = admin.firestore.Timestamp.now();
 
-    console.log('stored code:', userData.emailVerificationCode);
-    console.log('current code:', code);
+    console.log("stored code:", userData.emailVerificationCode);
+    console.log("current code:", code);
 
     if (userData.emailVerificationCode !== code) {
       return res.status(400).json({ message: "Invalid verification code" });
@@ -193,7 +226,7 @@ exports.verifyEmailCode = async (req, res) => {
     await userRef.update({
       emailVerified: true,
       emailVerificationCode: admin.firestore.FieldValue.delete(),
-      verificationExpires: admin.firestore.FieldValue.delete()
+      verificationExpires: admin.firestore.FieldValue.delete(),
     });
 
     // Check if phone also verified → set isVerified
@@ -202,9 +235,9 @@ exports.verifyEmailCode = async (req, res) => {
       await userRef.update({ isVerified: true });
     }
 
-    const userAgent = req.headers['user-agent']
-      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "")
-      : 'unknown';
+    const userAgent = req.headers["user-agent"]
+      ? req.headers["user-agent"].substring(0, 500).replace(/[^\x00-\x7F]/g, "")
+      : "unknown";
 
     const location = await getGeoLocation(ipAddress);
 
@@ -213,10 +246,10 @@ exports.verifyEmailCode = async (req, res) => {
       to: userData.email,
       subject: "Email Verified Successfully",
       text: "Your email has been successfully verified.",
-      html: getSuccessTemplate(location, ipAddress, userAgent)
+      html: getSuccessTemplate(location, ipAddress, userAgent),
     });
 
-    await logActivity(uid, 'email_verification', req);
+    await logActivity(uid, "email_verification", req);
 
     res.status(200).json({ message: "User verified successfully" });
   } catch (error) {
@@ -234,13 +267,15 @@ exports.verifyPhoneCode = async (req, res) => {
     const userRef = admin.firestore().collection("users").doc(uid);
 
     if (userData.phoneVerified) {
-      return res.status(200).json({ message: "User already is phone verified" });
+      return res
+        .status(200)
+        .json({ message: "User already is phone verified" });
     }
 
     const now = admin.firestore.Timestamp.now();
 
-    console.log('stored code:', userData.phoneVerificationCode);
-    console.log('current code:', code);
+    console.log("stored code:", userData.phoneVerificationCode);
+    console.log("current code:", code);
 
     if (userData.phoneVerificationCode !== code) {
       return res.status(400).json({ message: "Invalid verification code" });
@@ -253,7 +288,7 @@ exports.verifyPhoneCode = async (req, res) => {
     await userRef.update({
       phoneVerified: true,
       phoneVerificationCode: admin.firestore.FieldValue.delete(),
-      phoneVerificationExpires: admin.firestore.FieldValue.delete()
+      phoneVerificationExpires: admin.firestore.FieldValue.delete(),
     });
 
     // Check if email also verified → set isVerified
@@ -262,7 +297,7 @@ exports.verifyPhoneCode = async (req, res) => {
       await userRef.update({ isVerified: true });
     }
 
-    await logActivity(uid, 'phone_verification', req);
+    await logActivity(uid, "phone_verification", req);
 
     res.status(200).json({ message: "User verified successfully" });
   } catch (error) {
@@ -275,7 +310,7 @@ exports.resendVerificationCode = async (req, res) => {
   const { type } = req.body; // 'email' or 'phone'
   const uid = req.user.uid;
 
-  if (!['email', 'phone'].includes(type)) {
+  if (!["email", "phone"].includes(type)) {
     return res.status(400).json({ message: "Invalid verification type" });
   }
 
@@ -285,18 +320,20 @@ exports.resendVerificationCode = async (req, res) => {
 
     const now = admin.firestore.Timestamp.now();
     const expiresAt = admin.firestore.Timestamp.fromMillis(
-      now.toMillis() + 10 * 60 * 1000 // 10 min expiry
+      now.toMillis() + 10 * 60 * 1000, // 10 min expiry
     );
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString(); // 6-digit code
 
-    if (type === 'email') {
+    if (type === "email") {
       if (userData.emailVerified) {
         return res.status(200).json({ message: "Email already verified" });
       }
 
       await userRef.update({
         emailVerificationCode: verificationCode,
-        verificationExpires: expiresAt
+        verificationExpires: expiresAt,
       });
 
       // Send verification email
@@ -304,27 +341,31 @@ exports.resendVerificationCode = async (req, res) => {
         to: userData.email,
         subject: "Email Verification Code",
         text: `Your verification code is: ${verificationCode}`,
-        html: `<p>Your verification code is: <strong>${verificationCode}</strong></p>`
+        html: `<p>Your verification code is: <strong>${verificationCode}</strong></p>`,
       });
 
-      await logActivity(uid, 'resend_email_verification', req);
+      await logActivity(uid, "resend_email_verification", req);
     }
 
-    if (type === 'phone') {
+    if (type === "phone") {
       if (userData.phoneVerified) {
         return res.status(200).json({ message: "Phone already verified" });
       }
 
       await userRef.update({
         phoneVerificationCode: verificationCode,
-        phoneVerificationExpires: expiresAt
+        phoneVerificationExpires: expiresAt,
       });
 
       // Send SMS using the SMS service
       const formattedPhone = formatPhoneNumber(userData.phone);
-      await smsService.sendSMS('TRUK LTD', `Your verification code is: ${verificationCode}`, formattedPhone);
+      await smsService.sendSMS(
+        "TRUK LTD",
+        `Your verification code is: ${verificationCode}`,
+        formattedPhone,
+      );
 
-      await logActivity(uid, 'resend_phone_verification', req);
+      await logActivity(uid, "resend_phone_verification", req);
     }
 
     res.status(200).json({ message: "Verification code resent successfully" });
@@ -334,17 +375,16 @@ exports.resendVerificationCode = async (req, res) => {
   }
 };
 
-
 exports.getUser = async (req, res) => {
   try {
     const userData = await User.get(req.user.uid);
 
-    res.status(200).json({ userData })
+    res.status(200).json({ userData });
   } catch (error) {
-    console.error('Profile error:', error);
+    console.error("Profile error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Internal server error'
+      code: "ERR_SERVER_ERROR",
+      message: "Internal server error",
     });
   }
 };
@@ -390,12 +430,12 @@ exports.updateUser = async (req, res) => {
       languagePreference,
       profilePhotoUrl,
       lastActive: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     // Remove empty values to prevent overwriting with undefined
     Object.keys(updates).forEach(
-      key => updates[key] === undefined && delete updates[key]
+      (key) => updates[key] === undefined && delete updates[key],
     );
 
     const updatedUser = await User.update(uid, updates);
@@ -422,17 +462,17 @@ exports.updateUser = async (req, res) => {
         console.error("Firebase user update error:", error);
       }
     }
-    await logActivity(uid, 'user_profile_update', req);
+    await logActivity(uid, "user_profile_update", req);
 
     res.status(200).json({
       message: "User profile updated successfully",
-      user: updatedUser
+      user: updatedUser,
     });
   } catch (error) {
     console.error("Update profile error:", error);
     res.status(500).json({
       code: "ERR_SERVER_ERROR",
-      message: "Failed to update user profile"
+      message: "Failed to update user profile",
     });
   }
 };
@@ -443,18 +483,17 @@ exports.forgotPassword = async (req, res) => {
 
     if (!email && !phone) {
       return res.status(400).json({
-        code: 'ERR_INVALID_INPUT',
-        message: 'Email or phone number is required'
+        code: "ERR_INVALID_INPUT",
+        message: "Email or phone number is required",
       });
     }
-
 
     let user;
     if (email) {
       try {
         user = await admin.auth().getUserByEmail(email);
       } catch (error) {
-        console.log('User not found by email:', error.message);
+        console.log("User not found by email:", error.message);
         // User doesn't exist, user will remain null
         user = null;
       }
@@ -463,9 +502,9 @@ exports.forgotPassword = async (req, res) => {
       const phoneFormats = [
         phone, // Original format
         formatPhoneNumberAuth(phone), // +254 format
-        phone.replace(/^\+/, ''), // Without + prefix
-        phone.replace(/^0/, '+254'), // Convert 0 to +254
-        phone.replace(/^0/, '254'), // Convert 0 to 254
+        phone.replace(/^\+/, ""), // Without + prefix
+        phone.replace(/^0/, "+254"), // Convert 0 to +254
+        phone.replace(/^0/, "254"), // Convert 0 to 254
       ];
 
       // Remove duplicates
@@ -484,22 +523,24 @@ exports.forgotPassword = async (req, res) => {
 
     if (!user) {
       const errorMessage = email
-        ? 'No account found with this email address'
-        : 'No account found with this phone number';
+        ? "No account found with this email address"
+        : "No account found with this phone number";
 
       return res.status(404).json({
-        code: 'ERR_USER_NOT_FOUND',
-        message: errorMessage
+        code: "ERR_USER_NOT_FOUND",
+        message: errorMessage,
       });
     }
 
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString(); // 6-digit code
     const resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 minutes expiry
 
     // Store reset token and expiry in database
     await User.update(user.uid, {
       resetToken: verificationCode,
-      resetTokenExpiry: resetTokenExpiry
+      resetTokenExpiry: resetTokenExpiry,
     });
 
     if (email) {
@@ -508,31 +549,30 @@ exports.forgotPassword = async (req, res) => {
         to: email,
         subject: "Password Reset Code",
         text: `Your password reset code is: ${verificationCode}`,
-        html: getRejectTemplate('Password Reset Code', `You are receiving this email because we received a forget password request for your account. <br> <br>Your password reset code is: ${verificationCode}. <br> <br> If you did not request a password reset, you can safely ignore this email. <br> <br> Thank you for using our services. <br> <br> Best regards, <br>  ${process.env.APP_NAME}`, userData)
+        html: getRejectTemplate(
+          "Password Reset Code",
+          `You are receiving this email because we received a forget password request for your account. <br> <br>Your password reset code is: ${verificationCode}. <br> <br> If you did not request a password reset, you can safely ignore this email. <br> <br> Thank you for using our services. <br> <br> Best regards, <br>  ${process.env.APP_NAME}`,
+          userData,
+        ),
       });
     } else if (phone) {
       const smsMessage = `Your password reset code is: ${verificationCode}`;
 
       const formattedPhoneNumber = formatPhoneNumber(phone);
-      await smsService.sendSMS(
-        'TRUK LTD',
-        smsMessage,
-        formattedPhoneNumber
-      );
+      await smsService.sendSMS("TRUK LTD", smsMessage, formattedPhoneNumber);
     }
 
-    await logActivity(user.uid, 'forgot_password', req);
+    await logActivity(user.uid, "forgot_password", req);
 
     res.status(200).json({
-      message: 'Password reset code sent successfully',
-      userId: user.uid
+      message: "Password reset code sent successfully",
+      userId: user.uid,
     });
-
   } catch (error) {
-    console.error('Forgot password error:', error);
+    console.error("Forgot password error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Failed to send password reset code'
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to send password reset code",
     });
   }
 };
@@ -543,36 +583,35 @@ exports.verifyPasswordResetCode = async (req, res) => {
 
     if (!code || !userId) {
       return res.status(400).json({
-        code: 'ERR_INVALID_INPUT',
-        message: 'Reset code and user ID are required'
+        code: "ERR_INVALID_INPUT",
+        message: "Reset code and user ID are required",
       });
     }
 
     const user = await User.get(userId);
     if (!user) {
       return res.status(404).json({
-        code: 'ERR_USER_NOT_FOUND',
-        message: 'User not found'
+        code: "ERR_USER_NOT_FOUND",
+        message: "User not found",
       });
     }
 
     if (user.resetToken === code && user.resetTokenExpiry > Date.now()) {
-
       res.status(200).json({
-        message: 'Password reset code is valid',
-        userId: userId
+        message: "Password reset code is valid",
+        userId: userId,
       });
     } else {
       res.status(400).json({
-        code: 'ERR_INVALID_CODE',
-        message: 'Invalid or expired password reset code'
+        code: "ERR_INVALID_CODE",
+        message: "Invalid or expired password reset code",
       });
     }
   } catch (error) {
-    console.error('Verify password reset code error:', error);
+    console.error("Verify password reset code error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Failed to verify password reset code'
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to verify password reset code",
     });
   }
 };
@@ -585,8 +624,8 @@ exports.resetPassword = async (req, res) => {
 
     if (!newPassword || !userId) {
       return res.status(400).json({
-        code: 'ERR_INVALID_INPUT',
-        message: 'New password and user ID are required'
+        code: "ERR_INVALID_INPUT",
+        message: "New password and user ID are required",
       });
     }
 
@@ -594,45 +633,49 @@ exports.resetPassword = async (req, res) => {
     console.log(user);
     if (!user || !user.resetToken) {
       return res.status(400).json({
-        code: 'ERR_INVALID_REQUEST',
-        message: 'Invalid password reset request'
+        code: "ERR_INVALID_REQUEST",
+        message: "Invalid password reset request",
       });
     }
 
     await admin.auth().updateUser(userId, {
-      password: newPassword
+      password: newPassword,
     });
 
     await User.update(userId, {
       resetToken: null,
-      resetTokenExpiry: null
+      resetTokenExpiry: null,
     });
 
-    await logActivity(userId, 'password_reset', req);
+    await logActivity(userId, "password_reset", req);
 
     await Notification.create({
       type: "Reset Password",
       message: "You reset your password",
       userId: userId,
       userType: "user",
-    })
+    });
 
     const userData = await User.get(userId);
     console.log(userData);
     await sendEmail({
       to: userData.email,
       subject: "Password Reset Confirmation",
-      html: getRejectTemplate("Password Reset Confirmation", `You have successfully reset your password. <br> <br> Thank you for using our services. <br> <br> Best regards, <br>  ${process.env.APP_NAME}`, userData)
-    })
+      html: getRejectTemplate(
+        "Password Reset Confirmation",
+        `You have successfully reset your password. <br> <br> Thank you for using our services. <br> <br> Best regards, <br>  ${process.env.APP_NAME}`,
+        userData,
+      ),
+    });
 
     res.status(200).json({
-      message: 'Password reset successfully'
+      message: "Password reset successfully",
     });
   } catch (error) {
-    console.error('Reset password error:', error);
+    console.error("Reset password error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Failed to reset password'
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to reset password",
     });
   }
 };
@@ -642,33 +685,33 @@ exports.updatePassword = async (req, res) => {
 
   if (!newPassword) {
     return res.status(400).json({
-      code: 'ERR_INVALID_INPUT',
-      message: 'New password is required'
+      code: "ERR_INVALID_INPUT",
+      message: "New password is required",
     });
   }
 
   try {
     await admin.auth().updateUser(req.user.uid, {
-      password: newPassword
+      password: newPassword,
     });
 
-    await logActivity(req.user.uid, 'password_update', req);
+    await logActivity(req.user.uid, "password_update", req);
 
     await Notification.create({
       type: "Update Password",
       message: "You updated your password",
       userId: req.user.uid,
       userType: "user",
-    })
+    });
 
     res.status(200).json({
-      message: 'Password updated successfully'
+      message: "Password updated successfully",
     });
   } catch (error) {
-    console.error('Update password error:', error);
+    console.error("Update password error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Failed to update password'
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to update password",
     });
   }
 };
@@ -677,13 +720,13 @@ exports.getUserRole = async (req, res) => {
   try {
     const userData = await User.get(req.user.uid);
     res.status(200).json({
-      role: userData.role || 'user'
+      role: userData.role || "user",
     });
   } catch (error) {
-    console.error('Get user role error:', error);
+    console.error("Get user role error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Internal server error'
+      code: "ERR_SERVER_ERROR",
+      message: "Internal server error",
     });
   }
 };
@@ -696,25 +739,25 @@ exports.verifyToken = async (req, res) => {
 
     if (!userData.isVerified) {
       return res.status(401).json({
-        code: 'ERR_UNAUTHORIZED',
-        message: 'User not verified'
+        code: "ERR_UNAUTHORIZED",
+        message: "User not verified",
       });
     }
 
     res.status(200).json({
-      message: 'Token is valid',
+      message: "Token is valid",
       user: {
         uid,
         email: email || null,
         phone: phone_number || null,
-        role: userData.role || 'user'
-      }
+        role: userData.role || "user",
+      },
     });
   } catch (error) {
-    console.error('Token verification error:', error);
+    console.error("Token verification error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Internal server error'
+      code: "ERR_SERVER_ERROR",
+      message: "Internal server error",
     });
   }
 };
@@ -731,23 +774,23 @@ exports.deleteAccount = async (req, res) => {
     await User.delete(uid);
 
     // Log the account deletion activity
-    await logAdminActivity(uid, 'account_deletion', req);
+    await logAdminActivity(uid, "account_deletion", req);
 
     await Notification.create({
       type: "Account Deletion",
       message: "You deleted your account",
       userId: uid,
       userType: "user",
-    })
+    });
 
     res.status(200).json({
-      message: 'User account deleted successfully'
+      message: "User account deleted successfully",
     });
   } catch (error) {
-    console.error('Delete account error:', error);
+    console.error("Delete account error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Failed to delete user account'
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to delete user account",
     });
   }
 };
@@ -761,26 +804,26 @@ exports.deleteUser = async (req, res) => {
     await admin.auth().deleteUser(uid);
 
     // Delete user document from Firestore
-    await admin.firestore().collection('users').doc(uid).delete();
+    await admin.firestore().collection("users").doc(uid).delete();
 
     // Log the user deletion activity
-    await logActivity(uid, 'user_deletion', req);
+    await logActivity(uid, "user_deletion", req);
 
     await Notification.create({
       type: "Account Deletion",
       message: "You deleted your account",
       userId: uid,
       userType: "user",
-    })
+    });
 
     res.status(200).json({
-      message: 'User account deleted successfully'
+      message: "User account deleted successfully",
     });
   } catch (error) {
-    console.error('Delete user error:', error);
+    console.error("Delete user error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Failed to delete user account'
+      code: "ERR_SERVER_ERROR",
+      message: "Failed to delete user account",
     });
   }
 };
@@ -788,7 +831,7 @@ exports.deleteUser = async (req, res) => {
 exports.resendCode = async (req, res) => {
   const uid = req.user.uid;
   const email = req.user.email;
-  const ipAddress = req.ip || 'unknown';
+  const ipAddress = req.ip || "unknown";
 
   try {
     const userData = await User.get(uid);
@@ -801,14 +844,14 @@ exports.resendCode = async (req, res) => {
     await User.update(uid, {
       emailVerificationCode: newCode,
       verificationExpires: admin.firestore.Timestamp.fromDate(
-        new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+        new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       ),
-      updatedAt: admin.firestore.Timestamp.now()
+      updatedAt: admin.firestore.Timestamp.now(),
     });
 
-    const userAgent = req.headers['user-agent']
-      ? req.headers['user-agent'].substring(0, 500).replace(/[^\x00-\x7F]/g, "")
-      : 'unknown';
+    const userAgent = req.headers["user-agent"]
+      ? req.headers["user-agent"].substring(0, 500).replace(/[^\x00-\x7F]/g, "")
+      : "unknown";
 
     const location = await getGeoLocation(ipAddress);
 
@@ -816,11 +859,11 @@ exports.resendCode = async (req, res) => {
       to: email,
       subject: "Your new AgriTruk Verification Code",
       text: `Your new verification code is: ${newCode}`,
-      html: getMFATemplate(newCode, location, ipAddress, userAgent)
+      html: getMFATemplate(newCode, location, ipAddress, userAgent),
       // html: `<p>Your new AgriTruk verification code is: <strong>${newCode}</strong></p>`
     });
 
-    await logActivity(uid, 'code_resend', req);
+    await logActivity(uid, "code_resend", req);
 
     console.log("Verification code resent successfully to:", email);
 
@@ -829,7 +872,7 @@ exports.resendCode = async (req, res) => {
     console.error("Resend code error:", error);
     res.status(500).json({
       code: "ERR_RESEND_CODE_FAILED",
-      message: "Failed to resend verification code"
+      message: "Failed to resend verification code",
     });
   }
 };
@@ -848,34 +891,30 @@ exports.resendPhoneCode = async (req, res) => {
     await User.update(uid, {
       phoneVerificationCode: newCode,
       phoneVerificationExpires: admin.firestore.Timestamp.fromDate(
-        new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+        new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       ),
-      updatedAt: admin.firestore.Timestamp.now()
+      updatedAt: admin.firestore.Timestamp.now(),
     });
 
     // Send SMS to user
     const formattedPhone = formatPhoneNumber(userData.phone);
     try {
       const smsMessage = `Your Truk verification code is: ${newCode}`;
-      await smsService.sendSMS(
-        'TRUK LTD',
-        smsMessage,
-        formattedPhone
-      );
-      console.log('Verification SMS sent successfully');
+      await smsService.sendSMS("TRUK LTD", smsMessage, formattedPhone);
+      console.log("Verification SMS sent successfully");
     } catch (smsError) {
-      console.error('Failed to send verification SMS:', smsError);
+      console.error("Failed to send verification SMS:", smsError);
       // Don't fail the registration if SMS fails, just log it
     }
 
-    await logActivity(uid, 'code_resend', req);
+    await logActivity(uid, "code_resend", req);
 
     res.status(200).json({ message: "Verification code resent successfully" });
   } catch (error) {
     console.error("Resend code error:", error);
     res.status(500).json({
       code: "ERR_RESEND_CODE_FAILED",
-      message: "Failed to resend verification code"
+      message: "Failed to resend verification code",
     });
   }
 };
@@ -883,20 +922,20 @@ exports.resendPhoneCode = async (req, res) => {
 exports.deactivateAccount = async (req, res) => {
   try {
     const { uid } = req.params;
-    await User.update(uid, { status: 'inactive' });
+    await User.update(uid, { status: "inactive" });
 
-    await logActivity(req.user.uid, 'account_deactivation', req);
+    await logActivity(req.user.uid, "account_deactivation", req);
 
     await Notification.create({
       type: "Account Deactivation",
       message: "You deactivated your account",
       userId: req.user.uid,
       userType: "user",
-    })
-    res.status(200).json({ message: 'Account deactivated successfully' });
+    });
+    res.status(200).json({ message: "Account deactivated successfully" });
   } catch (error) {
-    console.error('Deactivate account error:', error);
-    res.status(500).json({ message: 'Failed to deactivate account' });
+    console.error("Deactivate account error:", error);
+    res.status(500).json({ message: "Failed to deactivate account" });
   }
 };
 
@@ -905,16 +944,26 @@ exports.registerUserFromBackend = async (req, res) => {
     name,
     phone,
     email,
-    password,     // 👈 add password (or generate random if OTP-only)
+    password, // 👈 add password (or generate random if OTP-only)
     role,
     location,
     userType,
     languagePreference,
     profilePhotoUrl,
-    preferredVerificationMethod
+    preferredVerificationMethod,
   } = req.body;
 
-  if (!["shipper", "transporter", "admin", "user", "broker", "business", "job_seeker"].includes(role)) {
+  if (
+    ![
+      "shipper",
+      "transporter",
+      "admin",
+      "user",
+      "broker",
+      "business",
+      "job_seeker",
+    ].includes(role)
+  ) {
     return res.status(400).json({ message: "Invalid role" });
   }
 
@@ -923,20 +972,22 @@ exports.registerUserFromBackend = async (req, res) => {
     let existingUser;
     try {
       existingUser = await admin.auth().getUserByEmail(email);
-    } catch (_) { }
+    } catch (_) {}
     if (existingUser) {
       return res.status(409).json({ message: "Email already registered" });
     }
 
     try {
       existingUser = await admin.auth().getUserByPhoneNumber(phone);
-    } catch (_) { }
+    } catch (_) {}
     if (existingUser) {
       return res.status(409).json({ message: "Phone already registered" });
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 6 characters" });
     }
 
     // 🔹 Step 1: Check if email/phone already exists in Firestore
@@ -950,11 +1001,26 @@ exports.registerUserFromBackend = async (req, res) => {
       return res.status(409).json({ message: "Phone already registered" });
     }
 
+    // Format phone number to E.164 format for Firebase (+254...)
+    let formattedPhoneForFirebase = phone;
+    if (!phone.startsWith("+")) {
+      // If phone doesn't start with +, add it
+      if (phone.startsWith("254")) {
+        formattedPhoneForFirebase = `+${phone}`;
+      } else if (phone.startsWith("0")) {
+        // Convert 07... to +2547...
+        formattedPhoneForFirebase = `+254${phone.substring(1)}`;
+      } else {
+        // Assume it needs +254 prefix
+        formattedPhoneForFirebase = `+254${phone}`;
+      }
+    }
+
     // 🔹 Step 2: Create Firebase user
     const userRecord = await admin.auth().createUser({
       email,
-      password,       // or omit if OTP-only
-      phoneNumber: phone,
+      password, // or omit if OTP-only
+      phoneNumber: formattedPhoneForFirebase,
       displayName: name,
       // photoURL: profilePhotoUrl || null,
     });
@@ -965,7 +1031,7 @@ exports.registerUserFromBackend = async (req, res) => {
     const emailVerificationCode = generateOtp();
     const phoneVerificationCode = generateOtp();
     const verificationExpiry = admin.firestore.Timestamp.fromDate(
-      new Date(Date.now() + 10 * 60 * 1000) // 10 mins
+      new Date(Date.now() + 10 * 60 * 1000), // 10 mins
     );
 
     // 🔹 Step 4: Save user in Firestore
@@ -986,40 +1052,47 @@ exports.registerUserFromBackend = async (req, res) => {
       isVerified: false,
       phoneVerificationExpires: verificationExpiry,
       verificationExpires: verificationExpiry,
-      preferredVerificationMethod
+      preferredVerificationMethod,
     });
 
     // 🔹 Step 5: Send code
     if (preferredVerificationMethod === "email") {
       await sendEmail({
         to: email,
-        subject: 'Your Truk Verification Code',
+        subject: "Your Truk Verification Code",
         text: `Your verification code is: ${emailVerificationCode}`,
-        html: getMFATemplate(emailVerificationCode, null, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
+        html: getMFATemplate(
+          emailVerificationCode,
+          null,
+          req.ip || "unknown",
+          req.headers["user-agent"] || "unknown",
+        ),
       });
     } else if (preferredVerificationMethod === "phone") {
       const formattedPhone = formatPhoneNumber(phone);
       const smsMessage = `Your Truk verification code is: ${phoneVerificationCode}`;
-      await smsService.sendSMS('TRUK LTD', smsMessage, formattedPhone);
+      await smsService.sendSMS("TRUK LTD", smsMessage, formattedPhone);
     } else {
-      return res.status(400).json({ message: "Invalid preferred verification method" });
+      return res
+        .status(400)
+        .json({ message: "Invalid preferred verification method" });
     }
 
     // 🔹 Step 6: Log + Notify
-    await logActivity(uid, 'user_registration', req);
+    await logActivity(uid, "user_registration", req);
     await Notification.create({
       userId: uid,
-      type: 'Welcome to Truk',
-      message: 'Your account has been created successfully',
-      UserType: 'user',
+      type: "Welcome to Truk",
+      message: "Your account has been created successfully",
+      UserType: "user",
     });
 
     res.status(201).json({ message: "User account created", user });
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error("Registration error:", error);
     res.status(400).json({
-      code: 'REGISTRATION_FAILED',
-      message: error.message || 'User registration failed'
+      code: "REGISTRATION_FAILED",
+      message: error.message || "User registration failed",
     });
   }
 };
@@ -1032,7 +1105,7 @@ exports.getUserByPhone = async (req, res) => {
     if (!phone) {
       return res.status(400).json({
         code: "ERR_MISSING_PHONE",
-        message: "Phone number is required"
+        message: "Phone number is required",
       });
     }
 
@@ -1042,7 +1115,7 @@ exports.getUserByPhone = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         code: "ERR_USER_NOT_FOUND",
-        message: "No account found with this phone number"
+        message: "No account found with this phone number",
       });
     }
 
@@ -1050,14 +1123,13 @@ exports.getUserByPhone = async (req, res) => {
     res.json({
       email: user.email,
       phoneVerified: user.phoneVerified || false,
-      emailVerified: user.emailVerified || false
+      emailVerified: user.emailVerified || false,
     });
-
   } catch (error) {
-    console.error('Get user by phone error:', error);
+    console.error("Get user by phone error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Internal server error'
+      code: "ERR_SERVER_ERROR",
+      message: "Internal server error",
     });
   }
 };
@@ -1069,28 +1141,28 @@ exports.getUserDetails = async (req, res) => {
     const bookings = await Booking.getBookingForUser(userId);
     const disputes = await Dispute.getByOpenedBy(userId);
 
-    await logAdminActivity(req.user.uid, 'get_user_details', req);
+    await logAdminActivity(req.user.uid, "get_user_details", req);
 
     res.status(200).json({
-      message: 'User details fetched successfully',
+      message: "User details fetched successfully",
       user: formatTimestamps(user),
       bookings: formatTimestamps(bookings),
       bookingsCount: bookings.length,
       disputes: formatTimestamps(disputes),
-      disputesCount: disputes.length
+      disputesCount: disputes.length,
     });
   } catch (error) {
-    console.error('Get user details error:', error);
+    console.error("Get user details error:", error);
     res.status(500).json({
-      code: 'ERR_SERVER_ERROR',
-      message: 'Internal server error'
+      code: "ERR_SERVER_ERROR",
+      message: "Internal server error",
     });
   }
 };
 
 exports.requestAccountDeletion = async (req, res) => {
   try {
-    const uid  = req.user.uid;
+    const uid = req.user.uid;
     const { reason } = req.body;
 
     const user = await User.get(uid);
@@ -1100,9 +1172,11 @@ exports.requestAccountDeletion = async (req, res) => {
     }
 
     if (user.isDeleted) {
-      return res.status(400).json({ message: "Account is already in deletion state." });
+      return res
+        .status(400)
+        .json({ message: "Account is already in deletion state." });
     }
-    
+
     const crypto = require("crypto");
 
     const restoreToken = crypto.randomBytes(32).toString("hex");
@@ -1113,16 +1187,16 @@ exports.requestAccountDeletion = async (req, res) => {
     // 2. Soft delete Firestore record
     await User.update(uid, {
       restoreToken,
-      restoreExpires: Date.now() + 30*24*60*60*1000, // 30 days
+      restoreExpires: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
       isDeleted: true,
       deletedAt: new Date(),
       deleteScheduledFor: Date.now(), //+ (30 * 24 * 60 * 60 * 1000), // 30 days
       status: "pending_deletion",
-      deletion_reason: reason || "No reason provided"
+      deletion_reason: reason || "No reason provided",
     });
 
     // 3. Log admin/user activity
-    await logActivity(uid, 'account_deletion_requested', req);
+    await logActivity(uid, "account_deletion_requested", req);
 
     // 4. Notify user via email
     const restoreLink = `https://${process.env.FRONTEND_URL}/restore-account?token=${restoreToken}`;
@@ -1130,8 +1204,14 @@ exports.requestAccountDeletion = async (req, res) => {
     await sendEmail({
       to: req.user.email,
       subject: "Account Deletion Requested",
-      html: getDeleteAccountTemplate(user.name, new Date(Date.now() + 30*24*60*60*1000).toLocaleString(), restoreLink, req.ip || 'unknown', req.headers['user-agent'] || 'unknown')
-     });
+      html: getDeleteAccountTemplate(
+        user.name,
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleString(),
+        restoreLink,
+        req.ip || "unknown",
+        req.headers["user-agent"] || "unknown",
+      ),
+    });
 
     // 5. Log notification
     await Notification.create({
@@ -1141,13 +1221,15 @@ exports.requestAccountDeletion = async (req, res) => {
       userType: "user",
     });
 
-    return res.json({ message: "Account deletion initiated. You have 30 days to restore your account." });
-
+    return res.json({
+      message:
+        "Account deletion initiated. You have 30 days to restore your account.",
+    });
   } catch (error) {
     console.error("Delete request error:", error);
     return res.status(500).json({
       code: "ERR_SERVER_ERROR",
-      message: "Failed to initiate account deletion"
+      message: "Failed to initiate account deletion",
     });
   }
 };
@@ -1155,7 +1237,7 @@ exports.requestAccountDeletion = async (req, res) => {
 exports.restoreAccount = async (req, res) => {
   try {
     const { token } = req.body;
-    
+
     if (!token)
       return res.status(400).json({ message: "Missing restore token." });
 
@@ -1165,7 +1247,9 @@ exports.restoreAccount = async (req, res) => {
     const uid = userDoc.uid;
 
     if (!userDoc || !userDoc.isDeleted) {
-      return res.status(400).json({ message: "Account is not in deletion state." });
+      return res
+        .status(400)
+        .json({ message: "Account is not in deletion state." });
     }
 
     // 1. Enable Firebase Auth user
@@ -1176,29 +1260,28 @@ exports.restoreAccount = async (req, res) => {
       isDeleted: false,
       deletedAt: null,
       deleteScheduledFor: null,
-      restoreToken: null, 
+      restoreToken: null,
       restoreExpires: null,
       status: "active",
     });
 
     return res.json({ message: "Your account has been restored." });
-
   } catch (error) {
     console.error("Restore account error:", error);
     return res.status(500).json({
-      message: "Failed to restore account"
+      message: "Failed to restore account",
     });
   }
 };
 
 exports.processPendingDeletions = async () => {
   const now = Date.now();
- // console.log(now);
+  // console.log(now);
 
   // const snapshot = await User.where('deleteScheduledFor', '<=', now).get();
   // console.log(`Found ${snapshot.size} pending deletions`);
   const users = await User.getUsersSheduledForDeletion();
- // console.log(`Found ${users.length} pending deletions`);
+  // console.log(`Found ${users.length} pending deletions`);
 
   for (const doc of users) {
     const uid = doc.id;
@@ -1215,14 +1298,14 @@ exports.processPendingDeletions = async () => {
         status: "deleted",
         permanentlyDeletedAt: new Date(),
         deleteScheduledFor: null,
-        restoreToken: null, 
+        restoreToken: null,
         restoreExpires: null,
       });
 
       // 📘 Delete sensitive subcollections
       //check user role
       const userRole = users.role;
-     // console.log("User role:", userRole);
+      // console.log("User role:", userRole);
 
       if (userRole === "driver") {
         await Driver.delete(uid);
@@ -1230,13 +1313,13 @@ exports.processPendingDeletions = async () => {
         await Company.delete(uid);
       } else if (userRole === "transporter") {
         await Transporter.delete(uid);
-      } else  if (userRole === "broker") {
+      } else if (userRole === "broker") {
         await Broker.delete(uid);
       } else if (userRole === "business") {
         await Business.delete(uid);
       } else if (userRole === "job_seeker") {
         await JobSeeker.delete(uid);
-      }      
+      }
 
       // 📌 4. Notification log
       await Notification.create({
@@ -1246,7 +1329,6 @@ exports.processPendingDeletions = async () => {
       });
 
       console.log(`Deleted and anonymized user ${uid}`);
-
     } catch (err) {
       console.error("Cron deletion error:", err);
     }
