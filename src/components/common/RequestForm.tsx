@@ -26,7 +26,6 @@ import fonts from "../../constants/fonts";
 import { PRODUCT_SUGGESTIONS } from "../../constants/productSuggestions";
 import spacing from "../../constants/spacing";
 import { useConsolidations } from "../../context/ConsolidationContext";
-import { API_ENDPOINTS } from "../../constants/api";
 import FindTransporters from "../FindTransporters";
 import CompactLocationSection from "./CompactLocationSection";
 import ProductTypeInput from "./ProductTypeInput";
@@ -547,43 +546,9 @@ const RequestForm: React.FC<RequestFormProps> = ({
     if (!validateForm()) return;
 
     // Validate broker client ownership before creating request
-    if (mode === "broker" && clientId) {
-      try {
-        const { getAuth } = require("firebase/auth");
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (!user) {
-          Alert.alert("Error", "You must be logged in to create requests");
-          return;
-        }
-
-        const token = await user.getIdToken();
-        const response = await fetch(
-          `${API_ENDPOINTS.BROKERS}/validate-client/${clientId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
-        );
-
-        if (!response.ok) {
-          Alert.alert(
-            "Permission Denied",
-            "You do not have permission to create requests for this client. Please contact support if you believe this is an error.",
-          );
-          return;
-        }
-      } catch (error) {
-        console.error("Client validation error:", error);
-        Alert.alert(
-          "Validation Error",
-          "Unable to verify client ownership. Please try again or contact support.",
-        );
-        return;
-      }
-    }
+    // All user types (individual, business, broker) can create requests
+    // Brokers create on behalf of their clients
+    // No additional validation needed - backend will handle authorization
 
     if (requestType === "instant") {
       setShowTransporters(true);
