@@ -1,4 +1,4 @@
-const { Client } = require('@googlemaps/google-maps-services-js');
+const { Client } = require("@googlemaps/google-maps-services-js");
 const client = new Client({});
 
 /**
@@ -19,9 +19,12 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
 
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
 
@@ -36,14 +39,26 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
  * @throws {Error} If latitude or longitude is missing or invalid.
  */
 function calculateDistance(loc1, loc2) {
-  if (!loc1?.latitude || !loc1?.longitude || !loc2?.latitude || !loc2?.longitude) {
-    throw new Error('Invalid location data: latitude and longitude are required');
+  if (
+    !loc1?.latitude ||
+    !loc1?.longitude ||
+    !loc2?.latitude ||
+    !loc2?.longitude
+  ) {
+    throw new Error(
+      "Invalid location data: latitude and longitude are required",
+    );
   }
-  return haversineDistance(loc1.latitude, loc1.longitude, loc2.latitude, loc2.longitude);
+  return haversineDistance(
+    loc1.latitude,
+    loc1.longitude,
+    loc2.latitude,
+    loc2.longitude,
+  );
 }
 
 /**
- * Calculate road distance and duration using Google Maps Directions API with fallback to haversine.
+ * Calculate road distance and duration using Google Maps Distance Matrix API with real-time traffic.
  * @param {Object} fromLocation Location object with { latitude, longitude, address }.
  * @param {Object} toLocation Location object with { latitude, longitude, address }.
  * @param {string} vehicleType Type of vehicle ('truck', 'small_truck', 'large_truck').
@@ -51,109 +66,166 @@ function calculateDistance(loc1, loc2) {
  * @param {number} weightKg Weight in kilograms for loading time calculation.
  * @returns {Object} Object containing actualDistance, estimatedDurationMinutes, formattedDuration, routePolyline, success.
  */
-async function calculateRoadDistanceAndDuration(fromLocation, toLocation, vehicleType = 'truck', apiKey, weightKg = 0) {
+async function calculateRoadDistanceAndDuration(
+  fromLocation,
+  toLocation,
+  vehicleType = "truck",
+  apiKey,
+  weightKg = 0,
+) {
   try {
     if (!apiKey) {
-      throw new Error('Google Maps API key is missing');
+      throw new Error("Google Maps API key is missing");
     }
 
-    const { address: fromAddress, latitude: fromLat, longitude: fromLng } = fromLocation;
-    const { address: toAddress, latitude: toLat, longitude: toLng } = toLocation;
+    const {
+      address: fromAddress,
+      latitude: fromLat,
+      longitude: fromLng,
+    } = fromLocation;
+    const {
+      address: toAddress,
+      latitude: toLat,
+      longitude: toLng,
+    } = toLocation;
 
-    // Prepare request with optimized routing preferences
-    const request = {
-      origin: { lat: fromLat, lng: fromLng },
-      destination: { lat: toLat, lng: toLng },
-      travelMode: 'DRIVING',
-      avoidTolls: false, // Allow tolls for faster routes
-      avoidHighways: false, // Use highways for efficiency
-      avoidFerries: true, // Avoid ferries in Kenya
-      optimizeWaypoints: true, // Optimize route
-    };
-
-    const response = await client.directions({
+    // Use Distance Matrix API for accurate traffic-aware duration
+    const distanceMatrixResponse = await client.distancematrix({
       params: {
-        ...request,
+        origins: [{ lat: fromLat, lng: fromLng }],
+        destinations: [{ lat: toLat, lng: toLng }],
+        mode: "driving",
+        departure_time: "now", // Get real-time traffic data
+        traffic_model: "best_guess", // Use best estimate considering current traffic
         key: apiKey,
       },
-      timeout: 10000, // 10 seconds timeout
+      timeout: 10000,
     });
 
-    if (response.data.status !== 'OK') {
-      console.warn(`Google Maps API error: ${response.data.error_message || response.data.status}`);
-      throw new Error(`Google Maps API error: ${response.data.error_message || response.data.status}`);
+    if (distanceMatrixResponse.data.status !== "OK") {
+      console.warn(
+        `Distance Matrix API error: ${distanceMatrixResponse.data.error_message || distanceMatrixResponse.data.status}`,
+      );
+      throw new Error(
+        `Distance Matrix API error: ${distanceMatrixResponse.data.error_message || distanceMatrixResponse.data.status}`,
+      );
     }
 
-    if (response.data.routes && response.data.routes.length > 0) {
-      const route = response.data.routes[0];
-      const distanceKm = route.legs[0].distance.value / 1000; // Meters to km
-      const durationMinutes = route.legs[0].duration_in_traffic
-        ? route.legs[0].duration_in_traffic.value / 60
-        : route.legs[0].duration.value / 60; // Seconds to minutes
+    const element = distanceMatrixResponse.data.rows[0].elements[0];
 
-      // Debug logging for distance calculation
-      console.log('Google Maps Distance Calculation:');
-      console.log('From:', fromLocation.address, `(${fromLat}, ${fromLng})`);
-      console.log('To:', toLocation.address, `(${toLat}, ${toLng})`);
-      console.log('Google Maps distance:', distanceKm, 'km');
-      console.log('Route summary:', route.summary);
+    if (element.status !== "OK") {
+      console.warn(`Distance Matrix element error: ${element.status}`);
+      throw new Error(`Distance Matrix element error: ${element.status}`);
+    }
 
-      // Validate distance reasonableness using haversine as reference
-      const haversineDist = haversineDistance(fromLat, fromLng, toLat, toLng);
-      const distanceRatio = distanceKm / haversineDist;
-      console.log('Haversine distance:', haversineDist, 'km');
-      console.log('Distance ratio (road/straight):', distanceRatio.toFixed(2));
+    // Get distance and duration with traffic
+    const distanceKm = element.distance.value / 1000; // Meters to km
+    const durationMinutes = element.duration_in_traffic
+      ? element.duration_in_traffic.value / 60 // Use traffic-aware duration
+      : element.duration.value / 60; // Fallback to standard duration
 
-      // If the road distance is more than 2x the straight-line distance, it might be an error
-      let finalDistance = distanceKm;
-      if (distanceRatio > 2.0) {
-        console.warn(`Road distance (${distanceKm}km) seems unreasonable vs haversine (${haversineDist}km), using haversine with 1.3x factor`);
-        finalDistance = haversineDist * 1.3; // Add 30% for road efficiency
-      } else {
-        console.log('Using Google Maps distance:', finalDistance, 'km');
+    console.log("Google Maps Distance Matrix Calculation:");
+    console.log("From:", fromLocation.address, `(${fromLat}, ${fromLng})`);
+    console.log("To:", toLocation.address, `(${toLat}, ${toLng})`);
+    console.log("Distance:", distanceKm, "km");
+    console.log("Duration (with traffic):", durationMinutes, "minutes");
+    console.log(
+      "Traffic status:",
+      element.duration_in_traffic ? "Available" : "Not available",
+    );
+
+    // Validate distance reasonableness using haversine as reference
+    const haversineDist = haversineDistance(fromLat, fromLng, toLat, toLng);
+    const distanceRatio = distanceKm / haversineDist;
+    console.log("Haversine distance:", haversineDist, "km");
+    console.log("Distance ratio (road/straight):", distanceRatio.toFixed(2));
+
+    // If the road distance is more than 2.5x the straight-line distance, it might be an error
+    let finalDistance = distanceKm;
+    if (distanceRatio > 2.5) {
+      console.warn(
+        `Road distance (${distanceKm}km) seems unreasonable vs haversine (${haversineDist}km), using haversine with 1.3x factor`,
+      );
+      finalDistance = haversineDist * 1.3; // Add 30% for road efficiency
+    }
+
+    // Get route polyline from Directions API for map display
+    let routePolyline = null;
+    try {
+      const directionsResponse = await client.directions({
+        params: {
+          origin: { lat: fromLat, lng: fromLng },
+          destination: { lat: toLat, lng: toLng },
+          mode: "driving",
+          key: apiKey,
+        },
+        timeout: 5000,
+      });
+
+      if (
+        directionsResponse.data.status === "OK" &&
+        directionsResponse.data.routes.length > 0
+      ) {
+        routePolyline =
+          directionsResponse.data.routes[0].overview_polyline.points;
       }
-
-      // Add loading/unloading time based on cargo weight
-      const additionalMinutes = weightKg > 1000 ? 60 : 30;
-
-      return {
-        actualDistance: Number(finalDistance.toFixed(2)),
-        estimatedDurationMinutes: Math.round(durationMinutes + additionalMinutes),
-        formattedDuration: `${Math.floor((durationMinutes + additionalMinutes) / 60)} hours ${Math.round(
-          (durationMinutes + additionalMinutes) % 60
-        )} minutes`,
-        routePolyline: route.overview_polyline.points,
-        success: true,
-      };
-    } else {
-      throw new Error('No route found');
+    } catch (polylineError) {
+      console.warn("Failed to get route polyline:", polylineError.message);
     }
+
+    // Add minimal loading/unloading time (5-10 minutes is more realistic)
+    const loadingTime = weightKg > 1000 ? 10 : 5; // 5-10 minutes for loading/unloading
+
+    const totalDurationMinutes = Math.round(durationMinutes + loadingTime);
+    const hours = Math.floor(totalDurationMinutes / 60);
+    const minutes = totalDurationMinutes % 60;
+
+    return {
+      actualDistance: Number(finalDistance.toFixed(2)),
+      estimatedDurationMinutes: totalDurationMinutes,
+      formattedDuration:
+        hours > 0 ? `${hours} hours ${minutes} minutes` : `${minutes} minutes`,
+      routePolyline: routePolyline,
+      success: true,
+    };
   } catch (error) {
-    console.error('Google Maps API error, falling back to haversine calculation:', error.message);
+    console.error(
+      "Google Maps API error, falling back to haversine calculation:",
+      error.message,
+    );
 
     // Fallback to haversine calculation
     const { latitude: fromLat, longitude: fromLng } = fromLocation;
     const { latitude: toLat, longitude: toLng } = toLocation;
 
     const fallbackDistance = haversineDistance(fromLat, fromLng, toLat, toLng);
-    const fallbackSpeed = vehicleType === 'large_truck' ? 40 : vehicleType === 'small_truck' ? 50 : 60; // km/h
+    // Use realistic average speeds for Kenya roads
+    const fallbackSpeed =
+      vehicleType === "large_truck"
+        ? 50
+        : vehicleType === "small_truck"
+          ? 60
+          : 70; // km/h
     const travelMinutes = (fallbackDistance / fallbackSpeed) * 60;
-    const additionalMinutes = weightKg > 1000 ? 60 : 30;
+    const loadingTime = weightKg > 1000 ? 10 : 5;
+
+    const totalDurationMinutes = Math.round(travelMinutes + loadingTime);
+    const hours = Math.floor(totalDurationMinutes / 60);
+    const minutes = totalDurationMinutes % 60;
 
     return {
       actualDistance: Number(fallbackDistance.toFixed(2)),
-      estimatedDurationMinutes: Math.round(travelMinutes + additionalMinutes),
-      formattedDuration: `${Math.floor((travelMinutes + additionalMinutes) / 60)} hours ${Math.round(
-        (travelMinutes + additionalMinutes) % 60
-      )} minutes`,
+      estimatedDurationMinutes: totalDurationMinutes,
+      formattedDuration:
+        hours > 0 ? `${hours} hours ${minutes} minutes` : `${minutes} minutes`,
       routePolyline: null,
-      success: false, 
+      success: false,
     };
   }
 }
 
-module.exports = { 
-  haversineDistance, 
-  calculateDistance, 
-  calculateRoadDistanceAndDuration 
+module.exports = {
+  haversineDistance,
+  calculateDistance,
+  calculateRoadDistanceAndDuration,
 };
