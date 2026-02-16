@@ -1,8 +1,9 @@
-import { API_ENDPOINTS } from '../constants/api';
+import { API_ENDPOINTS } from "../constants/api";
 
 export interface TransporterDetails {
   id: string;
   name: string;
+  displayName?: string; // For showing "Driver Name (Company Name)"
   email: string;
   phone: string;
   profilePhoto?: string;
@@ -63,24 +64,26 @@ class TransporterDetailsService {
   /**
    * Get detailed transporter information including vehicle and company details
    */
-  async getTransporterDetails(transporterId: string): Promise<TransporterDetails> {
+  async getTransporterDetails(
+    transporterId: string,
+  ): Promise<TransporterDetails> {
     try {
-      const { getAuth } = require('firebase/auth');
+      const { getAuth } = require("firebase/auth");
       const auth = getAuth();
       const user = auth.currentUser;
-      
+
       if (!user) {
-        throw new Error('User not authenticated');
+        throw new Error("User not authenticated");
       }
-      
+
       const token = await user.getIdToken();
 
       // First try to get individual transporter details
       try {
         const response = await fetch(`${this.baseUrl}/${transporterId}`, {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         });
 
@@ -89,72 +92,85 @@ class TransporterDetailsService {
           return result.data;
         }
       } catch (individualError) {
-        console.log('Individual transporter not found, trying company lookup...');
+        console.log(
+          "Individual transporter not found, trying company lookup...",
+        );
       }
 
       // If individual transporter not found, try to get company details
       try {
-        const companyResponse = await fetch(`${API_ENDPOINTS.COMPANIES}/transporter/${transporterId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
+        const companyResponse = await fetch(
+          `${API_ENDPOINTS.COMPANIES}/transporter/${transporterId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
           },
-        });
+        );
 
         if (companyResponse.ok) {
           const companyResult = await companyResponse.json();
           const companies = companyResult.data || companyResult;
-          
+
           // Get the first company (there should only be one for a transporter)
           const company = Array.isArray(companies) ? companies[0] : companies;
-          
+
           if (company) {
             // Convert company data to transporter details format
             return {
               id: transporterId,
-              name: company.name || 'Company Transporter',
-              email: company.email || '',
-              phone: company.phone || '',
-              companyName: company.name,
-              companyId: company.id,
-              vehicles: company.vehicles || [],
+              name: company.name || "Company Transporter",
+              email: company.email || "",
+              phone: company.phone || "",
               rating: company.rating || 0,
               totalJobs: company.totalJobs || 0,
-              isCompanyTransporter: true
+              isCompanyDriver: true,
+              company: {
+                id: company.id,
+                name: company.name,
+                phone: company.phone || "",
+                email: company.email || "",
+              },
             };
           }
         }
       } catch (companyError) {
-        console.log('Company transporter not found either');
+        console.log("Company transporter not found either");
       }
 
-      throw new Error('Transporter not found in individual or company collections');
+      throw new Error(
+        "Transporter not found in individual or company collections",
+      );
     } catch (error) {
-      console.error('Error fetching transporter details:', error);
+      console.error("Error fetching transporter details:", error);
       throw error;
     }
   }
 
   /**
    * Find appropriate transporters for a job
+   * Returns both individual transporters and company drivers
    */
-  async findTransporterForJob(request: FindTransporterRequest): Promise<TransporterDetails[]> {
+  async findTransporterForJob(
+    request: FindTransporterRequest,
+  ): Promise<TransporterDetails[]> {
     try {
-      const { getAuth } = require('firebase/auth');
+      const { getAuth } = require("firebase/auth");
       const auth = getAuth();
       const user = auth.currentUser;
-      
+
       if (!user) {
-        throw new Error('User not authenticated');
+        throw new Error("User not authenticated");
       }
-      
+
       const token = await user.getIdToken();
 
       const response = await fetch(`${this.baseUrl}/available/list`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -163,9 +179,44 @@ class TransporterDetailsService {
       }
 
       const result = await response.json();
-      return result.transporters || [];
+      const transporters = result.transporters || result.data || [];
+
+      // Process transporters to ensure company drivers show their company name
+      const processedTransporters = transporters.map((transporter: any) => {
+        // Check if this is a company driver
+        if (
+          transporter.companyId ||
+          transporter.company ||
+          transporter.companyName
+        ) {
+          const companyName =
+            transporter.company?.name || transporter.companyName;
+          return {
+            ...transporter,
+            isCompanyDriver: true,
+            company: transporter.company || {
+              id: transporter.companyId,
+              name: companyName || "Company Driver",
+              phone: transporter.companyPhone,
+              email: transporter.companyEmail,
+            },
+            // Display name should show "Driver Name (Company Name)"
+            displayName: companyName
+              ? `${transporter.name || transporter.displayName} (${companyName})`
+              : transporter.name || transporter.displayName,
+          };
+        }
+
+        return {
+          ...transporter,
+          isCompanyDriver: false,
+          displayName: transporter.name || transporter.displayName,
+        };
+      });
+
+      return processedTransporters;
     } catch (error) {
-      console.error('Error finding transporters:', error);
+      console.error("Error finding transporters:", error);
       throw error;
     }
   }
@@ -174,19 +225,21 @@ class TransporterDetailsService {
    * Calculate distance between two points using Haversine formula
    */
   calculateDistance(
-    lat1: number, 
-    lon1: number, 
-    lat2: number, 
-    lon2: number
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
   ): number {
     const R = 6371; // Earth's radius in kilometers
     const dLat = this.deg2rad(lat2 - lat1);
     const dLon = this.deg2rad(lon2 - lon1);
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.deg2rad(lat1)) *
+        Math.cos(this.deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c; // Distance in kilometers
     return Math.round(distance * 10) / 10; // Round to 1 decimal place
   }
@@ -227,7 +280,7 @@ class TransporterDetailsService {
   }
 
   private deg2rad(deg: number): number {
-    return deg * (Math.PI/180);
+    return deg * (Math.PI / 180);
   }
 }
 

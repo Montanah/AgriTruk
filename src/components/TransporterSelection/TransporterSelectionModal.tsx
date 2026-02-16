@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,10 +10,13 @@ import {
   Alert,
   Dimensions,
   StyleSheet,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { transporterDetailsService, TransporterDetails } from '../../services/transporterDetailsService';
-import { jobAcceptanceService } from '../../services/jobAcceptanceService';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  transporterDetailsService,
+  TransporterDetails,
+} from "../../services/transporterDetailsService";
+import { jobAcceptanceService } from "../../services/jobAcceptanceService";
 
 interface TransporterSelectionModalProps {
   visible: boolean;
@@ -38,9 +41,11 @@ interface TransporterSelectionModalProps {
   onTransporterSelected: (transporter: TransporterDetails) => void;
 }
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
-export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps> = ({
+export const TransporterSelectionModal: React.FC<
+  TransporterSelectionModalProps
+> = ({
   visible,
   onClose,
   requestId,
@@ -63,26 +68,28 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
   const findTransporters = async () => {
     setLoading(true);
     try {
-      const foundTransporters = await jobAcceptanceService.findTransporterForInstantRequest({
-        pickupLocation,
-        deliveryLocation,
-        cargoType: cargoDetails.type,
-        weight: cargoDetails.weight,
-        volume: cargoDetails.volume,
-        maxDistance: 50, // 50km radius
-      });
+      const foundTransporters =
+        await jobAcceptanceService.findTransporterForInstantRequest({
+          pickupLocation,
+          deliveryLocation,
+          cargoType: cargoDetails.type,
+          weight: cargoDetails.weight,
+          volume: cargoDetails.volume,
+          maxDistance: 50, // 50km radius
+        });
 
       // Calculate distances and arrival times for each transporter
-      const transportersWithDetails = foundTransporters.map(transporter => {
+      const transportersWithDetails = foundTransporters.map((transporter) => {
         if (transporter.location) {
           const distance = transporterDetailsService.calculateDistance(
             pickupLocation.latitude,
             pickupLocation.longitude,
             transporter.location.latitude,
-            transporter.location.longitude
+            transporter.location.longitude,
           );
-          const estimatedArrival = transporterDetailsService.estimateArrivalTime(distance);
-          
+          const estimatedArrival =
+            transporterDetailsService.estimateArrivalTime(distance);
+
           return {
             ...transporter,
             distance,
@@ -93,12 +100,17 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
       });
 
       // Sort by distance (closest first)
-      transportersWithDetails.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      transportersWithDetails.sort(
+        (a, b) => (a.distance || 0) - (b.distance || 0),
+      );
 
       setTransporters(transportersWithDetails);
     } catch (error) {
-      console.error('Error finding transporters:', error);
-      Alert.alert('Error', 'Failed to find available transporters. Please try again.');
+      console.error("Error finding transporters:", error);
+      Alert.alert(
+        "Error",
+        "Failed to find available transporters. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -107,26 +119,30 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
   const handleSelectTransporter = async (transporter: TransporterDetails) => {
     setSelecting(transporter.id);
     try {
-      const result = await jobAcceptanceService.selectTransporterForInstantRequest(
-        requestId,
-        transporter.id,
-        clientId
-      );
+      const result =
+        await jobAcceptanceService.selectTransporterForInstantRequest(
+          requestId,
+          transporter.id,
+          clientId,
+        );
 
       if (result.success) {
         onTransporterSelected(transporter);
         onClose();
         Alert.alert(
-          'Transporter Selected! 🎉',
-          `${transporter.name} has been assigned to your request. You can now communicate directly.`,
-          [{ text: 'OK' }]
+          "Transporter Selected! 🎉",
+          `${transporter.displayName || transporter.name} has been assigned to your request. You can now communicate directly.`,
+          [{ text: "OK" }],
         );
       } else {
-        Alert.alert('Error', result.error || 'Failed to select transporter. Please try again.');
+        Alert.alert(
+          "Error",
+          result.error || "Failed to select transporter. Please try again.",
+        );
       }
     } catch (error) {
-      console.error('Error selecting transporter:', error);
-      Alert.alert('Error', 'Failed to select transporter. Please try again.');
+      console.error("Error selecting transporter:", error);
+      Alert.alert("Error", "Failed to select transporter. Please try again.");
     } finally {
       setSelecting(null);
     }
@@ -147,28 +163,46 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
           <View style={styles.transporterInfo}>
             <Image
               source={{
-                uri: transporter.profilePhoto || 'https://via.placeholder.com/50x50?text=TP',
+                uri:
+                  transporter.profilePhoto ||
+                  "https://via.placeholder.com/50x50?text=TP",
               }}
               style={styles.profilePhoto}
             />
             <View style={styles.transporterDetails}>
-              <Text style={styles.transporterName}>{transporter.name}</Text>
-              {isCompanyDriver && transporter.company && (
-                <Text style={styles.companyName}>{transporter.company.name}</Text>
-              )}
+              <Text style={styles.transporterName}>
+                {transporter.displayName || transporter.name}
+              </Text>
+              {isCompanyDriver &&
+                transporter.company &&
+                !transporter.displayName && (
+                  <Text style={styles.companyName}>
+                    {transporter.company.name}
+                  </Text>
+                )}
               <View style={styles.ratingContainer}>
                 <Ionicons name="star" size={14} color="#FFD700" />
-                <Text style={styles.rating}>{transporter.rating.toFixed(1)}</Text>
-                <Text style={styles.totalJobs}>({transporter.totalJobs} jobs)</Text>
+                <Text style={styles.rating}>
+                  {transporter.rating.toFixed(1)}
+                </Text>
+                <Text style={styles.totalJobs}>
+                  ({transporter.totalJobs} jobs)
+                </Text>
               </View>
             </View>
           </View>
           <View style={styles.distanceContainer}>
             <Text style={styles.distance}>
-              {transporter.distance ? transporterDetailsService.formatDistance(transporter.distance) : 'N/A'}
+              {transporter.distance
+                ? transporterDetailsService.formatDistance(transporter.distance)
+                : "N/A"}
             </Text>
             <Text style={styles.arrivalTime}>
-              {transporter.estimatedArrival ? transporterDetailsService.formatArrivalTime(transporter.estimatedArrival) : 'N/A'}
+              {transporter.estimatedArrival
+                ? transporterDetailsService.formatArrivalTime(
+                    transporter.estimatedArrival,
+                  )
+                : "N/A"}
             </Text>
           </View>
         </View>
@@ -178,7 +212,8 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
             <Text style={styles.sectionTitle}>Vehicle Details</Text>
             <View style={styles.vehicleInfo}>
               <View style={styles.vehicleImageContainer}>
-                {transporter.vehicle.photos && transporter.vehicle.photos.length > 0 ? (
+                {transporter.vehicle.photos &&
+                transporter.vehicle.photos.length > 0 ? (
                   <Image
                     source={{ uri: transporter.vehicle.photos[0] }}
                     style={styles.vehicleImage}
@@ -197,7 +232,8 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
                   {transporter.vehicle.registration}
                 </Text>
                 <Text style={styles.vehicleSpecs}>
-                  {transporter.vehicle.capacity}kg • {transporter.vehicle.driveType} • {transporter.vehicle.color}
+                  {transporter.vehicle.capacity}kg •{" "}
+                  {transporter.vehicle.driveType} • {transporter.vehicle.color}
                 </Text>
               </View>
             </View>
@@ -216,7 +252,10 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
         </View>
 
         <TouchableOpacity
-          style={[styles.selectButton, isSelecting && styles.selectButtonDisabled]}
+          style={[
+            styles.selectButton,
+            isSelecting && styles.selectButtonDisabled,
+          ]}
           onPress={() => handleSelectTransporter(transporter)}
           disabled={isSelecting}
         >
@@ -249,7 +288,9 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#007AFF" />
-              <Text style={styles.loadingText}>Finding available transporters...</Text>
+              <Text style={styles.loadingText}>
+                Finding available transporters...
+              </Text>
             </View>
           ) : transporters.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -258,12 +299,18 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
               <Text style={styles.emptySubtitle}>
                 No transporters are available in your area at the moment.
               </Text>
-              <TouchableOpacity style={styles.retryButton} onPress={findTransporters}>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={findTransporters}
+              >
                 <Text style={styles.retryButtonText}>Try Again</Text>
               </TouchableOpacity>
             </View>
           ) : (
-            <ScrollView style={styles.transportersList} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.transportersList}
+              showsVerticalScrollIndicator={false}
+            >
               {transporters.map(renderTransporterCard)}
             </ScrollView>
           )}
@@ -276,22 +323,22 @@ export const TransporterSelectionModal: React.FC<TransporterSelectionModalProps>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: "#F8F9FA",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: "#E5E5E5",
   },
   title: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   closeButton: {
     padding: 4,
@@ -301,31 +348,31 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 20,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 40,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     marginTop: 8,
     lineHeight: 24,
   },
@@ -333,37 +380,37 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   transportersList: {
     flex: 1,
     paddingHorizontal: 20,
   },
   transporterCard: {
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderRadius: 12,
     padding: 16,
     marginVertical: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   transporterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 12,
   },
   transporterInfo: {
-    flexDirection: 'row',
+    flexDirection: "row",
     flex: 1,
   },
   profilePhoto: {
@@ -377,41 +424,41 @@ const styles = StyleSheet.create({
   },
   transporterName: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   companyName: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginTop: 2,
   },
   ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 4,
   },
   rating: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: "500",
+    color: "#333",
     marginLeft: 4,
   },
   totalJobs: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginLeft: 4,
   },
   distanceContainer: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   distance: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
+    fontWeight: "600",
+    color: "#007AFF",
   },
   arrivalTime: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 2,
   },
   vehicleSection: {
@@ -419,12 +466,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
   },
   vehicleInfo: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   vehicleImageContainer: {
     marginRight: 12,
@@ -438,55 +485,55 @@ const styles = StyleSheet.create({
     width: 60,
     height: 40,
     borderRadius: 6,
-    backgroundColor: '#F0F0F0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#F0F0F0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   vehicleDetails: {
     flex: 1,
   },
   vehicleMake: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: "500",
+    color: "#333",
   },
   vehicleRegistration: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginTop: 2,
   },
   vehicleSpecs: {
     fontSize: 12,
-    color: '#999',
+    color: "#999",
     marginTop: 2,
   },
   contactSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   contactText: {
     fontSize: 14,
-    color: '#007AFF',
+    color: "#007AFF",
     marginLeft: 6,
   },
   selectButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     paddingVertical: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   selectButtonDisabled: {
-    backgroundColor: '#CCC',
+    backgroundColor: "#CCC",
   },
   selectButtonText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
