@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 import {
   Modal,
   View,
@@ -9,15 +9,19 @@ import {
   Dimensions,
   Share,
   Alert,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import colors from '../../constants/colors';
-import fonts from '../../constants/fonts';
-import spacing from '../../constants/spacing';
-import { getDisplayBookingId, generateBookingId } from '../../utils/unifiedIdSystem';
+  ScrollView,
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import colors from "../../constants/colors";
+import fonts from "../../constants/fonts";
+import spacing from "../../constants/spacing";
+import {
+  getDisplayBookingId,
+  generateBookingId,
+} from "../../utils/unifiedIdSystem";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 interface SuccessBookingModalProps {
   visible: boolean;
@@ -105,10 +109,10 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
       const message = `🚛 Booking Posted Successfully!\n\nBooking ID: ${bookingId}\n\nTrack your shipment in the TRUKapp.`;
       await Share.share({
         message,
-        title: 'Booking Confirmation',
+        title: "Booking Confirmation",
       });
     } catch (error) {
-      console.error('Error sharing:', error);
+      console.error("Error sharing:", error);
     }
   };
 
@@ -117,9 +121,9 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
       onViewBooking();
     } else {
       Alert.alert(
-        'View Booking',
-        'This feature will take you to your booking details.',
-        [{ text: 'OK' }]
+        "View Booking",
+        "This feature will take you to your booking details.",
+        [{ text: "OK" }],
       );
     }
     handleClose();
@@ -146,15 +150,12 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
           style={[
             styles.modalContainer,
             {
-              transform: [
-                { scale: scaleAnim },
-                { translateY: slideAnim },
-              ],
+              transform: [{ scale: scaleAnim }, { translateY: slideAnim }],
             },
           ]}
         >
           <LinearGradient
-            colors={[colors.success, colors.success + 'DD']}
+            colors={[colors.success, colors.success + "DD"]}
             style={styles.header}
           >
             <Animated.View
@@ -170,17 +171,18 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
               />
             </Animated.View>
             <Text style={styles.title}>
-              {isConsolidated ? 'Bookings Posted Successfully!' : 'Booking Posted Successfully!'}
+              {isConsolidated
+                ? "Bookings Posted Successfully!"
+                : "Booking Posted Successfully!"}
             </Text>
             <Text style={styles.subtitle}>
-              {isConsolidated 
-                ? 'Your consolidated bookings have been posted and are now live.'
-                : 'Your booking has been posted and is now live.'
-              }
+              {isConsolidated
+                ? "Your consolidated bookings have been posted and are now live."
+                : "Your booking has been posted and is now live."}
             </Text>
           </LinearGradient>
 
-          <ScrollView 
+          <ScrollView
             style={styles.contentScrollView}
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={true}
@@ -198,14 +200,21 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
               </View>
               <View style={styles.bookingIdValueContainer}>
                 <Text style={styles.bookingIdValue}>
-                  {booking ? getDisplayBookingId(booking, bookingId) : bookingId}
+                  {booking
+                    ? getDisplayBookingId(booking, bookingId)
+                    : bookingId}
                 </Text>
                 <TouchableOpacity
                   style={styles.copyButton}
                   onPress={() => {
                     // Copy to clipboard functionality would go here
-                    const displayId = booking ? getDisplayBookingId(booking, bookingId) : bookingId;
-                    Alert.alert('Copied', `Booking ID ${displayId} copied to clipboard`);
+                    const displayId = booking
+                      ? getDisplayBookingId(booking, bookingId)
+                      : bookingId;
+                    Alert.alert(
+                      "Copied",
+                      `Booking ID ${displayId} copied to clipboard`,
+                    );
                   }}
                 >
                   <MaterialCommunityIcons
@@ -310,18 +319,18 @@ const SuccessBookingModal: React.FC<SuccessBookingModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: spacing.lg,
   },
   modalContainer: {
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
-    maxHeight: '90%',
+    maxHeight: "90%",
     backgroundColor: colors.white,
     borderRadius: 24,
-    overflow: 'hidden',
+    overflow: "hidden",
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.25,
@@ -331,25 +340,25 @@ const styles = StyleSheet.create({
   header: {
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,
-    alignItems: 'center',
+    alignItems: "center",
   },
   iconContainer: {
     marginBottom: spacing.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 50,
     padding: spacing.md,
   },
   title: {
     fontSize: fonts.size.xl,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.white,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: spacing.sm,
   },
   subtitle: {
     fontSize: fonts.size.md,
-    color: colors.white + 'CC',
-    textAlign: 'center',
+    color: colors.white + "CC",
+    textAlign: "center",
     lineHeight: 22,
   },
   contentScrollView: {
@@ -365,26 +374,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   bookingIdContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: spacing.sm,
   },
   bookingIdLabel: {
     fontSize: fonts.size.sm,
     color: colors.text.secondary,
     marginLeft: spacing.xs,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   bookingIdValueContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   bookingIdValue: {
     fontSize: fonts.size.md,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.primary,
-    fontFamily: 'monospace',
+    fontFamily: "monospace",
     flex: 1,
   },
   copyButton: {
@@ -392,34 +401,34 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   statusSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     marginBottom: spacing.lg,
   },
   statusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   statusText: {
     fontSize: fonts.size.sm,
     color: colors.text.secondary,
     marginLeft: spacing.xs,
-    textAlign: 'center',
+    textAlign: "center",
   },
   nextStepsSection: {
     marginBottom: spacing.lg,
   },
   nextStepsTitle: {
     fontSize: fonts.size.lg,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.text.primary,
     marginBottom: spacing.md,
   },
   stepItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     marginBottom: spacing.sm,
   },
   stepNumber: {
@@ -427,14 +436,14 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: spacing.sm,
     marginTop: 2,
   },
   stepNumberText: {
     fontSize: fonts.size.sm,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.white,
   },
   stepText: {
@@ -444,7 +453,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
@@ -453,14 +462,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 12,
     paddingVertical: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   primaryButtonText: {
     color: colors.white,
     fontSize: fonts.size.md,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginLeft: spacing.xs,
   },
   secondaryButton: {
@@ -468,27 +477,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 12,
     paddingVertical: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: colors.border,
   },
   secondaryButtonText: {
     color: colors.primary,
     fontSize: fonts.size.md,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: spacing.xs,
   },
   continueButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     paddingVertical: spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   continueButtonText: {
     color: colors.text.secondary,
     fontSize: fonts.size.md,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });
 
