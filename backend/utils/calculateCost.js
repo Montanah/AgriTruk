@@ -31,7 +31,7 @@ function calculateTransportCost(bookingData) {
   if (perishable) {
     const PERISHABLE_RATE = 1.5; // Ksh 1.5/km per ton
     costBreakdown.perishableSurcharge =
-      distanceKm * weightTons * PERISHABLE_RATE;
+      actualDistance * weightTons * PERISHABLE_RATE;
     cost += costBreakdown.perishableSurcharge;
   }
 
@@ -39,7 +39,7 @@ function calculateTransportCost(bookingData) {
   if (needsRefrigeration) {
     const REFRIGERATION_RATE = 2; // Ksh 2/km per ton
     costBreakdown.refrigerationSurcharge =
-      distanceKm * weightTons * REFRIGERATION_RATE;
+      actualDistance * weightTons * REFRIGERATION_RATE;
     cost += costBreakdown.refrigerationSurcharge;
   }
 
