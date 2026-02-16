@@ -47,6 +47,7 @@ import ErrorBoundary from "./src/components/ErrorBoundary";
 
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc as firestoreDoc, getDoc } from "firebase/firestore";
+import * as Location from "expo-location";
 import { NotificationProvider } from "./src/components/Notification/NotificationContext";
 import NotificationManager from "./src/components/Notification/NotificationManager";
 import { ConsolidationProvider } from "./src/context/ConsolidationContext";
@@ -378,7 +379,7 @@ export default function App() {
   const [hasCheckedGlobalConsent, setHasCheckedGlobalConsent] =
     React.useState(false);
   const [disclosureUserRole, setDisclosureUserRole] = React.useState<
-    "company" | "individual" | "driver" | undefined
+    "company" | "individual" | "driver" | "business" | "broker" | undefined
   >(undefined);
   const [disclosureTransporterType, setDisclosureTransporterType] =
     React.useState<"company" | "individual" | undefined>(undefined);
@@ -527,8 +528,13 @@ export default function App() {
               // CRITICAL: Check background location disclosure BEFORE navigation
               // This must happen BEFORE any screens are shown to comply with Google Play requirements
               // Check for ALL roles that need background location: transporter (both company and individual) and driver
+              // IMPORTANT: Business and broker users also need location (for pickup requests), so show disclosure for them too
+              // Even though they only use foreground location, showing disclosure ensures Google Play compliance
               const needsBackgroundLocation =
-                data.role === "transporter" || data.role === "driver";
+                data.role === "transporter" ||
+                data.role === "driver" ||
+                data.role === "business" ||
+                data.role === "broker";
 
               // Reset disclosure ref for this auth flow
               willShowDisclosureRef.current = false;
@@ -576,6 +582,16 @@ export default function App() {
                     setDisclosureUserRole("driver");
                     console.log(
                       "📢 App.tsx: Setting disclosure for driver role",
+                    );
+                  } else if (data.role === "business") {
+                    setDisclosureUserRole("business");
+                    console.log(
+                      "📢 App.tsx: Setting disclosure for business role",
+                    );
+                  } else if (data.role === "broker") {
+                    setDisclosureUserRole("broker");
+                    console.log(
+                      "📢 App.tsx: Setting disclosure for broker role",
                     );
                   } else if (
                     data.transporterType === "company" ||
@@ -1183,7 +1199,67 @@ export default function App() {
             transporterType={disclosureTransporterType}
             onAccept={async () => {
               try {
+                // Save consent first
                 await locationService.saveBackgroundLocationConsent(true);
+
+                // CRITICAL: Request location permissions immediately after consent
+                // This will prompt user to turn on location if it's off
+                console.log(
+                  "📍 User accepted disclosure - requesting location permissions...",
+                );
+
+                try {
+                  // Check if location services are enabled first
+                  const isLocationEnabled =
+                    await Location.hasServicesEnabledAsync();
+                  console.log(
+                    "📍 Location services enabled:",
+                    isLocationEnabled,
+                  );
+
+                  if (!isLocationEnabled) {
+                    console.log(
+                      "📍 Location services disabled - permission request will prompt user to enable",
+                    );
+                    // Android will automatically prompt user to enable location services
+                    // when we request permissions below
+                  }
+
+                  // Request foreground location first (required before background)
+                  // This will prompt user to enable location services if disabled
+                  const foregroundResult =
+                    await locationService.requestForegroundPermission();
+                  console.log(
+                    "📍 Foreground permission result:",
+                    foregroundResult,
+                  );
+
+                  if (foregroundResult) {
+                    // Then request background location
+                    const backgroundResult =
+                      await locationService.requestBackgroundPermission();
+                    console.log(
+                      "📍 Background permission result:",
+                      backgroundResult,
+                    );
+
+                    if (!backgroundResult) {
+                      console.warn(
+                        "⚠️ Background permission denied or location services disabled",
+                      );
+                    }
+                  } else {
+                    console.warn(
+                      "⚠️ Foreground permission denied or location services disabled",
+                    );
+                  }
+                } catch (permError: any) {
+                  console.error(
+                    "❌ Error requesting location permissions:",
+                    permError,
+                  );
+                  // Continue anyway - user can grant permissions later
+                }
               } catch (error: any) {
                 console.warn(
                   "App.tsx: Error saving background location consent:",
@@ -1292,7 +1368,60 @@ export default function App() {
             transporterType={disclosureTransporterType}
             onAccept={async () => {
               try {
+                // Save consent first
                 await locationService.saveBackgroundLocationConsent(true);
+
+                // CRITICAL: Request location permissions immediately after consent
+                console.log(
+                  "📍 User accepted disclosure - requesting location permissions...",
+                );
+
+                try {
+                  // Check if location services are enabled first
+                  const isLocationEnabled =
+                    await Location.hasServicesEnabledAsync();
+                  console.log(
+                    "📍 Location services enabled:",
+                    isLocationEnabled,
+                  );
+
+                  if (!isLocationEnabled) {
+                    console.log(
+                      "📍 Location services disabled - permission request will prompt user to enable",
+                    );
+                  }
+
+                  const foregroundResult =
+                    await locationService.requestForegroundPermission();
+                  console.log(
+                    "📍 Foreground permission result:",
+                    foregroundResult,
+                  );
+
+                  if (foregroundResult) {
+                    const backgroundResult =
+                      await locationService.requestBackgroundPermission();
+                    console.log(
+                      "📍 Background permission result:",
+                      backgroundResult,
+                    );
+
+                    if (!backgroundResult) {
+                      console.warn(
+                        "⚠️ Background permission denied or location services disabled",
+                      );
+                    }
+                  } else {
+                    console.warn(
+                      "⚠️ Foreground permission denied or location services disabled",
+                    );
+                  }
+                } catch (permError: any) {
+                  console.error(
+                    "❌ Error requesting location permissions:",
+                    permError,
+                  );
+                }
               } catch (error: any) {
                 console.warn("App.tsx: Error in disclosure onAccept:", error);
               }
@@ -1801,57 +1930,155 @@ export default function App() {
         );
       } else {
         // Broker needs verification or trial activation
-        console.log(
-          "App.tsx: Broker needs verification or trial activation - routing to verification screen",
-        );
-        initialRouteName = "VerifyIdentificationDocument";
-        screens = (
-          <>
-            <Stack.Screen
-              name="VerifyIdentificationDocument"
-              component={VerifyIdentificationDocumentScreen}
-            />
-            <Stack.Screen
-              name="BrokerTabs"
-              component={require("./src/navigation/BrokerTabNavigator").default}
-            />
-            <Stack.Screen
-              name="SubscriptionTrial"
-              component={SubscriptionTrialScreen as any}
-            />
-            <Stack.Screen
-              name="SubscriptionExpired"
-              component={SubscriptionExpiredScreen as any}
-            />
-            <Stack.Screen
-              name="SubscriptionScreen"
-              component={require("./src/screens/SubscriptionScreen").default}
-            />
-            <Stack.Screen
-              name="PaymentScreen"
-              component={require("./src/screens/PaymentScreen").default}
-            />
-            <Stack.Screen
-              name="PaymentSuccess"
-              component={require("./src/screens/PaymentSuccessScreen").default}
-            />
-            <Stack.Screen
-              name="PaymentConfirmation"
-              component={
-                require("./src/screens/PaymentConfirmationScreen").default
+        console.log("App.tsx: Broker needs verification or trial activation");
+
+        // Check if broker is verified (ID approved)
+        const isBrokerVerified = userData?.isVerified === true;
+        const needsTrialActivation =
+          subscriptionStatus?.needsTrialActivation === true;
+
+        if (isBrokerVerified && (needsTrialActivation || !hasActiveSub)) {
+          // Broker is verified but needs trial - Auto-activate trial
+          console.log(
+            "App.tsx: Verified broker needs trial - auto-activating trial",
+          );
+
+          // Auto-activate trial immediately
+          (async () => {
+            try {
+              console.log(
+                "🔄 Auto-activating 90-day trial for approved broker...",
+              );
+              const activateResult =
+                await subscriptionService.activateTrial("broker");
+
+              if (activateResult.success) {
+                console.log(
+                  "✅ Broker trial activated successfully - user can now access dashboard",
+                );
+              } else {
+                console.warn(
+                  "⚠️ Broker trial activation failed, but allowing dashboard access:",
+                  activateResult.message,
+                );
               }
-            />
-            <Stack.Screen
-              name="BookingConfirmation"
-              component={BookingConfirmationScreen}
-            />
-            <Stack.Screen
-              name="EmailVerification"
-              component={EmailVerificationScreen}
-            />
-            <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
-          </>
-        );
+            } catch (error) {
+              console.error("❌ Error auto-activating broker trial:", error);
+              // Continue anyway - admin can fix subscription later
+            }
+          })();
+
+          // Route directly to dashboard - trial will be activated in background
+          initialRouteName = "BrokerTabs";
+          screens = (
+            <>
+              <Stack.Screen
+                name="BrokerTabs"
+                component={
+                  require("./src/navigation/BrokerTabNavigator").default
+                }
+              />
+              <Stack.Screen
+                name="SubscriptionScreen"
+                component={require("./src/screens/SubscriptionScreen").default}
+              />
+              <Stack.Screen
+                name="PaymentScreen"
+                component={require("./src/screens/PaymentScreen").default}
+              />
+              <Stack.Screen
+                name="PaymentSuccess"
+                component={
+                  require("./src/screens/PaymentSuccessScreen").default
+                }
+              />
+              <Stack.Screen
+                name="PaymentConfirmation"
+                component={
+                  require("./src/screens/PaymentConfirmationScreen").default
+                }
+              />
+              <Stack.Screen
+                name="SubscriptionExpired"
+                component={SubscriptionExpiredScreen as any}
+              />
+              <Stack.Screen
+                name="VerifyIdentificationDocument"
+                component={VerifyIdentificationDocumentScreen}
+              />
+              <Stack.Screen
+                name="SubscriptionTrial"
+                component={SubscriptionTrialScreen as any}
+              />
+              <Stack.Screen
+                name="BookingConfirmation"
+                component={BookingConfirmationScreen}
+              />
+              <Stack.Screen
+                name="EmailVerification"
+                component={EmailVerificationScreen}
+              />
+              <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+            </>
+          );
+        } else {
+          // Broker needs ID verification first
+          console.log(
+            "App.tsx: Broker needs ID verification - routing to verification screen",
+          );
+          initialRouteName = "VerifyIdentificationDocument";
+          screens = (
+            <>
+              <Stack.Screen
+                name="VerifyIdentificationDocument"
+                component={VerifyIdentificationDocumentScreen}
+              />
+              <Stack.Screen
+                name="BrokerTabs"
+                component={
+                  require("./src/navigation/BrokerTabNavigator").default
+                }
+              />
+              <Stack.Screen
+                name="SubscriptionTrial"
+                component={SubscriptionTrialScreen as any}
+              />
+              <Stack.Screen
+                name="SubscriptionExpired"
+                component={SubscriptionExpiredScreen as any}
+              />
+              <Stack.Screen
+                name="SubscriptionScreen"
+                component={require("./src/screens/SubscriptionScreen").default}
+              />
+              <Stack.Screen
+                name="PaymentScreen"
+                component={require("./src/screens/PaymentScreen").default}
+              />
+              <Stack.Screen
+                name="PaymentSuccess"
+                component={
+                  require("./src/screens/PaymentSuccessScreen").default
+                }
+              />
+              <Stack.Screen
+                name="PaymentConfirmation"
+                component={
+                  require("./src/screens/PaymentConfirmationScreen").default
+                }
+              />
+              <Stack.Screen
+                name="BookingConfirmation"
+                component={BookingConfirmationScreen}
+              />
+              <Stack.Screen
+                name="EmailVerification"
+                component={EmailVerificationScreen}
+              />
+              <Stack.Screen name="PhoneOTPScreen" component={PhoneOTPScreen} />
+            </>
+          );
+        }
       }
     } else if (role === "transporter") {
       // For transporters, check profile completion, approval status, and subscription status
@@ -3309,9 +3536,56 @@ export default function App() {
                 "✅ App.tsx: User accepted global background location disclosure",
               );
               console.log(
-                "✅ App.tsx: Saving consent - navigation will proceed after this",
+                "✅ App.tsx: Saving consent and requesting permissions...",
               );
               await locationService.saveBackgroundLocationConsent(true);
+
+              // CRITICAL: Request location permissions immediately after consent
+              console.log("📍 Requesting location permissions...");
+              try {
+                // Check if location services are enabled first
+                const isLocationEnabled =
+                  await Location.hasServicesEnabledAsync();
+                console.log("📍 Location services enabled:", isLocationEnabled);
+
+                if (!isLocationEnabled) {
+                  console.log(
+                    "📍 Location services disabled - permission request will prompt user to enable",
+                  );
+                }
+
+                const foregroundResult =
+                  await locationService.requestForegroundPermission();
+                console.log(
+                  "📍 Foreground permission result:",
+                  foregroundResult,
+                );
+
+                if (foregroundResult) {
+                  const backgroundResult =
+                    await locationService.requestBackgroundPermission();
+                  console.log(
+                    "📍 Background permission result:",
+                    backgroundResult,
+                  );
+
+                  if (!backgroundResult) {
+                    console.warn(
+                      "⚠️ Background permission denied or location services disabled",
+                    );
+                  }
+                } else {
+                  console.warn(
+                    "⚠️ Foreground permission denied or location services disabled",
+                  );
+                }
+              } catch (permError: any) {
+                console.error(
+                  "❌ Error requesting location permissions:",
+                  permError,
+                );
+              }
+
               setShowGlobalBackgroundLocationDisclosure(false);
               willShowDisclosureRef.current = false; // Reset ref
               // Now allow navigation to proceed
@@ -3319,7 +3593,7 @@ export default function App() {
               // CRITICAL: Set loading to false AFTER disclosure is handled
               setLoading(false);
               console.log(
-                "✅ App.tsx: Consent saved - navigation will now proceed",
+                "✅ App.tsx: Consent saved and permissions requested - navigation will now proceed",
               );
             } catch (error: any) {
               console.error(

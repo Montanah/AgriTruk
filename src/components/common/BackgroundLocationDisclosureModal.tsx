@@ -62,6 +62,10 @@ const BackgroundLocationDisclosureModal: React.FC<
   const getUserTypeLabel = () => {
     if (userRole === "driver") {
       return "driver";
+    } else if (userRole === "business") {
+      return "business user";
+    } else if (userRole === "broker") {
+      return "broker";
     } else if (transporterType === "company" || userRole === "company") {
       return "company transporter";
     } else if (transporterType === "individual" || userRole === "individual") {
@@ -72,40 +76,62 @@ const BackgroundLocationDisclosureModal: React.FC<
 
   const userTypeLabel = getUserTypeLabel();
   const isDriver = userRole === "driver";
+  const isBusiness = userRole === "business";
+  const isBroker = userRole === "broker";
   const isCompanyTransporter =
     transporterType === "company" || userRole === "company";
 
   // Dynamic text based on user role
-  const trackingType = isDriver ? "delivery" : "vehicle";
+  const trackingType = isDriver
+    ? "delivery"
+    : isBusiness || isBroker
+      ? "pickup"
+      : "vehicle";
   const trackingContext = isDriver ? " during active trips" : "";
   const sharingContext = isDriver ? "your company and " : "";
   const trackingTarget = isDriver
     ? "of your deliveries"
-    : isCompanyTransporter
-      ? "of your fleet vehicles"
-      : "of your vehicle";
+    : isBusiness || isBroker
+      ? "for pickup and delivery coordination"
+      : isCompanyTransporter
+        ? "of your fleet vehicles"
+        : "of your vehicle";
   const activityContext = isDriver
     ? "you're making deliveries"
-    : "you're transporting goods";
+    : isBusiness || isBroker
+      ? "you're placing or managing requests"
+      : "you're transporting goods";
   const realTimeTrackingText = isDriver
     ? "Your company and clients can see your location in real-time during active deliveries"
-    : isCompanyTransporter
-      ? "You and your clients can track all fleet vehicles in real-time during active trips"
-      : "Clients can see your vehicle's location in real-time during active trips";
+    : isBusiness || isBroker
+      ? "Transporters can see your pickup location to provide accurate service and ETAs"
+      : isCompanyTransporter
+        ? "You and your clients can track all fleet vehicles in real-time during active trips"
+        : "Clients can see your vehicle's location in real-time during active trips";
   const dataCollectionContext = isDriver
     ? "you're actively making deliveries"
-    : "you're actively transporting goods";
-  const dataUsageContext = isDriver ? "delivery" : "vehicle";
+    : isBusiness || isBroker
+      ? "you're placing requests or coordinating pickups"
+      : "you're actively transporting goods";
+  const dataUsageContext = isDriver
+    ? "delivery"
+    : isBusiness || isBroker
+      ? "pickup"
+      : "vehicle";
   const dataSharingContext = isDriver
     ? "your company and "
-    : isCompanyTransporter
-      ? "your company and "
-      : "";
+    : isBusiness || isBroker
+      ? "transporters who accept "
+      : isCompanyTransporter
+        ? "your company and "
+        : "";
   const bookingContext = isDriver
     ? " assigned to you"
-    : isCompanyTransporter
-      ? " with your company"
-      : " with you";
+    : isBusiness || isBroker
+      ? "your requests"
+      : isCompanyTransporter
+        ? " with your company"
+        : " with you";
 
   // Log when modal is shown - CRITICAL for Google Play compliance verification
   useEffect(() => {

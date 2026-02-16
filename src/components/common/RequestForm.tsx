@@ -228,16 +228,36 @@ const RequestForm: React.FC<RequestFormProps> = ({
 
       setLocationPermissionGranted(true);
 
-      // Get current position
+      // Check if location services are enabled
+      const isLocationEnabled = await Location.hasServicesEnabledAsync();
+      if (!isLocationEnabled) {
+        if (showError) {
+          Alert.alert(
+            "Location Services Disabled",
+            "Please enable location services in your device settings to use this feature.",
+            [{ text: "OK" }],
+          );
+        }
+        return;
+      }
+
+      // Get current position with HIGH accuracy for precise GPS location
+      // Use GPS for best accuracy - no cache
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-        timeout: 10000,
-        maximumAge: 300000, // 5 minutes
+        accuracy: Location.Accuracy.Highest, // Use GPS for most accurate location
       });
 
       const { latitude, longitude } = location.coords;
 
-      // Reverse geocode to get address
+      console.log("📍 GPS location obtained:", {
+        latitude,
+        longitude,
+        accuracy: location.coords.accuracy,
+        altitude: location.coords.altitude,
+        timestamp: new Date(location.timestamp).toISOString(),
+      });
+
+      // Reverse geocode to get address using Google Maps API
       const addressResponse = await Location.reverseGeocodeAsync({
         latitude,
         longitude,
@@ -246,33 +266,37 @@ const RequestForm: React.FC<RequestFormProps> = ({
       if (addressResponse.length > 0) {
         const address = addressResponse[0];
 
-        // Create a shorter, more concise address
-        let shortAddress = "";
-        if (address.street) {
-          // Use just the street name if available
-          shortAddress = address.street;
-        } else if (address.city) {
-          // Use city if no street
-          shortAddress = address.city;
-        } else if (address.region) {
-          // Use region if no city
-          shortAddress = address.region;
-        } else {
-          // Fallback to coordinates
-          shortAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        // Create a detailed address string
+        let fullAddress = "";
+        const addressParts = [];
+
+        if (address.streetNumber) addressParts.push(address.streetNumber);
+        if (address.street) addressParts.push(address.street);
+        if (address.district) addressParts.push(address.district);
+        if (address.city) addressParts.push(address.city);
+        if (address.region) addressParts.push(address.region);
+
+        fullAddress = addressParts.join(", ");
+
+        // Fallback if no address parts
+        if (!fullAddress) {
+          fullAddress = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
         }
 
         // Set the location data
-        setFromLocation(shortAddress);
+        setFromLocation(fullAddress);
         setFromLocationCoords({ latitude, longitude });
-        setFromLocationAddress(shortAddress);
+        setFromLocationAddress(fullAddress);
 
-        console.log("📍 Current location set:", shortAddress);
+        console.log("📍 Current location set:", fullAddress);
+        console.log("📍 Coordinates:", { latitude, longitude });
       } else {
-        // Fallback if reverse geocoding fails
-        setFromLocation("Current Location");
+        // Fallback if reverse geocoding fails - use coordinates
+        const coordsString = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        setFromLocation(coordsString);
         setFromLocationCoords({ latitude, longitude });
-        setFromLocationAddress("Current Location");
+        setFromLocationAddress(coordsString);
+        console.log("📍 Using coordinates as address:", coordsString);
       }
     } catch (error: any) {
       // Only log as error if user explicitly requested location
@@ -294,10 +318,13 @@ const RequestForm: React.FC<RequestFormProps> = ({
 
         if (error?.code === "E_LOCATION_SERVICES_DISABLED") {
           errorMessage =
-            "Location services are disabled. Please enable them in your device settings.";
+            "Location services are disabled. Please enable them in your device settings to use GPS location.";
         } else if (error?.code === "E_LOCATION_UNAVAILABLE") {
           errorMessage =
-            "Location is unavailable. If you're using an emulator, please set a mock location in the emulator settings.";
+            "Location is unavailable. Please ensure GPS is enabled and you have a clear view of the sky.";
+        } else if (error?.code === "E_LOCATION_TIMEOUT") {
+          errorMessage =
+            "Location request timed out. Please try again or ensure GPS is enabled.";
         } else if (
           error?.message?.includes("timeout") ||
           error?.message?.includes("TIMEOUT")

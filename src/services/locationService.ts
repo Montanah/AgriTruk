@@ -103,6 +103,94 @@ class LocationService {
   }
 
   /**
+   * Request foreground location permission
+   * This will prompt the Android permission dialog
+   * If location services are disabled, prompts user to enable them
+   * Returns true if permission granted, false otherwise
+   */
+  async requestForegroundPermission(): Promise<boolean> {
+    try {
+      console.log("📍 Requesting foreground location permission...");
+
+      // First check if location services are enabled
+      const isLocationEnabled = await Location.hasServicesEnabledAsync();
+      console.log("📍 Location services enabled:", isLocationEnabled);
+
+      if (!isLocationEnabled) {
+        console.warn(
+          "⚠️ Location services are disabled - user needs to enable them",
+        );
+        // On Android, requesting permission will prompt user to enable location services
+        // On iOS, we need to show an alert
+        // The permission request itself will guide the user to settings
+      }
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      console.log("📍 Foreground permission status:", status);
+
+      if (status === "granted") {
+        // Double-check that location services are now enabled
+        const isNowEnabled = await Location.hasServicesEnabledAsync();
+        if (!isNowEnabled) {
+          console.warn(
+            "⚠️ Permission granted but location services still disabled",
+          );
+          return false;
+        }
+        return true;
+      }
+
+      return false;
+    } catch (error: any) {
+      console.error("Error requesting foreground location permission:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Request background location permission
+   * This will prompt the Android permission dialog and ask user to turn on location if it's off
+   * MUST be called AFTER foreground permission is granted
+   * Returns true if permission granted, false otherwise
+   */
+  async requestBackgroundPermission(): Promise<boolean> {
+    try {
+      console.log("📍 Requesting background location permission...");
+
+      // Check if location services are enabled before requesting background permission
+      const isLocationEnabled = await Location.hasServicesEnabledAsync();
+      console.log("📍 Location services enabled:", isLocationEnabled);
+
+      if (!isLocationEnabled) {
+        console.warn(
+          "⚠️ Location services are disabled - background permission will fail",
+        );
+        // The permission request will prompt user to enable location services
+      }
+
+      const { status } = await Location.requestBackgroundPermissionsAsync();
+      console.log("📍 Background permission status:", status);
+
+      if (status === "granted") {
+        // Verify location services are enabled
+        const isNowEnabled = await Location.hasServicesEnabledAsync();
+        if (!isNowEnabled) {
+          console.warn(
+            "⚠️ Background permission granted but location services still disabled",
+          );
+          return false;
+        }
+        return true;
+      }
+
+      return false;
+    } catch (error: any) {
+      console.error("Error requesting background location permission:", error);
+      return false;
+    }
+  }
+
+  /**
    * Start location tracking with foreground permissions only (no background)
    * Used when user declines background location consent
    */
